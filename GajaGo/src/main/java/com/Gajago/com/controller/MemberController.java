@@ -13,11 +13,7 @@ import org.springframework.web.servlet.ModelAndView;
 @Controller
 public class MemberController {
 	private static final Logger logger = LoggerFactory.getLogger(MemberController.class);
-//	@Autowired
-//	LoginService loginservice;
-
-
-
+ 
 	@RequestMapping(value = "/findInfo", method = RequestMethod.GET)
 	public ModelAndView findInfo(ModelAndView model, HttpServletRequest request, HttpServletResponse response) {
 		model.addObject("title", "회원정보 찾기");
