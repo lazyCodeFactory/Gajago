@@ -9,4 +9,10 @@ public class LoginDao {
 	@Autowired
 	private SqlSession sqlsession;
 
+	public String chkJoinId(String userId) {
+ 
+		String resultId = sqlsession.selectOne("checkId",userId);		 
+		return resultId;
+	}
+
 }

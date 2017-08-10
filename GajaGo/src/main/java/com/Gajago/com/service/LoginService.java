@@ -9,4 +9,17 @@ import com.Gajago.com.dao.LoginDao;
 public class LoginService {
 	@Autowired
 	LoginDao dao;
+
+	public boolean chkJoinId(String userId) {
+		boolean result =  false;
+		
+		String resultId = dao.chkJoinId(userId);
+		
+		if(resultId == null || "".equals(resultId)) {
+			result = false;
+		}else {
+			result = true;
+		}
+		return result;
+	}
 }
