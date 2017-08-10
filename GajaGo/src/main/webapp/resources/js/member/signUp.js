@@ -1,6 +1,26 @@
 $(function() {
-
+	$(".seeA").click(function(){
+		var idName = $(this).parent().attr("id");
+			var	dhtml ="<textarea rows='5' cols='80'>";
+		 		dhtml += idName;
+		 		dhtml += "</textarea>";
+				
+				var chkClickVal = $(this).before().val();
+				  if(chkClickVal == 'Y'){
+					  $(this).next().html('');
+					  $(this).before().val("N");
+				  }else{
+					  $(this).next().html(dhtml);
+					  $(this).before().val("Y");
+						    
+				  }
+	})
+	
 });
+
+
+
+
 function signUp() {
 	// 체크
 

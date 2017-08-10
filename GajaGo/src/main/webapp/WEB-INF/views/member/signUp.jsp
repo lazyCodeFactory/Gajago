@@ -21,77 +21,77 @@
 					<h2>회원가입</h2>
 						<ul>
 							<li>
-								<div class="col-md-12 signUpEle">
+								<div class="col-md-12 form-inline signUpEle">
 									<label for="id"> 아이디</label>
-									<input type="text" name="id" id="id" placeholder="아이디를 입력해주세요" class="form-control"/>
-									<button type="button" onclick="checkSameID()">아이디 중복 체크</button>
+									<input type="text" name="id" id="id" placeholder="아이디를 입력해주세요" class="form-control" size="40"/>
+									<button type="button" onclick="checkSameID()" class="chkBlue">아이디 중복 체크</button>
 								</div>
 							</li>
 							<li>
-								<div class="col-md-12 signUpEle">
+								<div class="col-md-12 form-inline signUpEle">
 									<label for="passwd"> 비밀번호</label>
-									<input type="password" name="password" placeholder="영문/숫자/특수문자조합 6~15자" class="form-control"/>
+									<input type="password" name="password" placeholder="영문/숫자/특수문자조합 6~15자" class="form-control" size="40"/>
 								</div>
 							</li>
 							<li>
-								<div class="col-md-12 signUpEle">
+								<div class="col-md-12 form-inline signUpEle">
 									<label for=""> 비밀번호 확인</label>
-									<input type="password" name="password2" placeholder="영문/숫자/특수문자조합 6~15자" class="form-control"/>
+									<input type="password" name="password2" placeholder="영문/숫자/특수문자조합 6~15자" class="form-control" size="40"/>
 								</div>
 							</li>
 							<li>
-								<div class="col-md-12 signUpEle">
+								<div class="col-md-12 form-inline signUpEle">
 									<label for="name"> 이름 </label>
-									<input type="text" name="name" placeholder="이름을 입력해주세요" class="form-control" value="${member.name }"/>
+									<input type="text" name="name" placeholder="이름을 입력해주세요" class="form-control" value="${member.name }" size="40"/>
 								</div>
 							</li>
 							
 							<li>
-								<div class="col-md-12 signUpEle">
+								<div class="col-md-12 form-inline signUpEle">
 									<label for="nickname"> 닉네임 </label>
-									<input type="text" name="nickname" placeholder="닉네임을 입력해주세요" class="form-control" value="${member.nickname}"/>
+									<input type="text" name="nickname" placeholder="닉네임을 입력해주세요" class="form-control" value="${member.nickname}" size="40"/>
 								</div>
 							</li>
 							
 							
 							<li>
-								<div class="col-md-12 signUpEle">
+								<div class="col-md-12 form-inline signUpEle">
 									<label for="phone"> 휴대폰 번호 </label>
-									<input type="text" name="phone" placeholder="휴대폰 번호를 입력해주세요" class="form-control"/>
+									<input type="text" name="phone" placeholder="휴대폰 번호를 입력해주세요" class="form-control" size="40"/>
 								</div>
 							</li>
 							
 							
 							<li>
-								<div class="col-md-12 signUpEle">
+								<div class="col-md-12 form-inline signUpEle">
 									<label for="email"> 이메일</label>
-									<input type="text" name="email" placeholder="email을 입력해주세요" class="form-control" value="${member.email }"/>
+									<input type="text" name="email" placeholder="email을 입력해주세요" class="form-control" value="${member.email }" size="40"/>
 								</div>
 							</li>
 						
 						
 							<li>
-								<div class="col-md-12 signUpEle">
+								<div class="col-md-12 form-inline signUpEle">
 									<label for="gender">성별</label>
+ 
 									    <c:choose>
-									    <c:when test="${member.gender eq 1}">
-											<input type="radio" name="gender"  value="1" checked="checked"/>남
-											<input type="radio" name="gender"  value="2"/>여
-										</c:when>
-										
-										<c:when test="${member.gender eq 2}">
-											<input type="radio" name="gender"  value="M" />남
-											<input type="radio" name="gender"  value="F" checked="checked"/>여
-										</c:when>
-										<c:otherwise>
-											<input type="radio" name="gender"  value="M" />남
-											<input type="radio" name="gender"  value="F" />여
-										
-										</c:otherwise>
-										
-										</c:choose>
-										
-								</div>
+								    <c:when test="${member.gender eq 1}">
+										<input type="radio" name="gender"  value="1" checked="checked" class="form-control"/>남
+										<input type="radio" name="gender"  value="2" class="form-control"/>여
+									</c:when>
+									  
+									<c:when test="${member.gender eq 2}">
+										<input type="radio" name="gender"  value="M" class="form-control"/>남
+										<input type="radio" name="gender"  value="F" checked="checked" class="form-control"/>여
+									</c:when>
+									<c:otherwise>
+										<input type="radio" name="gender"  value="M" />남
+										<input type="radio" name="gender"  value="F" />여
+									
+				 					</c:otherwise>
+									
+									</c:choose>
+ 								</div>
 							</li>
 						
 						</ul>
@@ -111,23 +111,46 @@
 									<label for="email">약관동의</label>
 									   <div class="terms">
 									   		<ul>
-									   			<li>
-									   				<input type="checkbox" name="terms"  value="1"/><span class="important">필수</span>이용약관
+									   			<li class="termArea" id="1">
+									   				<input type="checkbox" name="terms"  value="1"/>
+									   				<span class="important">필수</span>이용약관
+													<a href="javascript:void(0);" onclick="showText();" class="seeA">보기▼</a>
+													<div class='textAreaExplain'></div>
+												</li >
+									   			<li class="termArea" id="2">
+									   				<input type="checkbox" name="terms"  value="1"/>
+									   				<span class="important">필수</span>이용약관
+													<a href="javascript:void(0);" onclick="showText();" class="seeA">보기▼</a>
+													<div class='textAreaExplain'></div>
+												
 												</li>
-									   			<li>
-									   				<input type="checkbox" name="terms"  value="1"/><span class="important">필수</span>이용약관
+									   			<li class="termArea" id="3">
+									   				<input type="checkbox" name="terms"  value="1"/>
+									   				<span class="important">필수</span>이용약관
+													<a href="javascript:void(0);" onclick="showText();" class="seeA">보기▼</a>
+													<div class='textAreaExplain'></div>
+												
 												</li>
-									   			<li>
-									   				<input type="checkbox" name="terms"  value="1"/><span class="important">필수</span>이용약관
+									   			<li class="termArea" id="4">
+									   				<input type="checkbox" name="terms"  value="1"/>
+									   				<span class="important">필수</span>이용약관
+													<a href="javascript:void(0);" onclick="showText();" class="seeA">보기▼</a>
+													<div class='textAreaExplain'></div>
+												
 												</li>
-									   			<li>
-									   				<input type="checkbox" name="terms"  value="1"/><span class="important">필수</span>이용약관
+									   			<li class="termArea" id="5">
+									   				<input type="checkbox" name="terms"  value="1"/>
+									   				<span class="important">필수</span>이용약관
+													<a href="javascript:void(0);" onclick="showText();" class="seeA">보기▼</a>
+													<div class='textAreaExplain'></div>
+												
 												</li>
-									   			<li>
-									   				<input type="checkbox" name="terms"  value="1"/><span class="important">필수</span>이용약관
-												</li>
-									   			<li>
-									   				<input type="checkbox" name="terms"  value="1"/><span class="important">필수</span>이용약관
+									   			<li class="termArea" id="6">
+									   				<input type="checkbox" name="terms"  value="1"/>
+									   				<span class="important">필수</span>이용약관
+													<a href="javascript:void(0);" onclick="showText();" class="seeA">보기▼</a>
+													<div class='textAreaExplain'></div>
+												
 												</li>
 									   		
 									   		</ul>
@@ -151,5 +174,9 @@
 				</form>
 		</div>
 	</div>
+	
+	
+	
+	
 <!-- 	Footer부분 -->
 	<jsp:include page="../template/footer.jsp" flush="true" />
