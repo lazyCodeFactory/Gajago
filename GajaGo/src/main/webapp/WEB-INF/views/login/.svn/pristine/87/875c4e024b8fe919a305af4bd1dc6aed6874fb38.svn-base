@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="mobilePromoEvtMapper">
+
+	<select id="selectPromoEvtApi" parameterType="hashmap" resultType="hashmap">
+
+		SELECT
+		EVT_STATE_YN AS isIng 										<!-- 이벤트 진행 상태 -->
+		, EVT_PAGE_URL												<!-- 이벤트 popup Url -->
+		FROM
+		PROMO_EVT_INFO
+		<where>
+			1=1
+			<if test="EVT_API_NM != null and EVT_API_NM != ''">
+				AND EVT_API_NM = #{EVT_API_NM}
+			</if>
+			<if test="EVT_STATE_YN != null and EVT_STATE_YN != ''">
+				AND EVT_STATE_YN = #{EVT_STATE_YN}
+			</if>
+		</where>
+
+<!-- 		SELECT
+		NO
+		,EVT_API_NM
+		,EVT_NM
+		,CAST(TO_CHAR(REGIST_DT, 'YYYY-MM-DD HH24:MI') AS VARCHAR(20)) AS REGIST_DT
+		,CAST(TO_CHAR(UPDT_DT, 'YYYY-MM-DD HH24:MI') AS VARCHAR(20)) AS UPDT_DT
+		,CAST(TO_CHAR(EVT_START_DT, 'YYYY-MM-DD') AS VARCHAR(20)) AS EVT_START_DT
+		,CAST(TO_CHAR(EVT_END_DT, 'YYYY-MM-DD') AS VARCHAR(20)) AS EVT_END_DT
+		,EXPOSURE_YN
+		,EVT_STATE_YN
+		,CAST(EVT_COMMENT AS VARCHAR(1000)) AS EVT_COMMENT
+		,EVT_PAGE_URL
+		FROM
+		PROMO_EVT_INFO
+		<where>
+			1=1
+			<if test="EVT_API_NM != null and EVT_API_NM != ''">
+				AND EVT_API_NM = #{EVT_API_NM}
+			</if>
+			<if test="EVT_STATE_YN != null and EVT_STATE_YN != ''">
+				AND EVT_STATE_YN = #{EVT_STATE_YN}
+			</if>
+		</where> -->
+
+	</select>
+
+
+	<select id="selectPromoEvtMberApi" parameterType="hashmap" resultType="hashmap">
+
+	<!-- 	SELECT B.EVT_API_NM, 
+		       A.NO, 
+		       A.EVT_GRP_CD, 
+		       A.MBER_SEQ, 
+		       CAST(TO_CHAR(A.REGIST_DT, 'YYYY-MM-DD HH24:MI') AS VARCHAR(20)) AS REGIST_DT, 
+		       CAST(TO_CHAR(A.UPDT_DT, 'YYYY-MM-DD HH24:MI') AS VARCHAR(20))   AS UPDT_DT, 
+		       A.PRIZE_YN, 
+		       CAST(TO_CHAR(A.WIN_DT, 'YYYY-MM-DD HH24:MI') AS VARCHAR(20))    AS WIN_DT, 
+		       A.MBER_NM, 
+		       A.MBER_PHONE, 
+		       A.TERMS_AGREE_YN, 
+		       A.REF_CODE, 
+		       A.BIRTH, 
+		       A.CAR_OWNER_YN, 
+		       A.DRIVE_EXPERIENCE, 
+		       CAST(A.ETC AS VARCHAR(1000))                                    AS ETC 
+		FROM   PROMO_EVT_MBER_INFO A, 
+	    	   PROMO_EVT_INFO B 
+		WHERE  A.EVT_GRP_CD = B.NO 
+			   AND A.MBER_SEQ = #{MBER_SEQ}
+	           AND B.EVT_API_NM = #{EVT_API_NM} -->
+	           
+			SELECT
+	        	DECODE(COUNT(MBER_SEQ), 0, 'Y', 'N') AS isPossible
+			FROM
+			PROMO_EVT_MBER_INFO
+			<where>
+				1=1
+			<if test="EVT_GRP_CD != null and EVT_GRP_CD != ''">
+			AND EVT_GRP_CD = (SELECT NO FROM PROMO_EVT_INFO WHERE EVT_API_NM = ${EVT_GRP_CD})
+			</if>
+			<if test="MBER_SEQ != null and MBER_SEQ != ''">
+       		AND MBER_SEQ = ${MBER_SEQ}
+       		</if>
+       		</where>
+	</select>
+
+
+	<select id="selectPromoEvtMberCnt" parameterType="hashmap" resultType="int">
+
+	 	SELECT COUNT(A.NO)
+		FROM   PROMO_EVT_MBER_INFO A,
+			   PROMO_EVT_INFO B
+		WHERE  A.EVT_GRP_CD = B.NO 
+			   AND A.MBER_SEQ = #{MBER_SEQ}
+	           AND B.EVT_API_NM = #{EVT_API_NM}
+	          <if test="dateOption != null and dateOption != ''">
+	          	AND TO_CHAR(A.REGIST_DT,'YYYYMMDD') = TO_CHAR(${dateOption},'YYYYMMDD')
+	          </if>	
+
+<!-- 		SELECT * FROM PROMO_EVT_MBER_INFO
+		WHERE 1=1
+		AND MBER_SEQ = ${MBER_SEQ}
+		AND EVT_GRP_CD = (SELECT NO FROM PROMO_EVT_INFO WHERE EVT_API_NM = #{MBER_SEQ}) -->
+
+	</select>
+	
+	<select id="selectPayCount" parameterType="hashmap" resultType="int">
+
+	SELECT COUNT(MBER_SEQ) FROM ORD_INFO
+	WHERE REAL_SELT_AMT > 0
+	AND MBER_SEQ = #{MBER_SEQ}
+
+	</select>
+
+	
+	<insert id="insertPromoEvtMber" parameterType="hashmap">
+	
+    	INSERT INTO PROMO_EVT_MBER_INFO
+		(
+			NO, EVT_GRP_CD, MBER_SEQ, REGIST_DT, 
+			<if test="MBER_NM != null and MBER_NM != ''">										MBER_NM,</if>
+			<if test="MBER_PHONE != null and MBER_PHONE != ''">									MBER_PHONE,</if> 
+			<if test="BIRTH != null and BIRTH != ''">											BIRTH,</if> 
+			<if test="CAR_OWNER_YN != null and CAR_OWNER_YN != ''">								CAR_OWNER_YN,</if> 
+			<if test="DRIVE_EXPERIENCE != null and DRIVE_EXPERIENCE != ''">						DRIVE_EXPERIENCE,</if> 
+			<if test="REF_CODE != null and REF_CODE != ''">										REF_CODE,</if> 
+			<if test="ETC != null and ETC != '' ">												ETC,</if> 
+			TERMS_AGREE_YN, PRIZE_YN
+		)
+		VALUES
+		(
+			PROMO_EVT_MBER_INFO_SEQ.NEXTVAL, (SELECT NO FROM PROMO_EVT_INFO WHERE EVT_API_NM = #{EVT_API_NM}) , #{MBER_SEQ} ,SYSDATE ,
+			<if test="MBER_NM != null and MBER_NM != ''">										#{MBER_NM},</if>
+			<if test="MBER_PHONE != null and MBER_PHONE != ''">									#{MBER_PHONE},</if> 
+			<if test="BIRTH != null and BIRTH != ''">											#{BIRTH},</if> 
+			<if test="CAR_OWNER_YN != null and CAR_OWNER_YN != ''">								#{CAR_OWNER_YN},</if> 
+			<if test="DRIVE_EXPERIENCE != null and DRIVE_EXPERIENCE != ''">						#{DRIVE_EXPERIENCE},</if> 
+			<if test="REF_CODE != null and REF_CODE != ''">										#{REF_CODE},</if> 
+			<if test="ETC != null and ETC != '' ">												#{ETC},</if> 
+			'Y', 'N'
+		)
+		
+	</insert>
+	
+	<select id="selectPromotionEvent" parameterType="hashmap" resultType="hashmap">
+
+		SELECT
+			*
+		FROM
+		PROMO_EVT_INFO
+		<where>
+			1=1
+			AND EVT_API_NM = #{EVT_API_NM}
+		</where>
+	</select>
+
+</mapper>

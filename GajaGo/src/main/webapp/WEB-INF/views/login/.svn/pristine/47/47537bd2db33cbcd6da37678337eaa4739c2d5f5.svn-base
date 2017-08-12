@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="sellerBrandMapper">
+	
+	<select id="selectBrandList" resultType="hashmap" parameterType="hashmap">
+	SELECT
+		DISTINCT A.BRAND_CD,
+		A.BRAND_NM
+	FROM 
+		BRAND_INFO A,
+		BRAND_CTRY_MAP B
+	WHERE
+		A.BRAND_CD = B.BRAND_CD(+)
+		<if test="viewYn != null and viewYn != ''" >
+		AND A.VIEW_YN = #{viewYn}
+    	</if>
+    	<if test="searchBrandNm != null and searchBrandNm != ''" >
+		AND A.BRAND_NM LIKE '%'|| #{searchBrandNm} ||'%'
+    	</if>
+    	<if test="searchCtryCd != null and searchCtryCd != ''" >
+		AND B.CTRY_CD IN (SELECT CTRY_CD FROM CTRY
+							START WITH PARENT_CTRY_CD = #{searchCtryCd}
+							CONNECT BY PRIOR CTRY_CD = PARENT_CTRY_CD
+						UNION ALL
+						SELECT #{searchCtryCd} FROM DUAL)
+    	</if>
+    ORDER BY
+    	A.BRAND_NM
+	</select>
+	
+	<select id="selectBrandInfo" parameterType="hashmap" resultType="hashmap">
+	SELECT
+		A.BRAND_CD,
+		A.BRAND_NM,
+		A.VIEW_YN,
+		B.FILE_URL
+	FROM 
+		BRAND_INFO A,
+		FILE_INFO B
+	WHERE
+		A.FILE_SEQ = B.FILE_SEQ(+)
+	AND	A.BRAND_CD = #{brandCd}
+	</select>
+	
+	<select id="selectBrandCtryList" parameterType="hashmap" resultType="hashmap">
+	SELECT
+		A.BRAND_CD,
+		A.CTRY_CD,
+		(SELECT CTRY_NM FROM CTRY WHERE CTRY_CD = (SUBSTR(A.CTRY_CD,0,4)||'000000000000')) ||
+		NVL((SELECT ' > ' || CTRY_NM FROM CTRY WHERE CTRY_CD = (SUBSTR(A.CTRY_CD,0,8)||'00000000')  AND LVL_SEQ = 2), '') ||
+		NVL((SELECT ' > ' || CTRY_NM FROM CTRY WHERE CTRY_CD = (SUBSTR(A.CTRY_CD,0,12)||'0000') AND LVL_SEQ = 3), '') AS CTRY_NM
+	FROM
+		BRAND_CTRY_MAP A
+	WHERE
+		A.BRAND_CD = #{brandCd}
+	</select>
+	
+	<insert id="insertBrandCtry" parameterType="hashmap">
+	INSERT INTO BRAND_CTRY_MAP(
+		BRAND_CD,
+		CTRY_CD
+	) VALUES (
+		#{brandCd},
+		#{ctryCd}
+	)
+	</insert>
+	
+	<delete id="deleteBrandCtry" parameterType="hashmap">
+	DELETE FROM BRAND_CTRY_MAP WHERE BRAND_CD = #{brandCd} 
+	<if test="ctryCd != null and ctryCd != ''" >
+		AND CTRY_CD = #{ctryCd} 
+    </if>
+	</delete>
+	
+	<update id="updateBrandInfo" parameterType="hashmap">
+	UPDATE 
+		BRAND_INFO
+	SET
+		BRAND_NM = #{brandNm},
+		VIEW_YN = #{viewYn},
+		UPDT_DT = SYSDATE
+		<if test="fileSeq != null and fileSeq != ''" >
+		, FILE_SEQ =  #{fileSeq}
+    	</if>
+		
+	WHERE
+		BRAND_CD = #{brandCd}
+	</update>
+	
+	<delete id="deleteBrandInfo" parameterType="hashmap">
+	DELETE FROM BRAND_INFO WHERE BRAND_CD = #{brandCd}
+	</delete>
+	
+	<insert id="insertBrandInfo" parameterType="hashmap" >
+	INSERT INTO BRAND_REQ(
+		REQ_SEQ ,
+		CTRY_CD ,
+		MBER_SEQ ,
+		BRAND_NM ,
+		APPLY_YN ,
+		REGIST_DT
+	)VALUES(
+		SEQ_BRAND_REQ.NEXTVAL,
+		#{ctryCd},
+		#{mberSeq},
+		#{regBrandNm},
+		'N' ,
+		SYSDATE
+	)
+	</insert>
+	
+</mapper>

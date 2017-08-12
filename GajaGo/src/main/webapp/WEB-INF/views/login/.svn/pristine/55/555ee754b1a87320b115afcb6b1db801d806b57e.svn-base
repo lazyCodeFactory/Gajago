@@ -1,0 +1,565 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/web/common/cmmnHead.jsp"%>
+<%@ include file="/WEB-INF/views/web/common/CmmnJuso.jsp"%>
+<script type="text/javascript" src="/js/web/function.js"/></script>
+<script type="text/javascript" src="/js/web/class.js"/></script>
+<script type="text/javascript" src="/js/web/ctry/product.js"/></script>
+<script type="text/javascript" src="/js/web/ctry/auth.js"/></script>
+<script type="text/javascript" src="/js/web/ctry/delivery.js"/></script>
+<script type="text/javascript" src="/js/web/cart.js" ></script> <!-- 장바구니용 js -->
+<script type="text/javascript">
+var authYn = false;
+var auth = null;
+var adultYn = false;
+var delivery = null;
+
+$(function(){
+//  header.type = 6;
+    header.type = 4;
+    header.title = "렌탈 신청서";
+    header.method = "GET";
+    header.backUrl = "/mobile/prod/selectProd.do?PROD_CODE=${inParam.PROD_CODE }";
+    header.callback = headerCallback; // 장바구니용 callback
+    initHeader();
+    document.title = header.title;
+    
+    if( '${sessionScope.APP}' == 'SSOCIO'){
+        document.location.replace('ssocio://web/hideDetailBottomView');
+    }
+    
+    adultYn = nvlInt('${result.mber.AGE}', 0) >= 14 ? true : false;
+    
+    authYn = '${result.mber.MBER_PHONE}' == '' ? false : true;
+    auth = new Auth(authYn, '${result.mber.MBER_PHONE}', 'phonediv');
+    if( authYn == false ){
+        $("#id_certificated").hide();
+        $("#id_certificate_none").show();
+    }
+    else{
+        $("#id_certificated").show();
+        $("#id_certificate_none").hide();
+    }
+    
+    //  안심번호 체크 default check
+    $("input[id='ANSIM_YN']").prop("checked", true);
+    
+    if('${result.dlv.REG_SEQ}' != ''){
+        delivery = new Delivery(new Address(true, '${result.dlv.REG_SEQ}', '${result.dlv.DLV_NAME}', '${result.dlv.RCV_NM}', '${result.dlv.ZIP_CD}', '${result.dlv.JUSO_JIBEN}', '${result.dlv.JUSO_DORO}', '${result.dlv.JUSO_DTL}', '${result.dlv.RCV_TEL}', '${result.dlv.EXT_LAND_CD}'));
+        <c:forEach var="addr" items="${result.dlv.addrs}" varStatus="status">
+            var addr = new Address(false, '${addr.REG_SEQ}', '${addr.DLV_NAME}', '', '', '', '', '', '', '99');
+            delivery.addrs.push(addr);
+        </c:forEach>
+        $("#id_dlv_info_new").show();
+        $("#id_dlv_info_select").hide();
+        $("#id_tr_dlv").show();
+        $("#id_a_zipcd").hide();
+        
+        $("#JUSO_JIBEN").hide();
+        $("#JUSO_DORO").show();
+    }
+    else{
+        $("#id_dlv_info_new").hide();
+        $("#id_dlv_info_select").show();
+        $("#id_dlv_info_select_btn").hide();
+        $("#id_tr_dlv").hide();
+        $("#id_a_zipcd").show();
+        
+        $("#JUSO_JIBEN").show();
+        $("#JUSO_DORO").hide();
+    }
+    
+    displayFooter(false);
+});
+
+function onSubmit(){
+    if( validate($("#RCV_NM"), "이름", 0) == false) return;
+    if( validate($("#ZIP_CD"), "우편번호", 0) == false) return;
+    if( validate($("#JUSO_JIBEN"), "주소", 0) == false) return;
+    if( validate($("#JUSO_DTL"), "주소상세", 0) == false) return;
+    if( validate($("#RCV_TEL"), "전화번호", 0) == false) return;
+    if( validate($("#RCV_EMAIL"), "이메일", 0) == false) return;
+    
+    if( $("input:checkbox[id='id_common_agr']").is(":checked") == false ){
+        alert("개인정보 판매자 제공에 대한 동의를 체크해 주셔야 합니다.");
+        $("input:checkbox[id='id_common_agr']").focus();
+        return;
+    }
+    
+    if('${result.prod.AGR_YN}'  == 'Y'){
+        if( $("input:checkbox[id='id_common_agr1']").is(":checked") == false ){
+            alert("렌탈 약관 동의를 체크해 주셔야 합니다.");
+            $("input:checkbox[id='id_common_agr1']").focus();
+            return;
+        }
+    }
+    
+    $("#ANSIM_YN").val($("input:checkbox[id='ANSIM_YN']").is(":checked") == true ? 'Y' : 'N');
+    
+    if($("#ANSIM_YN").val() == 'Y'){
+        auth.getAnsimNo($("#RCV_TEL").val(), "user", onSubmit2);
+        //onSubmit2('');
+    }
+    else{
+        onSubmit2('');
+    }
+}
+
+function onSubmit2(ansimNo){
+    console.log(ansimNo);
+    if( ansimNo != undefined && ansimNo != ''){
+        $("#ANSIM_NO").val(ansimNo);    
+    }
+    
+    var msg = '';
+    $.ajax({
+        type: 'post',
+        async: true, 
+        url: '/mobile/prod/selectRentalStatCd.do', 
+        dataType:'json', 
+        data: {"PROD_CODE": $("#PROD_CODE").val(),
+            "PROD_TYPE_CD": '${result.prod.PROD_TYPE_CD}'
+        },
+        success: function(response) {
+            switch(response.data){
+            case PROD_STAT_CD_ING:
+                if( authYn == false ){
+                    if(confirm("상품 렌탈 신청 시 최초 1회에 한하여\n본인인증이 필요합니다.\n본인인증을 하지 않을 경우 상품구매가 불가합니다.")) {
+                        if( $("#MBER_PHONE").val() == ''){
+                            $("#MBER_PHONE").focus();
+                        }
+                        $("#id_btn_auth").show();
+                        return;
+                    } else {
+                        alert("결제가 취소되었습니다.");
+                        return;
+                    }
+                }
+                else{
+                    insertRentalReg();
+                }
+                break;
+            case PROD_STAT_NOT_LOGIN:
+                msg = '로그인 상태에서 이용 가능합니다.\n로그인 페이지로 이동합니다. ';
+                if( '${sessionScope.APP}' == 'SSOCIO'){
+                    document.location.replace('ssocio://web/cancelOrder?' + encodeURIComponent(JSON.stringify(json)));
+                    moveLogin();
+                }
+                else{
+                    alert(msg);
+                    moveLogin();
+                }        
+                break;
+             case PROD_STAT_RENTAL_NOT_ENOUGH:
+                msg = '재고 물량이 모두 소진되었습니다.';
+                if( '${sessionScope.APP}' == 'SSOCIO'){
+                    json.msg = msg;
+                    json.url = 'history.back';
+                    document.location.replace('ssocio://web/cancelOrder?' + encodeURIComponent(JSON.stringify(json)));
+                }
+                else{
+                    alert(msg);
+                    location.href = "/mobile/ctry/selectListProd.do?LVL_SEQ=" + lvlSeq + "&CTRY_CD=${result.prod.CTRY_CD }";
+                }        
+                break;
+             case PROD_STAT_CD_RENT_ALREADY_REQUEST:
+                 msg = '이미 렌탈 신청을 하셨습니다.\n렌탈 신청내역은 마이페이지\n렌탈 신청내역 조회를 통해\n확인 가능합니다.\n신청내역을 확인하시겠습니까?';
+                 if(confirm(msg) == true){
+                     location.href = '/mobile/buy/selectListRentalReqHist.do?ACTION=list';
+                 }
+                 else{
+                     if( '${sessionScope.APP}' != 'SSOCIO'){
+                         location.href = "/mobile/prod/selectProd.do?PROD_CODE=${inParam.PROD_CODE}";
+                     }
+                 }
+                 break;
+            }
+        },
+        error : function(request, status, error) {
+            msg = '통신 오류가 발생 하였습니다. 잠시 후 다시 시도해 주세요';
+            if( '${sessionScope.APP}' == 'SSOCIO'){
+                 json.msg = msg;
+                 json.url = '';
+                 document.location.replace('ssocio://web/cancelOrder?' + encodeURIComponent(JSON.stringify(json)));
+            }
+            else{
+                alert(msg);
+            }   
+        }
+    });
+}
+
+function insertRentalReg(){
+    if( adultYn == false ){
+        alert("14세 미만의 회원은 렌탈 상품을 구매할 수 없습니다.");
+        return;
+    }
+    
+    if( confirm("렌탈 상담을 신청하시겠습니까?") == true){
+        $.ajax({
+            type: 'post',
+            async: true, 
+            url: '/mobile/prod/insertRentalInfoReg.do', 
+            data: $("#form").serialize(),
+            success: function(response) {
+                if(response.data > 0 ){
+                    alert("렌탈 신청이 정상적으로 처리되었으며,\n해당 렌탈 판매회원(사업자)이\n개별적으로 연락을 드립니다.");
+                    //  렌탈 신청 내역으로 이동
+                    location.href="/mobile/buy/selectListRentalReqHist.do?S_SEARCH_PERI=1W&ACTION=list";
+                }
+                else{
+                    alert("렌탈 상담 신청에 실패했습니다.\n다시 시도해 주세요.");
+                }
+            },
+            error : function(request, status, error) {
+                alert("통신 오류가 발생 하였습니다. 잠시 후 다시 시도해 주세요");
+            }
+        });
+    }
+}
+
+/* ======================================================================
+Function : 본인인증 팝업
+Return   : CI, DI, NAME, IDEN
+========================================================================= */
+function userAuth(code){
+    //본인인증(다날) 팝업
+    if ($("#MBER_PHONE").val() == "") {
+        alert("휴대폰번호를 입력하세요.");
+        $("#MBER_PHONE").focus();
+        return;
+    }
+    
+    auth.createEl('iframe_phoneCredit');
+    auth.display();
+    
+    var form = document.authFrm;
+    form.target = "iframe_phoneCredit";
+    form.method = "post";
+    form.action = "/mobile/common/nameConfPopup.do?MBER_PHONE="+$("#MBER_PHONE").val();
+    form.submit();
+}
+
+/* ======================================================================
+Function : 본인인증 결과 return function
+Return   : CI, DI, NAME, IDEN
+========================================================================= */
+function getAuth(ci, di, name, tid, birth, sex) {
+    auth.removeEl();
+    
+    $("#CI").val(ci);
+    $("#DI").val(di);
+    $("#SEX").val(sex);
+    $("#TID").val(tid);
+    $("#BIRTH").val(birth);
+    $("#MBER_NM").val(name);
+    $("#id_mber_nm").text(name);
+    $("#BUYR_TEL1").val($("#MBER_PHONE").val());
+    $("#id_mber_phone").text($("#MBER_PHONE").val());
+    $("#AUTH_YN").val("Y");
+    
+    auth.update($("#form").serialize(), birth, sex, setPayment);
+    
+    adultYn = isAdult(birth, 14);
+}
+
+/* ======================================================================
+Function : 결제하기
+Return   : 
+========================================================================= */
+function setPayment(birth, sex){
+    if ( birth != null && birth != "" ) {
+        if ( age.check14(birth) < 0 ) {
+            alert("만 14세 미만의 회원은 상품구매가 불가능합니다.");
+            return
+        } else {
+            authYn = true;
+            $("#id_certificated").show();
+            $("#id_certificate_none").hide();
+            if(confirm("본인인증이 완료 되었습니다.\n상품 주문을 계속 진행 하시겠습니까?")){
+                insertRentalReg();
+            } else {
+                alert("결제가 취소되었습니다.");
+            }
+        }
+    } else {
+        alert("본인인증에 실패하였습니다.");
+    }
+}
+
+/* ======================================================================
+Function : 결제 이전 버튼
+Return   : 
+========================================================================= */
+function popupBack(msg){
+    auth.removeEl();
+    if( !isNull(msg) ){
+        alert(msg); 
+    }
+}
+
+//############################################################################
+//배송지 영역
+//############################################################################
+function changeRegSeq(regSeq){
+    delivery.change(regSeq, callbackChange);
+}
+
+function clearDlv(flag){
+    if(flag == 0){
+        $("#REG_SEQ").find("option").remove();
+        $("#RCV_NM").val("");
+        $("#ZIP_CD").val("");
+        $("#JUSO_JIBEN").val("");
+        $("#JUSO_DORO").val("");
+        $("#JUSO_DTL").val("");
+        $("#RCV_TEL").val("");      
+        
+        $("#id_dlv_info_new").hide();
+        $("#id_dlv_info_select").show();
+        $("#id_tr_dlv").hide();
+        $("#id_a_zipcd").show();
+    }
+    else{
+        delivery.selectInfo(callbackDlv);
+    
+        $("#id_dlv_info_new").show();
+        $("#id_dlv_info_select").hide();
+        $("#id_tr_dlv").show();
+        $("#id_a_zipcd").hide();
+    }
+}
+
+function callbackDlv(response){
+    delivery.callback(false, response);
+}
+
+function callbackChange(response){
+    delivery.callback(true, response);
+}
+
+/* ======================================================================
+Function : 우편번호 값 받아오는 함수
+Return   : 없음
+========================================================================= */
+function selAddr(gubun, addr, jiben_addr, road_addr){
+     // 1.도로명 , 2.지번
+/*   if(gubun == "1"){
+            $("#ZIP_CD").val(addr); // 우편번호
+            $("#JUSO_ROAD").val(road_addr);
+     }else if(gubun == "2"){
+            $("#ZIP_CD").val(addr); // 우편번호       
+            $("#JUSO_JIBEN").val(jiben_addr);
+     }
+*/
+    $('.add_layer').hide(); 
+    $('#wrap div#container').show(); 
+    $("#ZIP_CD").val(addr); // 우편번호
+    $("#JUSO_DORO").val(road_addr);
+    $("#JUSO_JIBEN").val(jiben_addr);
+    if(gubun == '1'){
+        $("#JUSO_DORO").show();
+        $("#JUSO_JIBEN").hide();
+    }
+    else{
+        $("#JUSO_DORO").hide();
+        $("#JUSO_JIBEN").show();
+    }
+    //$("#JUSO_DTL").val(addr);
+    popup_hide();
+}
+</script>
+</head>
+<body>
+<form name="form" id="form" method="post">
+<input type="hidden" name="PROD_CODE" id="PROD_CODE" value="${inParam.PROD_CODE }" />
+<input type="hidden" name="PROD_TYPE_CD" id="PROD_TYPE_CD" value="${inParam.PROD_TYPE_CD }" />
+<input type="hidden" name="PROC_STAT_CD" id="PROC_STAT_CD" value="94" />
+<%--REQ_MEMO는 나눔 신청시에만 사용하나, DB insert 시 필요하여 세팅함. --%>
+<input type="hidden" name="REQ_MEMO" id="REQ_MEMO" value="" />
+<input type="hidden" name="DLV_MSG" id="DLV_MSG" value="" />
+<input type="hidden" name="ANSIM_NO" id="ANSIM_NO" value="" />
+<%--본인 인증 후 받는 데이터 --%>
+<input type="hidden" id="CI" name="CI" value="" />
+<input type="hidden" id="DI" name="DI" value="" />
+<input type="hidden" id="SEX" name="SEX" value="" />
+<input type="hidden" id="TID" name="TID" value="" />
+<input type="hidden" id="BIRTH" name="BIRTH" value="" />
+<input type="hidden" id="MBER_NM" name="MBER_NM" value="" />
+<input type="hidden" id="AUTH_YN" name="AUTH_YN" value="N" />
+<div  id="phonediv" style="left: 0px; top: 0;  display: block; height: 100%; width: 100%">
+</div>
+
+<c:choose>
+    <c:when test="${sessionScope.isPcAgent }">
+    <!-- PC화면 -->
+
+        <div class="roc">
+            <ul class="inner">
+                <li><img src="http://static.ssocio.net/pc/img/common/section/roc_home.png" alt="홈"></li>
+                <li>주문완료</li>
+            </ul>
+        </div>
+        
+        <!-- inner -->
+
+
+    <!-- //PC화면 -->
+    </c:when>
+    <c:otherwise>
+    <!-- 모바일 화면 -->
+        <div id="container">
+    <!-- //모바일 화면 -->
+    </c:otherwise>
+</c:choose>
+
+    <p class="title">1. 상품정보</p>
+    <!-- [D] 주문상품정보 반복 영역 -->
+    <ul class="sha_oder">
+        <li>
+            <ul class="mt10">
+                <li><img src="<custom:codeTag code="DEFAULT_IMG_URL" groupCode="SITE_DEFAULT" />" alt="${result.prod.PROD_IMG_URL }"></li>
+                <li><strong>${result.prod.PROD_NM }</strong></li>
+                <li></li>
+            </ul>
+        </li>
+    </ul>
+    <p class="title clear">2. 주문자 정보</p>
+    <div class="tbl" id="id_certificate_none">
+        <table class="tbl-data">
+            <colgroup>
+                <col width="100px">
+                <col width="*">
+            </colgroup>
+            <tbody>
+                <tr>
+                    <th>ID</th>
+                    <td class="pd5">${result.mber.MBER_EMAIL}</td>
+                </tr>
+                <tr>
+                    <th class="stop">휴대폰 번호</th>
+                    <td class="pd5">
+                        <input type="text" name="MBER_PHONE" id="MBER_PHONE" value="" onkeydown="this.value=this.value.replace(/[^0-9]/g,'')" onkeyup="this.value=this.value.replace(/[^0-9]/g,'')" onblur="this.value=this.value.replace(/[^0-9]/g,'')" maxlength="11">
+                        <p class="point_r mt5">본인인증이 필요합니다.</p>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+        <div class="btn_enter" id="id_btn_auth" style="display:none;"><a href="javascript:userAuth('${sessionScope.APP}');" class="btn_r">본인인증</a></div>
+    </div>
+
+    <div class="tbl" id="id_certificated">
+        <table class="tbl-data">
+            <colgroup>
+                <col width="100px">
+                <col width="*">
+            </colgroup>
+            <tbody>
+                <tr>
+                    <th>이름</th>
+                    <td class="pd5" id="id_mber_nm">${result.mber.MBER_NM}</td>
+                </tr>
+                <tr>
+                    <th>ID</th>
+                    <td class="pd5">${result.mber.MBER_EMAIL}</td>
+                </tr>
+                <tr>
+                    <th>휴대폰 번호</th>
+                    <td id="id_mber_phone">${result.mber.MBER_PHONE}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>  
+    <p class="title clear" id="id_dlv_info_new">3. 신청자 정보 <a href="javascript:clearDlv(0);" class="btn_edit fr">새로입력</a></p>
+    <p class="title clear" id="id_dlv_info_select">3. 신청자 정보 <a href="javascript:clearDlv(1);" class="btn_edit fr" id="id_dlv_info_select_btn">배송지 선택</a></p>
+    <div class="tbl">
+        <table class="tbl-data">
+            <colgroup>
+                <col width="100px">
+                <col width="*">
+            </colgroup>
+            <tbody>
+                <tr id="id_tr_dlv">
+                    <th>배송지 선택</th>
+                    <td class="pd5">
+                        <select name="REG_SEQ" id="REG_SEQ" onchange="javascript:changeRegSeq(this.value);">
+                            <c:forEach var="addr" items="${result.dlv.addrs }" varStatus="status">
+                                <option value="${addr.REGS_SEQ }" <c:if test="${result.dlv.REGS_SEQ == addr.REGS_SEQ }">selected</c:if>><c:if test="${status.index == 0 }">(기본배송지)</c:if>${addr.DLV_NAME }</option>
+                            </c:forEach>
+                        </select>
+                    </td>
+                </tr>
+                <tr>
+                    <th>수령인</th>
+                    <td class="pd5"><input type="text" name="RCV_NM" id="RCV_NM" maxlength="20" value="${result.dlv.RCV_NM }"></td>
+                </tr>
+                <tr>
+                    <th class="stop">배송지</th>
+                    <td class="pd5">
+                        <ul class="add">
+                            <li><input type="text" name="ZIP_CD" id="ZIP_CD" value="${result.dlv.ZIP_CD }" class="fl" readonly> <a href="javascript:postShow();" class="btn_b fr" style="display:none;" id="id_a_zipcd">우편번호</a></li>
+                            <li>
+                                <input type="text" name="JUSO_JIBEN" id="JUSO_JIBEN" value="${result.dlv.JUSO_JIBEN }" readonly>
+                                <input type="text" name="JUSO_DORO" id="JUSO_DORO" value="${result.dlv.JUSO_DORO }" readonly>
+                            </li>
+                            <li><input type="text" name="JUSO_DTL" id="JUSO_DTL" value="${result.dlv.JUSO_DTL }" placeholder="상세 주소 입력"></li>
+                        </ul>
+                    </td>
+                </tr>
+                <tr>
+                    <th>연락처</th>
+                    <td class="pd5"><input type="text" name="RCV_TEL" id="RCV_TEL" value="${result.dlv.RCV_TEL }" onkeydown="this.value=this.value.replace(/[^0-9]/g,'')" onkeyup="this.value=this.value.replace(/[^0-9]/g,'')" onblur="this.value=this.value.replace(/[^0-9]/g,'')" maxlength="11"> <p class="mt5"><input type="checkbox" name="ANSIM_YN" id="ANSIM_YN" value="Y"> <label for="ANSIM_YN"><span>안심번호 이용</span></label></p></td>
+                </tr>
+                <tr>
+                    <th>연락가능시간</th>
+                    <td class="pd5">
+                        <select name="CALLTIME" id="CALLTIME">
+                            <option value="09:00 ~ 12:00">09:00 ~ 12:00</option>
+                            <option value="12:00 ~ 18:00">12:00 ~ 18:00</option>
+                        </select>
+                    </td>
+                </tr>
+                <tr>
+                    <th>이메일</th>
+                    <td class="pd5"><input type="text" name="RCV_EMAIL" id="RCV_EMAIL" value="${result.mber.MBER_EMAIL }"></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <p class="title">4. 렌탈신청 약관 동의</p>
+    <!-- LIST -->
+    <div class="content linet">
+        <div class="faq-list">
+            <ul>
+                <li class="article">
+                    <p class="q"><input type="checkbox" id="id_common_agr"> <a href="#a1" class="trigger">개인정보 판매자 제공에 대한 동의</a></p>
+                    <p class="a">
+                    - 개인정보를 제공 받는자 : 판매자<br>
+                    - 개인정보를 제공받는 자의 개인정보 이용 목적 : 주문상품의 <br>
+                    배송, 고객상담의불만처리<br>
+                    - 제공하는 개인정보의 항목 : 성명, 주소, 연락처(안심번호 <br>
+                    적용시 연락처는 안심번호로 제공)<br>
+                    - 개인정보를 제공받는 자의 개인정보 보유 및 이용기간 : 이용목적달성시까지
+                    제공정보는 주문처리 및 배송을 위한 목적으로만 사용됩니다.고객님께서는 동의를 거부하실 수 있으며, 거부하실 경우 거래가 제한되며 고객님의 정보는 판매자에게 제공되지 않습니다.
+                    </p>
+                </li>
+                <c:if test="${result.prod.AGR_YN  == 'Y'}">
+                    <li class="article">
+                        <p class="q"><input type="checkbox" id="id_common_agr1"> <a href="#a1" class="trigger">렌탈신청 약관</a></p>
+                        <p class="a">${result.prod.AGR }</p>
+                    </li>
+                </c:if>
+            </ul>
+        </div>
+    </div>
+    <!-- //LIST -->
+
+    <div class="btn_enter"><a href="javascript:onSubmit();" class="btn_r">신청하기</a></div>
+</div>
+<!-- //container -->
+</form>
+<form id="authFrm" name="authFrm" method="post">
+    <input type="hidden" id="authPhone" name="authPhone" />
+</form>
+</body>
+</html>

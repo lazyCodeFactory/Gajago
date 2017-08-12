@@ -1,0 +1,202 @@
+package com.ssocio.sharing.cmmn.tag;
+
+import java.sql.Timestamp;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.Locale;
+
+import javax.servlet.jsp.JspException;
+import javax.servlet.jsp.tagext.TagSupport;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+/**
+ * <pre>
+ * Page 에서 사용하는 CodeListTag
+ * 
+ * @author D.G
+ * @version 
+ * @since 2015. 2. 12. 오후 8:26:47
+ * @see 
+ * @History 
+ *  Date          |    author    | 변경내용  
+ *	2015. 2. 12.  |    D.G       | 신규 
+ * @Todo
+ * </pre>
+ */
+public class TimeGapTag extends TagSupport {
+
+	private static final long serialVersionUID = 4515615529523911640L;
+
+	// --------------------------------------------------------------------------
+	// # Log 설정
+	// --------------------------------------------------------------------------
+	private static final Logger logger = LoggerFactory.getLogger(TimeGapTag.class);
+	
+	private Timestamp value = null;
+	private String timeGap = "";
+
+	@Override
+	public int doStartTag () throws JspException{
+		
+		// ------------------------------------------------------------------------
+		// # 시작로그
+		// ------------------------------------------------------------------------
+		//logger.info("doStartTag Start");
+
+		// ------------------------------------------------------------------------
+		// # 객체/변수 선언
+		// ------------------------------------------------------------------------
+
+		// ------------------------------------------------------------------------
+		// # Biz Start
+		// ------------------------------------------------------------------------
+		try {
+			//Timestamp ts = (Timestamp)pageContext.getAttribute("value");
+			logger.info("regist_dt = " + this.value);
+			
+			setTimeGap();
+			
+			logger.info("time gap = " + this.timeGap);
+			
+			pageContext.getOut().write(this.timeGap);
+		} catch (Exception e) {
+			logger.debug("doStartTag Exception : ", e.getMessage());
+		} finally {
+			this.release();
+		}
+		return SKIP_BODY;
+	}
+	
+	/**
+	 * 
+	 * <pre>
+	 * 설명 게시판 등록 시간의 시간 경과를 년/월/일/시/분/초로 나타낸다.
+	 * 설명 개월에서 무조건 30으로 했으나, 향후 이전 월을 파악하여 28, 29, 30, 31일 때에 따라서 분기 처리해야함.
+	 * @throws Exception
+	 * @date 2015. 9. 7. 오후 2:10:39
+	 * @author WOOK.KIM
+	 * @see com.ssocio.sharing.cmmn.tag
+	 * </pre>
+	 */
+	private void setTimeGap() throws Exception{
+		TagDate curDate = new TagDate(new Date());
+		logger.info("curDate[" + curDate.toString() + "]"); 
+		
+		TagDate regDate = new TagDate(new Date(this.value.getTime()));
+		logger.info("regDate[" + regDate.toString() + "]");
+		
+		int year = curDate.year - regDate.year;
+		int month = curDate.month - regDate.month;
+		int day = curDate.day - regDate.day;
+		
+		int hour = curDate.hour - regDate.hour;
+		int minute = curDate.minute - regDate.minute;
+		
+		if( year == 0 ){//	같은 년
+			if( month == 0){//	같은 달
+				if( day == 0 ){	// 같은 날
+					if( hour == 0 ){ // 같은 시간
+						if(minute == 0){ // 같은 분
+							this.timeGap = "1분이내";
+						}
+						else{
+							this.timeGap = minute + "분전";
+						}
+					}
+					else{
+						if( minute < 0){
+							if( hour == 1 ){
+								this.timeGap = (minute + 60) + "분전";
+							}
+							else{
+								this.timeGap = (hour-1) + "시간전";
+							}
+						}
+						else{
+							this.timeGap = hour + "시간전";
+						}
+					}//	시간
+				}
+				else{
+					if( hour < 0 ){
+						if( day == 1){
+							this.timeGap = (hour + 24) + "시간전";
+						}
+						else{
+							this.timeGap = (day - 1) + "일전";
+						}
+					}
+					else{
+						this.timeGap = day + "일전";
+					}
+				}//	날
+			}
+			else{
+				if( day < 0 ){
+					if( month == 1){
+						this.timeGap = (day + 30) + "일전";
+					}
+					else{
+						this.timeGap = (month - 1) + "개월전";
+					}
+				}
+				else{
+					this.timeGap = month + "개월전";
+				}
+			}//	월
+		}
+		else{
+			if(month < 0 ){
+				if( year == 1){
+					this.timeGap = (month + 12) + "개월전";
+				}
+				else{
+					this.timeGap = (year - 1) + "년전";
+				}
+			}
+			else{
+				this.timeGap = year + "년전";
+			}
+		}
+	}
+	
+	public Timestamp getValue() {
+		return value;
+	}
+
+	public void setValue(Timestamp value) {
+		this.value = value;
+	}
+	
+	class TagDate{
+		int year;
+		int month;
+		int day;
+		int hour;
+		int minute;
+		int second;
+		
+		private SimpleDateFormat sdfYear = new SimpleDateFormat("YYYY");
+		private SimpleDateFormat sdfMonth = new SimpleDateFormat("MM");
+		private SimpleDateFormat sdfDay = new SimpleDateFormat("dd");
+		private SimpleDateFormat sdfHour = new SimpleDateFormat("HH");
+		private SimpleDateFormat sdfMinute = new SimpleDateFormat("mm");
+		private SimpleDateFormat sdfSecond = new SimpleDateFormat("ss");
+		
+		public TagDate(Date date) throws Exception{
+			this.year = Integer.parseInt(sdfYear.format(date));
+			this.month = Integer.parseInt(sdfMonth.format(date));
+			this.day = Integer.parseInt(sdfDay.format(date));
+			this.hour = Integer.parseInt(sdfHour.format(date));
+			this.minute = Integer.parseInt(sdfMinute.format(date));
+			this.second = Integer.parseInt(sdfSecond.format(date));
+		}
+		
+		public String toString(){
+			return "" + this.year + "-" + this.month + "-" + this.day + " " + this.hour + ":" + this.minute + ":" + this.second;
+		}
+	}
+}

@@ -1,0 +1,472 @@
+<%@ page language="java" contentType="text/html; charset=utf-8"
+    pageEncoding="utf-8"%>
+<!-- 태그는 cmmnHead.jsp 에 선언함 -->
+<%@ include file="/WEB-INF/views/web/common/webJSTL.jsp"%>
+<script type="text/javascript">
+
+$(document).ready(function() {
+	// 헤더 set
+	header.type	= 2; // 0 : 타이틀영역만존재, 1 : 검색HEADER, 2 : SELECT TYPE HEADER, 3 : AD MENU TYPE HEADER, 4 : SUB TYPE HEADER
+	header.title = "판매상품 교환신청 내역";
+	document.title = "판매상품 교환신청 내역";
+	header.method = "POST";
+	header.backUrl = "/mobile/buy/selectBuyMain.do";
+	header.form = $("#frm");
+	header.callback = "";
+	initHeader();
+	
+	displayFooter(false);
+
+	// 검색 클릭 이벤트
+	$("#btn_search_bar").click(function() {
+		f_searchBuySaleList("list");
+	});
+
+	// 상품명 삭제 이벤트
+	$("#prodNmDel").click(function() {
+		$("#S_PROD_NM").val("");
+		$("#prodDelBtn").hide();
+	});
+
+	// 조회기간 변경 이벤트
+	$("#S_SEARCH_PERI").change(function() {
+		var val = $(this).val();
+
+		if(val == "3M") {
+			f_clickDate("M", 3);
+		}else if(val == "6M") {
+			f_clickDate("M", 6);
+		}else if(val == "1Y") {
+			f_clickDate("Y", 1);
+		}else if(val == "10Y") {
+			f_clickDate("Y", 10);
+		}
+	});
+
+	$(window).scroll(function() {
+		if($(window).scrollTop() == $(document).height() - $(window).height()){
+			var next = $("#pagingNext").val();
+			if(next == "true") {
+				f_searchSalePageing();
+			}
+		}
+	});
+
+	$("#S_SEARCH_PERI").trigger("change");
+});
+
+/* ======================================================================
+Function : 상품상세로 이동
+Return   : 없음
+========================================================================= */
+function goProdDtlPage(prodCode){
+	location.href = '/mobile/prod/selectProd.do?PROD_CODE=' + prodCode;
+}
+
+/* ======================================================================
+Function : 조회
+Return   : 없음
+========================================================================= */
+function f_searchBuySaleList(sAction) {
+	var sSearchPeri = $("#S_SEARCH_PERI").val();
+    var url = "/mobile/buy/selectListSaleExcReqHist.do";
+
+    if(gf_isNull(sSearchPeri)) {
+    	alert("조회기간은 필수 입력입니다.");
+		return;
+    }
+    $("#frm").attr("method","POST");
+    $("#ACTION").val(sAction);
+ 	// 검색시 페이지번호 1로 세팅
+    $("#PAGE_NO").val(1);
+	$("#frm").attr("action", url).submit();
+}
+
+/* ======================================================================
+Function : PAGEING 조회
+Return   : 없음
+========================================================================= */
+function f_searchSalePageing() {
+	// 페이지
+	var sPageNo = $("#PAGE_NO").val();
+	sPageNo = Number(sPageNo) + 1;
+
+	$.ajax({
+	    type: "post"
+	    , async: true
+	    , dataType:"json"
+	    , url: "/mobile/buy/selectListSaleExcReqHistPage.do"
+	    , data: {
+	    		"PAGE_NO" : sPageNo,
+	    		"S_SEARCH_PERI"	: $("#S_SEARCH_PERI").val(),
+	    		"S_PROC_STAT_CD" : $("#S_PROC_STAT_CD").val(),
+	    		"S_PROD_NM" : $("#S_PROD_NM").val()
+	    		}
+	    , success: function(data) {
+	    	var objBuyList = data.list.buySaleList;
+	    	var sOrdCdTemp;
+	    	var arrOptSplit;
+	    	var arrOptInfo;
+
+	    	if(objBuyList.length > 0) {
+	    		var innerHtml = "";
+	    		for(var i=0; i<objBuyList.length; i++) {
+	    			//innerHtml += '<ul class="sha_oder>';
+		    			innerHtml += '<li>';
+		    				if(objBuyList[i].ORD_CD != sOrdCdTemp) {
+				    			innerHtml += '<p class="arrow"><span class="fl">'+objBuyList[i].ORD_CD+'<br><span>'+objBuyList[i].ORD_REG_DATE+'</span></span>';
+				    			innerHtml += '<a href="javascript:f_goOrderDtl('+objBuyList[i].ORD_CD+');" class="fr"><strong>상세보기</strong></a></p>';
+		    				}
+			    			sOrdCdTemp = objBuyList[i].ORD_CD;
+			    			innerHtml += '<ul>';
+				    			innerHtml += '<li><a href="javascript:goProdDtlPage('+objBuyList[i].PROD_CODE+')"><img src=<custom:codeTag groupCode="SITE_DEFAULT" code="DEFAULT_IMG_URL"/> alt='+objBuyList[i].IMG_URL+'></a></li>';
+				    			innerHtml += '<li><a href="javascript:goProdDtlPage('+objBuyList[i].PROD_CODE+')"><strong>'+objBuyList[i].PROD_NM+'</strong></a></li>';
+				    			innerHtml += '<li><span>상품금액 '+numberWithCommas(objBuyList[i].DEPOSIT)+'원<br>';
+				    			innerHtml += '<li>';
+				    			innerHtml += '<span>';
+
+
+				    			if(objBuyList[i].DLV_WAY_CD == '1' || objBuyList[i].DLV_WAY_CD == '2'){
+				    				if(objBuyList[i].DLV_PAY_GB_CD == '1' ){
+										innerHtml += '택배 | 무료배송';
+										if(objBuyList[i].DLV_GROUP_YN == 'Y' ||  objBuyList[i].DLV_STAND_AMT > 0){
+											innerHtml += '(';
+								  				if(objBuyList[i].DLV_GROUP_YN == 'Y'){innerHtml += '묶음배송';}
+												if(objBuyList[i].DLV_GROUP_YN == 'Y' &&  objBuyList[i].DLV_STAND_AMT > 0){innerHtml += ',';}
+								  				if(objBuyList[i].DLV_STAND_AMT > 0){innerHtml += numberWithCommas(objBuyList[i].DLV_STAND_AMT)+'원 이상 무료';}
+											innerHtml += ')';
+										}
+
+									}else if(objBuyList[i].DLV_PAY_GB_CD == '2'){
+										innerHtml +='택배 | ' + numberWithCommas(objBuyList[i].DLV_PRCE) + '원/';
+										if(objBuyList[i].DLV_PAY_F_CD == '10'){
+											innerHtml += '선불';
+										}else if(objBuyList[i].DLV_PAY_F_CD == '20'){
+											innerHtml += '착불';
+										}
+
+										if(objBuyList[i].DLV_GROUP_YN == 'Y' ||  objBuyList[i].DLV_STAND_AMT > 0){
+											innerHtml += '(';
+											if(objBuyList[i].DLV_GROUP_YN == 'Y'){innerHtml += '묶음배송';}
+											if(objBuyList[i].DLV_GROUP_YN == 'Y' &&  objBuyList[i].DLV_STAND_AMT > 0){innerHtml += ',';}
+											if(objBuyList[i].DLV_STAND_AMT > 0 ){innerHtml += numberWithCommas(objBuyList[i].DLV_STAND_AMT) + '원 이상 무료';}
+											innerHtml += ')';
+										}
+									}
+				    			}else if(objBuyList[i].DLV_WAY_CD == '3'){
+				    				innerHtml += '우편/등기 | 무료배송';
+				    			}else if(objBuyList[i].DLV_WAY_CD == '4'){
+				    				if(objBuyList[i].DLV_PAY_GB_CD == '1'){
+										innerHtml += '퀵서비스 | 무료배송';
+									}else if(objBuyList[i].DLV_PAY_GB_CD == '2'){
+										innerHtml += '퀵서비스 | ' + numberWithCommas(objBuyList[i].DLV_PRCE) + '원/착불';
+									}
+				    			}else if(objBuyList[i].DLV_WAY_CD == '5'){
+				    				innerHtml += '직거래';
+				    			}
+
+
+				    			innerHtml += ' | 구매수량 '+numberWithCommas(objBuyList[i].ORD_QTY)+'개';
+				    			innerHtml += '</span>';
+				    			innerHtml += '</li>';
+			    			innerHtml += '</ul>';
+
+							if(!gf_isNull(objBuyList[i].subOrder)) {
+			    				
+			    				for(var j=0; j<objBuyList[i].subOrder.length; j++) {
+			    					innerHtml += '<div class="opt_area">';
+		    						if(objBuyList[i].subOrder[j].OP_GB_CD == '10'){
+			    						innerHtml += '<p>';
+			    						innerHtml += objBuyList[i].subOrder[j].OPT_INFO;
+			    						innerHtml += '(+'+numberWithCommas(objBuyList[i].subOrder[j].OPT_PRCE)+'원)';
+			    						innerHtml += '</p>';
+			    						innerHtml += '<span>';
+			    						innerHtml += numberWithCommas(objBuyList[i].subOrder[j].OPT_QTY)+'개';
+			    						innerHtml += '</span>';
+		    						}else{
+		    							innerHtml += '<p>[추가상품] ';
+			    						innerHtml += objBuyList[i].subOrder[j].OPT_INFO;
+			    						innerHtml += '('+numberWithCommas(objBuyList[i].subOrder[j].OPT_PRCE)+'원)';
+			    						innerHtml += '</p>';
+			    						innerHtml += '<span>';
+			    						innerHtml += numberWithCommas(objBuyList[i].subOrder[j].OPT_QTY)+'개';
+			    						innerHtml += '</span>';
+		    						}
+		    						innerHtml += '</div>';
+			    				}
+			    			}
+
+			    			innerHtml += '<p class="btn">';
+			    				innerHtml += '<span class="fr">';
+			    					innerHtml += '<strong>';
+			    					innerHtml += objBuyList[i].PROC_STAT_NM;
+			    					innerHtml += '</strong>';
+			    				innerHtml += '</span>';
+		    				innerHtml += '</p>';
+		    			innerHtml += '</li>';
+	    			//innerHtml += '</ul>';
+	    		}
+
+	    		$("#ulList").append(innerHtml);
+	    		cdnreload();
+
+	    		// PAGE_NO
+				$("#PAGE_NO").val(data.list.PAGE_NO);
+	    		// scroll
+	    		$("#pagingNext").val(data.list.pageNav.next);
+	    		// TOT_CNT
+	    		$("#TOT_CNT").val(data.list.pageNav.totCnt);
+	    	}
+	    }
+	    , error: function(data, status, err) {
+	      alert('서버와의 통신이 실패했습니다.');
+	    }
+	});
+}
+
+/* ======================================================================
+Function : 상세보기 이동
+Return   : 없음
+========================================================================= */
+function f_goOrderDtl(sOrdCd) {
+	$("#S_ORD_CD").val(sOrdCd);
+	$("#frm").attr("method","get");
+	$("#frm").attr("action", "/mobile/buy/selectListSaleExcReqDtl.do").submit();
+}
+
+/* ======================================================================
+Function : 기간버튼클릭시 날짜 셋팅
+Return   : 없음
+========================================================================= */
+function f_clickDate(dateType, date) {
+	var now = new Date();
+	var sYear = now.getFullYear();
+	var sMonth = now.getMonth()+1;
+	var sDay = now.getDate()
+	var toDate = sYear + '-' + f_lpad(sMonth.toString(), '0', 2) + '-' + f_lpad(sDay.toString(), '0', 2);
+	$("#S_TO_DATE").val(toDate.replace(/-/g, ''));
+
+	if(dateType == "D") {
+		now.setDate(now.getDate() - date);
+	}else if(dateType == "M") {
+		now.setMonth(now.getMonth() - date);
+	}else if(dateType == "Y") {
+		now.setFullYear(now.getFullYear() - date);
+	}
+
+	sYear = now.getFullYear();
+	sMonth = now.getMonth()+1;
+	sDay = now.getDate();
+
+	var fromDate = sYear + '-' + f_lpad(sMonth.toString(), '0', 2) + '-' + f_lpad(sDay.toString(), '0', 2);
+	$("#S_FROM_DATE").val(fromDate.replace(/-/g, ''));
+}
+
+/* ======================================================================
+Function : left pad
+Return   : 없음
+========================================================================= */
+function f_lpad(sStr, sPad, len) {
+	var str = sStr;
+    while (str.length < len) {
+        str = sPad + str;
+    }
+    return str;
+}
+
+/* ======================================================================
+Function : 검색바 삭제버튼 display 체크
+Return   : 없음
+========================================================================= */
+function displayDelBtn(){
+		$("#prodDelBtn").show();
+}
+</script>
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+		<div class="roc">
+			<ul class="inner">
+				<li><img src="http://static.ssocio.net/pc/img/common/section/roc_home.png" alt="홈"></li>
+				<li>마이페이지</li>
+				<li>교환신청</li>
+			</ul>
+		</div>
+		<jsp:include page="../common/mype_top.jsp" flush="false" />
+		<div class="mype_s_tit">
+			<p>교환신청</p>
+		</div>
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+		<div id="">
+
+			<!-- container -->
+			<div id="container">
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>
+
+<form name="frm" id="frm" method="post">
+<input type="hidden" id="ACTION" name="ACTION">
+<input type="hidden" id="S_FROM_DATE" name="S_FROM_DATE">
+<input type="hidden" id="S_TO_DATE" name="S_TO_DATE">
+<input type="hidden" id="S_ORD_CD" name="S_ORD_CD">
+<input type="hidden" id="S_PROD_CD" name="S_PROD_CD">
+<input type="hidden" id="S_PROD_SEQ" name="S_PROD_SEQ">
+<input type="hidden" id="S_SCR_ID" name="S_SCR_ID" value="selectListSaleExcReqHist">
+<input type="hidden" id="S_SCR_GUBUN" name="S_SCR_GUBUN">
+<input type="hidden" id="PAGE_NO" name="PAGE_NO" value="${list.PAGE_NO}">
+<input type="hidden" id="pagingNext" name="pagingNext" value="${list.pageNav.next}">
+<input type="hidden" id="TOT_CNT" name="TOT_CNT" value="${list.pageNav.totCnt}">
+<input type="hidden" id="S_PROD_TYPE_CD" name="S_PROD_TYPE_CD" value="1">
+
+        <div class="sha_search">
+        	<ul>
+            	<li>
+                	<select id="S_SEARCH_PERI" name="S_SEARCH_PERI">
+                    	<option value="3M" <c:if test="${searchParam.S_SEARCH_PERI == '3M'}">selected="selected"</c:if>>3개월</option>
+                    	<option value="6M" <c:if test="${searchParam.S_SEARCH_PERI == '6M'}">selected="selected"</c:if>>6개월</option>
+                    	<option value="1Y" <c:if test="${searchParam.S_SEARCH_PERI == '1Y'}">selected="selected"</c:if>>1년</option>
+                    	<option value="10Y" <c:if test="${searchParam.S_SEARCH_PERI == '10Y'}">selected="selected"</c:if>>1년이상</option>
+                    </select>
+                </li>
+            	<li>
+                	<!-- <select id="S_PROC_STAT_CD" name="S_PROC_STAT_CD">
+                		<custom:codeList var="procStatCd" groupCode="PROC_STAT_CD" />
+                    	<option value="">주문상태 전체</option>
+                    	<c:forEach var="list" items="${procStatCd}" varStatus="status">
+							<c:if test="${list.key == '41' || list.key == '42' || list.key == '43'}">
+							<option value="${list.key}" <c:if test="${list.key == searchParam.S_PROC_STAT_CD}">selected="selected"</c:if> >${list.value}</option>
+							</c:if>
+			            </c:forEach>
+                    </select> -->
+                    <select id="S_PROC_STAT_CD" name="S_PROC_STAT_CD">
+                    	<option value="">주문상태 전체</option>
+                    	<option value="10">교환신청</option>
+						<option value="20">교환처리중</option>
+						<option value="30">교환완료</option>
+                    </select>
+                </li>
+            </ul>
+            <p>
+                <input type="text" id="S_PROD_NM" name="S_PROD_NM" value="${searchParam.S_PROD_NM}" placeholder="상품명 검색" onkeyup="displayDelBtn()">
+                <a id="btn_search_bar" class="btn_search"><span>검색</span></a>
+                <a href="#" id="prodNmDel"><img src="http://static.ssocio.net/web/images/ico_del.png" alt="삭제" id="prodDelBtn" style="display:none;"></a>
+            </p>
+        </div>
+        <c:if test="${fn:length(list.buySaleList) > 0}">
+        	<c:set var="ORD_CD_TEMP" value="" />
+	        <ul id="ulList" class="sha_oder">
+		        <c:forEach var="buySaleList" items="${list.buySaleList}" varStatus="status">
+		        	<li>
+	            		<c:if test="${buySaleList.ORD_CD != ORD_CD_TEMP}">
+	            			<p class="arrow"><span class="fl">${buySaleList.ORD_CD}<br><span>${buySaleList.ORD_REG_DATE}</span></span><a href="javascript:f_goOrderDtl('${buySaleList.ORD_CD}');" class="fr"><strong>상세보기</strong></a></p>
+	            		</c:if>
+		            	<c:set var="ORD_CD_TEMP" value="${buySaleList.ORD_CD}" />
+		                <ul>
+		                	<li><a href="javascript:goProdDtlPage('${buySaleList.PROD_CODE}')"><img src=<custom:codeTag groupCode='SITE_DEFAULT' code='DEFAULT_IMG_URL'/> alt="${buySaleList.IMG_URL}"></a></li>
+		                	<li><a href="javascript:goProdDtlPage('${buySaleList.PROD_CODE}')"><strong>${buySaleList.PROD_NM}</strong></a></li>
+		                	<li><span>상품금액 <fmt:formatNumber value="${buySaleList.PROD_ORD_AMT}" pattern="#,###" />원</span></li>
+		                	<li>
+		                		<span>
+										<c:choose>
+										  <c:when test="${buySaleList.DLV_WAY_CD == '1' || buySaleList.DLV_WAY_CD == '2'}" >
+										  		<c:choose>
+										  		<c:when test="${buySaleList.DLV_PAY_GB_CD == '1' }" >
+										  			택배 | 무료배송
+										  			<c:if test="${buySaleList.DLV_GROUP_YN eq 'Y' ||  buySaleList.DLV_STAND_AMT > 0}">
+										  			(
+										  				<c:if test="${buySaleList.DLV_GROUP_YN eq 'Y' }">묶음배송</c:if>
+										  				<c:if test="${buySaleList.DLV_GROUP_YN eq 'Y' &&  buySaleList.DLV_STAND_AMT > 0}">,</c:if>
+										  				<c:if test="${buySaleList.DLV_STAND_AMT > 0 }"><fmt:formatNumber value="${buySaleList.DLV_STAND_AMT}" pattern="#,###" />원 이상 무료</c:if>
+										  			)
+										  			</c:if>
+										  		</c:when>
+
+										  		<c:when test="${buySaleList.DLV_PAY_GB_CD == '2' }" >
+										  			택배 | <fmt:formatNumber value="${buySaleList.DLV_PRCE}" pattern="#,###" />원/<c:if test="${buySaleList.DLV_PAY_F_CD eq '10'}">선불</c:if><c:if test="${buySaleList.DLV_PAY_F_CD eq '20'}">착불</c:if>
+										  			<c:if test="${buySaleList.DLV_GROUP_YN eq 'Y' ||  buySaleList.DLV_STAND_AMT > 0}">
+										  				(
+										  				<c:if test="${buySaleList.DLV_GROUP_YN eq 'Y' }">묶음배송</c:if>
+										  				<c:if test="${buySaleList.DLV_GROUP_YN eq 'Y' &&  buySaleList.DLV_STAND_AMT > 0}">,</c:if>
+										  				<c:if test="${buySaleList.DLV_STAND_AMT > 0 }"><fmt:formatNumber value="${buySaleList.DLV_STAND_AMT}" pattern="#,###" />원 이상 무료</c:if>
+										  				)
+										  			</c:if>
+										  		</c:when>
+										  		</c:choose>
+										  </c:when>
+										  <c:when test="${buySaleList.DLV_WAY_CD == '3' }" >
+										  	우편/등기 | 무료배송
+										  </c:when>
+
+										  <c:when test="${buySaleList.DLV_WAY_CD == '4' }" >
+										  	<c:choose>
+
+										  		<c:when test="${buySaleList.DLV_PAY_GB_CD == '1' }" >
+										  			퀵서비스 | 무료배송
+										  		</c:when>
+
+										  		<c:when test="${buySaleList.DLV_PAY_GB_CD == '2' }" >
+										  			퀵서비스 | <fmt:formatNumber value="${buySaleList.DLV_PRCE}" pattern="#,###" />원/착불
+										  		</c:when>
+										  	</c:choose>
+										  </c:when>
+										  <c:when test="${buySaleList.DLV_WAY_CD == '5' }" >
+										  	직거래
+										  </c:when>
+
+										</c:choose> |
+				                	구매수량 <fmt:formatNumber value="${buySaleList.ORD_QTY}" pattern="#,###" />개
+			                	</span>
+		                	</li>
+		                </ul>
+
+						<c:forEach var="optList" items="${buySaleList.subOrder }">
+	                  	    <div class="opt_area">
+	                  	    	<c:choose>
+	                  	    		<c:when test="${optList.OP_GB_CD == '10' }">
+	                  	    			<p>${optList.OPT_INFO}(+<fmt:formatNumber value="${optList.OPT_PRCE}" pattern="#,###" />원) </p>
+			                			<span><fmt:formatNumber value="${optList.OPT_QTY}" pattern="#,###" />개</span>
+	                  	    		</c:when>
+	                  	    		<c:otherwise>
+	                  	    			<p>[추가상품] ${optList.OPT_INFO}(<fmt:formatNumber value="${optList.OPT_PRCE}" pattern="#,###" />원) </p>
+			                			<span><fmt:formatNumber value="${optList.OPT_QTY}" pattern="#,###" />개</span>
+	                  	    		</c:otherwise>
+	                  	    	</c:choose> 
+		                	</div>
+	                	</c:forEach>
+
+		                <p class="btn">
+							<span class="fr">
+								<strong>${buySaleList.PROC_STAT_NM}</strong>
+							</span>
+						</p>
+		            </li>
+		        </c:forEach>
+	        </ul>
+		</c:if>
+		<c:if test="${fn:length(list.buySaleList) <= 0}">
+			<div class="sha_nodata">
+        		<p>교환신청 내역이 없습니다.</p>
+       		</div>
+		</c:if>
+
+</form>
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+		<jsp:include page="../common/mype_bottom.jsp" flush="false" />
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+		    </div>
+		    <!-- //container -->
+		</div>
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>

@@ -1,0 +1,382 @@
+package com.ssocio.sharing.service.admin;
+
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Map;
+
+import javax.annotation.Resource;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpSession;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.ui.ModelMap;
+
+import com.ssocio.sharing.cmmn.admin.util.CommonUtil;
+import com.ssocio.sharing.cmmn.util.CmmnCnst;
+import com.ssocio.sharing.cmmn.util.LoggerUtil;
+import com.ssocio.sharing.cmmn.util.StringUtil;
+import com.ssocio.sharing.dao.admin.AdminUserDao;
+import com.ssocio.sharing.vo.admin.AdminSession;
+import com.ssocio.sharing.vo.admin.PageNavigation;
+import com.ssocio.sharing.vo.web.WebSession;
+
+/**
+ * <pre>
+ * 공통 서비스
+ * 공통 서비스
+ * @author J.K.CHOI
+ * @version
+ * @since 2015. 7. 6. 오후 7:33:23
+ * @see
+ * @History
+ * Date			|	author	| 변경 내용
+ * 2015. 7. 6.	|	J.K.CHOI	|신규
+ * @비고
+ * </pre>
+ */
+@Service
+public class AdminUserServiceImpl extends AdminReferServiceImpl implements AdminUserService {
+
+	// --------------------------------------------------------------------------
+	// # Log 설정
+	// --------------------------------------------------------------------------
+	private static final Logger logger = LoggerFactory.getLogger(AdminUserServiceImpl.class);
+	
+	// --------------------------------------------------------------------------
+	// # DAO 설정
+	// --------------------------------------------------------------------------
+	@Resource(name="adminUserDao")
+	private AdminUserDao adminUserDao;
+	
+	/**
+	 * <pre>
+	 * 리스트 조회
+	 * 
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 8. 오후 2:03:43
+	 * @author J.K.CHOI
+	 * @see @see com.ssocio.sharing.service.admin.AdminUserService#selectListUser(java.util.Map)
+	 * @비고
+	 * 
+	 * </pre>
+	 */
+	@Override
+	public ModelMap selectListUser(Map<String, Object> inParam) throws Exception{
+		ModelMap mm = new ModelMap();
+		try {
+			
+			//조회조건 기간 처리 start
+			String today = StringUtil.getCurrentDate();
+			inParam.put("S_END_DATE", StringUtil.nvl((String)inParam.get("S_END_DATE"), today));
+			SimpleDateFormat format = new SimpleDateFormat("yyyyMMdd");
+			Calendar cal = Calendar.getInstance();
+			cal.add(Calendar.DATE, -7);
+			inParam.put("S_START_DATE", StringUtil.nvl((String)inParam.get("S_START_DATE"), format.format(cal.getTime())));
+			//조회조건 기간 처리 end
+			
+			
+			inParam.put("PAGE_NO", StringUtil.nvl((String)inParam.get("PAGE_NO"), "1"));
+			int nowPage = StringUtil.nvlInt((String)inParam.get("PAGE_NO"), 1);
+			int rowTotal = adminUserDao.selectListUserCount(inParam);
+			
+			PageNavigation pageNav= new PageNavigation(nowPage, rowTotal, CmmnCnst.ADM_LIST_SIZE, CmmnCnst.ADM_BLOCK_SIZE );
+			mm.put("PAGE_NO", nowPage);
+			mm.put("pageNav", pageNav);
+		    inParam.put("START_ROW"	,pageNav.getStartRow());
+		    inParam.put("END_ROW"	,pageNav.getEndRow());
+
+			LoggerUtil.writeMap(inParam);
+			mm.put("selectListUser",adminUserDao.selectListUser(inParam));
+			mm.put("params"	   ,inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+	
+	/**
+	 * <pre>
+	 * 메뉴 리스트 조회
+	 * 
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 8. 오후 2:03:43
+	 * @author J.K.CHOI
+	 * @see @see com.ssocio.sharing.service.admin.AdminUserService#selectListUser(java.util.Map)
+	 * @비고
+	 * 
+	 * </pre>
+	 */
+	@Override
+	public ModelMap selectListMenu(Map<String, Object> inParam) throws Exception{
+		ModelMap mm = new ModelMap();
+		try {
+			LoggerUtil.writeMap(inParam);
+			mm.put("selectListMenu",adminUserDao.selectListMenu(inParam));
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+	
+	/**
+	 * <pre>
+	 * 상세 조회
+	 * 
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 8. 오후 4:24:44
+	 * @author J.K.CHOI
+	 * @see @see com.ssocio.sharing.service.admin.AdminUserService#selectUser(java.util.Map)
+	 * @비고
+	 * 
+	 * </pre>
+	 */
+	@Override
+	public ModelMap selectUser(Map<String, Object> inParam) throws Exception{
+		ModelMap mm = new ModelMap();
+		try {
+			mm.put("selectUser",adminUserDao.selectUser(inParam));
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+	/**
+	 * <pre>
+	 * 등록
+	 * 
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 8. 오후 3:21:24
+	 * @author J.K.CHOI
+	 * @see @see com.ssocio.sharing.service.admin.AdminUserService#insertUserReg(java.util.Map)
+	 * @비고
+	 * 
+	 * </pre>
+	 */
+	@Override
+	public int insertUserReg(Map<String, Object> inParam) throws Exception {
+		int outParam = 0;
+		try {
+			inParam.put("HP", inParam.get("TEL"));							//핸드폰번호
+			inParam.put("ADM_GB", "1");										//권한코드
+			inParam.put("RM", "");											//비고
+			inParam.put("ADM_PSSWD", CommonUtil.getEncPassword("ssocio1234"));	//초기 비밀번호 암호화
+			LoggerUtil.writeMap(inParam);
+			outParam = adminUserDao.insertUserReg(inParam);					//유저정보 등록
+			
+			//권한정보 SET
+			inParam.put("MENU_CD", "");							//메뉴코드
+			inParam.put("DEL_YN", "N");							//삭제여부
+			String[] MENU_CD_AR = inParam.get("MENU_CD_AR").toString().split(",");
+			for(int i = 0; i < MENU_CD_AR.length; i++){
+				inParam.put("MENU_CD", MENU_CD_AR[i]);
+				outParam = adminUserDao.insertMenuAuth(inParam);	//메뉴권한 등록
+			}
+		}catch (Exception e) {
+			throw e;
+		}
+		return outParam;
+	}
+	
+	/**
+	 * <pre>
+	 * 수정
+	 * 
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 8. 오후 3:33:26
+	 * @author J.K.CHOI
+	 * @see @see com.ssocio.sharing.service.admin.AdminUserService#updateUserReg(java.util.Map)
+	 * @비고
+	 * 
+	 * </pre>
+	 */
+	@Override
+	public int updateUserReg(Map<String, Object> inParam) throws Exception {
+		int outParam = 0;
+		try {
+			inParam.put("HP", inParam.get("TEL"));				//핸드폰번호
+			inParam.put("ADM_GB", "1");							//권한코드
+			inParam.put("RM", "");								//비고
+			inParam.put("WORK_GB", "");							//작업구분
+
+			LoggerUtil.writeMap(inParam);
+			
+			outParam = adminUserDao.updateUserReg(inParam);		//유저정보 수정
+			
+			if("Y".equals((String)inParam.get("MY_ADM_ID_YN"))){
+				inParam.put("MENU_CD", "");							//메뉴코드 초기
+				inParam.put("DEL_YN", "N");							//삭제여부 초기
+			}
+			outParam = adminUserDao.insertUserHistReg(inParam);	//유저 히스토리 등록
+			
+			
+			if(!"Y".equals((String)inParam.get("MY_ADM_ID_YN"))){
+				outParam = adminUserDao.deleteMenuAuth(inParam);	//메뉴권한 삭제
+				
+				//권한정보 SET
+				inParam.put("MENU_CD", "");							//메뉴코드
+				inParam.put("DEL_YN", "N");							//삭제여부
+				String[] MENU_CD_AR = inParam.get("MENU_CD_AR").toString().split(",");
+				for(int i = 0; i < MENU_CD_AR.length; i++){
+					inParam.put("MENU_CD", MENU_CD_AR[i]);
+					outParam = adminUserDao.insertMenuAuth(inParam);	//메뉴권한 등록
+				}
+			}
+		
+			
+			
+		}catch (Exception e) {
+			throw e;
+		}
+		return outParam;
+	}
+	
+	
+	
+	public int updateHeaderUserReg(Map<String, Object> inParam) throws Exception {
+		int outParam = 0;
+		try {
+			inParam.put("HP", inParam.get("TEL"));				//핸드폰번호
+			inParam.put("WORK_GB", "");							//작업구분
+			inParam.put("ADM_PSSWD", CommonUtil.getEncPassword(inParam.get("ADM_PSSWD").toString()));	//비밀번호 암호화 
+			
+			
+			LoggerUtil.writeMap(inParam);
+			
+			
+			
+			outParam = adminUserDao.updateHeaderUserReg(inParam);		//유저정보 수정
+			
+		
+				inParam.put("MENU_CD", "");							//메뉴코드 초기
+				inParam.put("DEL_YN", "N");							//삭제여부 초기
+			
+			
+			try {
+				adminUserDao.insertUserHistReg(inParam);	//유저 히스토리 등록
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		
+			
+			
+		
+			
+		}catch (Exception e) {
+			throw e;
+		}
+		return outParam;
+	}
+	
+	/**
+	 * <pre>
+	 * 비밀번호 수정
+	 * 
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 8. 오후 3:33:26
+	 * @author J.K.CHOI
+	 * @see @see com.ssocio.sharing.service.admin.AdminUserService#updateUserPwReg(java.util.Map)
+	 * @비고
+	 * 
+	 * </pre>
+	 */
+	@Override
+	public int updateUserPwReg(HttpServletRequest request, Map<String, Object> inParam) throws Exception {
+		int outParam = 0;
+		HttpSession session = request.getSession();
+		AdminSession sessionVO = (AdminSession)session.getAttribute("manager");
+		try {
+			if("Y".equals(inParam.get("initPw"))){
+				inParam.put("ADM_PSSWD", "ssocio1234");			//비밀번호 초기화 일경우
+			}else{
+				//비밀번호 변경화면에서 비번변경처리 로직 구현.
+				//ADM_ID 세션값 받아서 파라미터로 넘겨줘야 함.
+				inParam.put("ADM_ID", sessionVO.getADM_ID());	
+			}
+			inParam.put("WORK_GB", "");																//작업구분
+			inParam.put("MENU_CD", "");																//메뉴코드
+			inParam.put("ADM_PSSWD", CommonUtil.getEncPassword(inParam.get("ADM_PSSWD").toString()));	//비밀번호 암호화 
+			LoggerUtil.writeMap(inParam);
+			outParam = adminUserDao.updateUserPwReg(inParam);										//비밀번호 수정
+			outParam = adminUserDao.insertUserHistReg(inParam);										//유저 히스토리 등록
+		}catch (Exception e) {
+			throw e;
+		}
+		return outParam;
+	}
+	
+	/**
+	 * <pre>
+	 * 유저정보 삭제(관련 메뉴권한 삭제)
+	 * 
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 8. 오후 3:21:24
+	 * @author J.K.CHOI
+	 * @see @see com.ssocio.sharing.service.admin.AdminUserService#deleteUser(java.util.Map)
+	 * @비고
+	 * 
+	 * </pre>
+	 */
+	@Override
+	public int deleteUser(Map<String, Object> inParam) throws Exception {
+		int outParam = 0;
+		try {
+			outParam = adminUserDao.deleteMenuAuth(inParam);				//메뉴권한 삭제
+			outParam = adminUserDao.deleteUser(inParam);					//유저정보 삭제
+			
+		}catch (Exception e) {
+			throw e;
+		}
+		return outParam;
+	}
+	
+	/**
+	 * <pre>
+	 * 현재비밀번호 검사
+	 * 
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 10. 오후 3:21:24
+	 * @author J.K.CHOI
+	 * @see @see com.ssocio.sharing.service.admin.AdminUserService#selectPwdChk(java.util.Map)
+	 * @비고
+	 * 
+	 * </pre>
+	 */
+	@Override
+	public int selectPwdChk(Map<String, Object> inParam) throws Exception {
+		int outParam = 0;
+		try {
+			inParam.put("ADM_PSSWD", CommonUtil.getEncPassword(inParam.get("ADM_PSSWD").toString()));	//비밀번호 암호화 
+			outParam = adminUserDao.selectPwdChk(inParam);												//해당 아이디, 비밀번호 ROW수 
+			
+		}catch (Exception e) {
+			throw e;
+		}
+		return outParam;
+	}
+}

@@ -1,0 +1,687 @@
+package com.ssocio.sharing.controller.mobile;
+
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.Enumeration;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.regex.Pattern;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
+import javax.sound.sampled.Port;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.ModelMap;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.servlet.ModelAndView;
+
+import com.google.gson.Gson;
+import com.ssocio.sharing.cmmn.util.CmmnCnst;
+import com.ssocio.sharing.cmmn.util.LoggerUtil;
+import com.ssocio.sharing.cmmn.util.PaymentUtil;
+import com.ssocio.sharing.service.web.MobilePaymentService;
+import com.ssocio.sharing.vo.web.KCredit;
+import com.ssocio.sharing.vo.web.SetlInfo;
+
+
+
+@Controller
+public class MobileKCreditController extends MobileReferController {
+	
+	public static boolean isEmail(String email) {
+        if (email==null) return false;
+        boolean b = Pattern.matches("[\\w\\~\\-\\.]+@[\\w\\~\\-]+(\\.[\\w\\~\\-]+)+",email.trim());
+        return b;
+    }
+	// --------------------------------------------------------------------------
+	// # Log 설정
+	// --------------------------------------------------------------------------
+	private static final Logger logger = LoggerFactory.getLogger(MobileKCreditController.class);
+	
+
+	// --------------------------------------------------------------------------
+	// # Service 설정
+	// --------------------------------------------------------------------------
+	@Autowired
+	private MobilePaymentService mobilePaymentService;
+
+	/**
+	* <pre>
+	* 1. 메소드명 : kcreditOrder
+	* 2. 작성일 : 2015. 9. 11. 오후 7:59:41
+	* 3. 작성자 : guitarhyo
+	* 4. 설명 : 신용카드 입력 페이지
+	* </pre>
+	* @param request
+	* @param response
+	* @param inParam
+	* @return
+	* @throws Exception
+	*/
+	@RequestMapping("/mobile/kcredit/Order.do")
+	public ModelAndView kcreditOrder(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception	{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("Order START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+		ModelAndView mw = new ModelAndView("web/kcredit/Order");
+		
+		String TargetURL = (String)request.getAttribute("INIT_URL") + "/mobile/kcredit/CPCGI.do";
+		logger.debug(" TargetURL : " + TargetURL);
+		
+//		mobileKcreditService.selectDaoTest(inParam);
+		
+//		mw.addObject("MBER_PHONE",inParam.get("MBER_PHONE"));		
+
+		return mw;
+	}
+	
+ 
+	
+	/**
+	* <pre>
+	* 1. 메소드명 : kcreditReady
+	* 2. 작성일 : 2015. 9. 11. 오후 7:59:41
+	* 3. 작성자 : guitarhyo
+	* 4. 설명 : 상품 정보 가져와서 다날 호출
+	* </pre>
+	* @param request
+	* @param response
+	* @param inParam
+	* @return
+	* @throws Exception
+	*/
+	@RequestMapping(value="/mobile/kcredit/Ready.do")
+	public ModelAndView kcreditReady(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam,HttpSession session
+			
+			) throws Exception	{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("Ready START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		
+		
+
+
+		LoggerUtil.writeMap(inParam);
+		
+		String ordCd = (String) inParam.get("ORD_CD");
+		int totAmt = mobilePaymentService.selectOrdInfo(ordCd);
+		
+		
+		
+		KCredit kCredit = new KCredit();
+		/*[ 필수 데이터 ]***************************************/
+		Map<String, Object> REQ_DATA = new HashMap<String, Object>();
+		Map<String, Object> CREDIT_DATA = new HashMap<String, Object>();
+		Map<String, Object> RES_DATA = null;
+		
+
+		/******************************************************
+		 *  TargetURL : CPCGI페이지의 Full URL을 넣어주세요
+		 *  BackURL :  BackURL페이지의 Full URL을 넣어주세요
+		 ******************************************************/
+
+
+		String TargetURL = (String)request.getAttribute("INIT_URL") + "/mobile/kcredit/CPCGI.do";		//			
+		
+		logger.debug("TargetURL : " + TargetURL);
+		
+		String BackURL = (String)inParam.get("BACK_URL");
+		String NextURL = (String)inParam.get("NEXT_URL");
+		String buyr_name = (String)inParam.get("BUYR_MAIL");
+		String NM_ITEM = (String)inParam.get("NM_ITEM");
+
+		String buiyerMail = (String)inParam.get("BUYR_MAIL");
+		
+		if(!isEmail(buiyerMail)){
+			buiyerMail = "";
+		}
+
+		BackURL = (String)request.getAttribute("INIT_URL") + "/mobile/kcredit/Cancel.do";		//
+		
+		/******************************************************
+		 *  COMMAND : CARD_AUTH		※ 고정값(변경하지마세요)
+		 ******************************************************/
+		REQ_DATA.put("COMMAND", "CARD_AUTH");
+
+
+		/******************************************************
+		 *  ID, PWD : 다날에서 제공해 드린 CPID, CPPWD
+		 ******************************************************/
+		REQ_DATA.put("ID_MERCHANT", kCredit.getID_MERCHANT());
+		REQ_DATA.put("PW_MERCHANT", kCredit.getPW_MERCHANT());
+
+		
+		 /******************************************************
+		 *  AMT_PAY : 결제 금액
+		 *  실제 상품금액 처리 시에는 Session 혹은 DB를 이용해 처리하여 주십시오.
+		 *  금액 처리 시 POST/GET 사용 시 금액변조의 위험이 있습니다.
+		 ******************************************************/
+		REQ_DATA.put("AMT_PAY", totAmt);
+		
+
+		/*[ 권장 사항 ]****************************************/
+		/******************************************************
+		 * CP_NAME : 가맹점명(EUC-KR)
+		 * buyr_name : 주문자명(EUC-KR)
+		 * buyr_mail : 주문자 이메일
+		 * buyr_tel1 : 주문자 전화번호
+		 * buyr_tel2 : 주문자 휴대폰번호
+		 ******************************************************/
+ 
+		CREDIT_DATA.put("CP_NAME"	, CmmnCnst.CP_NAME);
+		CREDIT_DATA.put("buyr_name"	,    buyr_name);
+		CREDIT_DATA.put("buyr_mail"	, buiyerMail);
+		CREDIT_DATA.put("buyr_tel1"	, (String)inParam.get("BUYR_TEL1"));
+
+		
+		/*[ 선택 사항 ]****************************************/
+		/******************************************************
+		 * NM_ITEM	 : 상품명(특수문자 사용불가, EUC-KR)
+		 * ID_ORDER	 : CP의 주문번호
+		 * USED_CARD : 카드사 설정 ( Ex> CCBC:CCKM ) 
+		 ******************************************************/
+
+
+		REQ_DATA.put("NM_ITEM"	,  NM_ITEM );	
+		
+		
+		REQ_DATA.put("ID_ORDER"	, ordCd);
+
+
+
+		logger.info("[ready][request]"+new Gson().toJson(REQ_DATA));
+		RES_DATA = kCredit.CallCredit(REQ_DATA);
+		logger.info("[ready][response]"+ new Gson().toJson(RES_DATA));
+		
+		
+		String schem = "";
+		String session1 = (String) request.getSession().getAttribute("APP");	// SSOCIO 면 app
+		if(session1 != null && session1.equals("SSOCIO")){
+		
+			String userAgent = request.getHeader("user-agent");			
+			if(userAgent.matches(".*BlackBerry.*")) {
+			} else if(userAgent.matches(".*Android.*")) {
+				schem = "danalssocio://";
+			} else if(userAgent.matches(".*iPhone.*") || userAgent.matches(".*iPad.*")) {
+				schem = "danalssocio://";
+			} else {
+				// pc
+			}
+			
+		} else {
+			
+		}
+
+		
+		
+		
+		
+		if ( "0000".equals(RES_DATA.get("RETURNCODE"))){
+			String[] exclusion = new String[] {"RETURNCODE","RETURNMSG","COMMAND", "ID_MERCHANT", "PW_MERCHANT"};
+			String inputStr = kCredit.MakeFormInput(RES_DATA, exclusion);
+		
+			String inputStr3 = kCredit.MakeFormInput(CREDIT_DATA, null);
+			ModelMap modelMap = new ModelMap();
+			
+			
+			modelMap.put("appurl", schem);
+			modelMap.put("inputStr", inputStr);
+			modelMap.put("inputStr3", inputStr3);
+			modelMap.put("TargetURL", TargetURL);
+			modelMap.put("BackURL", BackURL);
+			
+			modelMap.put("NM_ITEM",NM_ITEM);
+			modelMap.put("ID_ORDER",  ordCd);
+
+			logger.debug("===== modelMap =====");
+			LoggerUtil.writeMap(modelMap);
+			
+			return  new ModelAndView("web/kcredit/Ready",modelMap);
+		} else {
+			String RETURNCODE 	= (String)RES_DATA.get("RETURNCODE");
+			String RETURNMSG 	= (String)RES_DATA.get("RETURNMSG");
+			logger.debug("cancel : "+ RETURNMSG);
+			logger.debug("RETURNCODE : "+ RETURNCODE);
+		
+			ModelMap modelMap = new ModelMap();
+			
+			modelMap.put("RLT_CD", RETURNCODE);
+			modelMap.put("RLT_MSG", RETURNMSG);
+			modelMap.put("BackURL", BackURL);
+			modelMap.put("NextURL", NextURL);
+			return  new ModelAndView("web/danal/paymentErrPopup",modelMap);
+		}
+
+
+		
+	}
+	
+	/**
+	* <pre>
+	* 1. 메소드명 : kcreditCPCGI
+	* 2. 작성일 : 2015. 9. 11. 오후 9:52:55
+	* 3. 작성자 : guitarhyo
+	* 4. 설명 : 
+	* </pre>
+	* @param request
+	* @param response
+	* @param inParam
+	* @return
+	* @throws Exception
+	*/
+	@RequestMapping(value="/mobile/kcredit/CPCGI.do")
+	public ModelAndView kcreditCPCGI(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception	{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("kcredit CPCGI START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		
+
+		
+		ModelMap modelMap = new ModelMap();
+		
+		LoggerUtil.writeMap(inParam);
+		KCredit kCredit = new KCredit();
+		/*[ 필수 데이터 ]***************************************/
+		Map<String, Object> REQ_DATA = new HashMap<String, Object>();
+		Map<String, Object> RES_DATA = null;
+		
+	    /******************************************************
+		 *  COMMAND : CARD_BILL		※ 고정값(변경하지마세요)
+		 ******************************************************/
+		REQ_DATA.put("COMMAND", "CARD_BILL");
+
+
+		/******************************************************
+		 *  ID, PWD : 다날에서 제공해 드린 CPID, CPPWD 
+		 ******************************************************/		
+		REQ_DATA.put("ID_MERCHANT", kCredit.getID_MERCHANT());
+		REQ_DATA.put("PW_MERCHANT", kCredit.getPW_MERCHANT());
+
+
+		
+		/******************************************************
+		 *  TID			: 거래 Unique Key
+		 *  AMT_PAY		: 결제 금액
+		 *		- AMOUNT의 값을 이전 페이지에서 받아올 경우(Request.Form) 사용자 조작의 위험이 있습니다. 
+		 *		- AMOUNT 설정 시, 다른 방법을 이용해 주시기 바랍니다.
+		 *  CD_TRAN		: 요청 구분
+		 *  ENC_DATA	: 암호화 데이터
+		 *  ENC_INFO	: 암호화 데이터
+		 ******************************************************/
+		REQ_DATA.put("TID", request.getParameter("TID"));
+		REQ_DATA.put("AMT_PAY", request.getParameter("AMT_PAY"));
+		REQ_DATA.put("CD_TRAN", request.getParameter("tran_cd"));
+		REQ_DATA.put("ENC_DATA", request.getParameter("enc_data"));
+		REQ_DATA.put("ENC_INFO", request.getParameter("enc_info"));
+		
+		/*[ 선택 사항 ]****************************************/
+		/******************************************************
+		 *  NM_USER		: 구매자 이름
+		 *  TEL_USER	: 구매자 전화번호
+		 *  HP_USER		: 구매자 휴대폰번호
+		 *  ADDR_USER	: 구매자 주소
+		 ******************************************************/		
+		REQ_DATA.put("NM_USER", kCredit.toEuckr(request.getParameter("buyr_name")));
+		REQ_DATA.put("TEL_USER", request.getParameter("buyr_tel1"));
+		REQ_DATA.put("HP_USER", request.getParameter("buyr_tel2"));
+		REQ_DATA.put("ADDR_USER", request.getParameter("buyr_mail"));
+		
+		logger.info("[cpcgi][request]"+ new Gson().toJson(REQ_DATA));
+		RES_DATA = kCredit.CallCredit(REQ_DATA);
+		logger.info("[ready][response]"+ new Gson().toJson(RES_DATA));
+
+		/******************************************************
+		 * [ 응답값 ] 
+		 *  RETURNCODE	: 결과코드
+		 *  RETURNMSG	: 결과메세지(실패 시)
+		 *  TID			: 거래 번호
+		 *  AMT_PAY		: 결제 금액
+		 *  NM_CARD		: 카드 이름
+		 *  NUM_CARD	: 카드 번호
+		 *  DT_APP		: 승인 일시
+		 *  NUM_APP		: 승인 번호
+		 *  NOINF		: 무이자여부
+		 *  QUOTA		: 할부 개월
+		 ******************************************************/	
+
+		 if ( "0000".equals(RES_DATA.get("RETURNCODE"))){
+			String inputStr1 = kCredit.MakeFormInputHTTP(request.getParameterMap(), null);
+			String inputStr2 = kCredit.MakeFormInput(RES_DATA, null);
+			
+			RES_DATA.remove("RETURNMSG");
+			RES_DATA.put("RETURNMSG","success");
+			
+			logger.debug("inputStr1 : " + inputStr1);
+			logger.debug("inputStr2 : " + inputStr2);
+			
+			
+			
+			
+			/*  결제 완료
+			*
+			*  이 부분에서 RES_DATA.get("AMT_PAY") 와 CP의 DB에 저장된 상품의 가격을 
+			*  반드시 비교하여 주시기 바랍니다.
+			*******************************************************
+			*  if ( RES_DATA.get("AMT_PAY") != AmountofCP )
+			*  	 out.print "정상적인 결제 건이 아닙니다."    
+			*	//컨텐츠 미제공 및 취소 처리
+			*******************************************************/
+			
+			
+			
+			
+			SetlInfo ordVo = new SetlInfo();
+
+			ordVo.setOrdCd((String) request.getParameter("ID_ORDER"));
+
+			ordVo.setTrdGbCd("10");
+			ordVo.setTrdNo((String)RES_DATA.get("TID"));
+			ordVo.setTrdAmt( Integer.parseInt((String)RES_DATA.get("AMT_PAY")) );
+			ordVo.setApprDt((String) RES_DATA.get("DT_APP"));
+			ordVo.setApprNo((String) RES_DATA.get("NUM_APP"));
+			ordVo.setFreeIntYn((String) RES_DATA.get("NOINF"));
+			ordVo.setEasyTerm(  Integer.parseInt((String)RES_DATA.get("QUOTA")) );
+			ordVo.setRltCd((String) RES_DATA.get("RETURNCODE") );
+			ordVo.setRltMsg((String) RES_DATA.get("RETURNMSG") );
+			ordVo.setSeltNm((String) inParam.get("buyr_name") );
+			ordVo.setCardCompNm((String) RES_DATA.get("NM_CARD") );
+			ordVo.setCardNo((String) RES_DATA.get("NUM_CARD") );
+			ordVo.setPayApplyDay((String) RES_DATA.get("DT_APP"));
+			logger.debug("ordVo : " + ordVo.toString());
+			
+
+			
+			
+			// 1. 결제금액 확인
+			int totAmt = mobilePaymentService.selectOrdInfo(ordVo.getOrdCd());
+			logger.debug((String)RES_DATA.get("AMT_PAY"));
+			
+			if (   Integer.parseInt((String)RES_DATA.get("AMT_PAY")) != totAmt ){
+				
+				modelMap.put("RLT_CD", "XXXX");
+				modelMap.put("RLT_MSG", "정상적인 결제 건이 아닙니다.");
+				return  new ModelAndView("web/danal/paymentErrPopup",modelMap);
+			}
+			
+			
+			
+			
+			try{
+				/* 	
+				  	1. 주문정보 insert (ORD_SETL_INFO)
+				 	2. 주문정보 update (ORD_INFO)
+				 	3. 주문정보 update (ORD_PROD_INFO)
+				 	3. 포인트 사용내역 insert (POINT_USE_LOG)
+				 	4. 포인트 사용내역 update (MBER_INFO)
+				 */ 
+				mobilePaymentService.insertSetlInfo(ordVo);
+			} catch (Exception e ){
+				e.printStackTrace();
+				logger.error(e.toString());
+				logger.error("결제처리중 에러가 발생하여 결제 취소 처리 합니다.");
+				PaymentUtil.kCreditTradeCancelAll(ordVo.getTrdNo());
+				
+				modelMap.put("RLT_CD", "XXXX");
+				modelMap.put("RLT_MSG", "정상적인 결제 건이 아닙니다.<br>결제 취소 처리 되었습니다.");
+				return  new ModelAndView("web/danal/paymentErrPopup",modelMap);
+				
+			}
+			
+					
+			
+			
+			
+
+
+			modelMap.put("inputStr1", inputStr1);
+			modelMap.put("inputStr2", inputStr2);
+			return  new ModelAndView("web/kcredit/CPCGI",modelMap);
+		 }else{
+				String RETURNCODE = (String)RES_DATA.get("RETURNCODE");
+				String RETURNMSG = (String)RES_DATA.get("RETURNMSG");
+				String BackURL	= (String)request.getParameter("BackURL"); 
+				
+				BackURL = "javascript:parent." +  BackURL + "()";//				BackURL = "javascript:window.close();";
+				
+				
+				modelMap.put("RLT_CD", RETURNCODE);
+				modelMap.put("RLT_MSG", RETURNMSG);
+				modelMap.put("BackURL", BackURL);
+				
+				return  new ModelAndView("web/danal/paymentErrPopup",modelMap);
+		 }
+
+	}
+	
+	
+	/**
+	* <pre>
+	* 1. 메소드명 : kcreditOrder
+	* 2. 작성일 : 2015. 9. 11. 오후 7:59:41
+	* 3. 작성자 : guitarhyo
+	* 4. 설명 : 신용카드 Success 페이지
+	* </pre>
+	* @param request
+	* @param response
+	* @param inParam
+	* @return
+	* @throws Exception
+	*/
+	@RequestMapping("/mobile/kcredit/Success.do")
+	public ModelAndView kcreditSuccess(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception	{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("Success START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+
+		ModelMap modelMap = new ModelMap();
+		
+
+		
+		String retCd = request.getParameter("RETURNCODE");
+		String retMsg = request.getParameter("RETURNMSG");
+		
+		if(retCd.equals("0000")) retMsg = "success";
+		
+		
+		
+		
+		modelMap.put("ORD_CD"	, request.getParameter("ID_ORDER"));				// 주문 번호
+		modelMap.put("TRD_GB_CD"	, 10);											// 10 = 결제
+		modelMap.put("TRD_NO"		, request.getParameter("TID"));					// 거래 번호
+		modelMap.put("TRD_AMT"		, request.getParameter("AMT_PAY") );			// 거래 금액
+		modelMap.put("APPR_DT"		, request.getParameter("DT_APP"));				// 승인 일시
+		modelMap.put("APPR_NO"		, request.getParameter("NUM_APP"));				// 승인 번호
+		modelMap.put("FREE_INT_YN"	, request.getParameter("NOINF"));				// 무이자 여부
+		modelMap.put("EASY_TERM"	, Integer.parseInt(request.getParameter("QUOTA")));				// 할부 개월수
+		modelMap.put("RLT_CD"		,  retCd);			// 결과코드
+		modelMap.put("RLT_MSG"		, retMsg);			// 결과메세지
+		modelMap.put("SETL_NM"		, request.getParameter("buyr_name"));			// 결제자
+		modelMap.put("CARD_COMP_NM"	, request.getParameter("NM_CARD"));				// 결제 카드 명
+		modelMap.put("CARD_NO"		, request.getParameter("NUM_CARD"));			// 결제 카드 번호
+		modelMap.put("PAY_APPLY_DAY"	, request.getParameter("DT_APP"));			// 결제일
+		modelMap.put("NEXTURL"	, request.getParameter("NEXTURL"));					// 결제일
+		
+		
+		
+		
+
+
+		logger.info("[success][modelmap]"+new Gson().toJson(modelMap));
+
+		return  new ModelAndView("web/kcredit/Success",modelMap);
+
+	}
+	
+	
+
+	/**
+	 * 취소 페이지
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 */
+	@RequestMapping("/mobile/kcredit/Cancel.do")
+	public ModelAndView kcreditCancel(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception	{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("Cancel START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+
+		ModelMap modelMap = new ModelMap();
+		
+		
+
+
+		return  new ModelAndView("web/kcredit/Cancel",modelMap);
+
+	}
+	
+
+	/**
+	* <pre>
+	* 1. 메소드명 : kCreditTradeCancel
+	* 2. 작성일 : 2015. 9. 11. 오후 7:59:41
+	* 3. 작성자 : rocokang
+	* 4. 설명 : 신용카드 거래 취소 처리
+	* </pre>
+	* @param request
+	* @param response
+	* @param inParam
+	* @return
+	* @throws Exception
+	*/
+	@RequestMapping("/mobile/kcredit/TradeCancel.do")
+	public ModelAndView kCreditTradeCancel(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam){
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("kcreditTradeCancel START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+
+
+
+		ModelMap modelMap = new ModelMap();
+		
+		
+		Map<String, Object> REQ_DATA = new HashMap<String, Object>();
+		Map<String, Object> RES_DATA = null;
+		
+		
+		String O_TID = (String) inParam.get("O_TID");
+		String AMOUNT = (String) inParam.get("AMOUNT");
+		
+		String COMMAND = null;
+		if (AMOUNT != null && !AMOUNT.equals("") ){
+			COMMAND = "CARD_PART_CANCEL";
+		}else {
+			COMMAND = "CARD_CANCEL";
+		}
+		
+		
+		String CPID = CmmnCnst.KCREDIT_ID_MERCHANT;
+		String CPPWD = CmmnCnst.KCREDIT_PW_MERCHANT;
+		
+		REQ_DATA.put("COMMAND"	, COMMAND);
+		REQ_DATA.put("TID"	, O_TID);
+		REQ_DATA.put("ID_MERCHANT"	, CPID);
+		REQ_DATA.put("PW_MERCHANT"	, CPPWD);
+		REQ_DATA.put("MSG_CANCEL"	, "환불");
+		REQ_DATA.put("AMT_CANCEL"	, AMOUNT);
+		REQ_DATA.put("CANCELTYPE"	, "R");
+		
+		KCredit kCredit = new KCredit();
+		
+		logger.info("[cancel][request]" + new Gson().toJson(REQ_DATA));
+		RES_DATA = kCredit.CallCredit(REQ_DATA);		
+		logger.info("[cancel][response]" + new Gson().toJson(RES_DATA));
+
+		
+		// 다른 결제 파라미터와 동일하게, O_TID 로 이름 변경
+		if(RES_DATA.get("TID") != null){
+			RES_DATA.put("O_TID", RES_DATA.get("TID"));
+			RES_DATA.remove("TID");
+		}
+
+		modelMap.putAll(RES_DATA);
+		
+		return new ModelAndView("jsonView",modelMap);
+	}
+	
+	
+	/**
+	* <pre>
+	*/
+	@RequestMapping("/mobile/kcredit/dumy.do")
+	public ModelAndView kCreditdumy(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam){
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("kcreditTradeCancel START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+
+		
+		
+		List <HashMap> list = new ArrayList<HashMap>();
+		Enumeration  enum1 = request.getHeaderNames();
+		int i=0;
+		while(enum1.hasMoreElements()){
+			Object obj = enum1.nextElement();
+			String key =  String.valueOf(obj);
+			String val = request.getHeader(key);
+			logger.debug("name {} || val {} " , key, val);
+			
+			
+			HashMap <String,String> map = new HashMap <String,String>();
+			map.put("key", key);
+			map.put("val", val);
+			list.add(map);
+		}
+		
+		
+
+
+		
+
+		ModelMap modelMap= new ModelMap();
+		modelMap.put("list", list);
+		modelMap.put("list_json", new Gson().toJson(list));
+
+		return  new ModelAndView("web/kcredit/TradeCancel"  , modelMap);
+
+	}
+	
+	
+	
+
+//	public static void main(String[] args) {
+//		
+//		String tmp;
+//		try {
+//			tmp = new String("다날");
+//			byte[] encodedBytes = Base64.encodeBase64(tmp.getBytes());
+//			System.out.println(encodedBytes.toString());	// base 64 를 출력
+//			
+//			byte[] decodedBytes = Base64.decodeBase64( encodedBytes );
+//			System.out.println( new String(decodedBytes,"UTF-8") );
+//			
+//			
+//		} catch (UnsupportedEncodingException e) {
+//			// TODO Auto-generated catch block
+//			e.printStackTrace();
+//		}
+//		
+//
+//		
+//		
+//	}
+	
+}

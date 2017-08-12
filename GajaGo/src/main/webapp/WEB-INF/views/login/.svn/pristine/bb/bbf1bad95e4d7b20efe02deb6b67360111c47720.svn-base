@@ -1,0 +1,223 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/web/common/cmmnHead.jsp"%>
+<script type="text/javascript" src="/js/web/cart.js" ></script> <!-- 장바구니용 js -->
+<script type="text/javascript">
+
+	$(document).ready(function() {
+
+// 		header.type	= 6;
+		header.type	= 4;
+		header.title = "쿠폰";
+		document.title = "쿠폰";
+		header.method = "GET";
+		header.backUrl = "/mobile/myPage/getMyPageInfo.do";
+		header.callback = headerCallback; // 장바구니용 callback
+		initHeader();
+		
+
+	});
+	
+	
+	myUseCpn = function(){
+		$("#frm").attr("action", '/mobile/myInfo/selectCpnUseList.do');
+		$("#frm").submit(); 
+	};
+	
+	
+	cpnInsert = function(){
+		
+		var chkKorean = /[ㄱ-ㅎ|ㅏ-ㅣ|가-힣]/; 
+		var chkEng = /[a-z]/; 
+	//	var special = /[`~!@#$%^&amp;*|\\\'\";:\/?]/gi;
+		var special =  /[~`!@#$%^*()_\-+|{}[\].?\/]/g;
+
+		var CPN_NO = $("#CPN").val();
+		
+		
+		if(CPN_NO.length < 16){
+			alert("16자리를 입력해 주세요.");
+			$('#CPN').focus();
+			return;
+		}
+		
+		if( chkKorean.test(CPN_NO) ) {                   
+			alert("잘못된 쿠폰번호 입니다.");         
+			$('#CPN').focus();
+			return;
+		}
+		
+		if( chkEng.test(CPN_NO) ) {                   
+			alert("잘못된 쿠폰번호 입니다.");         
+			$('#CPN').focus();
+			return;
+		}
+		
+		if( special.test(CPN_NO) ) {                   
+			alert("잘못된 쿠폰번호 입니다.");      
+			$('#CPN').focus();
+			return;
+		}
+		
+		$.ajax({
+		      type: 'post'
+		      , async: true
+		      , url: '/mobile/myInfo/cpnCheck.do'
+		      , dataType:'json'
+		      , data: {"CPN_NO":CPN_NO}
+		      , before: function() {
+			        loadingForm.showDialog();
+			      }
+		      , success: function(data) {
+		    	 
+// 		    	  alert(data.result);
+		    	  
+		    	  if(data.result ==  "0000"){			
+		    		  
+		    		  alert("정상 등록되었습니다.");     
+		    		 
+    				  var url = "/mobile/myInfo/selectCpnList.do";
+    			      $("#frm").attr("action", url).attr("target", "").submit();	
+	    			  frm.action = url;
+	    			  frm.submit();	
+	    			  
+		    	  }else if(data.result ==  "0001"){	    		
+		    		  alert("존재하지 않거나 발급 중지된 쿠폰입니다.");     
+		    		  $("#CPN").focus();
+		    	  }else if(data.result ==  "0002"){	    		
+		    		  alert("우효기간이 지난 쿠폰번호 입니다.");     
+		    		  $("#CPN").focus();
+		    	  }else if(data.result ==  "0003"){	    		
+		    		  alert("이미 등록된 쿠폰번호 입니다.");     
+		    		  $("#CPN").focus();
+		    	  }else{
+		    		  alert("알수없는 오류가 발생했습니다.");
+		    		  $("#CPN").focus();
+		    	  }
+		    	  
+		    	  
+		      }	      
+		      , complete: function() {
+			        loadingForm.hideDialog();
+			      }
+		     
+		      , error : function(request, status, error) {
+					alert("통신 오류가 발생 하였습니다. 잠시 후 다시 시도해 주세요");
+				}
+		    }); 
+
+
+				
+		
+	};
+  	
+ 
+</script>
+ 
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+		<div class="roc">
+			<ul class="inner">
+				<li><img src="http://static.ssocio.net/pc/img/common/section/roc_home.png" alt="홈"></li>
+				<li>마이페이지</li>
+				<li>쿠폰</li>
+			</ul>
+		</div>
+		<jsp:include page="../common/mype_top.jsp" flush="false" />
+		<div class="mype_s_tit">
+			<p>쿠폰</p>
+		</div>
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+		<div id="">
+		
+			<!-- container -->
+			<div id="container">
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>
+
+    	<ul class="tab">
+        	<li class="on"><a href="#">사용가능</a></li>
+        	<li><a href="javascript:myUseCpn();">사용완료/지난쿠폰</a></li>
+        </ul>
+        
+<form id="frm" name="form" method="get" action="">
+		<div class="content">			
+			<p class="cupon_no"><input type="text" id="CPN" name="CPN" maxlength="16" placeholder="쿠폰번호를 입력해 주세요"> <a href="javascript:cpnInsert();">등록</a></p>
+			<c:choose>
+				<c:when test="${fn:length(list.cpnList)>0}">		
+											
+						
+		        		<ol class="list cupon">
+		        			<c:forEach var="list" items="${list.cpnList}" varStatus="status">
+		        				<c:choose>
+		        					<c:when test="${list.CPN_GB_CD == '20'}">		
+		        						<li class="type02">
+						                    <a href="#">
+						                        <p class="title small">배송비 무료</p>
+						                        <p class="info">${list.PROD_PRCE}원 이상 구매 시</p>
+						                        <p class="data">${list.END_YYYY}.${list.END_MM}.${list.END_DD}까지</p>
+						                    </a>
+	               						 </li>
+		        					</c:when>
+		        					<c:otherwise>
+		        						<c:if test="${list.BNFIT_CHK == 'A'}">
+		        							<li class="type01">
+							                    <a href="#">
+							                        <p class="title medium">${list.BNFIT_DSCNT_PRCE} <span>원</span></p>
+							                        <p class="info">${list.PROD_PRCE}원 이상 구매 시</p>
+							                        <p class="data">${list.END_YYYY}.${list.END_MM}.${list.END_DD}까지</p>
+							                    </a>
+							                </li>
+		        						</c:if>
+		        						<c:if test="${list.BNFIT_CHK == 'B'}">
+		        							<li class="type01">
+							                    <a href="#">
+							                        <p class="title large">${list.BNFIT_DSCNT_RATE} <span>%</span></p>
+							                        <p class="info">${list.PROD_PRCE}원 이상 구매 시 최대${list.BNFIT_MAX_DSCNT_PRCE}</p>
+							                        <p class="data">${list.END_YYYY}.${list.END_MM}.${list.END_DD}까지</p>
+							                    </a>
+		               						 </li>	
+		        						</c:if>
+		        					</c:otherwise>	
+		        				</c:choose>
+		        							
+		         	 		</c:forEach>			
+		         	 		
+		         	   </ol>
+		         					  					
+				</c:when>
+				<c:otherwise>
+					 <div class="sha_nodata">
+					 	<p>사용 가능한 할인쿠폰이 없습니다.</p>
+			        </div>
+				</c:otherwise>
+			</c:choose>
+		
+		
+		</div> 
+ 	
+</form>			
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+		<jsp:include page="../common/mype_bottom.jsp" flush="false" />
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+		    </div>
+		    <!-- //container -->
+		</div>
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>
+    
+
+ 
+    
+    

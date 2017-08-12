@@ -1,0 +1,393 @@
+<%@ page language="java" contentType="text/html; charset=utf-8"
+    pageEncoding="utf-8"%>
+<!-- 태그는 cmmnHead.jsp 에 선언함 -->
+<%@ include file="/WEB-INF/views/admin/common/cmmnHead.jsp"%>
+<script type="text/javascript" src="/js/admin/ctry/plan.js"/></script>
+<script type="text/javascript">
+
+$(function(){
+	//	Container 초기화
+	//	banner와 content는 plan.js에 선언되어 있음.
+	banner = new Container($('#id_banner_area'), 'id_tbl_banner');
+	template = new Container($('#id_template_area'), 'id_template');
+
+	$('.calendar').datepicker({
+		showOn: "button",
+		buttonImage: "http://static.ssocio.net/admin/images/ico_calendar.gif",
+		buttonImageOnly: true
+	});
+
+	//	시간, 분을 세팅함.(plan.js에 구현되어 있음)
+	setHours($('#START_HOUR'));
+	setMinutes($('#START_MINUTE'));
+
+	setHours($('#END_HOUR'));
+	setMinutes($('#END_MINUTE'));
+
+	addBanner();
+
+	//
+	$('#id_btn_save_temporary').click(function(){
+		if( readyForSubmit() ){
+			$("#PLAN_TMP_SAVE_YN").val("1");
+			$("#form").attr("action", "/admin/plan/insertPlanReg.do").submit();
+		}
+	});
+
+	$('#id_btn_preview').click(function(){
+		//popup('ad_b1110.html','기획전미리보기','640','600')
+		if( readyForSubmit() ){
+			var url = "/admin/plan/selectPlanPreview.do";
+			var width = "640";
+			var height = "600";
+			var left = screen.width;
+			var top = (screen.height/2) - (height/2);
+			window.open('', 'popupForm','width=' + width + ', height=' + height + ', screenY=' + top + ', screenX=' + left + ',toolbar=no, menubar=no, scrollbars=yes, resizeable=no');
+			$("#form").attr("action", url).attr("target", "popupForm").submit();
+		}
+	});
+
+	$('#id_btn_save').click(function(){
+		if( readyForSubmit() ){
+			$("#form").attr("action", "/admin/plan/insertPlanReg.do").submit();
+		}
+	});
+
+	$('#id_btn_cancel').click(function(){
+		location.href='/admin/plan/selectListPlan.do';
+	});
+});
+
+/**
+ *
+ * <pre>
+ * 설명 : readyForSubmit 메소드
+ * 설명 : submit 하기 전에 validating 체크를 한다.
+ * @param
+ * @date 2015. 8. 13. 오전 10:29:41
+ * @author WOOK.KIM
+ * @see
+ * </pre>
+ */
+function readyForSubmit(){
+	//if(validate($('#PLAN_TITLE'), "제목") == false ) return false;
+	if(validate($('#PLAN_NM'), "기획전명") == false ) return false;
+	if(validate($('#START_DT'), "시작일") == false ) return false;
+	if(validate($('#END_DT'), "종료일") == false ) return false;
+
+	if(validateBanner() == false) return false;
+	if(validateTemplate() == false) return false;
+
+	return true;
+}
+
+/**
+ *
+ * <pre>
+ * 설명 : validateBanner 메소드
+ * 설명 : 1. 추가 후 이미지 추가가 되 었는지 체크
+ * 설명 : 2. 서버에 전달한 json 객체 생성
+ * @param
+ * @date 2015. 8. 13. 오전 10:29:41
+ * @author WOOK.KIM
+ * @see
+ * </pre>
+ */
+function validateBanner(){
+	var bannerArr = new Array();
+	var bannerUrl = '';
+	for( var i=0; i<banner.items.length ; i++){
+		if( banner.items[i].isNew == true){
+			if( banner.items[i].isDel == false ){
+				if( validate($('#PLAN_BANNER_FILE_' + i), "배너에 들어갈 이미지 파일") == false ) return false;
+				bannerArr.push(banner.items[i]);
+			}
+		}
+		else{
+		}
+		// url 에 'http://' 추가
+		bannerUrl = $('#PLAN_BANNER_URL_'+ i).val();
+		if(bannerUrl.indexOf('http://') == -1){
+			$('#PLAN_BANNER_URL_'+ i).val('http://'+bannerUrl);
+		}
+
+	}
+
+	var json = JSON.stringify(bannerArr);
+	console.log(json);
+	$('#PLAN_BANNER_INDEXES').val(json);
+}
+
+/**
+ *
+ * <pre>
+ * 설명 : validateContent 메소드
+ * 설명 : 1. 추가 후 이미지 추가가 되 었는지 체크
+ * 설명 : 2. 서버에 전달한 json 객체 생성
+ * @param
+ * @date 2015. 8. 13. 오전 10:29:41
+ * @author WOOK.KIM
+ * @see
+ * </pre>
+ */
+function validateTemplate(){
+	var templateArr = new Array();
+	var tempUrl = '';
+	for( var i=0 ; i<template.items.length ; i++ ){
+		var item = template.items[i];
+		if( item.isDel == false){
+			if(item.type != TYPE_TPL_BANNER){
+				for(var j=0 ; j<item.contents.length ; j++){
+					// if( validate($('#PLAN_CONTENT_NO_' + i + '_' + j), "상품 번호가 없습니다.") == false ) return false;
+
+					// url 에 'http://' 추가
+					tempUrl = $('#PLAN_CONTENT_URL_' + i + '_' + j).val();
+					if(tempUrl.indexOf('http://') == -1){
+						$('#PLAN_CONTENT_URL_'+ i + '_' + j).val('http://'+tempUrl);
+					} else {
+						$('#PLAN_CONTENT_NO_' + i + '_' + j).val('');
+					}
+				}
+			}
+			templateArr.push(template.items[i]);
+		}
+
+
+	}
+
+	var json = JSON.stringify(templateArr);
+	console.log(json);
+	$('#PLAN_TEMPLATE_INDEXES').val(json);
+}
+
+/**
+ *
+ * <pre>
+ * 설명 : addBanner 메소드
+ * 설명 :
+ * @param
+ * @date 2015. 8. 13. 오전 10:29:41
+ * @author WOOK.KIM
+ * @see
+ * </pre>
+ */
+function addBanner(){
+	getItemByAjax(TYPE_BANNER, banner.items.length, 1)
+}
+
+/**
+ *
+ * <pre>
+ * 설명 : addContents 메소드
+ * 설명 :
+ * @param
+ * @date 2015. 8. 13. 오전 10:29:41
+ * @author WOOK.KIM
+ * @see
+ * </pre>
+ */
+function addTemplates(){
+	var type = parseInt($('#TEMPLATE_TYPE').val());
+	var rowNum = parseInt($('#TEMPLATE_ROWNUM').val());
+
+	if ( !type ) {
+		alert('템플릿 Type을 선택해주세요');
+		$('#TEMPLATE_TYPE').focus();
+		return false;
+	}
+
+	if ( !rowNum ) {
+		alert('필드 개수를 선택해주세요');
+		$('#TEMPLATE_TYPE').focus();
+		return false;
+	}
+
+	getItemByAjax(type, template.items.length, rowNum);
+}
+
+function movePrev(type, idx){
+	if( type == '00'){
+		moveItemPrev(banner, idx);
+	}
+	else{
+		moveItemPrev(template, idx);
+	}
+}
+
+function moveNext(type, idx){
+	if( type == '00'){
+		moveItemNext(banner, idx);
+	}
+	else{
+		moveItemNext(template, idx);
+	}
+}
+
+function setPlanPreviewCd(planCd){
+	$("#PLAN_PREVIEW_CD").val(planCd);
+}
+
+function moveBannerUrl(obj){
+	var url = $("#PLAN_BANNER_URL_"+obj).val();
+	if (url) {
+		if ( url.indexOf('http://') == -1 ) {
+			url = "http://" + url;
+		}
+	} else {
+		return false;
+	}
+	var width = "640";
+	var height = "600";
+	var left = screen.width;
+	var top = (screen.height/2) - (height/2);
+	window.open('', 'moveBannerUrl','width=' + width + ', height=' + height + ', screenY=' + top + ', screenX=' + left + ',toolbar=no, menubar=no, scrollbars=yes, resizeable=no');
+	$("#form").attr("action", url).attr("target", "moveBannerUrl").submit();
+}
+
+</script>
+</head>
+<body>
+<form name="form" id="form" method="post" enctype="multipart/form-data">
+<input type="hidden" id="PLAN_PREVIEW_CD" name="PLAN_PREVIEW_CD" value="" />
+<input type="hidden" id="PLAN_BANNER_INDEXES" name="PLAN_BANNER_INDEXES" value="" />
+<input type="hidden" id="PLAN_TEMPLATE_INDEXES" name="PLAN_TEMPLATE_INDEXES" value="" />
+<input type="hidden" id="PLAN_TMP_SAVE_YN" name="PLAN_TMP_SAVE_YN" value="" />
+<div id="content">
+	<!-- top_content -->
+	<div class="top_content">
+		<!-- location -->
+		<div class="location">
+			<ul class="clear">
+				<li class="first-child"><a href="/admin/main.do">Home</a></li>
+				<li><a href="/admin/plan/selectListPlan.do">프로모션/쿠폰</a></li>
+				<li><a href="/admin/plan/selectListPlan.do">기획전</a></li>
+				<li><a href="#" class="current">등록</a></li>
+			</ul>
+		</div>
+		<!-- //location -->
+	</div>
+	<!-- tbl -->
+	<div class="inner">
+		<div class="tbl mt20">
+			<table class="upd">
+				<colgroup>
+					<col style="width:12%" />
+					<col style="width:22%" />
+					<col style="width:12%" />
+					<col style="width:21%" />
+					<col style="width:12%" />
+					<col style="width:21%" />
+				</colgroup>
+				<tbody>
+				<!--
+					<tr id="id_tr_2">
+						<th scope="row">제목</th>
+						<td colspan="5">
+							<input type="text" id="PLAN_TITLE" name="PLAN_TITLE" value="" style="width:500px;" />
+						</td>
+					</tr> -->
+					<tr>
+						<th scope="row">기획전명</th>
+						<td colspan="5">
+							<input type="text" id="PLAN_NM" name="PLAN_NM" value="" maxlength="6" style="width:250px;" /> <span class="ml5">* 서비스에 노출되는 기획전명입니다.(기획전명은 6자리 이하로 입력해주세요.)</span>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row">쏘시오 투데이</th>
+						<td colspan="5">
+							<input type="checkbox" id="SCO_TODAY_CHECK" name="SCO_TODAY_CHECK" /> <span class="ml5">* 쏘시오 투데이 UI 적용 여부 체크 박스</span>
+						</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+		<div class="tbl mt10">
+			<table class="upd">
+				<colgroup>
+					<col style="width:15%" />
+					<col style="width:85%" />
+				</colgroup>
+				<tbody>
+					<tr>
+						<th scope="row">상단 배너이미지 설정</th>
+						<td>
+							<div id="id_banner_area">
+							</div>
+							<a href="javascript:addBanner();" class="btn_r">추가</a>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row" rowspan="2">컨텐츠 영역 설정</th>
+						<td>
+							<div id="id_template_area">
+							</div>
+							<!-- image_tbl_area -->
+						</td>
+					</tr>
+					<tr>
+						<td class="bg_type3">
+							<div class="bg_type3">
+								<span>템플릿 Type</span>
+								<span class="select" style="width:150px">
+									<span class="sel_txt"></span>
+									<select id="TEMPLATE_TYPE" name="TEMPLATE_TYPE">
+										<option value="">선택</option>
+										<option value="10">카드형</option>
+										<option value="20">대칭형</option>
+										<option value="30">배너형</option>
+									</select>
+								</span> <span class="ml5 mr5">|</span>
+								<span>필드</span>
+								<input type="text" id="TEMPLATE_ROWNUM" name="TEMPLATE_ROWNUM" style="width:150px;" />개
+								<a href="javascript:addTemplates();" class="btn_r ml10"><span>추가</span></a>
+							</div>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row">전시기간</th>
+						<td>
+							<input type="text" id="START_DT" name="START_DT" class="calendar" style="width:82px;" />
+							<span class="select" style="width:80px">
+								<span class="sel_txt"></span>
+								<select id="START_HOUR" name="START_HOUR">
+									<option value="">선택</option>
+								</select>
+							</span>
+							<span class="select" style="width:80px">
+								<span class="sel_txt"></span>
+								<select id="START_MINUTE" name="START_MINUTE">
+									<option value="">선택</option>
+								</select>
+							</span>
+							~ <input type="text" id="END_DT" name="END_DT" class="calendar" style="width:82px;" />
+							<span class="select" style="width:80px">
+								<span class="sel_txt"></span>
+								<select id="END_HOUR" name="END_HOUR">
+									<option value="">선택</option>
+								</select>
+							</span>
+							<span class="select" style="width:80px">
+								<span class="sel_txt"></span>
+								<select id="END_MINUTE" name="END_MINUTE">
+									<option value="">선택</option>
+								</select>
+							</span>
+						</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+		<!-- bot_btn -->
+		<div class="bot_btn tc mt20">
+			<a href="#" id="id_btn_save_temporary" class="btn_r">임시저장</a>
+			<a href="#" id="id_btn_preview" class="btn_r ml10" >미리보기</a>
+			<a href="#" id="id_btn_save" class="btn_r ml10">저장</a>
+			<a href="#" id="id_btn_cancel" class="btn_g2 ml10">취소</a>
+		</div>
+		<!-- //bot_btn -->
+	</div>
+</div>
+<!-- //wrap -->
+</form>
+</body>
+</html>

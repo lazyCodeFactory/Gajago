@@ -1,0 +1,344 @@
+<%@ page language="java" contentType="text/html; charset=utf-8"
+    pageEncoding="utf-8"%>
+<!-- 태그는 cmmnHead.jsp 에 선언함 -->
+<%@ include file="/WEB-INF/views/admin/common/cmmnHead.jsp"%>
+
+<script type="text/javascript">
+
+	$(document).ready(function(){
+
+		$('.calendar').datepicker({
+			showOn: "button",
+			buttonImage: "http://static.ssocio.net/admin/images/ico_calendar.gif",
+			buttonImageOnly: true
+	    });
+		
+		// 조회 email
+		$("#email").keypress( function (evt) {
+			if (evt.keyCode == 13) {
+				getCpnUse();
+			}
+		});
+		
+		// 전체선택
+		$("#chkAll").click( function () {
+			allCheck();
+		});
+		
+		$("input[name^=MBER_SEQ]").click( function (evt) {
+			chkEvent();
+		});
+	    
+	    //2015-07-16
+		fixed_tbl_height();
+	    prod_padding()	
+		
+	});
+	
+	// 전체 선택
+	function allCheck() {
+		var chk = $("#chkAll").is(":checked");
+		if (chk) {
+			$("input[name^=MBER_SEQ]").each( function (idx) {
+				$(this).attr("checked", true);
+			});
+		}
+		else {
+			$("input[name^=MBER_SEQ]").each( function (idx) {
+				$(this).attr("checked", false);
+			});
+		}
+	}
+	
+	// 전체 선택을 제외한 체크박스 선택
+	function chkEvent() {
+		var chkAllCnt = $("input[name^=MBER_SEQ]").length; 
+		var chkCnt = $("input[name^=MBER_SEQ]:checked").length;
+		
+		if (chkAllCnt == chkCnt) {
+			$("#chkAll").attr("checked", true);	
+		}
+		else {
+			$("#chkAll").attr("checked", false);
+		}
+	}
+	
+	// 조회
+	function getCpnUse() {
+		
+		// 유효성 체크
+		if (!getValidation()) {
+			return;
+		}
+		
+		$("#PAGE_NO").val("1");
+		
+		$("#S_START_DATE").val($("#S_START_DATE").val().replace(/\-/ig, ''));
+		$("#S_END_DATE").val($("#S_END_DATE").val().replace(/\-/ig, ''));
+		$("#form").attr("action","/admin/cpn/selectTotUseList.do").submit();
+		
+	}
+	
+	// 유효성
+	function getValidation() {
+		
+		var selVal = $("#dtChk option:selected").val();
+		var sDt = $("#S_START_DATE").val(); 
+		var eDt = $("#S_END_DATE").val();
+		
+		if (selVal != null && selVal != "") {
+			
+			if (sDt == null || sDt == "") {
+				alert("조회기간을 입력하세요.");
+				$("#S_START_DATE").focus();
+				return false;
+			}
+			if (eDt == null || eDt == "") {
+				alert("조회기간을 입력하세요.");
+				$("#S_END_DATE").focus();
+				return false;
+			}						
+			
+		}
+		
+		if (sDt != null && sDt != "") {
+			
+			if (selVal == null || selVal == "") {
+				alert("조회구분을 선택하세요.");
+				$("#dtChk").focus();
+				return false;
+			}
+			
+			if (eDt == null || eDt == "") {
+				alert("조회기간을 입력하세요.");
+				$("#S_END_DATE").focus();
+				return false;
+			}	
+		}
+		
+		if (eDt != null && eDt != "") {
+			
+			if (selVal == null || selVal == "") {
+				alert("조회구분을 선택하세요.");
+				$("#dtChk").focus();
+				return false;
+			}
+			
+			if (sDt == null || sDt == "") {
+				alert("조회기간을 입력하세요.");
+				$("#S_START_DATE").focus();
+				return false;
+			}
+			
+			if (sDt.replace(/\-/ig, '') > eDt.replace(/\-/ig, '')) {
+				alert("시작일은 종료일보다 클수 없습니다.");
+				$("#S_START_DATE").focus();
+				return false;
+			}
+			
+		}
+		
+		return true;
+		
+	}
+	
+	// 페이징
+	function GoPage(pageNo) {
+		$("#PAGE_NO").val(pageNo);
+	
+		$("#S_START_DATE").val($("#S_START_DATE").val().replace(/\-/ig, ''));
+		$("#S_END_DATE").val($("#S_END_DATE").val().replace(/\-/ig, ''));
+		$("#form").attr("action","/admin/cpn/selectTotUseList.do").submit();
+	}
+	
+	// 날짜 setting
+	function setDate(interval) {
+		getDateInterval(interval);
+	}
+	
+	// 회원 추가
+	function setCpnUse() {
+		
+		var mberSeqOld = window.opener.document.form.mberSeqOld.value;
+		var mberSeqNew = window.opener.document.form.mberSeqNew.value;
+		var mberSeqOldSplt = mberSeqOld.split(/,/g);
+		var mberSeqNewSplt = mberSeqNew.split(/,/g);
+		var sendVal = "";
+		
+		// 체크된 회원과 기존 회원 비교
+		$("input[name^=MBER_SEQ]:checked").each(function () {
+			var chkBool = true;
+			for (var i = 0 ; i < mberSeqOldSplt.length ; i++) {
+				if ($(this).val() == mberSeqOldSplt[i]) {
+					chkBool = false;
+				}
+			}
+			for (var i = 0 ; i < mberSeqNewSplt.length ; i++) {
+				if ($(this).val() == mberSeqNewSplt[i]) {
+					chkBool = false;
+				}
+			}
+			if (chkBool) {
+				if (sendVal == "") {
+					sendVal = $(this).val();
+				}
+				else {
+					sendVal = sendVal + "," + $(this).val();
+				}
+			}
+		});
+		
+		window.opener.setCpnUse(sendVal);
+		
+	}
+	
+</script>
+<form id="form" name="form" method="post" action="">
+	<input type="hidden" name="PAGE_NO" id="PAGE_NO" value="${list.PAGE_NO }" />
+	<div class="pop_inner">
+		<div class="tbl mt10">
+			<table class="search">
+				<colgroup>
+					<col style="width:8%" />
+					<col style="width:*" />
+					<col style="width:8%" />
+					<col style="width:*" />
+					<col style="width:8%" />
+					<col style="width:*" />
+				</colgroup>
+				<tbody>
+					<tr>
+						<td colspan="6" align="left">
+							<span class="select" style="width:130px">
+								<span class="sel_txt"></span>
+								<select id="dtChk" name="DATE_CHK">
+									<option value="">전체</option>
+									<option value="A" <c:if test="${list.params.DATE_CHK eq 'A' }">selected</c:if>>가입일</option>
+									<option value="B" <c:if test="${list.params.DATE_CHK eq 'B' }">selected</c:if>>최종접속일</option>
+								</select>
+							</span>
+							<fmt:parseDate value="${list.params.S_START_DATE }" var="S_START_DATE" pattern="yyyymmdd" scope="page" />
+   							<fmt:parseDate value="${list.params.S_END_DATE }" var="S_END_DATE" pattern="yyyymmdd" scope="page" />
+							<input type="text" id="S_START_DATE" name="S_START_DATE" class="calendar" style="width:82px" value='<fmt:formatDate value="${S_START_DATE }" pattern="yyyy-mm-dd" />' readonly /> - 
+							<input type="text" id="S_END_DATE" name="S_END_DATE" class="calendar" style="width:82px" value='<fmt:formatDate value="${S_END_DATE }" pattern="yyyy-mm-dd" />' readonly/>
+							<span class="ml5">
+								<a href="javascript:setDate('1D');" class="btn_w" >오늘</a>
+								<a href="javascript:setDate('3D');" class="btn_w">3일</a>
+								<a href="javascript:setDate('7D');" class="btn_w">7일</a>
+								<a href="javascript:setDate('1M');" class="btn_w">1개월</a>
+								<a href="javascript:setDate('3M');" class="btn_w">3개월</a>
+								<a href="javascript:setDate('6M');" class="btn_w">6개월</a>
+							</span> 
+						</td>
+					</tr>
+					<tr>
+						<th scope="row">아이디</th>
+						<td><input type="text" id="email" name="MBER_EMAIL" style="width:150px;" value="${list.params.MBER_EMAIL }" /></td>
+						<th scope="row">가입채널</th>
+						<td>
+							<c:forEach var="code" items="${list.joinChanCd }" varStatus="codeStatus">
+								<span>
+									<input type="checkbox" id="${code.COM_CD_NM }" name="JOIN_CHAL[]" value="${code.COM_CD }" 
+										<c:forEach var="chnl" items="${list.params.JOIN_CHAL }" varStatus="status">
+											<c:if test="${chnl eq code.COM_CD }">checked</c:if>
+										</c:forEach>
+									/>
+									<label for="${code.COM_CD_NM }">${code.COM_CD_NM }</label>
+								</span>
+							</c:forEach>
+						</td>
+						<th scope="row">회원구분</th>
+						<td colspan="3">
+							<span>
+								<input type="checkbox" id="pv_mem" name="MBER_GB_CD[]" value="0" 
+									<c:forEach var="cd" items="${list.params.MBER_GB_CD}" varStatus="status">
+										<c:if test="${cd eq '0' }">checked</c:if>
+									</c:forEach>
+								/>
+								<label for="pv_mem">개인회원</label>
+							</span>
+							<span class="ml5">
+								<input type="checkbox" id="bs_mem" name="MBER_GB_CD[]" value="1" 
+									<c:forEach var="cd" items="${list.params.MBER_GB_CD}" varStatus="status">
+										<c:if test="${cd eq '1' }">checked</c:if>
+									</c:forEach>
+								/>
+								<label for="bs_mem">사업자회원</label>
+							</span>
+						</td>
+					</tr>
+				</tbody>
+			</table>
+			<p class="btn_area type"><a href="javascript:getCpnUse();" class="btn_chk btn_r">조회</a></p>
+		</div>
+		
+		<div class="prod_info_area">
+			<a href="javascript:setCpnUse();" class="btn_r"><span>회원추가</span></a>
+		</div>
+		
+		<!-- tbl -->
+		<div class="tbl mt10">
+			<!-- list -->
+			<table class="list">
+				<colgroup>
+					<col style="width:5%" />
+					<col style="width:15%" />
+					<col style="width:15%" />
+					<col style="width:*" />
+					<col style="width:10%" />
+					<col style="width:10%" />
+				</colgroup>
+				<thead>	
+					<tr>
+						<th scope="col"><input type="checkbox" id="chkAll" name="chkAll" /></th>
+						<th scope="col">가입일시</th>
+						<th scope="col">최종접속일시</th>
+						<th scope="col">아이디</th>
+						<th scope="col">가입채널</th>
+						<th scope="col">회원구분</th>
+					</tr>
+				</thead>
+				<tbody>
+					<c:choose>
+						<c:when test="${fn:length(list.selectTotUseList)>0}">						
+							<c:forEach var="list" items="${list.selectTotUseList}" varStatus="status">
+						    	 <tr>
+						    	 	<td class="nolineL">
+						    	 		<input type="checkbox" id="mberSeq" name="MBER_SEQ[]" value="${list.MBER_SEQ }" />
+						    	 	</td>
+						    	 	<td>${list.REGIST_DT }</td>
+						    	 	<td>${list.LAST_ACC_DT }</td>
+						    	 	<td>${list.MBER_EMAIL }</td>
+						    	 	<td>${list.JOIN_CHAN_CD_NM }</td>
+						    	 	<td>${list.MBER_GB_CD_NM }</td>
+						    	 </tr>		
+						    </c:forEach>								
+						</c:when>
+						<c:otherwise>
+							<tr>
+								<td class="nolineL" colspan="6">조회된 결과가 없습니다.</td>
+							</tr>
+						</c:otherwise>
+					</c:choose>
+				</tbody>
+			</table>
+			<!-- //list -->
+		</div>
+		<!-- //tbl -->
+		
+		<!-- bot_tbl -->
+		<div class="bot_tbl">
+			<!-- paging -->
+				<%@ include file="/WEB-INF/views/admin/common/PageView.jsp" %>
+			<!-- //paging -->
+		</div>
+		<!-- //bot_tbl -->
+		
+		<!-- bot_btn -->
+		<div class="bot_btn tc mt20">
+			<a href="javascript:window.close();" class="btn_g2 ml10">닫기</a>
+		</div>
+		<!-- //bot_btn -->
+	
+	</div>
+</form>

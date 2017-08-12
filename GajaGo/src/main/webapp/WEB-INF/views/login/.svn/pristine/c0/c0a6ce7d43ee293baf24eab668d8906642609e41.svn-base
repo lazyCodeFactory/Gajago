@@ -1,0 +1,1195 @@
+package com.ssocio.sharing.service.web;
+
+import java.math.BigDecimal;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+
+import net.sf.json.JSONArray;
+import net.sf.json.JSONObject;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.ui.ModelMap;
+
+import com.ssocio.sharing.cmmn.admin.util.HttpUrlConnectionUtil;
+import com.ssocio.sharing.cmmn.util.CmmnCnst;
+import com.ssocio.sharing.cmmn.util.DateUtil;
+import com.ssocio.sharing.cmmn.util.LoggerUtil;
+import com.ssocio.sharing.cmmn.util.PaymentUtil;
+import com.ssocio.sharing.cmmn.util.StringUtil;
+import com.ssocio.sharing.cmmn.web.util.WebMobilePaging;
+import com.ssocio.sharing.dao.web.WebBuySharingDao;
+import com.ssocio.sharing.dao.web.WebCommonDao;
+import com.ssocio.sharing.dao.web.WebCtryDao;
+import com.ssocio.sharing.dao.web.WebSmartPhoneDao;
+import com.ssocio.sharing.vo.admin.PageNavigation;
+import com.ssocio.sharing.vo.web.WebSession;
+import com.ssocio.sharing.vo.web.realPrc;
+
+/**
+ * <pre>
+ * 스마트폰 셰어링
+ * 스마트폰 셰어링 ServiceImpl
+ * @author S.B.LEE
+ * @version
+ * @since 2015. 8. 19. 오후 3:06:39
+ * @see
+ * @History
+ * Date			|	author	| 변경 내용
+ * 2015. 8. 19.	|	SEOKBAE	|신규
+ * @비고
+ * </pre>
+ */
+@Service
+public class WebSmartPhoneServiceImpl extends WebReferServiceImpl implements WebSmartPhoneService {
+
+	// --------------------------------------------------------------------------
+	// # Log 설정
+	// --------------------------------------------------------------------------
+	private static final Logger logger = LoggerFactory.getLogger(WebSmartPhoneServiceImpl.class);
+	
+	// --------------------------------------------------------------------------
+	// # DAO 설정
+	// --------------------------------------------------------------------------
+	@Resource(name="webSmartPhoneDao")
+	private WebSmartPhoneDao webSmartPhoneDao;
+	
+	@Resource(name="webCommonDao")
+	private WebCommonDao webCommonDao;
+	
+	@Resource(name="webCtryDao")
+	private WebCtryDao webCtryDao;
+	
+	@Resource(name="webBuySharingDao")
+	private WebBuySharingDao webBuySharingDao;
+	
+	/**
+	 * <pre>
+	 * 스마트폰 셰어링 리스트
+	 * 스마트폰 셰어링 판매 상품 리스트 조회
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 19. 오후 3:06:19
+	 * @author S.B.LEE
+	 * @see @see com.ssocio.sharing.service.web.WebSmartPhoneService#selectListShar(java.util.Map)
+	 * </pre>
+	 */
+	@Override
+	public ModelMap selectListShar(Map<String, Object> inParam) throws Exception {
+		logger.debug("[WebSmartPhoneService.selectListShar]");
+		
+		ModelMap mm = new ModelMap();
+		try {
+			//페이지번호
+			int nowPage = StringUtil.nvlInt((String)inParam.get("PAGE_NO"), 1);
+			int rowCnt	= StringUtil.nvlInt((String)inParam.get("S_ROW_CNT"), CmmnCnst.MOBILE_LIST_SIZE);
+			inParam.put("S_ROW_CNT", rowCnt);
+			
+			LoggerUtil.writeMap(inParam);
+			int rowTotal = webSmartPhoneDao.selectListSharCount(inParam);
+			PageNavigation pageNav= new PageNavigation(nowPage, rowTotal, rowCnt, CmmnCnst.MOBILE_BLOCK_SIZE);
+			
+			mm.put("PAGE_NO", nowPage);
+			mm.put("pageNav", pageNav);
+			inParam.put("START_ROW", pageNav.getStartRow());
+			inParam.put("END_ROW", pageNav.getEndRow());
+			
+			//SMS/LMS/MMS 발송 UTIL
+//			SmsUtil smsUtil = new SmsUtil();
+//			mm.put("pushSms", smsUtil.sendSMS("01089972513", "01089972513", "아아아아아아아아", webCommonDao));
+//			mm.put("pushLms", smsUtil.sendLMS("01089972513", "01089972513", "제목", "내용", webCommonDao));
+//			mm.put("pushLms", smsUtil.sendMMS("01089972513", "01089972513", "제목", "내용", "IMG", "/upload/2015/08/19/cd76114d-3132-4e19-a309-21b90afc4e15.jpg", webCommonDao));
+			
+			mm.put("outParam", webSmartPhoneDao.selectListShar(inParam)) ;
+			mm.put("Telcom", webSmartPhoneDao.selectListTelcom(inParam)) ;
+			mm.put("params", inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+	
+	/**
+	 * <pre>
+	 * 스마트폰 셰어링 
+	 * 스마트폰 셰어링 상세 조회
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 9. 8. 오후 2:52:58
+	 * @author S.B.LEE
+	 * @see @see com.ssocio.sharing.service.web.WebSmartPhoneService#selectShar(java.util.Map)
+	 * </pre>
+	 */
+	@Override
+	public ModelMap selectSharDtl(Map<String, Object> inParam, WebSession webSession) throws Exception {
+		logger.debug("[WebSmartPhoneService.selectSharDtl]");
+		
+		ModelMap mm = new ModelMap();
+		try {
+			if(webSession != null){
+				int mberSeq = webSession.getMBER_SEQ();
+				inParam.put("MBER_SEQ", webSession.getMBER_SEQ());
+				String prodCode = (String) inParam.get("PROD_CODE");
+				webCtryDao.insertLateProd(mberSeq, prodCode);
+			}
+			
+			mm.put("sharProdImg", webSmartPhoneDao.selectSharProdImg(inParam)) ;
+//			mm.put("sharProdDtl", webSmartPhoneDao.selectSharDtl(inParam)) ;
+			Map<String, Object> map = webSmartPhoneDao.selectSharDtl(inParam);
+			String checkValue = (String) map.get("PROD_NM");
+			checkValue = checkValue.replaceAll("\"", "\\\"");
+			checkValue = checkValue.replaceAll("\'", "\\\'");
+			map.put("PROD_NM",checkValue);//쌍따옴표때문에 다시 치환
+			mm.put("sharProdDtl", map) ;
+			mm.put("selectEpilogueCnt", webSmartPhoneDao.selectEpilogueCnt(inParam)) ;
+			mm.put("selectEpilogue", webSmartPhoneDao.selectEpilogue(inParam)) ;
+			mm.put("selectCommentCnt", webSmartPhoneDao.selectCommentCnt(inParam)) ;
+			mm.put("selectComment", webSmartPhoneDao.selectComment(inParam)) ;
+			mm.put("params", inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+	
+	@Override
+	public ModelMap selectUpUserInfo(Map<String, Object> inParam) throws Exception {
+		logger.debug("[webSmartPhoneServiceImpl.selectUpUserInfo]");
+		
+		ModelMap outParam = new ModelMap();
+		try {
+			outParam.put("userInfo",  webSmartPhoneDao.selectUpUserInfo(inParam));
+			outParam.put("selectOlivarUrl", webSmartPhoneDao.selectOlivarUrl(inParam)) ;
+			outParam.put("selectRetUrl", webSmartPhoneDao.selectRetUrl(inParam)) ;
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return outParam;
+	}
+	
+	@Override
+	public int insertTokenId(Map<String, Object> inParam) throws Exception {
+		logger.debug("[insertTokenId.selectShar]");
+		
+		int outParam = 0;
+		try {
+			outParam = webSmartPhoneDao.insertTokenId(inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return outParam;
+	}
+	
+	@Override
+	public ModelMap selectOlivarInfo(Map<String, Object> inParam) throws Exception {
+		logger.debug("[webSmartPhoneServiceImpl.selectOlivarInfo]");
+		
+		ModelMap outParam = new ModelMap();
+		try {
+			outParam.put("olivarList",  webSmartPhoneDao.selectOlivarInfo(inParam));
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return outParam;
+	}
+	
+	/**
+	 * <pre>
+	 * 스마트폰 셰어링 신청
+	 * 스마트폰 셰어링 신청 내용 조회
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 9. 1. 오후 10:33:05
+	 * @author S.B.LEE
+	 * @see @see com.ssocio.sharing.service.web.WebSmartPhoneService#selectAppli(java.util.Map)
+	 * </pre>
+	 */
+	@Override
+	public ModelMap selectAppli(Map<String, Object> inParam) throws Exception {
+		logger.debug("[WebSmartPhoneService.selectAppli]");
+		
+		
+		logger.debug("inParam : " + inParam.toString());
+		
+		ModelMap mm = new ModelMap();
+		try {
+			
+			mm.put("selectSharPordInfo", webSmartPhoneDao.selectSharPordInfo(inParam));
+			mm.put("selectCharge", webSmartPhoneDao.selectCharge(inParam));
+			mm.put("selectSpColor", webSmartPhoneDao.selectSpColor(inParam)) ;
+			mm.put("selectSpStip", webSmartPhoneDao.selectSpStip(inParam)) ;
+			mm.put("selectSpPayplan", webSmartPhoneDao.selectSpPayplan(inParam)) ;
+			mm.put("selectOlivarYn", webSmartPhoneDao.selectOlivarYn(inParam));
+			mm.put("authCnt", webSmartPhoneDao.selectMberInfo(inParam));
+			
+//			배송지 정보를 가져온다.
+			mm.put("dlv", webCtryDao.selectDlvAddrs(Integer.parseInt(inParam.get("MBER_SEQ").toString())));
+			
+			mm.put("params", inParam);
+			
+			logger.debug("mm : " + mm.toString());
+
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+	
+	/**
+	 * <pre>
+	 * 스마트폰 셰어링 신청
+	 * 스마트폰 셰어링 지원금 
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 9. 14. 오후 10:57:51
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.service.web
+	 * </pre>
+	 */
+	@Override
+	public ModelMap selectSpSup(Map<String, Object> inParam) throws Exception {
+		logger.debug("[WebSmartPhoneService.selectSpSup]");
+		
+		ModelMap mm = new ModelMap();
+		try {
+			mm.put("selectSpSup", webSmartPhoneDao.selectSpSup(inParam));
+			mm.put("params", inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+	
+	/**
+	 * <pre>
+	 * 본인인증 여부 확인
+	 * 
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 9. 8. 오후 2:56:12
+	 * @author S.B.LEE
+	 * @see @see com.ssocio.sharing.service.web.WebSmartPhoneService#selectMberInfo(java.util.Map)
+	 * </pre>
+	 */
+	@Override
+	public ModelMap selectMberInfo(Map<String, Object> inParam) throws Exception {
+		logger.debug("[WebSmartPhoneService.selectMberInfo]");
+		ModelMap mm = new ModelMap();
+		try {
+			mm.put("outParam", webSmartPhoneDao.selectMberInfo(inParam)) ;
+			mm.put("params", inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+	
+	@Override
+	public int updateMberInfo(Map<String, Object> inParam) throws Exception {
+		logger.debug("[WebSmartPhoneService.updateMberInfo]");
+		
+		int outParam = 0;
+		try {
+			if( ("Y").equals(inParam.get("AUTH_YN") )) {
+				outParam = webSmartPhoneDao.updateMberInfo(inParam);
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return outParam;
+	}
+	
+	/**
+	 * <pre>
+	 * 주문번호조회
+	 * 스마트폰셰어링 주문번호조회
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 10. 1. 오전 1:54:12
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.service.web
+	 * </pre>
+	 */
+	@Override
+	public String selectOrdInfoSeq(Map<String, Object> inParam) throws Exception {
+		logger.debug("[WebSmartPhoneService.selectOrdInfoSeq]");
+		String ordCd = "";
+		try {
+			ordCd = webSmartPhoneDao.selectOrdInfoSeq(inParam) ;
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return ordCd;
+	}
+	
+	/**
+	 * <pre>
+	 * 스마트폰 셰어링 신청
+	 * 스마트폰 셰어링 신청하기
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 9. 2. 오후 2:00:35
+	 * @author S.B.LEE
+	 * @see @see com.ssocio.sharing.service.web.WebSmartPhoneService#insertSharingOrder(java.util.Map)
+	 * </pre>
+	 */
+	@Override
+	public int insertSharingOrder(Map<String, Object> inParam) throws Exception {
+		logger.debug("[WebSmartPhoneService.insertSharingOrder]");
+		
+		int outParam = 0;
+		inParam.put("HIST_GB_CD", "10"); // 히스토리 내역 관리 를 위해
+	
+		try {
+			realPrc realprc = new realPrc( webSmartPhoneDao.selectSharingRealPrce(inParam));
+			int olvaPrce = ((BigDecimal)webSmartPhoneDao.selectOlivarSumPrceInfo(inParam).get("REAL_PRCE")).intValue() ;
+			realprc.setOrlivaPrce(olvaPrce);
+			int realPce = realprc.caculationRealprce(realprc);
+			inParam.put("AMOUNT_OF_MONTH", realPce);
+			inParam.put("TOT_AMT", realPce);
+			outParam = webSmartPhoneDao.insertSharingOrder(inParam);
+			outParam = webSmartPhoneDao.insertSharingOrdDtl(inParam);
+//			주문 배송지 정보에 insert 한다.
+			logger.info(inParam.toString());;
+			outParam = webSmartPhoneDao.insertOrdDlvInfo(inParam);
+			inParam.put("ORG_CD", inParam.get("ORDERID")); // 히스토리 내역 관리 를 위해
+			inParam.put("HIST_PROC_STAT_CD", "10");
+			outParam = webSmartPhoneDao.inserthisTbreg(inParam);
+//			webSmartPhoneDao.insertPaytbProc(inParam);
+			// [2015-11-27] rocokang setl_info 테이블 insert는 빌키 받을때 이루어지도록 수정
+			//outParam = webSmartPhoneDao.insertSharSetlInfo(inParam);		
+			
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return outParam;
+	}
+	
+	/**
+	 * <pre>
+	 * 스마트폰 셰어링
+	 * 신청완료
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 9. 8. 오후 9:45:58
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.service.web
+	 * </pre>
+	 */
+	@Override
+	public ModelMap selectComAppli(Map<String, Object> inParam) throws Exception {
+		logger.debug("[WebSmartPhoneService.selectComAppli]");
+		ModelMap mm = new ModelMap();
+		try {
+			mm.put("outParam", webSmartPhoneDao.selectComAppli(inParam)) ;
+			mm.put("selectOlivarYn", webSmartPhoneDao.selectOlivarYn(inParam)) ;
+			mm.put("selectOlPrce", webSmartPhoneDao.selectOlPrce(inParam)) ;
+			mm.put("selectOlivarInfo", webSmartPhoneDao.selectOlivarInfo(inParam)) ;
+			mm.put("params", inParam) ;
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+	
+	/**
+	 * <pre>
+	 * 스마트폰 셰어링 주문 내역 조회
+	 * 
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 9. 2. 오후 2:04:23
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.service.web
+	 * </pre>
+	 */
+	@Override
+	public ModelMap selectSharOrdInfo(Map<String, Object> inParam) throws Exception {
+		logger.debug("[WebSmartPhoneService.selectSharOrdInfo]");
+		
+		ModelMap mm = new ModelMap();
+		try {
+			//페이지번호
+			
+			//상품 처리 상태
+			if (inParam.get("PROC_STAT_CD") == "" || inParam.get("PROC_STAT_CD") == null ) {
+				List<String> li = new ArrayList<String>();
+				li.add(CmmnCnst.PROC_STAT_CD_1);
+				li.add(CmmnCnst.PROC_STAT_CD_2);
+				li.add(CmmnCnst.PROC_STAT_CD_4);
+				li.add(CmmnCnst.PROC_STAT_CD_5);
+				li.add(CmmnCnst.PROC_STAT_CD_6);
+				li.add(CmmnCnst.PROC_STAT_CD_18);
+				li.add(CmmnCnst.PROC_STAT_CD_19);
+				li.add(CmmnCnst.PROC_STAT_CD_23);
+				li.add(CmmnCnst.PROC_STAT_CD_24);
+				li.add(CmmnCnst.PROC_STAT_CD_25);
+				inParam.put("PROC_STAT_CD", li);
+			}
+			
+			int totCount = webSmartPhoneDao.selectSharOrdInfoCnt(inParam);
+			
+			logger.debug("rowTotal : " + totCount);
+			
+			WebMobilePaging paging = new WebMobilePaging(totCount, StringUtil.nvlInt((String)inParam.get("CUR_PAGE"), 1), CmmnCnst.MOBILE_LIST_SIZE);
+			logger.info(paging.toString());
+			inParam.put("START_ROW", paging.getStartContent());
+			inParam.put("END_ROW", paging.getEndContent());
+			
+			
+			List <Map<String, Object>> list = webSmartPhoneDao.selectSharOrdInfo(inParam);
+			LoggerUtil.writeList(list);
+			
+			mm.put("outParam", list) ;
+			mm.put("params", inParam);
+			mm.put("paging", paging);
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+	
+	
+	
+	@Override
+	public ModelMap selectSharOrdChgInfo(Map<String, Object> inParam) throws Exception {
+		logger.debug("[WebSmartPhoneService.selectSharOrdChgInfo]");
+		
+		ModelMap mm = new ModelMap();
+		try {
+			//페이지번호
+			int rowCnt	= StringUtil.nvlInt((String)inParam.get("S_ROW_CNT"), CmmnCnst.MOBILE_LIST_SIZE);;
+			inParam.put("S_ROW_CNT", rowCnt);
+			
+			//상품 처리 상태
+			if (inParam.get("CHG_PROC_TYPE_CD") == "" || inParam.get("CHG_PROC_TYPE_CD") == null ) {
+				List<String> li = new ArrayList<String>();
+				li.add("10");
+				li.add("20");
+				li.add("30");
+				li.add("50");
+				li.add("60");
+				li.add("70");
+				inParam.put("CHG_PROC_TYPE_CD", li);
+			}
+			
+			int rowTotal = webSmartPhoneDao.selectSharOrdInfoChgCnt(inParam);
+			WebMobilePaging paging = new WebMobilePaging(rowTotal, StringUtil.nvlInt((String)inParam.get("CUR_PAGE"), 1), CmmnCnst.MOBILE_LIST_SIZE);
+			logger.info("paging rtn :::::::::" + paging.toString());
+			inParam.put("START_ROW", paging.getStartContent());
+			inParam.put("END_ROW", paging.getEndContent());
+			mm.put("paging", paging);
+			mm.put("outParam", webSmartPhoneDao.selectSharOrdChgInfo(inParam)) ;
+			mm.put("params", inParam);
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+	
+	
+
+	public ModelMap selectSharTermiOrdInfo(Map<String, Object> inParam) throws Exception {
+		logger.debug("[WebSmartPhoneService.selectSharTermiOrdInfo]");
+		
+		ModelMap mm = new ModelMap();
+		try {
+			//페이지번호
+			int nowPage = StringUtil.nvlInt((String)inParam.get("PAGE_NO"), 1);
+			int rowCnt	= StringUtil.nvlInt((String)inParam.get("S_ROW_CNT"), CmmnCnst.MOBILE_LIST_SIZE);;
+			inParam.put("S_ROW_CNT", rowCnt);
+			
+			//상품 처리 상태
+			if (inParam.get("PROC_TYPE_CD") == "" || inParam.get("PROC_TYPE_CD") == null ) {
+				List<String> li = new ArrayList<String>();
+				li.add("70");
+				li.add("71");
+				li.add("72");
+				inParam.put("PROC_TYPE_CD", li);
+			}
+			
+			int rowTotal = webSmartPhoneDao.selectSharTermiOrdInfoCnt(inParam);
+			PageNavigation pageNav= new PageNavigation(nowPage, rowTotal, rowCnt, CmmnCnst.MOBILE_BLOCK_SIZE);
+			
+			mm.put("PAGE_NO", nowPage);
+			mm.put("pageNav", pageNav);
+			inParam.put("START_ROW", pageNav.getStartRow());
+			inParam.put("END_ROW", pageNav.getEndRow());
+			
+			mm.put("outParam", webSmartPhoneDao.selectSharTermiOrdInfo(inParam)) ;
+			mm.put("params", inParam);
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+	
+	
+	/**
+	 * <pre>
+	 * 스마트폰 셰어링 주문 내역 상세 조회
+	 * 
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 9. 2. 오후 8:04:24
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.service.web
+	 * </pre>
+	 */
+	@Override
+	public ModelMap selectSharOrdDtl(Map<String, Object> inParam) throws Exception {
+		logger.debug("[WebSmartPhoneService.selectSharOrdDtl]");
+		Date now = new Date();
+		SimpleDateFormat format = new SimpleDateFormat("yyyyMMdd");
+		
+		ModelMap mm = new ModelMap();
+		Map<String, Object> outParam = new HashMap<String, Object>();
+		Map<String, Object> outParam2 = new HashMap<String, Object>();
+		
+		try {
+			outParam2 = webSmartPhoneDao.selectSharOrdDtl(inParam);
+						
+						
+			mm.put("outParam", outParam2) ;
+			//회수지 정보 가져오기
+			mm.put("rtnInfo", webSmartPhoneDao.selectSharRtnDlvInfo(inParam));
+			mm.put("selectOlivarYn", webSmartPhoneDao.selectOlivarYn(inParam)) ;
+			if(outParam2.get("UP_BUY_CODE") != null){
+				String token_id=  (String) outParam2.get("UP_BUY_CODE");
+				inParam.put("TOKENID", token_id);
+				mm.put("selectOlPrce", webSmartPhoneDao.selectOlPrce(inParam)) ;
+				mm.put("selectOlivarInfo", webSmartPhoneDao.selectOlivarInfo(inParam)) ;
+			}else{
+				mm.put("selectOlPrce", "") ;
+				mm.put("selectOlivarInfo", "") ;
+			}
+			mm.put("params", inParam);
+			outParam = (Map<String, Object>) mm.get("outParam");
+			
+			if (outParam.get("OPEN_DT") != null){
+				String startDay = format.format(outParam.get("OPEN_DT"));
+				String endDay = format.format(outParam.get("END_DT"));
+				String toDay = format.format(now);
+				
+				float SHARING_DAY = (int) StringUtil.getDifferDays(startDay, endDay);
+				float SHARING_TODAY = (int) StringUtil.getDifferDays(toDay, endDay);
+				float SHARING_ING = (int) StringUtil.getDifferDays(startDay, toDay);
+				float SHARING_DDAY = 100 - ((SHARING_TODAY/SHARING_DAY)*100);
+				
+				mm.put("SHARING_DAY", SHARING_DDAY);
+				mm.put("SHARING_ING", SHARING_ING);
+				mm.put("SHARING_TODAY", SHARING_TODAY);
+			}
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+	
+	/**
+	 * <pre>
+	 * 스마트폰 셰어링
+	 * 스마트폰 셰어링 확정
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 9. 16. 오후 4:11:04
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.service.web
+	 * </pre>
+	 */
+	@Override
+	public ModelMap updateSharDate(Map<String, Object> inParam) throws Exception {
+		logger.debug("[WebSmartPhoneService.updateSharDate]");
+		
+		ModelMap mm = new ModelMap();
+		String guBun = "";
+		int outCnt = 0;
+		try {
+			String procStatCd = webSmartPhoneDao.selectChgChkCnt(inParam);
+			logger.info(procStatCd);
+			//교환신청 했음
+			if("41".equals(procStatCd)){
+				logger.info("교환교환");
+				guBun = "C";
+			//반품신청 했음
+			}else if("31".equals(procStatCd)){
+				logger.info("반품반품");
+				guBun = "R";
+			//셰어링 확정함.
+			}else if("85".equals(procStatCd)){
+				logger.info("셰어링 이전에 확정 셰어링 이전에 확정 셰어링 이전에 확정 ");
+				guBun = "P";
+				//이미 셰어링 확정이면.
+			}else{
+				logger.info("셰어링 확정 한번도 안함.");
+				outCnt = webSmartPhoneDao.updateSharDate(inParam);
+				inParam.put("ORG_CD", inParam.get("S_ORD_CD")); // 히스토리 내역 관리 를 위해
+				inParam.put("ORDERID", inParam.get("S_ORD_CD")); // 히스토리 내역 관리 를 위해
+				inParam.put("HIST_PROC_STAT_CD", "85"); // 히스토리 내역 관리 를 위해
+				inParam.put("HIST_GB_CD", "10"); // 히스토리 내역 관리 를 위해
+				inParam.put("PROD_CODE", inParam.get("S_PROD_CD")); // 히스토리 내역 관리 를 위해
+				outCnt = webSmartPhoneDao.inserthisTbreg(inParam);
+				// 셰어링 확정 등록 성공
+				if(outCnt > 0){
+					guBun = "S";
+				// 셰어링 확정 등록 실패
+				}else{
+					guBun = "F";
+				}
+			}
+			mm.put("outParam", guBun) ;
+			mm.put("params", inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+	
+	/**
+	 * <pre>
+	 * 스마트폰 셰어링 교환
+	 * 스마트폰 셰어링 교환 상세
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 9. 17. 오후 8:14:59
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.service.web
+	 * </pre>
+	 */
+	@Override
+	public ModelMap selectSharChgDtl(Map<String, Object> inParam) throws Exception {
+		logger.debug("[WebSmartPhoneService.selectSharCanlDtl]");
+		
+		ModelMap mm = new ModelMap();
+		Map<String, Object> outParam2 = new HashMap<String, Object>();
+		try {
+			outParam2 =webSmartPhoneDao.selectSharChgDtl(inParam);
+			mm.put("outParam", outParam2) ;
+			mm.put("selectOlivarYn", webSmartPhoneDao.selectOlivarYn(inParam)) ;
+			if(outParam2.get("UP_BUY_CODE") != null){
+				String token_id=  (String) outParam2.get("UP_BUY_CODE");
+				inParam.put("TOKENID", token_id);
+				mm.put("selectOlPrce", webSmartPhoneDao.selectOlPrce(inParam)) ;
+				mm.put("selectOlivarInfo", webSmartPhoneDao.selectOlivarInfo(inParam)) ;
+			}else{
+				mm.put("selectOlPrce", "") ;
+				mm.put("selectOlivarInfo", "") ;
+			}
+			mm.put("params", inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+	
+	/**
+	 * <pre>
+	 * 스마트폰 셰어링 주문 취소 상세 조회
+	 * 
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 9. 2. 오후 8:04:24
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.service.web
+	 * </pre>
+	 */
+	@Override
+	public ModelMap selectSharCanlDtl(Map<String, Object> inParam) throws Exception {
+		logger.debug("[WebSmartPhoneService.selectSharCanlDtl]");
+		ModelMap mm = new ModelMap();
+		Map<String, Object> outParam2 = new HashMap<String, Object>();
+		try {
+			outParam2 =webSmartPhoneDao.selectSharCanlDtl(inParam);
+			mm.put("outParam", outParam2) ;
+			mm.put("selectOlivarYn", webSmartPhoneDao.selectOlivarYn(inParam)) ;
+			if(outParam2.get("UP_BUY_CODE") != null){
+				String token_id=  (String)outParam2.get("UP_BUY_CODE") ;
+				inParam.put("TOKENID", token_id);
+				mm.put("selectOlPrce", webSmartPhoneDao.selectOlPrce(inParam)) ;
+				mm.put("selectOlivarInfo", webSmartPhoneDao.selectOlivarInfo(inParam)) ;
+			}else{
+				mm.put("selectOlPrce", "") ;
+				mm.put("selectOlivarInfo", "") ;
+			}
+			mm.put("params", inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return mm;
+	}
+	
+	/**
+	 * <pre>
+	 * 스마트폰 셰어링 해지
+	 * 스마트폰 셰어링 해지정보
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 9. 13. 오후 8:00:45
+	 * @author S.B.LEE
+	 * @see @see com.ssocio.sharing.service.web.WebSmartPhoneService#selectTermiInfo(java.util.Map)
+	 * </pre>
+	 */
+	@Override
+	public ModelMap selectTermiInfo(Map<String, Object> inParam) throws Exception {
+		logger.debug("[WebSmartPhoneService.selectTermiInfo]");
+		
+
+  		//OPEN_DT								
+		//END_DT	
+	    //PROD_PRCE
+	    //STIP
+		//TO_DAY
+		ModelMap mm = new ModelMap();
+		try {
+			HashMap<String, Object> out = (HashMap<String, Object>) webSmartPhoneDao.selectTermiInfo(inParam);
+      
+			float rentalPenalty = 0;
+			int prodPrce = Integer.parseInt(String.valueOf(out.get("PROD_PRCE")));
+			int stip = Integer.parseInt(String.valueOf(out.get("STIP")));
+			Date openDt = (Date) out.get("OPEN_DT");
+			Date endDt = (Date) out.get("END_DT");
+			Date toDay = (Date) out.get("TO_DAY");
+			
+			 
+			int totalDay = (int)DateUtil.day2Day(DateUtil.getStringFromDate(openDt,"yyyyMMdd"), DateUtil.getStringFromDate(endDt,"yyyyMMdd"), "yyyyMMdd")+1;
+			int useDay = (int)DateUtil.day2Day(DateUtil.getStringFromDate(openDt,"yyyyMMdd"), DateUtil.getStringFromDate(toDay,"yyyyMMdd"), "yyyyMMdd") + 1;
+			int dDay = (int)DateUtil.day2Day(DateUtil.getStringFromDate(toDay,"yyyyMMdd"), DateUtil.getStringFromDate(endDt,"yyyyMMdd"), "yyyyMMdd");
+			float SHARING_DDAY = (useDay/totalDay)*100;
+//			렌탈료 위약금    {월렌탈료 × (계약기간 - 사용일수) / 30] × 30%}
+//	      24개월일경우 12개월은 x 30%, 나머지 12개월은 x 10%
+			if(12 == stip){
+				rentalPenalty = (float) ((prodPrce * (totalDay - useDay) /30 ) * 0.3);
+			}else{
+				if(12 > useDay){
+					rentalPenalty = (float) ((prodPrce * (totalDay - useDay) /30 ) * 0.3);
+				}else{
+					rentalPenalty = (float) ((prodPrce * (totalDay - useDay) /30 ) * 0.1);
+				}
+			}
+			
+			
+			String TOKENID = (String) out.get("UP_BUY_CODE");
+			HashMap<String, Object> vo = new HashMap<String, Object>();
+			vo.put("TOKENID", TOKENID);
+			int realPrce = 0;
+			float totalPrce = Float.parseFloat(String.valueOf(out.get("TOTAL_PRCE")));
+			int extPrce =  Integer.parseInt(String.valueOf(out.get("EXT_PRCE")));
+			if(!"0".equals(TOKENID)){
+				vo = (HashMap<String, Object>) webSmartPhoneDao.selectOlPrce(vo);
+				realPrce =Integer.parseInt(String.valueOf(vo.get("SUM_REAL_PRCE")));
+			}
+			// 중고스마트폰 매입 가격 가져와서 계산
+			totalPrce = totalPrce - realPrce;
+			
+			int salePenalty = extPrce - (int)totalPrce;		// 
+			
+			//			셰어링 비용 = 실구매가
+			//						-판매장려금
+			//						-중고폰선보상
+			//						-중고폰매입가
+			//						+보증보험료
+			//						+RV보험료
+			//						+보험료
+			//						+서비사이징(포장및 배송비) 
+			//			셰어링 총 비용 : 셰어링비용 + 셰어링 수수료
+			//			총 할인금액 = 판매가 - 셰어링 총비용
+			//			할인금액 위약금  (총 할인금액/12) x ((총계약일수-남은일수)/30)
+			//			- 24개월일 경우 (총 할인금액/24)
+			logger.info("총 할인 금액 ::::::: " + salePenalty);
+			logger.info("총계약일수 ::::::: " + totalDay);
+			logger.info("남은일수 ::::::: " + (totalDay-useDay));
+			logger.info(" (총 할인금액/약정기간) ::::::: " + (salePenalty/stip));
+			float penltyUseDay= totalDay - (totalDay-useDay);
+			float samsib = 30;
+			
+			int totalSalePenalty = (int)((float)(salePenalty/stip) * (float)(penltyUseDay/samsib));
+
+			int totalPenalty = (int)(totalSalePenalty + rentalPenalty) ;
+			logger.debug("totalSalePenalty : "+totalSalePenalty);
+			logger.debug("salePenalty : "+salePenalty);
+			logger.debug("totalPenalty : "+totalPenalty);
+			logger.debug("rentalPenalty : "+rentalPenalty);
+			logger.debug("extPrce : "+extPrce);
+			logger.debug("totalPrce : "+totalPrce);
+			logger.debug("realPrce : "+realPrce);
+			logger.debug("prodPrce : "+prodPrce);
+			logger.debug("stip : "+stip);
+			logger.debug("openDt : "+openDt);
+			logger.debug("endDt : "+endDt);
+			logger.debug("toDay : "+toDay);
+			logger.debug("totalDay : "+totalDay);
+			logger.debug("useDay : "+useDay);
+			logger.debug("SharPerc : "+SHARING_DDAY);
+			mm.put("USE_DAY",useDay ) ;
+			mm.put("OPEN_DAY",openDt ) ;
+			mm.put("END_DAY",endDt ) ; 
+			mm.put("SharPerc",SHARING_DDAY) ; 
+			mm.put("D_DAY",dDay ) ;
+			mm.put("TO_DAY",toDay);
+			mm.put("RENTAL_PENALTY",(int)rentalPenalty ) ;
+			mm.put("SALE_PENALTY",(int)totalSalePenalty ) ;
+			mm.put("TOTAL_PENALTY",(int)totalPenalty ) ;
+			mm.put("outParam",out ) ;
+			
+//			S_CANC_PRCE
+			mm.put("params", inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+	
+	/**
+	 * <pre>
+	 * 스마트폰 셰어링 해지
+	 * 스마트폰 셰어링 해지 상세
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 9. 14. 오전 11:31:31
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.service.web
+	 * </pre>
+	 */
+	@Override
+	public ModelMap selectSharTermiProdDtl(Map<String, Object> inParam) throws Exception {
+		logger.debug("[WebSmartPhoneService.selectSharTermiProdDtl]");
+		
+		Date now = new Date();
+		SimpleDateFormat format = new SimpleDateFormat("yyyyMMdd");
+		
+		ModelMap mm = new ModelMap();
+		Map<String, Object> outParam = new HashMap<String, Object>();
+		Map<String, Object> outParam2 = new HashMap<String, Object>();
+		try {
+			outParam2 = webSmartPhoneDao.selectSharTermiProdDtl(inParam);		// 이게 NULL 인듯..
+			mm.put("outParam", outParam2) ;
+			mm.put("selectOlivarYn", webSmartPhoneDao.selectOlivarYn(inParam)) ;
+			
+			if(outParam2!= null){
+				
+				String token_id=  (String) outParam2.get("UP_BUY_CODE");
+				inParam.put("TOKENID", token_id);
+				mm.put("selectOlPrce", webSmartPhoneDao.selectOlPrce(inParam)) ;
+				mm.put("selectOlivarInfo", webSmartPhoneDao.selectOlivarInfo(inParam)) ;
+			}else{
+				mm.put("selectOlPrce", "") ;
+				mm.put("selectOlivarInfo", "") ;
+			}
+			
+			
+			mm.put("params", inParam);
+			
+			outParam = (Map<String, Object>) mm.get("outParam");
+			
+			if (outParam.get("OPEN_DT") != null){
+				String startDay = format.format(outParam.get("OPEN_DT"));
+				String endDay = format.format(outParam.get("END_DT"));
+				String toDay = format.format(outParam.get("TERMI_REQ_DT"));
+				
+				float SHARING_DAY = (int) StringUtil.getDifferDays(startDay, endDay);
+				float SHARING_TODAY = (int) StringUtil.getDifferDays(toDay, endDay);
+				float SHARING_ING = (int) StringUtil.getDifferDays(startDay, toDay);
+				float SHARING_DDAY = 100 - ((SHARING_TODAY/SHARING_DAY)*100);
+				
+				mm.put("SHARING_DAY", SHARING_DDAY);
+				mm.put("SHARING_ING", SHARING_ING);
+				mm.put("SHARING_TODAY", SHARING_TODAY);
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+	
+	/**
+	 * <pre>
+	 * 스마트폰 셰어링 해지
+	 * 스마트폰 셰어링 해지 신청
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 9. 13. 오후 8:00:20
+	 * @author S.B.LEE
+	 * @see @see com.ssocio.sharing.service.web.WebSmartPhoneService#insertSharTermi(java.util.Map)
+	 * </pre>
+	 */
+	@Override
+	public ModelMap insertSharTermi(Map<String, Object> inParam) throws Exception {
+		logger.debug("[WebSmartPhoneService.insertSharTermi]");
+		
+		ModelMap mm = new ModelMap();
+		inParam.put("ORG_CD", inParam.get("S_ORD_CD")); // 히스토리 내역 관리 를 위해
+		inParam.put("HIST_PROC_STAT_CD", "70"); // 히스토리 내역 관리 를 위해
+		inParam.put("HIST_GB_CD", "40"); // 히스토리 내역 관리 를 위해
+		inParam.put("ORDERID", inParam.get("S_ORD_CD")); // 히스토리 내역 관리 를 위해
+		inParam.put("PROD_CODE", inParam.get("S_PROD_CD")); // 히스토리 내역 관리 를 위해
+		try {
+			mm.put("outParam", webSmartPhoneDao.insertSharTermi(inParam)) ;
+			mm.put("outParam", webSmartPhoneDao.updateSharOrd(inParam)) ;
+			mm.put("outParam", webSmartPhoneDao.inserthisTbreg(inParam)) ;
+			mm.put("params", inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+
+	/**
+	 * <pre>
+	 * 스마트폰 셰어링 결제 내역
+	 * 스마트폰 셰어링 결제 내역
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 11. 1. 오후 7:56:14
+	 * @author S.B.LEE
+	 * @see @see com.ssocio.sharing.service.web.WebSmartPhoneService#selectSharPayProd(java.util.Map)
+	 * </pre>
+	 */
+	@Override
+	public ModelMap selectSharPayProd(Map<String, Object> inParam)
+			throws Exception {
+		logger.debug("[WebSmartPhoneService.selectSharPayProd]");
+		ModelMap mm = new ModelMap();
+		//페이지번호
+		int nowPage = StringUtil.nvlInt((String)inParam.get("PAGE_NO"), 1);
+		int rowCnt	= 20;
+		try {
+			
+			int rowTotal =  webSmartPhoneDao.selectSharPayProdCount(inParam); //전체 Row Count
+			PageNavigation pageNav= new PageNavigation(nowPage, rowTotal, rowCnt, CmmnCnst.ADM_BLOCK_SIZE);
+			logger.info("PAGING :::::::::::::" + pageNav.toString());
+			inParam.put("START_ROW", pageNav.getStartRow());
+			inParam.put("END_ROW", pageNav.getEndRow());
+			
+			mm.put("PAGE_NO", nowPage);
+			mm.put("pageNav", pageNav);
+			mm.put("PayList", webSmartPhoneDao.selectSharPayProd(inParam)) ;
+			mm.put("useProdCnt", webSmartPhoneDao.selectSharUseCnt(inParam)) ;
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+
+	@Override
+	public int CheckSharWaitCnt(Map<String, Object> inParam)
+			throws Exception {
+		return webSmartPhoneDao.CheckSharWaitCnt(inParam);
+	}
+
+	/**
+	 * <pre>
+	 * 스마트폰 주문 내역 배송 조회 
+	 * 스마트폰 주문 내역 배송 조회 
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 11. 4. 오후 8:15:02
+	 * @author J.S.LEE
+	 * @see @see com.ssocio.sharing.service.web.WebSmartPhoneService#selectSharShipView(java.util.Map)
+	 * </pre>
+	 */
+	@Override
+	public ModelMap selectSharShipView(Map<String, Object> inParam)
+			throws Exception {
+		ModelMap mm = new ModelMap();
+		String invcNo = "";
+		Map<String,Object> prodInfo = webSmartPhoneDao.selectOrdShipProdInfo(inParam);
+		// 배송조회 페이지에서 상품 정보 값 가져오기 
+		mm.put("prodInfo",prodInfo);
+		
+		if(null != prodInfo.get("INVC_NO")){
+			// 상품 배송 이력 조회
+			invcNo = (String) prodInfo.get("INVC_NO");
+			mm.put("invcProcHist", webBuySharingDao.selectListInvcProcHist(invcNo));
+		}
+		
+				
+		// TODO Auto-generated method stub
+		return mm;
+	}
+
+	@Override
+	public int getAge(int mberSeq) throws Exception {
+		return webSmartPhoneDao.getAge(mberSeq);
+	}
+
+	/**
+	 * <pre>
+	 * 스마트폰 셰어링 주문 취소 
+	 * 스마트폰 셰어링 주문 취소 
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 11. 10. 오후 7:13:17
+	 * @author J.S.LEE
+	 * @see @see com.ssocio.sharing.service.web.WebSmartPhoneService#saveSmartSharingOrderCancel(java.util.Map)
+	 * </pre>
+	 */
+	@Override
+	public int saveSmartSharingOrderCancel(Map<String, Object> inParam) throws Exception {
+		Map<String,Object> seltData = new HashMap<String, Object>();
+		int nResult = 0;
+		
+		String procStatCd = webSmartPhoneDao.selectMobileSmartOrderCancelOrdcd((String)inParam.get("ORD_CD"));
+		Map<String,Object> cancelData = new HashMap<String,Object>();
+		if("50".equals(procStatCd)){
+			nResult  = -1;
+		}else{
+			seltData =  webSmartPhoneDao.selectBillCancelKey(inParam);
+			logger.debug(" @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ ret data @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+			logger.debug(cancelData.toString());
+			logger.debug(" @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+			
+			inParam.put("ORG_CD", inParam.get("S_ORD_CD")); // 히스토리 내역 관리 를 위해
+			inParam.put("HIST_PROC_STAT_CD", "50"); // 히스토리 내역 관리 를 위해
+			inParam.put("HIST_GB_CD", "10"); // 히스토리 내역 관리 를 위해
+			inParam.put("ORDERID", inParam.get("S_ORD_CD")); // 히스토리 내역 관리 를 위해
+			nResult = webSmartPhoneDao.insertOrderCancel(inParam);
+			nResult = webSmartPhoneDao.updateOrdProdInfoReg(inParam);
+			nResult = webSmartPhoneDao.inserthisTbreg(inParam) ;
+			
+			
+			cancelData = PaymentUtil.issuBiilCancel((String)seltData.get("BILL_KEY"));	
+			
+			if("0000".equals(cancelData.get("RETURNCODE"))){
+				inParam.put("TID", cancelData.get("TID"));
+				inParam.put("RETURNCODE", cancelData.get("RETURNCODE"));
+				inParam.put("RETURNMSG", cancelData.get("RETURNMSG"));
+				inParam.put("CARD_COMP_NM", seltData.get("CARD_COMP_NM"));
+				inParam.put("TRD_AMT", seltData.get("TRD_AMT")); 
+				logger.info("############################################## ::::::" + inParam.toString());
+				nResult = webSmartPhoneDao.insertCancelSeltInfo(inParam);
+			}else{
+				nResult  =0;
+				throw new Exception();
+			}
+		}
+		return nResult;
+	}
+
+	@Override
+	public Object selectListOrdAjax(Map<String, Object> inParam)
+			throws Exception {
+	int totCount = 0;
+//		페이징 클래스 initialize
+	WebMobilePaging paging = new WebMobilePaging(totCount, StringUtil.nvlInt((String)inParam.get("CUR_PAGE"), 1), CmmnCnst.MOBILE_LIST_SIZE);
+		
+	inParam.put("S_NUM", paging.getStartContent());
+	inParam.put("E_NUM", paging.getEndContent());
+		
+		
+		return null;
+	}
+
+	@Override
+	public ModelMap selectChkCrtn(Map<String, Object> inParam) throws Exception {
+		// TODO Auto-generated method stub
+		ModelMap mm = new ModelMap();
+		String guBun = (String) inParam.get("chkGubun");
+		int Cnt = 0;
+		String msg = "";
+		String procStatCd = webSmartPhoneDao.selectChgChkCnt(inParam);
+		logger.info("procStatCd :::::::::::::::::::::::::::::: " + procStatCd);
+		if("C".equals(guBun)){
+			if("41".equals(procStatCd)){
+				msg = "이미 교환신청이 접수된 주문건입니다.";
+			}else if("31".equals(procStatCd)){
+				msg = "이미 반품신청이 접수된 주문건입니다.";
+			}else if("85".equals(procStatCd)){
+				msg = "이미 스마트폰 셰어링이 확정된 주문건 입니다.";
+			}else{
+				msg = "S";
+			}
+		}else if("R".equals(guBun)){
+			if("41".equals(procStatCd)){
+				msg = "이미 교환신청이 접수된 주문건입니다.";
+			}else if("31".equals(procStatCd)){
+				msg = "이미 반품신청이 접수된 주문건입니다.";
+			}else if("85".equals(procStatCd)){
+				msg = "이미 스마트폰 셰어링이 확정된 주문건 입니다.";
+			}else{
+				msg = "S";
+			}
+		}else if("T".equals(guBun)){
+			if("70".equals(procStatCd)){
+				msg = "이미 해지신청이 접수된 주문건입니다.";
+			}else{
+				msg = "S";
+			}
+		}else if("S".equals(guBun)){
+			if("41".equals(procStatCd)){
+				msg = "이미 교환신청이 접수된 주문건입니다.";
+			}else if("31".equals(procStatCd)){
+				msg = "이미 반품신청이 접수된 주문건입니다.";
+			}else if("85".equals(procStatCd)){
+				msg = "이미 스마트폰 셰어링이 확정된 주문건 입니다.";
+			}else{
+				msg = "S";
+			}
+		}
+		
+		mm.put("msg", msg);
+		return mm;
+	}
+	
+	/**
+	 * <pre>
+	 * 스마트폰 셰어링 이용내역
+	 * 스마트폰 셰어링 이용내역 상태 카운트
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 12. 16
+	 * @author Y.S.KIM
+	 * @see com.ssocio.sharing.dao.web
+	 * </pre>
+	 */
+	@Override
+	public ModelMap selectSmartPoneSharUsingCount(Map<String, Object> inParam) throws Exception {
+		logger.debug("[webSmartPhoneServiceImpl.selectSmartPoneSharUsingCount]");
+		ModelMap outParam = new ModelMap();
+		try {
+			outParam.put("usingInfo",  webSmartPhoneDao.selectSmartPoneSharUsingCount(inParam));
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return outParam;
+	}
+
+	public static void main(String[] args) {
+		double test = 1;
+		double test2 = 3;
+		System.out.println((double)(test/test2));
+	}
+}

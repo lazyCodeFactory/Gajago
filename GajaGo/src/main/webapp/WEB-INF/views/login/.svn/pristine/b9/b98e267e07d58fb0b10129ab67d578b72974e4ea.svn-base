@@ -1,0 +1,545 @@
+<%
+	/*
+	 *	[메인] 마이페이지 정보조회
+	 */
+%>
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/web/common/cmmnHead.jsp"%>
+<title>SSOCIO</title>
+<script type="text/javascript">
+	/**************************** S [CSS]  *****************************/
+
+
+	var phoneFlag = "N";
+	var userAgent = navigator.userAgent.toLowerCase();
+	if(userAgent.match('iphone') || userAgent.match('ipad') || userAgent.match('ipod')) {   //아이폰
+		$(".pic_bx").each(function(index){
+			$(".pic_bx").eq(index).children("img").after("<input type='file' id='' accept='image' capture='camera' class='camera_none' />");
+		});
+		phoneFlag = "Y";
+	} else if(userAgent.match('android')) {  //안드로이드
+		var picture = '';
+		picture += '<div class="popup brand_pop none">';
+		picture += '<ul class="lst_camera">';
+		picture += '<li>앨범에서 사진 선택<input type="file" /></li>';
+		picture += '<li>사진촬영<input type="file" accept="image" capture="camera" /></li>';
+		picture += '<li><a href="#">기본이미지</a></li>';
+		picture += '</ul>';
+		picture += '</div>';
+
+		$("#wrap").after(picture);
+
+		$(".pic_bx").each(function(index){
+			$(".pic_bx").eq(index).children("img").click(function(){
+				$(".popup").removeClass("none");
+				$(".brand_pop").css({"display":"block"});
+				popup_show();
+			});
+		});
+		phoneFlag = "Y";
+	}
+
+	// 사진 그림 클릭시 이벤트
+	function show_pop_01(){
+		if(phoneFlag == "Y"){ // 모바일 로그인시에
+			$("#picture_pop").show();
+			popup_show();
+		}
+	}
+
+	// 사진 업로드시 이미지 팝업 확인 버튼 이벤트
+	$(document).on("click","#picture_pop",function(){
+		$("#picture_pop").hide();
+		popup_hide();
+		$("#fileMyPageImg").click();
+	});
+
+	function layClose(){
+		$("#picture_pop").hide();
+		popup_hide();
+	}
+
+	pop_size();
+
+	var essen_wd = $(".essential").width();
+	var essen_ht = $(".essential").height();
+	$(".essential").find(".camera_none").css({"width":essen_wd+"px","height":essen_ht+"px"});
+
+	var other = $(".lst_other_pic").find("div");
+	var o_wd = other.width();
+	var o_ht = other.height();
+
+	other.each(function(index){
+		other.eq(index).find(".camera_none").css({"width":o_wd+"px","height":o_ht+"px"});
+	});
+
+	$(document).on("click",".mask",function(){
+		popup_hide();
+	});
+	function pop_size(){
+		var wd = $(window).width();
+		var pop_wd = $('.brand_pop').width();
+		$('.brand_pop').css({"left":((wd-pop_wd)/2)+"px"}).show();
+	}
+	/**************************** E [CSS]  *****************************/
+/* ======================================================================
+Function : 파일선택시 이미지 보여주기
+Return   :
+========================================================================= */
+function preViewS(obj, targetId, targetPath){
+  var target = $("#" + targetId).get(0);
+  if(window.FileReader){
+    if(obj.files && obj.files[0]){
+      // 2015-04-03 김명진 파일 확장차 체크 추가 Start
+      var fileExp = $(obj).val().split(".");
+      fileExp = $.trim(fileExp[fileExp.length-1].toLowerCase());
+      if(fileExp != "jpg" && fileExp != "png" && fileExp != "jpeg" && fileExp != "bmp" && fileExp != "gif"){
+        alert("JPG, PNG 파일 형식만 업로드 가능합니다.");
+        var fileInfo =$(obj);
+        fileInfo.replaceWith( fileInfo = fileInfo.clone( true ) );
+        return false;
+      }
+      // 2015-04-03 김명진 파일 확장차 체크 추가 End
+
+      // 2015-04-03 김명진 용량체크 추가 Start
+      var Mega = 1*1024*1024;//Mbyte
+      var maxSize = 5;//5M
+      var fileSize = obj.files[0].size;
+
+      if(fileSize > maxSize * Mega){
+        alert("이미지 용량이"+maxSize+"MB를 초과하여 등록할 수 없습니다.");
+        var fileInfo =$(obj);
+        fileInfo.replaceWith( fileInfo = fileInfo.clone( true ) );
+        return false;
+      }
+      // 2015-04-03 김명진 용량체크 추가 End
+
+      var reader = new FileReader();
+      reader.onload = function(e){
+        $("#" + targetId).attr("src", e.target.result);
+      }
+      reader.readAsDataURL(obj.files[0]);
+    }
+    $("#" + targetPath).val(obj.value);
+  }else if(target.filters){
+    // 익스플로어일 경우
+    var inputFile = $(obj).get(0);
+    inputFile.select();
+    inputFile.blur();
+
+    var imgSrc = document.selection.createRange().text;
+    var image = new Image();
+    image.dysrc = imgSrc;
+
+    // 2015-04-03 김명진 파일 확장차 체크 추가 Start
+    var fileExp = imgSrc.split(".");
+    fileExp = $.trim(fileExp[fileExp.length-1].toLowerCase());
+    if(fileExp != "jpg" && fileExp != "png" && fileExp != "jpeg" && fileExp != "bmp" && fileExp != "gif"){
+      alert("JPG, PNG 파일 형식만 업로드 가능합니다.");
+      var fileInfo =$(obj);
+      fileInfo.replaceWith( fileInfo = fileInfo.clone( true ) );
+      return false;
+    }
+    // 2015-04-03 김명진 파일 확장차 체크 추가 End
+
+    // 2015-04-03 김명진 용량체크 추가 Start
+    var Mega = 1*1024*1024;//Mbyte
+    var maxSize = 5;//5M
+    var fileSize = image.fileSize;
+
+    if(fileSize > maxSize * Mega){
+      alert("이미지 용량이"+maxSize+"MB를 초과하여 등록할 수 없습니다.");
+      var fileInfo =$(obj);
+      fileInfo.replaceWith( fileInfo = fileInfo.clone( true ) );
+      return false;
+    }
+    // 2015-04-03 김명진 용량체크 추가 End
+
+    target.style.filter = "progid:DXImageTransform.Microsoft.AlphaImageLoader(enable='true',sizingMethod='scale',src=\""+imgSrc+"\")";
+    /*
+     * 2015-06-12 김명진
+     * IE 9버전에서 이미지 미리보기는 되지만 해당 이미지 백그라운드에
+     * IMG 태그의 여운이 남아 있는 관계로 로컬 파일에 있는 투명 이미지를 덮어 씌워 처리.
+     */
+    imgSrc = "http://static.ssocio.net/admin/images/empty.png";
+    $("#" + targetId).attr("src", imgSrc);//이미지 미리보기 경로 수정
+    $("#" + targetPath).val(obj.value);
+  }
+
+  // 등록처리한다.
+  setTimeout(regImg, 1000);
+}
+	$(document).ready(function(){
+		$("#picture_pop").hide();
+
+		/*
+		header.type	= 2;	// ( 0 : 타이틀영역만존재, 1 : 검색HEADER, 2 : SELECT TYPE HEADER, 3 : AD MENU TYPE HEADER, 4 : SUB TYPE HEADER )
+		header.title = "마이페이지";	document.title = "마이페이지";
+		header.method = "GET";
+		header.backUrl = "/mobile/main/main.do";
+		header.form = '';	// $("#form");
+		header.callback = '';	//showAddWishCtry;
+		initHeader();
+		*/
+
+		if(phoneFlag=="N"){
+			$("#fileMyPageImg").attr("style", "");
+		}
+
+		/*
+		 *	할인쿠폰 (myCpn)
+		 */
+		$("#myCpn").click(function() {
+			$("#myActForm").attr("action", '/mobile/myInfo/selectCpnList.do');
+			$("#myActForm").submit();
+		});
+		/*
+		 *	포인트 (myPoint)
+		 */
+		$("#myPoint").click(function() {
+			$("#myActForm").attr("action", '/mobile/myInfo/selectPointList.do');
+			$("#myActForm").submit();
+		});
+	});
+	/*
+	 *	구매관리
+	 */
+	selectBuyMain = function(){
+		location.href ="/mobile/buy/selectBuyMain.do";
+	};
+	/*
+	 * 판매관리
+	 */
+	salemanage = function(MBER_GB_CD){
+		var MBER_REG_GB_CD = '${result.myPageInfo.MBER_REG_GB_CD}';
+		if(MBER_GB_CD == '1' && MBER_REG_GB_CD == '1'){
+			alert("사업자판매회원은 PC웹 셀러사이트\n(http://seller.ssocio.com)에서 이용가능합니다."); return;
+		}else{
+			location.href ="/mobile/salemanage/main.do";
+		}
+	};
+
+	/**
+	 *	[ 1.회원정보변경 ]
+	//MBER_GB_CD  0 개인 1 사업자
+	//MBER_REG_GB_CD 0 구매 1판매
+	 */
+	myInfo = function(){
+		var MBER_GB_CD = '${result.myPageInfo.MBER_GB_CD}';
+		var MBER_REG_GB_CD = '${result.myPageInfo.MBER_REG_GB_CD}';
+
+		if(MBER_GB_CD == '1' && MBER_REG_GB_CD == '1'){
+			alert("사업자판매회원은 PC웹 셀러사이트\n(http://seller.ssocio.com)에서 이용가능합니다."); return;
+		}else{
+			$("#myInfoForm").attr("action", '/mobile/myInfo/getMyInfoInfo.do');
+			$("#myInfoForm").submit();
+		}
+	};
+	/**
+	 *	[ 관심상품 ]
+	 */
+	myInt = function(){
+		location.href ="/mobile/wish/InterestProd.do";
+	};
+
+	/**
+	 *	[ 2.배송지관리 ]
+	 */
+	myAdr = function(){
+		$("#myAdrForm").attr("action", '/mobile/myAdr/getMyAdrInfo.do');
+		$("#myAdrForm").submit();
+	};
+
+	/**
+	 *	[ 3.나의활동 ]
+	 */
+	myAct = function(){
+		$("#myActForm").attr("action", '/mobile/myAct/getMyActInfo.do');
+		$("#myActForm").submit();
+	};
+
+	/**
+	 *	[ 4.최근본상품 ]
+	 */
+	myLatelyGoods = function(){
+		$("#myLatelyGoodsForm").attr("action", '/mobile/myRecentProduct/getMyLatelyGoodsInfo.do');
+		$("#myLatelyGoodsForm").submit();
+	};
+
+	/**
+	 *	[ 5.장바구니 ]
+	 */
+	myBasket = function(){
+		$("#myBasketForm").attr("action", '/mobile/myBasket/getMyBasketInfo.do');
+		$("#myBasketForm").submit();
+	};
+	/**
+	 *	[ 6.위시리스트 ]
+	 */
+	 myWish = function(){
+		$("#myWishForm").attr("action", '/mobile/myWish/getMyWishList.do');
+		$("#myWishForm").submit();
+	};
+
+	/**
+	 *	[ 7.미니샵 ]
+	 */
+	 myMini = function(){
+		$("#myMiniForm").attr("action", '/mobile/myMini/getMyMiniInfo.do');
+		$("#myMiniForm").submit();
+	};
+
+	/**
+	 *	[ 8.메세지함 ]
+	 */
+	 myMessage = function(){
+		$("#myMessageForm").attr("action", '/mobile/myMessage/getMyMessageList.do');
+		$("#myMessageForm").submit();
+	};
+
+	/**
+	* [ 9.스마트폰 셰어링 이용내역]
+	*/
+	mySmartPhone = function(){
+
+		$("#mySmartForm").attr("action", '/mobile/shar/procSharUsing.do');
+		$("#mySmartForm").submit();
+	};
+
+	/**
+	* [ 9.스마트폰 셰어링 이용내역]
+	*/
+	chgseller = function(){
+// 		adultYn = isAdult("${result.myPageInfo.BIRTH}", 14);
+// 		if( adultYn == false ){
+// 			alert("만 14세 미만 회원은 판매회원 가입/전환이 불가합니다.");
+// // 			$("#PHONE_CHECK").val("N");
+// // 			$('#ph').attr('disabled',false);
+// 			return;
+// 		}
+// 		var ssoGbCd = '${sessionScope.user.SSO_GB_CD}';
+// 		if (ssoGbCd == 'KKO' || ssoGbCd == 'FBO') {
+// 			alert("카카오톡/페이스북 회원은 판매자 회원으로 전환이 불가합니다.");
+// 			return;
+// 		} else {
+		var MBER_GB_CD = '${result.myPageInfo.MBER_GB_CD}';
+		var MBER_REG_GB_CD = '${result.myPageInfo.MBER_REG_GB_CD}';
+		if(MBER_GB_CD == '1' && MBER_REG_GB_CD == '0'){
+			alert("사업자구매회원은 PC웹 셀러사이트\n(http://seller.ssocio.com)에서 이용가능합니다."); return;
+		}else{
+			$("#chgsellerForm").attr("action", '/mobile/join/sellTermsView.do');
+			$("#chgsellerForm").submit();
+
+		}
+// 		}
+	};
+
+	/*
+	 *	이미지 등록
+	 */
+	regImg = function(){
+		var options = {
+				 url : "/mobile/myPage/regImg.do",
+				 success: function(data){
+					 //alert("성공");
+					 $("#PROD_CODE").val(data.PARAMS.PROD_CODE);
+				 }
+		};
+	    $("#fileFormMyPage").ajaxSubmit(options);
+	};
+</script>
+<!-- 판매회원전환 -->
+<form id="chgsellerForm" name="chgsellerForm" method="get">
+	<input type="hidden" name="MBER_REG_GB_CD" id="MBER_REG_GB_CD" value="1" />
+	<input type="hidden" name="AGR_GB_CD" id="AGR_GB_CD" value="01,02,03" />
+	<input type="hidden" name="CALL" id="CALL" value="1" />
+	<input type="hidden" name="CALL_BACK" id="CALL_BACK" value="1" />
+</form>
+<!-- 8.메세지함 -->
+<form id="mySmartForm" name="mySmartForm" method="get">
+	<input type="hidden" name="r_user_name" id="r_user_name"/>
+</form>
+<!-- 8.메세지함 -->
+<form id="myMessageForm" name="myMessageForm" method="get">
+	<input type="hidden" name="r_user_name" id="r_user_name"/>
+</form>
+<!-- 7.미니샵 -->
+<form id="myMiniForm" name="myMiniForm" method="get">
+	<input type="hidden" name="r_user_name" id="r_user_name"/>
+</form>
+<!-- 6.위시리스트 -->
+<form id="myWishForm" name="myWishForm" method="get">
+	<input type="hidden" name="r_user_name" id="r_user_name"/>
+</form>
+<!-- 5.장바구니 -->
+<form id="myBasketForm" name="myBasketForm" method="get">
+	<input type="hidden" name="r_user_name" id="r_user_name"/>
+</form>
+<!-- 4.최근 본 상품 -->
+<form id="myLatelyGoodsForm" name="myLatelyGoodsForm" method="get">
+	<input type="hidden" name="r_user_name" id="r_user_name"/>
+</form>
+<!-- 3.나의활동 -->
+<form name="myActForm" id="myActForm" method="get">
+	<input type="hidden" name="r_user_name" id="r_user_name"/>
+</form>
+<!-- 2.배송지 관리 -->
+<form name="myAdrForm" id="myAdrForm" method="get">
+	<input type="hidden" name="r_user_name" id="r_user_name"/>
+</form>
+<!-- 1.회원정보 변경 -->
+<form name="myInfoForm" id="myInfoForm" method="get">
+	<input type="hidden" name="r_user_name" id="r_user_name"/>
+</form>
+<form id="fileFormMyPage" name="fileFormMyPage" method="post" action="" enctype="multipart/form-data">
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+		<div class="roc">
+			<ul class="inner">
+				<li><img src="http://static.ssocio.net/pc/img/common/section/roc_home.png" alt="홈"></li>
+				<li>마이페이지</li>
+			</ul>
+		</div>
+		<jsp:include page="../common/mype_top.jsp" flush="false" />
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+		<div id="" class="main">
+
+
+		    <div id="container">
+		    	<div class="mype_member">
+		            <article>
+		            	<c:set var="FILE_URL" value="${result.myPageInfo.FILE_URL }"/>
+		            	<c:if test="${empty FILE_URL}" >
+		            		<c:set var="FILE_URL" value="null"/>
+		            	</c:if>
+		                <p class="pic_bx" id="img_upload_btn">
+		                	<img src='<custom:codeTag code="DEFAULT_IMG_URL" groupCode="SITE_DEFAULT" />?resize=200px:200px' alt="${result.myPageInfo.FILE_URL }" id='myPageImg' style="width:100%;height:100%;" onClick="show_pop_01()">
+		                </p>
+		                <input type="file" id="fileMyPageImg" name="myPageImg" accept="image" capture="camera" class="camera_none" onchange="preViewS(this, 'myPageImg','');" style="height:1px;width:1px;"/>
+		                <!-- E 이미지 -->
+		                <p class="id">
+		                <c:choose>
+		                	<c:when test="${sessionScope.user.SSO_GB_CD eq 'KKO' }">
+		                		<c:if test="${not empty result.myPageInfo.MBER_NM && not empty result.myPageInfo.MBER_NICK}" >${result.myPageInfo.MBER_NM }</c:if>
+		                		<c:if test="${empty result.myPageInfo.MBER_NM && not empty result.myPageInfo.MBER_NICK}" >${result.myPageInfo.MBER_NICK }</c:if>
+		                		<c:if test="${not empty result.myPageInfo.MBER_NM && empty result.myPageInfo.MBER_NICK }" >${result.myPageInfo.MBER_NM }</c:if>
+		                		<c:if test="${empty result.myPageInfo.MBER_NM && empty result.myPageInfo.MBER_NICK }" >카카오톡 친구 쏘시오</c:if>
+		                	</c:when>
+		                	<c:when test="${sessionScope.user.SSO_GB_CD eq 'FBO' }">
+		                		<c:if test="${not empty result.myPageInfo.MBER_NM && not empty result.myPageInfo.MBER_NICK}" >${result.myPageInfo.MBER_NM }</c:if>
+		                		<c:if test="${empty result.myPageInfo.MBER_NM && not empty result.myPageInfo.MBER_NICK}" >${result.myPageInfo.MBER_NICK }</c:if>
+		                		<c:if test="${not empty result.myPageInfo.MBER_NM && empty result.myPageInfo.MBER_NICK }" >${result.myPageInfo.MBER_NM }</c:if>
+		                		<c:if test="${empty result.myPageInfo.MBER_NM && empty result.myPageInfo.MBER_NICK }" >페이스북 친구 쏘시오</c:if>
+		                	</c:when>
+		                	<c:otherwise>
+		                		<c:if test="${not empty result.myPageInfo.MBER_NM && not empty result.myPageInfo.MBER_NICK}" >${result.myPageInfo.MBER_NM }</c:if>
+		                		<c:if test="${empty result.myPageInfo.MBER_NM && not empty result.myPageInfo.MBER_NICK}" >${result.myPageInfo.MBER_NICK }</c:if>
+		                		<c:if test="${not empty result.myPageInfo.MBER_NM && empty result.myPageInfo.MBER_NICK }" >${result.myPageInfo.MBER_NM }</c:if>
+		                		<c:if test="${empty result.myPageInfo.MBER_NM && empty result.myPageInfo.MBER_NICK }" >${result.myPageInfo.MBER_EMAIL }</c:if>
+		                	</c:otherwise>
+		                </c:choose>
+		                	님,반갑습니다.
+		                </p>
+		                <p class="type">
+		<%--                 <img src="http://static.ssocio.net/web/images/mype/mype_mamber.png" alt="등급"><span class="level"> LEVEL ${result.myPageInfo.MBER_GB_CD } </span> │ <span>${result.myPageInfo.MBER_REG_GB_CD_NM }회원</span> --%>
+		                	<span> <img src="${result.myPageInfo.LEV_FILE_URL }" alt="${result.myPageInfo.MBER_LEV_NM }">${result.myPageInfo.MBER_LEV_NM } </span> │ <span>${result.myPageInfo.MBER_REG_GB_CD_NM }회원</span>
+		                </p>
+		                <p class="btn"><a href="javascript:myInfo();">정보수정</a></p>
+		            </article>
+		            <ul class="cupon">
+		                <li><p>할인쿠폰</p><strong id='myCpn'>${result.myPageInfo.CPN_CNT }장</strong></li>
+		                <li><p>포인트</p><strong id='myPoint'><fmt:formatNumber value="${result.myPageInfo.POINT}" type="number" />P</strong></li>
+		            </ul>
+		        </div>
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>
+
+
+        <div class="content">
+        	<ul class="clear mype_mymenu">
+            	<li onclick="javascript:myLatelyGoods();"><a href="javascript:myLatelyGoods">최근 본 상품</a></li>
+            	<li onclick="javascript:myWish();"><a href="javascript:myWish();">위시리스트</a></li>
+            	<li onclick="javascript:myAct();"><a href="javascript:myAct();">나의 활동</a></li>
+            </ul>
+        	<ol class="list no-border">
+        		<li onclick="javascript:myInt();"><p class="arrow">관심상품</p></li>
+            	<li onclick="javascript:myAdr();"><p class="arrow">배송지 관리</p></li>
+            	<c:if test="${result.mySmartUseListCnt < 1}" >
+            	<li onclick="javascript:mySmartPhone();"><p class="clear arrow"><a href="javascript:mySmartPhone();" class="left">스마트폰 셰어링 이용내역</a> <span class="point_p right">${result.mySmartUseListCnt }</span></p></li>
+            	</c:if>
+            	<c:if test="${result.mySmartUseListCnt > 0}" >
+            	<li style="padding:0">
+                    <ol class="graph_area">
+                        <li onclick="javascript:mySmartPhone();"><p class="arrow">스마트폰 셰어링 이용내역 <span class="point_p right">${result.mySmartUseListCnt }</span></p></li>
+                        <c:forEach var="mySmartUseListResult" items="${result.mySmartUseList }" varStatus="status">
+                        <li class="no_bot">${mySmartUseListResult.PROD_NM } <span class="point_p right">D-${mySmartUseListResult.DAY_END }</span></li>
+                        <li>
+                    		<c:if test="${mySmartUseListResult.RATE < 50 }">
+                            <!-- 그래프 영역 50% 이하일때 -->
+                            <div class="line_graph type1">
+                                <p class="tr"><span class="ico" style="left:${mySmartUseListResult.RATE}%">${mySmartUseListResult.SYS_DT} (D-${mySmartUseListResult.DAY_END })</span></p>
+                                <div class="bar"><p style="width:${mySmartUseListResult.RATE}%"></p></div>
+                                <p class="clear"><span class="fl">${mySmartUseListResult.OPEN_DT}</span> <span class="fr">${mySmartUseListResult.END_DT}</span></p>
+                            </div>
+                    		</c:if>
+                    		<c:if test="${mySmartUseListResult.RATE >= 50 }">
+                            <!-- 그래프 영역 50% 이상일때 -->
+                            <div class="line_graph type2">
+                                <p class="tr" style="width:${mySmartUseListResult.RATE}%"><span class="ico">${mySmartUseListResult.SYS_DT} (D-${mySmartUseListResult.DAY_END })</span></p>
+                                <div class="bar"><p style="width:${mySmartUseListResult.RATE}%"></p></div>
+                                <p class="clear"><span class="fl">${mySmartUseListResult.OPEN_DT}</span> <span class="fr">${mySmartUseListResult.END_DT}</span></p>
+                            </div>
+                    		</c:if>
+                        </li>
+                        </c:forEach>
+
+                    </ol>
+                </li>
+                </c:if>
+            	<li onclick="javascript:selectBuyMain();"><p class="arrow">구매관리</p></li>
+            	<!-- 판매회원만 보임. -->
+				<c:if test="${result.myPageInfo.MBER_REG_GB_CD  eq '1'}" >
+				  	<li onclick="javascript:salemanage('${result.myPageInfo.MBER_GB_CD}');"><p class="arrow">판매관리</p></li>
+				</c:if>
+				<c:if test="${result.myPageInfo.MBER_REG_GB_CD  ne '1'}" >
+					<li class="tc">
+	                	<p><span class="point_p">SSOCIO</span>에서는 누구나 쉽게 팔고싶은<br>상품을 올릴 수 있습니다!</p>
+	                    <p class="mt10"><a href="javascript:chgseller();" class="btn_switch">판매회원으로 전환하기</a></p>
+	                </li>
+				</c:if>
+            </ol>
+        </div>
+
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+		<jsp:include page="../common/mype_bottom.jsp" flush="false" />
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+		    </div>
+		    <div class="popup picture_pop" id="picture_pop">
+		    	<div class="pic_tit" onClick="layClose()">
+		    		<strong>사진촬영 안내</strong>
+		    		<a href="#">
+		    			<img src="http://static.ssocio.net/web/images/btn_layer_close.png" width="17" height="17" alt="팝업 닫기"/>
+		    		</a>
+		    	</div>
+		    	<div class="pic_cont">
+		    		<p><img src="http://static.ssocio.net/web/images/bg_pic_none2.gif" width="182" height="117" alt="사진 촬영시 가로모드로 촬영해 주세요." /></p>
+		    		<a href="#" class="btn_r">확인</a>
+		    	</div>
+		    </div>
+		</div>
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>
+
+</form>

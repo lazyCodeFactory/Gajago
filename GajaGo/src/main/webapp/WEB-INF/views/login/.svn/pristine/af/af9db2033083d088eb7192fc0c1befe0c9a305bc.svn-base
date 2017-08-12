@@ -1,0 +1,235 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/web/common/webJSTL.jsp"%>
+<script type="text/javascript" src="/js/web/cart.js" ></script> <!-- 장바구니용 js -->
+<script type="text/javascript" src="/js/web/saleMng/byteCheckUtil.js"></script> <!-- 바이트 체크 유틸 -->
+<script type="text/javascript">
+
+// [2015-11-11] 바이트수 체크로 변경되어 수정함.
+var prdDtlBu = new strByteUtil(100);
+$(document).ready(function(){
+	//공통 HEADER SETTING
+	header.type = 2;
+	header.title = "스마트폰 셰어링 해지신청";
+	header.backUrl = "/mobile/shar/selectListShar.do";
+	header.method = "GET";
+	header.callback = callback;
+	document.title = "스마트폰 셰어링 해지신청";
+	initHeader();
+	//공통 FOOTER SETTING
+	displayFooter(false);
+	
+	$("#TERMI_REASON").bind('keyup', function(evt) {
+		if ( "evt" != proc.strChkfnc(this, evt))
+		{
+			proc.procProdDtlLen();
+		}
+	});
+});
+// script 처리 모음
+var proc = {
+		strChkfnc : function(obj, evt ){
+			var rejectPattern = /[\~\!\@\#\$\&\*\(\)\|\<\>\\\=\`\^\'\"\?\\]/ig;
+			var rep_rejectPattern = /[\~\!\@\#\$\&\*\(\)\|\<\>\\\=\`\^\'\"\?\\]/ig;
+			
+			if(rejectPattern.test(  $(obj).val()  )){
+				$(obj).val($(obj).val().replace(rep_rejectPattern, ""));
+			}
+		},
+		// 상품명 글자수 spanLen
+		procProdDtlLen : function () {
+
+			var str = $("#TERMI_REASON").val();
+			
+			// 바이트 체크해서 초과하면, 자른 글자만큼 setting 해버림
+			if(!prdDtlBu.byteCheck(str)){
+				alert("최대 " + prdDtlBu.getMaxByte() + " Byte 까지 입력 가능 합니다.");
+				str = prdDtlBu.getStrLimitmaxByte(str);
+				$("#TERMI_REASON").val(str);
+			}
+			
+			$("#spanProdDtlLen").text(prdDtlBu.getByteLength(str) + "/" + prdDtlBu.getMaxByte() + " Byte");
+	}
+};
+
+
+	
+
+function termi(){
+	
+	console.log($("#TERMI_REASON_CD").val());
+	console.log($("#TERMI_REASON").val());
+	
+	var termiCd = $("#TERMI_REASON_CD").val();
+	var termi = $("#TERMI_REASON").val();
+	
+	if ( termiCd == "" ) {
+		alert("해지 신청 사유를 선택해주세요.");
+		return false;
+	} else if ( termiCd == "05" ) {
+		alert("해지 신청 사유를 입력해주세요.");
+		return false;
+	}
+	var form = document.frm;
+	form.S_TERMI_REASON_CD.value = termiCd;
+	form.S_TERMI_REASON.value = termi;
+	
+	var rtnmsg = "";
+	rtnmsg = chkFunc('T');
+	if("S" == rtnmsg){
+		if(confirm("선택하신 상품을 해지신청 하시겠습니까?")){
+			$.ajax({
+				type: 'post'
+				, async: true
+				, url: '/mobile/shar/insertSharTermi.do'
+				, data: $("#frm").serialize()
+				, success: function(data) {
+					if(data.outParam == '1') {
+						alert("스마트폰 셰어링 해지신청이 완료되었습니다.");
+						location.href="/mobile/shar/selectSharTermiProd.do";
+					}
+				}
+				, error: function(data, status, err) {
+				  alert('서버와의 통신이 실패했습니다.');
+				}
+			});
+		}
+	}else{
+		alert(rtnmsg);
+		return;
+	}
+	
+}
+function chkFunc(guBun){
+	var rtnMsg = "";
+	$("#chkGubun").val(guBun);
+	$.ajax({
+		type: 'post'
+		, async: false
+		, url: '/mobile/shar/selectChkCrtn.do'
+		, data: $("#frm").serialize()
+		, success: function(data) {
+			
+			rtnMsg = data.msg;
+		}
+		, error: function(data, status, err) {
+		  alert('서버와의 통신이 실패했습니다.');
+		}
+	});
+	return rtnMsg;
+}
+function callback(str) {
+	if ( "btn_home" == str ) {
+		location.href="/mobile/main/main.do";
+	} else if ("btn_basket" == str) {
+		location.href="/mobile/myBasket/getMyBasketInfo.do";
+	}
+}
+</script>
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+
+        <div class="roc">
+        	<ul class="inner">
+            	<li><img src="http://static.ssocio.net/pc/img/common/section/roc_home.png" alt="홈"></li>
+                <li>스마트폰 셰어링</li>
+            </ul>
+        </div>
+        
+        <!-- inner -->
+		<div class="inner">
+			<h3 class="tit_cate mb20"><p>스마트폰 셰어링</p></h3>
+
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+	 <!-- container -->
+		<div id="container">
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>
+ 		<div class="sha_oder_area">
+            <ol class="graph_area">
+                <li class="dot"><strong>셰어링 기간</strong><span class="color_7"><fmt:formatDate value="${OPEN_DAY }" pattern="yyyy-MM-dd"/>~<fmt:formatDate value="${END_DAY }" pattern="yyyy-MM-dd"/>(${USE_DAY }일 사용)</span></li>
+                <li>
+      				<c:choose>
+						<c:when test="${SharPerc <= 50}">
+		                    <!-- 그래프 영역 50% 이하일때 -->
+		                    <div class="line_graph type1">
+		                        <p class="tr"><span class="ico" style="left:${SharPerc}%"><fmt:formatDate value="${TO_DAY }" pattern="M/dd" /> (D-${D_DAY })</span></p>
+		                        <div class="bar"><p style="width:${SharPerc}%"></p></div>
+		                        <p class="clear"><span class="fl"><fmt:formatDate value="${OPEN_DAY }" pattern="M/dd" /></span> <span class="fr"><fmt:formatDate value="${END_DAY }" pattern="M/dd" /></span></p>
+		                    </div>
+	                   	</c:when>
+						<c:otherwise>
+		                    <!-- 그래프 영역 50% 이상일때 -->
+		                    <div class="line_graph type2">
+		                        <p class="tr" style="width:${SharPerc}%"><span class="ico"><fmt:formatDate value="${TO_DAY }" pattern="M/dd" /> (D-${D_DAY })</span></p>
+		                        <div class="bar"><p style="width:${SharPerc}%"></p></div>
+		                           <p class="clear"><span class="fl"><fmt:formatDate value="${OPEN_DAY }" pattern="M/dd" /></span> <span class="fr"><fmt:formatDate value="${END_DAY }" pattern="M/dd" /></span></p>
+		                    </div>
+						</c:otherwise>
+					</c:choose>
+                </li>
+            </ol>
+        </div>
+
+        <div class="info-box lineb">
+            <p><strong class="point_p">스마트폰 셰어링 이용기간<br><fmt:formatDate value="${OPEN_DAY }" pattern="yyyy-MM-dd"/>~<fmt:formatDate value="${TO_DAY }" pattern="yyyy-MM-dd"/>(${USE_DAY }일)</strong></p>
+            <p><fmt:formatDate value="${TO_DAY }" pattern="YYYY" />년 <fmt:formatDate value="${TO_DAY }" pattern="MM" />월 <fmt:formatDate value="${TO_DAY }" pattern="dd" />일 기준 회원님의 스마트폰 셰어링 예상 위약금은</p>
+            <p><strong class="point_r"><fmt:formatNumber value="${TOTAL_PENALTY }" pattern="#,###"/>원</strong></p>
+            <p>입니다.</p>
+            <p>(렌탈위약금 : <fmt:formatNumber value="${RENTAL_PENALTY }" pattern="#,###"/>원 + 할인금액 위약금 <fmt:formatNumber value="${SALE_PENALTY }" pattern="#,###"/>원) 입니다.</p>
+            <p>스마트폰셰어링 해시 지 통신사 위약금은 별도로 발생됩니다.</p>
+        </div>
+
+	<p class="title lineb">스마트폰 셰어링 해지 사유</p>
+
+	<div class="content">
+		<div class="sbox03">
+			<p>스마트폰 셰어링 해지신청 사유를 선택해 주세요 <span class="point_r">(필수)</span></p>
+			<custom:codeList groupCode="TERMI_REASON_CD" var="list"/>
+			
+			<div class="mt5">
+				<select id="TERMI_REASON_CD" name="TERMI_REASON_CD" onchange="$('#TERMI_REASON').val('');">
+					<option value="">선택</option>
+				<c:forEach var="list" items="${list}">
+                  <option value="${list.key}">${list.value}</option>
+                </c:forEach>
+				</select>
+			</div>
+
+			<p class="mt10 mb5">상세 사유를 입력해 주세요 (선택)</p>
+			<div class="text_box">
+				<textarea id="TERMI_REASON" name="TERMI_REASON" placeholder="기타사유를 작성해 주세요."></textarea>
+				<span class="byte" id="spanProdDtlLen">0/100 Byte</span>
+			</div>
+		</div>
+	</div>
+
+	<div class="btn_enter">
+		<a href="javascript:termi();" class="btn_r">해지신청</a>
+	</div>
+
+</div>
+<!-- //container -->
+<form id="frm" name="frm" method="post">
+	<input type="hidden" id="S_ORD_CD" name="S_ORD_CD" value="${params.S_ORD_CD }"/>
+	<input type="hidden" id="ORD_CD" name="ORD_CD" value="${params.S_ORD_CD }"/>
+	<input type="hidden" id="S_PROD_CD" name="S_PROD_CD" value="${params.S_PROD_CD }"/>
+	<input type="hidden" id="S_RCV_NM" name="S_RCV_NM" value="${outParam.RCV_NM }"/>
+	<input type="hidden" id="S_RCV_HP" name="S_RCV_HP" value="${outParam.RCV_HP }"/>
+	<input type="hidden" id="S_ZIP_CD" name="S_ZIP_CD" value="${outParam.ZIP_CD }"/>
+	<input type="hidden" id="S_JUSO_JIBEN" name="S_JUSO_JIBEN" value="${outParam.JUSO_JIBEN }"/>
+	<input type="hidden" id="S_JUSO_DORO" name="S_JUSO_DORO" value="${outParam.JUSO_DORO }"/>
+	<input type="hidden" id="S_JUSO_DTL" name="S_JUSO_DTL" value="${outParam.JUSO_DTL }"/>
+	<input type="hidden" id="S_TERMI_REASON_CD" name="S_TERMI_REASON_CD" />
+	<input type="hidden" id="S_TERMI_REASON" name="S_TERMI_REASON" />
+	<input type="hidden" id="S_USE_DAY" name="S_USE_DAY" value="${USE_DAY }" />
+	<input type="hidden" id="S_RENTAL_PENALTY" name="S_RENTAL_PENALTY" value="${RENTAL_PENALTY }" />
+	<input type="hidden" id="S_SALE_PENALTY" name="S_SALE_PENALTY" value="${SALE_PENALTY }" />
+	<input type="hidden" id="S_TOTAL_PENALTY" name="S_TOTAL_PENALTY" value="${TOTAL_PENALTY }" />
+	<input type="hidden" id="chkGubun" name="chkGubun" value="" />
+</form>

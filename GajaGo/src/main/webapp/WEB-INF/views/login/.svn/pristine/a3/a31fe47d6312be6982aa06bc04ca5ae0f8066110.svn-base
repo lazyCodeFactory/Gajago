@@ -1,0 +1,676 @@
+<%@ page language="java" contentType="text/html; charset=utf-8"
+    pageEncoding="utf-8"%>
+<!-- 태그는 cmmnHead.jsp 에 선언함 -->
+<%@ include file="/WEB-INF/views/admin/common/cmmnHead.jsp"%>
+
+<script type="text/javascript" src="http://static.ssocio.net/admin/js/FusionCharts.js"></script>
+<script type="text/javascript">
+$(document).ready(function() {
+
+	/* 탭 클릭 이벤트 Start */
+
+	f_getOrderCntChart(); // 차트로딩
+
+	$(".tabPerf1").click(function() {
+		f_goTab(1);
+	});
+
+	$(".tabPerf2").click(function() {
+		f_goTab(2);
+	});
+
+	$(".tabPerf3").click(function() {
+		f_goTab(3);
+	});
+
+	$(".tabPerf4").click(function() {
+		f_goTab(4);
+	});
+
+	/* 탭 클릭 이벤트 End */
+
+	// 조회 클릭 이벤트
+	$("#btn_search").click(function() {
+		f_searchPerfList("list");
+	});
+
+	// 엑셀 클릭 이벤트
+	$("#btn_excel").click(function() {
+		f_searchPerfList("excel");
+	});
+
+	// 월 선택시 날짜변경 처리
+	$("#periodMonth").change(function(){
+		setday();
+
+	});
+
+	// 라디오 버튼 시간별 클릭 이벤트
+	$("#S_PERI_TIME").click(function() {
+		$("#periodYear").show();
+		$("#periodMonth").show();
+		$("#periodDay").show();
+	});
+
+	// 라디오 버튼 일별 클릭 이벤트
+	$("#S_PERI_DAY").click(function() {
+		$("#periodYear").show();
+		$("#periodMonth").show();
+		$("#periodDay").hide();
+	});
+
+	// 라디오 버튼 월별 클릭 이벤트
+	$("#S_PERI_MON").click(function() {
+		$("#periodYear").show();
+		$("#periodMonth").hide();
+		$("#periodDay").hide();
+	});
+
+
+	// 주문탭 처리
+	$(".btn_oder").each(function(i){
+    	$(".btn_oder").eq(i).click(function(){
+    		$(".lst_type").hide().eq(i).show();
+
+    		if($(this).hasClass("btn_g2")){
+    			$(".btn_oder").removeClass("btn_r").addClass("btn_g2");
+
+    			if(i == 1){
+    				f_getOrderAmtChart();
+    			}else{
+    				f_getOrderCntChart();
+    			}
+
+    			$(this).removeClass("btn_g2").addClass("btn_r");
+
+    		}
+    		return false;
+    	});
+    });
+
+
+	$(".tabPerf1").trigger("click");
+	f_searchAfterList();
+});
+
+function f_searchAfterList() {
+	var sPeriGb = $("input[name=S_PERI_GB]:checked").val();
+	var action = "${searchParam.ACTION}";
+	if(sPeriGb=='time'){
+		$("#periodYear").show();
+		$("#periodMonth").show();
+		$("#periodDay").show();
+
+		if(action == "list"){
+			$("#SEL_TXT_YEAR").text("${searchParam.S_YEAR}" + "년");
+			$("#SEL_TXT_MONTH").text("${searchParam.S_MONTH}" + "월");
+			$("#SEL_TXT_DAY").text("${searchParam.S_DAY}" + "일");
+			$("#S_YEAR").val("${searchParam.S_YEAR}");
+			$("#S_MONTH").val("${searchParam.S_MONTH}");
+			$("#S_DAY").val("${searchParam.S_DAY}");
+		}
+
+	}else if(sPeriGb=='day'){
+		$("#periodYear").show();
+		$("#periodMonth").show();
+		$("#periodDay").hide();
+
+		if(action == "list"){
+			$("#SEL_TXT_YEAR").text("${searchParam.S_YEAR}" + "년");
+			$("#SEL_TXT_MONTH").text("${searchParam.S_MONTH}" + "월");
+			$("#S_YEAR").val("${searchParam.S_YEAR}");
+			$("#S_MONTH").val("${searchParam.S_MONTH}");
+		}
+	}else if(sPeriGb=='month'){
+		$("#periodYear").show();
+		$("#periodMonth").hide();
+		$("#periodDay").hide();
+
+		if(action == "list"){
+			$("#SEL_TXT_YEAR").text("${searchParam.S_YEAR}" + "년");
+			$("#S_YEAR").val("${searchParam.S_YEAR}");
+		}
+	}
+
+
+}
+/* ======================================================================
+Function : 조회
+Return   : 없음
+========================================================================= */
+function f_searchPerfList(sAction) {
+	var sYear = $("#S_YEAR").val();
+	var sMonth = $("#S_MONTH").val();
+	var sDay = $("#S_DAY").val();
+	var sPeriGb = $("input[name=S_PERI_GB]:checked").val();
+	var sSalesDate = "";
+	var url;
+
+	if(sAction == "excel") {
+	   	url = "/admin/perf/selectListPeriPerfExcelDownload.do";
+	}else {
+	   	url = "/admin/perf/selectListPeriPerf.do";
+	}
+
+	var today = new Date();
+    var cur_day = today.getDate();
+
+	if(sPeriGb == "time") {
+		sSalesDate = sYear + sMonth + sDay;
+	}else if(sPeriGb == "day") {
+		sSalesDate = sYear + sMonth;
+	}else if(sPeriGb == "month") {
+		sSalesDate = sYear;
+	}
+
+	$("#ACTION").val(sAction);
+	$("#S_SALES_DATE").val(sSalesDate);
+	$("#S_PERI_GB").val(sPeriGb);
+	$("#frm").attr("action", url).submit();
+}
+
+/* ======================================================================
+Function : 탭이동
+Return   : 없음
+========================================================================= */
+function f_goTab(index) {
+	$("#TAB_INDEX").val(index);
+
+	if(index == 1) {
+		setday();
+	}else if(index == 2) {
+		$("#frm").attr("action", "/admin/perf/selectListCtryPerf.do").submit();
+	}else if(index == 3) {
+		$("#frm").attr("action", "/admin/perf/selectListProdPerf.do").submit();
+	}else if(index == 4) {
+		$("#frm").attr("action", "/admin/perf/selectListMberPerf.do").submit();
+	}
+}
+
+/* ======================================================================
+Function : 주문건수 챠트보기
+Return   : 없음
+========================================================================= */
+function f_getOrderCntChart() {
+	var myChart = new FusionCharts( "http://static.ssocio.net/admin/charts/MSLine.swf", "myChartId", "1200", "330", "0", "1" );
+	var strChartXML = "";
+	var sSalesYymmdd;
+	var sSalesYymmddG;
+	var sSalesCnt1;
+	var sSalesCnt2;
+	var sSalesCnt3;
+	var sSalesCnt4;
+	strChartXML = "<chart palette='5' caption='주문건수' captionfontsize='14' subcaptionfontsize='14' subcaptionfontbold='0' palettecolors='#0075c2,#1aaf5d' bgcolor='#ffffff'";
+	strChartXML += " showborder='0' showshadow='0' showcanvasborder='0' useplotgradientcolor='0' legendborderalpha='0' legendshadow='0' showaxislines='0' showalternatehgridcolor='0'";
+	strChartXML += " divlinethickness='1' divlinedashed='1' divlinedashlen='1' divlinegaplen='1' showvalues='0' formatNumberScale='0' decimalSeparator=','>";
+	strChartXML += "<categories>";
+	<c:forEach var="perfList" items="${list.perfList}">
+	   sSalesYymmdd = "${perfList.SALES_YYMMDD}";
+	   sSalesYymmddG = "${perfList.SALES_YYMMDD_G}";
+
+	   if(sSalesYymmddG == '0') {
+		      if(sSalesYymmdd.length == 6) {
+				  sSalesYymmdd = sSalesYymmdd.substr(4,6) + "월";
+			  }else if(sSalesYymmdd.length == 8) {
+				  sSalesYymmdd = sSalesYymmdd.substr(6,8) + "일";
+			  }else if(sSalesYymmdd.length == 10) {
+				  sSalesYymmdd = sSalesYymmdd.substr(8,10) + "시";
+			  }else {
+				  sSalesYymmdd = "";
+			  }
+
+
+          strChartXML += "<category label='"+sSalesYymmdd+"' />";
+	   }
+    </c:forEach>
+    strChartXML += "</categories>";
+
+    strChartXML += "<dataset seriesname='스마트폰'>";
+    <c:forEach var="perfList" items="${list.perfList}">
+	   sSalesYymmddG = "${perfList.SALES_YYMMDD_G}";
+	   sSalesCnt4 = "${perfList.SALES_CNT4}";
+	   if(sSalesYymmddG == '0') {
+		   strChartXML += "<set value='"+sSalesCnt4+"' />";
+	   }
+    </c:forEach>
+    strChartXML += "</dataset>";
+
+    strChartXML += "<dataset seriesname='판매'>";
+    <c:forEach var="perfList" items="${list.perfList}">
+	   sSalesYymmddG = "${perfList.SALES_YYMMDD_G}";
+	   sSalesCnt1 = "${perfList.SALES_CNT1}";
+	   if(sSalesYymmddG == '0') {
+		   strChartXML += "<set value='"+sSalesCnt1+"' />";
+	   }
+    </c:forEach>
+    strChartXML += "</dataset>";
+
+    strChartXML += "<dataset seriesname='쉐어링'>";
+    <c:forEach var="perfList" items="${list.perfList}">
+	   sSalesYymmddG = "${perfList.SALES_YYMMDD_G}";
+	   sSalesCnt2 = "${perfList.SALES_CNT2}";
+	   if(sSalesYymmddG == '0') {
+		   strChartXML += "<set value='"+sSalesCnt2+"' />";
+	   }
+    </c:forEach>
+    strChartXML += "</dataset>";
+
+    strChartXML += "<dataset seriesname='나눔'>";
+    <c:forEach var="perfList" items="${list.perfList}">
+	   sSalesYymmddG = "${perfList.SALES_YYMMDD_G}";
+	   sSalesCnt3 = "${perfList.SALES_CNT3}";
+	   if(sSalesYymmddG == '0') {
+		   strChartXML += "<set value='"+sSalesCnt3+"' />";
+	   }
+    </c:forEach>
+    strChartXML += "</dataset>";
+	strChartXML += "</chart>";
+
+	myChart.setDataXML(strChartXML);
+	myChart.render("chartContainer");
+}
+
+
+/* ======================================================================
+Function : 주문금액 챠트보기
+Return   : 없음
+========================================================================= */
+function f_getOrderAmtChart() {
+
+	var myChart = new FusionCharts( "http://static.ssocio.net/admin/charts/MSLine.swf", "myChartId", "1200", "330", "0", "1" );
+	var strChartXML = "";
+	var sSalesYymmdd;
+	var sSalesYymmddG;
+	var sSalesPrce1;
+	var sSalesPrce2;
+	var sSalesPrce3;
+	var sSalesPrce4;
+	strChartXML = "<chart palette='5' caption='주문금액' captionfontsize='14' subcaptionfontsize='14' subcaptionfontbold='0' palettecolors='#0075c2,#1aaf5d' bgcolor='#ffffff'";
+	strChartXML += " showborder='0' showshadow='0' showcanvasborder='0' useplotgradientcolor='0' legendborderalpha='0' legendshadow='0' showaxislines='0' showalternatehgridcolor='0'";
+	strChartXML += " divlinethickness='1' divlinedashed='1' divlinedashlen='1' divlinegaplen='1' showvalues='0' formatNumberScale='0' decimalSeparator=','>";
+	strChartXML += "<categories>";
+	<c:forEach var="perfList" items="${list.perfList}">
+	   sSalesYymmdd = "${perfList.SALES_YYMMDD}";
+	   sSalesYymmddG = "${perfList.SALES_YYMMDD_G}";
+	   if(sSalesYymmddG == '0') {
+	      if(sSalesYymmdd.length == 6) {
+			  sSalesYymmdd = sSalesYymmdd.substr(4,6) + "월";
+		  }else if(sSalesYymmdd.length == 8) {
+			  sSalesYymmdd = sSalesYymmdd.substr(6,8) + "일";
+		  }else if(sSalesYymmdd.length == 10) {
+			  sSalesYymmdd = sSalesYymmdd.substr(8,10) + "시";
+		  }else {
+			  sSalesYymmdd = "";
+		  }
+          strChartXML += "<category label='"+sSalesYymmdd+"' />";
+	   }
+    </c:forEach>
+    strChartXML += "</categories>";
+
+    strChartXML += "<dataset seriesname='스마트폰'>";
+    <c:forEach var="perfList" items="${list.perfList}">
+	   sSalesYymmddG = "${perfList.SALES_YYMMDD_G}";
+	   sSalesPrce4 = "${perfList.SALES_PRCE4}";
+	   if(sSalesYymmddG == '0') {
+		   strChartXML += "<set value='"+sSalesPrce4+"' />";
+	   }
+    </c:forEach>
+    strChartXML += "</dataset>";
+
+    strChartXML += "<dataset seriesname='판매'>";
+    <c:forEach var="perfList" items="${list.perfList}">
+	   sSalesYymmddG = "${perfList.SALES_YYMMDD_G}";
+	   sSalesPrce1 = "${perfList.SALES_PRCE1}";
+	   if(sSalesYymmddG == '0') {
+		   strChartXML += "<set value='"+sSalesPrce1+"' />";
+	   }
+    </c:forEach>
+    strChartXML += "</dataset>";
+
+    strChartXML += "<dataset seriesname='쉐어링'>";
+    <c:forEach var="perfList" items="${list.perfList}">
+	   sSalesYymmddG = "${perfList.SALES_YYMMDD_G}";
+	   sSalesPrce2 = "${perfList.SALES_PRCE2}";
+	   if(sSalesYymmddG == '0') {
+		   strChartXML += "<set value='"+sSalesPrce2+"' />";
+	   }
+    </c:forEach>
+    strChartXML += "</dataset>";
+
+    strChartXML += "<dataset seriesname='나눔'>";
+    <c:forEach var="perfList" items="${list.perfList}">
+	   sSalesYymmddG = "${perfList.SALES_YYMMDD_G}";
+	   sSalesPrce3 = "${perfList.SALES_PRCE3}";
+	   if(sSalesYymmddG == '0') {
+		   strChartXML += "<set value='"+sSalesPrce3+"' />";
+	   }
+    </c:forEach>
+    strChartXML += "</dataset>";
+	strChartXML += "</chart>";
+
+	myChart.setDataXML(strChartXML);
+	myChart.render("chartContainer");
+}
+
+function setday() {
+	var year = $("#S_YEAR").val();
+	var mon = $("#S_MONTH").val();
+
+    var day;
+    today = new Date();
+    var cur_day = today.getDate();
+
+    //31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31
+    if (mon=='01'||mon=='03'||mon=='05'||mon=='07'||mon=='08'||mon=='10'||mon=='12'){
+	    day = 31;
+    }else if (mon==2) {
+		(year % 4 == 0) ? day = 29 : day = 28;
+    }else{
+    	day = 30;
+    }
+
+    var txt = "";
+    var selectDay = "";
+
+    for (var i = 1; i <= day; i++) {
+	    	if (i <= 9) {
+	    		selectDay = "0"+ i;
+	    	}else{
+	    		selectDay = "" + i;
+	    	}
+
+	    	if(cur_day == selectDay){
+	    		txt +="<option value=" + selectDay + " selected= selected>" + selectDay;
+	    		$("#SEL_TXT_DAY").empty();
+	    		$("#SEL_TXT_DAY").append(selectDay+"일");
+	    	}else{
+	    		txt +="<option value=" + selectDay + ">" + selectDay;
+	    	}
+    	txt+= "일</option>";
+
+    }
+
+    $("#S_DAY").empty();
+    $("#S_DAY").append(txt);
+
+
+}
+
+
+</script>
+	<!-- content -->
+	<div id="content">
+		<div class="inner">
+			<ul class="lst_tab">
+				<li id="tabPerf1" class="on"><a href="#" class="tabPerf1">기간별</a></li>
+				<li id="tabPerf2"><a href="#" class="tabPerf2">카테고리</a></li>
+				<li id="tabPerf3"><a href="#" class="tabPerf3">상품별</a></li>
+				<li id="tabPerf4"><a href="#" class="tabPerf4">판매회원별</a></li>
+			</ul>
+			<form name="frm" id="frm" method="post">
+			<input type="hidden" id="ACTION" name="ACTION">
+			<input type="hidden" id="S_SALES_DATE" name="S_SALES_DATE">
+			<input type="hidden" id="S_PERI_GB" name="S_PERI_GB">
+			<input type="hidden" id="TAB_INDEX" name="TAB_INDEX">
+
+			<!-- period_area -->
+			<div class="period_area">
+				<div class="btn_area clear">
+					<div class="period_search_bx left">
+						<input type="radio" id="S_PERI_TIME" name="S_PERI_GB" value="time"
+							<c:if test="${searchParam.S_PERI_GB == 'time' || searchParam.S_PERI_GB == null || searchParam.S_PERI_GB == ''}"> checked="checked" </c:if> />
+						<label for="p_time">시간별</label>
+						<input type="radio" id="S_PERI_DAY" name="S_PERI_GB" value="day"
+							<c:if test="${searchParam.S_PERI_GB == 'day'}"> checked="checked" </c:if> />
+						<label for="p_day">일별</label>
+						<input type="radio" id="S_PERI_MON" name="S_PERI_GB" value="month"
+							<c:if test="${searchParam.S_PERI_GB == 'month'}"> checked="checked" </c:if> />
+						<label for="p_month">월별</label>
+
+						<jsp:useBean id="now" class="java.util.Date" />
+						<fmt:formatDate var="nowYear" value="${now}" pattern="yyyy" scope="page"/>
+						<fmt:formatDate var="nowMon" value="${now}" pattern="MM" scope="page"/>
+						<fmt:formatDate var="nowDay" value="${now}" pattern="dd" scope="page"/>
+
+						<span id="periodYear" class="select" style="width:150px;margin-left:10px;">
+							<span class="sel_txt" id="SEL_TXT_YEAR"></span>
+							<select id="S_YEAR" name="S_YEAR">
+							<c:forEach begin="0" end="15" var="i" step="1" varStatus="loop">
+		    					<option value="${nowYear - i}"
+		    						<c:choose>
+									  <c:when test="${searchParam.S_YEAR == nowYear - i}">selected="selected"</c:when>
+									  <c:otherwise><c:if test="${nowYear == nowYear - i}">selected="selected"</c:if></c:otherwise>
+									</c:choose>>
+		    						${nowYear - i}년
+		    					</option>
+							</c:forEach>
+							</select>
+						</span>
+						<span id="periodMonth" class="select p_day" style="width:150px;">
+							<span class="sel_txt" id="SEL_TXT_MONTH"></span>
+							<select id="S_MONTH" name="S_MONTH">
+							<c:forEach var="i" begin="1" end="12" step="1" varStatus="status">
+								<fmt:formatNumber pattern="00" value="${i}" var="monVal" />
+								<option value="${monVal}"
+									<c:choose>
+									  <c:when test="${searchParam.S_MONTH == nowDay}">selected="selected"</c:when>
+									  <c:otherwise><c:if test="${nowMon == monVal}">selected="selected"</c:if></c:otherwise>
+									</c:choose>>
+									${monVal}월
+								</option>
+							</c:forEach>
+							</select>
+						</span>
+						<span id="periodDay" class="select p_month" style="width:150px;">
+							<span id="SEL_TXT_DAY" class="sel_txt"></span>
+							<select id="S_DAY" name="S_DAY"></select>
+						</span>
+					</div>
+					<a href="#" id="btn_search" class="btn_chk btn_r">조회</a>
+				</div>
+
+				<div class="tot_record mt10">
+				<c:forEach var="perfList" items="${list.perfList}">
+						<c:if test="${perfList.SALES_YYMMDD_G == '1'}">
+							<c:set var="SALES_CNT1" value="${perfList.SALES_CNT1}" />
+							<c:set var="SALES_CNT2" value="${perfList.SALES_CNT2}" />
+							<c:set var="SALES_CNT3" value="${perfList.SALES_CNT3}" />
+							<c:set var="SALES_CNT4" value="${perfList.SALES_CNT4}" />
+							<c:set var="SALES_PRCE1" value="${perfList.SALES_PRCE1}" />
+							<c:set var="SALES_PRCE2" value="${perfList.SALES_PRCE2}" />
+							<c:set var="SALES_PRCE3" value="${perfList.SALES_PRCE3}" />
+							<c:set var="SALES_PRCE4" value="${perfList.SALES_PRCE4}" />
+							<c:set var="SALES_CNT_HAK" value="${perfList.SALES_CNT_HAK}" />
+							<c:set var="SALES_PRCE_HAK" value="${perfList.SALES_PRCE_HAK}" />
+						</c:if>
+					</c:forEach>
+					<a href="#" onclick="f_getOrderCntChart();return false;" class="btn_r btn_oder">주문건수</a>
+					<a href="#" onclick="f_getOrderAmtChart();return false;" class="btn_g2 btn_oder">주문금액</a>
+					<ul class="lst_type lst_ord_period clear">
+						<li><strong>전체 주문건수 :
+							<span id="totOrderCnt" class="text_r">
+								<c:choose>
+								  <c:when test="${SALES_CNT_HAK == null || SALES_CNT_HAK == ''}" >0</c:when>
+								  <c:otherwise><fmt:formatNumber value="${SALES_CNT_HAK}" pattern="#,###" /></c:otherwise>
+								</c:choose>건
+							</span>
+							</strong>
+						</li>
+						<li>[ 판매 :
+							<span id="smartphone1" class="text_b">
+								<c:choose>
+								  <c:when test="${SALES_CNT1 == null || SALES_CNT1 == ''}" >0</c:when>
+								  <c:otherwise><fmt:formatNumber value="${SALES_CNT1}" pattern="#,###" /></c:otherwise>
+								</c:choose>건
+							</span>
+						<li>셰어링 :
+							<span id="sale1" class="text_b">
+								<c:choose>
+								  <c:when test="${SALES_CNT2 == null || SALES_CNT2 == ''}" >0</c:when>
+								  <c:otherwise><fmt:formatNumber value="${SALES_CNT2}" pattern="#,###" /></c:otherwise>
+								</c:choose>건
+							</span>
+						</li>
+
+						<li>나눔 :
+							<span id="share1" class="text_b">
+								<c:choose>
+								  <c:when test="${SALES_CNT3 == null || SALES_CNT3 == ''}" >0</c:when>
+								  <c:otherwise><fmt:formatNumber value="${SALES_CNT3}" pattern="#,###" /></c:otherwise>
+								</c:choose>건
+							</span>
+						</li>
+						<li>렌탈 :
+							<span id="sharing1" class="text_b">
+								<c:choose>
+								  <c:when test="${SALES_CNT4 == null || SALES_CNT4 == ''}" >0</c:when>
+								  <c:otherwise><fmt:formatNumber value="${SALES_CNT3}" pattern="#,###" /></c:otherwise>
+								</c:choose>건
+							</span>
+							]
+						</li>
+					</ul>
+					<ul id="lblOrderAmt" class="lst_type lst_ord_period clear none">
+						<li><strong>전체 주문금액 :
+							<span id="totOrderAmt" class="text_r">
+								<c:choose>
+								  <c:when test="${SALES_PRCE_HAK == null || SALES_PRCE_HAK == ''}" >0</c:when>
+								  <c:otherwise><fmt:formatNumber value="${SALES_PRCE_HAK}" pattern="#,###" /></c:otherwise>
+								</c:choose>원
+							</span>
+							</strong>
+						</li>
+						<li> [판매 :
+							<span id="smartphone2" class="text_b">
+								<c:choose>
+								  <c:when test="${SALES_PRCE1 == null || SALES_PRCE1 == ''}" >0</c:when>
+								  <c:otherwise><fmt:formatNumber value="${SALES_PRCE1}" pattern="#,###" /></c:otherwise>
+								</c:choose>원
+							</span>
+						</li>
+						<li>셰어링 :
+							<span id="sale2" class="text_b">
+								<c:choose>
+								  <c:when test="${SALES_PRCE2 == null || SALES_PRCE2 == ''}" >0</c:when>
+								  <c:otherwise><fmt:formatNumber value="${SALES_PRCE2}" pattern="#,###" /></c:otherwise>
+								</c:choose>원
+							</span>
+						</li>
+						<li>나눔 :
+							<span id="share2" class="text_b">
+								<c:choose>
+								  <c:when test="${SALES_PRCE3 == null || SALES_PRCE3 == ''}" >0</c:when>
+								  <c:otherwise><fmt:formatNumber value="${SALES_PRCE3}" pattern="#,###" /></c:otherwise>
+								</c:choose>원
+							</span>
+						</li>
+						<li>렌탈 :
+							<span id="sharing2" class="text_b">
+								<c:choose>
+								  <c:when test="${SALES_PRCE4 == null || SALES_PRCE4 == ''}" >0</c:when>
+								  <c:otherwise><fmt:formatNumber value="${SALES_PRCE4}" pattern="#,###" /></c:otherwise>
+								</c:choose>원
+							</span>]
+						</li>
+					</ul>
+
+					<div class="record_graph_area mt10">
+					<c:if test="${fn:length(list.perfList) > 0}">
+						<div id="chartContainer" class="rcd_graph_bx" ></div>
+					</c:if>
+
+					</div>
+				</div>
+
+				<div class="mt10 tr">
+					<a href="#" id="btn_excel" class="btn_excel mr0"><span>엑셀 다운로드</span></a>
+				</div>
+
+				<!-- tbl -->
+				<div class="tbl mt10">
+					<!-- list -->
+					<table class="list">
+						<colgroup>
+							<col style="width:*" />
+							<col style="width:9%" />
+							<col style="width:9%" />
+							<col style="width:9%" />
+							<col style="width:9%" />
+							<col style="width:9%" />
+							<col style="width:9%" />
+							<col style="width:9%" />
+							<col style="width:9%" />
+							<col style="width:9%" />
+							<col style="width:9%" />
+						</colgroup>
+						<thead>
+							<tr>
+								<th scope="col" rowspan="2">기간</th>
+								<th scope="col" colspan="2" class="bdb">판매</th>
+								<th scope="col" colspan="2" class="bdb">셰어링</th>
+								<th scope="col" colspan="2" class="bdb">나눔</th>
+								<th scope="col" colspan="2" class="bdb">렌탈</th>
+								<th scope="col" colspan="2" class="bdb">합계</th>
+							</tr>
+							<tr>
+								<th scope="col">주문건수</th>
+								<th scope="col">주문금액</th>
+								<th scope="col">주문건수</th>
+								<th scope="col">주문금액</th>
+								<th scope="col">주문건수</th>
+								<th scope="col">주문금액</th>
+								<th scope="col">주문건수</th>
+								<th scope="col">주문금액</th>
+								<th scope="col">주문건수</th>
+								<th scope="col">주문금액</th>
+							</tr>
+						</thead>
+						<tbody>
+						<c:if test="${fn:length(list.perfList) > 0}">
+							<c:forEach var="perfList" items="${list.perfList}">
+								<tr <c:if test="${perfList.SALES_YYMMDD_G == '1'}">class="sum"</c:if>>
+									<td>
+										<c:choose>
+										   <c:when test="${perfList.SALES_YYMMDD_G == '1'}">${perfList.SALES_YYMMDD}</c:when>
+										   <c:otherwise>
+										   	 <c:if test="${fn:length(perfList.SALES_YYMMDD) == 6}">
+										         <fmt:parseDate value="${perfList.SALES_YYMMDD}" var="SALES_YYMMDD" pattern="yyyyMM" scope="page" />
+										         <fmt:formatDate value="${SALES_YYMMDD}" pattern="MM월" />
+										      </c:if>
+										      <c:if test="${fn:length(perfList.SALES_YYMMDD) == 8}">
+										         <fmt:parseDate value="${perfList.SALES_YYMMDD}" var="SALES_YYMMDD" pattern="yyyyMMdd" scope="page" />
+										         <fmt:formatDate value="${SALES_YYMMDD}" pattern="yyyy-MM-dd" />
+										      </c:if>
+										   	  <c:if test="${fn:length(perfList.SALES_YYMMDD) == 10}">
+										         <fmt:parseDate value="${perfList.SALES_YYMMDD}" var="SALES_YYMMDD" pattern="yyyyMMddHH" scope="page" />
+										         <fmt:formatDate value="${SALES_YYMMDD}" pattern="HH시" />
+										      </c:if>
+										   </c:otherwise>
+										</c:choose>
+									</td>
+									<td style="text-align:right;"><fmt:formatNumber value="${perfList.SALES_CNT1}" pattern="#,###" />건</td>
+									<td style="text-align:right;"><fmt:formatNumber value="${perfList.SALES_PRCE1}" pattern="#,###" />원</td>
+									<td style="text-align:right;"><fmt:formatNumber value="${perfList.SALES_CNT2}" pattern="#,###" />건</td>
+									<td style="text-align:right;"><fmt:formatNumber value="${perfList.SALES_PRCE2}" pattern="#,###" />원</td>
+									<td style="text-align:right;"><fmt:formatNumber value="${perfList.SALES_CNT3}" pattern="#,###" />건</td>
+									<td style="text-align:right;"><fmt:formatNumber value="${perfList.SALES_PRCE3}" pattern="#,###" />원</td>
+									<td style="text-align:right;"><fmt:formatNumber value="${perfList.SALES_CNT4}" pattern="#,###" />건</td>
+									<td style="text-align:right;"><fmt:formatNumber value="${perfList.SALES_PRCE4}" pattern="#,###" />원</td>
+									<td style="text-align:right;"><fmt:formatNumber value="${perfList.SALES_CNT_HAK}" pattern="#,###" />건</td>
+									<td style="text-align:right;"><fmt:formatNumber value="${perfList.SALES_PRCE_HAK}" pattern="#,###" />원</td>
+								</tr>
+							</c:forEach>
+						</c:if>
+						<c:if test="${fn:length(list.perfList) <= 0}">
+							<tr><td colspan="11">검색결과가 없습니다.</td></tr>
+						</c:if>
+						</tbody>
+					</table>
+					<!-- //list -->
+				</div>
+				<!-- //tbl -->
+			</div>
+			</form>
+		</div>
+	</div>
+	<!-- //content -->

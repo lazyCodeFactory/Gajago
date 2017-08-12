@@ -1,0 +1,887 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="adminPlanMapper">
+	<!-- 기획전등록 -->
+    <insert id="insertPlan" parameterType="hashmap" useGeneratedKeys="true" keyProperty="PLAN_CD" keyColumn="PLAN_CD">
+    	<choose>
+    		<when test="PREVIEW == true">
+    			INSERT INTO PLAN_INFO_TMP(
+    		</when>
+    		<otherwise>
+    			INSERT INTO PLAN_INFO(
+    		</otherwise>
+    	</choose>
+				 PLAN_CD			<!--  기획전 일련번호  -->
+				, PLAN_NM			<!--  기획전명  -->
+<!-- 			, PLAN_TITLE	 --><!--  기획전제목 -->
+				, VIEW_YN			<!--  노출여부  -->
+				, VIEW_SEQ			<!--  노출순서  -->
+				, ALL_VIEW_YN		<!--  메인노출여부 -->
+				, ALL_VIEW_SEQ		<!--  메인노출순서 -->
+				, TMP_SAVE_YN		<!--  임시저장여부 -->
+				, START_DT			<!--  시작일시 -->
+				, END_DT			<!--  종료일시  -->
+				, REGIST_DT			<!--  등록일시  -->
+				, UPDT_DT			<!--  수정일시  -->
+				, TODAY_YN
+		)VALUES (
+				TO_CHAR(SYSDATE, 'YYYYMMDD')||LPAD(SEQ_PLAN_INFO.NEXTVAL,8,0)
+				, #{PLAN_NM}
+<!--			, #{PLAN_TITLE} -->
+				, #{VIEW_YN}
+				, (SELECT NVL(MAX(VIEW_SEQ), 0) + 1 FROM PLAN_INFO)
+				, #{ALL_VIEW_YN}
+				, 0
+				, #{TMP_SAVE_YN}
+				, TO_DATE(#{START_DT}, 'YYYYMMDDHH24MISS')
+				, TO_DATE(#{END_DT}, 'YYYYMMDDHH24MISS')
+				, SYSDATE
+				, SYSDATE
+				, #{TODAY_YN}
+		)
+	</insert>
+
+	<!-- 기획전수정 -->
+    <update id="updatePlan" parameterType="hashmap">
+    	<choose>
+    		<when test="PREVIEW == true">
+    			UPDATE PLAN_INFO_TMP
+    		</when>
+    		<otherwise>
+    			UPDATE PLAN_INFO
+    		</otherwise>
+    	</choose>
+    	SET PLAN_NM = #{PLAN_NM}
+<!--   		, PLAN_TITLE = #{PLAN_TITLE} -->
+    		, VIEW_YN = #{VIEW_YN}
+    		, VIEW_SEQ = #{VIEW_SEQ}
+    		, ALL_VIEW_YN = #{ALL_VIEW_YN}
+    		, ALL_VIEW_SEQ = #{ALL_VIEW_SEQ}
+    		, TMP_SAVE_YN = #{TMP_SAVE_YN}
+    		, START_DT = TO_DATE(#{START_DT}, 'YYYYMMDDHH24MISS')
+    		, END_DT = TO_DATE(#{END_DT}, 'YYYYMMDDHH24MISS')
+    		, UPDT_DT = SYSDATE
+    		, TODAY_YN = #{TODAY_YN}
+    	WHERE PLAN_CD = #{PLAN_CD}
+	</update>
+
+	<!-- 기획전수정 -->
+    <update id="updatePlanViewYn" parameterType="hashmap">
+		UPDATE PLAN_INFO
+		<if test="VIEW_YN != null and VIEW_YN != ''">
+    	SET VIEW_YN = #{VIEW_YN}
+		</if>
+		<if test="ALL_VIEW_YN != null and ALL_VIEW_YN != ''">
+    	SET ALL_VIEW_YN = #{ALL_VIEW_YN}
+    	<choose>
+    		<when test='ALL_VIEW_YN == "Y"'>
+    		, ALL_VIEW_SEQ = (SELECT NVL(MAX(ALL_VIEW_SEQ), 0) + 1 FROM PLAN_INFO)
+    		</when>
+    		<otherwise>
+    		, ALL_VIEW_SEQ = 0
+    		</otherwise>
+    	</choose>
+		</if>
+    	WHERE PLAN_CD = #{PLAN_CD}
+	</update>
+
+	<update id="updatePlanViewSeq" parameterType="hashmap">
+		UPDATE PLAN_INFO
+		<choose>
+			<when test="ALL_VIEW_SEQ != null">
+			SET ALL_VIEW_SEQ = #{ALL_VIEW_SEQ}
+			</when>
+			<otherwise>
+			SET VIEW_SEQ = #{VIEW_SEQ}
+			</otherwise>
+		</choose>
+    	WHERE PLAN_CD = #{PLAN_CD}
+	</update>
+
+	<delete id="deletePlan" parameterType="hashmap">
+	   	<choose>
+    		<when test="PREVIEW == true">
+    			DELETE FROM PLAN_INFO_TMP
+    		</when>
+    		<otherwise>
+    			DELETE FROM PLAN_INFO
+    		</otherwise>
+    	</choose>
+    	WHERE PLAN_CD = #{PLAN_CD}
+	</delete>
+
+	<!-- 기획전 배너등록 -->
+    <insert id="insertBanner" parameterType="hashmap">
+    	<choose>
+    		<when test="PREVIEW == true">
+    			INSERT INTO PLAN_IMG_INFO_TMP(
+    		</when>
+    		<otherwise>
+    			INSERT INTO PLAN_IMG_INFO(
+    		</otherwise>
+    	</choose>
+				 PLAN_CD			<!--  기획전 일련번호  -->
+				, IMG_SEQ			<!--  배너일련번호  -->
+				, VIEW_SEQ			<!--  노출순서 -->
+				, FILE_SEQ			<!--  파일일련번호  -->
+				, URL
+		)VALUES (
+				#{PLAN_CD}
+				, #{IMG_SEQ}
+				, #{VIEW_SEQ}
+				, #{FILE_SEQ}
+				, #{URL}
+		)
+	</insert>
+
+	<!-- 기획전 배너 업데이트 -->
+	<update id="updateBanner" parameterType="hashmap">
+    	<choose>
+    		<when test="PREVIEW == true">
+    			UPDATE PLAN_IMG_INFO_TMP
+    		</when>
+    		<otherwise>
+    			UPDATE PLAN_IMG_INFO
+    		</otherwise>
+    	</choose>
+		SET VIEW_SEQ = #{VIEW_SEQ}
+			<if test='FILE_SEQ != null and FILE_SEQ != ""'>
+			, FILE_SEQ = #{FILE_SEQ}
+			</if>
+			<if test='URL != null and URL != ""'>
+			, URL = #{URL}
+			</if>
+		WHERE IMG_SEQ = #{IMG_SEQ}
+	</update>
+
+	<delete id="deleteBanner" parameterType="hashmap">
+	   	<choose>
+    		<when test="PREVIEW == true">
+    			DELETE FROM PLAN_IMG_INFO_TMP
+    		</when>
+    		<otherwise>
+    			DELETE FROM PLAN_IMG_INFO
+    		</otherwise>
+    	</choose>
+		WHERE IMG_SEQ = #{IMG_SEQ}
+	</delete>
+
+	<!-- 기획전 템플릿등록 -->
+    <insert id="insertTemplate" parameterType="hashmap">
+    	<choose>
+    		<when test="PREVIEW == true">
+    			INSERT INTO PLAN_TPL_TMP(
+    		</when>
+    		<otherwise>
+    			INSERT INTO PLAN_TPL(
+    		</otherwise>
+    	</choose>
+				 PLAN_CD			<!--  기획전 일련번호  -->
+				, PLAN_SEQ			<!--  배너일련번호  -->
+				, VIEW_SEQ			<!--  노출순서 -->
+				, PLAN_TPL_GB_CD	<!--  템플릿일련번호  -->
+				, ROW_CNT			<!--  템플릿 Row Num  -->
+		)VALUES (
+				#{PLAN_CD}
+				, #{PLAN_SEQ}
+				, #{VIEW_SEQ}
+				, #{PLAN_TPL_GB_CD}
+				, #{ROW_CNT}
+		)
+	</insert>
+
+	<!-- 기획전 템플릿 업데이트 -->
+	<update id="updateTemplate" parameterType="hashmap">
+    	<choose>
+    		<when test="PREVIEW == true">
+    			UPDATE PLAN_TPL_TMP
+    		</when>
+    		<otherwise>
+    			UPDATE PLAN_TPL
+    		</otherwise>
+    	</choose>
+		SET VIEW_SEQ = #{VIEW_SEQ}
+		WHERE PLAN_CD = #{PLAN_CD}
+			AND PLAN_SEQ = #{PLAN_SEQ}
+	</update>
+
+	<!-- 기획전 템플릿 제거 -->
+	<delete id="deleteTemplate" parameterType="hashmap">
+    	<choose>
+    		<when test="PREVIEW == true">
+    			DELETE FROM PLAN_TPL_TMP
+    		</when>
+    		<otherwise>
+    			DELETE FROM PLAN_TPL
+    		</otherwise>
+    	</choose>
+		WHERE PLAN_CD = #{PLAN_CD}
+			AND PLAN_SEQ = #{PLAN_SEQ}
+	</delete>
+
+	<!-- 기획전 컨텐츠등록 -->
+    <insert id="insertContent" parameterType="hashmap">
+    	<choose>
+    		<when test="PREVIEW == true">
+    			INSERT INTO PLAN_CONT_TMP(
+    		</when>
+    		<otherwise>
+    			INSERT INTO PLAN_CONT(
+    		</otherwise>
+    	</choose>
+				 PLAN_CD			<!--  기획전 일련번호  -->
+				, PLAN_SEQ			<!--  템플릿 일련번호  -->
+				, VIEW_SEQ			<!--  노출순서 -->
+				, CONT_GB_CD		<!--  컨텐츠구분코드  -->
+				, URL				<!--  URL  -->
+				, CONT_NM			<!--  컨텐츠명  -->
+				, CONT_NM_USE_YN	<!--  컨텐츠명 사용YN  -->
+				, CONT_NO			<!--  컨텐츠번호  -->
+				, PLAN_VIEW_GB_CD	<!--  노출옵션  -->
+				, FILE_SEQ			<!--  템플릿 Row Num  -->
+				, PLAN_VIEW_CSS 	<!--  템플릿 style-->
+		)VALUES (
+				#{PLAN_CD}
+				, #{PLAN_SEQ}
+				, #{VIEW_SEQ}
+				, #{CONT_GB_CD}
+				, #{URL}
+				, #{CONT_NM}
+				, #{CONT_NM_USE_YN}
+				, #{CONT_NO}
+				, #{PLAN_VIEW_GB_CD}
+				, #{FILE_SEQ}
+				, #{PLAN_VIEW_CSS}
+		)
+	</insert>
+
+	<!-- 기획전 컨텐츠 업데이트 -->
+	<update id="updateContent" parameterType="hashmap">
+    	<choose>
+    		<when test="PREVIEW == true">
+    			UPDATE PLAN_CONT_TMP
+    		</when>
+    		<otherwise>
+    			UPDATE PLAN_CONT
+    		</otherwise>
+    	</choose>
+		SET URL = #{URL}
+			, CONT_NM = #{CONT_NM}
+			, CONT_GB_CD = #{CONT_GB_CD}
+			, CONT_NM_USE_YN = #{CONT_NM_USE_YN}
+			, CONT_NO = #{CONT_NO}
+			, PLAN_VIEW_GB_CD = #{PLAN_VIEW_GB_CD}
+			, PLAN_VIEW_CSS = #{PLAN_VIEW_CSS}
+			<if test='FILE_SEQ != null and FILE_SEQ != ""'>
+			, FILE_SEQ = #{FILE_SEQ}
+			</if>
+		WHERE PLAN_CD = #{PLAN_CD}
+			AND PLAN_SEQ = #{PLAN_SEQ}
+			AND VIEW_SEQ = #{VIEW_SEQ}
+	</update>
+
+	<!-- 기획전 컨텐츠 제거 -->
+	<delete id="deleteContent" parameterType="hashmap">
+    	<choose>
+    		<when test="PREVIEW == true">
+    			DELETE FROM PLAN_CONT_TMP
+    		</when>
+    		<otherwise>
+    			DELETE FROM PLAN_CONT
+    		</otherwise>
+    	</choose>
+		WHERE PLAN_CD = #{PLAN_CD}
+			AND PLAN_SEQ = #{PLAN_SEQ}
+	</delete>
+
+	<!-- 기획전 목록 조회 -->
+	<select id="selectListPlan" parameterType="hashmap" resultType="hashmap">
+		SELECT PLAN_CD
+		  , REGIST_DT
+		  , UPDT_DT
+		  , PLAN_TITLE
+		  , PLAN_NM
+		  , TO_CHAR(START_DT, 'YYYYMMDDHH24MISS') AS START_DT
+		  , TO_CHAR(END_DT, 'YYYYMMDDHH24MISS') AS END_DT
+		  , VIEW_SEQ
+		  , VIEW_YN
+		  , ALL_VIEW_SEQ
+		  , ALL_VIEW_YN
+		  , TMP_SAVE_YN
+		FROM PLAN_INFO
+		<where>
+			<if test='PLAN_TYPE == "0"'>
+				VIEW_YN = 'Y'
+				AND TO_CHAR(END_DT, 'YYYYMMDDHH24MISS') <![CDATA[>=]]> TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+			</if>
+			<if test='PLAN_TYPE == "1"'>
+				( VIEW_YN = 'N'
+				OR TO_CHAR(END_DT, 'YYYYMMDDHH24MISS') <![CDATA[<]]> TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS') )
+			</if>
+			<if test='PLAN_TYPE == "2"'>
+				VIEW_YN = 'Y'
+				AND ALL_VIEW_YN = 'Y'
+				AND TO_CHAR(END_DT, 'YYYYMMDDHH24MISS') <![CDATA[>=]]> TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+			</if>
+
+			<if test='DATE_GUBUN == "R"'>
+				AND REGIST_DT BETWEEN TO_DATE(#{S_DT},'YYYYMMDDHH') AND TO_DATE(#{E_DT},'YYYYMMDDHH') + 0.99999
+			</if>
+			<if test='DATE_GUBUN == "S"'>
+				AND START_DT BETWEEN TO_DATE(#{S_DT},'YYYYMMDDHH') AND TO_DATE(#{E_DT},'YYYYMMDDHH') + 0.99999
+			</if>
+			<if test='DATE_GUBUN == "E"'>
+				AND END_DT BETWEEN TO_DATE(#{S_DT},'YYYYMMDDHH') AND TO_DATE(#{E_DT},'YYYYMMDDHH') + 0.99999
+			</if>
+
+			<if test="SEARCH_GUBUN == 'PLAN_TITLE'">
+				AND PLAN_TITLE LIKE '%' || #{SEARCH_NM} || '%'
+			</if>
+			<if test="SEARCH_GUBUN == 'PLAN_NM'">
+				AND PLAN_NM LIKE '%' || #{SEARCH_NM} || '%'
+			</if>
+		</where>
+		<trim prefix="ORDER BY">
+			<if test='PLAN_TYPE == "0"'>VIEW_SEQ ASC</if>
+			<if test='PLAN_TYPE == "1"'>UPDT_DT DESC</if>
+			<if test='PLAN_TYPE == "2"'>ALL_VIEW_SEQ ASC</if>
+		</trim>
+	</select>
+
+	<!-- 기획전 조회 -->
+	<select id="selectPlan" parameterType="hashmap" resultType="hashmap">
+		SELECT PLAN_CD
+		  , REGIST_DT
+		  , UPDT_DT
+		  , PLAN_TITLE
+		  , PLAN_NM
+		  , TO_CHAR(START_DT, 'YYYYMMDDHH24MISS') AS START_DT
+		  , TO_CHAR(END_DT, 'YYYYMMDDHH24MISS') AS END_DT
+		  , VIEW_SEQ
+		  , VIEW_YN
+		  , ALL_VIEW_SEQ
+		  , ALL_VIEW_YN
+		  , TMP_SAVE_YN
+		  , TODAY_YN
+    	<choose>
+    		<when test="PREVIEW == true">
+    			FROM PLAN_INFO_TMP
+    		</when>
+    		<otherwise>
+    			FROM PLAN_INFO
+    		</otherwise>
+    	</choose>
+		WHERE PLAN_CD = #{PLAN_CD}
+	</select>
+
+	<!-- 배너 목록 조회 -->
+	<select id="selectListBanner" parameterType="hashmap" resultType="hashmap">
+		SELECT A.PLAN_CD AS PLAN_CD
+		  , A.IMG_SEQ AS IMG_SEQ
+		  , A.VIEW_SEQ AS VIEW_SEQ
+		  , A.FILE_SEQ AS FILE_SEQ
+		  , A.URL AS URL
+		  , B.FILE_TITLE AS FILE_TITLE
+		  , B.FILE_PATH AS FILE_PATH
+		  , B.FILE_URL AS FILE_URL
+    	<choose>
+    		<when test="PREVIEW == true">
+    			FROM PLAN_IMG_INFO_TMP A
+    		</when>
+    		<otherwise>
+    			FROM PLAN_IMG_INFO A
+    		</otherwise>
+    	</choose>
+			, FILE_INFO B
+		WHERE A.PLAN_CD = #{PLAN_CD}
+		  AND A.FILE_SEQ = B.FILE_SEQ
+		ORDER BY VIEW_SEQ ASC
+	</select>
+
+	<!-- 템플릿 목록 조회 -->
+	<select id="selectListTemplate" parameterType="hashmap" resultType="hashmap">
+		SELECT PLAN_CD
+		  , PLAN_SEQ
+		  , VIEW_SEQ
+		  , PLAN_TPL_GB_CD
+		  , ROW_CNT
+    	<choose>
+    		<when test="PREVIEW == true">
+    			FROM PLAN_TPL_TMP
+    		</when>
+    		<otherwise>
+    			FROM PLAN_TPL
+    		</otherwise>
+    	</choose>
+		WHERE PLAN_CD = #{PLAN_CD}
+		ORDER BY VIEW_SEQ ASC
+	</select>
+
+
+	<!-- 컨텐츠 목록 조회 -->
+	<select id="selectListContent" parameterType="hashmap" resultType="hashmap">
+		SELECT A.PLAN_CD
+			, A.PLAN_SEQ
+			, A.VIEW_SEQ
+			, A.CONT_GB_CD
+			, A.URL
+			, A.CONT_NM
+			, A.CONT_NM_USE_YN
+			, A.CONT_NO
+			, A.PLAN_VIEW_GB_CD
+			, A.FILE_SEQ AS FILE_SEQ
+			, A.PLAN_VIEW_CSS
+			, B.FILE_TITLE AS FILE_TITLE
+		  	, B.FILE_PATH AS FILE_PATH
+		  	, B.FILE_URL AS FILE_URL
+		  	, P.PROD_STAT_CD AS PROD_STAT_CD
+    	<choose>
+    		<when test="PREVIEW == true">
+    			FROM PLAN_CONT_TMP A
+    		</when>
+    		<otherwise>
+    			FROM PLAN_CONT A
+    		</otherwise>
+    	</choose>
+    	LEFT OUTER JOIN PROD P ON CONT_NO = PROD_CODE
+		, FILE_INFO B
+		WHERE PLAN_CD = #{PLAN_CD}
+			AND PLAN_SEQ = #{PLAN_SEQ}
+			AND A.FILE_SEQ = B.FILE_SEQ
+		ORDER BY A.VIEW_SEQ ASC
+	</select>
+
+	<!-- 상품 조회 -->
+	<select id="selectProd" parameterType="string" resultType="hashmap">
+		SELECT P.PROD_CODE      		AS PROD_CODE
+		    , P.PROD_NM        	 		AS PROD_NM
+		    , P.SELL_PRCE       		AS SELL_PRCE
+		    , P.PROD_STAT_CD			AS PROD_STAT_CD
+		    , PI.FILE_SEQ				AS PROD_FILE_SEQ
+		    , PI.PROD_IMG_URL			AS PROD_IMG_URL
+		FROM PROD P
+		    LEFT OUTER JOIN PROD_IMG PI ON P.PROD_CODE = PI.PROD_CODE AND PI.PROD_IMG_GB_CD = '11'
+		WHERE P.PROD_CODE = #{prodCode}
+	</select>
+
+	<!-- 셰어링 상품 조회 -->
+	<select id="selectShProd" parameterType="string" resultType="hashmap">
+		SELECT P.PROD_CODE      		AS PROD_CODE
+		    , P.PROD_NM        	 		AS PROD_NM
+		    , P.EXT_PRCE       			AS SELL_PRCE
+		    , P.PROD_STAT_CD			AS PROD_STAT_CD
+		    , PI.FILE_NO				AS PROD_FILE_SEQ
+		    , (SELECT FILE_URL FROM FILE_INFO FI WHERE FI.FILE_SEQ = PI.FILE_NO				)			AS PROD_IMG_URL
+		FROM SP_PROD P
+		    LEFT OUTER JOIN SP_IMAGE PI ON P.PROD_CODE = PI.PROD_CODE AND PI.SP_IMG_GB_CD = '11'
+		WHERE P.PROD_CODE = #{prodCode}
+	</select>
+
+	<delete id="deletePlanContents" parameterType="hashmap">
+		DELETE FROM PLAN_CONT
+		WHERE PLAN_CD = #{PLAN_CD}
+	</delete>
+
+	<delete id="deletePlanTpls" parameterType="hashmap">
+		DELETE FROM PLAN_TPL
+		WHERE PLAN_CD = #{PLAN_CD}
+	</delete>
+
+	<resultMap id="mainPlanResultMap" type="hashmap">
+		<id property="PLAN_CD" 			column="PLAN_CD" />
+		<result property="PLAN_TITLE"	column="PLAN_TITLE" />
+		<result property="PLAN_NM"		column="PLAN_NM" />
+		<collection property="banners" 			javaType="java.util.ArrayList" ofType="java.util.HashMap">
+			<id property="BANNER_SEQ" 			column="BANNER_SEQ" />
+			<id property="BANNDER_VIEW_SEQ"		column="BANNER_VIEW_SEQ" />
+			<result property="BANNER_URL"		column="BANNER_URL" />
+			<result property="BANNER_IMG_URL"	column="BANNER_IMG_URL" />
+		</collection>
+		<collection property="templates" 		javaType="java.util.ArrayList" ofType="java.util.HashMap">
+			<id property="TPL_SEQ" 				column="TPL_SEQ" />
+			<id property="TPL_VIEW_SEQ"			column="TPL_VIEW_SEQ" />
+			<result property="TPL_GB_CD"		column="TPL_GB_CD" />
+			<result property="BANNER_IMG_URL"	column="BANNER_IMG_URL" />
+			<collection property="contents"		javaType="java.util.ArrayList" ofType="java.util.HashMap">
+				<id property="CONT_TPL_SEQ"						column="CONT_TPL_SEQ" />
+				<id property="CONT_VIEW_SEQ"					column="CONT_VIEW_SEQ" />
+				<result property="CONT_GB_CD"					column="CONT_GB_CD" />
+				<result property="CONT_URL"						column="CONT_URL" />
+				<result property="CONT_NM"						column="CONT_NM" />
+				<result property="CONT_NM_USE_YN"				column="CONT_NM_USE_YN" />
+				<result property="CONT_VIEW_GB_CD"				column="CONT_VIEW_GB_CD" />
+				<result property="CONT_NO"						column="CONT_NO" />
+				<result property="CONT_VIEW_CSS"				column="CONT_VIEW_CSS" />
+				<result property="CONT_FILE_URL"				column="CONT_FILE_URL" />
+				<result property="CONT_PROD_NM"					column="CONT_PROD_NM" />
+				<result property="CONT_PROD_TYPE_CD"			column="CONT_PROD_TYPE_CD" />
+				<result property="CONT_PROD_NRM_PRCE"			column="CONT_PROD_NRM_PRCE" />
+				<result property="CONT_PROD_SELL_PRCE"			column="CONT_PROD_SELL_PRCE" />
+				<result property="CONT_PROD_DLV_PAY_GB_CD"		column="CONT_PROD_DLV_PAY_GB_CD" />
+				<result property="CONT_PROD_CPON_APPLY_PSBL_YN"	column="CONT_PROD_CPON_APPLY_PSBL_YN" />
+				<result property="CONT_PROD_PS_PRCE"			column="CONT_PROD_PS_PRCE" />
+				<result property="CONT_PROD_PS_DEPOSIT"			column="CONT_PROD_PS_DEPOSIT" />
+				<result property="CONT_SP_PROD_DT_PRCE"			column="CONT_SP_PROD_DT_PRCE" />
+ 			</collection>
+		</collection>
+	</resultMap>
+
+	<select id="selectMainPlanPreview" resultMap="mainPlanResultMap" parameterType="string">
+		SELECT Z.PLAN_CD                AS PLAN_CD
+		    , Z.PLAN_TITLE              AS PLAN_TITLE
+		    , Z.PLAN_NM                 AS PLAN_NM
+		    , Z.BANNER_SEQ              AS BANNER_SEQ
+		    , Z.BANNER_VIEW_SEQ         AS BANNER_VIEW_SEQ
+		    , Z.BANNER_URL              AS BANNER_URL
+		    , Z.BANNER_IMG_URL          AS BANNER_IMG_URL
+		    , Z.TPL_SEQ                 AS TPL_SEQ
+		    , Z.TPL_VIEW_SEQ            AS TPL_VIEW_SEQ
+		    , Z.TPL_GB_CD	            AS TPL_GB_CD
+		    , Z.CONT_TPL_SEQ	        AS CONT_TPL_SEQ
+		    , Z.CONT_VIEW_SEQ           AS CONT_VIEW_SEQ
+		    , Z.CONT_GB_CD              AS CONT_GB_CD
+		    , Z.CONT_URL                AS CONT_URL
+		    , Z.CONT_NM	                AS CONT_NM
+		    , Z.CONT_NM_USE_YN          AS CONT_NM_USE_YN
+		    , Z.CONT_VIEW_GB_CD         AS CONT_VIEW_GB_CD
+		    , Z.CONT_NO                 AS CONT_NO
+		    , Z.CONT_VIEW_CSS			AS CONT_VIEW_CSS
+		    , FII.FILE_URL              AS CONT_FILE_URL
+		    , P.PROD_NM                 AS CONT_PROD_NM
+		    , P.PROD_TYPE_CD            AS CONT_PROD_TYPE_CD
+		    , P.NRM_PRCE                AS CONT_PROD_NRM_PRCE
+		    , P.SELL_PRCE               AS CONT_PROD_SELL_PRCE
+		    , P.DLV_PAY_GB_CD        	AS CONT_PROD_DLV_PAY_GB_CD
+		    , P.CPON_APPLY_PSBL_YN      AS CONT_PROD_CPON_APPLY_PSBL_YN
+	    	, PS.SHARING_PRICE	        AS CONT_PROD_PS_PRCE
+		    , PS.DEPOSIT		        AS CONT_PROD_PS_DEPOSIT
+		    , SPD.SHARING_PRICE     	AS CONT_SP_PROD_DT_PRCE
+        , Z.ALL_VIEW_SEQ            AS ALL_VIEW_SEQ
+		FROM (
+		    SELECT Y.PLAN_CD                AS PLAN_CD
+		        , Y.PLAN_TITLE              AS PLAN_TITLE
+		        , Y.PLAN_NM                 AS PLAN_NM
+		        , Y.BANNER_SEQ              AS BANNER_SEQ
+		        , Y.BANNER_VIEW_SEQ         AS BANNER_VIEW_SEQ
+		        , Y.BANNER_URL              AS BANNER_URL
+		        , Y.BANNER_IMG_URL          AS BANNER_IMG_URL
+		        , Y.TPL_SEQ                 AS TPL_SEQ
+		        , Y.TPL_VIEW_SEQ            AS TPL_VIEW_SEQ
+		        , Y.TPL_GB_CD	            AS TPL_GB_CD
+		        , PC.PLAN_SEQ	            AS CONT_TPL_SEQ
+		        , PC.VIEW_SEQ               AS CONT_VIEW_SEQ
+		        , PC.CONT_GB_CD             AS CONT_GB_CD
+		        , PC.URL                    AS CONT_URL
+		        , PC.CONT_NM	            AS CONT_NM
+		        , PC.CONT_NM_USE_YN         AS CONT_NM_USE_YN
+		        , PC.PLAN_VIEW_GB_CD        AS CONT_VIEW_GB_CD
+		        , PC.PLAN_VIEW_CSS			AS CONT_VIEW_CSS
+		        , PC.CONT_NO                AS CONT_NO
+		        , PC.FILE_SEQ               AS CONT_FILE_SEQ
+            , Y.ALL_VIEW_SEQ            AS ALL_VIEW_SEQ
+		    FROM (
+		        SELECT X.PLAN_CD                AS PLAN_CD
+		            , X.PLAN_TITLE              AS PLAN_TITLE
+		            , X.PLAN_NM                 AS PLAN_NM
+		            , X.BANNER_SEQ              AS BANNER_SEQ
+		            , X.BANNER_VIEW_SEQ         AS BANNER_VIEW_SEQ
+		            , X.BANNER_URL              AS BANNER_URL
+		            , FI.FILE_URL               AS BANNER_IMG_URL
+		            , X.TPL_SEQ                 AS TPL_SEQ
+		            , X.TPL_VIEW_SEQ            AS TPL_VIEW_SEQ
+		            , X.TPL_GB_CD	              AS TPL_GB_CD
+                , X.ALL_VIEW_SEQ            AS ALL_VIEW_SEQ
+		        FROM (
+		            SELECT PI.PLAN_CD               AS PLAN_CD
+		                , PI.PLAN_TITLE             AS PLAN_TITLE
+		                , PI.PLAN_NM                AS PLAN_NM
+		                , PB.IMG_SEQ                AS BANNER_SEQ
+		                , PB.VIEW_SEQ               AS BANNER_VIEW_SEQ
+		                , PB.URL                    AS BANNER_URL
+		                , PB.FILE_SEQ               AS BANNER_FILE_SEQ
+		                , PT.PLAN_SEQ               AS TPL_SEQ
+		                , PT.VIEW_SEQ               AS TPL_VIEW_SEQ
+		                , PT.PLAN_TPL_GB_CD	        AS TPL_GB_CD
+                    , PI.ALL_VIEW_SEQ           AS ALL_VIEW_SEQ
+		            FROM (
+		                SELECT PLAN_CD
+		                  , PLAN_TITLE
+		                  , PLAN_NM
+		                  , VIEW_SEQ
+                      , ALL_VIEW_SEQ
+		                FROM PLAN_INFO_TMP
+		                WHERE VIEW_YN = 'Y'
+		                    AND ALL_VIEW_YN = 'Y'
+		                    AND TO_CHAR(END_DT, 'YYYYMMDDHH24MISS') <![CDATA[>=]]> TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+		                ORDER BY VIEW_SEQ ASC
+		            ) PI
+		                LEFT OUTER JOIN PLAN_IMG_INFO_TMP PB ON PI.PLAN_CD = PB.PLAN_CD
+		                LEFT OUTER JOIN PLAN_TPL_TMP PT ON PI.PLAN_CD = PT.PLAN_CD
+		            ORDER BY PI.ALL_VIEW_SEQ ASC, PB.VIEW_SEQ ASC, PT.VIEW_SEQ ASC
+		        )X LEFT OUTER JOIN FILE_INFO FI ON X.BANNER_FILE_SEQ = FI.FILE_SEQ
+		    )Y LEFT OUTER JOIN PLAN_CONT_TMP PC ON Y.TPL_SEQ = PC.PLAN_SEQ
+        ORDER BY PC.PLAN_SEQ ASC
+		)Z
+			LEFT OUTER JOIN FILE_INFO FII ON Z.CONT_FILE_SEQ = FII.FILE_SEQ
+			LEFT OUTER JOIN PROD P ON Z.CONT_NO = P.PROD_CODE
+			LEFT OUTER JOIN PROD_SHARING PS ON Z.CONT_NO = PS.PROD_CODE
+			LEFT OUTER JOIN SP_PROD_DTL SPD ON Z.CONT_NO = SPD.PROD_CODE
+		WHERE Z.CONT_GB_CD IN ('30', '40') AND Z.PLAN_CD = #{PLAN_CD}
+    ORDER BY Z.ALL_VIEW_SEQ ASC, Z.PLAN_CD ASC, Z.TPL_VIEW_SEQ ASC, Z.CONT_VIEW_SEQ ASC
+	</select>
+
+	<!-- 메인 기획전 목록 조회 -->
+	<select id="selectListMainPlan" resultMap="mainPlanResultMap">
+		SELECT Z.PLAN_CD                AS PLAN_CD
+		    , Z.PLAN_TITLE              AS PLAN_TITLE
+		    , Z.PLAN_NM                 AS PLAN_NM
+		    , Z.BANNER_SEQ              AS BANNER_SEQ
+		    , Z.BANNER_VIEW_SEQ         AS BANNER_VIEW_SEQ
+		    , Z.BANNER_URL              AS BANNER_URL
+		    , Z.BANNER_IMG_URL          AS BANNER_IMG_URL
+		    , Z.TPL_SEQ                 AS TPL_SEQ
+		    , Z.TPL_VIEW_SEQ            AS TPL_VIEW_SEQ
+		    , Z.TPL_GB_CD	            AS TPL_GB_CD
+		    , Z.CONT_TPL_SEQ	        AS CONT_TPL_SEQ
+		    , Z.CONT_VIEW_SEQ           AS CONT_VIEW_SEQ
+		    , Z.CONT_GB_CD              AS CONT_GB_CD
+		    , Z.CONT_URL                AS CONT_URL
+		    , Z.CONT_NM	                AS CONT_NM
+		    , Z.CONT_NM_USE_YN          AS CONT_NM_USE_YN
+		    , Z.CONT_VIEW_GB_CD         AS CONT_VIEW_GB_CD
+		    , Z.CONT_NO                 AS CONT_NO
+		    , Z.CONT_VIEW_CSS			AS CONT_VIEW_CSS
+		    , FII.FILE_URL              AS CONT_FILE_URL
+		    , P.PROD_NM                 AS CONT_PROD_NM
+		    , P.PROD_TYPE_CD            AS CONT_PROD_TYPE_CD
+		    , P.NRM_PRCE                AS CONT_PROD_NRM_PRCE
+		    , P.SELL_PRCE               AS CONT_PROD_SELL_PRCE
+		    , P.DLV_PAY_GB_CD        	AS CONT_PROD_DLV_PAY_GB_CD
+		    , P.CPON_APPLY_PSBL_YN      AS CONT_PROD_CPON_APPLY_PSBL_YN
+	    	, PS.SHARING_PRICE	        AS CONT_PROD_PS_PRCE
+		    , PS.DEPOSIT		        AS CONT_PROD_PS_DEPOSIT
+		    , SPD.SHARING_PRICE     	AS CONT_SP_PROD_DT_PRCE
+        , Z.ALL_VIEW_SEQ            AS ALL_VIEW_SEQ
+		FROM (
+		    SELECT Y.PLAN_CD                AS PLAN_CD
+		        , Y.PLAN_TITLE              AS PLAN_TITLE
+		        , Y.PLAN_NM                 AS PLAN_NM
+		        , Y.BANNER_SEQ              AS BANNER_SEQ
+		        , Y.BANNER_VIEW_SEQ         AS BANNER_VIEW_SEQ
+		        , Y.BANNER_URL              AS BANNER_URL
+		        , Y.BANNER_IMG_URL          AS BANNER_IMG_URL
+		        , Y.TPL_SEQ                 AS TPL_SEQ
+		        , Y.TPL_VIEW_SEQ            AS TPL_VIEW_SEQ
+		        , Y.TPL_GB_CD	            AS TPL_GB_CD
+		        , PC.PLAN_SEQ	            AS CONT_TPL_SEQ
+		        , PC.VIEW_SEQ               AS CONT_VIEW_SEQ
+		        , PC.CONT_GB_CD             AS CONT_GB_CD
+		        , PC.URL                    AS CONT_URL
+		        , PC.CONT_NM	            AS CONT_NM
+		        , PC.CONT_NM_USE_YN         AS CONT_NM_USE_YN
+		        , PC.PLAN_VIEW_GB_CD        AS CONT_VIEW_GB_CD
+		        , PC.PLAN_VIEW_CSS			AS CONT_VIEW_CSS
+		        , PC.CONT_NO                AS CONT_NO
+		        , PC.FILE_SEQ               AS CONT_FILE_SEQ
+            , Y.ALL_VIEW_SEQ            AS ALL_VIEW_SEQ
+		    FROM (
+		        SELECT X.PLAN_CD                AS PLAN_CD
+		            , X.PLAN_TITLE              AS PLAN_TITLE
+		            , X.PLAN_NM                 AS PLAN_NM
+		            , X.BANNER_SEQ              AS BANNER_SEQ
+		            , X.BANNER_VIEW_SEQ         AS BANNER_VIEW_SEQ
+		            , X.BANNER_URL              AS BANNER_URL
+		            , FI.FILE_URL               AS BANNER_IMG_URL
+		            , X.TPL_SEQ                 AS TPL_SEQ
+		            , X.TPL_VIEW_SEQ            AS TPL_VIEW_SEQ
+		            , X.TPL_GB_CD	              AS TPL_GB_CD
+                , X.ALL_VIEW_SEQ            AS ALL_VIEW_SEQ
+		        FROM (
+		            SELECT PI.PLAN_CD               AS PLAN_CD
+		                , PI.PLAN_TITLE             AS PLAN_TITLE
+		                , PI.PLAN_NM                AS PLAN_NM
+		                , PB.IMG_SEQ                AS BANNER_SEQ
+		                , PB.VIEW_SEQ               AS BANNER_VIEW_SEQ
+		                , PB.URL                    AS BANNER_URL
+		                , PB.FILE_SEQ               AS BANNER_FILE_SEQ
+		                , PT.PLAN_SEQ               AS TPL_SEQ
+		                , PT.VIEW_SEQ               AS TPL_VIEW_SEQ
+		                , PT.PLAN_TPL_GB_CD	        AS TPL_GB_CD
+                    , PI.ALL_VIEW_SEQ           AS ALL_VIEW_SEQ
+		            FROM (
+		                SELECT PLAN_CD
+		                  , PLAN_TITLE
+		                  , PLAN_NM
+		                  , VIEW_SEQ
+                      , ALL_VIEW_SEQ
+		                FROM PLAN_INFO
+		                WHERE VIEW_YN = 'Y'
+		                    AND ALL_VIEW_YN = 'Y'
+		                    AND TO_CHAR(END_DT, 'YYYYMMDDHH24MISS') <![CDATA[>=]]> TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+		                ORDER BY VIEW_SEQ ASC
+		            ) PI
+		                LEFT OUTER JOIN PLAN_IMG_INFO PB ON PI.PLAN_CD = PB.PLAN_CD
+		                LEFT OUTER JOIN PLAN_TPL PT ON PI.PLAN_CD = PT.PLAN_CD
+		            ORDER BY PI.ALL_VIEW_SEQ ASC, PB.VIEW_SEQ ASC, PT.VIEW_SEQ ASC
+		        )X LEFT OUTER JOIN FILE_INFO FI ON X.BANNER_FILE_SEQ = FI.FILE_SEQ
+		    )Y LEFT OUTER JOIN PLAN_CONT PC ON Y.TPL_SEQ = PC.PLAN_SEQ AND Y.PLAN_CD = PC.PLAN_CD
+        ORDER BY Y.PLAN_CD ASC, PC.PLAN_SEQ ASC
+		)Z
+			LEFT OUTER JOIN FILE_INFO FII ON Z.CONT_FILE_SEQ = FII.FILE_SEQ
+			LEFT OUTER JOIN PROD P ON Z.CONT_NO = P.PROD_CODE
+			LEFT OUTER JOIN PROD_SHARING PS ON Z.CONT_NO = PS.PROD_CODE
+			LEFT OUTER JOIN SP_PROD_DTL SPD ON Z.CONT_NO = SPD.PROD_CODE
+		WHERE Z.CONT_GB_CD IN ('30', '40') or Z.CONT_GB_CD is null
+    ORDER BY Z.ALL_VIEW_SEQ ASC, Z.PLAN_CD ASC, Z.TPL_VIEW_SEQ ASC, Z.CONT_VIEW_SEQ ASC
+	</select>
+
+	<!-- 메인 기획전 목록 조회 -->
+	<select id="selectListAppMainPlan" resultType="hashmap">
+		SELECT PLAN_CD
+		, REGIST_DT
+		, UPDT_DT
+		, PLAN_NM
+		, TO_CHAR(START_DT, 'YYYYMMDDHH24MISS') AS START_DT
+		, TO_CHAR(END_DT, 'YYYYMMDDHH24MISS') AS END_DT
+		, VIEW_SEQ
+		, VIEW_YN
+		, ALL_VIEW_SEQ
+		, ALL_VIEW_YN
+		, TMP_SAVE_YN
+		, TODAY_YN
+		FROM PLAN_INFO
+		WHERE VIEW_YN = 'Y'
+		AND ALL_VIEW_YN = 'Y'
+		AND TO_CHAR(END_DT, 'YYYYMMDDHH24MISS') <![CDATA[>=]]>
+		TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+		ORDER BY ALL_VIEW_SEQ ASC
+	</select>
+
+	<resultMap id="selectListPlanTemplateContent" type="hashmap">
+		<id property="PLAN_CD" column="PLAN_CD" />
+		<result property="PLAN_SEQ" column="AVG_SCORE" />
+		<result property="VIEW_SEQ" column="MBER_EMAIL" />
+		<result property="CONT_GB_CD" column="MBER_URL" />
+		<result property="DTL_VIEW_URL" column="DTL_VIEW_URL" />
+		<result property="CONT_NM" column="CONT_NM" />
+		<result property="CONT_NM_USE_YN" column="CONT_NM_USE_YN" />
+		<result property="CONT_NO" column="CONT_NO" />
+		<result property="PLAN_VIEW_GB_CD" column="PLAN_VIEW_GB_CD" />
+		<result property="FILE_URL" column="FILE_URL" />
+		<result property="FILE_WIDTH" column="FILE_WIDTH" jdbcType="DECIMAL" javaType="Integer" />
+		<result property="FILE_HEIGH" column="FILE_HEIGH" jdbcType="DECIMAL" javaType="Integer" />
+		<result property="PLAN_TPL_GB_CD" column="PLAN_TPL_GB_CD" />
+		<result property="ROW_CNT" column="ROW_CNT" />
+		<result property="CONT_NO" column="CONT_NO" />
+		<result property="CONT_VIEW_SEQ" column="CONT_VIEW_SEQ" />
+		<result property="PROD_PERCENT" column="PROD_PERCENT" />
+		<result property="NPROD_GB_CD"					column="NPROD_GB_CD" />
+		<result property="WISH_COUNT"					column="WISH_COUNT" />
+	</resultMap>
+
+	<select id="selectListPlanTemplateContent" resultMap="selectListPlanTemplateContent" parameterType="hashmap">
+		SELECT A.PLAN_CD
+			, A.PLAN_SEQ
+			, C.VIEW_SEQ as TEPLT_VIEW_SEQ
+			, A.CONT_GB_CD
+			, A.URL as DTL_VIEW_URL
+			, A.CONT_NM
+			, A.CONT_NM_USE_YN
+			, A.PLAN_VIEW_GB_CD
+			, B.FILE_URL
+			, B.FILE_WIDTH
+			, B.FILE_HEIGH
+			, C.PLAN_TPL_GB_CD
+			, C.ROW_CNT
+			, A.CONT_NO
+			, A.VIEW_SEQ as CONT_VIEW_SEQ
+			, D.PROD_CODE
+			, D.CTRY_CD
+			, D.PROD_TYPE_CD
+			, D.PROD_NM
+			, D.BRAND_CD
+			, D.RECOM_YN
+			, D.KEYWORD
+			, NVL(D.BUY_PRCE,0) as BUY_PRCE
+			, NVL(D.NRM_PRCE,0) as NRM_PRCE
+			, NVL(D.SELL_PRCE,0) as SELL_PRCE
+			, D.CPON_APPLY_PSBL_YN
+			, D.DLV_PAY_GB_CD
+			, D.REGIST_DT
+			,( CASE WHEN D.NRM_PRCE = 0 THEN 0 WHEN D.NRM_PRCE IS NULL THEN 0 ELSE ROUND(((D.NRM_PRCE - D.SELL_PRCE ) / D.NRM_PRCE) * 100, 0) END ) PROD_PERCENT
+			, NVL(E.SHARING_PRICE,0) as SHARING_PRICE
+			, E.DEPOSIT
+			, F.SHARING_PRICE as SP_SHARING_PRICE
+			, D.NPROD_GB_CD as NPROD_GB_CD
+			, (SELECT COUNT(*) FROM PROD_WISH WHERE PROD_CODE = D.PROD_CODE) AS WISH_COUNT
+		FROM
+			PLAN_TPL C
+			, PLAN_CONT A
+			, FILE_INFO B
+			, prod D
+			, prod_sharing E
+			, SP_PROD_DTL F
+		WHERE C.PLAN_CD = #{PLAN_CD}
+			AND C.PLAN_CD = A.PLAN_CD
+			AND C.PLAN_SEQ = A.PLAN_SEQ (+)
+			AND A.FILE_SEQ = B.FILE_SEQ(+)
+			AND A.CONT_NO = D.PROD_CODE(+)
+			AND A.CONT_NO = E.PROD_CODE(+)
+			AND A.CONT_NO = F.PROD_CODE(+)
+			AND A.CONT_GB_CD in ('30', '40')
+		ORDER BY C.VIEW_SEQ , A.VIEW_SEQ ASC
+	</select>
+
+	<resultMap id="selectListPlanBanner" type="hashmap">
+		<result property="MOVE_URL" column="MOVE_URL" />
+		<result property="FILE_URL" column="FILE_URL" />
+		<result property="FILE_WIDTH" column="FILE_WIDTH" jdbcType="DECIMAL" javaType="Integer" />
+		<result property="FILE_HEIGH" column="FILE_HEIGH" jdbcType="DECIMAL" javaType="Integer" />
+	</resultMap>
+
+	<!-- 메인 기획전 배너 조회 -->
+	<select id="selectListPlanBanner" parameterType="string"
+		resultMap="selectListPlanBanner">
+		SELECT A.PLAN_CD AS PLAN_CD
+			, A.IMG_SEQ AS IMG_SEQ
+			, A.VIEW_SEQ AS VIEW_SEQ
+			, A.FILE_SEQ AS FILE_SEQ
+			, B.FILE_TITLE AS FILE_TITLE
+			, B.FILE_PATH AS FILE_PATH
+			, B.FILE_URL AS FILE_URL
+			, B.FILE_WIDTH AS FILE_WIDTH
+			, B.FILE_HEIGH AS FILE_HEIGH
+			, A.URL as MOVE_URL
+		FROM PLAN_IMG_INFO A , FILE_INFO B
+		WHERE A.PLAN_CD =
+			#{planCd}
+			AND A.FILE_SEQ = B.FILE_SEQ
+		ORDER BY VIEW_SEQ ASC
+	</select>
+
+	<select id="selectAllPlanList" resultType="hashmap">
+		SELECT
+			A.PLAN_CD ,
+			A.PLAN_NM ,
+			B.FILE_SEQ ,
+			B.URL,
+    		B.VIEW_SEQ,
+			C.FILE_URL
+		FROM
+			PLAN_INFO A ,
+			PLAN_IMG_INFO B ,
+			FILE_INFO C
+		WHERE
+			A.VIEW_YN = 'Y'
+			<!-- AND A.ALL_VIEW_YN = 'Y' -->
+      		AND B.VIEW_SEQ = '1'
+			AND B.FILE_SEQ = C.FILE_SEQ
+			AND A.PLAN_CD = B.PLAN_CD
+			AND TO_CHAR (SYSDATE, 'YYYYMMDDHH24MI') BETWEEN TO_CHAR (A.START_DT,'YYYYMMDDHH24MI')
+			AND TO_CHAR (A.END_DT , 'YYYYMMDDHH24MI')
+			ORDER BY A.VIEW_SEQ ASC
+	</select>
+
+
+</mapper>

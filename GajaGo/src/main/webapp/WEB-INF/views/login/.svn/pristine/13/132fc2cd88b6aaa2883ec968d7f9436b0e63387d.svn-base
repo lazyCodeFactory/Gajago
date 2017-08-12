@@ -1,0 +1,408 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/web/common/cmmnHead.jsp"%>
+<script type="text/javascript" src="/js/web/cart.js" ></script> <!-- 장바구니용 js -->
+<script type="text/javascript">
+
+	var rtnMsg = '${rtnMsg}';
+
+	//ready
+	$(document).ready(function(){
+
+		// title 및 back 버튼 url set
+		document.title = "나눔상품 신청내역 상세";
+// 		header.type	= 6;
+		header.type	= 4;
+		header.title = "나눔상품 신청내역 상세";
+		header.method = "POST";
+		header.backUrl = "/mobile/salemanage/selectListOrderFree.do";
+		header.callback = headerCallback; // 장바구니용 callback
+		header.form = $("#form");
+		initHeader();
+		
+		displayFooter(false);
+
+	});
+	
+	var page = {
+			
+		freeShareConfirm : function (mberSeq) {
+			
+			// 나눔 결정내역 확인하기
+			
+			if (!confirm("선택하신 회원에게 나눔상품을 전달 하시겠습니까?")) {
+				return;
+			}
+			
+			$("#mberSeq").val(mberSeq);
+			var cnt = 0;
+			var url = "/mobile/salemanage/updateFreeConfirm.do";
+			$.ajax({
+			    type: 'post'
+			    , async: true
+			    , dataType:'json'
+			    , url: url
+			    , data: $("#form").serialize()
+			    , success: function(data) {
+			    	var rtnMsg = data.rtnMsg;
+			    	alert(rtnMsg);
+			    	
+			    	var url = "/mobile/salemanage/selectOrderFreeDtl.do";
+					form.action = url;
+					form.submit();
+			    }
+			    , error: function(data, status, err) {
+			    	alert('서버와의 통신이 실패했습니다.');
+			    }
+			});
+		  	 
+		},
+		
+		// 배송신청
+		updateOrderFreeDlv : function (ordCd, prodSeq, prodCode, procStatCd) {
+			
+			var msg = "";
+			if (procStatCd == "22") {msg = "선택하신 상품을 배송신청"}
+			
+			if (!confirm(msg+" 하시겠습니까?")) {
+				return;
+			}
+			
+			$("#ordCd").val(ordCd);
+			$("#prodSeq").val(prodSeq);
+			$("#prodCode").val(prodCode);
+			$("#upProcStatCd").val(procStatCd);
+			
+			var url = "/mobile/salemanage/selectListGrpProdInfo.do";
+			form.action = url;
+			form.submit();
+			
+		},
+		
+		// 배송조회
+		selectShipView : function (ordCd, prodCode, prodSeq) {
+			$("#sOrdCd").val(ordCd);
+			$("#sProdCode").val(prodCode);
+			$("#sProdSeq").val(prodSeq);
+			var url = "/mobile/buy/selectShipView.do";
+			form.action = url;
+			form.submit();
+		},
+		
+		// 상품배송
+		updateOrderDlvInvc : function (ordCd, prodSeq, prodCode, dlvWayCd, procStatCd) {
+			
+			var msg = "";
+			if (procStatCd == "22") {msg = "선택하신 상품을 배송"}
+			
+			if (!confirm(msg+" 하시겠습니까?")) {
+				return;
+			}
+			
+			$("#ordCd").val(ordCd);
+			$("#prodSeq").val(prodSeq);
+			$("#prodCode").val(prodCode);
+			$("#upProcStatCd").val(procStatCd);
+			$("#dlvWayCd").val(dlvWayCd);
+			
+			var url = "";
+			if (dlvWayCd != "2") {
+				$.ajax({
+				    type: 'post'
+				    , async: true
+				    , dataType:'json'
+				    , url: "/mobile/salemanage/updateOrderFreeProcStat.do"
+				    , data: $("#form").serialize()
+				    , success: function(data) {
+				    	
+				    	alert(data.rtnMsg);
+				    	
+				    	var url = "/mobile/salemanage/selectOrderFreeDtl.do";
+						form.action = url;
+						form.submit();
+				    	
+				    }
+				    , error: function(data, status, err) {
+				      alert('서버와의 통신이 실패했습니다.');
+				    }
+				
+				});
+				
+			}
+			else {
+				url = "/mobile/salemanage/selectOrdDlvInfo.do";
+				form.action = url;
+				form.submit();
+			}
+			$("#reload").val("");
+		},
+		
+		// 상태변경
+		updateOrderFree : function (ordCd, prodSeq, prodCode, procStatCd) {
+			
+			var msg = "";
+			if (procStatCd == "23") {msg = "선택하신 상품을 배송완료 처리"}
+			
+			if (!confirm(msg+" 하시겠습니까?")) {
+				return;
+			}
+			
+			$("#ordCd").val(ordCd);
+			$("#prodSeq").val(prodSeq);
+			$("#prodCode").val(prodCode);
+			$("#upProcStatCd").val(procStatCd);
+			
+			$.ajax({
+			    type: 'post'
+			    , async: true
+			    , dataType:'json'
+			    , url: "/mobile/salemanage/updateOrderFreeProcStat.do"
+			    , data: $("#form").serialize()
+			    , success: function(data) {
+			    	
+			    	alert(data.rtnMsg);
+			    	
+			    	var url = "/mobile/salemanage/selectOrderFreeDtl.do";
+					form.action = url;
+					form.submit();
+			    	
+			    }
+			    , error: function(data, status, err) {
+			      alert('서버와의 통신이 실패했습니다.');
+			    }
+			
+			});
+			
+		},
+		// 상품상세
+		selectOrderProdDtl : function (prodCode) {
+
+			location.href = '/mobile/prod/selectProd.do?PROD_CODE=' + prodCode;
+
+		}
+			
+	};
+
+</script>
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+		<div class="roc">
+			<ul class="inner">
+				<li><img src="http://static.ssocio.net/pc/img/common/section/roc_home.png" alt="홈"></li>
+				<li>판매관리</li>
+			</ul>
+		</div>
+		<jsp:include page="../common/sale_top.jsp" flush="false" />
+		<div class="mype_s_tit">
+			<p>배송신청</p>
+		</div>
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+		<!-- container -->
+		<div id="container">
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>
+
+
+<form id="form" name="form" method="get" action="">
+	<input type="hidden" id="ordGb" name="ordGb" value="3" />
+	<input type="hidden" id="prodCode" name="prodCode" value="${orderFreeDtl.PROD_CODE }" />
+	<input type="hidden" id="mberSeq" name="mberSeq" value="" />
+	<input type="hidden" id="prodTypeCd" name="prodTypeCd" value="3" />
+	<input type="hidden" id="dtlGb" name="dtlGb" value="Y" />
+	<input type="hidden" id="ordCd" name="ordCd" value="" />
+	<input type="hidden" id="prodSeq" name="prodSeq" value="" />
+	<input type="hidden" id="upProcStatCd" name="upProcStatCd" value="" />
+	<input type="hidden" id="dlvWayCd" name="dlvWayCd" value="" />
+	<input type="hidden" id="reload" name="reload" value="" />
+	<!-- 배송조회용 -->
+	<input type="hidden" id="sOrdCd" name="S_ORD_CD" value="" />
+	<input type="hidden" id="sProdCode" name="S_PROD_CD" value="" />
+	<input type="hidden" id="sProdSeq" name="S_PROD_SEQ" value="" />
+	<fmt:parseDate var="FREESHARE_START_DT" value="${orderFreeDtl.FREESHARE_START_DT }" pattern="yyyy-MM-dd HH:mm:ss.S" />
+	<fmt:formatDate var="freeshareStartDt" value="${FREESHARE_START_DT }" pattern="yyyy-MM-dd"/>
+	<fmt:parseDate var="FREESHARE_END_DT" value="${orderFreeDtl.FREESHARE_END_DT }" pattern="yyyy-MM-dd HH:mm:ss.S" />
+	<fmt:formatDate var="freeshareEndDt" value="${FREESHARE_END_DT }" pattern="yyyy-MM-dd"/>
+	<fmt:parseDate var="REGIST_DT" value="${orderFreeDtl.REGIST_DT }" pattern="yyyy-MM-dd HH:mm:ss.S" />
+	<fmt:formatDate var="registDt" value="${REGIST_DT }" pattern="yyyy-MM-dd"/>
+
+		<h3 class="title">
+			<c:choose>
+				<c:when test="${orderFreeDtl.PROC_STAT_CD == '97' }">
+					<strong class="fl">
+						${freeshareStartDt }
+						~ 
+						${freeshareEndDt }
+					</strong>
+				</c:when>
+				<c:otherwise>
+					<strong class="fl">${orderFreeDtl.ORD_CD }</strong>
+					<span class="fr">
+						주문일 : ${registDt }
+					</span>
+				</c:otherwise>
+			</c:choose>
+		</h3>
+		<p class="title">주문상품 정보</p>
+		<ul class="sha_oder">
+        	<li>
+               	<ul class="mt10">
+                	<li>
+                		<a href="javascript:page.selectOrderProdDtl('${orderFreeDtl.PROD_CODE }');">
+                			<img alt="${orderFreeDtl.PROD_IMG_URL }" src="<custom:codeTag code="DEFAULT_IMG_URL" groupCode="SITE_DEFAULT" />">
+                		</a>
+                	</li>
+                	<li>
+                		<a href="javascript:page.selectOrderProdDtl('${orderFreeDtl.PROD_CODE }');">
+                			<strong>${orderFreeDtl.PROD_NM }</strong>
+                		</a>
+                	</li>
+                	<li>
+						<span>
+							신청기간 : ${freeshareStartDt } ~ ${freeshareEndDt }
+						</span>
+					</li>
+                </ul>
+				<p class="btn">
+					<c:choose>
+						<c:when test="${orderFreeDtl.PROC_STAT_CD == '97' }">
+							<span class="fl" style="margin-top:13px;">
+								신청자 ${orderFreeDtl.REQ_CNT }명
+							</span>
+						</c:when>
+						<c:otherwise>
+							<span class="fl">
+								<c:choose>
+									<c:when test="${orderFreeDtl.PROC_STAT_CD == '95' }">
+										<c:choose>
+											<c:when test="${orderFreeDtl.DLV_WAY_CD == '1' }">
+												<a href="javascript:page.updateOrderFreeDlv('${orderFreeDtl.ORD_CD }','${orderFreeDtl.PROD_SEQ }','${orderFreeDtl.PROD_CODE }','22');" class="btn_b">배송신청</a>
+											</c:when>
+											<c:when test="${orderFreeDtl.DLV_WAY_CD == '2' or orderFreeDtl.DLV_WAY_CD == '3' or orderFreeDtl.DLV_WAY_CD == '4' }">
+												<a href="javascript:page.updateOrderDlvInvc('${orderFreeDtl.ORD_CD }','${orderFreeDtl.PROD_SEQ }','${orderFreeDtl.PROD_CODE }','${orderFreeDtl.DLV_WAY_CD }','22');" class="btn_b">상품배송</a>
+											</c:when>
+										</c:choose>
+									</c:when>
+									<c:when test="${orderFreeDtl.PROC_STAT_CD == '22' }">
+										<c:choose>
+											<c:when test="${orderFreeDtl.DLV_WAY_CD == '1' }">
+												<a href="javascript:page.selectShipView('${orderFreeDtl.ORD_CD }','${orderFreeDtl.PROD_CODE }','${orderFreeDtl.PROD_SEQ }');" class="btn_b">배송조회</a>
+											</c:when>
+											<c:when test="${orderFreeDtl.DLV_WAY_CD == '2' }">
+												<a href="javascript:page.selectShipView('${orderFreeDtl.ORD_CD }','${orderFreeDtl.PROD_CODE }','${orderFreeDtl.PROD_SEQ }');" class="btn_b">배송조회</a>
+												<!-- <a href="javascript:page.updateOrderFree('${orderFreeDtl.ORD_CD }','${orderFreeDtl.PROD_SEQ }','${orderFreeDtl.PROD_CODE }','23');" class="btn_b">배송완료</a> -->
+											</c:when>
+											<c:when test="${orderFreeDtl.DLV_WAY_CD == '3' or orderFreeDtl.DLV_WAY_CD == '4' }">
+												<a href="javascript:page.updateOrderFree('${orderFreeDtl.ORD_CD }','${orderFreeDtl.PROD_SEQ }','${orderFreeDtl.PROD_CODE }','23');" class="btn_b">배송완료</a>
+											</c:when>
+										</c:choose>
+									</c:when>
+								</c:choose>
+							</span>
+						</c:otherwise>
+					</c:choose>
+					<span class="fr">
+						<strong>${orderFreeDtl.PROC_STAT_CD_NM }</strong>
+					</span>
+				</p>
+            </li>
+        </ul>
+        <c:choose>
+        	<c:when test="${orderFreeDtl.PROC_STAT_CD == '97' }">
+        		<p class="title">신청자 정보 <span class="point_p">(총 ${orderFreeDtl.REQ_CNT }명)</span></p>
+        		<p class="h401 tc">나눔상품을 전달하실 신청자를 선택해주세요</p>
+		        <c:forEach var="subList" items="${orderFreeDtl.ordFreeDtlSub }" varStatus="status">
+		        	<div class="user_info">
+			        	<span class="fl">
+			        		<img alt="${subList.MBER_IMG }" src="<custom:codeTag code="DEFAULT_IMG_URL" groupCode="SITE_DEFAULT" />" />
+			        	</span>
+			        	<p class="fl ml5">
+			        		<span class="level_1">${subList.MBER_EMAIL }</span>
+			        	</p>
+			        	<a href="javascript:page.freeShareConfirm('${subList.MBER_SEQ }');" class="btn_b">
+			        		<strong>나눔결정</strong>
+			        	</a>
+					</div>
+					<div class="sbox08">
+						<div class="text_box">
+	                        <textarea disabled="disabled" style="height:100px;">${subList.REQ_MEMO }</textarea>
+	                    </div>
+					</div>
+		        </c:forEach>
+        	</c:when>
+        	<c:otherwise>
+        		<p class="title">신청자 정보
+		        	<a href="TEL:${orderFreeDtl.TEL }" class="user_phone">
+		        		<strong>전화걸기</strong>
+		        	</a>
+                </p>
+        		<div class="user_info">
+		        	<span class="fl">
+		        		<img alt="${orderFreeDtl.MBER_IMG_URL }" src="<custom:codeTag code="DEFAULT_IMG_URL" groupCode="SITE_DEFAULT" />" />
+		        	</span>
+		        	<p class="fl ml5">
+		        		<span><img src="${orderFreeDtl.MBER_LEV }" class="img_level"/>${orderFreeDtl.MBER_EMAIL }</span>
+		        	</p>
+				</div>
+				<p class="title">배송지 정보</p>
+				<div class="tbl">
+		            <table class="tbl-data">
+		                <colgroup>
+		                    <col width="100px">
+		                    <col width="*">
+		                </colgroup>
+		                <tbody>
+		                    <tr>
+		                        <th>받는사람</th>
+		                        <td>${orderFreeDtl.RCV_NM }</td>
+		                    </tr>
+		                    <tr>
+		                        <th>주소</th>
+		                        <td>
+		                        	<c:set var="dlvAddr" value="" />
+		                        	<c:set var="dlvAddrSplt" value="${fn:split(orderFreeDtl.JUSO_JIBEN, ' ') }" />
+		                        	<c:forEach var="addr" items="${dlvAddrSplt }" varStatus="status">
+		                        		<c:if test="${status.last }">
+		                        			<c:set var="dlvAddr" value="${addr }" />
+		                        		</c:if>
+		                        	</c:forEach>
+		                        	${orderFreeDtl.JUSO_DORO } (${dlvAddr }) ${orderFreeDtl.JUSO_DTL }
+		                        </td>
+		                    </tr>
+		                    <tr>
+		                        <th>연락처</th>
+		                        <td>
+		                        	${orderFreeDtl.TEL }
+		                        </td>
+		                    </tr>
+		                    <tr>
+		                        <th>배송메모</th>
+		                        <td>
+		                        	${orderFreeDtl.REQ_MEMO }
+		                        </td>
+		                    </tr>
+		                </tbody>
+		            </table>
+		        </div>
+        	</c:otherwise>
+        </c:choose>
+
+</form>
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+		<jsp:include page="../common/sale_bottom.jsp" flush="false" />
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+		    </div>
+		    <!-- //container -->
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>

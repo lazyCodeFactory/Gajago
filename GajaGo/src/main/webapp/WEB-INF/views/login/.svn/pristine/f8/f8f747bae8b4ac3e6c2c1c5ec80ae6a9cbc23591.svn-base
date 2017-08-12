@@ -1,0 +1,277 @@
+package com.ssocio.sharing.service.web;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import javax.annotation.Resource;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.ui.ModelMap;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.lambdaworks.redis.RedisConnection;
+import com.ssocio.sharing.cmmn.util.Redis;
+import com.ssocio.sharing.dao.admin.AdminCommonDao;
+import com.ssocio.sharing.dao.web.AppCommonDao;
+import com.ssocio.sharing.dao.web.MobilePlanDao;
+import com.ssocio.sharing.dao.web.WebMainDao;
+import com.ssocio.sharing.vo.web.HeaderVO;
+
+import net.sf.json.JSONObject;
+
+@Service
+public class MobilePlanServiceImpl implements MobilePlanService{
+	
+	@Resource(name="mobilePlanDao")
+	private MobilePlanDao mobilePlanDao;
+	
+	@Resource(name="appCommonDao")
+	private AppCommonDao appCommonDao;
+	
+	@Resource(name="webMainDao")
+	private WebMainDao webMainDao;
+	
+	@Autowired
+	private AppCommonService appCommonService;
+	
+	@Override
+	public ModelMap selectListPlan() throws Exception {
+		// TODO Auto-generated method stub
+		ModelMap mm = new ModelMap();
+		
+		// 배너 조회 
+		List<Map<String, Object>> planList = mobilePlanDao.selectListMainPlan(null);
+		mm.put("planList", planList);
+		return mm;
+	}
+
+	@Override
+	public ModelMap planDetail(Map<String, Object> inParam, HeaderVO headerObj) throws Exception {
+		// TODO Auto-generated method stub
+//		List<Map<String, Object>> planDetail = mobilePlanDao.planDetail(inParam);
+//		mm.put("planDetail", planDetail);
+		
+		Redis redis = null;
+		try {
+			redis = Redis.getInstance();
+		} catch ( Exception e ) {
+			e.printStackTrace();
+		}
+		
+		List<Map<String, Object>> planList = mobilePlanDao.selectListMainPlan(inParam);
+		
+		for (Map<String, Object > plan: planList) {
+			List<Map<String, Object>> templateContDataList = new ArrayList<Map<String, Object>>();
+			String planCd = String.valueOf(inParam.get("PLAN_CD"));
+			try {
+				RedisConnection<String, String> redisConnection = redis.getRedisClient("0");
+				JSONObject obj = new JSONObject();
+				if ( redisConnection.get(redis.getREDIS_HOST_SPLIT_PK() + "templateContDataList_" + planCd) != null  && !redisConnection.get(redis.getREDIS_HOST_SPLIT_PK() + "templateContDataList_" + planCd).trim().equalsIgnoreCase("") ) {
+					String templateStr = redisConnection.get(redis.getREDIS_HOST_SPLIT_PK() + "templateContDataList_" + planCd);
+	//				if (agent.indexOf("mobileapp") >=0  && agent.indexOf("1.0.") >=0 && agent.indexOf("ios") >=0 && reqHost.indexOf("vip-m.ssocio.com") >= 0 ) {
+	//					templateStr = templateStr.replaceAll("http:\\/\\/m", "http:\\/\\/vip-m");
+	//				}
+					obj.put(redis.getREDIS_HOST_SPLIT_PK() + "templateContDataList_" + planCd, templateStr);
+					Map<String, Object> objMap = Redis.ssocioToMap(obj);
+					templateContDataList = (List<Map<String, Object>>) objMap.get(redis.getREDIS_HOST_SPLIT_PK() + "templateContDataList_" + planCd);
+				} else {
+					templateContDataList = appCommonDao.selectListPlanTemplateContent(planCd);
+				}
+			} catch ( Exception e ) {
+				e.printStackTrace();
+				templateContDataList = appCommonDao.selectListPlanTemplateContent(planCd);
+			}
+			
+			/* 
+			 * add main renewal api (seongjoon@danalssocio.com) 
+			 */
+			Map<String, Object> checkWish = new HashMap<String, Object>();
+			List<Map<String, Object>> checkWishedList = new ArrayList<Map<String, Object>>();
+			try {
+				if ( headerObj.getMber_seq() != null && !headerObj.getMber_seq().trim().equalsIgnoreCase("")) {
+					inParam.put("MBER_SEQ", headerObj.getMber_seq());
+					checkWishedList = appCommonDao.checkWishedList(inParam);
+				}
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+			
+			if ( checkWishedList != null && checkWishedList.size() > 0 ) {
+				for ( int cwl = 0; cwl < checkWishedList.size(); cwl++ ) {
+					Map<String, Object> tempMap = checkWishedList.get(cwl);
+					if ( tempMap.get("PROD_CODE") != null) {
+						String tProdCode = String.valueOf(tempMap.get("PROD_CODE"));
+						checkWish.put(tProdCode, tProdCode);
+					}
+				}
+			}
+			
+			plan = appCommonService.NewSharingList(checkWish, inParam, plan);
+			
+			try {
+				for (Map<String, Object> templateContData : templateContDataList) {
+					if ( templateContData.get("PROD_CODE") != null ) {
+						templateContData.put("WISHED", checkWish.get(String.valueOf(templateContData.get("PROD_CODE"))) == null ? "F" : "T" );
+						if ( templateContData.get("KEYWORD") != null && !String.valueOf(templateContData.get("KEYWORD")).trim().equalsIgnoreCase("")) {
+							String keyword = String.valueOf(templateContData.get("KEYWORD"));
+	//						keyword = "#" + keyword.replaceAll(" , ", ",").replaceAll(" ,", ",").replaceAll(", ", ",").replaceAll(",", " #");
+							keyword = "#" + keyword.replaceAll("/(\\s*,)|(,\\s*)|(,)/g", " #");
+							templateContData.put("KEYWORD", keyword);
+						}
+					}
+				}
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+			/* 
+			 * // add main renewal api (seongjoon@danalssocio.com) 
+			 */
+			
+	
+	//		templateContDataList = ImgSizeCheckFnc(templateContDataList,headerObj);
+	//		for( Map<String, Object> contMapData : templateContDataList){
+	////			logger.info("contMapData : " + contMapData);
+	//			ContDataList.add(index, contMapData);
+	//			index++;
+	//		}	//	template
+			//	기획전에 따른 배너 조회
+	//		bannerList = webMainDao.selectListPlanBanner(planCd);
+			List<Map<String,Object>> bannerList = new ArrayList<Map<String, Object>>();
+			try {
+				RedisConnection<String, String> redisConnection = redis.getRedisClient("0");
+				JSONObject obj = new JSONObject();
+				if ( redisConnection.get(redis.getREDIS_HOST_SPLIT_PK() + "bannerList_" + planCd) != null && !redisConnection.get(redis.getREDIS_HOST_SPLIT_PK() + "bannerList_" + planCd).trim().equalsIgnoreCase("") ) {
+					String bannerStr = redisConnection.get(redis.getREDIS_HOST_SPLIT_PK() + "bannerList_" + planCd);
+	//				if (agent.indexOf("mobileapp") >=0  && agent.indexOf("1.0.") >=0 && agent.indexOf("ios") >=0 && reqHost.indexOf("vip-m.ssocio.com") >= 0 ) {
+	//					bannerStr = bannerStr.replaceAll("http:\\/\\/m", "http:\\/\\/vip-m");
+	//				}
+					obj.put(redis.getREDIS_HOST_SPLIT_PK() + "bannerList_" + planCd, bannerStr);
+					Map<String, Object> objMap = Redis.ssocioToMap(obj);
+					bannerList = (List<Map<String, Object>>) objMap.get(redis.getREDIS_HOST_SPLIT_PK() + "bannerList_" + planCd);
+				} else {
+					bannerList = webMainDao.selectListPlanBanner(planCd);
+				}
+			} catch ( Exception e ) {
+				e.printStackTrace();
+				bannerList = webMainDao.selectListPlanBanner(planCd);
+			}
+			
+			plan.put("bannerList", bannerList);
+			plan.put("prodList", templateContDataList);
+		}
+		ModelMap mm = new ModelMap();
+		mm.put("footerList", appCommonDao.selectListHitCtry());
+		mm.put("planList", planList);
+		return mm;
+	}
+
+	@Override
+	public ModelMap setRealTimePlan(Map<String, Object> inParam) throws Exception {
+		// TODO Auto-generated method stub
+		
+		ObjectMapper mapper = new ObjectMapper();
+		Redis redis = Redis.getInstance();
+		ModelMap rtnMap = new ModelMap();
+		
+		try {
+			for (int i = 0; i < Redis.REDIS_PORT_ARRAY.length; i++) {
+				RedisConnection<String, String> redisConnection = redis.getRedisClient(String.valueOf(i));
+				List<Map<String,Object>> popularSharing = appCommonDao.popularSharing(null);
+				
+//				Map<String, Object> popularMap = new HashMap<String, Object>();
+				StringBuffer prod_codes = new StringBuffer();
+				for (int si = 0; si < popularSharing.size(); si++ ) {
+					Map<String, Object> sharing = popularSharing.get(si);
+					String sPROD_CODE = String.valueOf(sharing.get("PROD_CODE"));
+					int WHSH_COUNT = Integer.parseInt(String.valueOf(sharing.get("WISH_COUNT")));
+//					int sMBER_SEQ = Integer.parseInt(String.valueOf(sharing.get("MBER_SEQ")));
+//					popularMap.put(sPROD_CODE, WHSH_COUNT);
+					prod_codes.append("'");
+					prod_codes.append(sPROD_CODE);
+					prod_codes.append("'");
+					if ( si < popularSharing.size() - 1 ) {
+						prod_codes.append(","); 
+					}
+				}
+				
+				inParam.put("prod_codes", String.valueOf(prod_codes));
+				List<Map<String,Object>> popularSharingDetail = appCommonDao.popularSharingDetail(inParam);
+				List<Map<String,Object>> latestSharingList = appCommonDao.latestSharingList(null);
+				
+				redisConnection.set(redis.getREDIS_HOST_SPLIT_PK() + "popularSharing", mapper.writeValueAsString(popularSharing));
+				redisConnection.set(redis.getREDIS_HOST_SPLIT_PK() + "popularSharingDetail", mapper.writeValueAsString(popularSharingDetail));
+				redisConnection.set(redis.getREDIS_HOST_SPLIT_PK() + "latestSharingList", mapper.writeValueAsString(latestSharingList));
+				
+				rtnMap.put("popularSharing", popularSharing);
+				rtnMap.put("popularSharingDetail", popularSharingDetail);
+				rtnMap.put("latestSharingList", latestSharingList);
+			}
+		} catch (Exception e) {
+			for (int i = 0; i < Redis.REDIS_PORT_ARRAY.length; i++) {
+				// RedisConnection<String, String> redisConnection = redis.getRedisClient(String.valueOf(i));
+				// redisConnection.set(redis.getREDIS_HOST_SPLIT_PK() + "selectListMainPlan", "");
+				// redisConnection.set(redis.getREDIS_HOST_SPLIT_PK() + "planList", "");
+			}
+		}
+		
+		
+		return rtnMap;
+	}
+	
+	@Override
+	public ModelMap setRealTimePlanUserSharing(Map<String, Object> inParam) throws Exception {
+		// TODO Auto-generated method stub
+		
+		ObjectMapper mapper = new ObjectMapper();
+		Redis redis = Redis.getInstance();
+		ModelMap rtnMap = new ModelMap();
+		
+//		try {
+//			List<Map<String, Object>> selectListMainPlanList = adminPlanDao.selectListMainPlan();
+//			for (int i = 0; i < Redis.REDIS_PORT_ARRAY.length; i++) {
+//				RedisConnection<String, String> redisConnection = redis.getRedisClient(String.valueOf(i));
+//				redisConnection.set(redis.getREDIS_HOST_SPLIT_PK() + "selectListMainPlan", mapper.writeValueAsString(selectListMainPlanList));
+//			}
+//		} catch (Exception e) {
+//			for (int i = 0; i < Redis.REDIS_PORT_ARRAY.length; i++) {
+//				// RedisConnection<String, String> redisConnection = redis.getRedisClient(String.valueOf(i));
+//				// redisConnection.set(redis.getREDIS_HOST_SPLIT_PK() + "selectListMainPlan", null);
+//			}
+//		}
+		
+		try {
+			List<Map<String, Object>> planList = webMainDao.selectListAppMainPlan();
+			List<Map<String, Object>> allPlanList = webMainDao.selectAllPlanList();
+			
+			for (int i = 0; i < Redis.REDIS_PORT_ARRAY.length; i++) {
+				RedisConnection<String, String> redisConnection = redis.getRedisClient(String.valueOf(i));
+				redisConnection.set(redis.getREDIS_HOST_SPLIT_PK() + "planList", mapper.writeValueAsString(planList));
+				for(Map<String, Object> plan : allPlanList){
+					String rPlanCd = (String)plan.get("PLAN_CD");
+					
+					List<Map<String, Object>> templateContDataList = appCommonDao.selectListPlanTemplateContent(rPlanCd);
+					redisConnection.set(redis.getREDIS_HOST_SPLIT_PK() + "templateContDataList_" + rPlanCd, mapper.writeValueAsString(templateContDataList));
+					
+					List<Map<String,Object>> rBannerList = webMainDao.selectListPlanBanner(rPlanCd);
+					redisConnection.set(redis.getREDIS_HOST_SPLIT_PK() + "bannerList_" + rPlanCd, mapper.writeValueAsString(rBannerList));
+					
+					rtnMap.put(redis.getREDIS_HOST_SPLIT_PK() + "templateContDataList_" + rPlanCd, templateContDataList);
+					rtnMap.put(redis.getREDIS_HOST_SPLIT_PK() + "bannerList_" + rPlanCd, rBannerList);
+				}
+				rtnMap.put(redis.getREDIS_HOST_SPLIT_PK() + "planList", planList);
+				
+			}
+		} catch (Exception e) {
+			for (int i = 0; i < Redis.REDIS_PORT_ARRAY.length; i++) {
+				// RedisConnection<String, String> redisConnection = redis.getRedisClient(String.valueOf(i));
+				// redisConnection.set(redis.getREDIS_HOST_SPLIT_PK() + "selectListMainPlan", "");
+				// redisConnection.set(redis.getREDIS_HOST_SPLIT_PK() + "planList", "");
+			}
+		}
+		
+		return rtnMap;
+	}
+
+}

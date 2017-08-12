@@ -1,0 +1,1351 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/web/common/cmmnHead.jsp"%>
+<script type="text/javascript" src="/js/web/cart.js" ></script> <!-- 장바구니용 js -->
+<script type="text/javascript">
+
+	var rtnMsg = '${rtnMsg}';
+	var ordGb = '${params.ordGb}';
+
+	//ready
+	$(document).ready(function(){
+		
+		// title 및 back 버튼 url set
+		var title = "";
+		if (ordGb == "1") {
+			title = "셰어링 주문내역 상세";
+		}
+		else if (ordGb == "2") {
+			title = "셰어링 반품신청내역 상세";
+		}
+		else if (ordGb == "3") {
+			title = "셰어링 주문취소내역 상세";
+		}
+		document.title = title;
+// 		header.type	= 6;
+		header.type	= 4;
+		header.title = title;
+		header.method = "POST";
+		header.backUrl = "/mobile/salemanage/selectListOrderShare.do";
+		header.callback = headerCallback; // 장바구니용 callback
+		header.form = $("#form");
+		initHeader();
+		
+		displayFooter(false);
+		
+	});
+	
+	var page = {
+			
+		// 상태변경
+		updateOrderShare : function (ordCd, prodSeq, prodCode, procStatCd) {
+			
+			var msg = "";
+			if (procStatCd == "21") {msg = "선택하신 상품을 주문확인 처리"}
+			if (procStatCd == "89") {msg = "선택하신 상품을 반납완료 처리"}
+			
+			if (!confirm(msg+" 하시겠습니까?")) {
+				return;
+			}
+			
+			$("#ordCd").val(ordCd);
+			$("#prodSeq").val(prodSeq);
+			$("#prodCode").val(prodCode);
+			$("#upProcStatCd").val(procStatCd);
+
+			$.ajax({
+			    type: 'post'
+			    , async: true
+			    , dataType:'json'
+			    , url: "/mobile/salemanage/updateOrderShareProcStat.do"
+			    , data: $("#form").serialize()
+			    , success: function(data) {
+			    	
+			    	alert(data.rtnMsg);
+			    	
+			    	$("#ordGb").val(data.params.ordGb);
+			    	var url = "/mobile/salemanage/selectOrderShareDtl.do";
+					form.action = url;
+					form.submit();
+			    	
+			    }
+			    , error: function(data, status, err) {
+			      alert('서버와의 통신이 실패했습니다.');
+			    }
+			});
+			
+		},
+		
+		// 주문취소 구버전
+		updateOrderShareCanc : function (ordCd, prodSeq, prodCode, procStatCd) {
+			
+			var msg = "";
+			if (procStatCd == "50") {msg = "선택하신 상품을 주문취소"}
+			
+			if (!confirm(msg+" 하시겠습니까?")) {
+				return;
+			}
+			
+			$("#ordCd").val(ordCd);
+			$("#prodSeq").val(prodSeq);
+			$("#prodCode").val(prodCode);
+			$("#upProcStatCd").val(procStatCd);
+			
+			var url = "/mobile/salemanage/procOrderCanc.do";
+			form.action = url;
+			form.submit();
+			
+		},
+		
+		// 반품접수
+		updateOrderShareBack : function (ordCd, prodCode, prodSeq, chgCd, procStatCd) {
+			
+			if (!confirm("반품접수 처리 하시겠습니까?")) {
+				return;
+			}
+			
+			$("#ordCd").val(ordCd);
+			$("#prodSeq").val(prodSeq);
+			$("#prodCode").val(prodCode);
+			$("#chgCd").val(chgCd);
+			$("#upProcStatCd").val(procStatCd);
+			var url = "/mobile/salemanage/selectBackRequest.do";
+			form.action = url;
+			form.submit();
+			
+		},
+		
+		// 반납완료처리
+		updateOrderShareRtn : function (ordCd, prodCode, prodSeq, chgCd, procStatCd) {
+			
+			var msg = "";
+			if (procStatCd == "33") {msg = "선택하신 상품을 반품완료 처리"}
+			if (procStatCd == "89") {msg = "선택하신 상품을 반납완료 처리"}
+			
+			if (!confirm(msg+" 하시겠습니까?")) {
+				return;
+			}
+			
+			$("#ordCd").val(ordCd);
+			$("#prodSeq").val(prodSeq);
+			$("#prodCode").val(prodCode);
+			$("#chgCd").val(chgCd);
+			$("#upProcStatCd").val(procStatCd);
+			
+			$.ajax({
+			    type: 'post'
+			    , async: true
+			    , dataType:'json'
+			    , url: "/mobile/salemanage/updateOrderShareProcStat.do"
+			    , data: $("#form").serialize()
+			    , success: function(data) {
+			    	
+			    	alert(data.rtnMsg);
+			    	
+			    	$("#ordGb").val(data.params.ordGb);
+			    	var url = "/mobile/salemanage/selectOrderShareDtl.do";
+					form.action = url;
+					form.submit();
+			    	
+			    }
+			    , error: function(data, status, err) {
+			      alert('서버와의 통신이 실패했습니다.');
+			    }
+			});
+			
+		},
+		
+		// 배송조회
+		selectShipView : function (ordCd, prodCode, prodSeq, scrGubun) {
+			$("#sOrdCd").val(ordCd);
+			$("#sProdCode").val(prodCode);
+			$("#sProdSeq").val(prodSeq);
+			
+			if (scrGubun != null && scrGubun != "") {
+				$("#scrGubun").val(scrGubun);
+			}
+			
+			var url = "/mobile/buy/selectShipView.do";
+			form.action = url;
+			form.submit();
+		},
+		
+		// 배송신청
+		updateOrderShareDlv : function (ordCd, prodSeq, prodCode, procStatCd) {
+			
+			var msg = "";
+			if (procStatCd == "22") {msg = "선택하신 상품을 배송신청"}
+			
+			if (!confirm(msg+" 하시겠습니까?")) {
+				return;
+			}
+			
+			$("#ordCd").val(ordCd);
+			$("#prodSeq").val(prodSeq);
+			$("#prodCode").val(prodCode);
+			$("#upProcStatCd").val(procStatCd);
+			
+			var url = "/mobile/salemanage/selectListGrpProdInfo.do";
+			form.action = url;
+			form.submit();
+			
+		},
+		
+		// 전체주문취소
+		updateOrderSellCancAll : function (ordCd, procStatCd) {
+			
+			var msg = "";
+			if (procStatCd == "50") {msg = "선택하신 상품을 주문취소"}
+			
+			if (!confirm(msg+" 하시겠습니까?")) {
+				return;
+			}
+			
+			$("#ordCd").val(ordCd);
+			$("#upProcStatCd").val(procStatCd);
+			
+			var url = "/mobile/salemanage/procOrderCanc.do";
+			form.action = url;
+			form.submit();
+			
+		},
+		
+		// 정산확인
+		selectAdjustInfo : function (ordCd, prodCode, prodSeq, adjCompYn) {
+			
+			if (adjCompYn == "N") {
+				alert("아직 정산 데이터가 확정되지 않았습니다. 익일 오전 9시 이후로 확인이 가능합니다.");
+				return;
+			}
+			else {
+				
+				$.ajax({
+				    type: 'post'
+				    , async: true
+				    , dataType:'json'
+				    , url: "/mobile/salemanage/selectShareAdjustHist.do"
+				    , data: {
+				    	ordCd : ordCd
+				       ,prodCode : prodCode
+				       ,prodSeq : prodSeq
+				    }
+				    , success: function(data) {
+				    	
+				    	// 정산 조회 성공
+				    	if (data.adjMap != null) {
+				    		$("#prodImg").attr("alt", data.adjMap.PROD_IMG_URL);								// 상품이미지
+				    		$("#adjProdNm").text(data.adjMap.PROD_NM);											// 상품명
+				    		$("#ordQty").text(data.adjMap.ORD_QTY);												// 구매수량
+				    		if (data.adjMap.PROC_STAT_CD == '86') {
+				    			if (data.adjMap.CONF_DATE != null && data.adjMap.CONF_DATE != '') {
+				    				$("#shareDt").text("셰어링 기간 : " + data.adjMap.SHAR_STA_DATE+" ~ "+data.adjMap.CONF_DATE+"("+data.adjMap.SHARE_USE_DT+"일 사용)");		// 셰어링기간
+				    			}
+				    			else {
+				    				$("#shareDt").text("셰어링 기간 : " + data.adjMap.SHAR_STA_DATE+" ~ "+data.adjMap.SHAR_END_DATE+"("+data.adjMap.PROC_SHARE_TERM+"일 사용)");		// 셰어링기간							
+				    			}
+				    			
+				    		}
+				    		else if (data.adjMap.PROC_STAT_CD == '89') {
+				    			$("#shareDt").text("셰어링 기간 : " + data.adjMap.SHAR_STA_DATE+" ~ "+data.adjMap.CHG_REG_DT+"("+data.adjMap.RTN_USE_DT+"일 사용)");		// 셰어링기간
+				    		}
+				    		$("#deposit").text(numberWithCommas(data.adjMap.DEPOSIT2)+"원");						// 보증금
+				    		$("#dlvPrce").text(numberWithCommas(data.adjMap.DLV_PRCE)+"원");						// 배송비
+				    		var sharePrce = 0;
+			    			if (data.adjMap.PROC_STAT_CD == '86') {
+				    			if (data.adjMap.CONF_DATE != null && data.adjMap.CONF_DATE != '') {
+				    				sharePrce = parseInt(data.adjMap.SELL_PRCE)*parseInt(data.adjMap.SHARE_USE_DT);
+				    			}
+				    			else {
+				    				sharePrce = parseInt(data.adjMap.SELL_PRCE)*parseInt(data.adjMap.PROC_SHARE_TERM);
+				    			}
+				    		}
+				    		else if (data.adjMap.PROC_STAT_CD == '89') {
+				    			sharePrce = parseInt(data.adjMap.SELL_PRCE)*parseInt(data.adjMap.RTN_USE_DT);
+				    		}
+				    		$("#sharePrce").text(numberWithCommas(sharePrce)+"원");
+				    		var cmtn = numberWithCommas(data.adjMap.CMTN)+"원<br/><span>("+data.adjMap.DNL_CMTN_RATE_NM+" 수수료 "+data.adjMap.DNL_CMTN_RATE+"% "+numberWithCommas(data.adjMap.DNL_CMTN)+"원 <br/>+ 결제수수료 "+numberWithCommas(data.adjMap.BILL_CMTN)+"원)</span>";
+				    		$("#cmtn").html(cmtn);
+				    		var dscnt = numberWithCommas(data.adjMap.DSCNT_CPN_AMT)+"원";
+				    		if (data.adjMap.DSCNT_CPN_AMT > 0) {
+				    			dscnt += "<br/><span>(쿠폰사용 분담율 "+data.adjMap.MARKET_BURDEN+"% "+numberWithCommas(data.adjMap.DSCNT_CPN_AMT)+"원)";
+				    		}
+				    		$("#dscnt").html(dscnt);
+				    		$("#adjAmt").text(numberWithCommas(data.adjMap.ADJ_AMT)+"원");
+				    		var adjStat = "";
+				    		if (data.adjMap.ADJ_STAT == null || data.adjMap.ADJ_STAT == '') {
+				    			adjStat += "정산대기중<br/><span>(입금예정일 : "+data.adjMap.ADJ_EXP_YMD+")";
+				    			$("#adjStat").html(adjStat);
+				    		}
+				    		else {
+				    			adjStat += "정산완료<br/><span>(정산완료일 : "+data.adjMap.CHG_YMD+")";
+				    			$("#adjStat").html(adjStat);
+				    		}
+				    		
+				    	}
+				    	
+				    	cdnreload();
+				    	$('.public_stop').show();
+						popup_show();
+				    	
+				    }
+				    , error: function(data, status, err) {
+				      alert('서버와의 통신이 실패했습니다.');
+				    }
+				
+				});
+				
+			}
+			
+		},
+		// 상품상세
+		selectOrderProdDtl : function (prodCode) {
+
+			location.href = '/mobile/prod/selectProd.do?PROD_CODE=' + prodCode;
+
+		}
+			
+	};
+	/* ======================================================================
+	Function : 공통 화면 호출
+	Return   : 없음
+	========================================================================= */
+	function f_goCommCall(url, sOrdCd, sProdCd, sProdSeq, sScrGubun) {
+		var arrProdCd = new Array();
+		var arrProdSeq = new Array();
+		
+		if(sScrGubun != "prodPost" && sScrGubun != "shipView" && sScrGubun != "retShipView" && sScrGubun != "colShipView") {
+			if(sScrGubun == "orderCancel") {
+				sConfMsg = "선택하신 상품을 주문 취소 하시겠습니까?";
+			}else if(sScrGubun == "excReq") {
+				sConfMsg = "선택하신 상품을 교환 신청 하시겠습니까?";
+			}else if(sScrGubun == "takeBackReq") {
+				sConfMsg = "선택하신 상품을 반품 신청 하시겠습니까?";
+			}
+			
+			if(confirm(sConfMsg) == false) { return; }
+		}
+		
+		arrProdCd.push(sProdCd);
+		arrProdSeq.push(sProdSeq);
+		$("#sOrdCd").val(sOrdCd);
+		$("#sProdCode").val(arrProdCd);
+		$("#sProdSeq").val(arrProdSeq);
+		$("#scrGubun").val(sScrGubun);
+		$("#form").attr("action", url).submit();
+	}	
+</script>
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+		<div class="roc">
+			<ul class="inner">
+				<li><img src="http://static.ssocio.net/pc/img/common/section/roc_home.png" alt="홈"></li>
+				<li>판매관리</li>
+			</ul>
+		</div>
+		<jsp:include page="../common/sale_top.jsp" flush="false" />
+		<div class="mype_s_tit">
+			<p>배송신청</p>
+		</div>
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+		<!-- container -->
+		<div id="container">
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>
+
+
+<form id="form" name="form" method="get" action="">
+	<input type="hidden" id="ordGb" name="ordGb" value="${params.ordGb }" />
+	<input type="hidden" id="ordCd" name="ordCd" value="${orderShareDtl.ORD_CD }" />
+	<input type="hidden" id="prodSeq" name="prodSeq" value="" />
+	<input type="hidden" id="prodCode" name="prodCode" value="" />
+	<input type="hidden" id="prodCode" name="prodCode" value="" />
+	<input type="hidden" id="upProcStatCd" name="upProcStatCd" value="" />
+	<input type="hidden" id="chgCd" name="chgCd" value="" />
+	<input type="hidden" id="dtlGb" name="dtlGb" value="Y" />
+	<input type="hidden" id="prodTypeCd" name="prodTypeCd" value="2" />
+	<input type="hidden" id="reload" name="reload" value="" />
+	<input type="hidden" id="S_SCR_ID" name="S_SCR_ID" value="selectOrderShareDtl">
+	<!-- 배송조회용 -->
+	<input type="hidden" id="sOrdCd" name="S_ORD_CD" value="" />
+	<input type="hidden" id="sProdCode" name="S_PROD_CD" value="" />
+	<input type="hidden" id="sProdSeq" name="S_PROD_SEQ" value="" />
+	<input type="hidden" id="scrGubun" name="S_SCR_GUBUN" value="" />
+		<c:if test="${params.reload ne 'Y' }">
+			<h3 class="title">
+				<strong class="fl">${orderShareDtl.ORD_CD }</strong>
+				<span class="fr">주문일 : ${orderShareDtl.REGIST_DT }</span>
+			</h3>
+	        <p class="title">
+	        	주문상품 정보
+<%-- 	        	<c:if test="${cacnYn == 'Y' }">
+	        		<a href="javascript:page.updateOrderSellCancAll('${orderShareDtl.ORD_CD }','50');" class="btn_b right">
+		        		전체주문취소
+		        	</a>
+	        	</c:if> --%>
+	        </p>
+	        <c:set var="SHAREING_AMT" value="0" />
+	        <c:forEach var="subList" items="${orderShareDtl.subOrder }" varStatus="status">
+				        <ul class="sha_oder <c:if test="${status.index > 0 }">mt10</c:if>">
+				        	<li>
+			                	<ul class="mt10">
+				                	<li>
+				                		<a href="javascript:page.selectOrderProdDtl('${subList.PROD_CODE }');">
+				                		<img alt="${subList.PROD_IMG_URL }" src="<custom:codeTag code="DEFAULT_IMG_URL" groupCode="SITE_DEFAULT" />">
+				                		</a>
+				                	</li>
+				                	<li>
+				                		<a href="javascript:page.selectOrderProdDtl('${subList.PROD_CODE }');">
+				                		<strong>${subList.PROD_NM }</strong>
+				                		</a>
+				                	</li>
+				                	<li class="tr">
+				                		<span>보증금 <fmt:formatNumber value="${subList.DEPOSIT2}" pattern="#,###" />원<br>
+						                	<c:choose>
+						                		<c:when test="${subList.SELLER_MBER_GB_CD == '0'}" >
+						                			최대사용기간 ${subList.SHARE_TERM}일
+						                		</c:when>
+						                		<c:when test="${subList.SELLER_MBER_GB_CD == '1'}" >
+						                			셰어링 금액 <fmt:formatNumber value="${subList.SHAREING_AMT}" pattern="#,###" />원 (1일 <fmt:formatNumber value="${subList.SHARING_PRICE}" pattern="#,###" />원 X ${subList.SHARE_TERM}일)
+						                		</c:when>		                		
+						                	</c:choose>
+				                		</span>
+				                	</li>
+				                	<li>
+                					<span>
+									<c:choose>
+									  <c:when test="${subList.DLV_WAY_CD == '1' || subList.DLV_WAY_CD == '2'}" >
+									  		<c:choose>
+									  		<c:when test="${subList.DLV_PAY_GB_CD == '1' }" >
+									  			택배 | 무료배송
+									  			<c:if test="${subList.DLV_GROUP_YN eq 'Y' ||  subList.DLV_STAND_AMT > 0}">
+									  			(
+									  				<c:if test="${subList.DLV_GROUP_YN eq 'Y' }">묶음배송</c:if>
+									  				<c:if test="${subList.DLV_GROUP_YN eq 'Y' &&  subList.DLV_STAND_AMT > 0}">,</c:if>
+									  				<c:if test="${subList.DLV_STAND_AMT > 0 }"><fmt:formatNumber value="${subList.DLV_STAND_AMT}" pattern="#,###" />원 이상 무료</c:if>
+									  			)
+									  			</c:if>
+									  		</c:when>
+									  		
+									  		<c:when test="${subList.DLV_PAY_GB_CD == '2' }" >
+									  			
+									  			택배 | <fmt:formatNumber value="${subList.DLV_PRCE}" pattern="#,###" />원/<c:if test="${subList.DLV_PAY_F_CD eq '10'}">선불</c:if><c:if test="${subList.DLV_PAY_F_CD eq '20'}">착불</c:if>
+									  			<c:if test="${subList.DLV_GROUP_YN eq 'Y' ||  subList.DLV_STAND_AMT > 0}">
+									  				(
+									  				<c:if test="${subList.DLV_GROUP_YN eq 'Y' }">묶음배송</c:if>
+									  				<c:if test="${subList.DLV_GROUP_YN eq 'Y' &&  subList.DLV_STAND_AMT > 0}">,</c:if>
+									  				<c:if test="${subList.DLV_STAND_AMT > 0 }"><fmt:formatNumber value="${subList.DLV_STAND_AMT}" pattern="#,###" />원 이상 무료</c:if>
+									  				)
+									  			</c:if>
+									  		</c:when>
+									  		</c:choose>											  
+									  </c:when>
+									  <c:when test="${subList.DLV_WAY_CD == '3' }" >
+									  	우편/등기 | 무료배송
+									  </c:when>
+									  
+									  <c:when test="${subList.DLV_WAY_CD == '4' }" >
+									  	<c:choose>
+									  		
+									  		<c:when test="${subList.DLV_PAY_GB_CD == '1' }" >
+									  			퀵서비스 | 무료배송
+									  		</c:when>
+									  		
+									  		<c:when test="${subList.DLV_PAY_GB_CD == '2' }" >
+									  			퀵서비스 | <fmt:formatNumber value="${subList.DLV_PRCE}" pattern="#,###" />원/착불
+									  		</c:when>										  		
+									  	</c:choose>
+									  </c:when>
+									  <c:when test="${subList.DLV_WAY_CD == '5' }" >
+									  	직거래
+									  </c:when>
+									  
+									</c:choose>  
+		                	| 구매수량 <fmt:formatNumber value="${subList.ORD_QTY}" pattern="#,###" />개
+	                	</span>
+				                	</li>
+				                </ul>
+								<p class="btn"
+									<c:if test="${subList.PROC_STAT_CD == '88' or subList.PROC_STAT_CD == '86' or subList.PROC_STAT_CD == '89' }">
+										style="margin-bottom:7px;"
+									</c:if>
+								>
+									<span class="fl">
+										<c:choose>
+											<c:when test="${subList.PROC_STAT_CD == '10' }">
+												<a href="javascript:page.updateOrderShare('${orderShareDtl.ORD_CD }','${subList.PROD_SEQ }','${subList.PROD_CODE }','21');" class="btn_b">주문확인</a>
+												<a href="javascript:page.updateOrderShareCanc('${orderShareDtl.ORD_CD }','${subList.PROD_SEQ }','${subList.PROD_CODE }','50');" class="btn_b">주문취소</a>
+											</c:when>
+											<c:when test="${subList.PROC_STAT_CD == '21' }">
+												<a href="javascript:page.updateOrderShareDlv('${orderShareDtl.ORD_CD }','${subList.PROD_SEQ }','${subList.PROD_CODE }','22');" class="btn_b">배송신청</a>
+												<a href="javascript:page.updateOrderShareCanc('${orderShareDtl.ORD_CD }','${subList.PROD_SEQ }','${subList.PROD_CODE }','50');" class="btn_b">주문취소</a>
+											</c:when>
+											<c:when test="${subList.PROC_STAT_CD == '22' }">
+												<a href="javascript:page.selectShipView('${orderShareDtl.ORD_CD }','${subList.PROD_CODE }','${subList.PROD_SEQ }','');" class="btn_b">배송조회</a>
+											</c:when>
+											<c:when test="${subList.PROC_STAT_CD == '86' or subList.PROC_STAT_CD == '89' }">
+												<a href="javascript:page.selectShipView('${orderShareDtl.ORD_CD }','${subList.PROD_CODE }','${subList.PROD_SEQ }','retShipView');" class="btn_b">배송조회</a>
+												
+											</c:when>
+											
+											<c:when test="${subList.PROC_STAT_CD == '87' }">
+												<a href="javascript:page.selectShipView('${orderShareDtl.ORD_CD }','${subList.PROD_CODE }','${subList.PROD_SEQ }','retShipView');" class="btn_b">배송조회</a>
+											</c:when>
+											<c:when test="${subList.PROC_STAT_CD == '88' }">
+												<a href="javascript:page.selectShipView('${orderShareDtl.ORD_CD }','${subList.PROD_CODE }','${subList.PROD_SEQ }','retShipView');" class="btn_b">배송조회</a>
+												<a href="javascript:page.updateOrderShareRtn('${orderShareDtl.ORD_CD }','${subList.PROD_CODE }','${subList.PROD_SEQ }','${subList.CHG_CD }','89');" class="btn_b">반납완료</a>
+											</c:when>
+											<c:when test="${subList.PROC_STAT_CD == '89' }">
+												<a href="javascript:page.selectShipView('${orderShareDtl.ORD_CD }','${subList.PROD_CODE }','${subList.PROD_SEQ }','retShipView');" class="btn_b">배송조회</a>
+											</c:when>
+											<%-- 반품용 --%>
+											<c:when test="${subList.PROC_STAT_CD == '31' }">
+												<a href="javascript:page.updateOrderShareBack('${orderShareDtl.ORD_CD }','${subList.PROD_CODE }','${subList.PROD_SEQ }','${subList.CHG_CD }','32');" class="btn_b">반품처리</a>
+											</c:when>
+											<c:when test="${subList.PROC_STAT_CD == '32' }">
+												<a href="javascript:page.updateOrderShareRtn('${orderShareDtl.ORD_CD }','${subList.PROD_CODE }','${subList.PROD_SEQ }','${subList.CHG_CD }','33');" class="btn_b">반품완료</a>
+											</c:when>
+										</c:choose>
+									</span>
+									<fmt:parseDate value="${subList.SHAR_STA_DATE}" var="SHAR_STA_DATE" pattern="yyyyMMdd" scope="page" />
+									<fmt:parseDate value="${subList.SHAR_END_DATE}" var="SHAR_END_DATE" pattern="yyyyMMdd" scope="page" />									
+									<fmt:parseDate value="${subList.TO_DAY}" var="TO_DAY" pattern="yyyyMMdd" scope="page" />
+									<fmt:parseDate value="${subList.FOR_VISIT}" var="FOR_VISIT" pattern="yyyyMMdd" scope="page" />										
+									<span class="fr">
+										<strong>
+											<c:choose>
+												<c:when test="${subList.PROC_STAT_CD eq '85'}">
+													<c:choose>
+														<c:when test="${subList.SHARE_USING_DAY <= subList.SHARE_TERM}">
+														${subList.PROC_STAT_NM}(D-<c:out value="${subList.SHAR_DAY}"></c:out>)
+														</c:when>
+														<c:otherwise>셰어링종료</c:otherwise>
+													</c:choose>
+												</c:when>
+												<c:otherwise><custom:codeTag code="${subList.PROC_STAT_CD}" groupCode="PROC_STAT_CD" /></c:otherwise>
+											</c:choose>									
+										</strong>
+									</span>
+								</p>
+				            </li>  
+        		<c:choose>
+	                <c:when test="${subList.PROC_STAT_CD == '85' && subList.SELLER_MBER_GB_CD == '0'}">
+		                <c:choose>
+							<c:when test="${subList.SHARE_USING_DAY <= subList.SHARE_TERM}">
+					           <li class="sha_view">
+					            	<ol>
+					                	<li class="dot"><strong>셰어링 기간</strong><span><fmt:formatDate value="${SHAR_STA_DATE}" pattern="yyyy-MM-dd" />~<fmt:formatDate value="${SHAR_END_DATE}" pattern="yyyy-MM-dd" />  (${subList.SHARE_TERM}일 사용)  |  ${subList.SHAR_DAY}일 남음</span></li>
+					                	<li>
+																	<!-- 그래프 영역 % 처리 -->
+										                    	<c:if test="${subList.PROG_VAL < 51}">
+										                    		<div class="line_graph type1">
+																	<p class="tr">
+																		<span class="ico" style="left:${subList.PROG_VAL}%">
+																			<fmt:formatDate value="${TO_DAY}" pattern="MM/dd" /> (D-${subList.SHAR_DAY})
+																		</span>
+																	</p>
+										                    	</c:if>
+										                    	<c:if test="${subList.PROG_VAL > 51}">
+										                    		<div class="line_graph type2">
+										                    		<p class="tr" style="width:${subList.PROG_VAL}%">
+																		<span class="ico">
+																			<fmt:formatDate value="${TO_DAY}" pattern="MM/dd" /> (D-${subList.SHAR_DAY})
+																		</span>
+																	</p>
+										                    	</c:if>
+																<div class="bar"><p style="width:${subList.PROG_VAL}%"></p></div>
+																<p class="clear">
+																	<span class="fl">
+																		<fmt:formatDate value="${SHAR_STA_DATE}" pattern="MM/dd" />
+																	</span> 
+																	<span class="fr">
+																		<fmt:formatDate value="${SHAR_END_DATE}" pattern="MM/dd" />
+																	</span>
+																</p>
+															</div>
+					                    </li>
+					                	<li class="dot"><strong>보증금 잔액</strong><span><fmt:formatNumber value="${subList.DEPOSIT_BAL}" pattern="#,###" />원 (<fmt:formatNumber value="${subList.DEPOSIT}" pattern="#,###" />원 – <fmt:formatNumber value="${subList.DEPOSIT / subList.SHARE_TERM}" pattern="#,###" />원)</span></li>
+					                	<li><span>※ 셰어링 상품의 경우 상품 주문시 결제하신 보증금에서 셰어링 이용금액이 차감 되며 보증금 잔액 소진시 해당 상품은 구매자의 소유로 전환 됩니다.</span></li>
+					                </ol>
+					            </li>	
+							</c:when>
+							<c:otherwise>
+									<li class="sha_view">
+										<ol>
+											<li class="dot">
+												<strong>셰어링 기간</strong>
+												<span><fmt:formatDate value="${SHAR_STA_DATE}" pattern="yyyy-MM-dd" />~<fmt:formatDate value="${SHAR_END_DATE}" pattern="yyyy-MM-dd" /> 
+												(${subList.SHARE_TERM}일 사용)</span>
+											</li>
+											<li>
+												<!-- 그래프 영역 % 처리 -->
+					                    	<c:if test="${subList.PROG_VAL < 51}">
+					                    		<div class="line_graph type1">
+													<p class="tr" style="left:${subList.PROG_VAL}%">
+														<span class="ico">
+															<fmt:formatDate value="${SHAR_END_DATE}" pattern="MM/dd" /> 
+															<c:if test="${subList.SHARE_OK_YN == 'Y'}">
+																(구매확정)
+															</c:if>
+														</span>
+													</p>						                    		
+					                    	</c:if>
+					                    	<c:if test="${subList.PROG_VAL > 51}">
+					                    		<div class="line_graph type2">
+													<p class="tr" style="width:${subList.PROG_VAL}%">
+														<span class="ico">
+															<fmt:formatDate value="${SHAR_END_DATE}" pattern="MM/dd" /> 
+															<c:if test="${subList.SHARE_OK_YN == 'Y'}">
+																(구매확정)
+															</c:if>
+														</span>
+													</p>						                    		
+					                    	</c:if>
+													<div class="bar"><p style="width:${subList.PROG_VAL}%"></p></div>
+													<p class="clear">
+														<span class="fl">
+															<fmt:formatDate value="${SHAR_STA_DATE}" pattern="MM/dd" />
+														</span> 
+														<span class="fr">
+															<fmt:formatDate value="${SHAR_END_DATE}" pattern="MM/dd" />
+														</span>
+													</p>
+												</div>
+											</li>
+											<c:choose>
+												<c:when test="${subList.SHARE_OK_YN == 'Y'}">
+													<li><strong>구매확정 일시</strong><span>${subList.SHARE_OK_DT}</span></li>
+													<li><strong>구매금액</strong><span><fmt:formatNumber value="${subList.SHARE_OK_AMT}" pattern="#,###" />원 (배송비 포함)</span></li>
+												</c:when>
+												<c:otherwise>
+
+													<li><strong>보증금 잔액</strong>
+														<li class="dot"><strong>보증금 잔액</strong><span><fmt:formatNumber value="${subList.DEPOSIT_BAL}" pattern="#,###" />원 
+														(
+															<fmt:formatNumber value="${subList.DEPOSIT}" pattern="#,###" />원 – 
+															<fmt:formatNumber value="${(subList.DEPOSIT / subList.SHARE_TERM)*3}" pattern="#,###" />원
+														)</span></li>
+													</li>
+													<li><span>※ 셰어링 상품의 경우 상품 주문시 결제하신 보증금에서 셰어링 이용금액이 차감 되며 보증금 잔액 소진시 해당 상품은 구매자의 소유로 전환 됩니다.</span></li>
+												</c:otherwise>
+											</c:choose>
+										</ol>
+									</li>
+							</c:otherwise>
+						</c:choose>
+						</ul> 
+	                </c:when>
+					<c:when test="${subList.PROC_STAT_CD == '85' && subList.SELLER_MBER_GB_CD == '1'}" >
+							<c:choose>
+								<c:when test="${subList.PROC_STAT_CD eq '85'}">
+									<c:choose>
+										<c:when test="${subList.SHARE_USING_DAY <= subList.SHARE_TERM}">
+												<li class="sha_view">
+													<ol>
+														<li class="dot">
+															<strong>셰어링 기간</strong>
+															<span><fmt:formatDate value="${SHAR_STA_DATE}" pattern="yyyy-MM-dd" />~<fmt:formatDate value="${SHAR_END_DATE}" pattern="yyyy-MM-dd" /> 
+															(${subList.SHARE_TERM}일 사용)  |  ${subList.SHAR_DAY}일 남음</span>
+														</li>
+														<li>
+																	<!-- 그래프 영역 % 처리 -->
+										                    	<c:if test="${subList.PROG_VAL < 51}">
+										                    		<div class="line_graph type1">
+																	<p class="tr">
+																		<span class="ico" style="left:${subList.PROG_VAL}%">
+																			<fmt:formatDate value="${TO_DAY}" pattern="MM/dd" /> (D-${subList.SHAR_DAY})
+																		</span>
+																	</p>
+										                    	</c:if>
+										                    	<c:if test="${subList.PROG_VAL > 51}">
+										                    		<div class="line_graph type2">
+										                    		<p class="tr" style="width:${subList.PROG_VAL}%">
+																		<span class="ico">
+																			<fmt:formatDate value="${TO_DAY}" pattern="MM/dd" /> (D-${subList.SHAR_DAY})
+																		</span>
+																	</p>
+										                    	</c:if>
+																<div class="bar"><p style="width:${subList.PROG_VAL}%"></p></div>
+																<p class="clear">
+																	<span class="fl">
+																		<fmt:formatDate value="${SHAR_STA_DATE}" pattern="MM/dd" />
+																	</span> 
+																	<span class="fr">
+																		<fmt:formatDate value="${SHAR_END_DATE}" pattern="MM/dd" />
+																	</span>
+																</p>
+															</div>
+														</li>
+														<li><span>※ 셰어링 종료이후 셰어링 상품에 대해 회수 완료 처리시 결제하신 보증금은 환불처리 됩니다.</span></li>
+														<li><span>※ 상품 회수 지연시 결제하신 보증금에서 셰어링 비용이 추가로 차감처리 되며 보증금이 전액 소진되기 전에 상품을 회수 해야 합니다.</span></li>
+													</ol>
+												</li>
+										</c:when>
+										<c:otherwise>
+												<li class="sha_view">
+													<ol>
+														<li class="dot">
+															<strong>셰어링 기간</strong>
+															<span><fmt:formatDate value="${SHAR_STA_DATE}" pattern="yyyy-MM-dd" />~<fmt:formatDate value="${SHAR_END_DATE}" pattern="yyyy-MM-dd" /> 
+															(${subList.SHARE_TERM}일 사용)
+															<c:if test="${subList.SHAR_ADD_DAY > 0}">
+																/<span style="color:red;">${subList.SHAR_ADD_DAY}일 초과</span>
+															</c:if>
+															</span>
+														</li>
+														<li>
+																<!-- 그래프 영역 % 처리 -->
+										                    	<c:if test="${subList.PROG_VAL < 51}">
+										                    		<div class="line_graph type1">
+																<p class="tr" style="left:${subList.PROG_VAL}%">
+																	<span class="ico">
+																		<fmt:formatDate value="${TO_DAY}" pattern="MM/dd" />
+																	</span>
+																</p>											                    		
+										                    	</c:if>
+										                    	<c:if test="${subList.PROG_VAL > 51}">
+										                    		<div class="line_graph type2">
+																	<p class="tr" style="width:${subList.PROG_VAL}%">
+																		<span class="ico">
+																			<fmt:formatDate value="${TO_DAY}" pattern="MM/dd" />
+																		</span>
+																	</p>											                    		
+										                    	</c:if>
+
+																<div class="bar"><p style="width:${subList.PROG_VAL}%"></p></div>
+																<p class="clear">
+																	<span class="fl">
+																		<fmt:formatDate value="${SHAR_STA_DATE}" pattern="MM/dd" />
+																	</span> 
+																	<span class="fr">
+																		<fmt:formatDate value="${SHAR_END_DATE}" pattern="MM/dd" />
+																	</span>
+																</p>
+															</div>
+														</li>
+														<li><strong>셰어링 금액</strong>
+															<span><fmt:formatNumber value="${subList.SHAREING_AMT}" pattern="#,###" />원 
+															(1일 <fmt:formatNumber value="${subList.SHARING_PRICE}" pattern="#,###" />원 X ${subList.SHARE_TERM}일)
+															</span>
+														</li>
+														<c:if test="${subList.SHAR_ADD_DAY > 0}">
+															<li><strong>셰어링 추가 금액</strong>
+																<span><fmt:formatNumber value="${subList.SHAREING_ADD_AMT}" pattern="#,###" />원 
+																(1일 <fmt:formatNumber value="${subList.SHARING_PRICE}" pattern="#,###" />원 X ${subList.SHAR_ADD_DAY}일)
+																</span>
+															</li>
+														</c:if>
+														<c:choose>
+															<c:when test="${subList.SHAR_ADD_DAY > 0}">
+															
+																<li><strong>보증금 잔액</strong>
+																	<span><fmt:formatNumber value="${subList.DEPOSIT_BAL}" pattern="#,###" />원 (<fmt:formatNumber value="${subList.DEPOSIT}" pattern="#,###" />원 – <fmt:formatNumber value="${subList.SHAREING_ADD_AMT}" pattern="#,###" />원)</span>
+																</li>
+															</c:when>
+															<c:otherwise>
+																<li><strong>보증금 잔액</strong>
+																	<span><fmt:formatNumber value="${subList.DEPOSIT_BAL}" pattern="#,###" />원</span>
+																</li>
+															</c:otherwise>
+														</c:choose>
+														<li><span>※ 셰어링 종료 이 후 셰어링 상품에 대해 회수 완료 처리시 결제하신 보증금은 환불처리 됩니다.</span></li>
+														<li><span>※ 상품 회수 지연시 결제하신 보증금에서 셰어링 비용이 추가로 차감 처리 되어 보증금이 전액 소진되기 전에 상품을 회수 해야 합니다.</span></li>
+													</ol>
+												</li>
+										</c:otherwise>
+									</c:choose>
+								</c:when>
+							</c:choose>	
+						</ul>
+					</c:when>		                
+					<c:when test="${subList.PROC_STAT_CD == '87' || subList.PROC_STAT_CD == '88' || subList.PROC_STAT_CD == '89'}" >
+						<ul class="sha_oder mt10">
+							<li class="sha_view">
+								<ol>
+									<li class="dot">
+										<strong>셰어링 기간</strong>
+										<span><fmt:formatDate value="${SHAR_STA_DATE}" pattern="yyyy-MM-dd" />~<fmt:formatDate value="${SHAR_END_DATE}" pattern="yyyy-MM-dd" /> 
+										(${subList.SHAR_DAY}일 사용)  |  ${subList.SHARE_TERM - subList.SHAR_DAY}일 남음</span>
+									</li>
+									<c:set var="deposit_bal" value="${subList.DEPOSIT - (subList.SHARING_PRICE * subList.ORD_QTY * subList.SHAR_DAY) }"/>
+									<c:set var="use_price" value="${subList.SHARING_PRICE * subList.ORD_QTY * subList.SHAR_DAY }"/>
+									<li class="dot"><strong>보증금 잔액</strong><span><fmt:formatNumber value="${deposit_bal}" pattern="#,###" />원 
+									(<fmt:formatNumber value="${subList.DEPOSIT}" pattern="#,###" />원 – 
+									<fmt:formatNumber value="${use_price}" pattern="#,###" />원)</span></li>
+								
+									
+									<li><strong>환불 상태</strong>
+										<span>${subList.REFUND_STAT_NM}</span>
+									</li>
+									<li><span>※ 환불금액은 판매자가 상품 수령 후 '반납완료' 처리시 환불처리 됨</span></li>
+								</ol>
+							</li>
+						</ul>
+						
+						</li>
+					</ul>
+					
+						<p class="title">반납 신청 정보</p>
+							<div class="tbl">
+								<table class="tbl-data">
+									<colgroup>
+										<col width="100px">
+										<col width="*">
+									</colgroup>
+									<tbody>
+										<tr>
+											<th>신청일시</th>
+											<td>${subList.CHG_REG_DT}</td>
+										</tr>
+										<tr>
+											<th>받는사람</th>
+											<td>${subList.RCV_NM}</td>
+										</tr>
+										<tr>
+											<th>주소</th>
+											<td>(${subList.ZIP_CODE}) ${subList.RTN_JUSO_DORO} ${subList.RTN_JUSO_DTL}</td>
+										</tr>
+										<tr>
+											<th>연락처</th>
+											<td>${subList.CONTACT}
+											</td>
+										</tr>
+										<tr>
+											<th>택배사</th>
+											<td>${subList.RTN_CMP}
+											</td>
+										</tr>
+									</tbody>
+								</table>
+							</div>
+					</c:when>
+			
+					<c:when test="${subList.PROC_STAT_CD == '90' || subList.PROC_STAT_CD == '91' || subList.PROC_STAT_CD == '92'}" >
+						<ul class="sha_oder mt10">
+							<li class="sha_view">
+								<ol>
+									<li class="dot">
+										<strong>셰어링 기간</strong>
+										<span><fmt:formatDate value="${SHAR_STA_DATE}" pattern="yyyy-MM-dd" />~<fmt:formatDate value="${SHAR_END_DATE}" pattern="yyyy-MM-dd" /> 
+										(${subList.SHARE_TERM}일 사용)  |  ${subList.SHAR_ADD_DAY}일 초과</span>
+									</li>
+									<li>
+												<!-- 그래프 영역 % 처리 -->
+					                    	<c:if test="${subList.PROG_VAL < 51}">
+					                    		<div class="line_graph type1">
+												<p class="tr" style="left:${subList.PROG_VAL}%">
+													<span class="ico">
+														<fmt:formatDate value="${TO_DAY}" pattern="MM/dd" /> (D-${subList.SHAR_DAY})
+													</span>
+												</p>				                    		
+					                    	</c:if>
+					                    	<c:if test="${subList.PROG_VAL > 51}">
+					                    		<div class="line_graph type2">
+												<p class="tr" style="width:${subList.PROG_VAL}%">
+													<span class="ico">
+														<fmt:formatDate value="${TO_DAY}" pattern="MM/dd" /> (D-${subList.SHAR_DAY})
+													</span>
+												</p>				                    		
+					                    	</c:if>
+	
+											<div class="bar"><p style="width:${subList.PROG_VAL}%"></p></div>
+											<p class="clear">
+												<span class="fl">
+													<fmt:formatDate value="${SHAR_STA_DATE}" pattern="MM/dd" />
+												</span> 
+												<span class="fr">
+													<fmt:formatDate value="${SHAR_END_DATE}" pattern="MM/dd" />
+												</span>
+											</p>
+										</div>
+									</li>
+									<li><strong>셰어링 금액</strong>
+										<span><fmt:formatNumber value="${subList.SHARING_PRICE * subList.USE_DATE}" pattern="#,###" />원 
+										(1일 <fmt:formatNumber value="${subList.SHARING_PRICE}" pattern="#,###" />원 X  ${subList.USE_DATE}일)
+										</span>
+									</li>
+									<li><strong>셰어링 추가 금액</strong>
+										<span><fmt:formatNumber value="${subList.SHARING_PRICE * subList.SHAR_ADD_DAY}" pattern="#,###" />원 
+										(1일 <fmt:formatNumber value="${subList.SHARING_PRICE}" pattern="#,###" />원 X ${subList.SHAR_ADD_DAY}일)
+										</span>
+									</li>
+									<li><strong>환불 금액</strong>
+										<span><fmt:formatNumber value="${subList.DEPOSIT - (subList.SHARING_PRICE * subList.SHAR_ADD_DAY)}" pattern="#,###" />원 (보증금 <fmt:formatNumber value="${subList.DEPOSIT}" pattern="#,###" />원 – 셰어링 추가금액 <fmt:formatNumber value="${subList.SHARING_PRICE * subList.SHAR_ADD_DAY}" pattern="#,###" />원)</span>
+									</li>
+									<li><strong>환불 상태</strong>
+										<span>${subList.REFUND_STAT_NM}</span>
+									</li>
+									<li><span>※ 환불금액은 판매자가 상품 수령 후 '회수완료' 처리시 환불처리 됨</span></li>
+								</ol>
+							</li>
+						</ul>
+						<p class="title">회수 신청 정보</p>
+							<div class="tbl">
+								<table class="tbl-data">
+									<colgroup>
+										<col width="100px">
+										<col width="*">
+									</colgroup>
+									<tbody>
+										<tr>
+											<th>신청일시</th>
+											<td>${subList.CHG_REG_DT}</td>
+										</tr>
+										<tr>
+											<th>받는사람</th>
+											<td>${subList.RCV_NM}</td>
+										</tr>
+										<tr>
+											<th>주소</th>
+											<td>(${subList.ZIP_CODE}) ${subList.BAS_ADDR} ${subList.DTL_ADDR}</td>
+										</tr>
+										<tr>
+											<th>연락처</th>
+											<td>${subList.CONTACT}
+											</td>
+										</tr>
+										<tr>
+											<th>택배사</th>
+											<td>${subList.DLV_CMP_NM}
+												<c:choose>
+													<c:when test="${subList.PROC_STAT_CD == '90'}" >
+														(예상방문일 : <fmt:formatDate value="${FOR_VISIT}" pattern="yyyy-MM-dd" />)
+													</c:when>
+													<c:otherwise>
+														(회수일 : ${subList.CHG_FIN_DT})
+													</c:otherwise>
+												</c:choose>
+											</td>
+										</tr>
+										<c:if test="${subList.PROC_STAT_CD == '88' || subList.PROC_STAT_CD == '89'}" >
+											<tr>
+												<td colspan="2">
+													<p class="btn">
+														<span class="fl">
+															<a href="javascript:f_goCommCall('/mobile/buy/selectShipView.do', '${orderShareDtl.ORD_CD}', '${subList.PROD_CODE}', '${subList.PROD_SEQ}', 'colShipView');" id="colShipView" class="btn_b">배송조회</a>
+														</span>
+													</p>
+												</td>
+											</tr>
+										</c:if>
+									</tbody>
+								</table>
+							</div>
+					</c:when>
+        		
+        		
+        	</c:choose>
+        	</ul>
+        	<c:set var="SUM_DEPOSIT" value="${ SUM_DEPOSIT + subList.DEPOSIT}" />
+	        <c:if test="${subList.SELLER_MBER_GB_CD == '1'}">
+	        	<c:set var="SHAREING_AMT" value="${ SHAREING_AMT + subList.SHAREING_AMT}" />
+	        </c:if>	 
+	        
+	        <c:set var="CANC_DT" value="${subList.CANC_DT}" />       	
+	        <c:set var="CANC_REASON_CD_NM" value="${subList.CANC_REASON_CD_NM}" />
+	        <c:set var="CANC_REASON" value="${subList.CANC_REASON}" />
+	        
+		</c:forEach>
+        
+		<p class="title">구매자 정보</p>
+		<div class="user_info">
+        	<span class="fl">
+        		<img alt="${orderShareDtl.MBER_IMG_URL }" src="<custom:codeTag code="DEFAULT_IMG_URL" groupCode="SITE_DEFAULT" />" />
+        	</span>
+        	<p class="fl ml5">
+        		
+        		<span><img src="${orderShareDtl.MBER_LEV }" class="img_level"/>${orderShareDtl.ORD_EMAIL }</span>
+        	</p>
+        	<c:choose>
+           		<c:when test="${orderShareDtl.SECU_NO_USE_YN != null and orderShareDtl.SECU_NO_USE_YN == 'Y' }">
+           			
+					<a href="TEL:${orderShareDtl.SECU_NO } " class="user_phone">
+		        		<strong>전화걸기</strong>
+		        	</a>
+           		</c:when>
+           		<c:otherwise>
+           			<c:choose>
+             		<c:when test="${orderShareDtl.RCV_HP != null and orderShareDtl.RCV_HP != '' }">
+             			<a href="TEL:${orderShareDtl.ORD_HP }" class="user_phone">
+			        		<strong>전화걸기</strong>
+			        	</a>
+             		</c:when>
+             		<c:otherwise>
+             			<a href="TEL:${orderShareDtl.ORD_TEL }" class="user_phone">
+			        		<strong>전화걸기</strong>
+			        	</a>
+             		</c:otherwise>
+             	</c:choose>
+           		</c:otherwise>
+           	</c:choose>
+        	
+		</div>
+		
+		<c:if test="${params.ordGb == '1' }">
+			<p class="title">배송지 정보</p>
+	        <div class="tbl">
+	            <table class="tbl-data">
+	                <colgroup>
+	                    <col width="100px">
+	                    <col width="*">
+	                </colgroup>
+	                <tbody>
+	                    <tr>
+	                        <th>받는사람</th>
+	                        <td>${orderShareDtl.DLV_RCV_NM}</td>
+	                    </tr>
+	                    <tr>
+	                        <th>주소</th>
+	                        <td>
+	                        	<c:set var="dlvAddr" value="" />
+	                        	<c:set var="dlvAddrSplt" value="${fn:split(orderShareDtl.JUSO_JIBEN, ' ') }" />
+	                        	<c:forEach var="addr" items="${dlvAddrSplt }" varStatus="status">
+	                        		<c:if test="${status.last }">
+	                        			<c:set var="dlvAddr" value="${addr }" />
+	                        		</c:if>
+	                        	</c:forEach>
+	                        	(${orderShareDtl.DLV_ZIP_CD })${orderShareDtl.JUSO_DORO } (${dlvAddr }) ${orderShareDtl.JUSO_DTL }
+	                        </td>
+	                    </tr>
+	                    <tr>
+	                        <th>연락처</th>
+	                        <td>
+	                        	<c:choose>
+	                        		<c:when test="${orderShareDtl.SECU_NO_USE_YN != null and orderShareDtl.SECU_NO_USE_YN == 'Y' }">
+	                        			${orderShareDtl.SECU_NO } (안심번호 사용)
+	                        		</c:when>
+	                        		<c:otherwise>
+	                        			<c:choose>
+			                        		<c:when test="${orderShareDtl.RCV_HP != null and orderShareDtl.RCV_HP != '' }">
+			                        			${orderShareDtl.RCV_HP }
+			                        		</c:when>
+			                        		<c:otherwise>
+			                        			${orderShareDtl.RCV_TEL }
+			                        		</c:otherwise>
+			                        	</c:choose>
+	                        		</c:otherwise>
+	                        	</c:choose>
+	                        </td>
+	                    </tr>
+	                    <tr>
+	                        <th>배송메모</th>
+	                        <td>
+	                        	${orderShareDtl.DLV_MSG }
+	                        </td>
+	                    </tr>
+	                </tbody>
+	            </table>
+	        </div>
+        
+	        <p class="title">주문정보</p>
+	        <table class="tbl-order">
+	            <colgroup>
+	                <col width="33.3%">
+	                <col width="33.3%">
+	                <col width="*">
+	            </colgroup>
+	            <thead>
+	                <tr>
+	                    <th>주문금액</th>
+	                    <th>할인금액</th>
+	                    <th>결제금액</th>
+	                </tr>
+	            </thead>
+	            <tbody>
+	                <tr>
+	                    <td><fmt:formatNumber value="${SUM_DEPOSIT + SHAREING_AMT + orderAmtMap.DLV_PRCE}" pattern="#,###" />원</td>
+	                    <td><fmt:formatNumber value="${orderAmtMap.DSCNT_AMT}" pattern="#,###" />원</td>
+	                    <td><strong class="point_r"><fmt:formatNumber value="${orderAmtMap.SELT_AMT}" pattern="#,###" />원</strong></td>
+	                </tr>
+	            </tbody>
+	        </table>		
+		
+	        <p class="order_arrow"><img src="http://static.ssocio.net/web/images/order_arrow.png" alt=""></p>
+	        <div class="tbl inner">
+	            <table class="tbl-data">
+	                <colgroup>
+	                    <col width="100px">
+	                    <col width="*">
+	                </colgroup>
+	                <tbody>
+	                	<tr class="line">
+	                        <td colspan="2"><strong>주문금액</strong></td>
+	                    </tr>
+	                    <tr>
+	                        <th>보증금</th>
+	                        <td class="tr"><strong><fmt:formatNumber value="${SUM_DEPOSIT}" pattern="#,###" />원</strong></td>
+	                    </tr>
+	                    <tr>
+	                        <th>셰어링 금액</th>
+	                        <td class="tr"><strong><fmt:formatNumber value="${SHAREING_AMT}" pattern="#,###" />원</strong></td>
+	                    </tr>
+	                    <tr>
+	                        <th>배송비</th>
+	                        <td class="tr"><strong><fmt:formatNumber value="${orderAmtMap.DLV_PRCE}" pattern="#,###" />원</strong></td>
+	                    </tr>
+	                </tbody>
+	            </table>
+	        </div>
+	
+	
+	        <div class="tbl inner">
+	            <table class="tbl-data">
+	                <colgroup>
+	                    <col width="100px">
+	                    <col width="*">
+	                </colgroup>
+	                <tbody>
+	                    <tr class="line">
+	                        <td colspan="2"><strong>할인금액</strong></td>
+	                    </tr>
+	                    <tr>
+	                        <th>쿠폰할인</th>
+	                        <td class="tr"><strong><fmt:formatNumber value="${orderAmtMap.CPN_USE_AMT}" pattern="#,###" />원</strong></td>
+	                    </tr>
+	 
+	                    <tr>
+	                        <th>포인트</th>
+	                        <td class="tr"><strong><fmt:formatNumber value="${orderAmtMap.POINT_USE_AMT}" pattern="#,###" />P</strong></td>
+	                    </tr>
+	                </tbody>
+	            </table>
+	        </div>
+	        
+	         <div class="tbl inner mb10">
+	           <table class="tbl-data">
+	                <colgroup>
+	                    <col width="100px">
+	                    <col width="*">
+	                </colgroup>
+	                <tbody>
+	                    <tr class="line">
+	                        <th>결제금액</th>
+	                        <td class="tr"><strong class="point_r"><fmt:formatNumber value="${orderAmtMap.SELT_AMT}" pattern="#,###" />원</strong><br><span>${orderAmtMap.SELT_GB_NM}</span></td>
+	                    </tr>
+	                </tbody>
+	            </table>
+	        </div>
+        </c:if>
+        
+        <c:if test="${params.ordGb == '2' }">
+        	<p class="title">반품 신청 정보</p>
+	        <div class="tbl">
+	            <c:forEach var="subList" items="${orderShareDtl.subOrder }" varStatus="status">
+	            <table class="tbl-data">
+	                <colgroup>
+	                    <col width="100px">
+	                    <col width="*">
+	                </colgroup>
+	                <tbody>
+	                    <tr>
+	                        <th>신청일시</th>
+	                        <td>${subList.CHG_REG_DT}</td>
+	                    </tr>
+	                    <tr>
+	                        <th>반품사유</th>
+	                        <td>${subList.CHG_REASON_CD_NM} | ${subList.CHG_REASON}</td>
+	                    </tr>
+	                    <c:if test="${subList.PROC_STAT_CD == '70'}">
+	                    <tr>
+	                        <th>반품일시</th>
+	                        <td>${subList.CHG_FIN_DT}</td>
+	                    </tr>
+	                    </c:if>
+	                </tbody>
+	            </table>
+	            </c:forEach>
+	        </div>
+        </c:if>
+        
+        <c:if test="${params.ordGb == '3' }">
+        	<p class="title">주문취소 신청 정보</p>
+	        <div class="tbl">
+	            
+	            <table class="tbl-data">
+	                <colgroup>
+	                    <col width="100px">
+	                    <col width="*">
+	                </colgroup>
+	                <tbody>
+	                    <tr>
+	                        <th>신청일시</th>
+	                        <td>
+	                        	${CANC_DT}
+	                        </td>
+	                    </tr>
+	                    <tr>
+	                        <th>취소사유</th>
+	                        <td>
+	                        	${CANC_REASON_CD_NM} | ${CANC_REASON }
+	                        </td>
+	                    </tr>
+	                </tbody>
+	            </table>
+	        </div>
+        </c:if>
+        
+        <c:if test="${params.ordGb == '4' }">
+			<p class="title">교환 신청 정보</p>
+			 <c:forEach var="subList" items="${orderShareDtl.subOrder }" varStatus="status">
+	        <div class="tbl">
+	           
+	            <table class="tbl-data">
+	                <colgroup>
+	                    <col width="100px">
+	                    <col width="*">
+	                </colgroup>
+	                <tbody>
+	                    <tr>
+	                        <th>신청일시</th>
+	                        <td>${subList.CHG_REG_DT}</td>
+	                    </tr>
+	                    <tr>
+	                        <th>교환사유</th>
+	                        <td>${subList.CHG_REASON_CD_NM} | ${subList.CHG_REASON}</td>
+	                    </tr>
+	                    <c:if test="${subList.PROC_STAT_CD == '30'}">
+	                    <tr>
+	                        <th>교환일시</th>
+	                        <td>${subList.CHG_FIN_DT}</td>
+	                    </tr>
+	                    </c:if>
+	                </tbody>
+	            </table>
+	        </div>
+	        
+			<p class="title">배송지 정보</p>
+	        <div class="tbl">
+	            <table class="tbl-data">
+	                <colgroup>
+	                    <col width="100px">
+	                    <col width="*">
+	                </colgroup>
+	                <tbody>
+	                    <tr>
+	                        <th>받는사람</th>
+	                        <td>${subList.RTN_RCV_NM}</td>
+	                    </tr>
+	                    <tr>
+	                        <th>주소</th>
+	                        <td>
+	                        	
+	                        	(${subList.RTN_ZIP_CODE })${subList.RTN_JUSO_DORO } ${subList.RTN_JUSO_DTL }
+	                        </td>
+	                    </tr>
+	                    <tr>
+	                        <th>연락처</th>
+	                        <td>
+	                        	<c:choose>
+	                        		<c:when test="${subList.SECU_NO_USE_YN != null and subList.SECU_NO_USE_YN == 'Y' }">
+	                        			${subList.SECU_NO } (안심번호 사용)
+	                        		</c:when>
+	                        		<c:otherwise>
+	                        			<c:choose>
+			                        		<c:when test="${subList.RTN_HP != null and subList.RTN_HP != '' }">
+			                        			${subList.RTN_HP }
+			                        		</c:when>
+			                        		<c:otherwise>
+			                        			${subList.RTN_TEL }
+			                        		</c:otherwise>
+			                        	</c:choose>
+	                        		</c:otherwise>
+	                        	</c:choose>
+	                        </td>
+	                    </tr>
+	                    <tr>
+	                        <th>배송메모</th>
+	                        <td>
+	                        	${subList.RTN_MEMO }
+	                        </td>
+	                    </tr>
+	                </tbody>
+	            </table>
+	           
+	        </div>
+        	</c:forEach>
+        </c:if>
+	</c:if>
+	<!-- 정산확인 팝업 -->
+	<div class="popup public_stop" style="display:none;">
+		<p class="title">
+			<strong>정산확인</strong>
+			<a href="#" class="btn_close">
+				<img src="http://static.ssocio.net/web/images/btn_layer_close.png" alt="닫기" />
+			</a>
+		</p>
+		<ul class="sha_oder">
+			<li>
+				<ul class="mt10">
+					<li><img id="prodImg" src="<custom:codeTag code="DEFAULT_IMG_URL" groupCode="SITE_DEFAULT" />" alt=""></li>
+					<li><strong id="adjProdNm"></strong></li>
+					<li><span>구매수량 <span id="ordQty"></span>개</span></li>
+				</ul>
+			</li>
+		</ul>
+		<p class="pop_title2" id="shareDt"></p>
+		<div class="tbl">
+			<table class="tbl-data">
+				<colgroup>
+					<col width="22%;">
+					<col width="*">
+				</colgroup>
+				<tbody>
+					<tr>
+						<th>보증금</th>
+						<td class="tr" id="deposit"></td>
+					</tr>
+					<tr>
+						<th>배송비</th>
+						<td class="tr" id="dlvPrce"></td>
+					</tr>
+					<tr>
+						<th>셰어링금액</th>
+						<td class="tr" id="sharePrce"></td>
+					</tr>
+					<tr>
+						<th>수수료</th>
+						<td class="tr" id="cmtn"></td>
+					</tr>
+					<tr>
+						<th>할인공제</th>
+						<td class="tr" id="dscnt"></td>
+					</tr>
+					<tr class="text_r">
+						<th>정산금액</th>
+						<td class="tr" id="adjAmt"></td>
+					</tr>
+					<tr>
+						<th>정산상태</th>
+						<td class="tr" id="adjStat">정산대기중<br/><span>(입금예정일 : 2015.05.30)</span></td>
+					</tr>
+				</tbody>
+			</table>
+			<ul class="lst_info">
+				<li><span>※ 정산금액 = 보증금 + 배송비 - 셰어링금액 - 수수료 - 할인공제</span></li>
+				<li><span>※ 정산금액은 영업일 기준 3일 후 등록 된 계좌로 입금됩니다.</span></li>
+				<li><span>※ 할인공제금액은 구매자가 상품구매시 사용한 쿠폰 할인금액에 대해 다날쏘시오와 판매자간 분담율에 따라 책정됩니다.</span></li>
+			</ul>
+		</div>
+		<div class="bot_btn">
+			<a href="javascript:popup_hide();" class="btn_r">확인</a>
+		</div>
+		<!-- //정산확인 팝업-->
+</form>
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+		<jsp:include page="../common/sale_bottom.jsp" flush="false" />
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+		    </div>
+		    <!-- //container -->
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>

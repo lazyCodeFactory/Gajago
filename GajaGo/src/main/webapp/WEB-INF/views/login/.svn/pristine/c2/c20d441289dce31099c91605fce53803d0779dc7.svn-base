@@ -1,0 +1,1817 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/web/common/cmmnHead.jsp"%>
+<%@ include file="/WEB-INF/views/web/common/CmmnJuso.jsp"%>
+
+<!-- [2015-11-03] document.doamin='ssocio.net' 추가를 위해 js include -->
+<script type="text/javascript" src="/js/web/webCommon.js"/></script>
+<script type="text/javascript" src="/js/web/function.js"/></script>
+<script type="text/javascript" src="/js/web/class.js"/></script>
+<script type="text/javascript" src="/js/web/ctry/coupon.js"/></script>
+<script type="text/javascript" src="/js/web/ctry/product.js"/></script>
+<script type="text/javascript" src="/js/web/ctry/order.js"/></script>
+<script type="text/javascript" src="/js/web/ctry/delivery.js"/></script>
+<script type="text/javascript" src="/js/web/ctry/auth.js"/></script>
+<script type="text/javascript" src="/js/web/cart.js" ></script> <!-- 장바구니용 js -->
+<script type="text/javascript">
+/** 
+ * Order는 order.js에 선언되어 있음.
+ */
+var coupons = null;
+var selProdCode = '';   //  쿠폰을 사용하고자 하는 상품코드
+var selCpnNo = '';
+var authYn = false;
+var auth = null;
+var order = null;
+var delivery = null;
+var adultYn = false;
+var extLandCd = '99';
+var POINT_UNIT_AMT = 1000;
+var LIMIT_PAY_AMOUNT = 1000;
+var SELT_UPPER_LIMIT_POINT = 5000;
+var HP_UPPER_LIMIT_AMT = 300000;
+
+var limit = 50;
+var cur = 0;
+var isSubmit = true;
+var isPostBtn = false;
+var isHpGb = true;
+var isHpGbSel = false;
+var scrollValue = 0;
+var oldFlag = '1';
+var usePointSize = 0;
+var useCpnDlvAmt = 0;
+var useCpnProdAmt = 0;
+
+
+$(document).ready(function(){
+    
+//  header.type = 6;
+    header.type = 4;
+    header.title = "주문서";
+    header.method = "GET";
+    header.backUrl = "/mobile/prod/selectProd.do?PROD_CODE=${inParam.PROD_CODE }";
+    header.callback = headerCallback; // 장바구니용 callback
+    initHeader();
+    document.title = header.title;
+    
+   
+    if( '${sessionScope.APP}' == 'SSOCIO'){
+        document.location.replace('ssocio://web/hideDetailBottomView');
+    }
+    //  배송 메모 글자수 체크
+    $('#DLV_MSG').keyup(function(e){
+        cur = getBytesLength($(this).val());
+        
+        if( cur <= limit ){
+            $(".byte").text(cur + '/' + limit);
+        }
+        else{
+            alert("글자수가 " + limit + "Byte를 넘었습니다.");
+            $(this).val($(this).val().substring(0, limit));
+        }
+    });
+    
+    //  안심번호 체크 default check
+    $("input[id='SECU_NO_USE_YN']").prop("checked", true);
+
+    adultYn = nvlInt('${result.mber.AGE}', 0) >= 14 ? true : false;
+    
+    authYn = '${result.mber.MBER_PHONE}' == '' ? false : true;
+    auth = new Auth(authYn, '${result.mber.MBER_PHONE}', 'phonediv');
+    if( authYn == false ){
+        $("#id_certificated").hide();
+        $("#id_certificate_none").show();
+    }
+    else{
+        $("#id_certificated").show();
+        $("#id_certificate_none").hide();
+    }
+    
+    $("#ORD_INFO").val(JSON.stringify(JSON.parse('${inParam.ORD_INFO}')));
+    
+    // 기본 배송지로 이용
+    $("#id_span_basedlvyn").hide();
+    
+    if('${result.dlv.REG_SEQ}' != ''){
+        delivery = new Delivery(new Address(true, '${result.dlv.REG_SEQ}', '${result.dlv.DLV_NAME}', '${result.dlv.RCV_NM}', '${result.dlv.ZIP_CD}', '${result.dlv.JUSO_JIBEN}', '${result.dlv.JUSO_DORO}', '${result.dlv.JUSO_DTL}', '${result.dlv.RCV_TEL}', '${result.dlv.EXT_LAND_CD}'));
+        <c:forEach var="addr" items="${result.dlv.addrs}" varStatus="status">
+            var addr = new Address(false, '${addr.REG_SEQ}', '${addr.DLV_NAME}', '', '', '', '', '', '', '99');
+            delivery.addrs.push(addr);
+        </c:forEach>
+        $("#id_dlv_info_new").show();
+        $("#id_dlv_info_select").hide();
+        $("#id_tr_dlv").show();
+        
+        // SET 배송지명 입력 불가능
+        $("#DLV_NAME").val($("#REG_SEQ option:selected").text().replace("(기본배송지)", "")); 
+        $("input[id='ADD_DLV_YN']").prop("checked", false);
+        $("#id_tr_dlvname").hide();     
+    }
+    else{
+        $("#id_dlv_info_new").hide();
+        
+        // SET 배송지명 입력 가능
+        $("#id_tr_dlvname").show();
+        $("#DLV_NAME").val(""); 
+        $("input[id='ADD_DLV_YN']").prop("checked", true);
+        $("input[id='UPT_DLV_YN']").prop("checked", false);
+        $("input[id='UPT_BASE_DLV_YN']").prop("checked", false);
+        
+        $("#id_dlv_info_select").show();
+        $("#id_dlv_info_select_btn").hide();
+        $("#id_tr_dlv").hide();
+    }
+    
+    // 우편번호 스크롤 값 가져오기
+    $('#id_a_zipcd').click(function(e){
+       scrollValue = e.pageY-250;
+       $(window).scrollTop(0);
+    });
+    
+    initialize();
+    
+    displayFooter(false);
+    
+    // 30만원이상 휴대폰 결제 일경우 결제방법이 휴대폰 선택 전으로 선택 되어야 한다.
+    $(".seltGb").click(function (event) {
+
+    	if(isHpGbSel){
+            $('#id_li_card_gb').removeClass("active");
+            $('#id_li_hpgb').removeClass("active");
+            $('#id_li_account_gb').removeClass("active");
+            $('#id_li_payco_gb').removeClass("active");
+           
+            switch(oldFlag){
+            
+                case '1': 
+                    $('#id_li_card_gb').addClass("active");
+                    break;
+                
+                case '2': 
+                    $('#id_li_account_gb').addClass("active");
+                    $('#pay_data03').show();
+                    $('#pay_data04').hide();
+                    break;
+                
+                case '4': 
+                    $('#id_li_payco_gb').addClass("active");
+                    $('#pay_data03').hide();
+                    $('#pay_data04').show();
+                    break;
+            }    		
+    	}
+    	
+    	$("body").scrollTop(event.pageY);
+    });
+    
+
+    usePointSize = nvlInt('${result.usePointSize }', 0);
+    $("#id_able_point").text(formatNumber(usePointSize*POINT_UNIT_AMT)+"P");
+    
+    if(0 < usePointSize){
+    	var pointOptHtml = "";
+    	for(var i=0; i<usePointSize; i++){
+    		pointOptHtml += '<option value="'+(i+1)*POINT_UNIT_AMT+'">'+formatNumber((i+1)*POINT_UNIT_AMT)+'P</option>';	
+    	}
+    	$("#POINT_USE_AMT").append(pointOptHtml);
+    	$("#id_point").show();
+    }else{
+    	$("#id_point").hide();
+    }
+    
+    //  포인트 사용 change
+    $("#POINT_USE_AMT").change(function(){
+    	setPoint();
+    });
+    
+    // 포인트 모두사용 check
+    $("#ALL_POINT_USE").on('click',function(){
+    	if($(this).is(":checked")){
+    		$("#POINT_USE_AMT").val(""+(usePointSize*POINT_UNIT_AMT));
+    	}else{
+    		$("#POINT_USE_AMT").val("0");
+    	}
+    	setPoint();
+    });
+
+});
+
+function getUseCpnDscntAbleCnt(prodCode){
+	
+	var useCpnDscntPrce = order.getTotalAmount(extLandCd) - LIMIT_PAY_AMOUNT;
+    var useCpnProdDscntPrce = order.getOrdAmount() - (order.dscntCpnProdAmt + order.pointUseAmt);
+    var useCpnDlvDscntPrce = extLandCd == '99' ? order.getDlvAmount() : order.getDlvExtAmount();
+    useCpnDlvDscntPrce -= order.dscntCpnDlvAmt;
+    
+	var cpnAbleCnt = 0;
+	var status = "";
+	var ordProdAmt = 0;
+	var dscntPrce = 0;
+	var prodDlvPrce = 0;
+	var duplUseYn = "";
+	
+    var cntDuplUseY = 0;
+    var cntDuplUseN = 0;
+	
+    $("[id^=CPN_INFO_" +prodCode+ "_]").each( function (idx) {
+    	status = $(this).attr("status");
+        if("10" == status){
+
+        	ordProdAmt = $(this).attr("ordprodamt");
+        	dscntPrce = $(this).attr("dscntprce");
+        	prodDlvPrce = $(this).attr("proddlvprce");
+        	duplUseYn = $(this).attr("dupluseyn");
+        	
+        	if(dscntPrce <= useCpnDscntPrce){
+                if("20" != $(this).attr("cpngbcd")){
+
+                    if(ordProdAmt < useCpnProdDscntPrce){
+                        useCpnProdDscntPrce = ordProdAmt;
+                    }
+                    if(dscntPrce <= useCpnProdDscntPrce){
+                        cpnAbleCnt++;
+                        if("Y" == duplUseYn){
+                            cntDuplUseY++;                      
+                        }else{
+                            cntDuplUseN++;
+                        }
+                    }
+                }else{
+                    if(dscntPrce < useCpnDlvDscntPrce){
+                        useCpnDlvDscntPrce = prodDlvPrce;
+                    }                       
+                    if(dscntPrce <= useCpnDlvDscntPrce){
+                        cpnAbleCnt++;
+                        if("Y" == duplUseYn){
+                            cntDuplUseY++;
+                        }else{
+                            cntDuplUseN++;
+                        }
+                    }
+                }        		
+        	}
+        }
+    });
+    
+    var cpnCnt = new Array();
+    cpnCnt[0] = cpnAbleCnt;
+    cpnCnt[1] = cntDuplUseY;
+    cpnCnt[2] = cntDuplUseN;
+    
+    return cpnCnt;
+}
+function setUseCpnDscntAbleCnt(){
+		
+    var seller = null;
+    var sellersLen = nvlInt(order.sellers.length, 0);
+    var sellersProdLen = 0;
+    var cpnAbleCnt = 0;
+    
+    for( var i=0; i<sellersLen; i++){
+        seller = order.sellers[i];
+        sellersProdLen = nvlInt(seller.prods.length, 0);
+        for(var j=0; j<sellersProdLen; j++){
+        	
+        	cpnAbleCnt = getUseCpnDscntAbleCnt(seller.prods[j].prodCode)[0];
+            
+            $("#CPN_ABLE_" + seller.prods[j].prodCode).text("쿠폰적용(사용가능 " +cpnAbleCnt+ "장)");
+            if(0 < cpnAbleCnt){
+            	$("#CPN_SELECT_" + seller.prods[j].prodCode).show();
+            }else{
+            	$("#CPN_SELECT_" + seller.prods[j].prodCode).hide();
+            }
+            cpnAbleCnt = 0;
+        }
+    }
+
+    var useCpnDscntPrce = ((order.getTotalAmount(extLandCd) - LIMIT_PAY_AMOUNT) + order.pointUseAmt);
+    var ablePointSize = parseInt((useCpnDscntPrce/POINT_UNIT_AMT), 10);
+    
+    if(usePointSize < ablePointSize){
+    	ablePointSize = usePointSize;
+    }
+    
+    $("#id_able_point").text(formatNumber(ablePointSize*POINT_UNIT_AMT)+"P");    
+    
+    if((ablePointSize*POINT_UNIT_AMT) == order.pointUseAmt){
+        $("input[id='ALL_POINT_USE']").prop("checked", true);
+    }else{
+        $("input[id='ALL_POINT_USE']").prop("checked", false);
+    }
+}
+function setPoint(){
+	var newSlcAmt = nvlInt($("#POINT_USE_AMT option:selected").val(), 0);
+    var useCpnDscntPrce = ((order.getTotalAmount(extLandCd) - LIMIT_PAY_AMOUNT) + order.pointUseAmt);
+    var ablePointSize = parseInt((useCpnDscntPrce/POINT_UNIT_AMT), 10);
+    
+	if(ablePointSize*POINT_UNIT_AMT < newSlcAmt){
+		if(0 == ablePointSize){
+			alert("사용가능한 포인트가 없습니다.");
+		}else{
+			alert("포인트는 "+formatNumber((ablePointSize*POINT_UNIT_AMT))+"P 까지 사용 가능 합니다.");		
+		}
+	
+		$("#POINT_USE_AMT").val("" +order.pointUseAmt);
+	}else{
+		order.pointUseAmt = nvlInt($("#POINT_USE_AMT option:selected").val(), 0);	
+	}
+    
+    displayAmount();
+    setUseCpnDscntAbleCnt();
+}
+function headerCallback(cls){
+    if( 'btn_basket' == cls ){
+        if( '${sessionScope.user.login}' != 'true' ){
+            alert('로그인 후 이용 가능합니다.\n로그인 페이지로 이동합니다. ');
+            var url = '/mobile/prod/selectProd.do?PROD_CODE=${inParam.PROD_CODE }';
+            location.href = '/mobile/main/login.do?ret=' + encodeURIComponent(url);
+        }
+        else{
+            location.href = "/mobile/myBasket/getMyBasketInfo.do";
+        }
+    }
+    else if( 'btn_home' == cls ){
+        location.href = "/mobile/main/main.do";
+    }
+}
+
+
+function initialize(){
+    var isApp = '${sessionScope.APP}' == 'SSOCIO' ? true : false;
+
+    //  주문 상품 세팅
+    order = new Order('${result.ordCd }');
+    var prod = null;
+    <c:forEach var="prod" items="${result.prods}" varStatus="status">
+        var prod = new Product(true);
+        prod.prodCode = '${prod.PROD_CODE}';
+        prod.prodNm = '${prod.PROD_NM}';
+        prod.prodImgUrl = '${prod.PROD_IMG_URL}';
+        prod.prodTypeCd = '${prod.PROD_TYPE_CD}';
+        //  옵션 구성 여부 파악
+        prod.optProdYn = isNull('${prod.OPT_PROD_YN }') ? 'N' : '${prod.OPT_PROD_YN }';
+        prod.extProdYn = isNull('${prod.OPT_PROD_EXT_YN }') ? 'N' : '${prod.OPT_PROD_EXT_YN }';
+        
+        prod.ctryCd = '${prod.CTRY_CD}';
+        prod.setParentCtryCd('${prod.PARENT_CTRY_CD}');
+        prod.mberSeq = '${prod.MBER_SEQ}';
+        prod.mberGbCd = '${prod.MBER_GB_CD}';
+        prod.sellPrce = nvlInt('${prod.SELL_PRCE}', 0);
+        prod.nrmPrce = nvlInt('${prod.NRM_PRCE}', 0);
+        prod.ordQty = nvlInt('${prod.ORD_QTY}', 0);
+        prod.ordAmt = nvlInt('${prod.ORD_AMT}', 0);
+        
+        prod.shar.prce = nvlInt('${prod.PS_PRCE}', 0);
+        prod.shar.deposit = nvlInt('${prod.PS_DEPOSIT}', 0);
+        prod.shar.minTerm = nvlInt('${prod.PS_MIN_ITEM}', 0);
+        prod.shar.maxTerm = nvlInt('${prod.PS_MAX_ITEM}', 0);
+        prod.shar.startDt = '${prod.PS_START_DT}';
+        prod.shar.endDt = '${prod.PS_END_DT}';
+        prod.shar.shareDay = nvlInt('${prod.PS_SHARE_DAY}', 1);
+        
+        prod.dlv.dlvWayCd = '${prod.DLV_WAY_CD}';
+        prod.dlv.dlvPayGbCd = '${prod.DLV_PAY_GB_CD}';
+        prod.dlv.dlvPrce = nvlInt('${prod.DLV_PRCE}', 0);
+        prod.dlv.dlvPayFCd = '${prod.DLV_PAY_F_CD}';
+        prod.dlv.bndlDlvYn = isNull('${prod.BNDL_DLV_YN }') ? 'N' : '${prod.BNDL_DLV_YN }';
+        prod.dlv.dlvStandYn = isNull('${prod.DLV_STAND_YN }') ? 'N' : '${prod.DLV_STAND_YN }';
+        prod.dlv.dlvStandAmt = nvlInt('${prod.DLV_STAND_AMT}', 0);
+        prod.dlv.dlvGrpProdSeq = '${prod.GRP_PROD_SEQ}';
+        <c:forEach var="extLand" items="${prod.extLands}" varStatus="dlvStatus">
+            prod.dlv.setExtLandPrice('${extLand.EXT_LAND_CD}', nvlInt('${extLand.ADD_DLV_PRICE}', 0));
+        </c:forEach>
+
+        <c:forEach var="opt" items="${prod.options}" varStatus="optStatus">
+            prod.setSelected(new Option('${opt.OPT_CD}', '${opt.OP_GB_CD}', '${opt.OPT_NM}', 0, nvlInt('${opt.OPT_PRCE}', 0), nvlInt('${opt.OPT_QTY}', 0)));
+        </c:forEach>
+        
+        order.add(prod);
+        order.setProdTypeCd(prod.prodTypeCd);
+    </c:forEach>
+    
+    order.setDlvBand();
+    displayProducts();
+    
+    if( delivery != null ){
+        setExtLandCd(delivery.selected.extLand);    
+    }
+    else{
+        setExtLandCd(extLandCd);
+    }
+}
+
+function displayProducts(){
+    var html = '';
+    var dlvGrpCode = '';
+    var cpnCnt = 0;
+    for( var i=0 ; i<order.sellers.length ; i++){
+        var seller = order.sellers[i];
+        for(var j=0 ; j<seller.prods.length ; j++ ){
+            var prod = seller.prods[j]; 
+            html += '<li>';
+            html += '<div class="none-delivery" id="id_div_ext_land_' + prod.prodCode + '" style="display:block;">';
+            html += '<p>제주/도서산간 배송 불가 상품입니다.</p>';
+            html += '</div>';
+            html += '<ul class="mt10">';
+            html += '<li><img src="<custom:codeTag code="DEFAULT_IMG_URL" groupCode="SITE_DEFAULT" />" alt="' + prod.prodImgUrl + '"></li>';
+            html += '<li><strong>' + prod.prodNm + '</strong></li>';
+            html += '<li>';
+            if(prod.prodTypeCd == '1'){
+                html += '<span>상품금액 ' + formatNumber(prod.sellPrce) + '원<br>';
+            }
+            else if( prod.prodTypeCd == '2'){
+                // 20151114 개인 쉐어링 구매 조건 추가
+                if( prod.mberGbCd == '0' && '${inParam.ordFlag}' != '1'){
+                    html += '<li><span>보증금  ' + formatNumber(prod.shar.deposit) + '원<br>사용기간 최대 ' + Math.ceil(prod.shar.deposit / prod.shar.prce) + '일 이내 반납가능<br>'
+                }
+                else if(prod.mberGbCd == '0' && '${inParam.ordFlag}' == '1'){
+                    html += '<li><span>상품금액  ' + formatNumber(prod.shar.deposit) + '원<br>'
+                }
+                else if(prod.mberGbCd == '1'){
+                    html += '<li><span>보증금  ' + formatNumber(prod.shar.deposit) + '원<br>셰어링료 ' + formatNumber(prod.shar.prce * prod.shar.shareDay) + '원 (일 ' + formatNumber(prod.shar.prce) + '원  X ' + prod.shar.shareDay + '일)<br>';  
+                }
+            }
+            
+            html += prod.getDlvAmountText(true) + ' | 구매수량' + formatNumber(prod.ordQty) + '개';
+
+             //  도서 산간 체크
+            if("" != prod.dlv.getExtLandText()){
+                html += '</br>' + prod.dlv.getExtLandText();
+            }
+
+            html += '</span>';
+            html += '</li>';
+            html += '</ul>';
+            //  옵션 영역           
+            if(prod.option.select.length > 0 ){
+                html += '<div class="option">';
+                for(var k=0 ; k<prod.option.select.length ; k++){
+                    var option = prod.option.select[k];
+                    if(option.opGbCd == '10'){
+                        html += '<p class="clear"><span class="fl">' + option.optNm + '</span> <span class="fr">+' + formatNumber(option.prce) + '원 | ' + option.ordQty + '개</span>';   
+                    }
+                    else if( option.opGbCd == '20'){
+                        html += '<p class="clear"><span class="fl">[추가상품]' + option.optNm + '</span> <span class="fr">' + formatNumber(option.prce) + '원 | ' + option.ordQty + '개</span>';  
+                    }
+                }
+                html += '</div>';
+            }
+            
+            //  쿠폰 영역
+            cpnCnt = getUseCpnDscntAbleCnt(prod.prodCode)[0];
+            if(0 < cpnCnt){ 
+                html += '<div id="id_div_cpnable_' + prod.prodCode + '" class="discount">';      
+                html += '<p class="clear cupon"><strong id="CPN_ABLE_' + prod.prodCode + '" class="fl">쿠폰적용(사용가능 ' +cpnCnt+ '장)</strong><span id="CPN_SELECT_' + prod.prodCode + '" class="fr"><a href="javascript:displayCoupon(\'' + prod.prodCode + '\');" class="btn_b">쿠폰선택</a></span></p>';     
+                html += '</div>';
+            }
+            else{
+            	/*
+                html += '<div class="discount">';
+                html +='<p class="clear mt10"><strong>사용가능한 쿠폰이 없습니다.</strong></p>';
+                html += '</div>';
+                */
+            }
+            html += '</li>';
+        }
+        //  주문 금액
+        html += '<li class="total">';
+        html += '<p class="clear mt10"><strong id="id_account_text_' + i + '"></strong></p>';
+        html += '<p class="clear mt10 tr"><strong class="point_r" id="id_amount_' + i + '">' + formatNumber(seller.getTotalAmount()) + '원</strong></p>';
+        html += '</li>';
+    }
+    $("#id_prods").append(html);
+    
+    cdnreload();
+    
+    displayAmount();
+}
+
+function displayAmount(){
+    for(var i=0 ; i<order.sellers.length ; i++){
+        var seller = order.sellers[i]; 
+        $("#id_amount_" + i).text(formatNumber(seller.getTotalAmount()) + '원');
+        $("#id_account_text_" + i).text(seller.accountText());
+    }
+    
+    if(order.prodTypeCd == '1'){
+        $("#id_tr_sell_prce").show();
+        $("#id_tr_ps_deposit").hide();
+        $("#id_tr_ps_prce").hide();
+        $("#id_tr_ps_qty").hide();
+        
+        //  상품 금액
+        $("#id_sell_prce").text(formatNumber(order.getOrdAmount()) + ' 원');
+    }
+    // 20151114 개인 쉐어링 구매
+    else if( order.prodTypeCd == '2' && '${inParam.ordFlag}' == '1'){
+        $("#id_tr_sell_prce").show();
+        $("#id_tr_ps_deposit").hide();
+        $("#id_tr_ps_prce").hide();
+        $("#id_tr_ps_qty").hide();
+        
+        //  상품 금액
+        $("#id_sell_prce").text(formatNumber(order.getOrdDeposit()) + ' 원');
+    }
+    else if( order.prodTypeCd == '2' && '${inParam.ordFlag}' != '1'){
+        $("#id_tr_sell_prce").hide();
+        $("#id_tr_ps_deposit").show();
+        $("#id_tr_ps_prce").show();
+        $("#id_tr_ps_qty").show();
+        //  보증금 금액
+        $("#id_ps_deposit").text(formatNumber(order.getOrdDeposit()) + ' 원');
+        //  셰어링 금액
+        $("#id_ps_prce").text(formatNumber(order.getOrdSharPrce()) + " 원");
+        //  구매수량
+        $("#id_ps_qty").text(formatNumber(order.getAccount()) + " 개");
+    }
+    
+    var seller = null;
+    var sellersLen = nvlInt(order.sellers.length, 0);
+    var sellersProdLen = 0;
+    var useCpnDlvDscntAmt = 0;
+    var useCpnProdDscntAmt = 0;
+    
+    for( var i=0; i<sellersLen; i++){
+        seller = order.sellers[i];
+        sellersProdLen = nvlInt(seller.prods.length, 0);
+        for(var j=0; j<sellersProdLen; j++){
+        	$("[id^=CPN_INFO_" +seller.prods[j].prodCode+ "_]").each( function (idx) {
+        		if("20" == $(this).attr("status")){
+        			if("20" == $(this).attr("cpngbcd")){
+        				useCpnDlvDscntAmt += nvlInt($(this).attr("dscntprce"), 0);        				
+        			}else{
+        				useCpnProdDscntAmt += nvlInt($(this).attr("dscntprce"), 0);    
+        			}  	
+        	    }
+        	});
+        }
+    }
+
+    order.dscntCpnProdAmt = useCpnProdDscntAmt;
+    order.dscntCpnDlvAmt = useCpnDlvDscntAmt;
+    
+    var useCpnDscntAmt = useCpnProdDscntAmt + useCpnDlvDscntAmt;
+    
+    var addClsTrId = "id_tr_dlv_prce";
+    
+    //  배송비
+    order.setExtLand(extLandCd);
+    var dlvPrce = extLandCd == '99' ? order.getDlvAmount() : order.getDlvExtAmount();
+    $("#id_dlv_prce").text(dlvPrce == 0 ? "0 원" : formatNumber(dlvPrce) + " 원");
+    
+    $("#"+addClsTrId).removeClass("line");
+
+    //  쿠폰할인
+    if(0 < useCpnDscntAmt){    	
+    	$("#id_coupon_prce").text("-" + formatNumber(useCpnDscntAmt) + " 원");
+    	$("#id_tr_coupon_prce").show();
+    	addClsTrId = "id_tr_coupon_prce";
+        $("#"+addClsTrId).removeClass("line");
+    }else{    	
+    	$("#id_tr_coupon_prce").hide();
+    }
+    
+    //  포인트 사용
+    if(order.pointUseAmt > 0){
+        $("#id_point_prce").text("-" + formatNumber(order.pointUseAmt) + " P");
+        $("#id_tr_point_prce").show();
+        addClsTrId = "id_tr_point_prce";
+        $("#"+addClsTrId).removeClass("line");
+    }
+    else{
+    	$("#id_tr_point_prce").hide();
+    }
+    
+    $("#"+addClsTrId).addClass("line");
+
+    //  총 결제 금액
+    //  상품금액 + 배송비 - 쿠폰할인 - 포인트 사용
+    $("#id_tot_prce").text(formatNumber(order.getTotalAmount(extLandCd)) + " 원");
+    
+    //  주문 금액
+    $("#ORD_AMT").val(order.getOrdAmount() - order.getDiscountAmount());
+    //  할인전 주문금액
+    $("#DSCNT_BF_ORD_AMT").val(order.getOrdAmount());
+    //  배송비결제금액
+    $("#DLV_SELT_AMT").val(order.getDlvAmount(extLandCd));
+    //  할인금액
+    $("#DSCNT_AMT").val(order.getDiscountAmount());
+    //  쿠폰 사용금액
+    $("#CPN_USE_AMT").val(order.getCpnAmount());
+    //  실결제 금액
+    var realSeltAmt = order.getTotalAmount(extLandCd);
+    $("#REAL_SELT_AMT").val(realSeltAmt);
+    //  총 주문 수량
+    $("#TOT_ORD_QTY").val(order.getAccount());
+    //  총 주문 상품 건수
+    $("#TOT_ORD_PROD_CNT").val(order.prods.length); 
+    
+    // 휴대폰 소액결제는 최대 30만원까지 결제 가능
+    if(realSeltAmt > HP_UPPER_LIMIT_AMT){
+        isHpGb = false;
+    }else{
+        isHpGb = true;
+    }
+}
+
+function displayCoupon(prodCode){
+    
+    if( order.getTotalAmount(extLandCd) == 0 ){
+        alert("결제 금액이 0원 입니다.");
+        return;
+    }
+    
+    // 쿠폰 갯수
+    var arrCpnCnt = getUseCpnDscntAbleCnt(prodCode);
+    
+    // 중복사용가능쿠폰이 존재할 경우
+    var cntDuplUseY = arrCpnCnt[1];
+    var cntDuplUseN = arrCpnCnt[2];
+    if(0 < cntDuplUseY){
+    	$("#id_p_duplusey").text("중복사용 가능 쿠폰(" +cntDuplUseY+ ")");
+    	$("#id_p_duplusey").show();
+    	$("#id_div_cpn_duplusey").show();
+    }else{
+    	$("#id_p_duplusey").hide();
+    	$("#id_div_cpn_duplusey").hide();
+    }
+    
+    // 중복사용불가쿠폰이 존재할 경우 
+    if(0 < cntDuplUseN){
+    	$("#id_p_duplusen").text("중복사용 불가 쿠폰(" +cntDuplUseN+ ")");
+    	$("#id_p_duplusen").show();
+    	$("#id_div_cpn_duplusen").show();
+    }else{
+    	$("#id_p_duplusen").hide();
+    	$("#id_div_cpn_duplusen").hide();
+    }
+    
+    var useCpnDscntPrce = order.getTotalAmount(extLandCd) - LIMIT_PAY_AMOUNT;
+    var useCpnProdDscntPrce = order.getOrdAmount() - (order.dscntCpnProdAmt + order.pointUseAmt);
+    var useCpnDlvDscntPrce = extLandCd == '99' ? order.getDlvAmount() : order.getDlvExtAmount();
+    
+    var nDuplUseNLen = 0; 
+
+    $("[id^=CPN_INFO_" +prodCode+ "_]").each( function (idx) {
+        if(0 == idx){
+            $("#id_ul_cpn_duplusey").html("");
+            $("#id_ul_cpn_duplusen").html("");
+            $("#id_ul_cpn_btn").html("");
+        }
+
+        if("10" == $(this).attr("status")){
+
+            ordProdAmt = $(this).attr("ordprodamt");
+            dscntPrce = $(this).attr("dscntprce");
+            prodDlvPrce = $(this).attr("proddlvprce");
+
+            if(dscntPrce <= useCpnDscntPrce){
+                if("20" != $(this).attr("cpngbcd")){
+                    if(ordProdAmt < useCpnProdDscntPrce){
+                        useCpnProdDscntPrce = ordProdAmt;
+                    }
+                    if(dscntPrce <= useCpnProdDscntPrce){
+
+                        if('Y' == $(this).attr("dupluseyn")){
+                            $("#id_ul_cpn_duplusey").append('<li><input type="checkbox" class="DUPLUSEY_' +prodCode+ '" name="'+$(this).attr("cpnno")+'" value="'+$(this).attr("cpnno")+'" onclick="javascript:couponChange(\'Y\',\'' +prodCode+ '\', \'' +$(this).attr("cpnno")+ '\');"> <label>' + $(this).attr("cpnnm") + '(-' +formatNumber($(this).attr("dscntprce")) + '원)</label></li>');    
+                        }else{
+                            if(0 == nDuplUseNLen){
+                                $("#id_ul_cpn_duplusen").append('<li><input type="radio" id="DUPLUSEN_' +prodCode+ '" name="CPN_NO_' +prodCode+ '" value="" onclick="javascript:couponChange(\'N\',\'' +prodCode+ '\', \'99\');" checked> <label for="r1">사용안함</label></li>');
+                            }
+                            $("#id_ul_cpn_duplusen").append('<li><input type="radio" name="CPN_NO_' +prodCode+ '" value="' +$(this).attr("cpnno")+ '" onclick="javascript:couponChange(\'N\',\'' +prodCode+ '\', \'' +$(this).attr("cpnno")+ '\');"> <label>' + $(this).attr("cpnnm") + '(-' +formatNumber($(this).attr("dscntprce")) + '원)</label></li>');
+                            nDuplUseNLen++;
+                        }
+                    }
+                }else{
+                    if(dscntPrce < useCpnDlvDscntPrce){
+                        useCpnDlvDscntPrce = prodDlvPrce;
+                    }                       
+                    if(dscntPrce <= useCpnDlvDscntPrce){
+                        if('Y' == $(this).attr("dupluseyn")){
+                            $("#id_ul_cpn_duplusey").append('<li><input type="checkbox" class="DUPLUSEY_' +prodCode+ '" name="'+$(this).attr("cpnno")+'" value="'+$(this).attr("cpnno")+'" onclick="javascript:couponChange(\'Y\',\'' +prodCode+ '\', \'' +$(this).attr("cpnno")+ '\');"> <label>' + $(this).attr("cpnnm") + '(-' +formatNumber($(this).attr("dscntprce")) + '원)</label></li>');    
+                        }else{
+                            if(0 == nDuplUseNLen){
+                                $("#id_ul_cpn_duplusen").append('<li><input type="radio" id="DUPLUSEN_' +prodCode+ '" name="CPN_NO_' +prodCode+ '" value="" onclick="javascript:couponChange(\'N\',\'' +prodCode+ '\', \'99\');" checked> <label for="r1">사용안함</label></li>');
+                            }
+                            $("#id_ul_cpn_duplusen").append('<li><input type="radio" name="CPN_NO_' +prodCode+ '" value="' +$(this).attr("cpnno")+ '" onclick="javascript:couponChange(\'N\',\'' +prodCode+ '\', \'' +$(this).attr("cpnno")+ '\');"> <label>' + $(this).attr("cpnnm") + '(-' +formatNumber($(this).attr("dscntprce")) + '원)</label></li>');
+                            nDuplUseNLen++;
+                        }
+                    }
+                }                
+            }
+        }
+    });
+
+    $("#id_span_cpn_total_amt").text("0원");
+    
+    // 확인/취소
+    $("#id_ul_cpn_btn").append('<li><a class="btn_r" href="javascript:couponOk(' +prodCode+ ');">확인</a></li>');
+    $("#id_ul_cpn_btn").append('<li><a class="btn_b-line" href="javascript:popup_hide();">취소</a></li>');
+    
+    $('.cupon_popup').show();
+    popup_show();
+}
+
+function couponChange(duplUseYn, prodCode, cpnNo){
+	var cpnTotalAmt = 0;
+	
+    if('N' == duplUseYn){
+    	if("99" == cpnNo){
+    		$(".DUPLUSEY_" +prodCode).attr("disabled", false);
+    	}else{
+    		$(".DUPLUSEY_" +prodCode).prop("checked", false);
+    		$(".DUPLUSEY_" +prodCode).attr("disabled", true);
+    	}
+    }
+    var checkedCpnNo = "";
+    if(isNull($('input:radio[name="CPN_NO_' +prodCode+ '"]:checked').val())){
+    	checkedCpnNo = "";
+    }else{
+    	checkedCpnNo = $('input:radio[name="CPN_NO_' +prodCode+ '"]:checked').val();
+    }
+    
+    if("" == checkedCpnNo){
+        $(".DUPLUSEY_" +prodCode).each( function (idx) {
+            if($(this).is(":checked") == true){
+            	cpnTotalAmt += nvlInt($("#CPN_INFO_"+prodCode+"_"+$(this).val()).attr("dscntprce"), 0);
+            }
+        });
+    }else{
+    	cpnTotalAmt += nvlInt($("#CPN_INFO_"+prodCode+"_"+checkedCpnNo).attr("dscntprce"), 0);
+    }
+    
+    $("#id_span_cpn_total_amt").text(formatNumber(cpnTotalAmt) +"원");
+}
+
+function couponOk(prodCode){
+
+	var cpnProdTotalAmt = 0;
+	var cpnDlvTotalAmt = 0;
+	var ordProdAmt = 0;
+	var prodDlvPrce = 0;
+	var arrCpnNo = null;
+	var nLoop = 0;
+	
+    var checkedCpnNo = $('input:radio[name="CPN_NO_' +prodCode+ '"]:checked').val();
+    
+    if(isNull($('input:radio[name="CPN_NO_' +prodCode+ '"]:checked').val())){
+    	checkedCpnNo = "";
+    }else{
+    	checkedCpnNo = $('input:radio[name="CPN_NO_' +prodCode+ '"]:checked').val();
+    }
+
+    if("" == checkedCpnNo){
+        $(".DUPLUSEY_" +prodCode).each( function (idx) {
+            if($(this).is(":checked") == true){
+            	if(0 == nLoop){
+            		arrCpnNo = new Array();
+            	}
+
+                arrCpnNo[nLoop] = $(this).val();
+                nLoop++;
+                
+            	if("20" == $("#CPN_INFO_"+prodCode+"_"+$(this).val()).attr("cpngbcd")){
+            		cpnDlvTotalAmt += nvlInt($("#CPN_INFO_"+prodCode+"_"+$(this).val()).attr("dscntprce"), 0);
+            	}else{
+            		cpnProdTotalAmt += nvlInt($("#CPN_INFO_"+prodCode+"_"+$(this).val()).attr("dscntprce"), 0);
+            	}
+            	
+            	ordProdAmt = nvlInt($("#CPN_INFO_"+prodCode+"_"+$(this).val()).attr("ordprodamt"), 0);
+            	prodDlvPrce = nvlInt($("#CPN_INFO_"+prodCode+"_"+$(this).val()).attr("proddlvprce"), 0);
+            }
+        });
+    }else{
+        if(0 == nLoop){
+            arrCpnNo = new Array();
+        }
+
+        arrCpnNo[nLoop] = checkedCpnNo;
+        nLoop++;
+        
+        if("20" == $("#CPN_INFO_"+prodCode+"_"+checkedCpnNo).attr("cpngbcd")){
+            cpnDlvTotalAmt += nvlInt($("#CPN_INFO_"+prodCode+"_"+checkedCpnNo).attr("dscntprce"), 0);
+        }else{
+            cpnProdTotalAmt += nvlInt($("#CPN_INFO_"+prodCode+"_"+checkedCpnNo).attr("dscntprce"), 0);
+        }
+        
+        ordProdAmt = nvlInt($("#CPN_INFO_"+prodCode+"_"+checkedCpnNo).attr("ordprodamt"), 0);
+        prodDlvPrce = nvlInt($("#CPN_INFO_"+prodCode+"_"+checkedCpnNo).attr("proddlvprce"), 0);
+    }
+
+    if(ordProdAmt < cpnProdTotalAmt){
+    	alert("쿠폰할인 금액이 상품금액을 초과 하였습니다.");
+    	return;
+    }
+    
+    if(prodDlvPrce < cpnDlvTotalAmt){
+        alert("쿠폰할인 금액이 배송비를 초과 하였습니다.");
+        return;
+    }
+
+    var useCpnDscntPrce = order.getTotalAmount(extLandCd) - LIMIT_PAY_AMOUNT;
+    
+    if(useCpnDscntPrce < (cpnDlvTotalAmt + cpnProdTotalAmt)){
+    	alert("최소 결제 금액은 " +formatNumber(LIMIT_PAY_AMOUNT)+ "원 입니다.\n쿠폰을 다시 선택해 주십시오.");
+        return;
+    }
+
+    if(0 < nLoop){
+
+        var html = "";
+    	for(var i=0; i<nLoop; i++){
+    		if(nLoop == (i+1)){
+    			html += '<p id="CPN_USE_' +arrCpnNo[i]+ '" class="clear line coupon_' +prodCode+ '">';
+    		}else{
+    			html += '<p id="CPN_USE_' +arrCpnNo[i]+ '" class="clear dot coupon_' +prodCode+ '">';
+    		}
+
+    	    $(".CPN_INFO_" +arrCpnNo[i]).attr("status", "30");
+    	    $("#CPN_INFO_" +prodCode+"_" +arrCpnNo[i]).attr("status", "20");
+    	        	    
+    		html += '<span class="fl">' +$("#CPN_INFO_" +prodCode+ "_"+arrCpnNo[i]).attr("cpnnm")+ '</span> <span class="fr">-' +formatNumber($("#CPN_INFO_" +prodCode+ "_"+arrCpnNo[i]).attr("dscntprce"))+ '원 <a href="javascript:delCoupon(\'' +prodCode+ '\', \'' +arrCpnNo[i]+'\');" class="del"><img src="http://static.ssocio.net/web/images/btn_layer_close.png" alt="삭제"></a></span></p>';
+    	}
+    	$("#id_div_cpnable_" +prodCode).append(html);
+    }
+    
+    popup_hide();
+    displayAmount();
+    setUseCpnDscntAbleCnt();
+}
+
+function delCoupon(prodCode, cpnNo){
+	
+	var arrCpnNo = null;
+	var nLoop = 0;
+	var tmpCpnNo = "";
+	$(".coupon_" +prodCode).each( function (idx) {
+		tmpCpnNo = $(this).attr("id").substring(8);
+		if(cpnNo != tmpCpnNo){
+			if(0 == nLoop){
+				arrCpnNo = new Array();
+			}
+			arrCpnNo[nLoop] = tmpCpnNo;
+            nLoop++;
+		}else{
+			$(".CPN_INFO_" +cpnNo).attr("status", "10");
+		}
+		$(this).remove();
+	});
+
+    if(0 < nLoop){
+
+        var html = "";
+        for(var i=0; i<nLoop; i++){
+            if(nLoop == (i+1)){
+                html += '<p id="CPN_USE_' +arrCpnNo[i]+ '" class="clear line coupon_' +prodCode+ '">';
+            }else{
+                html += '<p id="CPN_USE_' +arrCpnNo[i]+ '" class="clear dot coupon_' +prodCode+ '">';
+            }
+
+            $(".CPN_INFO_" +arrCpnNo[i]).attr("status", "30");
+            $("#CPN_INFO_" +prodCode+"_" +arrCpnNo[i]).attr("status", "20");
+                        
+            html += '<span class="fl">' +$("#CPN_INFO_" +prodCode+ "_"+arrCpnNo[i]).attr("cpnnm")+ '</span> <span class="fr">-' +formatNumber($("#CPN_INFO_" +prodCode+ "_"+arrCpnNo[i]).attr("dscntprce"))+ '원 <a href="javascript:delCoupon(\'' +prodCode+ '\', \'' +arrCpnNo[i]+'\');" class="del"><img src="http://static.ssocio.net/web/images/btn_layer_close.png" alt="삭제"></a></span></p>';
+        }
+        $("#id_div_cpnable_" +prodCode).append(html);
+    }
+    
+    displayAmount();
+    setUseCpnDscntAbleCnt();
+}
+
+function changeSeltGbCd(flag){
+	
+    // 휴대폰 소액결제 금액체크
+    isHpGbSel = false;
+    if(('3' == flag) && (! isHpGb)){
+        alert("30만원 이상은\n휴대폰 결제가 불가 합니다.\n다른 결제 수단을 선택해 주세요.");
+        isHpGbSel = true;
+        isSubmit = false;
+        return;
+    }
+
+    $("#SELT_GB_CD").val(flag);
+    oldFlag = flag;
+    switch(flag){
+    case '1':
+        $("#id_agr_area").show();
+        $("#id_btn_pay").show();
+        $('#pay_data03').hide();
+        $('#pay_data04').hide();
+        break;
+    case '2':
+        $("#id_agr_area").hide();
+        $("#id_btn_pay").hide();
+        $('#pay_data03').show();
+        $('#pay_data04').hide();
+        break;
+    case '3':
+        $("#id_agr_area").show();
+        $("#id_btn_pay").show();
+        $('#pay_data03').hide();
+        $('#pay_data04').hide();
+        break;
+    case '4':
+        $("#id_agr_area").hide();
+        $("#id_btn_pay").hide();
+        $('#pay_data03').hide();
+        $('#pay_data04').show();
+        break;
+    }
+}
+
+function onSubmit(){
+    
+    if(! isSubmit){
+        return;
+    }
+    
+    if($("#SELT_GB_CD").val() == '2' || $("#SELT_GB_CD").val() == '4'){
+        return;
+    }
+    
+    if( authYn == false ){
+        if(confirm("상품 구매시 최초 1회에 한하여\n본인인증이 필요합니다.\n본인인증을 하지 않을 경우 상품구매가 불가합니다.")) {
+            $("#MBER_PHONE").focus();            
+        } 
+        return;
+    }
+
+    if( $("input:checkbox[id='ADD_DLV_YN']").is(":checked") == true ){
+        if( validate($("#DLV_NAME"), "배송지명", 0) == false ){ return;}
+    }
+    
+    if( validate($("#RCV_NM"), "수령인", 0) == false ){ return;}
+    if( validate($("#ZIP_CD"), "우편번호", 0) == false ){ return;}
+    if('${result.dlv.JUSO_DORO }' != ''){
+        if( validate($("#JUSO_DORO"), "주소", 0) == false ){ return;} 
+    }
+    else{
+        if( validate($("#JUSO_JIBEN"), "주소", 0) == false ){ return;}
+    }
+    
+    if( validate($("#JUSO_DTL"), "상세 주소", 0) == false ){ return;}
+    if( validate($("#RCV_TEL"), "전화번호", 0) == false ){ return;}
+//  if( validate($("#DLV_MSG"), "배송메모", 0) == false ){ return;}
+
+    // IF (결제제한금액 >(최종결제금액 ) THEN 결제안됨
+    if(LIMIT_PAY_AMOUNT > order.getTotalAmount(extLandCd)){
+        alert("최소 결제 금액은 "+formatNumber(LIMIT_PAY_AMOUNT)+"원 입니다.");
+        return;
+    }
+
+    <c:if test="${not empty result.asppi}">
+    if( $("input:checkbox[id='id_common_agr_0']").is(":checked") == false ){
+        alert("개인정보 판매자 제공에 대한 동의를 체크해 주셔야 합니다.");
+        $("input:checkbox[id='id_common_agr_0']").focus();
+        return;
+    }
+    </c:if>
+    
+    $("#SECU_NO_USE_YN").val($("input:checkbox[id='SECU_NO_USE_YN']").is(":checked") == true ? "Y" : "N");
+
+    order.dlvInfo.rcvNm = $("#RCV_NM").val();
+    order.dlvInfo.zipCd = $("#ZIP_CD").val();
+    order.dlvInfo.jusoDoro = $("#JUSO_DORO").val();
+    order.dlvInfo.jusoJiben = $("#JUSO_JIBEN").val();
+    order.dlvInfo.jusoDtl = $("#JUSO_DTL").val();
+    order.dlvInfo.rcvTel = $("#RCV_TEL").val();
+    order.dlvInfo.rcvHp = $("#RCV_TEL").val();
+    order.dlvInfo.rcvNm = $("#RCV_NM").val();
+    order.dlvInfo.dlvMsg = $("#DLV_MSG").val();
+    order.dlvInfo.secuNoUseYn = $("input:checkbox[id='SECU_NO_USE_YN']").is(":checked") == true ? "Y" : "N";
+
+    if(order.dlvInfo.secuNoUseYn == 'Y'){
+        auth.getAnsimNo(order.dlvInfo.rcvTel, "user", onSubmit2);
+    }
+    else{
+        onSubmit2('');
+    }
+}
+
+function onSubmit2(ansimNo){
+
+    if( ansimNo != undefined && ansimNo != ''){
+        order.dlvInfo.ansimNo = ansimNo;    
+    }
+
+    var ordArray = new Array();
+    
+    for(var i=0 ; i<order.prods.length ; i++){
+        var prod = order.prods[i];
+        if( prod.isUsable){
+            ordArray.push(prod.toJSONObject());
+        }
+    }
+    
+    if(ordArray.length == 0 ){
+        alert('주문가능한 상품이 없습니다.');
+        return;
+    }
+
+    $("#PROD_INFO").val(JSON.stringify(ordArray));
+
+    $.ajax({
+        type: 'post',
+        async: true, 
+        url: '/mobile/prod/selectStatCd.do', 
+        dataType:'json', 
+        data: {"PROD_INFO" : $("#PROD_INFO").val(),
+            "POINT_USE_AMT": $("#POINT_USE_AMT option:selected").val(),
+            "STEP" : 1
+        },
+        success: function(response) {
+            switch(response.data){
+            case PROD_STAT_CD_ING:
+                if( authYn == false ){
+                    alert("결제가 취소되었습니다.");
+                    return;
+                }
+                else{
+                    insertOrdReg();
+                }
+                break;
+            case PROD_STAT_CD_END:
+                alert('판매 종료된 상품입니다.');
+                break;
+            case PROD_STAT_CD_STOP:
+                alert('판매 중지된 상품입니다.');
+                break;
+            case PROD_STAT_CD_DEL:
+                alert('삭제된 상품입니다.');
+            case PROD_STAT_CD_STOCK_NOT_ENOUGH:
+                alert('판매수량이 모자랍니다.');
+                break;
+            case PROD_STAT_CPN_NOT_USABLE:
+                alert('사용할 수 없는 쿠폰이 있습니다.');
+                break;
+            case PROD_STAT_POINT_NOT_ENOUGH:
+                alert('포인트가 모자랍니다.');
+                break;
+            case PROD_STAT_CD_UNKNOWN:
+                alert('알수 없는 에러');
+                break;
+            }
+            
+        },
+        error : function(request, status, error) {
+            alert("통신 오류가 발생 하였습니다. 잠시 후 다시 시도해 주세요");
+        }
+    });
+}
+/* ======================================================================
+Function : 본인인증 팝업
+Return   : CI, DI, NAME, IDEN
+========================================================================= */
+function userAuth(code){
+    //본인인증(다날) 팝업
+    if ($("#MBER_PHONE").val() == "") {
+        alert("휴대폰번호를 입력하세요.");
+        $("#MBER_PHONE").focus();
+        return;
+    }
+    
+    auth.createEl('iframe_phoneCredit');
+    auth.display();
+    
+    var form = document.authFrm;
+    form.target = "iframe_phoneCredit";
+    form.method = "post";
+    form.action = "/mobile/common/nameConfPopup.do?MBER_PHONE="+$("#MBER_PHONE").val();
+    form.submit();
+}
+
+/* ======================================================================
+Function : 본인인증 결과 return function
+Return   : CI, DI, NAME, IDEN
+========================================================================= */
+function getAuth(ci, di, name, tid, birth, sex) {
+    full_iframe_hide();
+    auth.removeEl();
+    
+    $("#CI").val(ci);
+    $("#DI").val(di);
+    $("#SEX").val(sex);
+    $("#TID").val(tid);
+    $("#BIRTH").val(birth);
+    $("#MBER_NM").val(name);
+    $("#id_mber_nm").text(name);
+    $("#BUYR_TEL1").val($("#MBER_PHONE").val());
+    $("#id_mber_phone").text($("#MBER_PHONE").val());
+    $("#AUTH_YN").val("Y");
+    
+    auth.update($("#form").serialize(), birth, sex, setPayment);
+    
+    adultYn = isAdult(birth, 14);
+}
+
+/* ======================================================================
+Function : 결제하기
+Return   : 
+========================================================================= */
+function setPayment(birth, sex){
+    if ( birth != null && birth != "" ) {
+        if ( age.check14(birth) < 0 ) {
+            alert("만 14세 미만의 회원은 상품구매가 불가능합니다.");
+            return
+        } else {
+            authYn = true;
+            $("#id_certificated").show();
+            $("#id_certificate_none").hide();
+        }
+    } else {
+        alert("본인인증에 실패하였습니다.");
+    }
+}
+
+function insertOrdReg(){
+    if( adultYn == false ){
+        alert("14세 미만의 회원은 상품구매를 할 수 없습니다.");
+        return;
+    }
+
+    setOrdCd();
+    order.ordCd = $("#ORD_CD").val();
+    
+    //  ------------------------------------
+    if( order.getTotalAmount(extLandCd) == 0){
+        $("#SELT_GB_CD").val('0');
+    }
+    
+    var seltGbCd = $("#SELT_GB_CD").val();
+
+    $("[id^=CPN_INFO_]").each( function (idx) {
+    	if("20" == $(this).attr("status")){
+    		order._addCpnInfo($(this).attr("cpnno"), nvlInt($(this).attr("dscntprce"), 0), nvlInt($(this).attr("prodseq"), 0), $(this).attr("prodcode"));
+    	}
+    });
+    
+    $("#ORD_INFO").val(JSON.stringify(order.makeOrdInfo(seltGbCd, extLandCd)));
+    
+    $.ajax({
+        type: 'post',
+        async: true, 
+        url: '/mobile/prod/insertOrderReg.do', 
+        data: $("#form").serialize(),
+        success: function(response) {
+            if( response.result == 0 ){
+                if(seltGbCd == '0'){
+                    $("#form").attr('action', '/mobile/prod/selectOrder.do').submit();
+                    return;
+                }
+                else{
+                    onPayment();    
+                }
+            }else if(response.result == -5) {
+                alert("최대 포인트 사용 금액은 "+formatNumber(SELT_UPPER_LIMIT_POINT)+"원 입니다.");
+            }
+            else if(response.result == -6) {
+                alert("포인트는 1000단위로 만 사용 가능합니다.");
+            }
+            else if(response.result == -3) {
+                alert("최소 결제 금액은 "+formatNumber(LIMIT_PAY_AMOUNT)+"원 입니다.");
+            }else if(response.result == -4) {
+                alert("비 정상적인 접근으로 주문이 불가 합니다.");
+            }else if(response.result == -7) {
+                alert("30만원\n이상은 휴대폰 결제가 불가 합니다.\n다른 결제 수단을 선택해 주세요");
+            }else{
+                alert("결제 데이터가 맞지 않습니다.");
+            }
+        },
+        error : function(request, status, error) {
+            alert("통신 오류가 발생 하였습니다. 잠시 후 다시 시도해 주세요");
+        }
+    });
+}
+
+function onPayment(){
+    switch($("#SELT_GB_CD").val()){
+    case '1':   //  신용카드
+        url = "/mobile/kcredit/Ready.do";
+        break;
+    case '3':   //  휴대폰 결제
+        url = "/mobile/phone/Ready.do";
+        break;
+    case '2':   //  계좌 이체
+        url = "/mobile/bank/Ready.do";
+        break;  
+    case '4':   //  페이코
+        url = "/mobile/easypay/pay2/reserve.do";
+        break;
+    }
+    
+    auth.createEl('iframe_phoneCredit');
+    auth.display();
+
+    var form = document.creditForm;
+    form.target = "iframe_phoneCredit";
+    form.method = "post";
+    form.action = url;
+    form.submit();
+}
+
+
+function popupBack(msg){
+    
+    auth.removeEl();
+    if( !isNull(msg) ){
+        alert(msg); 
+    }
+}
+
+function popupNext(data){
+    auth.removeEl();
+    
+    if( data.rltCd == '0000'){
+        $("#ORD_INFO").val(JSON.stringify(order.makeOrdInfo($("#SELT_GB_CD").val(), extLandCd)));
+        $("#form").attr('action', '/mobile/prod/procPayment.do').submit();
+    }
+    else{
+        alert(data.rltMsg);
+    }
+}
+//  ############################################################################
+//  배송지 영역
+//  ############################################################################
+function setExtLandCd(landCd){
+    extLandCd = landCd;
+    order.setExtLand(extLandCd);
+
+    // 결제하기 가능
+    isSubmit = true;
+    
+    if(extLandCd != '99'){
+        for( var i=0 ; i<order.prods.length ; i++){
+
+            if(order.prods[i].isUsable){
+                $("#id_div_ext_land_" + order.prods[i].prodCode).hide();
+                $("#id_div_ext_land_" + order.prods[i].prodCode).removeClass("extland");
+            }
+            else{
+                $("#id_div_ext_land_" + order.prods[i].prodCode).show();
+                $("#id_div_ext_land_" + order.prods[i].prodCode).addClass("extland");
+                
+                // 제주/도서산간 배송이 불가한 상품이 존재할경우 결제하기 불가능
+                isSubmit = false;
+            }
+        }
+        
+        none_delivery();
+    }
+    else{
+        for( var i=0 ; i<order.prods.length ; i++){
+            $("#id_div_ext_land_" + order.prods[i].prodCode).hide();
+            $("#id_div_ext_land_" + order.prods[i].prodCode).removeClass("extland");
+        }
+    }
+    
+    if(isSubmit){
+        var dlvPrce = extLandCd == '99' ? order.getDlvAmount() : order.getDlvExtAmount();
+        var seller = null;
+        var sellersLen = nvlInt(order.sellers.length, 0);
+        var sellersProdLen = 0;
+
+        for( var i=0; i<sellersLen; i++){
+            seller = order.sellers[i];
+            sellersProdLen = nvlInt(seller.prods.length, 0);
+            for(var j=0; j<sellersProdLen; j++){
+                $("[id^=CPN_INFO_" +seller.prods[j].prodCode+ "_]").each( function (idx) {
+                    if(("20" == $(this).attr("cpngbcd")) && ("A" == $(this).attr("delyfreechk"))){  
+                        $(this).attr("proddlvprce", dlvPrce);
+                        $(this).attr("dscntprce", dlvPrce);
+                    }
+                	if("20" == $(this).attr("status")){
+                		delCoupon(seller.prods[j].prodCode, "NO-DATA");
+                    }
+                });
+            }
+        }
+        displayAmount();
+        if(isPostBtn){
+            $("body").scrollTop(scrollValue);
+            isPostBtn = false;
+        }
+    }
+    
+}
+
+function changeRegSeq(regSeq){
+    if( delivery != null ){
+        delivery.change(regSeq, callbackChange);
+    }
+}
+
+function clearDlv(flag){
+    // 기본 배송지로 이용
+    $("#id_span_basedlvyn").hide(); 
+    if(flag == 0){
+        $("#REG_SEQ").find("option").remove();
+        $("#RCV_NM").val("");
+        $("#ZIP_CD").val("");
+        $("#JUSO_JIBEN").val("");
+        $("#JUSO_DORO").val("");
+        $("#JUSO_DTL").val("");
+        $("#RCV_TEL").val("");      
+        
+        $("#id_dlv_info_new").hide();
+
+        // Enable 새로운배송지 
+        $("#id_tr_dlvname").show();
+        $("input[id='ADD_DLV_YN']").prop("checked", true);
+        $("input[id='UPT_DLV_YN']").prop("checked", false);
+        $("input[id='UPT_BASE_DLV_YN']").prop("checked", false);
+        $("#DLV_NAME").val("");
+        
+        $("#id_dlv_info_select").show();
+        $("#id_tr_dlv").hide();
+        
+        displayAmount();
+    }
+    else{
+        if( delivery != null ){
+            delivery.selectInfo(callbackDlv);
+
+            $("#id_dlv_info_new").show();
+            
+            // Enable 새로운배송지 
+            $("input[id='ADD_DLV_YN']").prop("checked", false);
+            $("#id_tr_dlvname").hide();
+            
+            $("#id_dlv_info_select").hide();
+            $("#id_tr_dlv").show();
+        }
+    }
+}
+
+function callbackDlv(response){
+    // SET 배송지명
+    $("#DLV_NAME").val(response.dlvInfo.addrs[0].DLV_NAME); 
+    delivery.callback(false, response);
+    setExtLandCd(delivery.selected.extLand);
+}
+
+function callbackChange(response){
+    // SET 기본 배송지 이용 display
+    if("Y" == response.dlv.BASE_DLV_YN){
+        $("#id_span_basedlvyn").hide();
+    }else{
+        $("#id_span_basedlvyn").show();
+    }
+    
+    // SET 배송지명
+    $("#DLV_NAME").val(response.dlv.DLV_NAME);  
+    delivery.callback(true, response);
+    setExtLandCd(response.dlv.EXT_LAND_CD);
+}
+
+/* ======================================================================
+Function : 우편번호 값 받아오는 함수
+Return   : 없음
+========================================================================= */
+function selAddr(gubun, addr, jiben_addr, road_addr){
+    isPostBtn = true;
+    $('.add_layer').hide(); 
+    $('#wrap div#container').show(); 
+    $("#ZIP_CD").val(addr); // 우편번호
+    $("#JUSO_DORO").val(road_addr);
+    $("#JUSO_JIBEN").val(jiben_addr);
+//     if(gubun == '1'){
+//         $("#JUSO_DORO").show();
+//         $("#JUSO_JIBEN").hide();
+//     }
+//     else{
+//         $("#JUSO_DORO").hide();
+//         $("#JUSO_JIBEN").show();
+//     }
+
+    popup_hide();
+    
+    $.ajax({
+        type: 'post',
+        async: true, 
+        url: '/mobile/prod/selectExtLandMap.do', 
+        dataType:'json', 
+        data: {"ZIP_CD" : $("#ZIP_CD").val()},
+        success: function(response) {
+            setExtLandCd(response.extLandCd);
+        },
+        error : function(request, status, error) {
+            alert("통신 오류가 발생 하였습니다. 잠시 후 다시 시도해 주세요");
+        }
+    });
+}
+
+
+//[2015-11-21] okayjava. ordCd는 새로 가져옴
+function setOrdCd(){
+    
+    $.ajax({
+        type: 'post',
+        async: false, 
+        url: '/mobile/ctry/selectNewOrdCd.do',
+        data : 'json',
+        success: function(response) {
+            $("input[name=ORD_CD]").val(response.ordCd);
+        },
+        error : function(request, status, error) {
+            alert("통신 오류가 발생 하였습니다. 잠시 후 다시 시도해 주세요");
+        }
+    });
+}
+
+function maxLengthCheck(object){
+   if (object.value.length > object.maxLength){
+    object.value = object.value.slice(0, object.maxLength);
+   }   
+}
+</script>
+<form name="form" id="form" method="post">
+<input type="hidden" name="PROD_CODE" id="PROD_CODE" value="${inParam.PROD_CODE }" />
+<input type="hidden" name="PROD_TYPE_CD" id="PROD_TYPE_CD" value="${inParam.PROD_TYPE_CD }" />
+<input type="hidden" name="ORD_INFO" id="ORD_INFO" value="" />
+<input type="hidden" name="PROD_INFO" id="PROD_INFO" value="" />
+<input type="hidden" name="SELT_GB_CD" id="SELT_GB_CD" value="1" /><%-- 결제방법코드 --%>
+<input type="hidden" name="ORD_STAT_CD" id="ORD_STAT_CD" value="20" /><%-- 주문상태코드 --%>
+<input type="hidden" name="TOT_ORD_QTY" id="TOT_ORD_QTY" value="" /><%-- 총주문수량 --%>
+<input type="hidden" name="TOT_ORD_PROD_CNT" id="TOT_ORD_PROD_CNT" value="" /><%-- 총주문상품건수 --%>
+<input type="hidden" name="ORD_AMT" id="ORD_AMT" value="" /><%-- 주문금액 --%>
+<input type="hidden" name="DSCNT_AMT" id="DSCNT_AMT" value="" /><%-- 할인금액 --%>
+<input type="hidden" name="DSCNT_BF_ORD_AMT" id="DSCNT_BF_ORD_AMT" value="" /><%-- 할인전 상품 금액 --%>
+<input type="hidden" name="DLV_SELT_AMT" id="DLV_SELT_AMT" value="" /><%-- 배송비 총액 --%>
+<input type="hidden" name="CPN_USE_AMT" id="CPN_USE_AMT" value="" /><%-- 포인트 사용 금액--%>
+<input type="hidden" name="REAL_SELT_AMT" id="REAL_SELT_AMT" value="" /><%-- 총결제 금액 --%>
+<input type="hidden" name="ORD_CD" id="ORD_CD" value="${result.ordCd }" />  <%-- 결제 코드--%>
+<%--본인 인증 후 받는 데이터 --%>
+<input type="hidden" id="CI" name="CI" value="" />
+<input type="hidden" id="DI" name="DI" value="" />
+<input type="hidden" id="SEX" name="SEX" value="" />
+<input type="hidden" id="TID" name="TID" value="" />
+<input type="hidden" id="BIRTH" name="BIRTH" value="" />
+<input type="hidden" id="MBER_NM" name="MBER_NM" value="" />
+<input type="hidden" id="AUTH_YN" name="AUTH_YN" value="N" />
+<div  id="phonediv" style="left: 0px; top: 0;  display: block; height: 100%; width: 100%">
+</div>
+
+
+<c:choose>
+    <c:when test="${sessionScope.isPcAgent }">
+    <!-- PC화면 -->
+
+        <div class="roc">
+            <ul class="inner">
+                <li><img src="http://static.ssocio.net/pc/img/common/section/roc_home.png" alt="홈"></li>
+                <li>주문완료</li>
+            </ul>
+        </div>
+        
+        <!-- inner -->
+
+
+    <!-- //PC화면 -->
+    </c:when>
+    <c:otherwise>
+    <!-- 모바일 화면 -->
+        <div id="container">
+    <!-- //모바일 화면 -->
+    </c:otherwise>
+</c:choose>
+
+    <p class="title">1. 주문확인/할인적용</p>
+    <!-- [D] 주문상품정보 반복 영역 -->
+    <ul class="sha_oder" id="id_prods">
+    </ul>
+    <%--
+    <div class="sha_point" id="id_point" style="display:none;">
+        <div class="clear line-dot">
+            <div class="fl"><p><strong>포인트 사용</strong><p><p>(보유 포인트 <strong class="point_r"><fmt:formatNumber value="${result.mber.POINT }" pattern="##,###"/>P</strong>)</p></div>
+            <p class="fr"><input type="number" name="POINT_USE_AMT" id="POINT_USE_AMT" value="0" onkeydown="this.value=this.value.replace(/[^0-9]/g,'')" onkeyup="this.value=this.value.replace(/[^0-9]/g,'')" onblur="this.value=this.value.replace(/[^0-9]/g,'')" maxlength="11"> P</p>
+        </div>
+        <p><span>※ 포인트 사용은 최소 1,000 포인트 부터 최대 5,000 포인트까지 사용 가능 하며 1,000 포인트 단위로만 사용 가능합니다.</span></p>
+    </div> 
+    --%>
+    
+    <%--
+    <div class="tbl" id="id_point" style="display:none;">
+        <table class="tbl-data">
+            <colgroup>
+                <col width="100px">
+                <col width="*">
+                <col width="120px">
+            </colgroup>
+            <tbody>
+                <tr>
+                    <th>보유포인트</th>
+                    <td colspan="2" class="tr"><strong class="point_r" id="id_tot_point">총 <fmt:formatNumber value="${result.mber.POINT }" pattern="##,###"/>P</strong></strong></td>
+                </tr>
+                <tr>
+                    <th>사용가능포인트</th>
+                    <td colspan="2"  class="tr"><strong class="point_p" id="id_able_point"></strong></td>
+                </tr>
+                <tr>
+                    <th>포인트사용</th>
+                    <td class="tr">
+                        <input type="checkbox" name="ALL_POINT_USE" id="ALL_POINT_USE" value="Y">
+                        <label for="ALL_POINT_USE"><span>모두사용&nbsp;&nbsp;&nbsp;&nbsp;</span></label>
+                    </td>
+                    <td class="tr">
+	                    <select name="POINT_USE_AMT" id="POINT_USE_AMT">
+	                        <option value="0" selected>선택</option>
+	                    </select>
+                    </td>
+                </tr>
+            </tbody>
+        </table> 
+    </div>
+    --%>
+	<div class="sha_point type" id="id_point" style="display:none;">
+	    <div class="clear">
+	        <div class="fl"><p><strong>포인트 사용</strong></p></div>
+	        <div class="fr point_use">
+	            <span><input type="checkbox" id="ALL_POINT_USE" name="ALL_POINT_USE" value="Y" /><label for="ALL_POINT_USE">모두사용</label></span>
+	            <span>
+					<select name="POINT_USE_AMT" id="POINT_USE_AMT">
+					    <option value="0" selected>선택</option>
+					</select>
+	            </span>
+	        </div>
+	    </div>
+	    <ul class="lst_point">
+	        <li>
+	            <div class="clear">
+	                <span class="fl">보유 포인트</span>
+	                <span class="fr point_r" id="id_tot_point">총 <fmt:formatNumber value="${result.mber.POINT }" pattern="##,###"/>P</span>
+	            </div>
+	        </li>
+	        <li>
+	            <div class="clear">
+	                <span class="fl">사용가능 포인트</span>
+	                <span class="fr point_p" id="id_able_point"></span>
+	            </div>
+	        </li>
+	    </ul>
+	</div>
+
+    <p class="title">2. 최종 결제 금액</p>
+    <div class="tbl">
+        <table class="tbl-data">
+            <colgroup>
+                <col width="100px">
+                <col width="*">
+            </colgroup>
+            <tbody>
+                <tr id="id_tr_sell_prce">
+                    <th>상품금액</th>
+                    <td class="tr" id="id_sell_prce"></td>
+                </tr>
+                <tr id="id_tr_ps_deposit">
+                    <th>보증금</th>
+                    <td class="tr" id="id_ps_deposit"></td>
+                </tr>
+                <tr id="id_tr_ps_prce">
+                    <th>셰어링금액</th>
+                    <td class="tr" id="id_ps_prce"></td>
+                </tr>
+                <tr id="id_tr_ps_qty">
+                    <th>구매수량</th>
+                    <td class="tr" id="id_ps_qty"></td>
+                </tr>
+                <tr id="id_tr_dlv_prce">
+                    <th>배송비</th>
+                    <td class="tr" id="id_dlv_prce"></td>
+                </tr>
+                <tr id="id_tr_coupon_prce">
+                    <th>쿠폰할인</th>
+                    <td class="tr" id="id_coupon_prce"></td>
+                </tr>                
+                <tr id="id_tr_point_prce">
+                    <th>포인트 사용</th>
+                    <td class="tr" id="id_point_prce"></td>
+                </tr>
+                <tr>
+                    <th>총 결제 금액</th>
+                    <td class="tr"><strong class="point_r" id="id_tot_prce"></strong></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    <p class="title clear">3. 주문자 정보</p>
+    <div class="tbl" id="id_certificate_none">
+        <table class="tbl-data">
+            <colgroup>
+                <col width="100px">
+                <col width="*">
+            </colgroup>
+            <tbody>
+                <tr>
+                    <th>ID</th>
+                    <td class="pd5">${result.mber.MBER_EMAIL}</td>
+                </tr>
+                <tr>
+                    <th class="stop">휴대폰 번호</th>
+                    <td class="pd5">
+                        <input type="number" name="MBER_PHONE" id="MBER_PHONE" value="" onkeydown="this.value=this.value.replace(/[^0-9]/g,'')" onkeyup="this.value=this.value.replace(/[^0-9]/g,'')" onblur="this.value=this.value.replace(/[^0-9]/g,'')" max="99999999999" maxlength="11" oninput="maxLengthCheck(this)">
+                        <p class="point_r mt5">본인인증이 필요합니다.</p>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+        <!-- 20151114 본인인증 필요  -->
+        <div class="btn_enter" id="id_btn_auth" ><a href="javascript:userAuth('${sessionScope.APP}');" class="btn_r">본인인증</a></div>
+<%--        <div class="btn_enter" id="id_btn_auth" style="display:none;"><a href="javascript:userAuth('${sessionScope.APP}');" class="btn_r">본인인증</a></div> --%>
+    </div>
+
+    <div class="tbl" id="id_certificated">
+        <table class="tbl-data">
+            <colgroup>
+                <col width="100px">
+                <col width="*">
+            </colgroup>
+            <tbody>
+                <tr>
+                    <th>이름</th>
+                    <td class="pd5" id="id_mber_nm">${result.mber.MBER_NM}</td>
+                </tr>
+                <tr>
+                    <th>ID</th>
+                    <td class="pd5">${result.mber.MBER_EMAIL}</td>
+                </tr>
+                <tr>
+                    <th>휴대폰 번호</th>
+                    <td id="id_mber_phone">${result.mber.MBER_PHONE}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    <p class="title clear" id="id_dlv_info_new">4. 배송지 정보 <a href="javascript:clearDlv(0);" class="btn_edit fr">새로입력</a></p>
+    <p class="title clear" id="id_dlv_info_select">4. 배송지 정보 <a href="javascript:clearDlv(1);" class="btn_edit fr" id="id_dlv_info_select_btn">배송지 선택</a></p>
+    <div class="tbl">
+        <table class="tbl-data">
+            <colgroup>
+                <col width="100px">
+                <col width="*">
+            </colgroup>
+            <tbody>
+                <tr id="id_tr_dlv">
+                    <th>배송지 선택</th>
+                    <td class="pd5">
+                        <select name="REG_SEQ" id="REG_SEQ" onchange="javascript:changeRegSeq(this.value);">
+                            <c:forEach var="addr" items="${result.dlv.addrs }" varStatus="status">
+                                <option value="${addr.REGS_SEQ }" <c:if test="${result.dlv.REGS_SEQ == addr.REGS_SEQ }">selected</c:if>><c:if test="${status.index == 0 }">(기본배송지)</c:if>${addr.DLV_NAME }</option>
+                            </c:forEach>
+                        </select>
+                        <p class="mt5">
+                            <span>
+                                <input type="checkbox" name="UPT_DLV_YN" id="UPT_DLV_YN" value="Y">
+                                <label for="UPT_DLV_YN"><span>선택된 배송지 정보 수정</span></label>
+                            </span>
+                        </p>
+                        <p class="mt5">
+                            <span id="id_span_basedlvyn">
+                                <input type="checkbox" name="UPT_BASE_DLV_YN" id="UPT_BASE_DLV_YN" value="Y">
+                                <label for="UPT_BASE_DLV_YN"><span>기본 배송지로 이용</span></label>
+                            </span>
+                        </p>
+                    </td>
+                </tr>
+                <tr id="id_tr_dlvname">
+                    <th>배송지명</th>
+                    <td class="pd5">
+                        <input type="text" name="DLV_NAME" id="DLV_NAME" maxlength="20" value="">
+                        <p class="mt5">
+                            <input type="checkbox" name="ADD_DLV_YN" id="ADD_DLV_YN" value="Y">
+                            <label for="ADD_DLV_YN"><span>새로운 배송지로 추가</span></label>
+                        </p>
+                    </td>
+                </tr>
+                <tr>
+                    <th>수령인</th>
+                    <td class="pd5"><input type="text" name="RCV_NM" id="RCV_NM" maxlength="20" value="${result.dlv.RCV_NM }"></td>
+                </tr>
+                <tr>
+                    <th class="stop">배송지</th>
+                    <td class="pd5">
+                        <ul class="add">
+                            <li><input type="text" name="ZIP_CD" id="ZIP_CD" value="${result.dlv.ZIP_CD }" class="fl" readonly> <a href="javascript:postShow();" class="btn_b fr" id="id_a_zipcd">우편번호</a></li>
+                            <li>
+                                <input type="hidden" name="JUSO_JIBEN" id="JUSO_JIBEN" value="${result.dlv.JUSO_JIBEN }" readonly>
+                                <input type="text" name="JUSO_DORO" id="JUSO_DORO" value="${result.dlv.JUSO_DORO }" readonly>
+                            </li>
+                            <li>
+                                 <input type="text" name="JUSO_DTL" id="JUSO_DTL" value="${result.dlv.JUSO_DTL }" placeholder="상세 주소 입력">
+                            </li>
+                        </ul>
+                    </td>
+                </tr>
+                <tr>
+                    <th>연락처</th>
+                    <td class="pd5"><input type="number" name="RCV_TEL" id="RCV_TEL" value="${result.dlv.RCV_TEL }" onkeydown="this.value=this.value.replace(/[^0-9]/g,'')" onkeyup="this.value=this.value.replace(/[^0-9]/g,'')" onblur="this.value=this.value.replace(/[^0-9]/g,'')" max="999999999999" maxlength="12" oninput="maxLengthCheck(this)"><p class="mt5"><input type="checkbox" name="SECU_NO_USE_YN" id="SECU_NO_USE_YN" value="Y"> <label for="SECU_NO_USE_YN"><span>안심번호 이용</span></label></p></td>
+                </tr>
+                <tr>
+                    <th class="vtop">배송메모</th>
+                    <td class="pd5">
+                        <p class="text_box">
+                            <textarea name="DLV_MSG" id="DLV_MSG"></textarea>
+                            <span class="byte">0/50</span>
+                        </p>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    <p class="title">5. 결제 방법 선택</p>
+    <div class="tbl pb0">
+        <c:choose>
+        <c:when test="${inParam.PROD_TYPE_CD == '2' }">
+            <p class="mb0 tl"><strong class="point_p">셰어링은 신용카드 결제만 가능 합니다.</strong></p>
+        </c:when>
+        <c:otherwise>
+            <ul id="id_ul_pay_select" class="pay_select">
+                <li id="id_li_card_gb" class="active"><a href="#" onclick="javascript:changeSeltGbCd('1');" class="seltGb"><img src="http://static.ssocio.net/web/images/pay_select01.png" alt="신용카드"></a></li>
+                <li id="id_li_hpgb"><a href="#" onclick="javascript:changeSeltGbCd('3');" class="seltGb"><img src="http://static.ssocio.net/web/images/pay_select02.png" alt="휴대폰결제"></a></li>
+                <li id="id_li_account_gb"><a href="#" onclick="javascript:changeSeltGbCd('2');" class="seltGb"><img src="http://static.ssocio.net/web/images/pay_select03.png" alt="실시간 계좌이페"></a></li> 
+                <li id="id_li_payco_gb"><a href="#" onclick="javascript:changeSeltGbCd('4');" class="seltGb"><img src="http://static.ssocio.net/web/images/pay_select04.png" alt="Payco"></a></li>
+            </ul>
+        </c:otherwise>
+        </c:choose>
+        <div id="pay_data03">
+            <div class="sha_nodata" style="border-top:1px solid #d6d6d6; max-height:250px !important;">
+                <p>서비스 준비중입니다.</p>
+            </div>
+        </div>
+        <div id="pay_data04">
+            <div class="sha_nodata" style="border-top:1px solid #d6d6d6; max-height:250px !important;">
+                <p>서비스 준비중입니다.</p>
+            </div>
+            <%--    20151113    |   wook-kim    |   페이코 설명 제거
+            <div class="content">
+                <div class="paynow">
+                    <p><img src="http://static.ssocio.net/web/images/paynow.png" alt=""></p>
+                </div>
+            </div>
+             --%>
+        </div>      
+        <!-- LIST -->
+        <div class="content" id="id_agr_area" style="display:;">
+            <div class="faq-list">
+                <ul>
+                    <c:if test="${not empty result.asppi}">
+                    <li class="article" id="id_agr_area_0">
+                        <p class="q"><input type="checkbox" id="id_common_agr_0"> <a href="#a1" class="trigger">개인정보 판매자 제공에 대한 동의</a></p>
+                        <p class="a">${result.asppi}</p>
+                    </li>
+                    </c:if>
+                </ul>
+            </div>
+        </div>
+        <!-- //LIST -->
+        <div class="btn_enter" id="id_btn_pay" style="display:"><a href="javascript:onSubmit();" class="btn_r">결제하기</a></div>       
+    </div>
+</div>
+<!-- //container -->
+
+<div class="popup cupon_popup" style="left: 746px; top: 251px; display:none; position: absolute;">
+    <p class="title"><strong>쿠폰 선택</strong><a class="btn_close" href="javascript:popup_hide();"><img alt="팝업 닫기" src="http://static.ssocio.net/web/images/btn_layer_close.png"></a></p>
+    <p id="id_p_duplusen" class="info"></p>
+    <div id="id_div_cpn_duplusen" class="pbox_01">
+        <ul id="id_ul_cpn_duplusen"></ul>
+    </div>
+    <p id="id_p_duplusey" class="info type"></p>
+    <div id="id_div_cpn_duplusey" class="pbox_01">
+        <ul id="id_ul_cpn_duplusey"></ul>
+    </div>
+    <div class="bot_btn">
+        <div class="total_price_area">
+            <span class="fl">총 쿠폰할인 금액</span>
+            <span id="id_span_cpn_total_amt" class="fr"></span>
+        </div>
+        <ul id="id_ul_cpn_btn" class="btn">
+        </ul>
+    </div>
+</div>
+
+
+
+<div id="id_div_cpn" style="display:none">
+    <c:if test="${not empty result.cpnGb}">
+        <c:forEach var="cpn" items="${result.cpnGb}" varStatus="status">
+            <span id="CPN_INFO_${cpn.PROD_CODE}_${cpn.CPN_NO}" class="CPN_INFO_${cpn.CPN_NO}" prodcode="${cpn.PROD_CODE}" cpnno="${cpn.CPN_NO}" cpnnm="${cpn.CPN_NM}" dscntprce="${cpn.DSCNT_PRCE}" dupluseyn="${cpn.DUPL_USE_YN}" cpngbcd="${cpn.CPN_GB_CD}" ordprodamt="${cpn.ORD_PROD_AMT}" proddlvprce="${cpn.PROD_DLV_PRCE}" delyfreechk="${cpn.DELY_FREE_CHK}" status="10"></span>
+        </c:forEach>
+    </c:if>
+</div>
+
+</form>
+<form name="creditForm" id="creditForm" method="post">
+<input type="hidden" name="ORD_CD" id="ORD_CD" value="${result.ordCd }"/>
+<input type="hidden" name="BACK_URL" id="BACK_URL" value="popupBack"/>
+<input type="hidden" name="NEXT_URL" id="NEXT_URL" value="popupNext"/>
+<input type="hidden" name="AMT_PAY" id="AMT_PAY" value=""/>
+<input type="hidden" name="BUYR_NAME" id="BUYR_NAME" value="${result.mber.MBER_NM }"/>
+<input type="hidden" name="BUYR_MAIL" id="BUYR_MAIL" value="${result.mber.MBER_EMAIL }"/>
+<input type="hidden" name="BUYR_TEL1" id="BUYR_TEL1" value="${result.mber.MBER_PHONE }"/>
+<input type="hidden" name="BUYR_TEL2" id="BUYR_TEL2" value=""/>
+<input type="hidden" name="NM_ITEM" id="NM_ITEM" value="${result.prods[0].PROD_NM}"/>
+<input type="hidden" name="ID_ORDER" id="ID_ORDER" value="${result.ordCd}"/>
+</form>
+<form id="authFrm" name="authFrm" method="post">
+    <input type="hidden" id="authPhone" name="authPhone" />
+</form>

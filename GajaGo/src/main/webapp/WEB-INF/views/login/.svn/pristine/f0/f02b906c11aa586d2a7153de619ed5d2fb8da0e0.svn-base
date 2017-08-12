@@ -1,0 +1,285 @@
+<%@ page language="java" contentType="text/html; charset=utf-8"
+    pageEncoding="utf-8"%>
+<!-- 태그는 cmmnHead.jsp 에 선언함 -->
+<%@ include file="/WEB-INF/views/admin/common/cmmnHead.jsp"%>
+<script type="text/javascript">
+$(document).ready(function() {
+	$('.calendar').datepicker({
+		showOn: "button",
+		dateFormat: "yy-mm-dd",
+		buttonImage: "http://static.ssocio.net/admin/images/ico_calendar.gif",
+		buttonImageOnly: true
+	});
+	
+	/* 탭 클릭 이벤트 Start */
+	$(".tabPoint1").click(function() {
+		f_goTab(1);
+	});
+
+	$(".tabPoint2").click(function() {
+		f_goTab(2);
+	});
+	/* 탭 클릭 이벤트 End */
+	
+	// 조회 클릭 이벤트
+	$("#btn_search").click(function() {
+		f_searchPointList("list");
+	});
+	
+	// 포인트 일괄처리 클릭 버튼
+	$("#btn_excelUp").click(function() {
+		uploadPointExcelPopup();
+	});
+	
+	f_setPeriDate("day", 7);
+	$(".tabPoint1").trigger("click");
+});
+
+/* ======================================================================
+Function : 조회
+Return   : 없음
+========================================================================= */
+function f_searchPointList(sAction) {
+	var sFromDt = $.trim($("#FROM_DATE").val()).replace(/-/g, '');
+    var sToDt = $.trim($("#TO_DATE").val()).replace(/-/g, '');
+	var url = "/admin/point/selectListPeriPoint.do";
+	
+	if(gf_isNull(sFromDt)) {
+    	alert("조회시작일은 필수 입력입니다.");
+		return;
+    }
+    
+    if(gf_isNull(sToDt)) {
+    	alert("조회종료일은 필수 입력입니다.");
+		return;
+    }
+    
+    if(!gf_isNull(sToDt) && parseInt(sFromDt, 10) > parseInt(sToDt, 10)) {
+		alert("조회시작일이 조회종료일보다 미래입니다.");
+		return;
+    }
+	
+	$("#ACTION").val(sAction);
+	$("#S_FROM_DATE").val(sFromDt);
+    $("#S_TO_DATE").val(sToDt);
+	$("#frm").attr("action", url).submit();
+}
+
+/* ======================================================================
+Function : 탭이동
+Return   : 없음
+========================================================================= */
+function f_goTab(index) {
+	$("#TAB_INDEX").val(index);
+	
+	if(index == 1) {
+	}else if(index == 2) {
+		$("#frm").attr("action", "/admin/point/selectListMberPoint.do").submit();
+	}
+}
+
+/* ======================================================================
+Function : 날짜 셋팅
+Return   : 없음
+========================================================================= */
+function f_setPeriDate(dateType, date) {
+	var now = new Date();
+	var sYear = now.getFullYear();
+	var sMonth = now.getMonth()+1;
+	var sDay = now.getDate()
+	var toDate = sYear + '-' + f_lpad(sMonth.toString(), '0', 2) + '-' + f_lpad(sDay.toString(), '0', 2);
+	$("#TO_DATE").val(toDate);
+	
+	if(dateType == 'day') {
+		now.setDate(now.getDate() - date);
+	}else {
+		now.setMonth(now.getMonth() - date);
+	}
+	
+	sYear = now.getFullYear();
+	sMonth = now.getMonth()+1;
+	sDay = now.getDate();
+	
+	var fromDate = sYear + '-' + f_lpad(sMonth.toString(), '0', 2) + '-' + f_lpad(sDay.toString(), '0', 2);
+	$("#FROM_DATE").val(fromDate);
+}
+
+/* ======================================================================
+Function : left pad
+Return   : 없음
+========================================================================= */
+function f_lpad(sStr, sPad, len) {
+	var str = sStr;
+    while (str.length < len) {
+        str = sPad + str;
+    }
+    return str;
+}
+
+/* ======================================================================
+Function : 다른페이지 이동
+Return   : 없음
+========================================================================= */
+function GoPage(pageNo) {
+	$("#PAGE_NO").val(pageNo);
+	f_searchPointList("list");
+}
+
+/* ======================================================================
+Function : 포인트 일괄 처리 엑셀 업로드
+Return   : 없음
+========================================================================= */
+function uploadPointExcelPopup(){
+	var width = 700;
+ 	var height = 600;
+ 	var left = (screen.width/2) - (width/2);
+ 	var top = (screen.height/2) - (height/2);
+    var url = "/admin/point/uploadPointExcelPopup.do";
+    
+	window.open("", "popupForm", "width=" + width + ", height=" + height + ", screenY=" + top + ", screenX=" + left + ",toolbar=no, menubar=no, scrollbars=yes, resizeable=no");
+	$("#popupForm").attr("action", url).attr("target", "popupForm").submit();
+	return false;
+}
+
+</script>
+	<!-- content -->
+	<div id="content">
+		<div class="inner">
+			<ul class="lst_tab type">
+				<li id="tabPoint1" class="on"><a href="#" class="tabPoint1">기간별</a></li>
+				<li id="tabPoint2"><a href="#" class="tabPoint2">회원별</a></li>
+			</ul>
+			<form name="frm" id="frm" method="post">
+			<input type="hidden" id="ACTION" name="ACTION">
+			<input type="hidden" id="S_FROM_DATE" name="S_FROM_DATE">
+			<input type="hidden" id="S_TO_DATE" name="S_TO_DATE">
+			<input type="hidden" id="TAB_INDEX" name="TAB_INDEX">
+			<input type="hidden" id="PAGE_NO" name="PAGE_NO" value="${list.PAGE_NO}">
+			<fmt:parseDate value="${searchParam.S_FROM_DATE}" var="P_FROM_DATE" pattern="yyyyMMdd" scope="page" />
+			<fmt:parseDate value="${searchParam.S_TO_DATE}" var="P_TO_DATE" pattern="yyyyMMdd" scope="page" />
+			<!-- point_info_bx -->
+			<div class="point_info_bx clear">
+				<div class="inp_area">
+					<strong>조회기간</strong>
+					<span class="ml10">
+						<input type="text" id="FROM_DATE" name="FROM_DATE" class="calendar" value="<fmt:formatDate value="${P_FROM_DATE}" pattern="yyyy-MM-dd" />" style="width:82px" readonly="readonly"/> ~ 
+						<input type="text" id="TO_DATE" name="TO_DATE" class="calendar" value="<fmt:formatDate value="${P_TO_DATE}" pattern="yyyy-MM-dd" />" style="width:82px" readonly="readonly"/>
+					</span>
+				</div>
+				<div class="pt_btn_bx">
+					<a href="#" id="btn_search" class="btn_r"><span>조회</span></a>
+				</div>
+				<a href="#" id="btn_excelUp" class="btn_r btn_point_pc"><span>포인트 일괄 처리</span></a>
+			</div>
+			
+			<!-- //point_info_bx -->
+			<!-- tbl -->
+			<ul class="lst_type clear mt20">
+				<li>
+				   <fmt:formatDate value="${P_FROM_DATE}" pattern="yyyy-MM-dd" />&nbsp;~&nbsp;
+				   <fmt:formatDate value="${P_TO_DATE}" pattern="yyyy-MM-dd" /> 기준
+				</li>
+				
+				<c:forEach var="pointTotSum" items="${list.pointTotSum}">
+					<c:set var="A_POINT_SUM" value="${pointTotSum.A_POINT}" />
+					<c:set var="B_POINT_SUM" value="${pointTotSum.B_POINT}" />
+					<c:set var="Y_POINT_SUM" value="${pointTotSum.Y_POINT}" />
+					<c:set var="N_POINT_SUM" value="${pointTotSum.N_POINT}" />
+				</c:forEach>
+				
+				<li>적립포인트 : 
+					<span class="text_r">
+						<c:choose>
+						  <c:when test="${A_POINT_SUM == null || A_POINT_SUM == ''}" >0</c:when>
+						  <c:otherwise><fmt:formatNumber value="${A_POINT_SUM}" pattern="#,###" /></c:otherwise>
+						</c:choose>P
+					</span>
+				</li>
+				<li>사용포인트 : 
+					<span class="text_r">
+						<c:choose>
+						  <c:when test="${B_POINT_SUM == null || B_POINT_SUM == ''}" >0</c:when>
+						  <c:otherwise><fmt:formatNumber value="${B_POINT_SUM}" pattern="#,###" /></c:otherwise>
+						</c:choose>P
+					</span>
+				</li>
+				<li>지급포인트 : 
+					<span class="text_r">
+						<c:choose>
+						  <c:when test="${Y_POINT_SUM == null || Y_POINT_SUM == ''}" >0</c:when>
+						  <c:otherwise><fmt:formatNumber value="${Y_POINT_SUM}" pattern="#,###" /></c:otherwise>
+						</c:choose>P
+					</span>
+				</li>
+				<li>차감포인트 : 
+					<span class="text_r">
+						<c:choose>
+						  <c:when test="${N_POINT_SUM == null || N_POINT_SUM == ''}" >0</c:when>
+						  <c:otherwise><fmt:formatNumber value="${N_POINT_SUM}" pattern="#,###" /></c:otherwise>
+						</c:choose>P
+					</span>
+				</li>
+			</ul>
+			
+			<div class="top_tbl mt10 clear">
+				<div class="right">
+					<span class="select" style="width:130px;">
+						<span class="sel_txt"></span>
+						<select id="S_DISPLAY_CNT" name="S_DISPLAY_CNT">
+							<custom:codeList var="display" groupCode="DISPLAY_CNT" />
+							<c:forEach var="list" items="${display}" varStatus="status">
+								<option value="${list.key}" <c:if test="${list.key == searchParam.S_DISPLAY_CNT}">selected="selected"</c:if> >${list.value}</option>
+				            </c:forEach>
+						</select>
+					</span>
+				</div>
+			</div>
+			</form>
+			
+			<div class="tbl mt10">
+				<!-- list -->
+				<table class="list type">
+					<colgroup>
+						<col style="width:20%" />	
+						<col style="width:*" />
+						<col style="width:20%" />
+						<col style="width:20%" />
+						<col style="width:20%" />
+					</colgroup>
+					<thead>
+						<tr>
+							<th scope="col">기간</th>
+							<th scope="col">적립포인트</th>
+							<th scope="col">사용포인트</th>
+							<th scope="col">지급포인트</th>
+							<th scope="col">차감포인트</th>
+						</tr>
+					</thead>
+					<tbody>
+						<c:if test="${fn:length(list.pointList) > 0}">
+							<c:forEach var="pointList" items="${list.pointList}">
+								<tr>
+									<td class="nolineL">${pointList.REGIST_DT}</td>
+									<td style="text-align:right;"><fmt:formatNumber value="${pointList.A_POINT}" pattern="#,###" />P</td>
+									<td style="text-align:right;"><fmt:formatNumber value="${pointList.B_POINT}" pattern="#,###" />P</td>
+									<td style="text-align:right;"><fmt:formatNumber value="${pointList.Y_POINT}" pattern="#,###" />P</td>
+									<td style="text-align:right;"><fmt:formatNumber value="${pointList.N_POINT}" pattern="#,###" />P</td>
+								</tr>
+							</c:forEach>
+						</c:if>
+						<c:if test="${fn:length(list.pointList) <= 0}">
+							<tr><td colspan="5">검색결과가 없습니다.</td></tr>
+						</c:if>
+					</tbody>
+				</table>
+				<!-- //list -->
+			</div>
+			<!-- //tbl -->
+			<!-- bot_tbl -->
+			<div class="bot_tbl">
+				<%@ include file="/WEB-INF/views/admin/common/PageView.jsp" %>
+			</div>
+			<!-- //bot_tbl -->
+		</div>
+	</div>
+	<form name="popupForm" id="popupForm" method="post"></form>

@@ -1,0 +1,199 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/admin/common/cmmnHead.jsp" %>
+<script type="text/javascript">
+$(document).ready(function(){
+	$('.calendar').datepicker({
+		showOn: "button",
+		buttonImage: "http://static.ssocio.net/admin/images/ico_calendar.gif",
+		buttonImageOnly: true
+	});
+
+
+	/*
+	var aa = eval("${banGbCdArr}");
+	$(aa).each(function(index, data){
+		$('[name=banGbCd][value='+data+']').prop('checked',true);
+	});
+*/
+	init();
+});
+
+
+//--------------------------------- INIT Function ------------------------------------
+/* ======================================================================
+Function : 초기화
+========================================================================= */
+function init(){
+}
+
+//--------------------------------- SETTING Function ------------------------------------
+
+/* ======================================================================
+Function : 기간버튼클릭시 날짜 셋팅
+========================================================================= */
+function clickDate(dateType, date){
+	var now = new Date();
+	var toDate = now.getFullYear() + '-' + (now.getMonth()+1) + '-' + now.getDate();
+	$('#toDate').val(toDate);
+
+	if(dateType == 'day'){
+		now.setDate(now.getDate() - date);
+	}else{
+		now.setMonth(now.getMonth() - date);
+	}
+
+	var fromDate = now.getFullYear() + '-' + (now.getMonth()+1) + '-' + now.getDate();
+	$('#fromDate').val(fromDate);
+}
+
+
+//--------------------------------- SUBMIT Function ------------------------------------
+/* ======================================================================
+Function :
+Return   : 없음
+========================================================================= */
+function search(){
+	//기간체크로직
+	if(validDate()){
+		var str = "";
+		$(".CHKBOXCLS:checked").each(function(){
+			if(str != "") str += ",";
+			str += $(this).val();
+		});
+
+		$("#CHK_BOX_RESULT").val(str);
+		$("#fromDate").val($("#fromDate").val().replace(/\-/ig, ''));
+	 	$("#toDate").val($("#toDate").val().replace(/\-/ig, ''));
+	 	$("#searchFrm").attr({"method" : "post", "action" : '/admin/mber/mberAlertPopup.do'}).submit();
+	}
+}
+/* ======================================================================
+Function : 날짜 밸리데이션
+Return   : 없음
+========================================================================= */
+function validDate(){
+	if($("#fromDate").val() != "" || $("#toDate").val() != ""){
+		var startDate = $("#fromDate").val().replace(/\-/ig, "");
+		var endDate = $("#toDate").val().replace(/\-/ig, "");
+		var now = $.datepicker.formatDate('yymmdd', new Date());
+		if(startDate > now){
+			alert("시작일 > 오늘");
+			return ;
+		}
+		if(endDate > now){
+			alert("종료일 > 오늘");
+			return ;
+		}
+		if(startDate > endDate){
+			alert("시작일 > 종료일");
+			return ;
+		}
+	}
+	return true;
+}
+</script>
+
+<div class="pop_inner">
+	<form id="searchFrm" name="searchFrm" method="post">
+	<input type="hidden" name="mberSeq" value="${searchParam.mberSeq}"/>
+	<input type="hidden" id="pageNo" name="pageNo"/>
+	<input type="hidden" id="mberEmail" name="mberEmail" value="${searchParam.mberEmail}" />
+	<input type="hidden" id="CHK_BOX_RESULT" name="CHK_BOX_RESULT" >
+	<!-- tbl -->
+	<div class="tbl">
+		<p class="tbl_tit"><img src="http://static.ssocio.net/admin/images/ico_admin.gif" alt="" />회원 경고 조회</p>
+		<table class="search">
+			<colgroup>
+				<col style="width:8%" />
+				<col style="width:30%" />
+				<col style="width:8%" />
+				<col style="width:38%" />
+				<col style="width:*" />
+			</colgroup>
+			<tbody>
+				<tr>
+					<th scope="row">반영일</th>
+					<td>
+						<fmt:parseDate value="${searchParam.fromDate }" var="S_START_DATE" pattern="yyyymmdd" scope="page" />
+						<fmt:parseDate value="${searchParam.toDate }" var="S_END_DATE" pattern="yyyymmdd" scope="page" />
+						<input type="text" id="fromDate" name="fromDate" class="calendar" style="width:82px" value='<fmt:formatDate value="${S_START_DATE }" pattern="yyyy-mm-dd"/>' readonly="readonly" />
+						- <input type="text" id="toDate" name="toDate" class="calendar" style="width:82px" value='<fmt:formatDate value="${S_END_DATE }" pattern="yyyy-mm-dd"/>' readonly="readonly" />
+					</td>
+					<th scope="row" class="bl">구분</th>
+					<td class="nolineR">
+						<custom:codeList var="banGbCd" groupCode="BAN_GB_CD" />
+						<c:forEach var="list" items="${banGbCd}" varStatus="status">
+							<c:if test="${list.key eq 10
+									|| list.key eq 20
+									|| list.key eq 30
+									|| list.key eq 40 }">
+								<span <c:if test="${ !status.first}">class="ml5"</c:if> style="display: inline-block;">
+									<input type="checkbox" id="banGbCd${list.key}" name="banGbCd" value="${list.key}" checked="checked" class="CHKBOXCLS"/>
+									<label for="banGbCd${list.key}">${list.value}</label>
+								</span>
+							</c:if>
+		                </c:forEach>
+					</td>
+					<td class="tl"><a href="javascript:search();" class="btn_chk btn_r">조회</a></td>
+				</tr>
+			</tbody>
+		</table>
+	</div>
+	<!-- //tbl -->
+	</form>
+
+	<div class="desc_bx mt10">
+		<ul class="lst_type clear">
+		<c:forEach var="list" items="${list.mberAlertSummary}" varStatus="status">
+			<li><c:if test="${status.first}">${searchParam.mberEmail}회원님의 누적 경고 </c:if>
+				<span class="bold">${list.BAN_GB_NM}</span>
+				<span class="text_r">${list.CNT}</span>회
+			</li>
+		</c:forEach>
+		</ul>
+	</div>
+
+	<!-- tbl -->
+	<div class="tbl mt20">
+		<table class="list">
+			<colgroup>
+				<col style="width:12%" />
+				<col style="width:10%" />
+				<col style="width:*" />
+				<col style="width:12%" />
+			</colgroup>
+			<thead>
+				<tr>
+					<th scope="col" class="first">처리일시</th>
+					<th scope="col">구분</th>
+					<th scope="col">상세 내용</th>
+					<th scope="col">처리 담당자</th>
+				</tr>
+			</thead>
+			<tbody>
+			<c:if test="${empty list.mberAlertList}">
+				<tr>
+					<td colspan="4">조회된 결과가 없습니다.</td>
+				</tr>
+			</c:if>
+			<c:if test="${not empty list.mberAlertList}">
+			<c:forEach var="mberAlertList" items="${list.mberAlertList}" >
+				<tr>
+					<td class="first">${mberAlertList.BAN_DT}</td>
+					<td>${mberAlertList.BAN_GB_NM}</td>
+					<td class="tl">${mberAlertList.DENY_REASON}</td>
+					<td>${mberAlertList.BAN_ADM_NM}</td>
+				</tr>
+			</c:forEach>
+			</c:if>
+			</tbody>
+		</table>
+	</div>
+	<!-- //tbl -->
+
+	<!-- bot_tbl -->
+	<div class="bot_tbl">
+		<%@ include file="/WEB-INF/views/admin/common/PageView.jsp" %>
+	</div>
+	<!-- //bot_tbl -->
+</div>

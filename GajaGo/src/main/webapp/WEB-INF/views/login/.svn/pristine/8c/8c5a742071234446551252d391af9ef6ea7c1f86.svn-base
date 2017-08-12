@@ -1,0 +1,390 @@
+<%
+	/*
+	 *	최근본상품 화면으로 이동
+	 */
+%>
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/web/common/cmmnHead.jsp"%>
+<script type="text/javascript">
+	$(document).ready(function(){
+		header.type	= 5;	// ( 0 : 타이틀영역만존재, 1 : 검색HEADER, 2 : SELECT TYPE HEADER, 3 : AD MENU TYPE HEADER, 4 : SUB TYPE HEADER )
+		header.title = "최근 본 상품";	document.title = "최근 본 상품";
+		header.method = "GET";
+		header.backUrl = "/mobile/myPage/getMyPageInfo.do";
+		header.form = '';	// $("#form");
+		header.callback = allDeleteMyLately;	//showAddWishCtry;
+		initHeader();
+		imgLatelyHeightResize();
+		$(window).scroll(function(){
+			if( $(window).scrollTop() == $(document).height() - $(window).height()){
+				var LAST_SEQ = $("#LAST_SEQ").val();
+				if(0 == (LAST_SEQ % 20) ){
+					pageScroll();
+				}
+			}
+		});
+	});
+	
+	/*
+	 * 스크롤 시 조회
+	 */
+	pageScroll = function () {
+		// 페이지
+		var FIRST_SEQ = $("#FIRST_SEQ").val();
+		var LAST_SEQ = $("#LAST_SEQ").val();
+		$.ajax({
+		    type: 'get'
+		    , async: true
+		    , url: '/mobile/myRecentProduct/getMyLatelyGoodsInfoPage.do'
+		    , data: {
+		    		"FIRST_SEQ"	: FIRST_SEQ,
+		    		"LAST_SEQ"	: LAST_SEQ
+		    }, 
+		    success: function(result) {
+		    	var FIRST_SEQ = $("#FIRST_SEQ").val();
+		    	$("#FIRST_SEQ").val( parseInt(FIRST_SEQ)+20);
+		    	var LAST_SEQ = $("#LAST_SEQ").val();
+		    	$("#LAST_SEQ").val(parseInt(LAST_SEQ)+20);
+		    	var innerH = $("#targetS");
+		    	var htmlI = '';
+		    	for(var c=0;c<result.result.length;c++){
+		    		htmlI += "<li>";
+		    		if(result.result[c].PROD_TYPE_CD == '4'){
+		    			
+		                htmlI += "    <p class='thomb'><img data-img=\""+result.result[c].FILE_URL+"\" ></p>";	//<!-- 배너 -->
+		    		}else{
+		    			
+		                htmlI += "    <p class='thomb'><img data-img=\""+result.result[c].PROD_IMG_URL+"\" ></p>";	//<!-- 배너 -->
+		    		}
+	                htmlI += "    <div class='label'>";		//<!-- 라벨 스티커 -->
+					if(result.result[c].CPON_APPLY_PSBL_YN == 'Y'){                    
+						htmlI += "        <p><img src=\"http://static.ssocio.net/web/images/main/label_coupon.png\" alt=\"\" ></p>";
+					}                      
+					var DLV_PAY_GB_CD = result.result[c].DLV_PAY_GB_CD; 
+					if(DLV_PAY_GB_CD == '1'){
+						htmlI += "    <p><img src=\"http://static.ssocio.net/web/images/main/label_delivery.png\" alt=\"\"></p>";
+					}
+					htmlI += "    </div>";
+					htmlI += "    <div class='subs'>";
+					htmlI += "        <a href=\"javascript:deleteMyLately('"+result.result[c].PROD_CODE+"');\" class='del'>";
+					htmlI += "				<img src=\"http://static.ssocio.net/web/images/search_list_clos.png\" alt=\"\" ></a>";
+					htmlI += "        <a href=\"javascript:detailMyLately('"+result.result[c].PROD_CODE+"','"+result.result[c].PROD_TYPE_CD+"');\">";
+					htmlI += "        <p class='subj'>"+result.result[c].PROD_NM+"</p>";
+					htmlI += "        <div class='clear'>";
+					console.log(">>>>> 1 "+(result.result[c].NRM_PRCE < 1));
+					if(result.result[c].PROD_TYPE_CD == '4'){					// 4.스마트폰셰어링				
+						htmlI += "            <p class='fr tr'>";
+						htmlI += "			  <strong>"+commify(result.result[c].SP_SHARING_PRICE)+"원/월</strong></p>";
+					}else if(result.result[c].PROD_TYPE_CD == '2'){				// 2.셰어링
+							htmlI += "            <p class='fr tr'>";
+							htmlI += "			  <strong>1일&nbsp;"+commify(result.result[c].SHARING_PRICE)+"원</strong></p>";
+					}else if(result.result[c].PROD_TYPE_CD == '1'){				// 1.판매
+							// 20151107 redmine 0원 제거
+							if(result.result[c].NRM_PRCE == result.result[c].SELL_PRCE && result.result[c].NRM_PRCE < 1){
+								htmlI += "            <p class='fr tr'><span></span>";
+								htmlI += "			  <br><strong>"+commify(result.result[c].SELL_PRCE)+"원</strong></p>";
+							}else{
+								if(result.result[c].SALE > 0){ 	
+									htmlI += "            <strong class='fl'>"+result.result[c].SALE+"%</strong>";
+								}
+								// 20151107 redmine 0원 제거
+// 								htmlI += "            <p class='fr tr'><span>"+commify(result.result[c].NRM_PRCE)+"원</span>";
+								htmlI += "            <p class='fr tr'><span>";
+								if(paseInt(result.result[c].NRM_PRCE) > parseInt(result.result[c].SELL_PRCE)){
+									
+									htmlI += commify(result.result[c].NRM_PRCE)+"원";
+								}
+								htmlI += "</span><br><strong>"+commify(result.result[c].SELL_PRCE)+"원</strong></p>";							
+							}
+					}else if(result.result[c].PROD_TYPE_CD == '3'){				// 3.나눔
+						if(result.result[c].NRM_PRCE == result.result[c].SELL_PRCE){
+							htmlI += "            <p class='fr tr'><span></span>";
+							// 20151107 redmine 나눔렌탈금액 미표시
+// 							htmlI += "			  <br><strong>"+commify(result.result[c].SELL_PRCE)+"원</strong></p>";
+							htmlI += "			  <br><strong></strong></p>";
+						}else{
+							if(result.result[c].SALE > 0){ 	
+								htmlI += "            <strong class='fl'></strong>";
+// 								htmlI += "            <strong class='fl'>"+result.result[c].SALE+"%</strong>";
+							}
+							// 20151107 redmine 나눔렌탈금액 미표시
+// 							htmlI += "            <p class='fr tr'><span>"+commify(result.result[c].NRM_PRCE)+"원</span>";
+							htmlI += "			 <p class='fr tr'> <span></span></p>";						
+						}
+					}else if(result.result[c].PROD_TYPE_CD == '5'){				// 5.렌탈
+						if(result.result[c].NRM_PRCE == result.result[c].SELL_PRCE){
+							htmlI += "            <p class='fr tr'><span></span>";
+							// 20151107 redmine 나눔렌탈금액 미표시
+							htmlI += "			  </p>";
+// 							htmlI += "			  <br><strong>"+commify(result.result[c].SELL_PRCE)+"원</strong></p>";
+						}else{
+							if(result.result[c].SALE > 0){ 	
+								htmlI += "            <strong class='fl'></strong>";
+// 								htmlI += "            <strong class='fl'>"+result.result[c].SALE+"%</strong>";
+							}
+							// 20151107 redmine 나눔렌탈금액 미표시
+							htmlI += "            <p class='fr tr'><span></span>";
+							htmlI += "			  <br><strong></strong></p>";							
+// 							htmlI += "            <p class='fr tr'><span>"+commify(result.result[c].NRM_PRCE)+"원</span>";
+// 							htmlI += "			  <br><strong>"+commify(result.result[c].SELL_PRCE)+"원</strong></p>";							
+						}
+					}
+					
+					htmlI += "        </div>";
+					htmlI += "        </a>";
+					htmlI += "    </div>";
+	                htmlI += "</li>";
+		    	}
+		    	innerH.append(htmlI); 
+		    	cdnreload();
+		    	imgLatelyHeightResize();
+		    }, 
+		    error: function(data, status, err) {
+		      alert('서버와의 통신이 실패했습니다.');
+		    }
+		});
+	};
+	/*
+	 *	최근상품 전체삭제
+	 */
+	allDeleteMyLately = function(){
+		if(confirm("전체삭제하시겠습니까?")){
+		 	$.ajax({
+			    url 	: '/mobile/myRecentProduct/allDeleteMyLately.do',
+			    data 	: {},
+			    type 	: "get",
+			    dataType: 'json',
+			    success : function(result) {
+			    	alert("상품이 전체 삭제되었습니다.");
+			    	// 재조회 이동
+			    	$("#myLatelyForm").attr("action", '/mobile/myRecentProduct/getMyLatelyGoodsInfo.do');
+					$("#myLatelyForm").submit(); 
+			    },
+			    error : function(request, status, error) {
+					//통신 에러 발생시 처리
+					alert("통신 오류가 발생 하였습니다. 잠시 후 다시 시도해 주세요"   + status.toString()  + " request [" + request.toString()  + "] error[" + error.toString() +"]");
+				}
+			}); 
+		}
+	};
+	/*
+	 *	최근상품 삭제
+	 */
+	deleteMyLately = function(PROD_CODE){
+		if(PROD_CODE.length<1){
+			alert("필수키값이 없습니다."); return;
+		}
+		
+		$("#deleteMyLatelyForm #PROD_CODE").val(PROD_CODE);
+		 	$.ajax({
+			    url 	: '/mobile/myRecentProduct/deleteMyLately.do',
+			    data 	: $("#deleteMyLatelyForm").serialize(),
+			    type 	: "get",
+			    dataType: 'json',
+			    success : function(result) {
+			    	alert("선택하신 상품이 삭제되었습니다.");
+			    	
+			    	// 배송지 관리(조회) 이동
+			    	$("#myLatelyForm").attr("action", '/mobile/myRecentProduct/getMyLatelyGoodsInfo.do');
+					$("#myLatelyForm").submit(); 
+			    },
+			    error : function(request, status, error) {
+					//통신 에러 발생시 처리
+					alert("통신 오류가 발생 하였습니다. 잠시 후 다시 시도해 주세요"   + status.toString()  + " request [" + request.toString()  + "] error[" + error.toString() +"]");
+				}
+			}); 
+	};
+	/*
+	 *	상품 상세보기 이동
+	 */
+	 detailMyLately = function(PROD_CODE, PROD_TYPE_CD){
+			if(PROD_CODE.length<1){
+				alert("필수키값이 없습니다."); return;
+			}
+			
+			// 스마트폰 셰어링 
+			if(PROD_TYPE_CD == '4'){
+				location.href = '/mobile/shar/selectSharDtl.do?PROD_CODE=' + PROD_CODE;
+				
+			} else {
+				location.href = '/mobile/prod/selectProd.do?PROD_CODE=' + PROD_CODE; 
+			}
+
+			
+			/*
+			$("#prodDetailForm #PROD_CODE").val(PROD_CODE);
+			$("#prodDetailForm").attr("action", '/mobile/myRecentProduct/getMyLatelyGoodsInfo.do');
+			$("#prodDetailForm").submit();
+			*/
+	 };
+	 /*
+	  *	콤마처리
+	  */
+	 function commify(n) {
+	  	var reg = /(^[+-]?\d+)(\d{3})/;   // 정규식
+	  	n += '';                          // 숫자를 문자열로 변환
+
+	  	while (reg.test(n))
+	    	n = n.replace(reg, '$1' + ',' + '$2');
+
+	  return n;
+	}
+</script>
+<!-- S PAGING -->
+<input type="hidden" id="FIRST_SEQ" name="FIRST_SEQ" 	value="${params.FIRST_SEQ }" 	/>
+<input type="hidden" id="LAST_SEQ" 	name="LAST_SEQ" 	value="${params.LAST_SEQ }" 	/>
+<!-- E PAGING -->
+<!-- 상품 상세보기로 이동 -->
+<form name="prodDetailForm" id="prodDetailForm" method="get">
+	<input type="hidden" id="PROD_CODE" 	name="PROD_CODE" 	/>
+</form>	
+<!-- 최근본상품 삭제 -->
+<form name="deleteMyLatelyForm" id="deleteMyLatelyForm" method="get">
+	<input type="hidden" id="PROD_CODE" 	name="PROD_CODE" 	/>
+</form>	
+<!-- 재조회 -->
+<form name="myLatelyForm" id="myLatelyForm" method="get">
+	<input type="hidden" id="PROD_CODE" 	name="PROD_CODE" 	/>
+</form>	
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+		<div class="roc">
+			<ul class="inner">
+				<li><img src="http://static.ssocio.net/pc/img/common/section/roc_home.png" alt="홈"></li>
+				<li>마이페이지</li>
+				<li>최근 본 상품</li>
+			</ul>
+		</div>
+		<jsp:include page="../common/mype_top.jsp" flush="false" />
+		<div class="mype_s_tit">
+			<p>최근 본 상품</p>
+		</div>
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+		<div id="">
+		
+			<!-- container -->
+			<div id="container">
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>
+
+        
+<c:choose>
+	<c:when test="${empty result}">	
+		<div class="sha_nodata">
+        	<p>최근 본 상품이 없습니다.</p>
+        </div>
+    </c:when>
+    <c:otherwise>
+    <!-- 기획전 배너 -->
+        <section class="plan_banner">
+            <!-- 좌우 배너 -->
+            <ul class="type-list" id='targetS'>
+    	<c:forEach var="result" items="${result}" varStatus="status">	 
+            	<!-- S 반복 -->
+                <li>
+                	<!-- 배너 -->
+               		<c:if test="${result.PROD_TYPE_CD ne '4'}">	
+                    <p class="thomb"><img data-img="${result.PROD_IMG_URL }" ></p>
+                	</c:if>
+                	<c:if test="${result.PROD_TYPE_CD eq '4'}">
+                    <p class="thomb"><img data-img="${result.FILE_URL }" ></p>
+                	</c:if>
+                    
+                    <!-- 라벨 스티커 -->
+                    <div class="label">
+<c:if test="${result.CPON_APPLY_PSBL_YN eq 'Y'}" >                    
+                        <p><img src='http://static.ssocio.net/web/images/main/label_coupon.png' alt="" ></p>
+</c:if>                        
+<c:set var="DLV_PAY_GB_CD" value="${result.DLV_PAY_GB_CD}"/> 
+<c:if test="${DLV_PAY_GB_CD eq '1'}" >
+                        <p><img src='http://static.ssocio.net/web/images/main/label_delivery.png' ></p>
+</c:if>                        
+                    </div>
+                    <div class="subs">
+                        <a href="javascript:deleteMyLately('${result.PROD_CODE}');" class="del"><img src='http://static.ssocio.net/web/images/search_list_clos.png'  ></a>
+                        <a href="javascript:detailMyLately('${result.PROD_CODE}','${result.PROD_TYPE_CD}');">
+                        <p class="subj">${result.PROD_NM }</p>
+                        <div class="clear">
+<c:if test="${result.PROD_TYPE_CD eq '2'}" >				<!-- 2.셰어링 -->
+							<p class="fr tr"><strong>1일&nbsp;<fmt:formatNumber value="${result.SHARING_PRICE }" pattern="#,###,###" />원</strong></p>
+</c:if>
+<c:if test="${result.PROD_TYPE_CD eq '1'}" >				<!-- 1.판매 -->
+<%-- 	                   <c:if test="${result.NRM_PRCE ne result.SELL_PRCE and result.NRM_PRCE gt 0}" >   	 --%>
+	                   		<c:if test="${result.SALE > 0 }" >	
+		                      	<strong class="fl">${result.SALE}%</strong>
+		                   	</c:if>
+	                      	<p class="fr tr"><span>
+	                      	
+	                   		<c:if test="${result.NRM_PRCE gt result.SELL_PRCE }" >	
+	                      	<fmt:formatNumber value="${result.NRM_PRCE }" pattern="#,###,###" />원
+		                   	</c:if>
+	                      	
+	                      	</span><br><strong><fmt:formatNumber value="${result.SELL_PRCE }" pattern="#,###,###" />원</strong></p>
+<%-- 	                   </c:if>   	 --%>
+<%-- 	                   <c:if test="${result.NRM_PRCE eq result.SELL_PRCE and  result.NRM_PRCE lt 1}" >   	 --%>
+<%-- 	                      	<p class="fr tr"><span></span><br><strong><fmt:formatNumber value="${result.SELL_PRCE }" pattern="#,###,###" />원</strong></p> --%>
+<%-- 	                   </c:if> --%>
+</c:if>	                      	
+<c:if test="${result.PROD_TYPE_CD eq '3'}" >				<!-- 3.나눔 -->
+<%-- 					   <c:if test="${result.SALE > 0 }" >	 --%>
+<%-- 	                      	<strong class="fl">${result.SALE}%</strong> --%>
+<%-- 	                   </c:if> --%>
+<%-- 	                   <c:if test="${result.NRM_PRCE ne result.SELL_PRCE}" >   	 --%>
+<%-- 	                      	<p class="fr tr"><span><fmt:formatNumber value="${result.NRM_PRCE }" pattern="#,###,###" />원</span><br><strong><fmt:formatNumber value="${result.SELL_PRCE }" pattern="#,###,###" />원</strong></p> --%>
+<%-- 	                   </c:if>   	 --%>
+<%-- 	                   <c:if test="${result.NRM_PRCE eq result.SELL_PRCE}" >   	 --%>
+<%-- 	                      	<p class="fr tr"><span></span><br><strong><fmt:formatNumber value="${result.SELL_PRCE }" pattern="#,###,###" />원</strong></p> --%>
+<%-- 	                   </c:if> --%>
+</c:if>
+<c:if test="${result.PROD_TYPE_CD eq '5'}" >				<!-- 5.렌탈 -->
+<%-- 					   <c:if test="${result.SALE > 0 }" >	 --%>
+<%-- 	                      	<strong class="fl">${result.SALE}%</strong> --%>
+<%-- 	                   </c:if> --%>
+<%-- 	                   <c:if test="${result.NRM_PRCE ne result.SELL_PRCE}" >   	 --%>
+<%-- 	                      	<p class="fr tr"><span><fmt:formatNumber value="${result.NRM_PRCE }" pattern="#,###,###" />원</span><br><strong><fmt:formatNumber value="${result.SELL_PRCE }" pattern="#,###,###" />원</strong></p> --%>
+<%-- 	                   </c:if>   	 --%>
+<%-- 	                   <c:if test="${result.NRM_PRCE eq result.SELL_PRCE}" >   	 --%>
+<%-- 	                      	<p class="fr tr"><span></span><br><strong><fmt:formatNumber value="${result.SELL_PRCE }" pattern="#,###,###" />원</strong></p> --%>
+<%-- 	                   </c:if> --%>
+					   
+</c:if>
+<c:if test="${result.PROD_TYPE_CD eq '4'}" >				<!-- 4.스마트폰셰어링 -->
+	                      	<p class="fr tr"><strong><fmt:formatNumber value="${result.SP_SHARING_PRICE }" pattern="#,###,###" />원/월</strong></p>
+</c:if>
+                        </div>
+                        </a>
+                    </div>
+                </li>
+                <!-- E 반복 -->
+		</c:forEach>
+		</ul>
+        </section>
+        <!-- //기획전 배너 -->
+	</c:otherwise>
+</c:choose>        
+                
+            
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+		<jsp:include page="../common/mype_bottom.jsp" flush="false" />
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+		    </div>
+		    <!-- //container -->
+		</div>
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>
+
+
+
+
+

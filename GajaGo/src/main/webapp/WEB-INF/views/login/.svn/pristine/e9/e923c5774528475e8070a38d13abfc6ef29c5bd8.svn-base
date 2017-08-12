@@ -1,0 +1,882 @@
+package com.ssocio.sharing.service.web;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.ui.ModelMap;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.multipart.MultipartHttpServletRequest;
+
+import com.ssocio.sharing.cmmn.admin.util.FileUtil;
+import com.ssocio.sharing.cmmn.util.JsonUtil;
+import com.ssocio.sharing.dao.web.WebTestDao;
+import com.ssocio.sharing.vo.web.HeaderVO;
+
+@Service
+public class WebTestServiceImpl extends WebReferServiceImpl implements WebTestService {
+	
+	/* ========================================================================= */
+	/* # Log 설정ㅇㅇㅇ
+	/* ========================================================================= */
+	private static final Logger logger = LoggerFactory.getLogger(WebTestServiceImpl.class);
+
+	
+	@Resource(name="webTestDao")
+	private WebTestDao webTestDao;
+	
+	@Override
+	public void testfileUpload(MultipartHttpServletRequest req) {
+		MultipartFile files = req.getFile("test");
+		
+		System.out.println(files);
+		try {
+			 FileUtil.saveMultipartFile(files);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+	}
+	/**   
+	 * <pre>
+	 * 전체 카테고리 가져오기
+	 * 전체 카테고리 가져오기 
+	 * @param headerObj
+	 * @param bodyParam
+	 * @return
+	 * @exception
+	 * @date 2015. 7. 7. 오후 4:37:59
+	 * @author LeeJinSe
+	 * @see com.ssocio.sharing.service.web.WebTestService#getCrtyList(com.ssocio.sharing.vo.web.HeaderVO, java.util.Map)
+	 * @비고
+	 * 
+	 * </pre>
+	*/
+	@Override
+	public Map<String, Object> getCrtyList(HeaderVO headerObj, Map<String, Object> bodyParam) throws Exception {
+		logger.info("@@@@@@@ deleteBoard ServiceImpl Start @@@@@@@@");
+		List<Map<String, Object>> maplist = new ArrayList<Map<String, Object>>();
+		List<Map<String, Object>> volist = new ArrayList<Map<String, Object>>();
+		Map<String, Object> outdata = new HashMap<String, Object>();
+		
+		JsonUtil ju= new JsonUtil();
+		
+		try {
+			maplist=  webTestDao.getCrtyList(bodyParam);
+			//대메뉴 구성
+			for(int i=0; i< maplist.size(); i++){
+				
+				String lvl = String.valueOf(maplist.get(i).get("LVL_SEQ"));
+				
+				if("1".equals(lvl)){
+					Map<String, Object> voMap = new HashMap<String, Object>();
+					String ctry_nm =  String.valueOf(maplist.get(i).get("CTRY_NM"));
+					String ctry_cd =  String.valueOf(maplist.get(i).get("CTRY_CD"));
+					voMap.put("ctry_nm", ctry_nm);
+					voMap.put("ctry_cd", ctry_cd);
+					volist.add(i, voMap);
+				}
+			}
+			
+			for(int z=0; z<volist.size(); z++){
+				
+				
+				
+			  String ctry_parent = String.valueOf(volist.get(z).get("ctry_cd"));
+			  List<Map<String, Object>> volist2 = new ArrayList<Map<String, Object>>();
+			  
+			  
+			  for(int j=0; j<maplist.size(); j++){
+				  
+				  String sub_ctry = String.valueOf(maplist.get(j).get("PARENT_CTRY_CD"));
+				  //상위 코드랑 하위 코드 비교
+				  if(ctry_parent.equals(sub_ctry)){
+					  
+					  String name = String.valueOf(maplist.get(j).get("CTRY_NM"));
+					  String ctry_cd = String.valueOf(maplist.get(j).get("CTRY_CD"));
+					  Map<String, Object> subdata = new HashMap<String, Object>();
+					  subdata.put("ctry_nm",name);
+					  subdata.put("ctry_cd",ctry_cd);
+					  volist2.add(subdata);
+					  
+				  }
+			  }
+			  volist.get(z).put("subctrylist",volist2);
+			  
+			  }
+			
+			for(int a=0; a<volist.size(); a++){
+				List<Map<String, Object>> volist2 = new ArrayList<Map<String, Object>>();
+				volist2 = (List<Map<String, Object>>) volist.get(a).get("subctrylist");
+				System.out.println("!@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@!");
+				System.out.println(volist2);
+				for(int i=0; i< volist2.size(); i++){
+					  List<Map<String, Object>> volist3 = new ArrayList<Map<String, Object>>();
+					  String ctry_parent = String.valueOf(volist2.get(i).get("ctry_cd"));
+						  for(int j=0; j<maplist.size(); j++){
+							  String sub_ctry = String.valueOf(maplist.get(j).get("PARENT_CTRY_CD"));
+							  
+							  if(ctry_parent.equals(sub_ctry)){
+								  String name = String.valueOf(maplist.get(j).get("CTRY_NM"));
+								  String ctry_cd = String.valueOf(maplist.get(j).get("CTRY_CD"));
+								  Map<String, Object> subdata = new HashMap<String, Object>();
+								  subdata.put("ctry_nm",name);
+								  subdata.put("ctry_cd",ctry_cd);
+								  volist3.add(subdata);
+							  }
+						  }
+					volist2.get(i).put("lastctrylist", volist3); 
+				}
+				 
+			};
+			outdata.put("result_data", volist);
+		}catch (Exception e) {
+			throw e;
+		}
+		return outdata;
+	}
+
+
+	/**
+	 * <pre>
+	 * 카테고리별 상품리스트 가져온다
+	 * 카테고리별 상품리스트 가져온다
+	 * @param headerObj
+	 * @param bodyParam
+	 * @return
+	 * @exception
+	 * @date 2015. 7. 7. 오후 4:38:03
+	 * @author LeeJinSe
+	 * @see com.ssocio.sharing.service.web.WebTestService#getAllPordList(com.ssocio.sharing.vo.web.HeaderVO, java.util.Map)
+	 * @비고
+	 * 
+	 * </pre>
+	*/
+	@Override
+	public Map<String, Object> getAllPordList(HeaderVO headerObj,
+			Map<String, Object> bodyParam) throws Exception {
+		// TODO Auto-generated method stub
+		List<Map<String, Object>> maplist = null;
+		List<Map<String, Object>> recomprodlist = null;
+		List<Map<String, Object>> maplist2 = null;
+		Map<String, Object> prodlist = new HashMap<String,Object>();
+		Map<String, Object> outData = new HashMap<String,Object>();
+		Map<String, Object> inParam = new HashMap<String,Object>();
+	
+		
+		try {
+			maplist=  webTestDao.getAllPordList(bodyParam);
+			
+			maplist2 = webTestDao.getCateGoryfirstCD();
+			
+			prodlist.put("전체", maplist);
+			
+			for(int i=0; i<maplist2.size(); i++){
+				Map<String, Object> vodata = new HashMap<String,Object>();
+				String CTRY_CD = (String) maplist2.get(i).get("CTRY_CD");
+				inParam.put("ctry_cd", CTRY_CD);
+				String ctry_nm = (String) maplist2.get(i).get("CTRY_NM");
+				System.out.println(CTRY_CD);
+				vodata.put("ctry_cd", CTRY_CD);
+				vodata.put("ctryProdlist", 	webTestDao.getSelectCategoryProd(inParam));
+				prodlist.put(ctry_nm, vodata)	;
+			}
+			
+			
+			recomprodlist = webTestDao.getRecomProdlist(inParam);
+			outData.put("recomlist", recomprodlist);
+			outData.put("prodlist", prodlist);
+		System.out.println(prodlist.toString());		
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return outData;
+	}
+
+
+	/**
+	 * <pre>
+	 * 상품 알림 등록/해제 
+	 * 상품 알림 등록/해제 
+	 * @param headerObj
+	 * @param bodyParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 8. 오후 9:14:36
+	 * @author LeeJinSe
+	 * @see com.ssocio.sharing.service.web.WebTestService#updateAlarmReliReg(com.ssocio.sharing.vo.web.HeaderVO, java.util.Map)
+	 * @비고
+	 * 
+	 * </pre>
+	*/
+	@Override
+	public Map<String, Object> updateAlarmReliReg(HeaderVO headerObj,Map<String, Object> bodyParam) throws Exception {
+		Map<String, Object> inParam = new HashMap<String,Object>();
+		Map<String, Object> voData = new HashMap<String,Object>();
+		inParam.put("sales_alert", bodyParam.get("sales_alert"));
+		inParam.put("prod_code", bodyParam.get("prod_code"));
+		Integer retCnt = 0;
+		
+		try {
+			
+			retCnt = webTestDao.updateAlarmReliReg(inParam);
+			if(retCnt > 0){
+				logger.info("업데이트 성공");
+				voData.put("ret_code", "S");
+			}else{
+				voData.put("ret_code", "F");
+				logger.info("업데이트 실패");
+			}
+			
+			
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return voData;
+	}
+
+
+	/**
+	 * <pre>
+	 * 회원 정보 조회
+	 * 회원 정보 조회
+	 * @param headerObj
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 8. 오후 9:14:34
+	 * @author LeeJinSe
+	 * @see com.ssocio.sharing.service.web.WebTestService#selectUserInfo(com.ssocio.sharing.vo.web.HeaderVO)
+	 * @비고
+	 * 
+	 * </pre>
+	*/
+	@Override
+	public Map<String, Object> selectUserInfo(HeaderVO headerObj) throws Exception {
+		Map<String, Object> inParam = new ModelMap();
+		Map<String, Object> outData = new ModelMap();
+		
+		try {
+			outData = webTestDao.selectUserInfo(inParam);
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return outData;
+	}
+
+
+	/**
+	 * <pre>
+	 * 상품 검색 결과 리스트
+	 * 상품 검색 결과 리스트
+	 * @param headerObj
+	 * @param bodyParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 9. 오후 4:20:12
+	 * @author LeeJinSe
+	 * @see com.ssocio.sharing.service.web.WebTestService#selecSearchProd(com.ssocio.sharing.vo.web.HeaderVO, java.util.Map)
+	 * @비고
+	 * 
+	 * </pre>
+	*/
+	@Override
+	public Map<String, Object> selecSearchProd(HeaderVO headerObj,Map<String, Object> bodyParam) throws Exception {
+		List<Map<String, Object>> outData = new ArrayList<Map<String, Object>>();
+		ModelMap voData= new ModelMap();
+		String SORT_TYPE = (String) bodyParam.get("SORT_TYPE");
+		String page_no = (String) bodyParam.get("PAGE_NO");
+		String SEARCH_CTRY = (String) bodyParam.get("SEARCH_CTRY");
+		Integer maxrow = 0;
+		Integer minrow = 0;
+		if(page_no != "1"){
+			maxrow = Integer.parseInt(page_no) * 20;
+			minrow = maxrow - 20;
+		}else{
+			maxrow = 20;
+			minrow = 0;
+		}
+		bodyParam.put("minrow", minrow);
+		bodyParam.put("maxrow", maxrow);
+		
+		if(SEARCH_CTRY != null){
+			String subCatory = SEARCH_CTRY.substring(0, 4);
+			bodyParam.put("subCategory", subCatory);
+		}
+		
+		try {
+			// SORT_TYPE :
+			//  인기순 (판매 제일 많이 된 상품 ): EXP_QTY
+			//  최신순 :UPDT_DT
+			//  낮은가격순 : LOW_SELL_PRCE
+			// 높은 가격순 : SELL_PRCE
+			// wish(전체 유저기준) 순 : wish
+			// 알림순 : alert
+			switch (SORT_TYPE){
+			case "EXP_QTY" : 
+			case "UPDT_DT" : 
+			case "LOW_SELL_PRCE" : 
+			case "SELL_PRCE" : 
+				outData =  webTestDao.selectTalentProd(bodyParam);
+				voData.put("PROD_LIST", outData);
+			case "WISH" : 
+				outData =  webTestDao.selectwishProd(bodyParam);
+				voData.put("PROD_LIST", outData);
+			case "ALERT" : 
+				outData =  webTestDao.selectAlertProd(bodyParam);
+				voData.put("PROD_LIST", outData);
+			}
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return voData;
+	}
+
+
+	@Override
+	public Map<String, Object> selectSharProdList(HeaderVO headerObj,Map<String, Object> bodyParam) throws Exception {
+		Map<String, Object> voData = new HashMap<String, Object>();
+		List<Map<String, Object>> outData = new ArrayList<Map<String, Object>>();
+		try {
+			outData =  webTestDao.selectSharProdList();
+			voData.put("prod_list", outData);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return voData;
+	}
+
+
+	/**
+	 * <pre>
+	 * 추천상품 리스트
+	 * 추천상품 리스트
+	 * @param bodyParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 9. 오후 7:26:12
+	 * @author LeeJinSe
+	 * @see com.ssocio.sharing.service.web.WebTestService#selectRecomProdList(java.util.Map)
+	 * @비고
+	 * 
+	 * </pre>
+	*/
+	@Override
+	public Map<String, Object> selectRecomProdList(Map<String, Object> bodyParam)throws Exception {
+		Map<String, Object> voData = new HashMap<String, Object>();
+		List<Map<String, Object>> outData = new ArrayList<Map<String, Object>>();
+		try {
+			String page_no = (String) bodyParam.get("PAGE_NO");
+			Integer maxrow = 0;
+			Integer minrow = 0;
+			if(page_no != "1"){
+				maxrow = Integer.parseInt(page_no) * 20;
+				minrow = maxrow - 20;
+			}else{
+				maxrow = 20;
+				minrow = 0;
+			}
+			bodyParam.put("minrow", minrow);
+			bodyParam.put("maxrow", maxrow);
+			
+			outData =  webTestDao.selectRecomProdList(bodyParam);
+			voData.put("prod_list", outData);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return voData;
+	}
+
+
+	/**
+	 * <pre>
+	 * 기획전 리스트
+	 * 기획전 리스트
+	 * @param bodyParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 9. 오후 7:34:18
+	 * @author LeeJinSe
+	 * @see com.ssocio.sharing.service.web.WebTestService#selectPlanProdList(java.util.Map)
+	 * @비고
+	 * 
+	 * </pre>
+	*/
+	@Override
+	public Map<String, Object> selectPlanList(Map<String, Object> bodyParam){
+		Map<String, Object> voData = new HashMap<String, Object>();
+		List<Map<String, Object>> outData = new ArrayList<Map<String, Object>>();
+		try {
+			String page_no = (String) bodyParam.get("PAGE_NO");
+			
+			System.out.println("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+			System.out.println("PAGE_NO : " + page_no );
+			System.out.println("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+			Integer maxrow = 0;
+			Integer minrow = 0;
+			if(page_no != "1"){
+				maxrow = Integer.parseInt(page_no) * 20;
+				minrow = maxrow - 20;
+			}else{
+				maxrow = 20;
+				minrow = 0;
+			}
+			bodyParam.put("minrow", minrow);
+			bodyParam.put("maxrow", maxrow);
+			
+			outData =  webTestDao.selectPlanList(bodyParam);
+			voData.put("banner_list", outData);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return voData;
+	}
+
+
+	/**
+	 * <pre>
+	 * 기획전 상품 리스트 가져오기
+	 * 기획전 상품 리스트 가져오기 
+	 * @param bodyParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 9. 오후 7:43:12
+	 * @author LeeJinSe
+	 * @see com.ssocio.sharing.service.web.WebTestService#selectPlanProdList(java.util.Map)
+	 * @비고
+	 * 
+	 * </pre>
+	*/
+	@Override
+	public Map<String, Object> selectPlanProdList(Map<String, Object> bodyParam)
+			throws Exception {
+		Map<String, Object> voData = new HashMap<String, Object>();
+		List<Map<String, Object>> outData = new ArrayList<Map<String, Object>>();
+		try {
+			outData =  webTestDao.selectPlanProdList(bodyParam);
+			voData.put("prod_list", outData);
+			voData.put("plan_img_url", webTestDao.selectMainBannerImg(bodyParam));
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return voData;
+	}
+
+
+	@Override
+	public Map<String, Object> selectFavoProdList(HeaderVO headerObj,Map<String, Object> bodyParam) throws Exception {
+		Map<String, Object> voData = new HashMap<String, Object>();
+		List<Map<String, Object>> outData = new ArrayList<Map<String, Object>>();
+		List<Map<String, Object>> favorCtryData = new ArrayList<Map<String, Object>>();
+		Map<String, Object> inParam = new HashMap<String,Object>();
+//		String member_no = headerObj.getMBER_SEQ();
+//		inParam.put("mber_seq", member_no);
+		try {
+			outData =  webTestDao.selectFavoProdList(inParam);
+			
+			voData.put("prod_list", outData);
+			voData.put("ctry_cd", webTestDao.selectFavoCtryList(inParam));
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return voData;
+	}
+
+
+	/**
+	 * <pre>
+	 * 관심상품 수정/삭제
+	 * 관심상품 수정/삭제
+	 * @param headerObj
+	 * @param bodyParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 9. 오후 10:47:08
+	 * @author LeeJinSe
+	 * @see com.ssocio.sharing.service.web.WebTestService#updateFavoSetReg(com.ssocio.sharing.vo.web.HeaderVO, java.util.Map)
+	 * @비고
+	 * 
+	 * </pre>
+	*/
+	@Override
+	public Map<String, Object> updateFavoSetReg(HeaderVO headerObj,
+			Map<String, Object> bodyParam) throws Exception {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+
+	/**
+	 * <pre>
+	 * 최근본 상품 리스트 가져오기
+	 * 최근본 상품 리스트 가져오기
+	 * @param headerObj
+	 * @param bodyParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 9. 오후 10:54:20
+	 * @author LeeJinSe
+	 * @see com.ssocio.sharing.service.web.WebTestService#selectLateProdList(com.ssocio.sharing.vo.web.HeaderVO, java.util.Map)
+	 * @비고
+	 * 
+	 * </pre>
+	*/
+	@Override
+	public Map<String, Object> selectLateProdList(HeaderVO headerObj,Map<String, Object> bodyParam) throws Exception {
+		Map<String, Object> voData = new HashMap<String, Object>();
+		List<Map<String, Object>> outData = new ArrayList<Map<String, Object>>();
+		Map<String, Object> inParam = new HashMap<String,Object>();
+//		String member_no = headerObj.getMBER_SEQ();
+//		inParam.put("mber_seq", member_no);
+		try {
+			String page_no = (String) bodyParam.get("PAGE_NO");
+			Integer maxrow = 0;
+			Integer minrow = 0;
+			if(page_no != "1"){
+				maxrow = Integer.parseInt(page_no) * 20;
+				minrow = maxrow - 20;
+			}else{
+				maxrow = 20;
+				minrow = 0;
+			}
+			inParam.put("minrow", minrow);
+			inParam.put("maxrow", maxrow);
+			
+			outData =  webTestDao.selectLateProdList(inParam);
+			voData.put("prod_list", outData);
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return voData;
+	}
+
+
+	/**
+	 * <pre>
+	  * 최근 본  상품 삭제하기
+	  * 최근 본  상품 삭제하기
+	 * @param headerObj
+	 * @param bodyParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 9. 오후 11:24:44
+	 * @author LeeJinSe
+	 * @see com.ssocio.sharing.service.web.WebTestService#deleteLateProd(com.ssocio.sharing.vo.web.HeaderVO, java.util.Map)
+	 * @비고
+	 * 
+	 * </pre>
+	*/
+	@Override
+	public Map<String, Object> deleteLateProd(HeaderVO headerObj,Map<String, Object> bodyParam) throws Exception {
+		Map<String, Object> voData = new HashMap<String, Object>();
+		List<Map<String, Object>> outData = new ArrayList<Map<String, Object>>();
+		Map<String, Object> inParam = new HashMap<String,Object>();
+//		inParam.put("mber_seq", headerObj.getMBER_SEQ());
+//		inParam.put("prod_code", bodyParam.get("PROD_CODE"));
+		Integer resultCnt = 0;
+		try {
+			resultCnt = webTestDao.deleteLateProd(inParam);
+			
+			if(resultCnt > 0){
+				voData.put("ret_code", "S");
+			}else{
+				voData.put("ret_code", "F");
+			}
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return voData;
+	}
+
+
+	/**
+	 * <pre>
+	 * 장바구니 리스트 가져오기
+	 * 장바구니 리스트 가져오기
+	 * @param headerObj
+	 * @param bodyParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 10. 오후 1:25:37
+	 * @author LeeJinSe
+	 * @see com.ssocio.sharing.service.web.WebTestService#SelectCartProdlist(com.ssocio.sharing.vo.web.HeaderVO, java.util.Map)
+	 * @비고
+	 * 
+	 * </pre>
+	*/
+	@Override
+	public Map<String, Object> SelectCartProdlist(HeaderVO headerObj,Map<String, Object> bodyParam) throws Exception {
+		Map<String, Object> voData = new HashMap<String, Object>();
+		List<Map<String, Object>> outData = new ArrayList<Map<String, Object>>();
+		try {
+//			bodyParam.put("mber_seq", headerObj.getMBER_SEQ());
+			String page_no = (String) bodyParam.get("PAGE_NO");
+			String prod_type_cd = (String) bodyParam.get("PROD_TYPE_CD");
+			Integer maxrow = 0;
+			Integer minrow = 0;
+			if(page_no != "1"){
+				maxrow = Integer.parseInt(page_no) * 20;
+				minrow = maxrow - 20;
+			}else{
+				maxrow = 20;
+				minrow = 0;
+			}
+			bodyParam.put("minrow", minrow);
+			bodyParam.put("maxrow", maxrow);
+			
+			if(prod_type_cd.equals("1")){
+				
+				outData =  webTestDao.selectCardSellProdList(bodyParam);
+			}else{
+				outData =  webTestDao.selectCardSharingProdList(bodyParam);
+				
+			}
+			
+			voData.put("prod_list", outData);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return voData;
+	}
+
+
+	/**
+	 * <pre>
+	 * 미니샵 리스트 가져오기
+	 * 미니샵 리스트 가져오기 
+	 * @param headerObj
+	 * @param bodyParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 10. 오후 4:25:58
+	 * @author LeeJinSe
+	 * @see com.ssocio.sharing.service.web.WebTestService#SelectMiniShoplist(com.ssocio.sharing.vo.web.HeaderVO, java.util.Map)
+	 * @비고
+	 * 
+	 * </pre>
+	*/
+	@Override
+	public Map<String, Object> SelectMiniShoplist(HeaderVO headerObj,Map<String, Object> bodyParam) throws Exception {
+		Map<String, Object> voData = new HashMap<String, Object>();
+		List<Map<String, Object>> prodlist = new ArrayList<Map<String, Object>>();
+		List<Map<String, Object>> categorylist = new ArrayList<Map<String, Object>>();
+		Map<String, Object> user_info = new HashMap<String, Object>();
+		List<String> list = new ArrayList<String>();
+		try {
+			bodyParam.put("mber_seq", (String) bodyParam.get("MBER_SEQ"));
+			String page_no = (String) bodyParam.get("PAGE_NO");
+			Integer maxrow = 0;
+			Integer minrow = 0;
+			if(page_no != "1"){
+				maxrow = Integer.parseInt(page_no) * 20;
+				minrow = maxrow - 20;
+			}else{
+				maxrow = 20;
+				minrow = 0;
+			}
+			bodyParam.put("minrow", minrow);
+			bodyParam.put("maxrow", maxrow);
+			
+				
+			prodlist =  webTestDao.SelectMiniShoplist(bodyParam);
+			
+			for(int i=0; i < prodlist.size(); i++){
+				list.add((String) prodlist.get(i).get("CTRY_CD"));
+			}
+			
+			user_info =  webTestDao.SelectMiniShopUser(bodyParam);
+			
+			categorylist =  webTestDao.SelectCategoryList(list);
+			
+			voData.put("prod_list", prodlist);
+			voData.put("user_info", user_info);
+			voData.put("categorylist", categorylist);
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return voData;
+	}
+
+
+	/**
+	 * <pre>
+	 * 미니샵 상품 리스트 
+	 * 미니샵 상품 리스트 
+	 * @param headerObj
+	 * @param bodyParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 10. 오후 4:25:54
+	 * @author LeeJinSe
+	 * @see com.ssocio.sharing.service.web.WebTestService#SelectMiniShopPodlist(com.ssocio.sharing.vo.web.HeaderVO, java.util.Map)
+	 * @비고
+	 * 
+	 * </pre>
+	*/
+	@Override
+	public Map<String, Object> SelectMiniShopPodlist(HeaderVO headerObj,
+			Map<String, Object> bodyParam) throws Exception {
+		Map<String, Object> voData = new HashMap<String, Object>();
+		List<Map<String, Object>> prodlist = new ArrayList<Map<String, Object>>();
+		try {
+			bodyParam.put("MBER_SEQ", (String) bodyParam.get("MBER_SEQ"));
+			String page_no = (String) bodyParam.get("PAGE_NO");
+			Integer maxrow = 0;
+			Integer minrow = 0;
+			if(page_no != "1"){
+				maxrow = Integer.parseInt(page_no) * 20;
+				minrow = maxrow - 20;
+			}else{
+				maxrow = 20;
+				minrow = 0;
+			}
+			bodyParam.put("MINROW", minrow);
+			bodyParam.put("MAXROW", maxrow);
+			
+			System.out.println(bodyParam);
+			prodlist =  webTestDao.SelectMiniShopPodlist(bodyParam);
+			
+			voData.put("prod_list", prodlist);
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return voData;
+	}
+
+
+	@Override
+	public Object selectNoticeLlist() throws Exception {
+		Map<String, Object> voData = new HashMap<String, Object>();
+		List<Map<String, Object>> outData = new ArrayList<Map<String, Object>>();
+		try {
+			outData =  webTestDao.selectNoticeLlist();
+			
+			voData.put("notice_list", outData);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return voData;
+	}
+
+
+	@Override
+	public Object selectNoticeDtl(Map<String, Object> inParam) throws Exception {
+		Map<String, Object> voData = new HashMap<String, Object>();
+		List<Map<String, Object>> outData = new ArrayList<Map<String, Object>>();
+		try {
+			outData =  webTestDao.selectNoticeDtl(inParam);
+			
+			voData.put("NOTIDTL_LIST", outData);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return voData;
+	}
+
+
+	@Override
+	public Map<String, Object> selectNotiDeafultinfo(Map<String, Object> inParam)
+			throws Exception {
+		Map<String, Object> voData = new HashMap<String, Object>();
+		try {
+			voData =  webTestDao.selectNotiDeafultinfo(inParam);
+			
+			voData.put("USRINFO",voData);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return voData;
+	}
+
+
+	@Override
+	public Map<String, Object> insertNoticeReg(Map<String, Object> bodyParam)
+			throws Exception {
+		Map<String, Object> voData = new HashMap<String, Object>();
+		try {
+			webTestDao.insertNoticeReg(bodyParam);
+			
+			voData.put("usrinfo",voData);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return voData;
+	}
+
+
+	/**
+	 * <pre>
+	 * 자주묻는 질문 리스트 가져오기 
+	 * 자주묻는 질문 리스트 가져오기 
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 8. 16. 오후 6:20:01
+	 * @author LeeJinSe
+	 * @see com.ssocio.sharing.service.web.WebTestService#selectFaqList()
+	 * @비고
+	 * 
+	 * </pre>
+	*/
+	@Override
+	public Object selectFaqList(Map<String, Object> inParam) throws Exception {
+		Map<String, Object> voData = new HashMap<String, Object>();
+		List<Map<String, Object>> outData = new ArrayList<Map<String, Object>>();
+		try {
+			outData =  webTestDao.selectFaqList(inParam);
+			
+			voData.put("notice_list", outData);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return voData;
+	}
+
+
+	
+
+}

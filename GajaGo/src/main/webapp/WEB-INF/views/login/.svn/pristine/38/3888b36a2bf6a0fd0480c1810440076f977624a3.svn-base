@@ -1,0 +1,1275 @@
+package com.ssocio.sharing.cmmn.elasticsearch;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.apache.lucene.queryparser.classic.QueryParser;
+import org.elasticsearch.action.delete.DeleteResponse;
+import org.elasticsearch.action.get.GetResponse;
+import org.elasticsearch.action.index.IndexResponse;
+import org.elasticsearch.action.search.SearchRequestBuilder;
+import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.action.search.SearchType;
+import org.elasticsearch.action.update.UpdateRequest;
+import org.elasticsearch.client.Client;
+import org.elasticsearch.client.transport.TransportClient;
+import org.elasticsearch.common.io.stream.StreamInput;
+import org.elasticsearch.common.settings.ImmutableSettings;
+import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.common.transport.InetSocketTransportAddress;
+import org.elasticsearch.common.xcontent.XContentBuilder;
+import org.elasticsearch.common.xcontent.XContentFactory;
+import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.index.query.QueryStringQueryBuilder;
+import org.elasticsearch.search.SearchHit;
+import org.elasticsearch.search.sort.SortOrder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
+
+import com.ssocio.sharing.cmmn.instance.config.AppConfigManager;
+import com.ssocio.sharing.cmmn.util.HangulDivide;
+import com.ssocio.sharing.cmmn.util.LoggerUtil;
+import com.ssocio.sharing.cmmn.util.StringUtil;
+
+
+
+@Component
+public class Elasticsearch {
+	private static final Logger logger = LoggerFactory.getLogger(Elasticsearch.class);
+		
+
+	@SuppressWarnings ("static-access")
+	//서버 Source
+	static String SYSTEM_IP = StringUtil.nvl(AppConfigManager.getInstance().getConfig("elasticIp"), "127.0.0.1");
+	static int PORT = StringUtil.nvlInt(AppConfigManager.getInstance().getConfig("elasticPort"), 9300);
+	  
+	//로컬 및 개발 서버 Source  절대 주석풀고 커밋 하지 말것
+//	static String SYSTEM_IP =  "220.95.212.112";
+//	static int PORT = 30313;
+	
+	  static String CLUSTER_NAME =StringUtil.nvl(AppConfigManager.getInstance().getConfig("clusterName"), "ssocio_search");
+	  static String INDEX_NAME =StringUtil.nvl(AppConfigManager.getInstance().getConfig("indexName"), "prods");
+	  static String TYPE_NAME =StringUtil.nvl(AppConfigManager.getInstance().getConfig("typeName"), "prod");
+
+	  
+	 
+	  static String TAG_INDEX_NAME =StringUtil.nvl(AppConfigManager.getInstance().getConfig("indexNameTag"), "favo_tag");
+	  static String TAG_TYPE_NAME =StringUtil.nvl(AppConfigManager.getInstance().getConfig("typeNameTag"), "tag");
+	  
+	  
+	  
+	  @SuppressWarnings("resource")
+		public static void putTagIndexing(Map<String, Object> source){
+
+			if(SYSTEM_IP.equals("220.95.212.112")){
+				PORT = 30313;
+			}
+			logger.debug("Start tag indexing");
+			source.put("MBER_SEQ", QueryParser.escape(StringUtil
+					.nvl(String.valueOf(source.get("MBER_SEQ")))));// 상품코드
+			source.put("SERIALIZE_TAG", QueryParser.escape(StringUtil.nvl((String) source
+					.get("SERIALIZE_TAG"))));// 상품명
+
+		
+			source.put("INDEX_DT", ""+System.currentTimeMillis());// 색인 등록 시각
+			// ElasticSearch 접속을 위한 기본 세팅 추가, 클러스트 이름 매칭
+			Settings settings = ImmutableSettings.settingsBuilder()
+					.put("cluster.name", CLUSTER_NAME).build();
+
+			// ElasticSearch IP 세팅
+			Client client = new TransportClient(settings)
+					.addTransportAddress(new InetSocketTransportAddress(SYSTEM_IP,
+							PORT));
+
+			try {
+
+				IndexResponse response = client
+						.prepareIndex(TAG_INDEX_NAME, TAG_TYPE_NAME,
+								(String) source.get("MBER_SEQ"))
+								.setSource(source)
+						.execute().actionGet();
+
+				logger.debug("[getId]" + response.getId());
+				logger.debug("[getIndex]" + response.getIndex());
+				logger.debug("[getType]" + response.getType());
+				logger.debug("[getVersion]" + response.getVersion());
+				logger.debug("Finished search indexing");
+				client.close();
+			} catch (Exception e) {
+				e.printStackTrace();
+				if (client != null)
+					client.close();
+
+				throw e;
+			}
+		    //특문 제거
+		  
+		}
+	  
+	  
+	@SuppressWarnings("resource")
+	public static void putSearchIndexing(Map<String, Object> source){
+
+		if(SYSTEM_IP.equals("220.95.212.112")){
+			PORT = 30313;
+		}
+		logger.debug("Start search indexing");
+		source.put("PROD_CODE", QueryParser.escape(StringUtil
+				.nvl((String) source.get("PROD_CODE"))));// 상품코드
+		source.put("PROD_NM", QueryParser.escape(StringUtil.nvl((String) source
+				.get("PROD_NM"))));// 상품명
+
+		String choWord = "";
+		try { 
+
+			choWord = HangulDivide.getHangulChoElasticParse(StringUtil.nvl(
+					(String) source.get("PROD_NM")).replaceAll("\\ ", "\\,"));
+		} catch (Exception e1) {
+			choWord = "";
+			e1.printStackTrace();
+		}
+
+		source.put("PROD_CHO", QueryParser.escape(choWord.replaceAll(",", " ")));// 키워드
+																					// 변경
+
+		source.put("KEYWORD", StringUtil.nvl((String) source.get("KEYWORD"))
+				.replaceAll("\\,", "\\ "));// 키워드 변경
+		source.put("KEYWORD", QueryParser.escape(StringUtil.nvl((String) source
+				.get("KEYWORD"))));// 키워드
+		source.put("VIEW_YN", QueryParser.escape(StringUtil.nvl((String) source
+				.get("VIEW_YN"))));// 노출여부
+
+		source.put("PROD_TYPE_CD", String.valueOf(source.get("PROD_TYPE_CD")));// 상품타입
+		String CTRY ="";
+		if(source.get("CTRY") != null && !"".equals(String.valueOf(source.get("CTRY")))){
+			CTRY = String.valueOf(source.get("CTRY"));
+		}else{
+			if("4".equals(String.valueOf(source.get("PROD_TYPE_CD")))){
+				CTRY = "0000";
+			}else{
+				CTRY = "NONE";
+			}
+			
+		}
+		source.put("CTRY",CTRY);// 카테고리
+		source.put("ORD_QTY",  Integer.parseInt((String) source.get("ORD_QTY")));// 판매수
+		source.put("SELL_PRCE",   Integer.parseInt((String) source.get("SELL_PRCE")));// 가격
+		
+		source.put("INDEX_DT", ""+System.currentTimeMillis());// 색인 등록 시각
+		// ElasticSearch 접속을 위한 기본 세팅 추가, 클러스트 이름 매칭
+		Settings settings = ImmutableSettings.settingsBuilder()
+				.put("cluster.name", CLUSTER_NAME).build();
+
+		// ElasticSearch IP 세팅
+		Client client = new TransportClient(settings)
+				.addTransportAddress(new InetSocketTransportAddress(SYSTEM_IP,
+						PORT));
+
+		try {
+
+			IndexResponse response = client
+					.prepareIndex(INDEX_NAME, TYPE_NAME,
+							(String) source.get("PROD_CODE"))
+							.setSource(source)
+					.execute().actionGet();
+
+			logger.debug("[getId]" + response.getId());
+			logger.debug("[getIndex]" + response.getIndex());
+			logger.debug("[getType]" + response.getType());
+			logger.debug("[getVersion]" + response.getVersion());
+			logger.debug("Finished search indexing");
+			client.close();
+		} catch (Exception e) {
+			e.printStackTrace();
+			if (client != null)
+				client.close();
+
+			throw e;
+		}
+	    //특문 제거
+	  
+	}
+	
+	
+	/**
+	 * ElasticSearch 칼럼정보 
+	 * 리스트
+	 *  VIEW_YN : 노출 여부 칼럼 ( not_analyzed , string )
+	 *  PROD_NM : 상품명 칼럼 ( not_analyzed , string )
+	 *  KEYWORD : 키워드 칼럼 ( not_analyzed , string )
+	 * @param DataMap int
+	 * @return void
+	 * @throws Exception
+	 * @author OJS
+	 */
+	@SuppressWarnings("resource")
+	public Map<String,Object> searchElasticSearch(Map<String, Object> paramDto, String[] PROD_TYPE_CD_PARAM, ArrayList<String> CTRY_CD) throws Exception {
+		if(SYSTEM_IP.equals("220.95.212.112")){
+			PORT = 30313;
+		}
+		List<String> prods = null;// 검색 결과
+		Settings settings = ImmutableSettings.settingsBuilder()
+				.put("cluster.name", CLUSTER_NAME).build();
+		
+		Client client = null;
+		
+		try {
+			 InetSocketTransportAddress inetSocketTransportAddress = null;
+			 inetSocketTransportAddress =  new InetSocketTransportAddress(SYSTEM_IP,PORT);
+			TransportClient transportClient =  null;
+			
+			transportClient = new TransportClient(settings);
+			transportClient.addTransportAddress(inetSocketTransportAddress);
+			 client = 	transportClient;
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		BoolQueryBuilder qb = null;
+		QueryStringQueryBuilder qS = null;
+		SearchRequestBuilder srb = null;
+		SearchResponse response = null;
+		LoggerUtil.writeMap(paramDto);
+
+		/* 이부분은 parameter를 입력받아 처리하는 부분 */
+		String searchWord = ((String) paramDto.get("searchWord")).trim(); // 검색어
+		String sortName = (String) paramDto.get("sortName"); // 정렬 컬럼
+		String sortDescribe = (String) paramDto.get("sortDescribe"); // 정렬
+																		// 방향(ASC,
+																		// DESC)
+
+		String searchTmp = "";
+		
+		// 페이징 처리용 int
+		int pageIndex = (Integer) paramDto.get("pageIndex");
+		int pageSize = (Integer) paramDto.get("pageSize");
+
+		int from = (pageIndex - 1) * pageSize;
+		int size = pageSize;
+
+		qb = QueryBuilders.boolQuery(); // Bool 쿼리빌더 초기화.
+		
+		qb = qb.must(QueryBuilders.commonTerms("VIEW_YN", "Y")); // 노출된 상품
+		if(CTRY_CD != null && CTRY_CD.size() >0){
+			qb = qb.must(QueryBuilders.inQuery("CTRY", CTRY_CD));
+		}
+		if(PROD_TYPE_CD_PARAM != null && PROD_TYPE_CD_PARAM.length >0){
+			qb = qb.must(QueryBuilders.inQuery("PROD_TYPE_CD", PROD_TYPE_CD_PARAM));
+		}
+
+		// 이 부분 부터는 형태소 분석된 칼럼 조회
+		// 특문 제거
+		searchWord = QueryParser.escape(searchWord);
+
+		if(!"".equals(searchWord) && searchWord.indexOf(" ") > -1) {
+			searchTmp = searchWord.replace(" ", "");
+			searchWord += " " + searchTmp;
+		}
+		
+		// 검색어가 입력 안됐다면 아스테리크로 바꿈
+		if (searchWord.equalsIgnoreCase("")) {
+			searchWord = "*";
+		}
+		
+		logger.info(" ### searchWord ::: " + searchWord); 
+
+		// 스트링쿼리 초기화
+		qS = QueryBuilders.queryString(searchWord);
+		qS.field("PROD_NM"); // 상품명 검색
+		qS.field("KEYWORD"); // 키워드 검색
+		qS.field("PROD_CHO"); // 키워드 검색
+		
+		qb.must(qS.analyzer("korean").analyzeWildcard(true));
+
+		
+		// 검색 쿼리에 적용
+		srb = client.prepareSearch(INDEX_NAME)
+				// 인덱스 이름
+				.setTypes(TYPE_NAME)
+				// 타입 이름
+				.setSearchType(SearchType.DFS_QUERY_THEN_FETCH)
+				.setQuery(qb)
+				.setSize(size) // 몇개를 가져올 것인가?
+				.setFrom(from) // 어디서 부터?
+				.setExplain(false)
+				.setMinScore((float) 0.7);
+		
+		if (sortDescribe.equalsIgnoreCase("DESC")) {
+			srb = srb.addSort(sortName, SortOrder.DESC); // 정렬 적용
+		} else {
+			srb = srb.addSort(sortName, SortOrder.ASC); // 정렬 적용
+		}
+		
+
+		logger.debug("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.debug("[searchWord]" + searchWord);
+		logger.debug("[sortName]" + sortName);
+		logger.debug("[sortDescribe]" + sortDescribe);
+		logger.debug("[pageIndex]" + pageIndex);
+		logger.debug("[pageSize]" + pageSize);
+		// 요청 타임아웃 10초 지정 후 실행
+		response = srb.execute().actionGet(10000);
+		long count = response.getHits().getTotalHits();
+		// 검색결과 상품
+		prods = new ArrayList<String>();
+		for (SearchHit item : response.getHits()) {
+			prods.add(item.getId());
+			
+//			String test = String.valueOf(item.getScore());
+//			System.out.println(test);
+		}
+
+		
+		
+		client.close();
+		Map<String, Object> ret = new HashMap<String, Object>();
+		ret.put("prods", prods);
+		ret.put("count", count);
+		return ret;
+}
+	
+	
+	
+	
+	@SuppressWarnings("resource")
+	public List<Map<String, Object>> searchElasticSearchCnt(Map<String, Object> paramDto,String[] PROD_TYPE_CD,String[] CTRY_CD,List<Map<String, Object>> prodTypeList) throws Exception {
+		if(SYSTEM_IP.equals("220.95.212.112")){
+			PORT = 30313;
+		}
+
+		Settings settings = ImmutableSettings.settingsBuilder()
+				.put("cluster.name", CLUSTER_NAME).build();
+		
+		Client client = null;
+		
+		InetSocketTransportAddress inetSocketTransportAddress = null;
+	     inetSocketTransportAddress =  new InetSocketTransportAddress(SYSTEM_IP,PORT);
+	     client = 	new TransportClient(settings).addTransportAddress(inetSocketTransportAddress);
+		BoolQueryBuilder qb = null;
+		QueryStringQueryBuilder qS = null;
+		SearchRequestBuilder srb = null;
+		SearchResponse response = null;
+		LoggerUtil.writeMap(paramDto);
+
+		/* 이부분은 parameter를 입력받아 처리하는 부분 */
+		String searchWord = ((String) paramDto.get("searchWord")).trim(); // 검색어
+		String sortName = (String) paramDto.get("sortName"); // 정렬 컬럼
+		String sortDescribe = (String) paramDto.get("sortDescribe"); // 정렬
+																		// 방향(ASC,
+																		// DESC)
+		
+
+		
+		//무조건 전체
+		PROD_TYPE_CD = new String[5];
+		PROD_TYPE_CD[0] = "1";
+		PROD_TYPE_CD[1] = "2";
+		PROD_TYPE_CD[2] = "3";
+		PROD_TYPE_CD[3] = "4";
+		PROD_TYPE_CD[4] = "5";
+		
+		
+		// 페이징 처리용 int
+		int pageIndex = (Integer) paramDto.get("pageIndex");
+		int pageSize = (Integer) paramDto.get("pageSize");
+
+		int from = (pageIndex - 1) * pageSize;
+		int size = pageSize;
+		
+		
+		int total = 0;
+		for (int i = 0; i < PROD_TYPE_CD.length; i++) {
+			
+			
+			
+			qb = QueryBuilders.boolQuery(); // Bool 쿼리빌더 초기화.
+			
+			qb = qb.must(QueryBuilders.commonTerms("VIEW_YN", "Y")).must(QueryBuilders.inQuery("PROD_TYPE_CD", PROD_TYPE_CD[i]));
+			
+			if(CTRY_CD != null && CTRY_CD.length >0){
+				qb = qb.must(QueryBuilders.inQuery("CTRY", CTRY_CD));
+			}
+					
+			
+
+			// 이 부분 부터는 형태소 분석된 칼럼 조회
+			// 특문 제거
+			searchWord = QueryParser.escape(searchWord);
+
+			// 검색어가 입력 안됐다면 아스테리크로 바꿈
+			if (searchWord.equalsIgnoreCase(""))
+				searchWord = "*";
+
+			// 스트링쿼리 초기화
+			qS = QueryBuilders.queryString(searchWord);
+			qS.field("PROD_NM"); // 상품명 검색
+			qS.field("KEYWORD"); // 키워드 검색
+			qS.field("PROD_CHO"); // 키워드 검색
+			
+
+			qb.must(qS.analyzer("korean").analyzeWildcard(true));
+
+			// 검색 쿼리에 적용
+			srb = client.prepareSearch(INDEX_NAME)// 인덱스 이름
+					.setTypes(TYPE_NAME)// 타입 이름
+					.setSearchType(SearchType.DFS_QUERY_THEN_FETCH)
+					.setQuery(qb)
+					.setSize(size) // 몇개를 가져올 것인가?
+					.setFrom(from) // 어디서 부터?
+					.setExplain(false)
+					.setMinScore((float) 0.7);
+			if (sortDescribe.equalsIgnoreCase("DESC")) {
+				srb = srb.addSort(sortName, SortOrder.DESC); // 정렬 적용
+			} else {
+				srb = srb.addSort(sortName, SortOrder.ASC); // 정렬 적용
+			}
+			
+			response = srb.execute().actionGet(10000);
+			long count = response.getHits().totalHits();
+			
+			Map<String, Object> prodType = new HashMap<String, Object>();
+			
+			
+			if("1".equals(PROD_TYPE_CD[i])){
+				prodType.put("PROD_TYPE_NM", "판매");
+				prodType.put("PROD_TYPE_CD", PROD_TYPE_CD[i]);
+				prodType.put("PROD_TYPE_CNT", count);
+				prodTypeList.add(prodType);
+				total += count;
+			}else if("2".equals(PROD_TYPE_CD[i])){
+				prodType.put("PROD_TYPE_NM", "셰어링");
+				prodType.put("PROD_TYPE_CD", PROD_TYPE_CD[i]);
+				prodType.put("PROD_TYPE_CNT", count);
+				prodTypeList.add(prodType);
+				total += count;
+			}else if("3".equals(PROD_TYPE_CD[i])){
+				prodType.put("PROD_TYPE_NM", "나눔");
+				prodType.put("PROD_TYPE_CD", PROD_TYPE_CD[i]);
+				prodType.put("PROD_TYPE_CNT", count);
+				prodTypeList.add(prodType);
+				total += count;
+			}else if("4".equals(PROD_TYPE_CD[i])){
+				prodType.put("PROD_TYPE_NM", "스마트폰셰어링");
+				prodType.put("PROD_TYPE_CD", PROD_TYPE_CD[i]);
+				prodType.put("PROD_TYPE_CNT", count);
+				prodTypeList.add(prodType);
+				total += count;
+			}else if("5".equals(PROD_TYPE_CD[i])){
+				prodType.put("PROD_TYPE_NM", "렌탈");
+				prodType.put("PROD_TYPE_CD", PROD_TYPE_CD[i]);
+				prodType.put("PROD_TYPE_CNT", count);
+				prodTypeList.add(prodType);
+				total += count;
+			}
+		}
+		try {
+			//전체 카운트 다시 셋팅
+			Map<String, Object> prodTypeTemp = new HashMap<String, Object>();
+			prodTypeTemp.put("PROD_TYPE_NM", "전체 상품");
+			prodTypeTemp.put("PROD_TYPE_CD","0");
+			prodTypeTemp.put("PROD_TYPE_CNT", total);
+			prodTypeList.remove(0);
+			prodTypeList.add(0,prodTypeTemp);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		client.close();
+
+	
+		return prodTypeList;
+}
+
+	
+	@SuppressWarnings("resource")
+	public List<Map<String, Object>> searchElasticSearchCtryCnt(Map<String, Object> paramDto,String[] PROD_TYPE_CD,List<Map<String, Object>> ctryTempList ,List<Map<String, Object>> ctryList) throws Exception {
+		if(SYSTEM_IP.equals("220.95.212.112")){
+			PORT = 30313;
+		}
+		List<String> prods = null;// 검색 결과
+		Settings settings = ImmutableSettings.settingsBuilder()
+				.put("cluster.name", CLUSTER_NAME).build();
+		
+		Client client = null;
+		
+		try {
+			 InetSocketTransportAddress inetSocketTransportAddress = null;
+			 inetSocketTransportAddress =  new InetSocketTransportAddress(SYSTEM_IP,PORT);
+			 client = 	new TransportClient(settings).addTransportAddress(inetSocketTransportAddress);
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		BoolQueryBuilder qb = null;
+		QueryStringQueryBuilder qS = null;
+		SearchRequestBuilder srb = null;
+		SearchResponse response = null;
+		LoggerUtil.writeMap(paramDto);
+
+		/* 이부분은 parameter를 입력받아 처리하는 부분 */
+		String searchWord = ((String) paramDto.get("searchWord")).trim(); // 검색어
+		String sortName = (String) paramDto.get("sortName"); // 정렬 컬럼
+		String sortDescribe = (String) paramDto.get("sortDescribe"); // 정렬
+																		// 방향(ASC,
+																		// DESC)
+		
+		
+		// 페이징 처리용 int
+		int pageIndex = (Integer) paramDto.get("pageIndex");
+		int pageSize = (Integer) paramDto.get("pageSize");
+
+		int from = (pageIndex - 1) * pageSize;
+		int size = pageSize;
+		
+		
+		int total = 0;
+		for (int i = 0; i < ctryTempList.size(); i++) {
+			
+			
+			if("0".equals(ctryTempList.get(i).get("CTRY"))){
+				continue;
+			}
+			qb = QueryBuilders.boolQuery(); // Bool 쿼리빌더 초기화.
+			qb = qb.must(QueryBuilders.commonTerms("VIEW_YN", "Y")).must(QueryBuilders.inQuery("CTRY", ctryTempList.get(i).get("CTRY")));
+			
+			if(PROD_TYPE_CD != null && PROD_TYPE_CD.length >0){
+				qb = qb.must(QueryBuilders.inQuery("PROD_TYPE_CD", PROD_TYPE_CD));
+			}
+
+			// 이 부분 부터는 형태소 분석된 칼럼 조회
+			// 특문 제거
+			searchWord = QueryParser.escape(searchWord);
+
+			// 검색어가 입력 안됐다면 아스테리크로 바꿈
+			if (searchWord.equalsIgnoreCase(""))
+				searchWord = "*";
+
+			// 스트링쿼리 초기화
+			qS = QueryBuilders.queryString(searchWord);
+			qS.field("PROD_NM"); // 상품명 검색
+			qS.field("KEYWORD"); // 키워드 검색
+			qS.field("PROD_CHO"); // 키워드 검색
+
+			qb.must(qS.analyzer("korean").analyzeWildcard(true));
+
+			// 검색 쿼리에 적용
+			srb = client.prepareSearch(INDEX_NAME)// 인덱스 이름
+					.setTypes(TYPE_NAME)// 타입 이름
+					.setSearchType(SearchType.COUNT)
+					.setQuery(qb)
+					.setSize(size) // 몇개를 가져올 것인가?
+					.setFrom(from) // 어디서 부터?
+					.setExplain(false)
+					.setMinScore((float) 0.7);
+			
+			if (sortDescribe.equalsIgnoreCase("DESC")) {
+				srb = srb.addSort(sortName, SortOrder.DESC); // 정렬 적용
+			} else {
+				srb = srb.addSort(sortName, SortOrder.ASC); // 정렬 적용
+			}
+			
+			response = srb.execute().actionGet(10000);
+			long count = response.getHits().totalHits();
+			
+			ctryTempList.get(i).put("CTRY_CNT", count);
+			total += count;
+			ctryList.add(ctryTempList.get(i));
+			
+		}
+		client.close();
+		Map<String, Object> ctry = new HashMap<String, Object>();
+
+				ctry.put("CTRY", "0");
+				ctry.put("CTRY_NM", "전체 카테고리");
+				ctry.put("CTRY_CNT", total);
+				ctryList.remove(0);
+				ctryList.add(0,ctry);
+
+		
+		
+	
+	
+		return ctryList;
+}
+	
+	/**
+	* <pre>
+	* 1. 메소드명 : upadteSearchIndexing
+	* 2. 작성일 : 2015. 10. 13. 오전 6:54:45
+	* 3. 작성자 : guitarhyo
+	* 4. 설명 : 엘라스틱 업데이트 용
+	* </pre>
+	* @param source
+	* @return
+	* @throws Exception
+	*/
+	@SuppressWarnings("resource")
+	public int upadteSearchIndexing(Map<String, Object> source)
+			throws Exception {
+		if(SYSTEM_IP.equals("220.95.212.112")){
+			PORT = 30313;
+		}
+		int retCnt = 0;
+		Map<String, Object> ret = new HashMap<String, Object>();
+		Settings settings = ImmutableSettings.settingsBuilder()
+				.put("cluster.name", CLUSTER_NAME).build();
+
+		Client client = new TransportClient(settings)
+				.addTransportAddress(new InetSocketTransportAddress(SYSTEM_IP,
+						PORT));
+
+		try {
+			GetResponse getResponse = client
+					.prepareGet(INDEX_NAME, TYPE_NAME,
+							(String) source.get("PROD_CODE")).execute()
+					.actionGet();
+			ret = getResponse.getSource();
+			logger.debug("getSource : " + ret.toString());
+
+			XContentBuilder xb1 = XContentFactory.jsonBuilder().startObject();
+
+			if (source.get("PROD_NM") != null && !"".equals((String) source.get("PROD_NM"))) {
+
+				xb1.field("PROD_NM", QueryParser.escape(StringUtil
+						.nvl((String) source.get("PROD_NM"))));
+
+				String choWord = "";
+				try {
+					choWord = HangulDivide.getHangulChoElasticParse(StringUtil
+							.nvl((String) source.get("PROD_NM")).replaceAll(
+									"\\ ", "\\,"));
+				} catch (Exception e1) {
+					choWord = "";
+					e1.printStackTrace();
+				}
+				xb1.field("PROD_CHO",
+						QueryParser.escape(choWord.replaceAll(",", " ")));
+
+			}
+
+			if (source.get("KEYWORD") != null  && !"".equals((String) source.get("KEYWORD"))) {
+				source.put("KEYWORD",
+						StringUtil.nvl((String) source.get("KEYWORD"))
+								.replaceAll("\\,", "\\ "));// 키워드 변경
+				xb1.field("KEYWORD", QueryParser.escape(StringUtil
+						.nvl((String) source.get("KEYWORD"))));
+			}
+
+			if (source.get("CTRY") != null  && !"".equals((String) source.get("CTRY"))) {
+				xb1.field("CTRY", QueryParser.escape(StringUtil
+						.nvl((String) source.get("CTRY"))));
+			}
+			
+			if (source.get("PROD_TYPE_CD") != null && !"".equals((String) source.get("PROD_TYPE_CD"))) {
+				xb1.field("PROD_TYPE_CD", QueryParser.escape(StringUtil
+						.nvl((String) source.get("PROD_TYPE_CD"))));
+			}
+			
+			if (source.get("VIEW_YN") != null && !"".equals((String) source.get("VIEW_YN"))) {
+				xb1.field("VIEW_YN", QueryParser.escape(StringUtil
+						.nvl((String) source.get("VIEW_YN"))));
+			}
+
+			if (source.get("ORD_QTY") != null && !"".equals((String) source.get("ORD_QTY"))) {
+				try {
+					String ORD_QTY = String.valueOf(source.get("ORD_QTY"));
+					int intQty = Integer.parseInt(ORD_QTY);
+					String ORD_QTY_OLD = String.valueOf(ret.get("ORD_QTY"));
+					int intQtyOld = Integer.parseInt(ORD_QTY_OLD);
+
+					xb1.field("ORD_QTY",(intQty + intQtyOld));
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+
+			}
+			
+			if (source.get("SELL_PRCE") != null &&  !"".equals((String) source.get("SELL_PRCE"))) {
+				try {
+					String SELL_PRCE = String.valueOf(source.get("SELL_PRCE"));
+					int intPrce = Integer.parseInt(SELL_PRCE);
+					xb1.field("SELL_PRCE", intPrce);
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+
+			}
+			xb1.endObject();
+			logger.debug(xb1.string());
+			UpdateRequest updateRequest = new UpdateRequest(INDEX_NAME,
+					TYPE_NAME, (String) source.get("PROD_CODE")).doc(xb1);
+			client.update(updateRequest).get();
+			retCnt = 1;
+		} catch (Exception e) {
+			e.printStackTrace();
+			retCnt = 0;
+			client.close();
+		} finally {
+			if (client != null)
+				client.close();
+		}
+		// 검색 쿼리에 적용
+
+		return retCnt;
+
+	}
+			
+
+	@SuppressWarnings("resource")
+	public int deleteSearchIndexing(Map<String, Object> source)
+			throws Exception {
+		if(SYSTEM_IP.equals("220.95.212.112")){
+			PORT = 30313;
+		}
+		int retCnt = 0;
+		String ret = "";
+		Settings settings = ImmutableSettings.settingsBuilder()
+				.put("cluster.name", CLUSTER_NAME).build();
+
+		Client client = new TransportClient(settings)
+				.addTransportAddress(new InetSocketTransportAddress(SYSTEM_IP,
+						PORT));
+
+		try {
+			DeleteResponse delResponse = client
+					.prepareDelete(INDEX_NAME, TYPE_NAME,
+							(String) source.get("PROD_CODE")).execute()
+					.actionGet();
+			ret = delResponse.getId();
+			logger.debug("delResponse : " + ret.toString());
+
+			
+			retCnt = 1;
+		} catch (Exception e) {
+			e.printStackTrace();
+			retCnt = 0;
+			client.close();
+		} finally {
+			if (client != null)
+				client.close();
+		}
+		// 검색 쿼리에 적용
+
+		return retCnt;
+
+	}
+	
+	
+	@SuppressWarnings("resource")
+	public int deleteTagIndexing(Map<String, Object> source)
+			throws Exception {
+		if(SYSTEM_IP.equals("220.95.212.112")){
+			PORT = 30313;
+		}
+		int retCnt = 0;
+		String ret = "";
+		Settings settings = ImmutableSettings.settingsBuilder()
+				.put("cluster.name", CLUSTER_NAME).build();
+
+		Client client = new TransportClient(settings)
+				.addTransportAddress(new InetSocketTransportAddress(SYSTEM_IP,
+						PORT));
+
+		try {
+			DeleteResponse delResponse = client
+					.prepareDelete(TAG_INDEX_NAME, TAG_TYPE_NAME,
+							(String) source.get("MBER_SEQ")).execute()
+					.actionGet();
+			ret = delResponse.getId();
+			logger.debug("delResponse : " + ret.toString());
+
+			
+			retCnt = 1;
+		} catch (Exception e) {
+			e.printStackTrace();
+			retCnt = 0;
+			client.close();
+		} finally {
+			if (client != null)
+				client.close();
+		}
+		// 검색 쿼리에 적용
+
+		return retCnt;
+
+	}
+	
+	
+	
+	/**
+	* <pre>
+	* 1. 메소드명 : getAutocompletion
+	* 2. 작성일 : 2015. 9. 28. 오후 5:43:29
+	* 3. 작성자 : guitarhyo
+	* 4. 설명 : 검색어 자동검색 
+	* </pre>
+	* @param searchWord
+	* @return
+	* @throws Exception
+	*/
+	@SuppressWarnings("resource")
+	public List<String>  getAutocompletion(String searchWord) throws Exception {
+		if(SYSTEM_IP.equals("220.95.212.112")){
+			PORT = 30313;
+		}
+		List<String> prods = null;// 검색 결과
+		logger.debug("@@@@@" + searchWord);
+		Settings settings = ImmutableSettings.settingsBuilder()
+				.put("cluster.name", CLUSTER_NAME).build();
+
+		Client client = new TransportClient(settings)
+				.addTransportAddress(new InetSocketTransportAddress(SYSTEM_IP,
+						PORT)); // 아이피와 포트 입력
+
+		BoolQueryBuilder qb = null;
+		QueryStringQueryBuilder qS = null;
+		SearchRequestBuilder srb = null;
+		SearchResponse response = null;
+
+
+		 // 노출된 상품 만
+
+		qb = QueryBuilders.boolQuery(); // Bool 쿼리빌더 초기화.
+		qb = qb.must(QueryBuilders.commonTerms("VIEW_YN", "Y")); // 노출된 상품
+																		// 만
+
+		// 이 부분 부터는 형태소 분석된 칼럼 조회
+		// 특문 제거
+		searchWord = QueryParser.escape(searchWord);
+
+		// 검색어가 입력 안됐다면 아스테리크로 바꿈
+		if (searchWord.equalsIgnoreCase(""))
+			searchWord = "*";
+
+		// 스트링쿼리 초기화
+		qS = QueryBuilders.queryString(searchWord);
+		qS.field("PROD_NM"); // 상품명 검색
+		qS.field("PROD_CHO"); // 키워드 검색
+
+		qb.must(qS.analyzer("korean").analyzeWildcard(true));
+
+		// 검색 쿼리에 적용
+		srb = client.prepareSearch(INDEX_NAME)
+				// 인덱스 이름
+				.setTypes(TYPE_NAME)
+				// 타입 이름
+				.setSearchType(SearchType.DFS_QUERY_THEN_FETCH).setQuery(qb)
+				.setSize(15) // 몇개를 가져올 것인가?
+				.setFrom(1) // 어디서 부터?
+				.setExplain(true).setMinScore((float)0.8);
+
+
+		// 요청 타임아웃 10초 지정 후 실행
+		response = srb.execute().actionGet(10000);
+
+		// 검색결과 상품
+		prods = new ArrayList<String>();
+		for (SearchHit item : response.getHits()) {
+
+			String PROD_NM = (String) item.getSource().get("PROD_NM");
+			if (PROD_NM != null && !PROD_NM.equals("")) {
+				PROD_NM = PROD_NM.replaceAll("\\\\", "").trim();
+				logger.debug(PROD_NM);
+				prods.add(PROD_NM);
+			}
+		}
+
+		client.close();
+
+		return prods;
+}
+			
+
+	
+	@SuppressWarnings("resource")
+	public Map<String,Object> getAutocompletionMap(Map<String, Object> paramDto, String[] PROD_TYPE_CD_PARAM, String [] CTRY_CD) throws Exception {
+		if(SYSTEM_IP.equals("220.95.212.112")){
+			PORT = 30313;
+		}
+		List<String> prods = null;// 검색 결과
+		Settings settings = ImmutableSettings.settingsBuilder()
+				.put("cluster.name", CLUSTER_NAME).build();
+		
+		Client client = null;
+		
+		try {
+			 InetSocketTransportAddress inetSocketTransportAddress = null;
+			 inetSocketTransportAddress =  new InetSocketTransportAddress(SYSTEM_IP,PORT);
+			TransportClient transportClient =  null;
+			
+			transportClient = new TransportClient(settings);
+			transportClient.addTransportAddress(inetSocketTransportAddress);
+			 client = 	transportClient;
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		BoolQueryBuilder qb = null;
+		QueryStringQueryBuilder qS = null;
+		SearchRequestBuilder srb = null;
+		SearchResponse response = null;
+		LoggerUtil.writeMap(paramDto);
+
+		/* 이부분은 parameter를 입력받아 처리하는 부분 */
+		String searchWord = ((String) paramDto.get("searchWord")).trim(); // 검색어
+
+		// 페이징 처리용 int
+		int pageIndex = (Integer) paramDto.get("pageIndex");
+		int pageSize = (Integer) paramDto.get("pageSize");
+
+		int from = (pageIndex - 1) * pageSize;
+		int size = pageSize;
+
+
+		qb = QueryBuilders.boolQuery(); // Bool 쿼리빌더 초기화.
+		qb = qb.must(QueryBuilders.commonTerms("VIEW_YN", "Y")); // 노출된 상품
+												
+		if(PROD_TYPE_CD_PARAM != null && PROD_TYPE_CD_PARAM.length >0){
+			qb = qb.must(QueryBuilders.termsQuery("PROD_TYPE_CD", PROD_TYPE_CD_PARAM));
+		}
+		
+		if(CTRY_CD != null && CTRY_CD.length >0){
+			qb = qb.must(QueryBuilders.termsQuery("CTRY", CTRY_CD));
+		}
+		// 이 부분 부터는 형태소 분석된 칼럼 조회
+		// 특문 제거
+		searchWord = QueryParser.escape(searchWord);
+
+		// 검색어가 입력 안됐다면 아스테리크로 바꿈
+		if (searchWord.equalsIgnoreCase(""))
+			searchWord = "*";
+
+		// 스트링쿼리 초기화
+		qS = QueryBuilders.queryString(searchWord);
+		qS.field("PROD_NM"); // 상품명 검색
+
+		qb.must(qS.analyzer("korean").analyzeWildcard(true));
+
+	
+
+		// 검색 쿼리에 적용
+		srb = client.prepareSearch(INDEX_NAME)
+				// 인덱스 이름
+				.setTypes(TYPE_NAME)
+				// 타입 이름
+				.setSearchType(SearchType.DFS_QUERY_THEN_FETCH)
+				.setQuery(qb)
+				.setSize(size) // 몇개를 가져올 것인가?
+				.setFrom(from) // 어디서 부터?
+				.setExplain(true).setMinScore((float) 0.8);
+
+		response = srb.execute().actionGet(10000);
+		
+		long count = response.getHits().getTotalHits();
+		// 검색결과 상품
+		prods = new ArrayList<String>();
+		for (SearchHit item : response.getHits()) {
+			prods.add(item.getId());
+			System.out.println(item.getSource().toString());
+
+		}
+
+		client.close();
+		Map<String, Object> ret = new HashMap<String, Object>();
+		ret.put("prods", prods);
+		ret.put("count", count);
+		return ret;
+}
+	
+	
+	@SuppressWarnings("resource")
+	public  List<Map<String, Object>>  searchElasticSearchMap(Map<String, Object> paramDto) throws Exception {
+		if(SYSTEM_IP.equals("220.95.212.112")){
+			PORT = 30313;
+		}
+		List<Map<String, Object>> prods = null;// 검색 결과
+
+		Settings settings = ImmutableSettings.settingsBuilder()
+				.put("cluster.name", CLUSTER_NAME).build();
+
+		Client client = new TransportClient(settings)
+				.addTransportAddress(new InetSocketTransportAddress(SYSTEM_IP,
+						PORT)); // 아이피와 포트 입력
+
+		BoolQueryBuilder qb = null;
+		QueryStringQueryBuilder qS = null;
+		SearchRequestBuilder srb = null;
+		SearchResponse response = null;
+
+		LoggerUtil.writeMap(paramDto);
+
+		/* 이부분은 parameter를 입력받아 처리하는 부분 */
+		String searchWord = ((String) paramDto.get("searchWord")).trim(); // 검색어
+		String sortName = (String) paramDto.get("sortName"); // 정렬 컬럼
+		String sortDescribe = (String) paramDto.get("sortDescribe"); // 정렬
+																		// 방향(ASC,
+																		// DESC)
+
+		// 페이징 처리용 int
+		int pageIndex = (Integer) paramDto.get("pageIndex");
+		int pageSize = (Integer) paramDto.get("pageSize");
+
+		int from = (pageIndex - 1) * pageSize;
+		int size = pageSize;
+
+		qb = QueryBuilders.boolQuery(); // Bool 쿼리빌더 초기화.
+		qb = qb.must(QueryBuilders.commonTerms("VIEW_YN", "Y")); // 노출된 상품
+																		// 만
+
+		// 이 부분 부터는 형태소 분석된 칼럼 조회
+		// 특문 제거
+		searchWord = QueryParser.escape(searchWord);
+
+		// 검색어가 입력 안됐다면 아스테리크로 바꿈
+		if (searchWord.equalsIgnoreCase(""))
+			searchWord = "*";
+
+		// 스트링쿼리 초기화
+		qS = QueryBuilders.queryString(searchWord);
+		qS.field("PROD_NM"); // 상품명 검색
+		qS.field("KEYWORD"); // 키워드 검색
+		qS.field("PROD_CHO"); // 키워드 검색
+
+		qb.must(qS.analyzer("korean").analyzeWildcard(true));
+
+		// 검색 쿼리에 적용
+		srb = client.prepareSearch(INDEX_NAME)
+				// 인덱스 이름
+				.setTypes(TYPE_NAME)
+				// 타입 이름
+				.setSearchType(SearchType.DFS_QUERY_THEN_FETCH).setQuery(qb)
+				.setSize(size) // 몇개를 가져올 것인가?
+				.setFrom(from) // 어디서 부터?
+				.setExplain(true).setMinScore((float) 0.8);
+
+		if (sortDescribe.equalsIgnoreCase("DESC")) {
+			srb = srb.addSort(sortName, SortOrder.DESC); // 정렬 적용
+		} else {
+			srb = srb.addSort(sortName, SortOrder.ASC); // 정렬 적용
+		}
+
+		logger.debug("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.debug("[searchWord]" + searchWord);
+		logger.debug("[sortName]" + sortName);
+		logger.debug("[sortDescribe]" + sortDescribe);
+		logger.debug("[pageIndex]" + pageIndex);
+		logger.debug("[pageSize]" + pageSize);
+		// 요청 타임아웃 10초 지정 후 실행
+		response = srb.execute().actionGet(10000);
+
+		// 검색결과 상품
+		prods = new ArrayList<Map<String, Object>>();
+		for (SearchHit item : response.getHits()) {
+			prods.add(item.getSource());
+			System.out.println(item.getSource().toString());
+			// System.out.println(item.getSourceAsString());
+		}
+
+		client.close();
+
+		return prods;
+	}
+	
+
+	/**
+	 * ElasticSearch 칼럼정보 
+	 * 리스트
+	 *  VIEW_YN : 노출 여부 칼럼 ( not_analyzed , string )
+	 *  PROD_NM : 상품명 칼럼 ( not_analyzed , string )
+	 *  KEYWORD : 키워드 칼럼 ( not_analyzed , string )
+	 * @param DataMap int
+	 * @return void
+	 * @throws Exception
+	 * @author OJS
+	 */
+	@SuppressWarnings("resource")
+	public Map<String,Object> searchElasticSearchAll(Map<String, Object> paramDto) throws Exception {
+		if(SYSTEM_IP.equals("220.95.212.112")){
+			PORT = 30313;
+		}
+		List<String> prods = null;// 검색 결과
+		Settings settings = ImmutableSettings.settingsBuilder()
+				.put("cluster.name", CLUSTER_NAME).build();
+		
+		Client client = null;
+		
+		try {
+			 InetSocketTransportAddress inetSocketTransportAddress = null;
+			 inetSocketTransportAddress =  new InetSocketTransportAddress(SYSTEM_IP,PORT);
+			TransportClient transportClient =  null;
+			
+			transportClient = new TransportClient(settings);
+			transportClient.addTransportAddress(inetSocketTransportAddress);
+			 client = 	transportClient;
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		BoolQueryBuilder qb = null;
+		QueryStringQueryBuilder qS = null;
+		SearchRequestBuilder srb = null;
+		SearchResponse response = null;
+		LoggerUtil.writeMap(paramDto);
+
+		/* 이부분은 parameter를 입력받아 처리하는 부분 */
+		String searchWord = ((String) paramDto.get("searchWord")).trim(); // 검색어
+		String sortName = (String) paramDto.get("sortName"); // 정렬 컬럼
+		String sortDescribe = (String) paramDto.get("sortDescribe"); // 정렬 방향(ASC, DESC)
+
+		// 페이징 처리용 int
+		int pageIndex = (Integer) paramDto.get("pageIndex");
+		int pageSize = (Integer) paramDto.get("pageSize");
+
+		int from = (pageIndex - 1) * pageSize;
+		int size = pageSize;
+
+		qb = QueryBuilders.boolQuery(); // Bool 쿼리빌더 초기화.
+		
+	
+		// 이 부분 부터는 형태소 분석된 칼럼 조회
+		// 특문 제거
+		searchWord = QueryParser.escape(searchWord);
+
+		// 검색어가 입력 안됐다면 아스테리크로 바꿈
+		if (searchWord.equalsIgnoreCase(""))
+			searchWord = "*";
+
+		// 스트링쿼리 초기화
+		qS = QueryBuilders.queryString(searchWord);
+		qS.field("PROD_NM"); // 상품명 검색
+
+		
+		qb.must(qS.analyzer("korean").analyzeWildcard(true));
+
+		// 검색 쿼리에 적용
+		srb = client.prepareSearch(INDEX_NAME)
+				// 인덱스 이름
+				.setTypes(TYPE_NAME)
+				// 타입 이름
+				.setSearchType(SearchType.DFS_QUERY_THEN_FETCH).setQuery(qb)
+				.setSize(size) // 몇개를 가져올 것인가?
+				.setFrom(from) // 어디서 부터?
+				.setExplain(true);
+		
+
+		
+
+		logger.debug("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+
+		logger.debug("[pageIndex]" + pageIndex);
+		logger.debug("[pageSize]" + pageSize);
+		// 요청 타임아웃 10초 지정 후 실행
+		response = srb.execute().actionGet(10000);
+
+		long count = response.getHits().getTotalHits();
+		// 검색결과 상품
+		prods = new ArrayList<String>();
+		for (SearchHit item : response.getHits()) {
+			prods.add(item.getId());
+		}
+
+		client.close();
+		Map<String, Object> ret = new HashMap<String, Object>();
+		ret.put("prods", prods);
+		ret.put("count", count);
+		return ret;
+}
+	
+	
+	public static void main(String[] args) {
+		Map<String, Object> indexingMap = new HashMap<String, Object>();
+		
+		try {
+			
+			Elasticsearch elasticsearch = new Elasticsearch();
+				System.out.println("##############################################################################");
+				System.out.println("_____________________________________________________________________________________________");
+
+			
+			 indexingMap = new HashMap<String, Object>();
+				indexingMap.put("searchWord", "스마트폰");// 검색어
+				indexingMap.put("sortName", "ORD_QTY");// 정렬 컬럼
+				indexingMap.put("sortDescribe", "DESC");//정렬 방향(ASC, DESC)
+				indexingMap.put("pageIndex", 1);// 페이징 처리용 int
+				indexingMap.put("pageSize", 50);// 페이징 처리용 int
+			//	indexingMap.put("PROD_TYPE_CD", "1");// 페이징 처리용 int
+				
+				String[] PROD_TYPE_CD = new String[5];
+//				String[] PROD_TYPE_CD = null;
+				 PROD_TYPE_CD[0] = "1";
+				 PROD_TYPE_CD[1] = "2";
+				 PROD_TYPE_CD[2] = "3";
+				 PROD_TYPE_CD[3] = "4";
+				 PROD_TYPE_CD[4] = "5";
+//				 
+//				 
+					String[] CTRY = new String[4];
+//					String[] CTRY = null;
+					CTRY[0] = "1011";
+					CTRY[1] = "1017";
+					CTRY[2] = "1001";
+					CTRY[3] = "0000";
+				
+					 
+				List<Map<String, Object>> test = new ArrayList<Map<String,Object>>();
+				 
+				 Map<String, Object> test2 = new HashMap<String, Object>();
+//				 test2 = (Map<String, Object>) elasticsearch.searchElasticSearch(indexingMap,PROD_TYPE_CD,CTRY);
+				 
+				 
+				 List<Map<String, Object>> prodTypeList = new ArrayList<Map<String,Object>>();
+//				 prodTypeList = elasticsearch.searchElasticSearchCnt(indexingMap, PROD_TYPE_CD, CTRY, prodTypeList, "");
+				 
+				 
+				 test =  (List<Map<String, Object>>) test2.get("prods");
+				 long  count = (long) test2.get("count");
+//				 for (int i = 0; i < test.size(); i++) {
+					 System.out.println(test.toString());
+//				}
+				 System.out.println(count);
+				 System.out.println(test.size());
+				 
+//				 indexingMap = new HashMap<String, Object>();
+//					indexingMap.put("PROD_CODE", "20151015010737");// 검색어
+//				int cnt =  elasticsearch.deleteSearchIndexing(indexingMap);
+//				 System.out.println(cnt);
+				 
+//				 indexingMap = new HashMap<String, Object>();
+//					indexingMap.put("PROD_CODE", "20151015010744");// 검색어
+//					indexingMap.put("ORD_QTY", "1");// 정렬 컬럼
+//				 
+//					 elasticsearch.upadteSearchIndexing(indexingMap);
+//				 System.out.println("$$$$$$$$$$$$$$$$$$$$$$$$$$");
+	
+				 
+//					String PROD_CODE = "12333";
+//					indexingMap.put("PROD_CODE", StringUtil.nvl(PROD_CODE));//상품명
+//					indexingMap.put("PROD_NM", StringUtil.nvl("스마트폰"));//상품명
+//					indexingMap.put("KEYWORD", StringUtil.nvl("스마트폰,효효"));//키워드
+//						indexingMap.put("VIEW_YN", "Y");//노출여부
+//					indexingMap.put("ORD_QTY", "0");//판매수
+//					indexingMap.put("SELL_PRCE","1000");//가걱
+//					indexingMap.put("REGIST_DT","20151111");//가걱
+//					indexingMap.put("CTRY", "0000");//가걱
+//					
+//					indexingMap.put("PROD_TYPE_CD",  "4");//상품 타입
+//					
+//					try {
+//						Elasticsearch.putSearchIndexing(indexingMap);
+//					} catch (Exception e) {
+//						e.printStackTrace();
+//					}
+					
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+
+	}
+
+}

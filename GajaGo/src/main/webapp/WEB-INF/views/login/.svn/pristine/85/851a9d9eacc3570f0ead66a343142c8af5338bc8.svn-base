@@ -1,0 +1,692 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="appCommonMapper">
+
+
+	<resultMap id="selectProductUseReport" type="hashmap">
+		<id property="BOARD_SEQ"				column="BOARD_SEQ" />
+		<result property="AVG_SCORE"		column="AVG_SCORE" />
+		<result property="MBER_EMAIL"				column="MBER_EMAIL" />
+		<result property="MBER_URL"					column="MBER_URL" />
+		<result property="LEV_URL"					column="LEV_URL" />
+		<result property="CONTENTS"				column="CONTENTS" jdbcType="CLOB" javaType="string"/>
+	</resultMap>
+
+	<resultMap id="selectProdinfo" type="hashmap">
+		<id property="PROD_CODE"					column="BOARD_SEQ" />
+		<result property="BRAND_CD"					column="AVG_SCORE" />
+		<result property="PROD_TYPE_CD"				column="PROD_TYPE_CD" />
+		<result property="NRM_PRCE"					column="NRM_PRCE"  jdbcType="DECIMAL" javaType="Integer"/>
+		<result property="SELL_PRCE"				column="SELL_PRCE" jdbcType="DECIMAL" javaType="Integer" />
+		<result property="CPON_APPLY_PSBL_YN"		column="CPON_APPLY_PSBL_YN" />
+		<result property="DLV_PRCE_TYPE_CD"			column="DLV_PRCE_TYPE_CD" />
+		<result property="BRAND_NM"					column="BRAND_NM" />
+		<result property="LEV_URL"					column="LEV_URL" />
+	</resultMap>
+
+
+
+	<resultMap id="selectListPlanTemplateContent" type="hashmap">
+		<id property="PLAN_CD"				column="PLAN_CD" />
+		<result property="PLAN_SEQ"		column="AVG_SCORE" />
+		<result property="VIEW_SEQ"				column="MBER_EMAIL" />
+		<result property="CONT_GB_CD"					column="MBER_URL" />
+		<result property="DTL_VIEW_URL"					column="DTL_VIEW_URL" />
+		<result property="CONT_NM"					column="CONT_NM" />
+		<result property="CONT_NM_USE_YN"					column="CONT_NM_USE_YN" />
+		<result property="CONT_NO"					column="CONT_NO" />
+		<result property="PLAN_VIEW_GB_CD"					column="PLAN_VIEW_GB_CD" />
+		<result property="FILE_URL"					column="FILE_URL" />
+		<result property="FILE_WIDTH"					column="FILE_WIDTH" jdbcType="DECIMAL" javaType="Integer" />
+		<result property="FILE_HEIGH"					column="FILE_HEIGH" jdbcType="DECIMAL" javaType="Integer" />
+		<result property="PLAN_TPL_GB_CD"					column="PLAN_TPL_GB_CD" />
+		<result property="ROW_CNT"					column="ROW_CNT" />
+		<result property="CONT_NO"					column="CONT_NO" />
+		<result property="CONT_VIEW_SEQ"					column="CONT_VIEW_SEQ" />
+		<result property="PROD_PERCENT"					column="PROD_PERCENT" />
+		<result property="NPROD_GB_CD"					column="NPROD_GB_CD" />
+		<result property="WISH_COUNT"					column="WISH_COUNT" />
+	</resultMap>
+
+
+
+
+    <select id="selectAppVersionChk" parameterType="hashmap" resultType="hashmap">
+	SELECT MOS_CD
+		  , VER
+		  , UPD_URL
+		  , UPD_YN
+	  FROM app_mana
+	 WHERE APP_VER_SEQ = (SELECT MAX(APP_VER_SEQ)
+	 						FROM APP_MANA
+	 					   WHERE MOS_CD = #{OS_GUBUN}
+	 					   )
+    </select>
+
+	<!--APP 실행면 노출되는  메인 공지사항 정보-->
+    <select id="selectlistNoticePopup" resultType="hashmap">
+  		   SELECT BI.BOARD_SEQ
+		        , BI.TITLE
+		        , BI.CONTENTS
+		        , BI.VIEW_YN
+		        , BI.IMPT_NOTI_YN
+		        , BI.NOTI_GB_CD
+		        , BI.MAIN_NOTI_YN
+		        , BI.POP_YN
+		        , BF.FILE_SEQ
+		    FROM BOARD_INFO BI
+		        LEFT OUTER JOIN BOARD_FILE BF ON BI.BOARD_SEQ = BF.BOARD_SEQ
+		    WHERE BI.BOARD_TYPE_CD = '10'
+		        AND BI.MAIN_NOTI_YN = 'Y'
+		        AND BI.NOTI_GB_CD <![CDATA[<>]]> '30'
+		        AND BI.VIEW_YN = 'Y'
+    </select>
+
+
+    <select id="getUerdefaultinfo" resultType="hashmap">
+		SELECT  TO_CHAR(MBER_SEQ) as MBER_SEQ
+			  , MBER_GB_CD
+			  , MBER_EMAIL
+			  , MBER_IMG
+			  , MBER_REG_GB_CD
+			  , JOIN_CHAN_CD
+			  , MBER_NM
+			  , MBER_PHONE
+			  , SELL_MBER_STAT_CD
+			  , MBER_STAT_CD
+		  FROM MBER_INFO
+		 <choose>
+	        <when test="SERIAL_KEY != null">
+	             WHERE SERIAL_KEY = #{SERIAL_KEY}
+	        </when>
+	        <otherwise>
+	              WHERE MBER_SEQ = #{MBER_SEQ}
+	        </otherwise>
+	    </choose>
+
+    </select>
+
+    <select id="getUerDtlinfo" resultType="hashmap">
+		SELECT
+		   NVL(FI.FILE_URL,'') as IMG_URL
+		 , NVL(M.MBER_GB_CD,'') as MBER_GB_CD
+		 , M.MBER_REG_GB_CD
+		 , M.MBER_EMAIL
+		 , M.MBER_NICK
+		 , M.MBER_NM
+		 , M.MBER_SEQ
+		 , M.MBER_PHONE
+		 , M.SSO_GB_CD
+		 , NVL(M.POINT,0) as POINT
+	 	<choose>
+			<when test='MBER_REG_GB_CD == "0"'>
+		 	,NVL(( SELECT (SELECT FILE_URL FROM FILE_INFO WHERE FILE_SEQ = C.FILE_SEQ)
+			  FROM MBER_LEV C
+			 WHERE  C.MBER_LEV_SEQ = MDI.BUY_MBER_LEV_SEQ
+		    ),'') AS MBER_LEV_URL
+		    , (SELECT MBER_LEV_NM
+			  FROM MBER_LEV C
+			 WHERE  C.MBER_LEV_SEQ = MDI.BUY_MBER_LEV_SEQ
+		    ) AS MBER_LEV_NM
+			</when>
+			<otherwise>
+		 	,NVL(( SELECT (SELECT FILE_URL FROM FILE_INFO WHERE FILE_SEQ = C.FILE_SEQ)
+			  FROM MBER_LEV C
+			 WHERE  C.MBER_LEV_SEQ = MDI.SELL_MBER_LEV_SEQ
+		    ),'') AS MBER_LEV_URL
+		    ,( SELECT MBER_LEV_NM
+			  FROM MBER_LEV C
+			 WHERE  C.MBER_LEV_SEQ = MDI.SELL_MBER_LEV_SEQ
+		    ) AS MBER_LEV_NM
+			</otherwise>
+		</choose>
+		 , ( SELECT COUNT(M.CPN_GRP_CD)
+		   FROM MBER_CPN_INFO M, CPN_INFO S
+		  WHERE M.CPN_GRP_CD = S.CPN_GRP_CD
+			AND M.USE_YN='N' AND M.MBER_SEQ =  <![CDATA[#{MBER_SEQ}]]>
+		AND S.EXP_START_DT <![CDATA[<]]> SYSDATE
+		AND S.EXP_END_DT <![CDATA[>]]> SYSDATE ) AS CPN_CNT
+	  FROM MBER_INFO M, FILE_INFO FI , MBER_DTL_INFO MDI
+	 WHERE M.MBER_SEQ = <![CDATA[#{MBER_SEQ}]]>
+		AND M.MBER_SEQ = MDI.MBER_SEQ
+	 	AND M.MBER_IMG = FI.FILE_SEQ(+)
+	 	AND M.MBER_SEQ = MDI.MBER_SEQ(+)
+
+    </select>
+
+    <select id="selectAgreeChk" resultType="hashmap">
+        SELECT AGR.* , agree.AGR_VER AGREED_VER
+  FROM (
+        SELECT agr.AGR_SEQ, agr.AGR_MUST_YN, agr.AGR_USE_YN, AGR.AGR_GB_CD
+            , (select com_cd_nm from code t2 where t2.grp_cd = 'AGR_NAME_CD' AND t2.com_cd = agr.AGR_NAME_CD) AGR_NAME
+            , (select com_cd_nm from code t2 where t2.grp_cd = 'AGR_GB_CD' AND t2.com_cd = agr.agr_gb_cd) agr_gb_NAME
+            , ver.AGR_MAX_VER
+        FROM (
+                SELECT ver.AGR_SEQ, max(ver.AGR_VER) AGR_MAX_VER
+                  FROM AGR_VER ver
+                 WHERE ver.AGR_SHOW_YN = 'Y'
+                 <![CDATA[
+                   AND ver.START_DT <= sysdate
+                   ]]>
+                 GROUP BY ver.AGR_SEQ ) ver
+            , AGR agr
+        WHERE ver.AGR_SEQ = agr.AGR_SEQ
+          AND agr.AGR_USE_YN = 'Y'
+		    	AND AGR_GB_CD IN
+		    	<foreach collection="AGR_GB_CD_ARR" item="item" open="(" close=")" separator=",">
+		  			#{item}
+		  		</foreach>
+    ) AGR
+    LEFT OUTER JOIN AGR_AGREE agree ON AGR.AGR_SEQ   = agree.AGR_SEQ
+                 AND agree.MBER_SEQ = #{MBER_SEQ}
+    </select>
+
+    <select id="selectListPlanTemplateContent" resultMap="selectListPlanTemplateContent" parameterType="hashmap">
+	 SELECT A.PLAN_CD
+			, A.PLAN_SEQ
+			, C.VIEW_SEQ as TEPLT_VIEW_SEQ
+			, A.CONT_GB_CD
+			, A.URL as DTL_VIEW_URL
+			, A.CONT_NM
+			, A.CONT_NM_USE_YN
+			, A.PLAN_VIEW_GB_CD
+			, B.FILE_URL
+			, B.FILE_WIDTH
+			, B.FILE_HEIGH
+			, C.PLAN_TPL_GB_CD
+			, C.ROW_CNT
+			, A.CONT_NO
+			, A.VIEW_SEQ as CONT_VIEW_SEQ
+       		, D.PROD_CODE
+			, D.CTRY_CD
+			, D.PROD_TYPE_CD
+			, D.PROD_NM
+			, D.BRAND_CD
+			, D.RECOM_YN
+			, D.KEYWORD
+			, NVL(D.BUY_PRCE,0) as BUY_PRCE
+			, NVL(D.NRM_PRCE,0) as NRM_PRCE
+			, NVL(D.SELL_PRCE,0) as SELL_PRCE
+			, D.CPON_APPLY_PSBL_YN
+			, D.DLV_PAY_GB_CD
+			, D.REGIST_DT
+		   ,( CASE WHEN  D.NRM_PRCE = 0 THEN  0
+                   WHEN  D.NRM_PRCE IS NULL THEN  0
+        	   ELSE ROUND(((D.NRM_PRCE - D.SELL_PRCE ) / D.NRM_PRCE) * 100, 0)
+              END
+            ) PROD_PERCENT
+	        , NVL(E.SHARING_PRICE,0) as SHARING_PRICE
+	        , E.DEPOSIT
+	        , F.SHARING_PRICE as SP_SHARING_PRICE
+	        , D.NPROD_GB_CD as NPROD_GB_CD
+	        , (SELECT COUNT(*) FROM PROD_WISH WHERE PROD_CODE = D.PROD_CODE) AS WISH_COUNT
+		FROM PLAN_TPL C, PLAN_CONT A, FILE_INFO B , prod D , prod_sharing E , SP_PROD_DTL F
+		WHERE C.PLAN_CD = #{PLAN_CD}
+		AND C.PLAN_CD = A.PLAN_CD
+		AND C.PLAN_SEQ = A.PLAN_SEQ (+)
+		AND A.FILE_SEQ = B.FILE_SEQ(+)
+	    AND A.CONT_NO = D.PROD_CODE(+)
+	    AND A.CONT_NO = E.PROD_CODE(+)
+	    AND A.CONT_NO = F.PROD_CODE(+)
+ 	    AND A.CONT_GB_CD in ('30', '40')
+   ORDER BY C.VIEW_SEQ , A.VIEW_SEQ ASC
+    </select>
+
+    <!-- 로그인 -->
+	<select id="introSessionSet" resultType="com.ssocio.sharing.vo.web.WebSession">
+		SELECT MBER_SEQ
+			 , MBER_GB_CD
+			 , MBER_EMAIL
+			 , MBER_PASS
+			 , MBER_NM
+			 , MBER_PHONE
+			 , MBER_REG_GB_CD
+			 , SERIAL_KEY
+		  FROM MBER_INFO
+		 WHERE SERIAL_KEY = <![CDATA[#{SERIAL_KEY}]]>
+	</select>
+
+
+	<select id="selectProdinfo" parameterType="String"  resultMap="selectProdinfo">
+	   SELECT PROD.BRAND_CD				AS BRAND_CD
+			, PROD.PROD_TYPE_CD			AS PROD_TYPE_CD
+			, NVL(PROD.NRM_PRCE,0)		AS NRM_PRCE
+			, NVL(PROD.SELL_PRCE,0)			AS SELL_PRCE
+			, PROD.CPON_APPLY_PSBL_YN	AS CPON_APPLY_PSBL_YN
+			, PROD.DLV_PAY_GB_CD		AS DLV_PRCE_TYPE_CD
+			, PROD.REGIST_DT			AS REGIST_DT
+			, BI.BRAND_NM				AS BRAND_NM			<!-- 브랜드 명 -->
+			, PROD.PROD_CODE			AS PROD_CODE
+			, ROUND(((PROD.NRM_PRCE - PROD.SELL_PRCE ) / PROD.NRM_PRCE) * 100, 0) AS PROD_PERCENT
+		FROM (
+			SELECT ROWNUM		AS RNUM
+				, PROD_CODE				<!-- 상품 코드 -->
+				, CTRY_CD				<!-- 카테고리 코드 -->
+				, PROD_TYPE_CD			<!-- 상품 구분 코드 -->
+				, PROD_NM				<!-- 상품 이름 -->
+				, BRAND_CD				<!-- 브랜드 코드 -->
+				, RECOM_YN				<!-- 추천 상품 YN -->
+				, KEYWORD				<!-- 키워드 -->
+				, BUY_PRCE				<!-- 매입가격 -->
+				, NRM_PRCE				<!-- 정상가격 -->
+				, SELL_PRCE				<!-- 판매가격 -->
+				, CPON_APPLY_PSBL_YN	<!-- 쿠폰 적용 여부 -->
+				, DLV_PAY_GB_CD		<!-- 배송비 유형 코드 -->
+				, REGIST_DT				<!-- 등록일 -->
+			FROM PROD
+			WHERE  PROD_CODE = #{prodCd}
+		) PROD
+<!-- 			LEFT OUTER JOIN PROD_BUY_CONF_INFO PBCI ON PROD.PROD_CODE = PBCI.PROD_CODE -->
+			LEFT OUTER JOIN BRAND_INFO BI ON PROD.BRAND_CD = BI.BRAND_CD
+		GROUP BY PROD.PROD_CODE, PROD.CTRY_CD, PROD.PROD_TYPE_CD, PROD.PROD_NM, PROD.BRAND_CD, PROD.RECOM_YN, PROD.KEYWORD, PROD.BUY_PRCE, PROD.NRM_PRCE, PROD.SELL_PRCE, PROD.CPON_APPLY_PSBL_YN, PROD.DLV_PAY_GB_CD, PROD.REGIST_DT, BI.BRAND_NM
+	</select>
+
+	<select id="selectProductUseReport" parameterType="String" resultMap="selectProductUseReport">
+		SELECT S.AVG_SCORE <!-- 후기 평점 -->
+			  , S.CONTENTS <!-- 상품 내용-->
+			  , S.MBER_EMAIL <!-- 이메일 -->
+			  , S.BOARD_SEQ  <!-- 게시판 시퀀스 -->
+			  , NVL(S.MBER_URL,'') AS MBER_URL <!-- 멤버 이미지 URL-->
+			  , NVL(S.LEV_URL,'') AS LEV_URL <!-- 등급 이미지 URL-->
+		 FROM (
+			SELECT AVG_SCORE
+				, CONTENTS
+				, BOARD_SEQ
+				, MI.MBER_EMAIL
+				,(SELECT FILE_URL
+					FROM FILE_INFO
+					WHERE FILE_SEQ = MI.MBER_IMG
+				) AS MBER_URL
+				,(SELECT FILE_URL
+					FROM FILE_INFO
+					WHERE FILE_SEQ = ML.FILE_SEQ
+				) AS LEV_URL
+			FROM BOARD_INFO BI
+				, MBER_INFO MI
+				, MBER_LEV ML
+			WHERE BI.MBER_SEQ = MI.MBER_SEQ
+			  AND MI.MBER_LEV_SEQ = ML.MBER_LEV_SEQ(+)
+			  AND BOARD_TYPE_CD = 70 AND BOARD_SEQ = #{SEQ}
+		  ) S
+	</select>
+	<insert id="insertFile" parameterType="hashmap" useGeneratedKeys="true" keyProperty="FILE_SEQ" keyColumn="FILE_SEQ">
+		INSERT INTO FILE_INFO
+			 (FILE_SEQ,
+			 FILE_TITLE,
+			 FILE_NM,
+			 FILE_PATH,
+			 FILE_URL,
+			 FILE_SIZE,
+			 FILE_EXT,
+			 REGIST_DT,
+			 UPDT_DT,
+			 FILE_WIDTH,
+			 FILE_HEIGH
+		)VALUES (
+			TO_CHAR(SYSDATE, 'YYYYMMDD')||LPAD(SEQ_FILE_INFO.NEXTVAL,8,0),
+			#{I_FILE_TITLE},
+			#{I_FILE_NM},
+			#{I_FILE_PATH},
+			#{I_FILE_URL},
+			#{I_FILE_SIZE},
+			#{I_FILE_EXT},
+			SYSDATE,
+			SYSDATE,
+			#{I_FILE_WIDTH},
+			#{I_FILE_HEIGH}
+		)
+	</insert>
+
+	<update id="updateUserImgReg">
+	    UPDATE MBER_INFO
+	            SET MBER_IMG = #{FILE_SEQ, jdbcType=INTEGER}
+	    WHERE MBER_SEQ = #{MBER_SEQ}
+	</update>
+
+	<update id="deleteFileinfo">
+	   DELETE FROM FILE_INFO WHERE FILE_SEQ = #{MBER_FILE_SEQ}
+	</update>
+	<delete id="deleteALLMyLately" parameterType="hashmap">
+	    DELETE FROM LATE_PROD WHERE MBER_SEQ = #{MBER_SEQ}
+	</delete>
+
+
+	<select id="selectJoinType" resultType="hashmap">
+	    SELECT B.COM_CD
+	    	 , B.COM_CD_NM
+	    	 , B.SORT_SEQ
+	      FROM GRP_CD A , CODE B
+	     WHERE A.GRP_CD = 'OPEN_TYPE'
+	       AND A.GRP_CD = B.GRP_CD
+	       AND B.USE_YN = 'Y'
+	     ORDER BY B.SORT_SEQ ASC
+	</select>
+
+	<!-- 이미지경로 디폴트 URL 가져오기 -->
+	<select id="selectSiteDefault" resultType="String">
+	   SELECT COM_CD_NM
+	     FROM CODE
+	    WHERE GRP_CD = 'SITE_DEFAULT' AND COM_CD = 'MOBILE_IMG_URL'
+	</select>
+
+	<select id="selectMypushInfo" resultType="hashmap">
+	SELECT NOTI_ALRM
+		  ,EVENT_ALRM
+		  ,FAVO_ALRM
+		  ,PROD_ALRM
+		  ,RENT_ALRM
+		  ,SELL_ALRM
+		  ,QUE_ALRM
+		  ,ANS_ALRM
+	FROM ALRM WHERE UUID = #{UUID}
+	</select>
+
+	<update id="updateMypushInfo">
+	    UPDATE ALRM SET
+	    	NOTI_ALRM = #{NOTI_ALRM}
+		  ,EVENT_ALRM = #{EVENT_ALRM}
+		  ,FAVO_ALRM = #{FAVO_ALRM}
+		  ,PROD_ALRM= #{PROD_ALRM}
+		  ,RENT_ALRM= #{RENT_ALRM}
+		  ,SELL_ALRM= #{SELL_ALRM}
+		  ,QUE_ALRM= #{QUE_ALRM}
+		  ,ANS_ALRM= #{ANS_ALRM}
+	    WHERE UUID = #{UUID}
+	</update>
+
+	<select id="selectMypageSharInfo" resultType="hashmap">
+	    	SELECT ROUND(( X.PREV / (X.PREV + X.NEXT) * 100 ), 0) AS PERC
+			  , X.PROD_NM									  AS PROD_NM
+			  , X.PROD_CODE									  AS PROD_CODE
+			  , TO_CHAR(X.OPEN_DT, 'MM-DD') 				  AS OPEN_DT
+			  , TO_CHAR(SYSDATE, 'MM-DD') 					  AS CUR_DT
+			  , TO_CHAR(X.END_DT, 'MM-DD')					  AS END_DT
+			  , TRUNC(X.END_DT- SYSDATE, 0) AS D_DAY
+			  , DECODE(SUBSTR(X.FILE_URL,0,1),'/',(SELECT COM_CD_NM
+			     FROM CODE
+			    WHERE GRP_CD = 'SITE_DEFAULT' AND COM_CD = 'MOBILE_IMG_URL')||X.FILE_URL,X.FILE_URL) as FILE_URL
+		FROM (
+		    SELECT SYSDATE - SOD.OPEN_DT AS PREV
+		        , SOD.END_DT - SYSDATE  AS NEXT
+		        , SP.PROD_NM
+		        , SOD.END_DT
+		        , FI.FILE_URL
+		        , SOD.OPEN_DT
+		        , SP.PROD_CODE
+		    FROM ORD_INFO OI
+		        INNER JOIN ORD_PROD_INFO OPI ON OI.ORD_CD = OPI.ORD_CD
+		        INNER JOIN SP_PROD SP ON SP.PROD_CODE = OPI.PROD_CODE
+		        INNER JOIN SP_OPEN_DETAIL SOD ON SOD.ORD_CD = OPI.ORD_CD
+		        INNER JOIN SP_IMAGE SI ON SI.PROD_CODE = SP.PROD_CODE
+		        INNER JOIN FILE_INFO FI ON FI.FILE_SEQ = SI.FILE_NO
+		    WHERE OI.MBER_SEQ = #{MBER_SEQ}
+		        AND OPI.PROD_TYPE_CD = '4'
+		        AND OPI.PROC_STAT_CD = '85'
+		        AND SI.SP_IMG_GB_CD = '02'
+		)X
+	</select>
+
+	<select id="selectInterest" resultType="hashmap">
+	    SELECT S.PROD_CODE
+	        , S.PROD_NM
+	        , S.NRM_PRCE
+	        , S.SELL_PRCE
+	        , S.SHARING_PRICE
+	        , S.DEPOSIT
+	        , S.SP_SHARING_PRICE
+	        , S.KEYWORD
+	        , S.MIN_PRCE
+	        , S.PROD_TYPE_CD
+            ,( CASE WHEN  S.NRM_PRCE = 0 THEN  0
+                    WHEN  S.NRM_PRCE IS NULL THEN  0
+         	   ELSE ROUND(((S.NRM_PRCE - S.SELL_PRCE ) / S.NRM_PRCE) * 100, 0)
+               END
+             ) PERCENT
+	  from (
+			SELECT P.PROD_TYPE_CD
+			, P.PROD_CODE
+			, P.PROD_NM
+			, P.NRM_PRCE
+			, P.SELL_PRCE
+			, PS.SHARING_PRICE
+			, P.KEYWORD
+			, PS.DEPOSIT
+			, SPD.SHARING_PRICE AS SP_SHARING_PRICE
+			, ROW_NUMBER() OVER(PARTITION BY P.PROD_CODE ORDER BY PS.SHARING_PRICE ASC) AS MIN_PRCE
+		FROM PROD P , SP_PROD SP , PROD_SHARING PS , SP_PROD_DTL SPD
+		WHERE P.PROD_CODE = SP.PROD_CODE(+)
+		AND P.PROD_CODE  = PS.PROD_CODE(+)
+		AND SP.PROD_CODE = SPD.PROD_CODE(+)
+		) S WHERE S.MIN_PRCE = 1
+		<if test="GUBUN == 0">
+		AND (
+			<foreach item="item" collection="tagList" index="index" open="" close="" separator="or">
+				S.PROD_NM LIKE '%' || #{item.TAG} || '%' or S.KEYWORD LIKE '%' || #{item.TAG} || '%'
+			</foreach>
+		)
+		</if>
+		<if test="GUBUN == 1">
+		 AND 	S.PROD_NM LIKE '%' || #{TAG} || '%' or S.KEYWORD LIKE '%' || #{TAG} || '%'
+		</if>
+	</select>
+
+
+	<select id="selectgetTagList" resultType="hashmap">
+	    SELECT TAG
+	      FROM PROD_FAVO
+	      WHERE MBER_SEQ = #{MBER_SEQ}
+	</select>
+	<select id="getMyminiShopInfo" resultType="hashmap">
+	    SELECT FILE_SEQ FROM MBER_MINI_SHOP_INFO WHERE MBER_SEQ = #{MBER_SEQ}
+	</select>
+
+	<update id="deleteMiniShopFileinfo">
+	    DELETE FROM FILE_INFO WHERE FILE_SEQ = #{MINISHOP_FILE_SEQ}
+	</update>
+
+	<update id="updateMyMiniShopImgReg">
+	    UPDATE MBER_MINI_SHOP_INFO
+	       SET MINI_PROFILE_SEQ = #{FILE_SEQ} <!-- 앱에서 접근시 프로필 이미지 변경처리 -->
+	    WHERE MBER_SEQ = #{MBER_SEQ}
+	</update>
+
+	<select id="SelectCntMyNewCar" resultType="Integer">
+	    SELECT COUNT(*)
+	      FROM CART
+	     WHERE MBER_SEQ = #{MBER_SEQ}
+	       AND VIEW_YN = 'N'
+	</select>
+
+	<select id="SelectCheckAlarm" resultType="Integer">
+	    SELECT COUNT(*) FROM ALRM WHERE UUID = #{UUID}
+	</select>
+
+	<insert id="insertAlrmReg">
+    	INSERT INTO ALRM
+		(
+		    UUID
+		    ,NOTI_ALRM
+		    ,EVENT_ALRM
+		    ,FAVO_ALRM
+		    ,PROD_ALRM
+		    ,RENT_ALRM
+		    ,SELL_ALRM
+		    ,QUE_ALRM
+		    ,ANS_ALRM
+		)
+		VALUES
+		(
+		  #{UUID}
+		  ,'Y'
+		  ,'Y'
+		  ,'Y'
+		  ,'Y'
+		  ,'Y'
+		  ,'Y'
+		  ,'Y'
+		  ,'Y'
+		)
+	</insert>
+
+	<update id="updateAlarmReg">
+	    UPDATE ALRM
+	       SET MBER_SEQ = #{MBER_SEQ}
+	     WHERE UUID = #{UUID}
+	</update>
+
+	<update id="updateMberConDevReg">
+	 UPDATE MBER_CON_DEV
+	   SET MBER_SEQ = #{MBER_SEQ}
+	     , DEVICE_SEQ = NVL((SELECT MAX(DEVICE_SEQ)+1 FROM MBER_CON_DEV WHERE MBER_SEQ = #{MBER_SEQ}),1)
+	  WHERE UUID = #{UUID}
+	</update>
+	
+	<select id="selectListHitCtry" resultType="hashmap" >
+	SELECT COM_CD AS CTRY_CD
+		  ,COM_CD_NM AS CTRY_NM 
+		  ,COM_CD_VAL AS FILE_URL
+	 FROM CODE 
+	 WHERE GRP_CD = 'HIT_CATEGORY' 
+	 ORDER BY SORT_SEQ
+	</select>
+	
+	<update id="updatePushinfo">
+	 UPDATE MBER_CON_DEV 
+	 	SET MBER_SEQ = null
+	 	  , DEVICE_SEQ = 1
+	 	WHERE UUID = #{UUID}	  
+	</update>
+	
+	<select id="ChkPushinfo" resultType="Integer">
+	SELECT COUNT(*) 
+	 FROM MBER_CON_DEV 
+	 WHERE UUID = #{UUID}	  
+	</select>
+	
+	<select id="selectCtryinfo" parameterType="string" resultType="hashmap">
+		SELECT COM_CD AS CTRY_CD
+		  ,COM_CD_NM AS CTRY_NM 
+		  ,COM_CD_VAL AS FILE_URL
+	 FROM CODE 
+	 WHERE GRP_CD = 'HIT_CATEGORY' 
+	 AND COM_CD = #{guBun}
+	</select>
+	
+	<select id="popularSharing" parameterType="hashmap" resultType="hashmap">
+		SELECT *
+		FROM (
+		SELECT    
+			p.prod_code AS PROD_CODE
+	        , mi.mber_seq AS MBER_SEQ
+	        , COUNT(*) AS WISH_COUNT
+		FROM      prod_wish pw
+		        , prod p
+		        , mber_info mi
+		WHERE     pw.prod_code       = p.prod_code
+		          AND p.mber_seq     = mi.mber_seq
+		          AND p.prod_type_cd = '2'
+		          AND p.prod_stat_cd = '0'
+		          AND mi.MBER_STAT_CD IN ('10', '32')
+		          AND pw.regist_dt BETWEEN SYSDATE - #{minDate} AND SYSDATE
+		GROUP BY  p.prod_code
+		        , mi.mber_seq
+		ORDER BY  COUNT(*) DESC, PROD_CODE DESC
+		) temp
+		WHERE ROWNUM <![CDATA[<=]]> 10
+	</select>
+	
+	<select id="popularSharingDetail" parameterType="hashmap" resultType="hashmap">
+		SELECT p.prod_code       AS prod_code
+			  , pi.prod_img_url      AS prod_img_url
+			  , p.prod_nm            AS prod_nm
+			  , p.CPON_APPLY_PSBL_YN AS cpon_apply_psbl_yn
+			  , p.DLV_PAY_GB_CD      AS dlv_pay_gb_cd
+			  , ps.SHARING_PRICE     AS sharing_price
+			  , m.mber_email		 AS mber_email
+			  , m.mber_seq 			 AS mber_seq
+			  , fi.file_url AS mber_img
+			  , p.keyword as keyword
+			  , p.NPROD_GB_CD as NPROD_GB_CD
+			  , (SELECT count(*) FROM prod WHERE prod_type_cd = '2' AND prod_stat_cd = '0' AND mber_seq = m.mber_seq AND NVL(STOCK_QTY, 1) > NVL(EXP_QTY, 0)) AS sharing_count
+			  , (SELECT count(*) FROM prod WHERE prod_type_cd = '1' AND prod_stat_cd = '0' AND mber_seq = m.mber_seq AND NVL(STOCK_QTY, 1) > NVL(EXP_QTY, 0)) AS sell_count
+			  , (SELECT count(*) FROM prod WHERE prod_type_cd = '3' AND prod_stat_cd = '0' AND mber_seq = m.mber_seq AND NVL(STOCK_QTY, 1) > NVL(EXP_QTY, 0)) AS divide_count
+			  <!-- , (
+			        SELECT COUNT(*)
+			        FROM ord_prod_info
+			        WHERE prod_code IN
+			            (
+			                SELECT prod_code
+			                FROM prod
+			                WHERE prod_type_cd = '2'
+			                    AND mber_seq   = m.mber_seq) ) AS sharing_count
+			  , (
+			        SELECT COUNT(*)
+			        FROM ord_prod_info
+			        WHERE prod_code IN
+			            (
+			                SELECT prod_code
+			                FROM prod
+			                WHERE prod_type_cd = '1'
+			                    AND mber_seq   = m.mber_seq) ) AS sell_count
+			  , (
+			        SELECT COUNT(*)
+			        FROM ord_prod_info
+			        WHERE prod_code IN
+			            (
+			                SELECT prod_code
+			                FROM prod
+			                WHERE prod_type_cd = '3'
+			                    AND mber_seq   = m.mber_seq) ) AS divide_count -->
+			FROM prod p
+			  , PROD_SHARING ps
+			  , prod_img pi
+			  , mber_info m
+			  , mber_mini_shop_info mmsi
+			    LEFT OUTER JOIN file_info fi
+			    ON (
+			            mmsi.file_seq = fi.file_seq
+			        )
+			WHERE p.mber_seq       = m.mber_seq
+			    AND p.prod_code    = ps.prod_code
+			    AND pi.PROD_CODE   = p.prod_code
+			    AND m.mber_seq = mmsi.mber_seq
+			    AND pi.PROD_IMG_GB_CD = '11'
+			    AND p.prod_code IN (${prod_codes})
+	</select>
+	
+	<select id="latestSharingList" parameterType="hashmap" resultType="hashmap">
+		SELECT *
+		FROM (
+		        SELECT p.prod_code  AS prod_code
+		          , pi.prod_img_url AS prod_img_url
+		          , ps.SH_STAT_CD
+		          , NVL(( SELECT to_char(CEIL(sysdate - REGIST_DT) / SHARE_TERM) 
+		          	FROM (SELECT * FROM ord_prod_info ORDER BY ord_cd DESC) 
+		          	WHERE 
+                  1 = 1 
+                  AND prod_code = p.prod_code 
+                  AND prod_type_cd = '2' 
+		          		AND PROC_STAT_CD IN ('85', '86') 
+		          		AND rownum = 1
+		          	), 'F') AS TERM
+		        FROM prod p
+		          , mber_info mi
+		          , prod_img pi
+		          , prod_sharing ps
+		        WHERE p.mber_seq          = mi.mber_seq
+		            AND p.prod_code       = pi.prod_code
+		            AND p.prod_code       = ps.prod_code
+		            AND p.prod_type_cd    = '2'
+		            AND p.prod_stat_cd    = '0'
+		            AND pi.PROD_IMG_GB_CD = '11'
+		            AND mi.MBER_STAT_CD IN ('10'
+		                                  , '32')
+		        ORDER BY p.prod_code DESC)
+		WHERE rownum <![CDATA[<=]]> 24
+	</select>
+	
+	<select id="checkWishedList" parameterType="hashmap" resultType="hashmap">
+		SELECT * FROM PROD_WISH WHERE MBER_SEQ = #{MBER_SEQ}
+	</select>
+</mapper>

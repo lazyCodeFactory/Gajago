@@ -1,0 +1,211 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c"%>
+<link rel="stylesheet" type="text/css" href="http://static.ssocio.net/admin/css/jquery.treeview.css" />
+<script type="text/javascript" src="http://static.ssocio.net/admin/js/ctry/ctry.js"></script>
+<script type="text/javascript">
+$(document).ready(function(){
+	
+	//shipmentReg();
+	//makeShipmentList('');
+});
+
+/* ======================================================================
+Function : 판매자셋팅
+========================================================================= */
+function shipmentReg(){
+	var mberSeq = '${result.prodInfo.MBER_SEQ}';
+	/* 
+	if(mberSeq != null && mberSeq != '' && mberSeq != '1'){
+		$('#seller2').attr('checked', 'checked');
+	}else{
+		$('#seller1').attr('checked', 'checked');
+		$('#sellerSpan').hide();
+	}
+	 */
+}
+
+/* ======================================================================
+Function : 검색된 판매자 세팅
+========================================================================= */
+function setSeller(sellerId, mberSeq){
+	$('#sellerId').val(sellerId);
+	$('#mberSeq').val(mberSeq);
+	//$('#popupMberSeq').val(mberSeq)
+	makeShipmentList('');
+}
+
+function makeShipmentList(grpProdSeq){
+	if ($("input:radio[id='seller1']").is(":checked"))$('#mberSeq').val(1);
+	var mberSeq = $('#mberSeq').val();
+	var grp_nm = $('#grp_nm').val();
+	var tel	= $('#tel1').val()+$('#tel2').val();
+	console.log(tel)
+	$.ajax({
+	    type: 'post'
+	    , async: true
+	    , url: '/admin/prodMgr/selectShipmentList.do'
+	    , data: {"mberSeq":mberSeq, "grpProdSeq":grpProdSeq, "grp_nm":grp_nm, "telNum":tel}
+	    , success: function(data) {
+	    	var shipmentList = data.result.shipmentList;
+	    	$('#shipmentList').empty();
+			if(shipmentList.length > 0){
+				for(var i=0; i<shipmentList.length; i++){
+					var html = '<tr>';
+					html += '<td><a href="javascript:selectShipment(\'' +shipmentList[i].GRP_PROD_SEQ+ '\');">'+shipmentList[i].GRP_NM+'</a></td>';
+					html += '<td>'+shipmentList[i].JUSO+'</td>';
+					html += '<td>'+shipmentList[i].TEL+'</td>';
+					html += '<td>'+shipmentList[i].HP+'</td>';
+					html += '<td>'+shipmentList[i].PROD_CNT+' 개</td>';
+
+                    if(shipmentList[i].BASE_YN == 'N' || shipmentList[i].BASE_YN == '') {
+                        html += '<td>'+shipmentList[i].BASE_YN+'</td>';
+                    } else if(shipmentList[i].BASE_YN == 'Y'){
+                        html += '<td style="color:red;font-weight:bold">'+shipmentList[i].BASE_YN+'</td>';
+                    }
+
+					html += '</tr>';
+					$('#shipmentList').append(html);
+				}
+			}else{
+				$('#shipmentList').append('<tr><td colspan="6">등록된 출하지가 없습니다.</td></tr>');
+			}
+	    }
+	    , error: function(data, status, err) {
+	      alert('서버와의 통신이 실패했습니다.');
+	    }
+	});
+}
+
+/* ======================================================================
+Function : 출하지정보 조회
+Return   : 없음
+========================================================================= */
+function selectShipment(grpProdSeq){
+	$('#grpProdSeq').val(grpProdSeq);
+	$("#shipmentFrm").attr("action","/admin/prodMgr/shipmentDetail.do").submit();
+}
+
+function goShipmentReg(){
+	$("#shipmentFrm").attr("action","/admin/prodMgr/shipmentReg.do").submit();
+}
+
+</script>
+<form id="shipmentFrm" name="shipmentFrm" method="post">
+<input type="hidden" id="grpProdSeq" name="grpProdSeq" value="1" />
+<input type="hidden" id="mberSeq" name="mberSeq"/>
+</form>
+<input type="hidden" id="tel" name="tel">
+<!-- content -->
+<div id="content">
+	<!-- top_content -->
+	<div class="top_content">
+		<!-- location -->
+		<div class="location">
+			<ul class="clear">
+				<li class="first-child"><a href="#">Home</a></li>
+				<li><a href="#" class="current">출하지 관리</a></li>
+			</ul>
+		</div>
+		<!-- //location -->
+	</div>
+	<!-- //top_content -->
+	
+	<!-- inner -->
+	<div class="inner">
+		<!-- tbl -->
+		<div class="tbl mt10">
+			<table class="search">
+				<colgroup>
+					<col style="width:8%">
+					<col style="width:40%">
+					<col style="width:8%">
+					<col style="width:44%">
+				</colgroup>
+				<tbody>
+					<tr>
+						<th scope="row">판매자</th>
+						<td colspan="3">
+							<input type="hidden" id="mberSeq" name="mberSeq" value="${result.prodInfo.MBER_SEQ}"/>
+							<c:if test="${empty result.prodInfo.PROD_CODE}">
+							<input type="radio" id="seller1" name="seller" value="1" onclick="makeShipmentList();"/><label for="seller1">SSOCIO</label>
+							<span class="ml10"><input type="radio" id="seller2" name="seller" value="2"/><label for="seller2">판매회원</label></span>
+							<span id="sellerSpan">
+								<span class="ml10"><input type="text" id="sellerId" name="sellerId" value="${result.prodInfo.MBER_EMAIL}" style="width:180px" readonly="readonly" /></span>
+								<a href="#" class="btn_b ml5" onclick="popup('/admin/prodMgr/selectSellerListPopup.do','prodFrom','710','760')"><span>판매회원 조회</span></a>
+							</span>
+							</c:if>
+							<c:if test="${not empty result.prodInfo.PROD_CODE && result.prodInfo.MBER_SEQ == 1}">
+							[쏘시오]
+							</c:if>
+							<c:if test="${not empty result.prodInfo.PROD_CODE && result.prodInfo.MBER_SEQ != 1}">
+							[개인] ${result.prodInfo.MBER_EMAIL}
+							</c:if>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row">출하지명</th>
+						<td colspan="3">
+							<input type="text" id="grp_nm" name="" style="width:200px">
+
+							<span class="select ml30" style="width:100px;">
+								<span class="sel_txt" style="width: 93px;">전화번호</span>
+								<select id="tel1">
+									<option value="">전화번호</option>
+								</select>
+							</span>
+							<input type="text" id="tel2" name="tel2" style="width:200px" placeholder="'-' 없이 입력" onkeyup="numberOnly(this);" onkeydown="numberOnly(this);"> 
+                               <a href="#" class="btn_chk btn_r ml20" onclick="makeShipmentList();">조회</a>
+						</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+		<!-- //tbl -->
+
+		<!-- top_tbl -->
+		<div class="top_tbl mt20 clear">
+			<p class="tr"><a href="javascript:goShipmentReg();" class="btn_chk btn_r ml20">출하지 등록</a></p>
+		</div>
+		<!-- //top_tbl -->
+		
+		
+		<!-- tbl -->
+		<div class="tbl mt10">
+			<!-- list -->
+			<table class="list">
+				<colgroup>
+					<col style="width:12%">
+					<col style="width:*">
+					<col style="width:12%">
+					<col style="width:12%">
+					<col style="width:8%">
+					<col style="width:8%">
+				</colgroup>
+				<thead>	
+					<tr>
+						<th scope="col">출하지명</th>
+						<th scope="col">주소</th>
+						<th scope="col">전화번호</th>
+						<th scope="col">휴대폰번호</th>
+						<th scope="col">상품개수</th>
+						<th scope="col">기본출하지</th>
+
+					</tr>
+				</thead>
+				<tbody id="shipmentList">
+					<tr><td colspan="6">등록된 출하지가 없습니다.</td></tr>
+				</tbody>
+			</table>
+			<!-- //list -->
+		</div>
+		<!-- //tbl -->
+		
+		<!-- bot_tbl -->
+		<div class="bot_tbl">
+		</div>
+		<!-- //bot_tbl -->
+		
+	</div>
+	<!-- //inner -->
+</div>
+<!-- //content -->

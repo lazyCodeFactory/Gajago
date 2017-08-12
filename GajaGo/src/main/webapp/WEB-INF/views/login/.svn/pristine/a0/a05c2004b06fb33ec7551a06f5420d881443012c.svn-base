@@ -1,0 +1,190 @@
+/**
+ * 
+ */
+package com.ssocio.openmarket.handler;
+
+import java.util.Arrays;
+import java.util.Enumeration;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.ui.ModelMap;
+import org.springframework.web.servlet.ModelAndView;
+
+import com.ssocio.openmarket.api.service.AuthorityAPIService;
+import com.ssocio.sharing.cmmn.handler.AbstractHandlerInterceptor;
+import com.ssocio.sharing.cmmn.security.SHA256Cipher;
+import com.ssocio.sharing.cmmn.seller.util.SellerCommonUtil;
+import com.ssocio.sharing.vo.admin.AdminSession;
+
+public class OMAuthInterceptor extends AbstractHandlerInterceptor {
+
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = -8930504123267716853L;
+	// --------------------------------------------------------------------------
+	// # Log 설정
+	// --------------------------------------------------------------------------
+	private static final Logger logger = LoggerFactory.getLogger(OMAuthInterceptor.class);
+	
+	private final String EMAIL = "Ssocio-Email";
+	private final String PASS = "Ssocio-Password";
+	private final String SERIAL_KEY = "SERIAL_KEY";
+	private final String MBER_PASS = "MBER_PASS";
+	private final String MEMBER_SEQ = "MBER_SEQ";
+	private final String HISTORY_PK = "HISTORY_PK";
+	
+	@Autowired
+	AuthorityAPIService authorityAPIService;
+
+	// --------------------------------------------------------------------------
+	
+	// # Service 설정
+	// --------------------------------------------------------------------------
+	@Override
+	@SuppressWarnings("rawtypes")
+	public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
+
+		String member_eamil = "";
+		String member_pass = "";
+		String member_name = "";
+		Map<String, Object> inParam = new HashMap<String, Object>();
+		
+		try {
+			logger.info("[OpenmarketAuthInterceptor] Start ");
+			Map<String, String> header = getHeadersInfo(request);
+			Map map = request.getParameterMap();
+			Map<String, Object> requestMap = new HashMap<String, Object>();
+			for(Object key : map.keySet()){
+			    String keyStr = String.valueOf(key);
+			    String[] value = (String[])map.get(keyStr);
+			    requestMap.put(keyStr, Arrays.toString(value));
+			}
+			
+			inParam.put("authid", header.get(EMAIL.toLowerCase()));
+			inParam.put("authpw", header.get(PASS.toLowerCase()));
+			inParam.put("api", request.getRequestURI());
+			inParam.put("param", String.valueOf(requestMap));
+			
+			authorityAPIService.insertAPIHistory(inParam);
+			request.setAttribute("inParam", inParam);
+			
+			member_eamil = header.get(EMAIL.toLowerCase());
+			member_pass = header.get(PASS.toLowerCase());
+			
+			if ( (!member_eamil.trim().equalsIgnoreCase("ssocio") 
+					&& !member_eamil.trim().equalsIgnoreCase("sabangnet")
+					&& !member_eamil.trim().equalsIgnoreCase("shoplinker")
+					&& !member_eamil.trim().equalsIgnoreCase("gugus")
+					&& !member_eamil.trim().equalsIgnoreCase("playauto")
+					) || true
+					) {
+				if (member_eamil == null || member_eamil.trim().equalsIgnoreCase("") || member_pass == null || member_pass.trim().equalsIgnoreCase("")) {
+					throw new Exception("invalid Parameter");
+				}
+
+				inParam.put("MBER_EMAIL", member_eamil);
+				
+				// 사용자 체크
+				ModelMap modelMap = authorityAPIService.selectAuthMember(inParam);
+
+				@SuppressWarnings("unchecked")
+				List<Map<String, Object>> listMap = (List<Map<String, Object>>) modelMap.get("members");
+
+				if (listMap.size() != 1) {
+					throw new Exception("query result is null or many.");
+				} 
+				member_name = String.valueOf(listMap.get(0).get("MBER_NM"));
+
+				Map<String, Object> members = listMap.get(0);
+				String password = String.valueOf(members.get(MBER_PASS));
+				
+//				String fail = String.valueOf(members.get("FAIL_CNT"));
+//				int failCnt = 0;
+//				if ( fail == null || fail.trim().equalsIgnoreCase("") ) {
+//					failCnt = 0;
+//				} else {
+//					failCnt = Integer.parseInt(fail);
+//				}
+				
+				String securepw = getEncPassword(member_pass);
+				if ( !securepw.equals(password) ) {
+					throw new Exception("invalid id and password");
+				} 
+
+				request.setAttribute("mberSeq", members.get(MEMBER_SEQ));
+				request.setAttribute("mberName", members.get("MBER_NM"));
+			}
+
+			
+//			if ( member_eamil.trim().equalsIgnoreCase("sabangnet") ) {
+//				request.setAttribute("mberSeq", "13");
+//			} else if ( member_eamil.trim().equalsIgnoreCase("shoplinker") ) {
+//				request.setAttribute("mberSeq", "14");
+//			} else if ( member_eamil.trim().equalsIgnoreCase("ssocio") ){
+//				request.setAttribute("mberSeq", "1");
+//			} else if ( member_eamil.trim().equalsIgnoreCase("gugus") ){
+//				request.setAttribute("mberSeq", "15");
+//			}
+			
+			AdminSession sessionVO = new AdminSession();
+			sessionVO.setADM_ID(member_eamil);
+			sessionVO.setADM_NM(member_name == null ? "" : member_name);
+			request.setAttribute("manager", sessionVO);
+		} catch (Exception e) {
+			e.printStackTrace();
+			response.setStatus( HttpServletResponse.SC_UNAUTHORIZED);
+			return false;
+		}
+		
+		return true;
+	}
+	
+	// --------------------------------------------------------------------------
+	// # header 정보를 map 형태로 변환
+	// --------------------------------------------------------------------------
+	private Map<String, String> getHeadersInfo(HttpServletRequest request) {
+
+		Map<String, String> map = new HashMap<String, String>();
+
+		@SuppressWarnings("rawtypes")
+		Enumeration headerNames = request.getHeaderNames();
+		while (headerNames.hasMoreElements()) {
+			String key = (String) headerNames.nextElement();
+			String value = request.getHeader(key);
+			map.put(key, value);
+		}
+
+		return map;
+	}
+	
+	@Override
+	public void postHandle(HttpServletRequest request, HttpServletResponse response, Object handler, ModelAndView mav) throws Exception {
+		
+		try {
+			@SuppressWarnings("unchecked")
+			Map<String, Object> inParam = (Map<String, Object>) request.getAttribute("inParam");
+			inParam.put("result", String.valueOf(mav.getModelMap()));
+			logger.info("########## postHandle inParam : " + String.valueOf(inParam));
+			// insert history and result mav
+			authorityAPIService.updateAPIHistory(inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+	}
+	
+	public static String getEncPassword(String pwd) {
+		SHA256Cipher sha256 = new SHA256Cipher();		// 비밀번호 암호화(단방향)
+		return sha256.getSHA256Enc(pwd);				// 비밀번호(암호화)
+	}
+	
+}

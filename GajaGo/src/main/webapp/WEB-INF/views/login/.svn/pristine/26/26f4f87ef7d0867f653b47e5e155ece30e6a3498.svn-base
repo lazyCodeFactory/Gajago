@@ -1,0 +1,481 @@
+package com.ssocio.sharing.controller.mobile;
+
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Enumeration;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.ModelMap;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.servlet.ModelAndView;
+
+import com.google.gson.Gson;
+import com.ssocio.sharing.cmmn.util.CmmnCnst;
+import com.ssocio.sharing.cmmn.util.LoggerUtil;
+import com.ssocio.sharing.vo.web.Bank;
+import com.ssocio.sharing.vo.web.HeaderVO;
+import com.ssocio.sharing.vo.web.KCredit;
+
+@Controller
+public class MobileBankController extends MobileReferController {
+	
+	// --------------------------------------------------------------------------
+	// # Log 설정
+	// --------------------------------------------------------------------------
+	private static final Logger logger = LoggerFactory.getLogger(MobileBankController.class);
+	
+
+
+	/**
+	* <pre>
+	* 1. 메소드명 : bankOrder
+	* 2. 작성일 : 2015. 9. 11. 오후 7:59:41
+	* 3. 작성자 : guitarhyo
+	* 4. 설명 : 계좌 이체  입력 페이지
+	* </pre>
+	* @param request
+	* @param response
+	* @param inParam
+	* @return
+	* @throws Exception
+	*/
+	@RequestMapping("/mobile/bank/Order.do")
+	public ModelAndView bankOrder(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception	{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("Order START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+		ModelAndView mw = new ModelAndView("web/bank/Order");
+//		mw.addObject("MBER_PHONE",inParam.get("MBER_PHONE"));		
+
+		return mw;
+	}
+	
+	/**
+	* <pre>
+	* 1. 메소드명 : bankReady
+	* 2. 작성일 : 2015. 9. 11. 오후 7:59:41
+	* 3. 작성자 : guitarhyo
+	* 4. 설명 : 상품 정보 가져와서 다날 호출
+	* </pre>
+	* @param request
+	* @param response
+	* @param inParam
+	* @return
+	* @throws Exception
+	*/
+	@RequestMapping("/mobile/bank/Ready.do")
+	public ModelAndView bankReady(HeaderVO headerObj, HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception	{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("Ready START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+		Bank bank = new Bank();
+		
+		response.setHeader("Pragma", "No-cache");
+//		request.setCharacterEncoding("euc-kr");
+		
+		
+		
+		
+		/*[ 필수 데이터 ]***************************************/
+		Map REQ_DATA = new HashMap();
+
+		/******************************************************
+		 *  TXTYPE      : AUTH	  ※ 고정값(변경하지마세요)
+		 ******************************************************/
+		REQ_DATA.put( "TXTYPE", "AUTH" );
+
+		
+//		bank.setCHARSET("EUC-KR");
+//		bank.setID("xxxxxxxx");
+//		bank.setPWD("ssssssss");
+		/******************************************************
+		 * CHARSET
+		 ******************************************************/
+		REQ_DATA.put( "CHARSET", CmmnCnst.CHAR_SET );
+
+		/******************************************************
+		 *  CPID, CPPWD : 다날에서 제공해 드린 CPID, CPPWD( function.jsp 참고 )
+		 *  CPNAME      : CP 명
+		 ******************************************************/
+		REQ_DATA.put( "CPID", CmmnCnst.BANK_ID_MERCHANT );
+		REQ_DATA.put( "CPPWD", CmmnCnst.BANK_PW_MERCHANT);
+		REQ_DATA.put( "CPNAME", CmmnCnst.CP_NAME);
+
+		 /******************************************************
+		 *  AMOUNT : 결제 금액
+		 *   - 실제 상품금액 처리 시에는 Session 혹은 DB를 이용해 처리하여 주십시오.
+		 *   - 금액 처리 시 금액변조의 위험이 있습니다.
+		 *  ITEMNAME    : 상품명
+		 *  ORDERID     : CP 주문번호
+		 ******************************************************/
+		REQ_DATA.put( "AMOUNT", (String) inParam.get("AMT_PAY") );
+		REQ_DATA.put( "ITEMNAME", (String) inParam.get("NM_ITEM") );
+		REQ_DATA.put( "ORDERID", (String) inParam.get("ID_ORDER"));
+
+		/******************************************************
+		 * USERIP       : 구매자 접속 IP
+		 * USERNAME     : 구매자 명
+		 * USERID       : 구매자 ID
+		 * USERPHONE    : 구매자 전화번호( 현금영수증 발급시 필수 )
+		 * USEREMAIL    : 구매자 EMAIL( 계좌이체/현금영수증 내역 수신용 )
+		 ******************************************************/
+		REQ_DATA.put( "USERIP",	request.getRemoteAddr() );
+		
+		REQ_DATA.put( "USERNAME", (String)inParam.get("BUYR_NAME") );
+//		REQ_DATA.put( "USERNAME", "강준영" );	// 필수값이기 때문에 임시 처리
+
+		REQ_DATA.put( "USERID",	(String)inParam.get("USERID") );
+		REQ_DATA.put( "USERPHONE", (String)inParam.get("BUYR_TEL1") );
+		REQ_DATA.put( "USEREMAIL", (String)inParam.get("BUYR_MAIL") );
+
+		/******************************************************
+		 * ISNOTI       : Noti 사용여부( Y:Default or N )
+		 * ISRECEIPT    : 현금영수증 발급여부( Y or N:Default )
+		 * RETURNURL    : CPCGI Full URL
+		 * NOTIURL      : Noti Full URL
+		 * CANCELURL    : CANCEL Event 시 이동 Full URL
+		 ******************************************************/
+		REQ_DATA.put( "ISNOTI", "N" );
+		REQ_DATA.put( "ISRECEIPT", "Y" );
+					
+		
+		String curUrl = (String)request.getAttribute("INIT_URL");
+
+		
+		REQ_DATA.put( "RETURNURL", curUrl + "/mobile/bank/CPCGI.do");	// CPCGI Full URL
+		REQ_DATA.put( "NOTIURL",  curUrl + "/mobile/bank/Noti.do");		// 결과를 꽂아줄  URL
+		REQ_DATA.put( "CANCELURL", curUrl + "/mobile/bank/Cancel.do");	//	취소 URL
+		
+		/*[ 선택 사항 ]****************************************/
+		/******************************************************
+		 * BYPASSVALUE  : 추가필드 값
+		 ******************************************************/
+		REQ_DATA.put( "BYPASSVALUE", "Field1=abc;Field2=def;" );
+
+
+		
+		logger.info("###[ready][request]"+new Gson().toJson(REQ_DATA));
+		Map RES_DATA = bank.CallTrans(REQ_DATA); 
+		logger.info("###[ready][response]"+new Gson().toJson(RES_DATA));
+
+
+
+		if( RES_DATA.get("RETURNCODE").equals("0000") ){
+			/******************************************************
+			 * OSTYPE	: MOBILE OS 선택( A : ANDROID or I : IOS )
+			 * CLIENTTYPE	: MOBILE CLIENT 선택( M : MOBILE WEB or A : MOBILE APP )
+			 * APPSCHEME	: MOBILE APP SCHEME( IOS MOBILE APP 연동 시 필수 )
+			 ******************************************************/
+			String osType = "";
+			String clientType = "M";
+			String appScheme = "";
+
+
+//			}
+			
+			
+			
+			String session = (String) request.getSession().getAttribute("APP");	// SSOCIO 면 app
+			if(session != null && session.equals("SSOCIO")){
+				clientType = "A";
+			}else{
+				clientType = "M";
+			}
+
+			
+			String userAgent = request.getHeader("user-agent");			
+			if(userAgent.matches(".*BlackBerry.*")) {
+			} else if(userAgent.matches(".*Android.*")) {
+				osType = "A";
+			} else if(userAgent.matches(".*iPhone.*") || userAgent.matches(".*iPad.*")) {
+				osType = "I";
+				appScheme = "danalssocio://";
+			} else {
+				// pc
+			}
+			
+			
+			String inputStr1 = bank.MakeFormInput(RES_DATA, new String[]{"RETURNCODE","RETURNMSG","ORDERID"});
+
+			ModelMap modelMap = new ModelMap();
+			modelMap.put("appurl", (String)inParam.get("appurl"));
+			modelMap.put("inputStr1", inputStr1);
+			modelMap.put("RETURNURL", REQ_DATA.get("RETURNURL"));
+			modelMap.put("CANCELURL", REQ_DATA.get("CANCELURL"));
+			modelMap.put("USEREMAIL", REQ_DATA.get("USEREMAIL"));
+			modelMap.put("osType", osType);
+			modelMap.put("clientType", clientType);
+			modelMap.put("APPSCHEME", appScheme);
+			return  new ModelAndView("web/bank/Ready",modelMap);
+		} else {
+			String RETURNCODE = (String)RES_DATA.get( "RETURNCODE" );
+			String RETURNMSG = (String)RES_DATA.get( "RETURNMSG" );
+			String CANCELURL = (String)REQ_DATA.get( "CANCELURL" );
+			logger.debug("cancel : "+ RETURNMSG);
+		
+			ModelMap modelMap = new ModelMap();
+			
+			modelMap.put("RLT_CD", RETURNCODE);
+			modelMap.put("RLT_MSG", RETURNMSG);
+			modelMap.put("CANCELURL", CANCELURL);
+			return  new ModelAndView("web/danal/paymentErrPopup",modelMap);
+		}
+
+
+		
+	}
+	
+	
+	/**
+	* <pre>
+	* 1. 메소드명 : bankCPCGI
+	* 2. 작성일 : 2015. 9. 11. 오후 9:52:55
+	* 3. 작성자 : guitarhyo
+	* 4. 설명 : 
+	* </pre>
+	* @param request
+	* @param response
+	* @param inParam
+	* @return
+	* @throws Exception
+	*/
+	@RequestMapping("/mobile/bank/CPCGI.do")
+	public ModelAndView bankCPCGI(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception	{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("bank CPCGI START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+		response.setHeader("Pragma", "No-cache");
+		request.setCharacterEncoding("euc-kr");
+		
+		
+		logger.info("[cpcgi][response]"+new Gson().toJson(inParam));
+
+		
+		Bank bank = new Bank();
+		ModelMap modelMap = new ModelMap();
+		/***************************************************
+		 * 결제 완료에 대한 작업
+		 * - ORDERID, AMOUNT 등 결제 거래내용에 대한 검증을 반드시 하시기 바랍니다.
+		 ****************************************************/		
+		String inputStr1 = bank.MakeFormInputHTTP( request.getParameterMap(), "" );
+
+
+
+		/***************************************************
+		 * 결제 실패 시에 대한 작업 
+		 ***************************************************/
+		if( !request.getParameter("RETURNCODE").equals("0000") )
+		{
+	        	String RETURNCODE = (String)request.getParameter("RETURNCODE");
+	        	String RETURNMSG = (String)request.getParameter("RETURNMSG");
+
+				modelMap.put("RLT_CD", RETURNCODE);
+				modelMap.put("RLT_MSG", RETURNMSG);
+				logger.debug("결제 실패");
+				
+				return  new ModelAndView("web/bank/CPCGI",modelMap);
+				
+				
+		 }
+		logger.debug("결제 성공");
+
+		modelMap.put("inputStr1", inputStr1);
+		return  new ModelAndView("web/bank/CPCGI",modelMap);
+	}
+	
+	
+	/**
+	* <pre>
+	* 1. 메소드명 : bankSuccess
+	* 2. 작성일 : 2015. 9. 11. 오후 7:59:41
+	* 3. 작성자 : guitarhyo
+	* 4. 설명 : 계좌이체 Success 페이지
+	* </pre>
+	* @param request
+	* @param response
+	* @param inParam
+	* @return
+	* @throws Exception
+	*/
+	@RequestMapping("/mobile/bank/Success.do")
+	public ModelAndView bankSuccess(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception	{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("Success START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+		
+		Gson g = new Gson();
+		ModelMap modelMap = new ModelMap();
+		modelMap.put("data", g.toJson(inParam));
+		
+		modelMap.put("ORD_CD"		, request.getParameter("ORDERID"));				// 주문 번호
+		modelMap.put("TRD_GB_CD"	, 10);											// 10 = 결제
+		modelMap.put("TRD_NO"		, request.getParameter("TID"));					// 거래 번호
+		modelMap.put("TRD_AMT"		, request.getParameter("AMOUNT") );				// 거래 금액
+		modelMap.put("RLT_CD"		,  request.getParameter("Result"));				// 결과코드
+		modelMap.put("RLT_MSG"		, request.getParameter("ErrMsg"));				// 리턴 메시지
+		modelMap.put("SETL_NM"		, request.getParameter("buyr_name"));			// 결제자
+		modelMap.put("PAY_APPLY_DAY"	, request.getParameter("TRANSTIME"));		// 결제일 ( ex : 20151005114000 )
+		
+		modelMap.put("BANK_CODE", request.getAttribute("BANKCODE")) ;				// 출금 은행 코드
+		modelMap.put("PART_ACCOUNT_NO", request.getAttribute("PARTACCOUNTNO")) ;		// 계좌번호 뒤 5자리
+		
+		
+		logger.info("[success][modelmap]"+ new Gson().toJson(modelMap));
+		
+		return new ModelAndView("web/bank/Success",modelMap);
+		
+		
+	}
+	
+	/**
+	* <pre>
+	* 1. 메소드명 : bankCancel
+	* 2. 작성일 : 2015. 9. 11. 오후 7:59:41
+	* 3. 작성자 : guitarhyo
+	* 4. 설명 : 계좌이체 Cancel 페이지
+	* </pre>
+	* @param request
+	* @param response
+	* @param inParam
+	* @return
+	* @throws Exception
+	*/
+	@RequestMapping("/mobile/bank/Cancel.do")
+	public ModelAndView bankCancel(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception	{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("Cancel START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+		ModelAndView mw = new ModelAndView("web/bank/Cancel");
+		mw.addObject(inParam);		
+
+		return mw;
+	}
+	
+	
+
+	/**
+	* <pre>
+	* 1. 메소드명 : bankTradeCancel
+	* 2. 작성일 : 2015. 9. 11. 오후 7:59:41
+	* 3. 작성자 : rocokang
+	* 4. 설명 : 계좌이체 거래 취소 처리
+	* </pre>
+	* @param request
+	* @param response
+	* @param inParam
+	* @return
+	* @throws Exception
+	*/
+	@RequestMapping({"/mobile/bank/TradeCancel.do","/seller/bank/TradeCancel.do"})
+	public ModelAndView bankTradeCancel(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) {
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("bankTradeCancel START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+
+		ModelMap modelMap = new ModelMap();
+		
+		
+		Map<String, Object> REQ_DATA = new HashMap<String, Object>();
+
+		
+		
+		String O_TID = (String) inParam.get("O_TID");
+		String AMOUNT = (String) inParam.get("AMOUNT");
+		
+		String CPID = CmmnCnst.KCREDIT_ID_MERCHANT;
+		String CPPWD = CmmnCnst.KCREDIT_PW_MERCHANT;
+		
+		REQ_DATA.put("TID"	, O_TID);
+		REQ_DATA.put("CPID"	, CPID);
+		REQ_DATA.put("CPPWD"	, CPPWD);
+		REQ_DATA.put("CANCELTYPE"	, "R");
+		REQ_DATA.put("TXTYPE"	, "CANCEL");
+		REQ_DATA.put("CHARSET"	, "EUC-KR");
+		REQ_DATA.put("AMOUNT"	, AMOUNT);
+		
+		Bank bank = new Bank();
+
+		logger.info("[cancel][request]" + new Gson().toJson(REQ_DATA));
+		Map RES_DATA = bank.CallTrans(REQ_DATA); 
+		logger.info("[cancel][response]" + new Gson().toJson(RES_DATA));
+		
+		modelMap.putAll(RES_DATA);
+
+		
+		
+		return new ModelAndView("jsonView",modelMap);
+
+	}
+	
+	
+	
+	@ResponseBody
+	@RequestMapping("/mobile/bank/Noti.do")
+	public String bankNoti(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception	{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("Noti START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+		
+		
+		
+		
+		try {
+			Calendar cal = Calendar.getInstance();
+			String ndt = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(cal.getTime());
+			String dt = new SimpleDateFormat("yyMMdd").format(cal.getTime());
+
+			
+			String QueryString = Map2Str( request.getParameterMap() );
+			
+			String Out = "["+ndt+"]" + QueryString + "\n";
+			
+			
+			logger.info("noti.do 확인 : "+Out);
+			
+			return "OK";
+			
+			/***************************************************
+			 * Noti 성공 시 결제 완료에 대한 작업
+			 * - Noti의 결과에 따라 DB작업등의 코딩을 삽입하여 주십시오.
+			 * - ORDERID, AMOUNT 등 결제 거래내용에 대한 검증을 반드시 하시기 바랍니다.
+			 ****************************************************/		
+		} catch (Exception e) {
+			e.printStackTrace();
+			return "Fail-"+e.getMessage();
+		}
+	}
+	
+	
+	private String Map2Str(Map data){
+
+		StringBuffer sb = new StringBuffer();
+		Iterator it = data.keySet().iterator();
+		while(it.hasNext()){
+			Object key = it.next();
+			String[] value = (String[])data.get(key);
+
+			for(int i = 0; i<value.length;i++){
+				sb.append( "{"+key+"="+value[i]+"}" );
+			}
+		}
+		return sb.toString();
+	}
+}

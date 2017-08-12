@@ -1,0 +1,205 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/admin/common/cmmnHead.jsp"%>
+<script type="text/javascript">
+$(document).ready(function(){
+	//달력이미지
+	$('.calendar').datepicker({
+      showOn: "button",
+      buttonImage: "http://static.ssocio.net/admin/images/ico_calendar.gif",
+      buttonImageOnly: true
+    });
+	//조회버튼
+	$("#searchBtn").click(function(){
+		searchForm();
+	});
+	
+});
+//리스트 조회
+function searchForm(){
+	if(validDate()){
+		replDate();
+		$("#frm").attr("action", "/admin/user/selectListUser.do").submit();
+	}
+}
+//입력화면
+function goInsert(){
+	replDate();
+	$("#frm").attr("action", "/admin/user/insertUser.do").submit();
+}
+//수정화면
+function goUpdate(ADM_ID){
+	$("#ADM_ID").val(ADM_ID);
+	replDate();
+	$("#frm").attr("action", "/admin/user/updateUser.do").submit();
+}
+//엔터키입력
+function enterKeyPress(){
+	if(event.keyCode == 13){
+		$("#searchBtn").click();
+	}
+}
+//날짜유효성체크
+function validDate(){
+	if($("#S_START_DATE").val() != "" || $("#S_END_DATE").val() != ""){
+		var startDate = $("#S_START_DATE").val().replace(/\-/ig, "");
+		var endDate = $("#S_END_DATE").val().replace(/\-/ig, "");
+		if(startDate > endDate){
+	      alert("시작일이 종료일보다 크게 설정될 수 없습니다.");
+	      $("#S_START_DATE").val('');
+	      $("#S_END_DATE").val('');
+	      return false;
+	    }
+	}
+	return true;
+}
+//페이지이동
+function GoPage(pageNo) {
+	$("#PAGE_NO").val(pageNo);
+	replDate();
+	$("#frm").attr("action","/admin/user/selectListUser.do").submit();
+}
+//날짜 형식 '-' 제외 시키기
+function replDate(){
+	$("#S_START_DATE").val($("#S_START_DATE").val().replace(/\-/ig, ''));
+	$("#S_END_DATE").val($("#S_END_DATE").val().replace(/\-/ig, ''));
+}
+</script>
+
+<!-- wrap -->
+<div id="wrap">
+<!-- content -->
+<div id="content">
+	<!-- top_content -->
+	<div class="top_content">
+		<!-- location -->
+		<div class="location">
+			<ul class="clear">
+				<li class="first-child"><a href="#">Home</a></li>
+				<li><a href="#">사용자 관리</a></li>
+				<li><a href="#" class="current">사용자 조회</a></li>
+			</ul>
+		</div>
+		<!-- //location -->
+	</div>
+	<!-- //top_content -->
+	
+	<div class="inner">
+		<fmt:parseDate value="${params.S_START_DATE }" var="S_START_DATE" pattern="yyyymmdd" scope="page" />
+	    <fmt:parseDate value="${params.S_END_DATE }" var="S_END_DATE" pattern="yyyymmdd" scope="page" />
+		<form id="frm" method="post" name="frm">
+		<input type="hidden" id="PAGE_NO" name="PAGE_NO">
+		<input type="hidden" id="ADM_ID" name="ADM_ID">
+		<!-- tbl -->
+		<div class="tbl mt20">
+			<table class="search">
+				<colgroup>
+					<col style="width:10%" />
+					<col style="width:40%" />
+					<col style="width:10%" />
+					<col style="width:40%" />
+				</colgroup>
+				<tbody>
+					<tr>
+						<th scope="row">등록일</th>
+						<td>
+							<input type="text" id="S_START_DATE" name="S_START_DATE" class="calendar" style="width:82px" value='<fmt:formatDate value="${S_START_DATE }" pattern="yyyy-mm-dd" />' readonly/> - 
+							<input type="text" id="S_END_DATE" name="S_END_DATE" class="calendar" style="width:82px" value='<fmt:formatDate value="${S_END_DATE }" pattern="yyyy-mm-dd" />' readonly/>
+						</td>
+						<th scope="row">담당자명</th>
+						<td>
+							<input type="text" id="P_ADM_NM" name="P_ADM_NM"  value="${params.P_ADM_NM }" style="width:80%" maxlength="40"/>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row">구분</th>
+						<td>
+							<span class="select" style="width:130px;">
+								<span class="sel_txt"></span>
+								<custom:codeList var="AUTH_CD" groupCode="AUTH_CD" />
+								<select id="P_AUTH_CD" name="P_AUTH_CD">
+									<option value="">전체</option>
+									<c:forEach var="list" items="${AUTH_CD}">
+				                      <option value="${list.key}" <c:if test="${list.key == params.P_AUTH_CD}"> selected="selected" </c:if>>${list.value}</option>
+				                    </c:forEach>
+								</select>
+							</span>
+						</td>
+						<th scope="row">상태</th>
+						<td>
+							<span class="select" style="width:130px;">
+								<span class="sel_txt"></span>
+								<select id="P_USE_YN" name="P_USE_YN">
+									<option value="">전체</option>
+									<option value="Y" <c:if test="${params.P_USE_YN == 'Y'}"> selected='selected' </c:if>>사용중</option>
+									<option value="N" <c:if test="${params.P_USE_YN == 'N'}"> selected='selected' </c:if>>사용중지</option>
+								</select>
+							</span>
+						</td>
+					</tr>
+				</tbody>
+			</table>
+			<p class="btn_area type"><a href="#" id="searchBtn" class="btn_chk btn_r">조회</a></p>
+		</div>
+		<!-- //tbl -->
+		</form>
+		
+		
+		<!-- tbl -->
+		<div class="tbl mt20">
+			<div class="btn_area type">
+				<a href="javascript:goInsert();" class="btn_w"><span>사용자 등록</span></a>
+			</div>
+			<!-- list -->
+			<table class="list">
+				<colgroup>
+					<col style="width:5%" />
+					<col style="width:25%" />
+					<col style="width:*" />
+					<col style="width:15%" />
+					<col style="width:15%" />
+				</colgroup>
+				<thead>	
+					<tr>
+						<th scope="col">NO.</th>
+						<th scope="col">구분</th>
+						<th scope="col">아이디</th>
+						<th scope="col">담당자</th>
+						<th scope="col">상태</th>
+					</tr>
+				</thead>
+				<tbody>
+					<!-- 반복 -->
+					<c:forEach var="list" items="${list.selectListUser }">
+					<tr>
+						<td class="nolineL">${list.NUM }</td>
+						<td>${list.AUTH_NM }</td>
+						<td><a href="javascript:goUpdate('${list.ADM_ID }');">${list.ADM_ID }</a></td>
+						<td>${list.ADM_NM }</td>
+						<td>${list.USE_YN_NM }</td>
+					</tr>
+					</c:forEach>
+					<c:if test="${empty list.selectListUser }">
+			        <tr>
+			        	<td class="nolineL" colspan="5">조회된 결과가 없습니다.</td>
+			        </tr>
+			        </c:if>
+					<!-- //반복 -->
+				</tbody>
+			</table>
+			<!-- //list -->
+		</div>
+		<!-- //tbl -->
+		
+		<!-- bot_tbl -->
+		<div class="bot_tbl">
+			<!-- paging -->
+			<div class="paging">
+				<%@ include file="/WEB-INF/views/admin/common/PageView.jsp" %>
+			</div>
+			<!-- //paging -->
+		</div>
+		<!-- //bot_tbl -->
+	</div>
+</div>
+<!-- //content -->
+</div>

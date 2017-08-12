@@ -1,0 +1,319 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/web/common/cmmnHead.jsp"%>
+<script type="text/javascript" src="/js/web/cart.js" ></script> <!-- 장바구니용 js -->
+<script type="text/javascript" src="/js/web/saleMng/byteCheckUtil.js"></script> <!-- 바이트 체크 유틸 -->
+
+
+
+<script type="text/javascript">
+
+
+
+	// [2015-11-11] 바이트수 체크로 변경되어 수정함.
+	var prdNmBu = new strByteUtil(50);
+	var prdDtlBu = new strByteUtil(1000);
+
+
+	var mainYn = '${params.mainYn }';
+	
+	
+	//ready
+	$(document).ready(function(){
+
+
+		var regData = '${regData}';
+		$("#regData").val(regData);
+		console.log(regData);
+//	 	var data = JSON.parse(regData);
+		var parseData = regData.replace(/\r\n/g, "\\r\\n");
+		console.log(parseData);
+		var data = JSON.parse(parseData);
+		
+		$(".input_text input[type='text']").css('padding-right','90px');
+		
+		
+		// title 및 back 버튼 url set		
+		document.title = "상품 등록";
+// 		header.type	= 6;
+		header.type	= 4;
+		header.title = "상품 등록";
+		header.method = "POST";
+		if (mainYn == "Y") {
+			header.backUrl = "/mobile/main/main.do";
+		}
+		else {
+			header.backUrl = "/mobile/salemanage/main.do";
+		}
+		header.callback = headerCallback; // 장바구니용 callback
+		header.form = $("#form");
+		initHeader();
+		
+
+		displayFooter(false);
+		
+		
+		// 상품명 keyup event
+		$("#prodNm").keypress(function (evt) {
+			if (evt.keyCode == 13) {
+				evt.returnValue = false;
+				evt.preventDefault();
+				return false;
+			}
+		});
+		
+		$("#prodNm,#prodDtl").bind('keyup', function(evt) {
+			if ( "evt" != proc.strChkfnc(this, evt))
+			{
+				proc.prodNmKeyup();
+			}
+		});
+		
+		// init
+// 		var data = JSON.parse(regData);
+		$("#prodNm").val(data.prodNm);
+		$("#prodDtl").val(data.prodDtl);
+		proc.procBtnDel();
+		proc.procBtnNext();
+		proc.procProdNmLen();
+		proc.procProdDtlLen();
+	});
+
+	// page 이동
+	var page = {
+			
+		goNextPage : function (flag) {
+		
+			//alert문구 추가 
+			
+			
+			
+			if(!$("#prodNm").val().length > 0){
+				alert("상품명을 입력해 주세요.");
+				$("#prodNm").focus();
+				return;
+			}
+		
+			if(!$("#prodDtl").val().length > 0){
+				alert("상품설명을 입력해 주세요.");
+				$("#prodDtl").focus();
+				return;
+			}
+			
+			$("#prodTypeCd").val(flag);
+			var prodNm = $("#prodNm").val();
+			prodNm = prodNm.replace(/'|"/g, '&quot;');
+			$("#prodNm").val(prodNm);
+			
+			var url = "/mobile/salemanage/procInsertProdCommV2.do";
+			form.action = url;
+			form.submit();
+			
+		},
+		
+		// 이전 페이지 이동
+		goPrePage : function () {
+			if('${sessionScope.APP}'=='SSOCIO'){
+				document.location.replace('ssocio://web/closeWebView');
+			}else{
+				
+				$("#movePage").val("1");
+				$("#moveBack").val("Y");
+				var url = "/mobile/salemanage/procInsertProdCommV2.do";
+				form.action = url;
+				form.submit();
+			}
+			
+			
+			
+		}
+			
+	};
+	
+	// script 처리 모음
+	var proc = {
+		strChkfnc : function(obj, evt ){
+			var rejectPattern = /[\~\!\@\#\$\&\*\(\)\|\<\>\\\=\`\^\'\"\?\\]/ig;
+			var rep_rejectPattern = /[\~\!\@\#\$\&\*\(\)\|\<\>\\\=\`\^\'\"\?\\]/ig;
+			
+			if(rejectPattern.test(  $(obj).val()  )){
+				$(obj).val($(obj).val().replace(rep_rejectPattern, ""));
+			}
+		},
+		
+		
+		// 상품명 keyup
+		prodNmKeyup : function () {
+			proc.procBtnDel();
+			proc.procBtnNext();
+			proc.procProdNmLen();
+			proc.procProdDtlLen();
+		},
+		
+		// 다음 버튼 활성화 비활성화
+		procBtnNext : function () {
+			var len = $("#prodNm").val().length;
+			var dtlLen = $("#prodDtl").val().length;
+			
+			if ( len > 0 && dtlLen > 0 ) {
+				// 버튼 활성화
+				//$("#btnNext").attr("disabled",false);
+// 				$("#btnNext").removeClass("btn_b");
+				$("#btnNext").removeClass("btn_r");
+				$("#btnNext").addClass("btn_r");
+			}
+			else {
+				// 버튼 비활성화
+				//$("#btnNext").attr("disabled",true);
+				$("#btnNext").removeClass("btn_r");
+				$("#btnNext").addClass("btn_r");
+			}
+		},
+		
+		// 삭제버튼 show/hide
+		procBtnDel : function () {
+			var len = $("#prodNm").val().length;
+			if (len > 0) {
+				// 삭제버튼 on
+				$("#btnDel").show();
+			}
+			else {
+				// 삭제버튼 off
+				$("#btnDel").hide();
+			}
+		},
+		
+		// 상품명 삭제
+		prodNmDel : function () {
+			$("#prodNm").val("");
+			proc.procBtnDel();
+			proc.procBtnNext();
+			proc.procProdNmLen();
+			proc.procProdDtlLen();
+		},
+		
+
+		
+		// 상품명 글자수 spanLen
+		procProdNmLen : function () {
+
+			var str = $("#prodNm").val();
+			
+			// 바이트 체크해서 초과하면, 자른 글자만큼 setting 해버림
+			if(!prdNmBu.byteCheck(str)){
+				alert("최대 " + prdNmBu.getMaxByte() + " Byte 까지 입력 가능 합니다.");
+				str = prdNmBu.getStrLimitmaxByte(str);
+				$("#prodNm").val(str);
+			}
+			
+			$("#spanProdNmLen").text(prdNmBu.getByteLength(str) + "/" + prdNmBu.getMaxByte() + " Byte");
+		},
+
+
+		
+		// 상품명 글자수 spanLen
+		procProdDtlLen : function () {
+
+			var str = $("#prodDtl").val();
+			
+			// 바이트 체크해서 초과하면, 자른 글자만큼 setting 해버림
+			if(!prdDtlBu.byteCheck(str)){
+				alert("최대 " + prdDtlBu.getMaxByte() + " Byte 까지 입력 가능 합니다.");
+				str = prdDtlBu.getStrLimitmaxByte(str);
+				$("#prodDtl").val(str);
+			}
+			
+			$("#spanProdDtlLen").text(prdDtlBu.getByteLength(str) + "/" + prdDtlBu.getMaxByte() + " Byte");
+		},
+	};
+
+</script>
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+		<div class="roc">
+			<ul class="inner">
+				<li><img src="http://static.ssocio.net/pc/img/common/section/roc_home.png" alt="홈"></li>
+				<li>판매관리</li>
+			</ul>
+		</div>
+		<jsp:include page="../common/sale_top.jsp" flush="false" />
+		<div class="mype_s_tit">
+			<p>상품 등록</p>
+		</div>
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+		<!-- container -->
+		<div id="container">
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>
+
+
+<form id="form" name="form" method="post" action="" enctype="multipart/form-data">
+	<input type="hidden" id="movePage" name="movePage" value="3" />
+	<input type="hidden" id="regData" name="regData" value="" />
+	<input type="hidden" id="moveBack" name="moveBack" value="" />
+	<input type="hidden" id="sessionScope" name="sessionScope" value="${sessionScope.APP}" />
+	<input type="hidden" id="delId" value="" />
+	<input type="hidden" id="mainYn" name="mainYn" value="${params.mainYn }" />
+
+<ul class="step2">
+        	<li><a href="javascript:void(0)">사진등록</a></li>
+        	<li class="active"><a href="javascript:void(0)">상품정보</a></li>
+        	<li><a href="javascript:void(0)">판매정보</a></li>
+        	        	
+        </ul>
+
+        <div class="contents">
+        	<div class="purc_area">
+				<p class="tit"><span class="bold">상품명</span>을 입력해 주세요.</p>
+				<ul class="mt10">
+	                <li>
+	                	<div class="input_text">
+	                        <input type="text" name="prodNm" id="prodNm" tabindex="1">
+	                        <a href="#"><img id="btnDel" onclick="proc.prodNmDel()" src="http://static.ssocio.net/web/images/ico_del.png" alt="삭제"></a>
+	                        <span class="byte type" id="spanProdNmLen">0/50byte</span>
+	                    </div>
+	                </li>
+	            </ul>
+			</div>
+        	
+        	<div class="purc_area bb0">
+				<p class="tit"><span class="bold">상품설명</span>을 입력해 주세요.</p>
+				<ul class="mt10">
+                <li>
+                	<div class="text_box">
+                        <textarea name="prodDtl"  id="prodDtl" tabindex="2"></textarea>
+                        <span class="byte type" id="spanProdDtlLen">0/500byte</span>
+                    </div>
+                </li>
+            </ul>
+			</div>
+            
+            <div class="btn_enter">
+                <ul>
+                    <li><a href="javascript:page.goPrePage()" class="btn_b-line">이전</a></li>
+                    <li><a href="javascript:page.goNextPage()" id="btnNext" class="btn_r">다음</a></li>
+                </ul>
+            </div>
+        </div>
+
+
+</form>
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+		<jsp:include page="../common/sale_bottom.jsp" flush="false" />
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+		    </div>
+		    <!-- //container -->
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>

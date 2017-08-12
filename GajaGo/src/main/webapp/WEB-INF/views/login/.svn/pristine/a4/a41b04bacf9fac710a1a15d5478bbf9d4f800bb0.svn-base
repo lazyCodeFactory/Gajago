@@ -1,0 +1,828 @@
+/**
+ * CmmnCnst.java에서 PROD_STAT_CD_XX와 같은 값이다.
+ */
+var PROD_STAT_CD_ING = 0;
+var PROD_STAT_CD_END = 1;
+var PROD_STAT_CD_STOP = 2;
+var PROD_STAT_CD_DEL = 3;
+var PROD_STAT_CD_FREESHARE_END = 4;
+var PROD_STAT_CD_ALREADY_REQUEST = 5;
+var PROD_STAT_CD_CART_DONE = 6; 
+var PROD_STAT_CD_CART_ALREADY = 7;
+var PROD_STAT_CD_STOCK_NOT_ENOUGH = 8;
+var PROD_STAT_CPN_NOT_USABLE = 9;
+var PROD_STAT_POINT_NOT_ENOUGH = 10;
+var PROD_STAT_RENTAL_NOT_ENOUGH = 11; 
+var PROD_STAT_OPTION_NOT_ENOUGH = 12;
+var PROD_STAT_CD_RENT_ALREADY_REQUEST = 13;
+var PROD_STAT_NOT_LOGIN = 98;
+var PROD_STAT_CD_UNKNOWN = 99; 
+
+/**
+ * <pre>
+ * 설명
+ * @date  2015. 10. 11. 오후 3:43:37
+ * @author WOOK.KIM
+ * @see js/web/prod
+ * </pre>
+ */
+Option = Class({
+	optCd : '',		//	옵션 코드
+	opGbCd : 10,	//	10:부가상품형, 20:추가구성형
+	optNm : '',		//	옵션 이름
+	invenQty : 0,	//	재고수량	
+	ordQty : 0,		//	주문수량
+	prce : 0,		//	옵션가격
+	isDel : false,	//	삭제 여부
+	initialize : function(optCd, opGbCd, optNm, invenQty, prce, ordQty){
+		this.optCd = optCd;
+		this.opGbCd = opGbCd;
+		this.optNm = optNm;
+		this.invenQty = invenQty;
+		this.prce = prce;
+		this.ordQty = ordQty;
+		this.isDel = false;
+	},
+	clone : function(){
+		return new Option(this.optCd, this.opGbCd, this.optNm, this.invenQty, this.prce, this.ordQty);
+	}
+});
+
+Dlv = Class({
+	dlvWayCd : '1',		//	배송 유형 코드(1:제휴택배, 2:일반택배, 3:우편/등기, 4:퀵서비스, 5:직거래, 6:배송 불필요)
+	dlvPayGbCd : '1',	//	배송비 결제 구분 코드(1:판매자부담, 2:구매자부담)
+	dlvPayFCd : '',		//	배송비 결재 방법 코드(10:선결제, 20:착불)
+	dlvPrce : 0,		//	배송비
+	extLandPrce : 0,	//	제주, 도서산간 배송비
+	extLands : null,	//	제주, 도서산간 가능 판단(10:제주, 20:도서산간)
+	bndlDlvYn : 'N',	//	묶음 배송 가능 여부
+	dlvStandYn : 'N', 	//	조건부 무료 배송 여부
+	dlvStandAmt : 0,	//	조건부 무료 배송 금액
+	dlvGrpProdSeq : '',	//	출하지 시퀀스
+	dlvGrpCode : '',	//	묶음 배송 코드	
+	initialize : function(){
+		this.extLands = new Array();
+	},
+	setExtLandPrice : function(extLandCd, addDlvPrice){
+		if(addDlvPrice > 0 ){
+			var obj = new Object();
+			obj.extLandCd = extLandCd;
+			obj.addDlvPrice = addDlvPrice;
+			if( extLandCd == '10'){
+				obj.extLandText = '제주 ' + formatNumber(addDlvPrice) + '원';
+			}
+			else{
+				obj.extLandText = '도서산간 ' + formatNumber(addDlvPrice) + '원';
+			}
+			this.extLands.push(obj);
+		}
+	},
+	getExtLandText : function(){
+		var text = '';
+		var len = this.extLands.length;
+		for(var i=0 ; i<len ; i++){
+			text += this.extLands[i].extLandText;
+			if( i<len-1){
+				text += '/';
+			}
+		}
+		
+		return text;
+	},
+	getExtLandPrce : function(extLandCd){
+		var amount = 0;
+		for(var i=0 ; i<this.extLands.length ; i++){
+			if( this.extLands[i].extLandCd == extLandCd){
+				amount = this.extLands[i].addDlvPrice;
+				break;
+			}
+		}
+		
+		return amount;
+	},
+	isExtLand : function(extLandCd){
+		for( var i=0 ; i<this.extLans.length ; i++){
+			if( this.extLands[i].extLandCd == extLandCd){
+				return true;
+			}
+		}
+		return false;
+	}
+});
+
+Freeshare = Class({
+	okGbCd : '',	//	나눔거래 성사 기준
+	endDt : '',		//	나눔거래 마감일시
+	initialize : function(){
+		
+	}
+});
+
+Shar = Class({
+	prce : 0,		//	셰어링 금액
+	deposit : 0,	//	셰어링 보증금
+	minTerm : 0,	//	셰어링 최소 기간
+	maxTerm : 0,	//	셰어링 최대 기간
+	startDt : '',	//	셰어링 가능 시작일
+	endDt : '',		//	셰어링 가능 종료일
+	shareDay : 0,	//	셰어링사용기간	
+	initialize : function(){
+		
+	}
+});
+
+/**
+ * 
+ * <pre>
+ * 설명 상품 객체
+ * 설명
+ * @param 
+ * @returns 
+ * @date 2015. 10. 24. 오후 3:52:05
+ * @author WOOK.KIM
+ * @see js/web
+ * </pre>
+ */
+Product = Class({
+	prodCode : '',		//	상품코드
+	prodNm : '',		//	상품이름
+	prodImgUrl : '',	//	상품 이미지 URL
+	ctryCd : '',		//	상품 카테고리 코드
+	parentCtryCd : null,//	특정카테고리 사용 쿠폰을 처리하기 위한 카테고리 배열
+	prodTypeCd : '',	//	상품 타입(1:판매, 2:셰어링, 3:나눔, 4:스마트폰셰어링, 5:렌탈)
+	wishProdCnt : 0,	//	상품 위시 갯수
+	soldOutMsg : '',	//	상품 재고 0일 경우 메시지
+	sellPrce : 0,		//	상품 판매가  
+	nrmPrce : 0,		//	상품 정상가 
+	ordQty : 0,			//	상품 구매 수량
+	ordAmt : 0,			//	상품 주문 금액
+	invenQty : 0,		//	상품 재고 수량
+	optProdYn : 'N',	//	상품 부가 옵션 유무
+	extProdYn : 'N',	//	상품 추가 옶션 유무
+	mberSeq : '',		//	판매자 회원 번호
+	mberGbCd : '0',		//	판매자 회원 구분 코드(0:개인, 1:사업자)
+	extLand : '99',		//	제주/도서산간 코드(99:도시, 10:제주, 20:도서산간)
+	isUsable : true,	//	제주/도서산간 배송이 안될 경우 isUsable을 false로 변경함.
+	freeshare : null,
+	shar : null,
+	dlv : null,
+	option : null,
+	cpnNo : '',
+	coupon : null,
+	wishProdCnt : 0,    // 위시담기상품총개수
+	/**
+	 * 
+	 * <pre>
+	 * 설명 constructor
+	 * 설명 
+	 * @param 
+	 * @returns 
+	 * @date 2015. 10. 24. 오후 3:52:05
+	 * @author WOOK.KIM
+	 * @see js/web
+	 * </pre>
+	 */
+	initialize : function(isOrder){
+		this.parentCtryCd = new Array();
+		this.freeshare = new Freeshare();
+		this.shar = new Shar();
+		this.dlv = new Dlv();
+		this.option = new Object();
+		if( isOrder ){
+			this.option.select = new Array();
+		}
+		else{
+			this.option.additional = new Array();	
+			this.option.extra = new Array();
+			this.option.select = new Array();
+		}
+	},
+	/**
+	 * 
+	 * <pre>
+	 * 설명 상품 수량을 처리하기 위한 초기화 메소드
+	 * 설명
+	 * @param 
+	 * @returns 
+	 * @date 2015. 10. 24. 오후 3:52:05
+	 * @author WOOK.KIM
+	 * @see js/web
+	 * </pre>
+	 */
+	init : function(){
+		if(this.prodTypeCd == '1'){
+			if('N' == this.optProdYn){
+				this.ordQty = 1;
+            }else{
+            	this.ordQty = 0;
+            }
+		}
+		else if( this.prodTypeCd == '2'){
+			this._setShareDay(0);
+			this.ordQty = 1;
+		}
+	},
+	/**
+	 * 
+	 * <pre>
+	 * 설명 카테고리 리스트 초기화하기 위한 메소드
+	 * 설명
+	 * @param 
+	 * @returns 
+	 * @date 2015. 10. 24. 오후 3:52:05
+	 * @author WOOK.KIM
+	 * @see js/web
+	 * </pre>
+	 */
+	setParentCtryCd : function(parentCtryCd){
+		if( parentCtryCd != ''){
+			this.parentCtryCd = parentCtryCd.split('|');
+		}
+	},
+	/**
+	 * 
+	 * <pre>
+	 * 설명 앱 > 상품상세 > 옵션 
+	 * 설명 앱에서 넘어온 json object를 상세의 product에 다시 세팅
+	 * @param 
+	 * @returns 
+	 * @date 2015. 10. 24. 오후 3:52:05
+	 * @author WOOK.KIM
+	 * @see js/web
+	 * </pre>
+	 */
+	setAppData : function(jsonData){
+		var obj = JSON.parse(jsonData);
+		
+		this.dlv.dlvPayFCd = obj.dlv.dlvPayFCd;
+		this.ordQty = obj.ordQty;
+		
+		if( this.prodTypeCd == '1'){
+			this.option.select = obj.option.select;
+			this._setOrdQty();
+		}
+		else if( this.prodTypeCd == '2'){
+			this._setShareDay(obj.shar.shareDay);
+		}
+	},
+	/**
+	 * 
+	 * <pre>
+	 * 설명 상품 상세 > 옵션 레이어 
+	 * 설명 옵션 레이어에서 옵션 선택 시 호출 되는 메소드
+	 * @param 
+	 * @returns 
+	 * @date 2015. 10. 24. 오후 3:52:05
+	 * @author WOOK.KIM
+	 * @see js/web
+	 * </pre>
+	 */
+	setSelected : function(option){
+		this.option.select.push(option);
+	},
+	setExtLand : function(extLand){
+		this.extLand = extLand;
+		if(extLand == '99'){
+			this.isUsable = true;
+			this.dlv.extLandPrce = 0;
+		}
+		else{
+			this.isUsable = false;
+			for(var i=0 ; i<this.dlv.extLands.length ; i++){
+				if( this.dlv.extLands[i].extLandCd == extLand){
+					this.dlv.extLandPrce = this.dlv.extLands[i].addDlvPrice;
+					this.isUsable = true;
+					break;
+				}
+			}
+		}
+	},
+	//#################################################################################
+	//	쿠폰 관련 시작
+	//#################################################################################
+	/**
+	 * 
+	 * <pre>
+	 * 설명 주문서 > 쿠폰 선택 
+	 * 설명 쿠폰 선택 후 선택 된 쿠폰이 사용 가능한지 판단하는 메소드
+	 * @param 
+	 * @returns 
+	 * @date 2015. 10. 24. 오후 3:52:05
+	 * @author WOOK.KIM
+	 * @see js/web
+	 * </pre>
+	 */
+	getCouponStatus : function(coupon){
+		if(coupon.prodPrce <= this.getAmount()){
+			return CPN_STAT_NONE;
+		}
+		return CPN_STAT_MIN_PRCE;
+	},
+	containCtry : function(cpnCtryCd){
+		var contain = false;
+		for( var i=0 ; i<this.parentCtryCd.length ; i++){
+			if(this.parentCtryCd[i] == cpnCtryCd){
+				contain = true;
+				break;
+			}
+		}
+		
+		return contain;
+	},
+	//#################################################################################
+	//	쿠폰 관련 끝
+	//#################################################################################
+	//#################################################################################
+	//	금액 관련 시작
+	//#################################################################################
+	/**
+	 * 
+	 * <pre>
+	 * 설명 주문서 
+	 * 설명 상품금액 * 상품개수
+	 * @param 
+	 * @returns 
+	 * @date 2015. 10. 24. 오후 3:52:05
+	 * @author WOOK.KIM
+	 * @see js/web
+	 * </pre>
+	 */
+	getAmount : function(){
+		var amount = 0;
+		if( this.prodTypeCd == '1'){
+			if( this.optProdYn == 'Y'){
+				for(var i=0 ; i<this.option.select.length ; i++){
+					var opt = this.option.select[i];
+					if( opt.isDel == false && opt.opGbCd == '10'){
+						amount += ( this.sellPrce + opt.prce ) * opt.ordQty;
+					}
+				}
+			}
+			else{
+				amount += this.sellPrce * this.ordQty;
+			}
+			
+			if( this.extProdYn == 'Y'){
+				for(var i=0 ; i<this.option.select.length ; i++){
+					var opt = this.option.select[i];
+					if( opt.isDel == false && opt.opGbCd == '20'){
+						amount += opt.prce * opt.ordQty;
+					}
+				}
+			}
+		}
+		else if( this.prodTypeCd == '2'){
+			if( this.mberGbCd == '0'){
+				amount += this.shar.deposit * this.ordQty;
+			}
+			else if( this.mberGbCd == '1'){
+				amount += ( this.shar.deposit + (this.shar.prce * this.shar.shareDay) ) * this.ordQty;
+			}
+		}
+		return amount;
+	},
+	getDeposit : function(){
+		var amount = 0;
+		amount += this.shar.deposit * this.ordQty;
+		return amount;
+	},
+	getSharPrce : function(){
+		var amount = 0;
+		if( this.mberGbCd == '1'){
+			amount += (this.shar.prce * this.shar.shareDay) * this.ordQty;
+		}
+		return amount;
+	},
+	/**
+	 * 
+	 * <pre>
+	 * 설명  
+	 * 설명 배송 비 금액
+	 * @param 
+	 * @returns 
+	 * @date 2015. 10. 24. 오후 3:52:05
+	 * @author WOOK.KIM
+	 * @see js/web
+	 * </pre>
+	 */
+	getDlvAmount : function(){
+		var amount = 0;
+		if(this.dlv.dlvPayGbCd == '2' && this.dlv.dlvPayFCd == '10'){
+			amount = this.dlv.dlvPrce;
+		}
+		return amount;
+	},
+	getDlvExtAmount : function(){
+		return this.dlv.getExtLandPrce(this.extLand);
+	},
+	getDlvAmountText : function(flag){
+		var text = '';
+		//	판매, 셰어링 상품일때
+		if( this.prodTypeCd == '1' || this.prodTypeCd == '2'){
+			switch(this.dlv.dlvWayCd){
+			case '1':
+			case '2':
+				//	판매자 부담
+				if(this.dlv.dlvPayGbCd == '1'){
+					text = flag == true ? '택배 | 무료배송' : '배송비 0원';
+				}
+				//	구매자 부담
+				else{
+					var isStand = false;
+					//	조건부 무료 여부 체크
+					if( this.dlv.dlvStandYn == 'Y'){
+						if( this.dlv.dlvStandAmt <= this.getAmount()){
+							isStand = true;
+						}
+					}
+					
+					//	개별
+					if( flag == true){
+						
+						if( this.dlv.dlvPayFCd == '10'){
+							text = '택배  | ' + formatNumber(this.dlv.dlvPrce) + '원/선불';
+						}
+						else{
+							text = '택배  | ' + formatNumber(this.dlv.dlvPrce) + '원/착불';
+						}
+						
+						if( isStand == true ){
+							text += '(' + this.dlv.dlvStandAmt + '원 이상 무료)';
+						}
+					}
+					//	합산
+					else{
+						//	조건부 무료 
+						if( isStand == true ){
+							text = '배송비 0원(' + this.dlv.dlvStandAmt + '원 이상 무료)';
+						}
+						//	주문가격이 조건부에 맞지 않음
+						else{
+							//	선결제
+							if( this.dlv.dlvPayFCd == '10'){
+								text = '배송비 ' + formatNumber(this.dlv.dlvPrce) + '원';
+							}
+							else{
+								text = '배송비 0원(착불)';
+							}
+						}
+					}
+				}
+				break;
+			case '3':	//	우편/등기
+				text = flag == true ? '우편/등기 | 무료배송' : '배송비 0원';
+				break;
+			case '4':	//	퀵서비스
+				if(this.dlv.dlvPayGbCd == '1'){
+					text = flag == true ? '퀵서비스 | 무료배송' : '배송비 0원';
+				}
+				else{
+					text = flag == true ? '퀵서비스 | 0원/착불' : '배송비 0원';
+				}
+				break;
+			case '5':	//	직거래
+				text = flag == true ? '직거래' : '배송비 0원';
+				break;
+			case '6':	//	배송 불필요
+				break;
+			}
+		}
+		//	나눔 상품일때
+		else if( this.prodTypeCd == '3'){
+			text = '배송비 착불';
+		}
+		
+		return text;
+	},
+	isDlvStand : function(){
+		if(this.dlv.dlvStandYn == 'Y' && this.dlv.dlvStandAmt <= this.getAmount()){
+			return true;
+		}
+		
+		return false;
+	},
+	/**
+	 * 
+	 * <pre>
+	 * 설명  
+	 * 설명 상품에 포함 된 쿠폰 금액
+	 * @param 
+	 * @returns 
+	 * @date 2015. 10. 24. 오후 3:52:05
+	 * @author WOOK.KIM
+	 * @see js/web
+	 * </pre>
+	 */
+	getCpnAmount : function(){
+		return this.coupont == null ? 0 : this.coupon.bnfitDscntPrce;
+	},
+	/**
+	 * 
+	 * <pre>
+	 * 설명  
+	 * 설명 상품 금액 + 배송비 - 쿠폰사용금액
+	 * @param 
+	 * @returns 
+	 * @date 2015. 10. 24. 오후 3:52:05
+	 * @author WOOK.KIM
+	 * @see js/web
+	 * </pre>
+	 */
+
+	getTotalAmount : function(){
+		var amount = 0;
+
+		amount += this.getAmount();
+		amount += this.getDlvAmount();
+		amount -= this.getCpnAmount();
+		
+		return amount;
+	},
+	/**
+	 * 
+	 * <pre>
+	 * 설명 
+	 * 설명 주문 상품 개수
+	 * @param 
+	 * @returns 
+	 * @date 2015. 10. 24. 오후 3:52:05
+	 * @author WOOK.KIM
+	 * @see js/web
+	 * </pre>
+	 */
+	getAccount : function(){
+		var account = 0;
+		if( this.prodTypeCd == '1'){
+			if( this.optProdYn == 'Y'){
+				for(var i=0 ; i<this.option.select.length ; i++){
+					var opt = this.option.select[i];
+					if( opt.isDel == false && opt.opGbCd == '10'){
+						account += opt.ordQty;
+					}
+				}
+			}
+			else{
+				account += this.ordQty;
+			}
+		}
+		else if( this.prodTypeCd == '2'){
+			account += this.ordQty;
+		}
+		return account;
+	},
+	/**
+	 * 
+	 * <pre>
+	 * 설명 
+	 * 설명 도서산간 배송비 추가 여부 확인
+	 * @param 
+	 * @returns 
+	 * @date 2015. 11. 04. 오후 1:09:05
+	 * @author WOOK.KIM
+	 * @see js/web
+	 * </pre>
+	 */
+	isExtLand : function(){
+		return this.dlv.isExtLand();
+	},
+	//#################################################################################
+	//	금액 관련 끝
+	//#################################################################################
+	selectOption : function( optCd, isExtra){
+		var option = null;
+		if(this._isAlreadySelection(optCd)){	    
+		    plusAccount($("#"+optCd).attr("idx"));
+			return null;
+		}
+		
+		if( !isExtra ){
+			for(var i=0 ; i<this.option.additional.length ; i++){
+				option = this.option.additional[i].clone();
+				if( optCd == option.optCd ){
+					if( option.invenQty == 0 ){
+						alert("품절된 상품입니다.");
+						return null;
+					}
+					option.ordQty = 1;
+					this.ordQty = 1;
+					this.option.select.push(option);
+					break;
+				}
+			}
+		}
+		else{
+			for(var i=0 ; i<this.option.extra.length ; i++){
+				option = this.option.extra[i].clone();
+				if( optCd == option.optCd ){
+					if( option.invenQty == 0 ){
+						alert("품절된 상품입니다.");
+						return null;
+					}
+					option.ordQty = 1;
+					this.option.select.push(option);
+					break;
+				}
+			}
+		}
+		
+		return option;
+	},
+	removeOption : function(optCd){
+		var opGbCd = '10';
+		for( var i=0 ; i<this.option.select.length ; i++){
+			var opt = this.option.select[i];
+			if( optCd == opt.optCd && opt.isDel == false){
+				this.option.select[i].isDel = true;
+				opGbCd = this.option.select[i].opGbCd;
+			}
+		}
+		return opGbCd;
+	},
+	reset : function(){
+		var length = this.option.select.length;
+		this.option.select.splice(0, length);
+		this.dlv.dlvPayFCd = '';
+		this.shar.shareDay = 0;
+		this.ordAmt = 0;
+		this.ordQty = 1;
+	},
+	minusProd : function(){
+		if(this.ordQty > 1){
+			this.ordQty--;
+		}
+		else{
+			alert("최소 주문 수량은 1개 이상입니다.");
+		}
+		
+		return this.ordQty;
+	},
+	plusProd : function(){
+		if( this.ordQty < this.invenQty ){
+			this.ordQty++;
+		}
+		else{
+			alert("재고가 부족합니다.");
+		}
+		
+		return this.ordQty;
+	},
+	minusSelectOption : function(index){
+		opt = this.option.select[index];
+		if(opt.ordQty > 1){
+			opt.ordQty--;
+			if(opt.opGbCd == '10'){
+				this.ordQty--;
+			}
+		}
+		else{
+			alert("최소 주문 수량은 1개 이상입니다.");
+		}
+		
+		return opt.ordQty;
+	},
+	plusSelectOption : function(index){
+		opt = this.option.select[index];
+		if(opt.ordQty < opt.invenQty){
+			opt.ordQty++;
+			if(opt.opGbCd == '10'){
+				this.ordQty++;
+			}
+		}
+		else{
+			alert("재고가 부족합니다.");
+		}
+		
+		return opt.ordQty;
+	},
+	validate : function(){
+		if( this.optProdYn == 'Y'){
+			var isExist = false;
+			for( var i=0 ; i<this.option.select.length ; i++){
+				var opt =  this.option.select[i];
+				if(opt.isDel == false && opt.opGbCd == '10'){
+					isExist = true;
+					break;
+				}
+			}
+				
+			if( isExist != true){
+				alert("부가옵션은 필수 입니다.");
+				return false;
+			}
+		}
+
+		if( this.dlv.dlvPayGbCd == '2' && (this.dlv.dlvWayCd == '1' || this.dlv.dlvWayCd == '2')){
+			if( this.dlv.dlvPayFCd == '' ){
+				alert("배송비 선택은 필수 입니다.");
+				return false;
+			}
+		}
+		
+		return true;
+	},
+	_setOrdQty : function(){
+		if(this.optProdYn == 'Y'){
+			var qty = 0;
+			for( var i=0 ; i<this.option.select.length ; i++){
+				var opt = this.option.select[i];
+				if( opt.opGbCd == '10'){
+					qty += opt.ordQty;
+				}
+			}
+			this.ordQty = qty;
+		}
+	},
+	_setShareDay : function(shareDay){
+		if( shareDay == 0){
+			if( this.prodTypeCd == '2'){
+				if(this.mberGbCd == '0'){
+					this.shar.shareDay = Math.ceil(this.shar.deposit / this.shar.prce);
+				}
+				else if( this.mberGbCd == '1'){
+					this.shar.shareDay = this.shar.minTerm;
+				}
+			}
+		}
+		else{
+			this.shar.shareDay = shareDay;
+		}
+	},	
+	_isAlreadySelection : function(optCd){
+		var isExist = false;
+		for(var i=0 ; i<this.option.select.length ; i++){
+			var option = this.option.select[i];
+			if( optCd == option.optCd && option.isDel == false){
+				isExist = true;	
+				break;
+			}
+		}
+		
+		return isExist;
+	},
+	_validateSelectedOption : function(){
+		//	선택했다 삭제된 option을 option.select에서 제거한다.
+		var temp = new Array();
+		for( var i=0 ; i<this.option.select.length ; i++ ){
+			var opt = this.option.select[i];
+			if( opt.isDel != true){
+				temp.push(this.option.select[i]);
+			}
+		}
+		this.option.select.splice(0, this.option.select.length);
+		this.option.select = temp;
+	},
+	toJSONString : function(){
+		this._validateSelectedOption();
+		var jsonObj = new Object();
+		jsonObj.prodCode = this.prodCode;
+		jsonObj.prodNm = this.prodNm;
+		jsonObj.prodImgUrl = this.prodImgUrl;
+		jsonObj.ctryCd = this.ctryCd;
+		jsonObj.prodTypeCd = this.prodTypeCd;
+		jsonObj.wishProdCnt = this.wishProdCnt;
+		jsonObj.soldOutMsg = this.soldOutMsg;
+		jsonObj.sellPrce = this.sellPrce;
+		jsonObj.nrmPrce = this.nrmPrce;
+		jsonObj.ordQty = this.getAccount();
+		jsonObj.ordAmt = this.getAmount();
+		jsonObj.invenQty = this.invenQty;
+		jsonObj.optProdYn = this.optProdYn;
+		jsonObj.extProdYn = this.extProdYn;
+		jsonObj.mberSeq = this.mberSeq;
+		jsonObj.mberGbCd = this.mberGbCd;
+		jsonObj.cpnNo = this.coupon == null ? '' : this.coupon.cpnNo;
+		
+		jsonObj.freeshare = this.freeshare;
+		jsonObj.shar = this.shar;
+		jsonObj.dlv = this.dlv;
+		jsonObj.option = this.option;
+		
+		return JSON.stringify(jsonObj);
+	},
+	toJSONObject : function(){
+		this._validateSelectedOption();
+		var jsonObj = new Object();
+		jsonObj.prodCode = this.prodCode;
+		jsonObj.prodNm = this.prodNm;
+		jsonObj.prodImgUrl = this.prodImgUrl;
+		jsonObj.ctryCd = this.ctryCd;
+		jsonObj.prodTypeCd = this.prodTypeCd;
+		jsonObj.sellPrce = this.sellPrce;
+		jsonObj.nrmPrce = this.nrmPrce;
+		jsonObj.ordQty = this.getAccount();
+		jsonObj.ordAmt = this.getAmount();
+		jsonObj.invenQty = this.invenQty;
+		jsonObj.optProdYn = this.optProdYn;
+		jsonObj.extProdYn = this.extProdYn;
+		jsonObj.mberSeq = this.mberSeq;
+		jsonObj.mberGbCd = this.mberGbCd;
+		jsonObj.cpnNo = this.coupon == null ? '' : this.coupon.cpnNo;
+		
+		jsonObj.freeshare = this.freeshare;
+		jsonObj.shar = this.shar;
+		jsonObj.dlv = this.dlv;
+		jsonObj.option = this.option;
+		
+		return jsonObj;
+	}
+});

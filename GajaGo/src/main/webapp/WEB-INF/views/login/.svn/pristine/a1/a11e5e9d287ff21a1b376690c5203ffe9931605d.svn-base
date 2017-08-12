@@ -1,0 +1,265 @@
+package com.ssocio.sharing.service.web;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.ui.ModelMap;
+import org.springframework.web.bind.annotation.RequestParam;
+
+import com.ssocio.sharing.cmmn.elasticsearch.Elasticsearch;
+import com.ssocio.sharing.cmmn.util.CmmnCnst;
+import com.ssocio.sharing.cmmn.util.LoggerUtil;
+import com.ssocio.sharing.cmmn.util.StringUtil;
+import com.ssocio.sharing.cmmn.web.util.WebMobilePaging;
+import com.ssocio.sharing.dao.web.MobileInterestDao;
+import com.ssocio.sharing.vo.web.WebSession;
+
+@Service
+public class MobileInterestServiceImpl implements MobileInterestService {
+	
+	@Resource(name = "mobileInterestDao")
+	private MobileInterestDao mobileInterestDao;
+	private static final Logger logger = LoggerFactory.getLogger(MobileMyRecentProductServiceImpl.class);
+	// 관심상품 리스트   
+//	@Override
+//	public ModelMap selectInterest(HttpServletRequest request, @RequestParam Map<String, Object> inParam) throws Exception {
+//		// TODO Auto-generated method stub  
+//		ModelMap mm = new ModelMap();   
+//		//WebSession user = (WebSession)request.getSession().getAttribute("user");
+//		String mberSeq = String.valueOf(inParam.get("MBER_SEQ"));
+//		
+//		// 등록되어있는 관심태그를 list에 담는다.
+//		List<Map<String, Object>> list = mobileInterestDao.wishList(mberSeq);
+//		
+//		// 관심상품  
+//		mm.put("wishList", mobileInterestDao.selectInterest(list));
+//		
+//		return mm;
+//	}
+	
+	@Override	
+	public List<Map<String, Object>> selectInterestList(Map<String, Object> inParam, WebSession user){
+		String mberSeq = String.valueOf(inParam.get("MBER_SEQ"));
+		inParam.put("MBER_SEQ", mberSeq);
+		List<Map<String, Object>> resultList = null;
+			// S 페이징 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+			logger.debug("FIRST_SEQ	:["+inParam.get("FIRST_SEQ")+"]");
+			logger.debug("LAST_SEQ	:["+inParam.get("LAST_SEQ")+"]");
+			int FIRST_SEQ = 0; 
+			if(inParam.get("FIRST_SEQ")==null){
+				FIRST_SEQ = 0;
+			}else{
+				FIRST_SEQ 	= Integer.parseInt(inParam.get("FIRST_SEQ").toString() );
+				FIRST_SEQ = FIRST_SEQ + 20;
+			}
+			inParam.put("FIRST_SEQ", FIRST_SEQ);
+			int LAST_SEQ = 20;
+			if(inParam.get("LAST_SEQ")==null){
+				LAST_SEQ = 20;
+			}else{
+				LAST_SEQ 	= Integer.parseInt(inParam.get("LAST_SEQ").toString() );
+				logger.debug("20더한다.");
+				LAST_SEQ = LAST_SEQ + 20;
+				logger.debug("...");
+			}
+			inParam.put("LAST_SEQ", LAST_SEQ);
+			logger.debug("FIRST_SEQ	:["+inParam.get("FIRST_SEQ")+"]");
+			logger.debug("LAST_SEQ	:["+inParam.get("LAST_SEQ")+"]");	
+			// E 페이징	>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+			
+			// 등록되어있는 관심태그를 list에 담는다.
+			List<Map<String, Object>> list = mobileInterestDao.wishList(mberSeq);
+			inParam.put("list", list);
+					
+			// 조회
+			resultList = mobileInterestDao.selectInterestList(inParam);
+			
+			return resultList;
+	}
+	 
+	// 등록한 관심태그 조회
+	@Override
+	public ModelMap wishProdList(HttpServletRequest request ,@RequestParam Map<String, Object> inParam) throws Exception {
+		// TODO Auto-generated method stub
+		ModelMap mm = new ModelMap();
+		String mberSeq = String.valueOf(inParam.get("MBER_SEQ"));
+		mm.put("wishList", mobileInterestDao.wishList(mberSeq));
+		return mm;
+	}
+
+	// 관심태그 등록
+	@Override
+	@Transactional
+	public ModelMap setWishProd(HttpServletRequest request, @RequestParam Map<String, Object> inParam) throws Exception {
+		// TODO Auto-generated method stub
+		ModelMap mm = new ModelMap();
+		Map<String, Object> map = new HashMap<String, Object>();
+		
+		// 세션 받기
+		WebSession user = (WebSession)request.getSession().getAttribute("user");
+		
+		// 입력한 태그 파라미터로 받기.
+		String[] tagVal = request.getParameterValues("tagVal");
+		
+		System.out.println("***************************1 ");
+		if (tagVal != null) {
+			for(int i=0; i<tagVal.length; i++){
+				// 태그등록 DAO호출
+				map.put("tagVal", tagVal[i]);
+				if(user == null){
+					System.out.println("***************************2 ");
+					return mm;
+				}else{
+					System.out.println("***************************3 ");
+					map.put("mberSeq", user.getMBER_SEQ());
+				}
+				System.out.println("***************************4 ");
+				System.out.println("########## insert 시작 ############ "+tagVal[i]);
+				mm.put("wishList", mobileInterestDao.insertWishTag(map));
+				System.out.println("########## insert 종료 ############ "+tagVal[i]);
+			}
+			System.out.println("***************************5 ");
+		}
+
+		Map<String, Object> tag = 	mobileInterestDao.selectWishTags(String.valueOf(user.getMBER_SEQ()));
+		
+		System.out.println("***************************tag ");
+		
+		try {
+			if(tag != null ){
+				LoggerUtil.writeMap(tag);
+				Elasticsearch.putTagIndexing(tag);
+			}else{
+				Elasticsearch elasticsearch = new Elasticsearch();
+				map.put("MBER_SEQ", user.getMBER_SEQ());
+				elasticsearch.deleteTagIndexing(map);
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+				
+		System.out.println("***************************6 ");
+		return mm;
+	}
+
+	
+	// 관심태그로 상품조회
+//	@Override
+//	public ModelMap tagSelectProd(HttpServletRequest request, Map<String, Object> inParam) throws Exception {
+//		// TODO Auto-generated method stub
+//		ModelMap mm = new ModelMap();   
+//		WebSession user = (WebSession)request.getSession().getAttribute("user");
+//		
+//		// 회원번호
+//		int mberSeq = user.getMBER_SEQ();
+//		
+//		// 태그이름
+//		String tag = String.valueOf(inParam.get("tagName"));
+//		mm.put("wishList", mobileInterestDao.tagSelectProd(tag));
+//		return mm;
+//	}
+	@Override	
+	public ModelMap tagSelectProdList(Map<String, Object> inParam, WebSession user){
+		String mberSeq = String.valueOf(inParam.get("MBER_SEQ"));
+		inParam.put("MBER_SEQ", mberSeq);
+		ModelMap mm = new ModelMap();  
+		List<Map<String, Object>> wishList = null;
+		try {
+			// S 페이징 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+			logger.debug("FIRST_SEQ	:["+inParam.get("FIRST_SEQ")+"]");
+			logger.debug("LAST_SEQ	:["+inParam.get("LAST_SEQ")+"]");
+			int FIRST_SEQ = 0; 
+			if(inParam.get("FIRST_SEQ")==null || "".equals(inParam.get("FIRST_SEQ"))){
+				FIRST_SEQ = 0;
+			}else{
+				FIRST_SEQ 	= Integer.parseInt(inParam.get("FIRST_SEQ").toString() );
+				FIRST_SEQ = FIRST_SEQ + 20;
+			}
+			inParam.put("FIRST_SEQ", FIRST_SEQ);
+			int LAST_SEQ = 20;
+			if(inParam.get("LAST_SEQ")==null || "".equals(inParam.get("LAST_SEQ"))){
+				LAST_SEQ = 20;
+			}else{
+				LAST_SEQ 	= Integer.parseInt(inParam.get("LAST_SEQ").toString() );
+				logger.debug("20더한다.");
+				LAST_SEQ = LAST_SEQ + 20;
+				logger.debug("...");
+			}
+			inParam.put("LAST_SEQ", LAST_SEQ);
+			logger.debug("FIRST_SEQ	:["+inParam.get("FIRST_SEQ")+"]");
+			logger.debug("LAST_SEQ	:["+inParam.get("LAST_SEQ")+"]");	
+			// E 페이징	>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+			
+//			// 태그이름
+//			String tag = String.valueOf(inParam.get("tagName"));
+//			inParam.put("TAG", tag);
+//			// 조회
+//			wishList = mobileInterestDao.tagSelectProd(inParam);
+			
+			// 태그이름
+//			String tag = String.valueOf(inParam.get("tagName"));
+//			mm.put("wishList", mobileInterestDao.tagSelectProd(tag));
+			
+			String tag = String.valueOf(inParam.get("tagName"));
+			logger.debug("aaaaaaaaaaaaaaaaaa " + tag);
+			inParam.put("TAG", tag);
+			mm.put("wishList", mobileInterestDao.tagSelectProdList(inParam));
+		}catch (Exception e) {
+			throw e;
+		}
+		return mm;
+	}
+	
+	// 관심태그삭제
+	@Override
+	public ModelMap delTagWish(HttpServletRequest request,Map<String, Object> inParam) throws Exception {
+		// TODO Auto-generated method stub
+		ModelMap mm = new ModelMap();
+		int cnt = mobileInterestDao.delTagWish(inParam);   
+		String mberSeq = String.valueOf(inParam.get("MBER_SEQ"));
+		mm.put("wishList", mobileInterestDao.wishList(mberSeq));
+		return mm;
+	}
+	
+	// 관심태그삭제
+	@Override
+	public int delTagWish2(HttpServletRequest request,Map<String, Object> inParam) throws Exception {
+		// TODO Auto-generated method stub
+		int cnt = mobileInterestDao.delTagWish(inParam);   
+		
+		if(cnt > 0){
+			
+			Map<String, Object> tag = 	mobileInterestDao.selectWishTags(String.valueOf(inParam.get("MBER_SEQ")));
+			System.out.println("***************************tag ");
+			
+			try {
+				if(tag != null ){
+					System.out.println("***************************tag ");
+					LoggerUtil.writeMap(tag);
+					Elasticsearch.putTagIndexing(tag);
+				}else{
+					Elasticsearch elasticsearch = new Elasticsearch();
+					inParam.put("MBER_SEQ", String.valueOf(inParam.get("MBER_SEQ")));
+					elasticsearch.deleteTagIndexing(inParam);
+				}
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+			
+		}
+		
+		
+		return cnt;
+	}
+
+}

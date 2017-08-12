@@ -1,0 +1,345 @@
+/**<pre>
+ * 1. Project Name : SSOCIO
+ * 2. Package Name : com.ssocio.sharing.service.admin
+ * 3. File Name	   : AdminPerfServiceImpl.java
+ * 4. Date		   : 오후 4:05 2015-08-07
+ * 5. Author	   : H.M.Yang
+ * 6. Note		   :
+ * </pre>
+ */
+package com.ssocio.sharing.service.seller;
+
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.ui.ModelMap;
+
+import com.ssocio.sharing.cmmn.util.CmmnCnst;
+import com.ssocio.sharing.cmmn.util.LoggerUtil;
+import com.ssocio.sharing.cmmn.util.StringUtil;
+import com.ssocio.sharing.dao.seller.SellerPerfDao;
+import com.ssocio.sharing.vo.admin.PageNavigation;
+
+/**
+ * <pre>
+ * 실적 서비스 인터페이스
+ * 실적 처리를 위한 서비스 인터페이스
+ * @author H.M.Yang
+ * @version
+ * @since 2015. 8. 7. 오후 4:05:00
+ * @see
+ * @History
+ *  Date          |    author    | 변경내용
+ *	2015. 8. 7.   |    H.M.Yang  | 신규
+ * @Todo
+ * </pre>
+ */
+@Service
+public class SellerPerfServiceImpl implements SellerPerfService {
+
+	// --------------------------------------------------------------------------
+	// # Log 설정
+	// --------------------------------------------------------------------------
+	private static final Logger logger = LoggerFactory.getLogger(SellerPerfServiceImpl.class);
+
+	// --------------------------------------------------------------------------
+	// # DAO 설정
+	// --------------------------------------------------------------------------
+	@Resource(name="sellerPerfDao")
+	private SellerPerfDao sellerPerfDao;
+
+	/**
+	 * <pre>
+	 * 실적관리 기간별 조회
+	 * 실적관리 기간별 조회 합니다.
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 7. 오후 4:05:00
+	 * @author H.M.Yang
+	 * @see com.ssocio.sharing.service.admin
+	 * </pre>
+	 */
+	public ModelMap selectListPeriPerf(Map<String, Object> paramDto) throws Exception {
+		ModelMap mm = new ModelMap();
+
+		/* 최초 조회시 값 셋팅 */
+		String sPeriGb = null;
+		SimpleDateFormat format = new SimpleDateFormat("yyyyMMdd");
+		Calendar cal = Calendar.getInstance();
+		Calendar tocal = Calendar.getInstance();
+		cal.add(Calendar.DATE, 0);
+
+		String sYear = (String)paramDto.get("S_YEAR");
+		String sMonth = (String)paramDto.get("S_MONTH");
+		String toYear = null;
+		String toMonth = null;
+		String sDay = null;
+
+
+		String sSalesDate = (String)paramDto.get("S_SALES_DATE"); // 파라메터 일자
+		String toHHMMDD = format.format(cal.getTime()); //현재일자
+
+		paramDto.put("S_SALES_DATE", StringUtil.nvl(sSalesDate, toHHMMDD)); // 셋
+		paramDto.put("S_PERI_GB", StringUtil.nvl((String)paramDto.get("S_PERI_GB"), "time")); // 셋
+
+		LoggerUtil.writeMap(paramDto);
+
+
+		try{
+			sPeriGb = (String)paramDto.get("S_PERI_GB"); // 구분
+
+			if("time".equals(sPeriGb)) {
+				mm.put("perfList", sellerPerfDao.selectListTimePerf(paramDto));
+			}else if("day".equals(sPeriGb)) {
+				sDay = (String)paramDto.get("S_DAY");
+				// 전월달이면 모든 일자
+				if(sDay != null && sDay != ""){
+					toMonth = toHHMMDD.substring(0, 6);
+					if(!toMonth.equals(sSalesDate.substring(0, 6))){
+						tocal.set(Integer.parseInt(sYear)
+								, (Integer.parseInt(sMonth.replace("0", ""))-1), 1);
+						paramDto.put("S_DAY", tocal.getActualMaximum(Calendar.DAY_OF_MONTH));
+
+					}else{
+						paramDto.put("S_DAY", toHHMMDD.substring(6, 8));
+					}
+				}
+
+				mm.put("perfList", sellerPerfDao.selectListDayPerf(paramDto));
+			}else if("month".equals(sPeriGb)) {
+				//sMonth = (String)paramDto.get("S_MONTH");
+				// 전년도면 모든 월
+				toYear = toHHMMDD.substring(0, 4);
+				if(!toYear.equals(sYear)){
+					paramDto.put("S_MONTH", "12");
+				}else{
+					paramDto.put("S_MONTH", toHHMMDD.substring(4, 6) );
+				}
+				mm.put("perfList", sellerPerfDao.selectListMonthPerf(paramDto));
+			}
+		}catch (Exception e) {
+			e.printStackTrace();
+		}
+
+
+		return mm;
+	}
+
+	/**
+	 * <pre>
+	 * 실적관리 기간별 엑셀 다운로드
+	 * 실적관리 기간별 조회 결과를 엑셀파일로 다운로드 합니다.
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 7. 오후 4:05:00
+	 * @author H.M.Yang
+	 * @see com.ssocio.sharing.service.admin
+	 * </pre>
+	 */
+	public List<Map<String, Object>> selectListPeriPerfExcelDownload(Map<String, Object> paramDto) throws Exception {
+		List<Map<String, Object>> listMap = new ArrayList<Map<String, Object>>();
+
+
+		/* 최초 조회시 값 셋팅 */
+		String sPeriGb = null;
+		SimpleDateFormat format = new SimpleDateFormat("yyMMdd");
+		Calendar cal = Calendar.getInstance();
+		Calendar tocal = Calendar.getInstance();
+		cal.add(Calendar.DATE, 0);
+
+		String sYear = (String)paramDto.get("S_YEAR");
+		String sMonth = (String)paramDto.get("S_MONTH");
+		String toYear = null;
+		String toMonth = null;
+		String sDay = null;
+
+
+		String sSalesDate = (String)paramDto.get("S_SALES_DATE"); // 파라메터 일자
+		String toHHMMDD = format.format(cal.getTime()); //현재일자
+
+		paramDto.put("S_SALES_DATE", StringUtil.nvl(sSalesDate, toHHMMDD)); // 셋
+		paramDto.put("S_PERI_GB", StringUtil.nvl((String)paramDto.get("S_PERI_GB"), "time")); // 셋
+
+		LoggerUtil.writeMap(paramDto);
+
+
+		try{
+			sPeriGb = (String)paramDto.get("S_PERI_GB"); // 구분
+
+			if("time".equals(sPeriGb)) {
+				listMap.addAll(sellerPerfDao.selectListTimePerfExcelDownload(paramDto));
+			}else if("day".equals(sPeriGb)) {
+				sDay = (String)paramDto.get("S_DAY");
+				// 전월달이면 모든 일자
+				if(sDay != null && sDay != ""){
+					toMonth = toHHMMDD.substring(0, 4);
+					if(!toMonth.equals(sSalesDate.substring(0, 4))){
+						tocal.set(Integer.parseInt(sYear)
+								, (Integer.parseInt(sMonth.replace("0", ""))-1), 1);
+						paramDto.put("S_DAY", tocal.getActualMaximum(Calendar.DAY_OF_MONTH));
+
+					}else{
+						paramDto.put("S_DAY", toHHMMDD.substring(4, 6));
+					}
+				}
+
+				listMap.addAll(sellerPerfDao.selectListDayPerfExcelDownload(paramDto));
+			}else if("month".equals(sPeriGb)) {
+				sMonth = (String)paramDto.get("S_MONTH");
+				// 전년도면 모든 월
+				toYear = toHHMMDD.substring(0, 2);
+				if(!toYear.equals(sYear)){
+					paramDto.put("S_MONTH", "12");
+				}else{
+					paramDto.put("S_MONTH", toHHMMDD.substring(2, 4) );
+				}
+
+				listMap.addAll(sellerPerfDao.selectListMonthPerfExcelDownload(paramDto));
+			}
+		}catch (Exception e) {
+			e.printStackTrace();
+		}
+
+
+		return listMap;
+	}
+
+	/**
+	 * <pre>
+	 * 실적관리 카테고리 조회
+	 * 실적관리 카테고리 조회 합니다.
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 7. 오후 4:05:00
+	 * @author H.M.Yang
+	 * @see com.ssocio.sharing.service.admin
+	 * </pre>
+	 */
+	public ModelMap selectListCtryPerf(Map<String, Object> paramDto) throws Exception {
+		ModelMap mm = new ModelMap();
+
+		/* 최초 조회시 값 셋팅 */
+//		[ACTION, S_FROM_DATE, S_TO_DATE, TAB_INDEX, searchCtryCd, PAGE_NO, FROM_DATE
+		SimpleDateFormat format = new SimpleDateFormat("yyyyMMdd");
+		Calendar cal = Calendar.getInstance();
+		cal.add(Calendar.DATE, 0);
+		paramDto.put("S_FROM_DATE", StringUtil.nvl((String)paramDto.get("S_FROM_DATE"), format.format(cal.getTime())));
+		paramDto.put("S_TO_DATE", StringUtil.nvl((String)paramDto.get("S_TO_DATE"), format.format(cal.getTime())));
+
+		LoggerUtil.writeMap(paramDto);
+
+		try{
+			mm.put("perfList", sellerPerfDao.selectListCtryPerf(paramDto));
+		}catch(Exception e){
+			e.printStackTrace();
+		}
+
+		return mm;
+	}
+
+	/**
+	 * <pre>
+	 * 실적관리 카테고리 엑셀 다운로드
+	 * 실적관리 카테고리 조회 결과를 엑셀파일로 다운로드 합니다.
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 7. 오후 4:05:00
+	 * @author H.M.Yang
+	 * @see com.ssocio.sharing.service.admin
+	 * </pre>
+	 */
+	public List<Map<String, Object>> selectListCtryPerfExcelDownload(Map<String, Object> paramDto) throws Exception {
+		return sellerPerfDao.selectListCtryPerfExcelDownload(paramDto);
+	}
+
+	/**
+	 * <pre>
+	 * 실적관리 상품별 조회
+	 * 실적관리 상품별 조회 합니다.
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 7. 오후 4:05:00
+	 * @author H.M.Yang
+	 * @see com.ssocio.sharing.service.admin
+	 * </pre>
+	 */
+	public ModelMap selectListProdPerf(Map<String, Object> paramDto) throws Exception {
+		ModelMap mm = new ModelMap();
+
+//		[    END_ROW=20, TAB_INDEX=3,  prodCode=,   S_SORT_BASE=orderCnt, S_TO_DATE=20151023
+//		,   FROM_DATE=2015-10-23,  searchCtryCd2=, searchCtryCd1=,  P_MENU_CD=, S_TXT_GB=1, S_TEXT=
+//		,    S_DISPLAY_CNT=20, S_FROM_DATE=20151023,  ACTION=list, prodTypeCd=1,  null]
+
+		/* 최초 조회시 값 셋팅 */
+		SimpleDateFormat format = new SimpleDateFormat("yyyyMMdd");
+		Calendar cal = Calendar.getInstance();
+		cal.add(Calendar.DATE, 0);
+		paramDto.put("S_FROM_DATE", StringUtil.nvl((String)paramDto.get("S_FROM_DATE"), format.format(cal.getTime())));
+		paramDto.put("S_TO_DATE", StringUtil.nvl((String)paramDto.get("S_TO_DATE"), format.format(cal.getTime())));
+		paramDto.put("S_SORT_BASE", StringUtil.nvl((String)paramDto.get("S_SORT_BASE"), "orderCnt"));
+		paramDto.put("prodTypeCd", StringUtil.nvl((String)paramDto.get("prodTypeCd"), "1"));
+
+		// 검색총건수
+		int rowTotal = 0;
+		try{
+			rowTotal = sellerPerfDao.selectProdPerfSearchCnt(paramDto);
+		}catch(Exception e){
+			e.printStackTrace();
+		}
+
+		// 페이지설정
+		int nowPage = StringUtil.nvlInt((String)paramDto.get("PAGE_NO"), 1);
+		int rowCnt	= StringUtil.nvlInt((String)paramDto.get("S_DISPLAY_CNT"), CmmnCnst.ADM_LIST_SIZE);;
+
+
+		paramDto.put("S_DISPLAY_CNT", rowCnt);
+
+		PageNavigation pageNav= new PageNavigation(nowPage, rowTotal, rowCnt, CmmnCnst.ADM_BLOCK_SIZE);
+		mm.put("PAGE_NO", nowPage);
+		mm.put("pageNav", pageNav);
+		paramDto.put("START_ROW", pageNav.getStartRow());
+		paramDto.put("END_ROW", pageNav.getEndRow());
+
+		LoggerUtil.writeMap(paramDto);
+		try{
+			mm.put("perfList", sellerPerfDao.selectListProdPerf(paramDto));
+		}catch(Exception e){
+			e.printStackTrace();
+		}
+
+
+
+		return mm;
+	}
+
+	/**
+	 * <pre>
+	 * 실적관리 상품별 엑셀 다운로드
+	 * 실적관리 상품별 조회 결과를 엑셀파일로 다운로드 합니다.
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 7. 오후 4:05:00
+	 * @author H.M.Yang
+	 * @see com.ssocio.sharing.service.admin
+	 * </pre>
+	 */
+	public List<Map<String, Object>> selectListProdPerfExcelDownload(Map<String, Object> paramDto) throws Exception {
+		return sellerPerfDao.selectListProdPerfExcelDownload(paramDto);
+	}
+
+
+}

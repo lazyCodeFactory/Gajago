@@ -1,0 +1,199 @@
+package com.ssocio.sharing.service.admin;
+
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.ui.ModelMap;
+
+import com.ssocio.sharing.cmmn.util.CmmnCnst;
+import com.ssocio.sharing.cmmn.util.LoggerUtil;
+import com.ssocio.sharing.cmmn.util.StringUtil;
+import com.ssocio.sharing.dao.admin.AdminDivideOrderDao;
+import com.ssocio.sharing.vo.admin.PageNavigation;
+
+/**
+ * <pre>
+ * 주문관리
+ * 나눔주문관리를 위한 SERVICEIMPL
+ * @author S.B.LEE
+ * @version
+ * @since 2015. 7. 16. 오후 3:31:10
+ * @see
+ * @History
+ * Date			|	author	| 변경 내용
+ * 2015. 7. 16.	|	S.B.LEE	|신규
+ * @비고
+ * </pre>
+ */
+@Service
+public class AdminDivideOrderServiceImpl extends AdminReferServiceImpl implements
+		AdminDivideOrderService {
+	// --------------------------------------------------------------------------
+	// # Log 설정
+	// --------------------------------------------------------------------------
+	private static final Logger logger = LoggerFactory.getLogger(AdminDivideOrderServiceImpl.class);
+	
+	// --------------------------------------------------------------------------
+	// # DAO 설정
+	// --------------------------------------------------------------------------
+	@Resource(name="adminDivideOrderDao")
+	private AdminDivideOrderDao adminDivideOrderDao;
+	
+	/**
+	 * <pre>
+	 * 나눔상품주문관리
+	 * 나눔상품주문리스트를 조회합니다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 16. 오후 3:31:37
+	 * @author SEOKBAE
+	 * @see @see com.ssocio.sharing.service.admin.AdminDivideOrderService#selectListDivOrder(java.util.Map)
+	 * @비고
+	 * 
+	 * </pre>
+	 */
+	@Override
+	public ModelMap selectListDivOrder(Map<String, Object> inParam) throws Exception {
+		logger.debug("AdminDivideServiceImpl.selectListDivOrder [Start]");
+		ModelMap mm = new ModelMap();
+		try {
+			
+			//페이지번호
+			int nowPage = StringUtil.nvlInt((String)inParam.get("PAGE_NO"), 1);
+			int rowCnt	= StringUtil.nvlInt((String)inParam.get("S_ROW_CNT"), 20);;
+			inParam.put("S_ROW_CNT", rowCnt);
+			
+			String today = StringUtil.getCurrentDate();
+			inParam.put("S_END_DATE", StringUtil.nvl((String)inParam.get("S_END_DATE"), today));
+			
+			SimpleDateFormat format = new SimpleDateFormat("yyyyMMdd");
+			Calendar cal = Calendar.getInstance();
+			cal.add(Calendar.DATE, -7);
+			inParam.put("S_START_DATE", StringUtil.nvl((String)inParam.get("S_START_DATE"), format.format(cal.getTime())));
+			
+			LoggerUtil.writeMap(inParam);
+			
+			int rowTotal = adminDivideOrderDao.selectListDivOrderCount(inParam); //전체 Row Count
+			PageNavigation pageNav= new PageNavigation(nowPage, rowTotal, rowCnt, CmmnCnst.ADM_BLOCK_SIZE);
+			
+			inParam.put("L_DLV_DATE", today);
+			
+			mm.put("PAGE_NO"	   ,nowPage);
+			mm.put("pageIsPrev" ,pageNav.isPrevPage()); // 이전페이지 블록의 존재유무
+			mm.put("pageIsNext" ,pageNav.isNextPage()); // 다음페이지 블록의 존재유무
+			mm.put("pageStart"  ,pageNav.getStartPage());// 시작페이지 번호
+			mm.put("pageEnd"    ,pageNav.getEndPage()); // 종료페이지 번호
+			mm.put("rowTotal"   ,pageNav.getRowTotal());// 총 글 갯수
+			
+			inParam.put("START_ROW", pageNav.getStartRow());
+			inParam.put("END_ROW", pageNav.getEndRow());
+			
+			mm.put("selectListDivOrder",adminDivideOrderDao.selectListDivOrder(inParam));
+			mm.put("statCnt",adminDivideOrderDao.selectDivOrdStatCnt(inParam));
+			mm.put("params", inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+	
+	/**
+	 * <pre>
+	 * 엑셀다운로드
+	 * 
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 16. 오후 5:11:11
+	 * @author SEOKBAE
+	 * @see @see com.ssocio.sharing.service.admin.AdminDivideOrderService#selectListDivOrdExcel(java.util.Map)
+	 * @비고
+	 * 
+	 * </pre>
+	 */
+	@Override
+	public ModelMap selectListDivOrdExcel(Map<String, Object> inParam) throws Exception {
+		logger.debug("AdminDivideServiceImpl.selectListDivOrdExcel [Start]");
+		ModelMap mm = new ModelMap();
+		try {
+			mm.addAttribute("selectListDivOrdExcel", adminDivideOrderDao.selectListDivOrdExcel(inParam));
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+	
+	/**
+	 * <pre>
+	 * 나눔 주문 상세 내역 조회
+	 * 
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 17. 오전 10:59:03
+	 * @author SEOKBAE
+	 * @see @see com.ssocio.sharing.service.admin.AdminDivideOrderService#selectDivOrderDtl(java.util.Map)
+	 * @비고
+	 * 
+	 * </pre>
+	 */
+	@Override
+	public ModelMap selectDivOrderDtl(Map<String, Object> inParam) throws Exception {
+		logger.debug("AdminDivideServiceImpl.selectDivOrderDtl [Start]");
+		ModelMap mm = new ModelMap();
+		try {
+			mm.put("selectDivOrderDtl", adminDivideOrderDao.selectDivOrderDtl(inParam));		//주문상품상세리스트
+			mm.put("selectDivSetlDtl", adminDivideOrderDao.selectDivOrdSetlDtl(inParam).get("selectDivSetlDtl"));			//주문결제상세
+			mm.put("params", inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+
+	/**
+	 * <pre>
+	 * 주문 상태 변경
+	 * 
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 17. 오후 4:32:36
+	 * @author SEOKBAE
+	 * @see @see com.ssocio.sharing.service.admin.AdminDivideOrderService#updateDivOrderDtl(java.util.Map)
+	 * @비고
+	 * 
+	 * </pre>
+	 */
+	@Override
+	public int updateDivOrderDtl(Map<String, Object> inParam) throws Exception {
+		logger.debug("AdminDivideServiceImpl.updateDivOrderDtl [Start]");
+		int outParam = 0;
+		try {
+			List<String> ordCdList = (List<String>) inParam.get("ORD_CD");
+			List<String> prodCodeList = (List<String>) inParam.get("PROD_CODE");
+			List<String> procStatCdList = (List<String>) inParam.get("PROC_STAT_CD");
+			for (int i = 0; i < ordCdList.size(); i++) {
+				inParam.put("ORD_CD", ordCdList.get(i));
+				inParam.put("PROD_CODE", prodCodeList.get(i));
+				inParam.put("PROC_STAT_CD", procStatCdList.get(i));
+				outParam = adminDivideOrderDao.updateDivOrderDtl(inParam);
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return outParam;
+	}
+}

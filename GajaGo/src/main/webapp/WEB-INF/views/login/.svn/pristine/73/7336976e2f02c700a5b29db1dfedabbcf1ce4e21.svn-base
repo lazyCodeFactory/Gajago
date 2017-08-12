@@ -1,0 +1,293 @@
+package com.ssocio.sharing.service.web;
+
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.ui.ModelMap;
+
+import com.ssocio.sharing.cmmn.util.CmmnCnst;
+import com.ssocio.sharing.cmmn.util.StringUtil;
+import com.ssocio.sharing.cmmn.web.util.WebMobilePaging;
+import com.ssocio.sharing.dao.web.MobileMyWishDao;
+import com.ssocio.sharing.vo.web.WebSession;
+
+@Service
+public class MobileMyWishServiceImpl implements MobileMyWishService {
+	
+	private static final Logger logger = LoggerFactory.getLogger(MobileMyWishServiceImpl.class);
+	
+	@Resource(name="mobileMyWishDao")
+	private MobileMyWishDao mobileMyWishDao;
+	
+	/**   
+	 * 위시 카테고리 조회
+	 */
+	@Override
+	public ModelMap getMyWishList(Map<String, Object> inParam, WebSession user){
+		ModelMap mm = new ModelMap();
+		int mberSeq = user.getMBER_SEQ();
+		logger.debug("mberSeq:"+mberSeq);
+		inParam.put("MBER_SEQ", mberSeq);
+		try {
+			List<Map<String, Object>> countList = null;
+			countList = mobileMyWishDao.getMyWishList(inParam);
+			mm.put("myWish"		, countList);
+			mm.put("myWishTotal", countList.size());
+		}catch (Exception e) {
+			throw e;
+		}
+		return mm;
+	}
+	/**   
+	 * 위시리스트 타이틀 등록 처리
+	 */
+	@Override
+	public ModelMap newMyWishTitle(Map<String, Object> inParam, WebSession user){
+		ModelMap mm = new ModelMap();
+		int mberSeq = user.getMBER_SEQ();
+		logger.debug("mberSeq:"+mberSeq);
+		// 로그인 정보가 존재하지 않아서 임의로 넣는다. 이석배 seokbae@rocomo.com
+		inParam.put("MBER_SEQ", mberSeq);
+		inParam.put("WISH_NAME", inParam.get("WISH_NAME").toString() );
+		
+		
+		Integer adrStatus = 0;
+		String msg = "";
+		try {
+			adrStatus = mobileMyWishDao.newMyWishTitle(inParam);
+			logger.debug("adrStatus:"+adrStatus);
+			if(adrStatus == null){
+				msg = "위시리스트 타이클이 등록되었습니다.";
+			}
+			mm.put("msg", msg);
+		}catch (Exception e) {
+			throw e;
+		}
+		return mm;
+	}
+	/**   
+	 * 위시리스트 타이틀 삭제 처리
+	 */
+	@Override
+	public ModelMap deleteMyWish(Map<String, Object> inParam, WebSession user){
+		ModelMap mm = new ModelMap();
+		int mberSeq = user.getMBER_SEQ();
+		logger.debug("mberSeq:"+mberSeq);
+		inParam.put("WISH_SEQ", inParam.get("WISH_SEQ").toString());
+		inParam.put("MBER_SEQ", user.getMBER_SEQ() );
+		
+		
+		Integer adrStatus = 0;
+		String msg = "";
+		try {
+			adrStatus = mobileMyWishDao.deleteMyWish(inParam);
+			adrStatus += mobileMyWishDao.deleteMyWishProdAll(inParam);
+			logger.debug("adrStatus:"+adrStatus);
+			if(adrStatus > 0){
+				msg = "위시리스트 타이클이 삭제되었습니다.";
+			}
+			mm.put("msg", msg);
+		}catch (Exception e) {
+			throw e;
+		}
+		return mm;
+	}
+	/**   
+	 * 위시리스트 타이틀 이름변경 처리
+	 */
+	@Override
+	public ModelMap renameMyWish(Map<String, Object> inParam, WebSession user){
+		ModelMap mm = new ModelMap();
+		int mberSeq = user.getMBER_SEQ();
+		logger.debug("mberSeq:"+mberSeq);
+		inParam.put("WISH_SEQ", inParam.get("WISH_SEQ").toString());
+		inParam.put("MBER_SEQ", user.getMBER_SEQ() );
+		
+		
+		Integer adrStatus = 0;
+		String msg = "";
+		try {
+			adrStatus = mobileMyWishDao.renameMyWish(inParam);
+			logger.debug("adrStatus:"+adrStatus);
+			if(adrStatus == null){
+				msg = "위시리스트 타이클이 삭제되었습니다.";
+			}
+			mm.put("msg", msg);
+		}catch (Exception e) {
+			throw e;
+		}
+		return mm;
+	}
+	/**   
+	 * 위시 상세 조회
+	 */
+	@Override
+	public ModelMap detailMyWishList(Map<String, Object> inParam, WebSession user){
+		ModelMap mm = new ModelMap();
+		int mberSeq = user.getMBER_SEQ();
+		logger.debug("mberSeq:"+mberSeq);
+		inParam.put("MBER_SEQ", mberSeq);
+		// S 페이징 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+		logger.debug("FIRST_SEQ	:["+inParam.get("FIRST_SEQ")+"]");
+		logger.debug("LAST_SEQ	:["+inParam.get("LAST_SEQ")+"]");
+		int FIRST_SEQ = 0; 
+			if(inParam.get("FIRST_SEQ")==null){
+				FIRST_SEQ = 0;
+			}else{
+				FIRST_SEQ 	= Integer.parseInt(inParam.get("FIRST_SEQ").toString() );
+				FIRST_SEQ = FIRST_SEQ + 20;
+			}
+			inParam.put("FIRST_SEQ", FIRST_SEQ);
+		int LAST_SEQ = 20;
+			if(inParam.get("LAST_SEQ")==null){
+				LAST_SEQ = 20;
+			}else{
+				LAST_SEQ 	= Integer.parseInt(inParam.get("LAST_SEQ").toString() );
+				logger.debug("20더한다.");
+				LAST_SEQ = LAST_SEQ + 20;
+				logger.debug("...");
+			}
+			inParam.put("LAST_SEQ", LAST_SEQ);
+			logger.debug("FIRST_SEQ	:["+inParam.get("FIRST_SEQ")+"]");
+			logger.debug("LAST_SEQ	:["+inParam.get("LAST_SEQ")+"]");	
+		// E 페이징	>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+		try {
+			mm.put("myWishDtl", mobileMyWishDao.detailMyWishList(inParam));
+		}catch (Exception e) {
+			throw e;
+		}
+		return mm;
+	}
+	
+	/**   
+	 * 위시리스트 상세 개별 삭제 처리
+	 */
+	@Override
+	public ModelMap deleteMyWishProd(Map<String, Object> inParam, WebSession user){
+		ModelMap mm = new ModelMap();
+		int mberSeq = user.getMBER_SEQ();
+		logger.debug("mberSeq:"+mberSeq);
+		inParam.put("REG_SEQ", inParam.get("REG_SEQ").toString());
+		inParam.put("MBER_SEQ", user.getMBER_SEQ() );
+		inParam.put("WISH_SEQ", inParam.get("WISH_SEQ").toString() );
+		
+		
+		Integer adrStatus = 0;
+		String msg = "";
+		try {
+			adrStatus = mobileMyWishDao.deleteMyWishProd(inParam);
+			logger.debug("adrStatus:"+adrStatus);
+			if(adrStatus == null){
+				msg = "위시리스트 상세 개별삭제되었습니다.";
+			}
+			mm.put("msg", msg);
+		}catch (Exception e) {
+			throw e;
+		}
+		return mm;
+	}
+	/**   
+	 * 위시리스트 상세 전체 삭제 처리
+	 */
+	@Override
+	public ModelMap deleteMyWishProdAll(Map<String, Object> inParam, WebSession user){
+		ModelMap mm = new ModelMap();
+		int mberSeq = user.getMBER_SEQ();
+		logger.debug("mberSeq:"+mberSeq);
+		inParam.put("MBER_SEQ", mberSeq);
+		inParam.put("WISH_SEQ", inParam.get("WISH_SEQ").toString() );
+		
+		Integer adrStatus = 0;
+		String msg = "";
+		try {
+			adrStatus = mobileMyWishDao.deleteMyWishProdAll(inParam);
+			logger.debug("adrStatus:"+adrStatus);
+			if(adrStatus == null){
+				msg = "위시리스트 상세 전체삭제되었습니다.";
+			}
+			mm.put("msg", msg);
+		}catch (Exception e) {
+			throw e;
+		}
+		return mm;
+	}
+	
+	@Override
+	public ModelMap selectListWishCtry(int mberSeq, int curPage) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆SERVICE selectWishInfo START☆★☆★☆★☆★☆★☆★☆");
+		
+		ModelMap mm = new ModelMap();
+		
+		int totCount = mobileMyWishDao.selectCountWishCtry(mberSeq);
+		//		페이징 클래스 initialize
+		WebMobilePaging paging = new WebMobilePaging(totCount, curPage, CmmnCnst.MOBILE_COMMENT_SIZE);
+		mm.put("wishCtryList", mobileMyWishDao.selectListWishCtry(mberSeq, paging.getStartContent(), paging.getEndContent()));
+		
+		mm.put("paging", paging);
+		
+		return mm;
+	}
+	
+	@Override
+	@Transactional
+	public ModelMap insertWishCtry(Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆SERVICE insertWishCtry START☆★☆★☆★☆★☆★☆★☆");
+		ModelMap mm = new ModelMap();
+		
+		int cnt = mobileMyWishDao.selectCountWishCtryByWishName(inParam);
+		
+		if( cnt > 0 ){
+			mm.put("ERR_CODE", 0);
+		}
+		else{
+			mm.put("ERR_CODE", mobileMyWishDao.insertWishCtry(inParam));
+		}
+		
+		return mm;
+	}
+	
+	@Override
+	@Transactional
+	public int insertWish(Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆SERVICE insertWish START☆★☆★☆★☆★☆★☆★☆");
+		
+		int retVal = mobileMyWishDao.selectWishRegSeq(inParam);
+		
+		if( retVal == 0 ){
+			retVal = mobileMyWishDao.insertWish(inParam);
+		}
+		else{
+			retVal = 0;
+		}
+		
+		return retVal;
+	}
+	
+	/**   
+	 * 등록전 이름체크
+	 * 이름수정전 이름체크
+	 */
+	@Override
+	public ModelMap nameAllCheckMyWish(Map<String, Object> inParam, WebSession user){
+		ModelMap mm = new ModelMap();
+		int mberSeq = user.getMBER_SEQ();
+		logger.debug("mberSeq:"+mberSeq);
+		inParam.put("MBER_SEQ", user.getMBER_SEQ() );
+		Integer nameCnt = 0;
+		try {
+			nameCnt = mobileMyWishDao.nameAllCheckMyWish(inParam);
+			logger.debug("nameCnt:"+nameCnt);
+			mm.put("nameCnt", nameCnt);
+		}catch (Exception e) {
+			throw e;
+		}
+		return mm;
+	}
+	
+}

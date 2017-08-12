@@ -1,0 +1,416 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/web/common/cmmnHead.jsp"%>
+
+<style>
+.blur {
+    filter:blur(1px);
+    -ms-filter:blur(1px);
+    -moz-filter:blur(1px);
+    -webkit-filter:blur(1px);
+}
+</style>
+<script type="text/javascript" src="/js/web/cart.js" ></script> <!-- 장바구니용 js -->
+<script type="text/javascript">
+var Comment = function(){
+	this.boardSeq = '';
+	this.contents = '';
+	this.prodCode = '';
+	this.mberSq = '';
+	this.timeGap = 0;
+	this.email = '';
+	this.mberImgUrl = '';
+	this.banYn = 'N';
+	this.levelImg = '';
+};
+/**
+ *
+ * <pre>
+ * 설명 : container 객체
+ * 설명 : 상품 목록에 대한 처리를 담당한다.
+ * @param prods 		: Product객체를 담을 collection 객체
+ * @param area 			: display할 영역의 parent 객체
+ * @date 2015. 8. 25. 오후 17:42:41
+ * @author WOOK.KIM
+ * @see
+ * </pre>
+ */
+var container = {
+	comments : new Array(),
+	area : null,
+	mberSeq : '',
+	curPage : 1,
+	isNext : false,
+	add : function(param){
+		var html = '';
+		html += '<li class="commentLi">';
+		html += '<p class="mem-img">';
+		if( param.mberImgUrl == '' ){
+			html += '<img src="<custom:codeTag code="DEFAULT_IMG_URL" groupCode="SITE_DEFAULT" />">';
+		}
+		else{
+			html += '<img src="<custom:codeTag code="DEFAULT_IMG_URL" groupCode="SITE_DEFAULT" />" alt="' + param.mberImgUrl +'">';
+		}
+		html += '</p>';
+		html += '<div class="clear">';
+		html += '<p class="clear">';
+		if (param.ssoGbCd == 'KKO') {
+			html += '<span class="fl"><img class="img_level" src="<custom:codeTag code="DEFAULT_IMG_URL" groupCode="SITE_DEFAULT" />" width="15px" height="15px" alt="' + param.levelImg + '">' + param.mberNick + '</span>';
+		} else {
+			html += '<span class="fl"><img class="img_level" src="<custom:codeTag code="DEFAULT_IMG_URL" groupCode="SITE_DEFAULT" />" width="15px" height="15px" alt="' + param.levelImg + '">' + getMaskingEmail(param.email) + '</span>';
+		}
+		html += '<span class="fr">' + timeGap(param.timeGap);
+
+		if( param.mberSeq == this.mberSeq){
+			html += '<a href="javascript:modiComment(' + param.boardSeq + ')" class="modiComment"><img src="http://static.ssocio.net/web/images/data_edit.png" alt="수정"></a>';
+		}
+		else{
+			if( param.banYn != 'Y'){
+				html += '<a href="javascript:insertBoardSuspectInfo(' + param.boardSeq + ');"><img src="http://static.ssocio.net/web/images/report_on.png" alt="신고하기"></a>';
+			}
+			else{
+				html += '<a><img src="http://static.ssocio.net/web/images/report.png" alt="신고하기"></a>';
+			}
+		}
+		html += '        </p>';
+		if( param.banYn != 'Y'){
+			html += '        <p class="doct" id="modBox'+param.boardSeq+'">' + param.contents + '</p>';
+		}
+		else {
+			html += "		 <p class='doct'><span class='color_96'>'관리자에 의해서 차단 된 게시글 입니다.'</span></p>";
+		}
+		html += '    </div>';
+		html += '</li>';
+
+		this.area.append(html);
+		this.comments.push(param);
+
+		cdnreload();
+	},
+	addJson : function(param){
+		var comment = new Comment();
+		comment.boardSeq = param.BOARD_SEQ;
+		comment.contents = param.CONTENTS;
+		comment.mberSeq = param.MBER_SEQ;
+		comment.prodCode = param.PROD_CODE;
+		comment.timeGap = param.TIME_GAP;
+		comment.email = param.MBER_EMAIL;
+		comment.mberImgUrl = param.FILE_URL;
+		comment.banYn = param.BAN_YN;
+		this.add(comment);
+	},
+	removeAll : function(){
+		this.area.empty();
+		this.comments.splice(0, this.comments.length);
+	},
+};
+
+$(function(){
+// 	header.type	= 6;
+	header.type	= 4;
+	header.title = "댓글";
+	header.method = "POST";
+	if('4' != '${inParam.PROD_TYPE_CD }'){
+	header.backUrl = "/mobile/prod/selectProd.do?PROD_CODE=${inParam.PROD_CODE }";
+	}else{
+	header.backUrl = "/mobile/shar/selectSharDtl.do?PROD_CODE=${inParam.PROD_CODE }";
+	}
+	header.callback = headerCallback; // 장바구니용 callback
+	header.form = $("#form");
+	initHeader();
+	document.title = header.title;
+	displayFooter(false);
+
+	//	앱일 경우 하단 레이어 닫는 인터페이스 호출
+	if( '${sessionScope.APP}' == 'SSOCIO'){
+		document.location.replace('ssocio://web/hideDetailBottomView');
+	}
+
+	container.area = $("#id_container_area");
+	container.mberSeq = '${sessionScope.user.MBER_SEQ}';
+	initCommentList();
+
+	$(window).scroll(function(){
+		if( $(window).scrollTop() == $(document).height() - $(window).height()){
+			if(container.isNext == "true"){
+				getComments();
+			}
+		}
+	});
+
+});
+
+function modiComment(boardSeq){
+
+	$('.modiComment').hide();
+	var text = $("#modBox"+boardSeq).html();
+
+	$('.commentLi').addClass('blur');
+	$("#modBox"+boardSeq).parents('li').removeClass('blur');
+
+	var modHtml = "<div>";
+	modHtml += "<div><input type='text' value='"+text+"' id='modText"+boardSeq+"' maxLength='300' oninput='javascript:textLength(this);' onkeyup='javascript:textLength(this);' /></div>";
+	modHtml += "<div style='margin-top: 10px; text-align: right;'>";
+	modHtml += "<a href='javascript:updateProdCommentMod("+boardSeq+")' class='btn_b' style='padding: 5px 20px 5px 20px; margin-right: 15px;'>수정</a>";
+	modHtml += "<a href='javascript:deleteProdComment("+boardSeq+")' class='btn_b' style='padding: 5px 20px 5px 20px;'>삭제</a></div>";
+	modHtml += "</div>";
+
+	$("#modBox"+boardSeq).html("");
+	$("#modBox"+boardSeq).append(modHtml);
+
+}
+
+function textLength(obj) {
+
+	var len = $(obj).val().length;
+	var maxLen = $(obj).attr("maxLength");
+	console.log("len : " + len);
+	console.log("maxLen : " + maxLen);
+	// 글자수 제한
+	if (len > maxLen) {
+		$(obj).val($(obj).val().slice(0,maxLen));
+	}
+
+}
+
+function updateProdCommentMod(boardSeq){
+// 	alert("update 수정폼 text : " + $('#modText'+boardSeq).val());
+	// 금칙어 조회
+
+	if($('input[id="modText'+ boardSeq +'"]').val().trim() == null || $('input[id="modText'+ boardSeq +'"]').val().trim() == ""){
+		alert("내용을 입력하세요.");
+		$('input[id="modText'+ boardSeq +'"]').focus();
+		return;
+	}
+
+	// 수정 controller
+	var data = {
+		"BOARD_SEQ": boardSeq,
+		"BOARD_TYPE_CD": $("#BOARD_TYPE_CD").val(),
+		"PROD_CODE": $("#PROD_CODE").val(),
+		"CONTENTS": $('#modText'+boardSeq).val()
+	};
+
+	$.ajax({
+		type: 'post',
+		async: true,
+		url: '/mobile/board/updateCommentMod.do',
+		dataType:'json',
+		data: data,
+		//before: function() {
+		//   loadingForm.showDialog();
+		//},
+	    success: function(response) {
+// 			location.href = '/mobile/prod/selectProd.do?PROD_CODE=' + $("#PROD_CODE").val();
+	    	location.href = '/mobile/board/selectListComment.do?PROD_CODE='+$("#PROD_CODE").val()+'&PROD_TYPE_CD='+$("#PROD_TYPE_CD").val();
+		},
+		//complete: function() {
+		//	loadingForm.hideDialog();
+		//},
+		error : function(request, status, error) {
+			alert("통신 오류가 발생 하였습니다. 잠시 후 다시 시도해 주세요");
+		}
+	});
+}
+
+function deleteProdComment(boardSeq){
+// 	alert("delete");
+// 	$('.commentDelPop').show();
+
+	if(confirm("정말 삭제 하시겠습니까?")){
+		// 삭제 controller
+
+		var data = {
+			"BOARD_SEQ": boardSeq
+		};
+
+		$.ajax({
+			type: 'post',
+			async: true,
+			url: '/mobile/board/deleteProdComment.do',
+			dataType:'json',
+			data: data,
+			//before: function() {
+			//   loadingForm.showDialog();
+			//},
+		    success: function(response) {
+// 				location.href = '/mobile/prod/selectProd.do?PROD_CODE=' + $("#PROD_CODE").val();
+				location.href = '/mobile/board/selectListComment.do?PROD_CODE='+$("#PROD_CODE").val()+'&PROD_TYPE_CD='+$("#PROD_TYPE_CD").val();
+			},
+			//complete: function() {
+			//	loadingForm.hideDialog();
+			//},
+			error : function(request, status, error) {
+				alert("통신 오류가 발생 하였습니다. 잠시 후 다시 시도해 주세요");
+			}
+		});
+
+	} else {
+		return;
+	}
+
+}
+
+
+
+
+
+function initCommentList(){
+	<c:forEach var="comment" items="${result.comment.list}" varStatus="status">
+		var comment = new Comment();
+		comment.boardSeq = '${comment.BOARD_SEQ}';
+		comment.contents = '${comment.CONTENTS}';
+		comment.mberSeq = '${comment.MBER_SEQ}';
+		comment.prodCode = '${comment.PROD_CODE}';
+		comment.timeGap = '${comment.TIME_GAP}';
+		comment.email = '${comment.MBER_EMAIL}';
+		comment.mberImgUrl = '${comment.FILE_URL}';
+		comment.banYn = '${comment.BAN_YN}';
+		comment.ssoGbCd = '${comment.SSO_GB_CD}';
+		comment.mberNick = '${comment.MBER_NICK}';
+		comment.levelImg = '${comment.LEVEL_IMG}';
+		container.add(comment);
+	</c:forEach>
+
+	//	paging 처리
+	container.isNext = '${result.paging.next}';
+	container.curPage = '${result.paging.curPage}';
+}
+
+function getComments(){
+	$("#CUR_PAGE").val(container.curPage + 1);
+
+	$.ajax({
+		type: 'post',
+		async: true,
+		url: '/mobile/board/selectListCommentNext.do',
+		dataType:'json',
+		data: {"PROD_CODE":$("#PROD_CODE").val(),
+			"CUR_PAGE":$("#CUR_PAGE").val(),
+			"TOT_CNT":$("#TOT_CNT").val()
+		},
+		//before: function() {
+	    //   loadingForm.showDialog();
+	    //},
+	    success: function(response) {
+
+	    	var commentList = response.result.comment.list;
+	    	if(commentList.length > 0){
+	    		for(var i = 0 ; i < commentList.length ; i++){
+	    			container.addJson(commentList[i]);
+	    		}
+	    	}
+// 	    	$.each(comments, function(index){
+// 	    		container.addJson(comments[index]);
+// 	    	});
+
+	    	//	페이징 정보를 세팅한다.
+	    	container.isNext = response.result.paging.next;
+	    	container.curPage = response.result.paging.curPage;
+
+    		// TOT_CNT
+    		$("#TOT_CNT").val(response.result.paging.totCnt);
+		},
+		//complete: function() {
+	    //	loadingForm.hideDialog();
+		//},
+		error : function(request, status, error) {
+			alert("통신 오류가 발생 하였습니다. 잠시 후 다시 시도해 주세요");
+		}
+	});
+}
+
+function insertBoardSuspectInfo(boardSeq){
+	if('${sessionScope.user.login}' == ''){
+		if(confirm("로그인이 필요한 서비스입니다.\n로그인 하시겠습니까?")){
+			location.href = "/mobile/main/login.do";
+		} else {
+			return;
+		}
+	} else if( boardSeq != '' ){
+		$("#BOARD_SEQ").val(boardSeq);
+		$("#form").attr("action", "/mobile/board/insertSuspect.do").submit();
+	}
+}
+
+
+
+// [2015-11-16] 댓글등록 새로 추가
+
+function validates(){
+	if( validate($("#CONTENTS"), "댓글 내용", 0) == false) return false;
+
+	return true;
+}
+
+function insertProdCommentReg(){
+	if( validates() == false ) return;
+
+	var data = {
+		"BOARD_TYPE_CD": $("#BOARD_TYPE_CD").val(),
+		"PROD_CODE": $("#PROD_CODE").val(),
+		"CONTENTS": $("#CONTENTS").val()
+	};
+
+	$.ajax({
+		type: 'post',
+		async: true,
+		url: '/mobile/board/insertCommentReg.do',
+		dataType:'json',
+		data: data,
+		//before: function() {
+		//   loadingForm.showDialog();
+		//},
+	    success: function(response) {
+
+	    	var prodTypeCd = $("#PROD_TYPE_CD").val();
+	    	console.log("prodTypeCd : " + prodTypeCd);
+	    	if (prodTypeCd == "4") {
+	    		location.href = '/mobile/shar/selectSharDtl.do?PROD_CODE=' + $("#PROD_CODE").val();
+	    	}
+	    	else {
+	    		location.href = '/mobile/prod/selectProd.do?PROD_CODE=' + $("#PROD_CODE").val();
+	    	}
+
+		},
+		//complete: function() {
+		//	loadingForm.hideDialog();
+		//},
+		error : function(request, status, error) {
+			alert("통신 오류가 발생 하였습니다. 잠시 후 다시 시도해 주세요");
+		}
+	});
+}
+
+</script>
+</head>
+<body>
+<form name="form" id="form" method="get">
+<input type="hidden" name="PROD_CODE" id="PROD_CODE" value="${inParam.PROD_CODE }" />
+<input type="hidden" name="PROD_TYPE_CD" id="PROD_TYPE_CD" value="${inParam.PROD_TYPE_CD }" />
+<input type="hidden" name="BOARD_SEQ" id="BOARD_SEQ" value="" />
+<input type="hidden" id="CUR_PAGE" name="CUR_PAGE" value="${result.paging.curPage }" />
+<input type="hidden" id="TOT_CNT" name="TOT_CNT" value="${result.paging.totCnt }" />
+<input type="hidden" id="BOARD_TYPE_CD" name="BOARD_TYPE_CD" value="50" />
+<div id="container">
+	<!-- review -->
+	<div class="comment">
+		<ol class="list" id="id_container_area">
+		</ol>
+	</div>
+	<!-- //review -->
+
+	<div class="comment reply_cont">
+<!-- 		<div class="cont-area"> -->
+<!-- 			<img src="http://static.ssocio.net/web/images/bg_reply.png" width="266" height="127" alt="RESPECTFUL REPLY 성숙한 댓글 문화를 만들어 주세요!" /> -->
+<!-- 		</div> -->
+		<ol class="list" id="reply_list_area">
+		</ol>
+		<div class="comment_write frm-area">
+			<input type="text" id="CONTENTS" name="CONTENTS" value="" placeholder="댓글을 입력해주세요">
+			<a href="javascript:insertProdCommentReg();" class="btn_b">등록</a>
+		</div>
+	</div>
+</div>
+</form>
+</body>
+</html>

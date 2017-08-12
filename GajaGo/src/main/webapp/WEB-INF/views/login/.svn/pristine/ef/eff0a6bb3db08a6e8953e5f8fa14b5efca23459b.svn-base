@@ -1,0 +1,246 @@
+<%@ page language="java" contentType="text/html; charset=utf-8"
+    pageEncoding="utf-8"%>
+<!-- 태그는 cmmnHead.jsp 에 선언함 -->
+<%@ include file="/WEB-INF/views/web/common/webJSTL.jsp"%>
+<%@ include file="/WEB-INF/views/web/common/CmmnJuso.jsp"%>
+<script type="text/javascript">
+
+$(document).ready(function() {
+	// 헤더 set	
+	var sScrId = "${searchParam.S_SCR_ID}";
+	var url = "";
+	
+	if(sScrId == "selectListSharOrderHist") {
+		url = "/mobile/buy/selectListSharOrderHist.do";
+	}else if(sScrId == "selectListSharOrderDtl") {
+		url = "/mobile/buy/selectListSharOrderDtl.do";
+	}else if(sScrId == "selectListSaleOrderHist") {
+		url = "/mobile/buy/selectListSaleOrderHist.do";
+	}else if(sScrId == "selectListSaleOrderDtl") {
+		url = "/mobile/buy/selectListSaleOrderDtl.do";
+	}
+	header.type	= 2; // 0 : 타이틀영역만존재, 1 : 검색HEADER, 2 : SELECT TYPE HEADER, 3 : AD MENU TYPE HEADER, 4 : SUB TYPE HEADER
+	header.title = "주소변경";
+	document.title = "주소변경";
+	header.method = "POST";
+	header.backUrl = url;
+	header.form = $("#frm");
+	header.callback = f_headerCallBack();
+	initHeader();
+	
+	displayFooter(false);
+	
+	// 우편번호 keydown 이벤트
+	$("#I_DLV_ZIP_CD").keydown(function() {
+		numberOnly(this);
+	});
+	
+	// 연락처 keydown 이벤트
+	$("#I_CONTACT").keydown(function() {
+		numberOnly(this);
+	});
+});
+
+/* ======================================================================
+Function : 헤더 콜백 처리
+Return   : 없음
+========================================================================= */
+function f_headerCallBack() {
+	$("#ACTION").val("list");
+}
+
+/* ======================================================================
+Function : 주소 변경 신청하기
+Return   : 없음
+========================================================================= */
+function f_addrReq() {
+	var sScrGubun = $("#S_SCR_GUBUN").val();
+	var sChgGbCd;
+	var sChgProcTypeCd;
+	var sProcStatCd;
+	
+	if(sScrGubun == "retReq") {
+		sChgGbCd = "80";
+		sChgProcTypeCd = "80";
+		sProcStatCd = "87";
+	}else if(sScrGubun == "colReq") {
+		sChgGbCd = "90";
+		sChgProcTypeCd = "110";
+		sProcStatCd = "90";
+	}else {
+		sChgGbCd = "";
+		sChgProcTypeCd = "";
+		sProcStatCd = "";
+	}
+	
+	$("#I_CHG_GB_CD").val(sChgGbCd);
+	$("#I_CHG_PROC_TYPE_CD").val(sChgProcTypeCd);
+	$("#I_PROC_STAT_CD").val(sProcStatCd);
+	$("#I_RFND_CD").val("10");
+	$("#I_CHG_REASON_CD").val("");
+	$("#I_CHG_REASON").val("");
+	$("#I_SHIP_MEMO").val("");
+	
+	if($("input:checkbox[name=SECU_NO_USE_YN]").is(":checked") == true) {
+		$("#I_SECU_NO_USE_YN").val("Y");
+	}else {
+		$("#I_SECU_NO_USE_YN").val("");
+	}
+	
+	$.ajax({
+		type: "post",
+		async: true,
+		url: "/mobile/buy/saveAddrRetColReq.do",
+		dataType:"json",
+		data: $("#frm").serialize(),
+		success: function(data) {
+			if(data.result > 0) {
+				alert("신청이 완료 되었습니다.");
+				
+				var sScrId = "${searchParam.S_SCR_ID}";
+				var url;
+				
+				if(sScrId == "selectListSharOrderHist") {
+					url = "/mobile/buy/selectListSharOrderHist.do";
+				}else if(sScrId == "selectListSharOrderDtl") {
+					url = "/mobile/buy/selectListSharOrderDtl.do";
+				}else if(sScrId == "selectListSaleOrderHist") {
+					url = "/mobile/buy/selectListSaleOrderHist.do";
+				}else if(sScrId == "selectListSaleOrderDtl") {
+					url = "/mobile/buy/selectListSaleOrderDtl.do";
+				}
+				
+				$("#frm").attr("action", url).submit();
+			}else {
+				alert("신청이 실패 되었습니다.");
+			}
+		},
+		error: function(data, status, err) {
+			alert("서버와의 통신이 실패했습니다.");
+		}
+	});
+}
+
+/* ======================================================================
+Function : 우편번호 값 받아오는 함수
+Return   : 없음
+========================================================================= */
+function selAddr(gubun, addr, jiben_addr, road_addr){
+	$('.add_layer').hide(); 
+	$('#wrap div#container').show(); 
+	$('#id_tile_footer').show();
+	 // 1.도로명 , 2.지번
+	 if(gubun == "1"){
+			$("#I_ZIP_CODE").val(addr); // 우편번호
+			$("#I_BAS_ADDR").val(road_addr);
+	 }else if(gubun == "2"){
+			$("#I_ZIP_CODE").val(addr); // 우편번호       
+			$("#I_BAS_ADDR").val(jiben_addr);
+	 }
+	 popup_hide();
+}
+
+</script>
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+		<div class="roc">
+			<ul class="inner">
+				<li><img src="http://static.ssocio.net/pc/img/common/section/roc_home.png" alt="홈"></li>
+				<li>마이페이지</li>
+				<li>셰어링 반납</li>
+			</ul>
+		</div>
+		<jsp:include page="../common/mype_top.jsp" flush="false" />
+		<div class="mype_s_tit">
+			<p>셰어링 반납</p>
+		</div>
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+		<div id="">
+		
+			<!-- container -->
+			<div id="container">
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>
+
+<form name="frm" id="frm" method="post">
+<input type="hidden" id="S_SCR_GUBUN" name="S_SCR_GUBUN" value="${searchParam.S_SCR_GUBUN}">
+<input type="hidden" id="S_SEARCH_PERI" name="S_SEARCH_PERI" value="${searchParam.S_SEARCH_PERI}">
+<input type="hidden" id="S_PROC_STAT_CD" name="S_PROC_STAT_CD" value="${searchParam.S_PROC_STAT_CD}">
+<input type="hidden" id="S_PROD_NM" name="S_PROD_NM" value="${searchParam.S_PROD_NM}">
+<input type="hidden" id="S_ORD_CD" name="S_ORD_CD" value="${searchParam.S_ORD_CD}">
+<input type="hidden" id="S_PROD_CD" name="S_PROD_CD" value="${searchParam.S_PROD_CD}">
+<input type="hidden" id="S_PROD_SEQ" name="S_PROD_SEQ" value="${searchParam.S_PROD_SEQ}">
+<input type="hidden" id="I_CHG_GB_CD" name="I_CHG_GB_CD">
+<input type="hidden" id="I_CHG_PROC_TYPE_CD" name="I_CHG_PROC_TYPE_CD">
+<input type="hidden" id="I_PROC_STAT_CD" name="I_PROC_STAT_CD">
+<input type="hidden" id="I_RFND_CD" name="I_RFND_CD">
+<input type="hidden" id="I_CHG_REASON_CD" name="I_CHG_REASON_CD">
+<input type="hidden" id="I_CHG_REASON" name="I_CHG_REASON">
+<input type="hidden" id="I_SHIP_MEMO" name="I_SHIP_MEMO">
+<input type="hidden" id="S_PROD_TYPE_CD" name="S_PROD_TYPE_CD" value="2">
+
+
+        <div class="info-box">
+        	<p>셰어링 상품을 반납/회수하기 위해 택배 직원이 방문할 <br>주소를 입력해 주세요</p>
+        </div>
+
+        <div class="tbl mt10">
+            <table class="tbl-data">
+                <colgroup>
+                    <col width="100px">
+                    <col width="*">
+                </colgroup>
+                <tbody>
+                	<c:forEach var="buyOrdAddr" items="${list.buyOrdAddr}" varStatus="status">
+	                    <tr>
+	                        <th>이름</th>
+	                        <td><input type="text" id="I_RCV_NM" name="I_RCV_NM" maxlength="10" value="${buyOrdAddr.RCV_NM}"></td>
+	                    </tr>
+	                    <tr>
+	                        <th class="vtop">주소</th>
+	                        <td>
+	                        	<ul class="add">
+	                                <li><input type="text" id="I_ZIP_CODE" name="I_ZIP_CODE" maxlength="6" value="${buyOrdAddr.DLV_ZIP_CD}" class="fl" readonly> <a href="javascript:postShow();" class="btn_b fr">우편번호</a></li>
+	                                <li><input type="text" id="I_BAS_ADDR" name="I_BAS_ADDR" maxlength="50" value="${buyOrdAddr.DLV_ADDR}" readonly></li>
+	                                <li><input type="text" id="I_DTL_ADDR" name="I_DTL_ADDR" maxlength="100" value="${buyOrdAddr.DLV_ADDR_DTL}" placeholder="상세 주소 입력"></li>
+	                            </ul>
+	                        </td>
+	                    </tr>
+	                    <tr>
+	                        <th>연락처</th>
+	                        <td><input type="text" id="I_CONTACT" name="I_CONTACT" maxlength="14" value="${buyOrdAddr.RCV_TEL}" style="width:100px;"> 
+	                            <input type="checkbox" id="SECU_NO_USE_YN" name="SECU_NO_USE_YN" <c:if test="${buyOrdAddr.SECU_NO_USE_YN == 'Y'}">checked</c:if> class="ml5"> 
+	                        	<input type="hidden" id="I_SECU_NO_USE_YN" name="I_SECU_NO_USE_YN">
+	                        	<c:if test="${buyOrdAddr.SECU_NO_USE_YN == 'Y'}">
+	                        		<label><span>안심번호 이용</span></label>
+	                        	</c:if>
+	                        </td>
+	                    </tr>
+                    </c:forEach>
+                </tbody>
+            </table>
+        </div>
+        <div class="btn_enter"><a href="javascript:f_addrReq();" class="btn_r">신청하기</a></div>
+
+</form>
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+		<jsp:include page="../common/mype_bottom.jsp" flush="false" />
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+		    </div>
+		    <!-- //container -->
+		</div>
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>

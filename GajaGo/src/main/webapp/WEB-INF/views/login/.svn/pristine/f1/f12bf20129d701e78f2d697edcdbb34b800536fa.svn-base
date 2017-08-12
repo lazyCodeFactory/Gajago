@@ -1,0 +1,743 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="sellerMainMapper">
+
+
+
+	<select id="selectOrderSituation" parameterType="hashmap" resultType="hashmap">
+	SELECT
+		'0' AS ORD_GB_CD,
+		(SELECT COUNT(ORD_CD) FROM ORD_INFO WHERE ORD_STAT_CD = '10') AS ORD_CNT,
+		(SELECT SUM(ORD_AMT) FROM ORD_INFO WHERE ORD_STAT_CD = '10') AS ORD_AMT,
+		(SELECT COUNT(ORD_CD) FROM ORD_INFO WHERE ORD_STAT_CD = '20') AS CNL_CNT,
+		(SELECT SUM(ORD_AMT) FROM ORD_INFO WHERE ORD_STAT_CD = '20') AS CNL_AMT,
+		(SELECT COUNT(ORD_CD) FROM ORD_INFO WHERE ORD_STAT_CD = '30') AS CNG_CNT,
+		(SELECT COUNT(ORD_CD) FROM ORD_INFO WHERE ORD_STAT_CD = '40') AS RTN_CNT
+	FROM
+		DUAL
+
+	UNION ALL
+
+	SELECT
+		A.ORD_GB_CD,
+		A.ORD_CNT,
+		A.ORD_AMT,
+		B.ORD_CNT AS CNL_CNT,
+		B.ORD_AMT AS CNL_AMT,
+		C.ORD_CNT AS CNG_CNT,
+		D.ORD_CNT AS RTN_CNT
+	FROM
+		(SELECT ORD_GB_CD, COUNT(ORD_CD) AS ORD_CNT, SUM(ORD_AMT) AS ORD_AMT FROM ORD_INFO WHERE ORD_STAT_CD = #{ordStatCd} GROUP BY ORD_GB_CD) A,
+		(SELECT ORD_GB_CD, COUNT(ORD_CD) AS ORD_CNT, SUM(ORD_AMT) AS ORD_AMT FROM ORD_INFO WHERE ORD_STAT_CD = #{cnlStatCd} GROUP BY ORD_GB_CD) B,
+		(SELECT ORD_GB_CD, COUNT(ORD_CD) AS ORD_CNT, SUM(ORD_AMT) AS ORD_AMT FROM ORD_INFO WHERE ORD_STAT_CD = #{cngStatCd} GROUP BY ORD_GB_CD) C,
+		(SELECT ORD_GB_CD, COUNT(ORD_CD) AS ORD_CNT, SUM(ORD_AMT) AS ORD_AMT FROM ORD_INFO WHERE ORD_STAT_CD = #{rtnStatCd} GROUP BY ORD_GB_CD) D
+	WHERE
+		A.ORD_GB_CD = B.ORD_GB_CD
+	AND A.ORD_GB_CD = C.ORD_GB_CD
+	AND A.ORD_GB_CD = D.ORD_GB_CD
+
+	ORDER BY
+		ORD_GB_CD
+	</select>
+
+	<select id="selectProdSituation" parameterType="hashmap" resultType="hashmap">
+	SELECT
+'0' AS PROD_TYPE_CD,
+(SELECT COUNT(PROD_CODE) FROM PROD WHERE REGIST_DT > SYSDATE-1) AS NEW_CNT,
+(SELECT COUNT(PROD_CODE) FROM PROD WHERE VIEW_YN = 'Y') AS SELL_CNT,
+(SELECT COUNT(PROD_CODE) FROM PROD WHERE VIEW_YN = 'N' OR VIEW_YN IS NULL) AS NOT_SELL_CNT,
+(SELECT COUNT(PROD_CODE) FROM PROD) AS TOT_CNT
+FROM DUAL
+UNION ALL
+SELECT
+		A.PROD_TYPE_CD,
+		A.CNT AS NEW_CNT,
+		B.CNT AS SELL_CNT,
+		C.CNT AS NOT_SELL_CNT,
+		D.CNT AS TOT_CNT
+	FROM
+		(SELECT PROD_TYPE_CD, COUNT(PROD_TYPE_CD) AS CNT FROM PROD WHERE REGIST_DT > SYSDATE-1 GROUP BY PROD_TYPE_CD) A,
+		(SELECT PROD_TYPE_CD, COUNT(PROD_TYPE_CD) AS CNT FROM PROD WHERE VIEW_YN = 'Y' GROUP BY PROD_TYPE_CD) B,
+		(SELECT PROD_TYPE_CD, COUNT(PROD_TYPE_CD) AS CNT FROM PROD WHERE VIEW_YN = 'N' GROUP BY PROD_TYPE_CD) C,
+		(SELECT PROD_TYPE_CD, COUNT(PROD_TYPE_CD) AS CNT FROM PROD GROUP BY PROD_TYPE_CD) D
+	WHERE
+		A.PROD_TYPE_CD = B.PROD_TYPE_CD
+	AND A.PROD_TYPE_CD = C.PROD_TYPE_CD
+	AND A.PROD_TYPE_CD = D.PROD_TYPE_CD
+	</select>
+
+	<!-- 메뉴 리스트 조회 -->
+  <select id="selectMenuList" resultType="hashmap">
+    SELECT
+      MENU_CD
+      , PARENT_MENU_CD
+      , LVL_SEQ
+      , SORT_SEQ
+      , MENU_NM
+      , LINK_ADDR
+      , VIEW_YN
+    FROM MENU_INFO_CFG
+    WHERE VIEW_YN = 'Y'
+    START WITH   PARENT_MENU_CD IS NULL
+    CONNECT BY   PRIOR MENU_CD = PARENT_MENU_CD
+    ORDER SIBLINGS BY PARENT_MENU_CD ASC, SORT_SEQ ASC
+  </select>
+
+
+
+  	<!--메인 페이지 관련 -->
+
+
+  		<select id="selectMberInfo" parameterType="hashmap" resultType="hashmap">
+	SELECT
+		A.MBER_SEQ,
+		A.MBER_GB_CD,
+		A.MBER_REG_GB_CD,
+		A.MBER_EMAIL,
+		A.MBER_PHONE,
+		A.ADM_MEMO,
+		(SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'JOIN_CHAN_CD' AND COM_CD = A.JOIN_CHAN_CD) AS JOIN_CHAN_NM,
+		(SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'JOIN_PATH_CD' AND COM_CD = A.JOIN_PATH_CD) AS JOIN_PATH_NM,
+		(SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'MBER_GB_CD' AND COM_CD = A.MBER_GB_CD) AS MBER_GB_NM,
+		(SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'MBER_REG_GB_CD' AND COM_CD = A.MBER_REG_GB_CD) AS MBER_REG_GB_NM,
+		TO_CHAR(B.EMAIL_AGREE_DT, 'YYYY-MM-DD') AS EMAIL_AGREE_DT,
+		DECODE(B.EMAIL_AGREE_YN, 'Y','수신동의', '수신거부') AS EMAIL_AGREE_NM,
+		TO_CHAR(B.HP_AGREE_DT, 'YYYY-MM-DD') AS HP_AGREE_DT,
+		DECODE(B.HP_AGREE_YN, 'Y','수신동의', '수신거부') AS HP_AGREE_NM,
+		(SELECT MBER_LEV_NM FROM MBER_LEV WHERE MBER_LEV_SEQ = B.BUY_MBER_LEV_SEQ) AS BUY_MBER_LEV_NM,
+		(SELECT MBER_LEV_NM FROM MBER_LEV WHERE MBER_LEV_SEQ = B.SELL_MBER_LEV_SEQ) AS SELL_MBER_LEV_NM
+	FROM
+		MBER_INFO A,
+		MBER_DTL_INFO B
+	WHERE
+		A.MBER_SEQ = B.MBER_SEQ(+)
+	AND	A.MBER_SEQ = #{mberSeq}
+	</select>
+
+	<select id="selectMberLvlInfo" parameterType="hashmap" resultType="hashmap">
+	SELECT
+		NVL((SELECT SUM(CPOINT) FROM CRED_POINT WHERE MBER_SEQ = #{mberSeq} AND ADD_YN = 'Y') -
+		(SELECT SUM(CPOINT) FROM CRED_POINT WHERE MBER_SEQ = #{mberSeq} AND ADD_YN = 'N'), 0) AS CRE_POINT,
+		(SELECT COUNT(*) FROM BOARD_INFO A,BOARD_BAN_INFO B WHERE A.MBER_SEQ = #{mberSeq} AND A.BOARD_SEQ = B.BOARD_SEQ AND B.BAN_YN = 'Y') AS MBER_ALERT_CNT,
+<!-- 		(SELECT COUNT(*) FROM PROD A,PROD_SUSPECT_INFO B WHERE A.MBER_SEQ = #{mberSeq} AND A.PROD_CODE = B.PROD_CODE) AS SELL_ALERT_CNT -->
+ 				'1' AS SELL_ALERT_CNT
+	FROM
+		DUAL
+	</select>
+
+	<select id="selectMberActInfo" parameterType="hashmap" resultType="hashmap">
+	SELECT
+		B.LASTEST_LOGIN_TIME,
+		NVL(B.LOGIN_CNT, 0) AS LOGIN_CNT,
+		NVL(C.POINT, 0) AS POINT,
+		NVL(D.CPN_CNT, 0) AS CPN_CNT,
+		NVL(E.ORD_CNT, 0) AS ORD_CNT,
+		NVL(E.ORD_AMT, 0) AS ORD_AMT
+	FROM
+		MBER_INFO A,
+		(SELECT MBER_SEQ, MAX(CON_DATE) AS LASTEST_LOGIN_TIME, COUNT(*) AS LOGIN_CNT FROM MBER_CON_LOG GROUP BY MBER_SEQ) B,
+		(SELECT MBER_SEQ, SUM(POINT) AS POINT FROM POINT_USE_LOG WHERE POINT_TYPE = 'N' GROUP BY MBER_SEQ) C,
+		(SELECT MBER_SEQ, COUNT(*) AS CPN_CNT FROM MBER_CPN_INFO WHERE USE_YN = 'N' GROUP BY MBER_SEQ) D,
+		(SELECT MBER_ID, SUM(ORD_AMT) AS ORD_AMT, COUNT(*) AS ORD_CNT FROM ORD_INFO WHERE ADD_MONTHS(REGIST_DT, 3) > SYSDATE GROUP BY MBER_ID) E
+	WHERE
+		A.MBER_SEQ = #{mberSeq}
+		AND A.MBER_SEQ = B.MBER_SEQ(+)
+		AND A.MBER_SEQ = C.MBER_SEQ(+)
+		AND A.MBER_SEQ = D.MBER_SEQ(+)
+		AND A.MBER_SEQ = E.MBER_ID(+)
+	</select>
+
+	<select id="selectSellerMberInfo" parameterType="hashmap" resultType="hashmap">
+	/* 셀러 멤버 정보 */
+    SELECT
+		A.MBER_SEQ,
+		A.MBER_GB_CD,
+		A.MBER_REG_GB_CD,
+		A.MBER_EMAIL,
+		(SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'MBER_GB_CD' AND COM_CD = A.MBER_GB_CD) AS MBER_GB_NM,
+		(SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'MBER_REG_GB_CD' AND COM_CD = A.MBER_REG_GB_CD) AS MBER_REG_GB_NM,
+		B.SELL_MBER_LEV_SEQ AS SELL_MBER_LEV_SEQ,
+    (SELECT MBER_LEV_NM FROM MBER_LEV WHERE MBER_LEV_SEQ = B.SELL_MBER_LEV_SEQ) AS MBER_LEV_NM,
+    		NVL(NVL((SELECT SUM(CPOINT) FROM CRED_POINT WHERE MBER_SEQ = A.MBER_SEQ AND ADD_YN = 'Y'),0) -
+		NVL((SELECT SUM(CPOINT) FROM CRED_POINT WHERE MBER_SEQ = A.MBER_SEQ AND ADD_YN = 'N'),0),0) AS CRE_POINT,
+		(SELECT COUNT(1) FROM SELLER_SUSPECT_INFO WHERE SELLER_MBER_SEQ = #{mberSeq})
+		AS SELL_ALERT_CNT ,
+      (SELECT FILE_URL FROM FILE_INFO WHERE FILE_SEQ = A.MBER_IMG ) AS FILE_PATH,
+        (SELECT COUNT(1) FROM PROD WHERE MBER_SEQ = #{mberSeq} ) AS PROD_COUNT
+	FROM
+		MBER_INFO A LEFT OUTER JOIN
+		MBER_DTL_INFO B ON
+    A.MBER_SEQ = B.MBER_SEQ(+)
+    WHERE A.MBER_SEQ = #{mberSeq}
+	</select>
+
+
+<!-- 	메인 주문건수 -->
+	<select id="selectSellerOrdTypeTotal" parameterType="hashmap" resultType="hashmap">
+				SELECT SUM(R.SUM_ORD_QTY) AS SUM_ORD_QTY ,SUM(R.SUM_PROD_PRCE) AS SUM_PROD_PRCE, SUM(COUNT_MBER_SEQ) AS COUNT_MBER_SEQ ,R.PROD_TYPE_CD AS PROD_TYPE_CD
+					FROM
+					(
+					SELECT
+					  SUM(OP.ORD_QTY) SUM_ORD_QTY
+					  ,SUM(OP.PROD_PRCE * OP.ORD_QTY) SUM_PROD_PRCE
+					  ,COUNT(OP.MBER_SEQ) COUNT_MBER_SEQ
+					  ,P.PROD_TYPE_CD AS PROD_TYPE_CD
+					  FROM PROD P ,ORD_PROD_INFO OP
+					WHERE 	P.PROD_CODE = OP.PROD_CODE
+					AND TO_CHAR(OP.REGIST_DT,'RRRRMMDD') > TO_CHAR(ADD_MONTHS(SYSDATE,-1),'RRRRMMDD')
+					AND P.MBER_SEQ = #{mberSeq}
+					-- AND OP.PROC_STAT_CD = '10' -- 주문상태코드
+					GROUP BY OP.MBER_SEQ,P.PROD_TYPE_CD) R
+					GROUP BY R.PROD_TYPE_CD
+	</select>
+
+
+		<select id="selectSellerOrdQtyTotal" parameterType="hashmap" resultType="hashmap">
+		SELECT SUM(R.SUM_ORD_QTY) AS SUM_ORD_QTY ,R.PROD_TYPE_CD AS PROD_TYPE_CD,R.PROC_STAT_CD AS PROC_STAT_CD
+		  FROM (
+		  		SELECT COUNT(OP.ORD_CD) AS SUM_ORD_QTY
+		             , P.PROD_TYPE_CD AS PROD_TYPE_CD
+		             , OP.PROC_STAT_CD AS PROC_STAT_CD
+		          FROM PROD P
+		             , (SELECT * FROM ORD_PROD_INFO OP WHERE PROC_STAT_CD != '15' ) OP
+		         WHERE P.PROD_CODE = OP.PROD_CODE
+				  AND P.MBER_SEQ = #{mberSeq}
+		          AND TO_CHAR(OP.REGIST_DT, 'YYYYMMDD') BETWEEN TO_CHAR(ADD_MONTHS(SYSDATE,-1), 'YYYYMMDD') AND TO_CHAR(SYSDATE-1,'YYYYMMDD')
+		          AND P.PROD_TYPE_CD = '1'
+		          AND OP.PROC_STAT_CD IN ('10','21','22','23','99','41','31','50')
+		        GROUP BY OP.MBER_SEQ,P.PROD_TYPE_CD,OP.PROC_STAT_CD
+		        UNION ALL
+ 				SELECT COUNT(OP.ORD_CD) AS SUM_ORD_QTY
+		             , OP.PROD_TYPE_CD AS PROD_TYPE_CD
+		             , OP.PROC_STAT_CD AS PROC_STAT_CD
+		          FROM PROD P
+		             , (SELECT OP.PROD_CODE, OP.ORD_CD, OP.PROD_TYPE_CD, MBER_SEQ
+                                         , CASE WHEN OP.PROC_STAT_CD = '85' AND TRUNC(SYSDATE) - TRUNC(II.DLV_END_DT + OP.SHARE_TERM -1) > 0 THEN '86' ELSE OP.PROC_STAT_CD END AS PROC_STAT_CD
+                                      FROM ORD_PROD_INFO OP
+                                         , INVC_INFO II
+                                      WHERE OP.ORD_CD = II.ORD_CD(+)
+                                        AND OP.PROD_CODE = II.PROD_CODE(+)
+                                        AND OP.PROD_SEQ = II.PROD_SEQ(+)
+          		          AND OP.PROD_TYPE_CD = '2'
+                                        AND PROC_STAT_CD != '15'
+          		          AND TO_CHAR(OP.REGIST_DT, 'YYYYMMDD') BETWEEN TO_CHAR(ADD_MONTHS(SYSDATE,-1), 'YYYYMMDD') AND TO_CHAR(SYSDATE-1,'YYYYMMDD')
+                                 ) OP
+		         WHERE P.PROD_CODE = OP.PROD_CODE
+                              AND P.MBER_SEQ = #{mberSeq}
+		          <choose>
+					<when test="MBER_GB_CD == 1 and MBER_REG_GB_CD == 1">
+						AND OP.PROC_STAT_CD IN ('10','21','22','85','86','90','91','92', '41', '31', '50')
+					</when>
+					<otherwise>
+						AND OP.PROC_STAT_CD IN ('10','21','22','85','86','87','88','89', '41', '31', '50')
+					</otherwise>
+				 </choose>
+		        GROUP BY OP.MBER_SEQ, OP.PROD_TYPE_CD, OP.PROC_STAT_CD
+		        UNION ALL
+		          <choose>
+					<when test="MBER_GB_CD == 1 and MBER_REG_GB_CD == 1">
+					SELECT COUNT(OP.ORD_CD) AS SUM_ORD_QTY
+			             , P.PROD_TYPE_CD AS PROD_TYPE_CD
+			             , OP.PROC_STAT_CD AS PROC_STAT_CD
+			          FROM PROD P
+			             , (SELECT * FROM ORD_PROD_INFO OP WHERE PROC_STAT_CD != '15' ) OP
+			         WHERE P.PROD_CODE = OP.PROD_CODE
+					  AND P.MBER_SEQ = #{mberSeq}
+					  <!--
+			          AND TO_CHAR(OP.REGIST_DT,'RRRRMMDD') > TO_CHAR(ADD_MONTHS(SYSDATE-1,-1),'RRRRMMDD') -->
+			          AND TO_CHAR(OP.REGIST_DT, 'YYYYMMDD') BETWEEN TO_CHAR(ADD_MONTHS(SYSDATE,-1), 'YYYYMMDD') AND TO_CHAR(SYSDATE-1,'YYYYMMDD')
+			          AND P.PROD_TYPE_CD = '5'
+			          AND OP.PROC_STAT_CD IN ('94', '93')
+			        GROUP BY OP.MBER_SEQ,P.PROD_TYPE_CD,OP.PROC_STAT_CD
+					</when>
+					<otherwise>
+					SELECT COUNT(A.PROD_CODE) AS SUM_ORD_QTY
+					     , A.PROD_TYPE_CD
+					     , NVL(B.PROC_STAT_CD, '97') AS PROC_TYPE_CD
+					FROM (SELECT P.PROD_TYPE_CD AS PROD_TYPE_CD
+					           , P.PROD_CODE
+					        FROM PROD P
+					           , (SELECT * FROM ORD_PROD_INFO OP WHERE PROC_STAT_CD != '15' ) OP
+					           , PROD_SUBMIT_INFO PSI
+					       WHERE P.PROD_CODE = PSI.PROD_CODE
+					         AND P.MBER_SEQ = #{mberSeq}
+					         <!--
+					         AND P.REGIST_DT > to_date(to_char(ADD_MONTHS(SYSDATE-1,-1), 'YYYYMMDD')) -->
+					         AND TO_CHAR(P.REGIST_DT, 'YYYYMMDD') BETWEEN TO_CHAR(ADD_MONTHS(SYSDATE,-1), 'YYYYMMDD') AND TO_CHAR(SYSDATE-1,'YYYYMMDD')
+					         AND P.PROD_TYPE_CD = '3'
+					         AND OP.PROC_STAT_CD IN ('97','95','22','23')
+					       GROUP BY P.PROD_CODE, P.PROD_TYPE_CD
+					     ) A, ORD_PROD_INFO B WHERE A.PROD_CODE = B.PROD_CODE(+)
+					GROUP BY A.PROD_TYPE_CD, B.PROC_STAT_CD
+					</otherwise>
+				 </choose>
+		        UNION ALL SELECT 0,'2','10' FROM DUAL /* 쉐어링 */
+		        UNION ALL SELECT 0,'2','21' FROM DUAL
+		        UNION ALL SELECT 0,'2','22' FROM DUAL
+		        UNION ALL SELECT 0,'2','85' FROM DUAL
+		        UNION ALL SELECT 0,'2','86' FROM DUAL
+		        <choose>
+					<when test="MBER_GB_CD == 1 and MBER_REG_GB_CD == 1">
+		        UNION ALL SELECT 0,'2','90' FROM DUAL
+		        UNION ALL SELECT 0,'2','91' FROM DUAL
+		        UNION ALL SELECT 0,'2','92' FROM DUAL
+					</when>
+					<otherwise>
+		        UNION ALL SELECT 0,'2','87' FROM DUAL
+		        UNION ALL SELECT 0,'2','88' FROM DUAL
+		        UNION ALL SELECT 0,'2','89' FROM DUAL
+					</otherwise>
+				</choose>
+		        UNION ALL SELECT 0,'2','41' FROM DUAL
+		        UNION ALL SELECT 0,'2','31' FROM DUAL
+		        UNION ALL SELECT 0,'2','50' FROM DUAL
+		        UNION ALL SELECT 0,'1','10' FROM DUAL /* 판매 */
+		        UNION ALL SELECT 0,'1','21' FROM DUAL
+		        UNION ALL SELECT 0,'1','22' FROM DUAL
+		        UNION ALL SELECT 0,'1','23' FROM DUAL
+		        UNION ALL SELECT 0,'1','99' FROM DUAL
+		        UNION ALL SELECT 0,'1','41' FROM DUAL
+		        UNION ALL SELECT 0,'1','31' FROM DUAL
+		        UNION ALL SELECT 0,'1','50' FROM DUAL
+		        <choose>
+					<when test="MBER_GB_CD == 1 and MBER_REG_GB_CD == 1">
+		        UNION ALL SELECT 0,'5','94' FROM DUAL /* 렌탈 */
+		        UNION ALL SELECT 0,'5','93' FROM DUAL
+					</when>
+					<otherwise>
+		        UNION ALL SELECT 0,'3','97' FROM DUAL /* 나눔 */
+		        UNION ALL SELECT 0,'3','95' FROM DUAL
+		        UNION ALL SELECT 0,'3','22' FROM DUAL
+		        UNION ALL SELECT 0,'3','23' FROM DUAL
+					</otherwise>
+				</choose>
+		        ) R
+		        GROUP BY R.PROD_TYPE_CD,R.PROC_STAT_CD
+
+	</select>
+
+
+
+
+		<!-- 공지사항 리스트 조회 -->
+	<select id="selectListNotice" parameterType="HashMap" resultType="HashMap">
+	<include refid="sellerCommonMapper.pagingHeader" />
+		/*adminNoticeMapper.selectListNotice*/
+		SELECT
+				 BOARD_TYPE_CD    								AS BOARD_TYPE_CD	<!-- 게시판유형구분코드 -->
+	           , BOARD_SEQ										AS BOARD_SEQ		<!-- 게시일련번호 -->
+	           , WRITE_ID          								AS WRITE_ID			<!-- 작성자ID -->
+	           , WRITE_NM          								AS WRITE_NM			<!-- 작성자명 -->
+	           , TO_CHAR(REGIST_DT, 'YYYY-MM-DD HH24:MI') 		AS REGIST_DT      	<!-- 등록일시 -->
+	           , TITLE											AS TITLE			<!-- 제목 -->
+	           , IMPT_NOTI_YN									AS IMPT_NOTI_YN		<!-- 주요공지여부 -->
+	           , MAIN_NOTI_YN									AS MAIN_NOTI_YN		<!-- 메인공지여부 -->
+	           , DECODE(VIEW_YN, 'Y', '노출', 'N', '미노출')		AS VIEW_YN			<!-- 노출여부 -->
+	           , NOTI_GB_CD										AS NOTI_GB_CD		<!-- 공지구분코드 -->
+	           , (
+	           		SELECT COM_CD_NM
+	           		FROM CODE
+	           		WHERE GRP_CD = 'NOTI_GB_CD'
+	           		AND COM_CD = NOTI_GB_CD
+	           	 )	AS NOTI_GB_NM		<!-- 구분코드명 -->
+	           , ROW_NUMBER() OVER(ORDER BY REGIST_DT DESC ) 	AS NO
+		FROM BOARD_INFO
+		WHERE BOARD_TYPE_CD = #{BOARD_TYPE_CD}
+		  AND NOTI_GB_CD IN ('10', '40') <!-- 공통, 셀러 -->
+		  AND VIEW_YN = 'Y'
+		ORDER BY REGIST_DT DESC
+	<include refid="sellerCommonMapper.pagingFooter" />
+	</select>
+
+
+	<select id="selectProdQnaCnt" parameterType="HashMap" resultType="int">
+	/* 상품 문의 갯수 */
+	SELECT
+			COUNT(1) CNT
+	  FROM 	(
+				SELECT    TO_CHAR(T3.REGIST_DT, 'YYYY-MM-DD HH24:MI') AS REGIST_DT
+				           ,T1.PROD_NM
+				           ,T3.TITLE
+				           ,T3.WRITE_ID
+				           ,T3.BOARD_SEQ
+				           ,ROW_NUMBER()OVER(ORDER BY T3.REGIST_DT DESC) AS NO
+
+				  FROM     PROD T1, BOARD_INFO T3
+
+				  WHERE    T3.PROD_CODE = T1.PROD_CODE
+				       AND T3.BOARD_TYPE_CD =  '72'
+				       AND T3.MBER_SEQ = T1.MBER_SEQ
+				       AND T1.MBER_SEQ =  #{mberSeq}
+		) A
+	</select>
+
+
+
+
+	<select id="selectFreeSharRegCnt" parameterType="HashMap" resultType="int">
+	/* 나눔상품 등록상품 갯수 */
+	<!--
+		SELECT 	COUNT(*)
+		FROM(	SELECT * FROM PROD A
+				WHERE PROD_TYPE_CD = '3'
+				AND MBER_SEQ = #{mberSeq}
+				AND TO_CHAR(REGIST_DT,'YYYYMMDD') BETWEEN  TO_CHAR(ADD_MONTHS(SYSDATE-1,-1),'YYYYMMDD') AND TO_CHAR(SYSDATE-1,'YYYYMMDD')
+			) A -->
+	SELECT NVL(SUM_ORD_QTY, 0) FROM (
+	SELECT NVL(SUM(SUM_ORD_QTY), 0) AS SUM_ORD_QTY FROM (
+		SELECT COUNT(A.PROD_CODE) AS SUM_ORD_QTY
+		FROM (SELECT P.PROD_TYPE_CD AS PROD_TYPE_CD
+		           , P.PROD_CODE
+		        FROM PROD P
+		           , ORD_PROD_INFO OP
+		           , PROD_SUBMIT_INFO PSI
+		       WHERE P.PROD_CODE = PSI.PROD_CODE
+		         AND P.MBER_SEQ = #{mberSeq}
+		         <!--
+		         AND TO_CHAR(P.REGIST_DT, 'YYYYMMDD') BETWEEN TO_CHAR(ADD_MONTHS(TO_DATE(SYSDATE-1),-1), 'YYYYMMDD') AND TO_CHAR(SYSDATE-1,'YYYYMMDD') -->
+		         AND TO_CHAR(P.REGIST_DT, 'YYYYMMDD') BETWEEN TO_CHAR(ADD_MONTHS(SYSDATE,-1), 'YYYYMMDD') AND TO_CHAR(SYSDATE-1,'YYYYMMDD')
+		         AND P.PROD_TYPE_CD = '3'
+		       GROUP BY P.PROD_CODE, P.PROD_TYPE_CD
+		     ) A, ORD_PROD_INFO B WHERE A.PROD_CODE = B.PROD_CODE(+)
+		GROUP BY A.PROD_TYPE_CD, B.PROC_STAT_CD	)
+		)
+	</select>
+
+
+	<select id="selectFreeSharSubmitorCnt" parameterType="HashMap" resultType="int">
+	/* 나눔상품 신청자수 갯수 */
+		SELECT 	COUNT(*)
+		FROM (
+			    SELECT * FROM PROD A
+			       JOIN PROD_SUBMIT_INFO B
+			       ON A.PROD_CODE = B.PROD_CODE
+			       WHERE A.PROD_TYPE_CD = '3'
+			      AND A.MBER_SEQ = #{mberSeq}
+			      <!--
+			      AND TO_CHAR(B.REGIST_DT, 'YYYYMMDD') BETWEEN TO_CHAR(ADD_MONTHS(TO_DATE(SYSDATE-1),-1), 'YYYYMMDD') AND TO_CHAR(SYSDATE-1,'YYYYMMDD') -->
+			      AND TO_CHAR(B.REGIST_DT, 'YYYYMMDD') BETWEEN TO_CHAR(ADD_MONTHS(SYSDATE,-1), 'YYYYMMDD') AND TO_CHAR(SYSDATE-1,'YYYYMMDD')
+      		) A
+	</select>
+
+
+	<select id="selectFreeSharFixCnt" parameterType="HashMap" resultType="int">
+	/* 나눔상품 주문자수[나눔결정] */
+	<!--
+		SELECT 	COUNT(*) FROM
+		(	SELECT 	*
+			  FROM 	PROD A
+			  JOIN 	ORD_PROD_INFO B
+				ON 	A.PROD_CODE = B.PROD_CODE
+			 WHERE 	a.mber_seq = #{mberSeq}
+			   AND 	B.PROD_TYPE_CD = '3'
+			   AND  B.PROC_STAT_CD = '95'
+           	   AND TO_CHAR(B.REGIST_DT,'YYYYMMDD') BETWEEN  TO_CHAR(ADD_MONTHS(SYSDATE-1,-1),'YYYYMMDD') AND TO_CHAR(SYSDATE-1,'YYYYMMDD')
+		) A-->
+     	SELECT NVL(SUM_ORD_QTY, 0) FROM (
+		SELECT SUM(SUM_ORD_QTY) AS SUM_ORD_QTY FROM (
+		SELECT COUNT(A.PROD_CODE) AS SUM_ORD_QTY
+		FROM (SELECT P.PROD_TYPE_CD AS PROD_TYPE_CD
+		           , P.PROD_CODE
+		        FROM PROD P
+		           , PROD_SUBMIT_INFO PSI
+		       WHERE P.PROD_CODE = PSI.PROD_CODE
+		         AND P.MBER_SEQ = #{mberSeq}
+ 		         AND TO_CHAR(PSI.REGIST_DT, 'YYYYMMDD') BETWEEN TO_CHAR(ADD_MONTHS(SYSDATE,-1), 'YYYYMMDD') AND TO_CHAR(SYSDATE-1,'YYYYMMDD')
+		         AND P.PROD_TYPE_CD = '3'
+		       GROUP BY P.PROD_CODE, P.PROD_TYPE_CD
+		     ) A, ORD_PROD_INFO B WHERE A.PROD_CODE = B.PROD_CODE(+) AND B.PROC_STAT_CD IS NOT NULL
+                         and B.PROC_STAT_CD = '95'
+		GROUP BY A.PROD_TYPE_CD, B.PROC_STAT_CD))
+	</select>
+
+
+		<select id="selectRentalSubmitorCnt" parameterType="HashMap" resultType="int">
+	/* 렌탈상품 주문건수 */
+		SELECT 	COUNT(*) FROM
+		(
+		    SELECT PSI.* FROM PROD_SUBMIT_INFO PSI
+            LEFT OUTER JOIN PROD P
+		       ON PSI.PROD_CODE = P.PROD_CODE
+           WHERE P.PROD_TYPE_CD = '5'
+		      AND P.MBER_SEQ = #{mberSeq}
+		      <!--
+		     AND TO_CHAR(PSI.REGIST_DT,'YYYYMMDD') BETWEEN  TO_CHAR(ADD_MONTHS(TO_DATE(SYSDATE-1),-1),'YYYYMMDD') AND TO_CHAR(TO_DATE(SYSDATE-1),'YYYYMMDD')-->
+		     AND TO_CHAR(PSI.REGIST_DT, 'YYYYMMDD') BETWEEN TO_CHAR(ADD_MONTHS(SYSDATE,-1), 'YYYYMMDD') AND TO_CHAR(SYSDATE-1,'YYYYMMDD')
+      	) a
+	</select>
+
+		<select id="selectRentalMberSubmitorCnt" parameterType="HashMap" resultType="int">
+	/* 렌탈상품 주문자수 */
+		SELECT 	COUNT(*) FROM
+		(
+		    SELECT PSI.MBER_SEQ FROM PROD_SUBMIT_INFO PSI
+            LEFT OUTER JOIN PROD P
+		       ON PSI.PROD_CODE = P.PROD_CODE
+           WHERE P.PROD_TYPE_CD = '5'
+		      AND P.MBER_SEQ = #{mberSeq}
+		      <!--
+		      AND TO_CHAR(PSI.REGIST_DT,'YYYYMMDD') BETWEEN TO_CHAR(ADD_MONTHS(TO_DATE(SYSDATE-1),-1),'YYYYMMDD') AND TO_CHAR(TO_DATE(SYSDATE-1),'YYYYMMDD')-->
+		      AND TO_CHAR(PSI.REGIST_DT, 'YYYYMMDD') BETWEEN TO_CHAR(ADD_MONTHS(SYSDATE,-1), 'YYYYMMDD') AND TO_CHAR(SYSDATE-1,'YYYYMMDD')
+		      GROUP BY PSI.MBER_SEQ
+      	) A
+	</select>
+
+
+			<select id="selectRentalSubmitorSuccCnt" parameterType="HashMap" resultType="int">
+	/* 렌탈상품 신청완료건수 */
+		SELECT 	COUNT(*) FROM
+		(
+		    SELECT PSI.* FROM PROD_SUBMIT_INFO PSI
+            LEFT OUTER JOIN PROD P
+		       ON PSI.PROD_CODE = P.PROD_CODE
+           WHERE P.PROD_TYPE_CD = '5'
+		      AND P.MBER_SEQ = #{mberSeq}
+		      AND PSI.PROC_STAT_CD != '93'
+		      <!--
+		      AND TO_CHAR(PSI.REGIST_DT, 'YYYYMMDD') BETWEEN TO_CHAR(ADD_MONTHS(TO_DATE(SYSDATE-1),-1), 'YYYYMMDD') AND TO_CHAR(SYSDATE-1,'YYYYMMDD')-->
+		      AND TO_CHAR(PSI.REGIST_DT, 'YYYYMMDD') BETWEEN TO_CHAR(ADD_MONTHS(SYSDATE,-1), 'YYYYMMDD') AND TO_CHAR(SYSDATE-1,'YYYYMMDD')
+      	) a
+	</select>
+
+	<select id="selectRentalMberSubmitorFailCnt" parameterType="HashMap" resultType="int">
+	/* 렌탈상품 신청취소건수 */
+		SELECT 	COUNT(*) FROM
+		(
+		     SELECT PSI.* FROM PROD_SUBMIT_INFO PSI
+            LEFT OUTER JOIN PROD P
+		       ON PSI.PROD_CODE = P.PROD_CODE
+           WHERE P.PROD_TYPE_CD = '5'
+		      AND P.MBER_SEQ = #{mberSeq}
+		      AND PSI.PROC_STAT_CD = '93'
+		      <!--
+		      AND TO_CHAR(PSI.REGIST_DT, 'YYYYMMDD') BETWEEN TO_CHAR(ADD_MONTHS(TO_DATE(SYSDATE-1),-1), 'YYYYMMDD') AND TO_CHAR(SYSDATE-1,'YYYYMMDD')-->
+		      AND TO_CHAR(PSI.REGIST_DT, 'YYYYMMDD') BETWEEN TO_CHAR(ADD_MONTHS(SYSDATE,-1), 'YYYYMMDD') AND TO_CHAR(SYSDATE-1,'YYYYMMDD')
+      	) a
+	</select>
+
+
+
+
+
+
+	<select id="selectSharOrderCnt" parameterType="HashMap" resultType="int">
+	/* 셰어링 주문건수 */
+	SELECT COUNT(*)
+	FROM (
+			SELECT B.ORD_CD
+			  FROM PROD A
+			  JOIN ORD_PROD_INFO B
+			    ON A.PROD_CODE = B.PROD_CODE
+			 WHERE A.PROD_TYPE_CD = '2'
+			   AND A.MBER_SEQ = #{mberSeq}
+	          <choose>
+				<when test="MBER_GB_CD == 1 and MBER_REG_GB_CD == 1">
+					AND B.PROC_STAT_CD = '92'
+				</when>
+				<otherwise>
+					AND B.PROC_STAT_CD IN ('86', '89')
+				</otherwise>
+			 </choose>
+			 <!--
+			   AND TO_CHAR(B.REGIST_DT, 'YYYYMMDD') BETWEEN TO_CHAR(ADD_MONTHS(TO_DATE(SYSDATE-1),-1), 'YYYYMMDD') AND TO_CHAR(SYSDATE-1,'YYYYMMDD')-->
+			   AND TO_CHAR(B.REGIST_DT, 'YYYYMMDD') BETWEEN TO_CHAR(ADD_MONTHS(SYSDATE,-1), 'YYYYMMDD') AND TO_CHAR(SYSDATE-1,'YYYYMMDD')
+			 GROUP BY B.ORD_CD
+
+	 	) A
+	</select>
+
+	<select id="selectSharOrderMberCnt" parameterType="HashMap" resultType="int">
+	/* 셰어링 주문자수 */
+	SELECT COUNT(*)
+	FROM (
+			SELECT B.MBER_SEQ
+			  FROM PROD A
+			  JOIN ORD_PROD_INFO B
+			    ON A.PROD_CODE = B.PROD_CODE
+			 WHERE A.PROD_TYPE_CD = '2'
+			   AND A.MBER_SEQ = #{mberSeq}
+	          <choose>
+				<when test="MBER_GB_CD == 1 and MBER_REG_GB_CD == 1">
+					AND B.PROC_STAT_CD = '92'
+				</when>
+				<otherwise>
+					AND B.PROC_STAT_CD IN ('86', '89')
+				</otherwise>
+			 </choose>
+			 <!--
+			   AND TO_CHAR(B.REGIST_DT, 'YYYYMMDD') BETWEEN TO_CHAR(ADD_MONTHS(TO_DATE(SYSDATE-1),-1), 'YYYYMMDD') AND TO_CHAR(SYSDATE-1,'YYYYMMDD')-->
+			   AND TO_CHAR(B.REGIST_DT, 'YYYYMMDD') BETWEEN TO_CHAR(ADD_MONTHS(SYSDATE,-1), 'YYYYMMDD') AND TO_CHAR(SYSDATE-1,'YYYYMMDD')
+			 GROUP BY B.MBER_SEQ
+
+		 ) A
+	</select>
+
+	<select id="selectSharTotAmt" parameterType="HashMap" resultType="int">
+	/* 셰어링 구매금액 */
+	SELECT NVL(SUM(AMT),0)
+	FROM (
+			SELECT SUM(C.ORD_AMT) AS AMT
+			  FROM PROD A
+			  JOIN ORD_PROD_INFO B
+			    ON A.PROD_CODE = B.PROD_CODE
+        	  JOIN ORD_INFO C
+        		ON B.ORD_CD = C.ORD_CD
+			 WHERE A.PROD_TYPE_CD = '2'
+			   AND A.MBER_SEQ = #{mberSeq}
+	          <choose>
+				<when test="MBER_GB_CD == 1 and MBER_REG_GB_CD == 1">
+					AND B.PROC_STAT_CD = '92'
+				</when>
+				<otherwise>
+					AND B.PROC_STAT_CD IN ('86', '89')
+				</otherwise>
+			 </choose>
+			 <!--
+		       AND TO_CHAR(C.REGIST_DT, 'YYYYMMDD') BETWEEN TO_CHAR(ADD_MONTHS(TO_DATE(SYSDATE-1),-1), 'YYYYMMDD') AND TO_CHAR(SYSDATE-1,'YYYYMMDD')-->
+		       AND TO_CHAR(C.REGIST_DT, 'YYYYMMDD') BETWEEN TO_CHAR(ADD_MONTHS(SYSDATE,-1), 'YYYYMMDD') AND TO_CHAR(SYSDATE-1,'YYYYMMDD')
+			 GROUP BY C.ORD_CD
+		) a
+	</select>
+
+	<select id="selectSellOrderCnt" parameterType="HashMap" resultType="int">
+	/* 판매상품 주문건수 */
+	SELECT COUNT(*)
+	FROM (
+			SELECT B.ORD_CD
+			  FROM PROD A
+			  JOIN ORD_PROD_INFO B
+			    ON A.PROD_CODE = B.PROD_CODE
+			 WHERE A.PROD_TYPE_CD = '1'
+			   AND A.MBER_SEQ = #{mberSeq}
+			   AND B.PROC_STAT_CD = '99' <!-- 구매완료 -->
+			   <!--
+		       AND TO_CHAR(B.REGIST_DT, 'YYYYMMDD') BETWEEN TO_CHAR(ADD_MONTHS(TO_DATE(SYSDATE-1),-1), 'YYYYMMDD') AND TO_CHAR(SYSDATE-1,'YYYYMMDD')-->
+		       AND TO_CHAR(B.REGIST_DT, 'YYYYMMDD') BETWEEN TO_CHAR(ADD_MONTHS(SYSDATE,-1), 'YYYYMMDD') AND TO_CHAR(SYSDATE-1,'YYYYMMDD')
+			 GROUP BY B.ORD_CD
+
+	 	) A
+	</select>
+
+	<select id="selectSellOrderMberCnt" parameterType="HashMap" resultType="int">
+	/* 판매상품 주문자수 */
+	SELECT COUNT(*)
+	FROM (
+			SELECT B.MBER_SEQ
+			  FROM PROD A
+			  JOIN ORD_PROD_INFO B
+			    ON A.PROD_CODE = B.PROD_CODE
+			 WHERE A.PROD_TYPE_CD = '1'
+			   AND A.MBER_SEQ = #{mberSeq}
+			   AND B.PROC_STAT_CD = '99' <!-- 구매완료 -->
+			   <!--
+		       AND TO_CHAR(B.REGIST_DT, 'YYYYMMDD') BETWEEN TO_CHAR(ADD_MONTHS(TO_DATE(SYSDATE-1),-1), 'YYYYMMDD') AND TO_CHAR(SYSDATE-1,'YYYYMMDD')-->
+		       AND TO_CHAR(B.REGIST_DT, 'YYYYMMDD') BETWEEN TO_CHAR(ADD_MONTHS(SYSDATE,-1), 'YYYYMMDD') AND TO_CHAR(SYSDATE-1,'YYYYMMDD')
+			 GROUP BY B.MBER_SEQ
+		 ) A
+	</select>
+
+
+	<select id="selectSellTotAmt" parameterType="HashMap" resultType="int">
+	/* 판매상품 구매금액 */
+	SELECT NVL(SUM(AMT),0)
+	FROM (
+			SELECT SUM(NVL(C.ORD_AMT, 0)) AS AMT
+			  FROM PROD A
+			  JOIN ORD_PROD_INFO B
+			    ON A.PROD_CODE = B.PROD_CODE
+        	  JOIN ORD_INFO C
+        		ON B.ORD_CD = C.ORD_CD
+			 WHERE A.PROD_TYPE_CD = '1'
+			   AND A.MBER_SEQ = #{mberSeq}
+			   AND B.PROC_STAT_CD = '99' <!-- 구매완료 -->
+			   <!--
+		       AND TO_CHAR(c.REGIST_DT, 'YYYYMMDD') BETWEEN TO_CHAR(ADD_MONTHS(TO_DATE(SYSDATE-1),-1), 'YYYYMMDD') AND TO_CHAR(SYSDATE-1,'YYYYMMDD')-->
+		       AND TO_CHAR(C.REGIST_DT, 'YYYYMMDD') BETWEEN TO_CHAR(ADD_MONTHS(SYSDATE,-1), 'YYYYMMDD') AND TO_CHAR(SYSDATE-1,'YYYYMMDD')
+			 GROUP BY C.ORD_CD
+		) a
+	</select>
+
+	<update id="updateConnCnt" parameterType="hashmap">
+		UPDATE MBER_DTL_INFO
+		SET CONN_CNT = (SELECT CONN_CNT FROM MBER_DTL_INFO WHERE MBER_SEQ = #{mberSeq})+1
+		WHERE MBER_SEQ = #{mberSeq}
+	</update>
+
+	<insert id="insertConnLog" parameterType="hashmap">
+		INSERT INTO  MBER_CON_LOG(
+		        CON_DATE                  /*접속일자*/
+		       ,REG_SEQ                   /*등록일련번호*/
+		       ,MBER_SEQ                  /*회원일련번호  */
+		       ,CON_GB                    /*접속구분 CON_GB_CD*/
+		       ,CON_IP                    /*접속IP*/
+		       ,REGIST_DT                 /*등록일시*/
+		) VALUES(
+		         TO_CHAR(SYSDATE, 'YYYYMMDD')
+		       , (SELECT (COUNT(MBER_SEQ) +1) CNT FROM MBER_CON_LOG WHERE CON_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD') AND MBER_SEQ = #{mberSeq})
+		       , #{mberSeq}
+		       , #{CON_GB}
+		       , #{CON_IP}
+		       , SYSDATE
+		)
+	</insert>
+
+	<update id="updateLastLoginDt" parameterType="hashmap">
+		UPDATE MBER_INFO
+		SET LAST_LOGIN_DT = SYSDATE
+		WHERE MBER_SEQ = #{mberSeq}
+	</update>
+
+
+
+
+	<select id="selectProduceResult"  parameterType="hashmap"  resultType="hashmap" >
+	/* 배치 테이블에서 가져오는 상품 건 */
+		SELECT 	PROD_TYPE_CD
+				,SUM(SALES_CNT) AS SUM_ORD_QTY
+				,SUM(SALES_PRCE) AS SUM_PROD_PRCE
+		  FROM 	SELLER_SALES_PROD
+		 WHERE 	MBER_SEQ = #{mberSeq}
+ 		   AND 	SUBSTR(SALES_YYMMDD,0,8) BETWEEN  TO_CHAR(ADD_MONTHS(SYSDATE,-1),'YYYYMMDD') AND TO_CHAR(SYSDATE-1,'YYYYMMDD')
+	  GROUP BY 	PROD_TYPE_CD
+	</select>
+
+
+
+	<select id="closingSharCnt"  parameterType="hashmap"  resultType="int">
+		/* 한달이내 종료된 셰어링 건 확인 */
+		SELECT COUNT(*)
+		FROM   (SELECT TO_CHAR(C.DLV_END_DT + B.SHARE_TERM, 'YYYYMMDD') AS SHAR_END_DT,
+		               TO_CHAR(SYSDATE, 'YYYYMMDD')                     AS NOW_DT,
+		               CASE
+		                 WHEN TO_CHAR(C.DLV_END_DT + B.SHARE_TERM, 'YYYYMMDD') <![CDATA[>]]>  TO_CHAR(SYSDATE, 'YYYYMMDD') THEN '0'
+		                 WHEN TO_CHAR(C.DLV_END_DT + B.SHARE_TERM, 'YYYYMMDD') <![CDATA[<=]]>   TO_CHAR(SYSDATE, 'YYYYMMDD') THEN '1'
+		               END                                              AS CHK
+		        FROM   PROD A
+		               JOIN ORD_PROD_INFO B
+		                 ON A.PROD_CODE = B.PROD_CODE
+		               JOIN INVC_INFO C
+		                 ON B.PROD_CODE = C.PROD_CODE
+		        WHERE  A.PROD_TYPE_CD = '2'
+		               AND A.MBER_SEQ = #{mberSeq}
+		               AND C.DLV_END_DT IS NOT NULL
+		               AND B.PROC_STAT_CD IN ( 70, 71, 72, 75, 85, 86, 87, 88, 89 )
+		        )
+		WHERE  chk = 1
+	</select>
+
+	<select id="selectMainSellerNotice" parameterType="hashmap" resultType="hashmap">
+      SELECT * FROM
+      		(SELECT 
+				CONTENTS
+			FROM BOARD_INFO
+			WHERE NOTI_GB_CD='40'
+				AND POP_LAYER_YN = 'Y'
+		        AND VIEW_YN = 'Y'
+				<!-- AND  TO_CHAR(VIEW_START_DATE, 'YYYYMMDD') <![CDATA[<=]]> TO_CHAR(SYSDATE, 'YYYYMMDD') 
+				AND TO_CHAR(SYSDATE, 'YYYYMMDD') <![CDATA[<=]]> TO_CHAR(VIEW_END_DATE, 'YYYYMMDD') -->
+			ORDER BY BOARD_SEQ DESC)
+      WHERE ROWNUM <![CDATA[<= 3]]>		
+	</select>
+
+</mapper>

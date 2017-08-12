@@ -1,0 +1,206 @@
+package com.ssocio.sharing.cmmn.util;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.UnsupportedEncodingException;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.springframework.util.FileCopyUtils;
+import org.springframework.web.servlet.view.AbstractView;
+
+import com.ssocio.sharing.cmmn.instance.config.AppConfigManager;
+
+import jxl.Workbook;
+import jxl.format.Alignment;
+import jxl.format.Border;
+import jxl.format.BorderLineStyle;
+import jxl.format.Colour;
+import jxl.format.UnderlineStyle;
+import jxl.format.VerticalAlignment;
+import jxl.write.Label;
+import jxl.write.WritableCellFormat;
+import jxl.write.WritableFont;
+import jxl.write.WritableSheet;
+import jxl.write.WritableWorkbook;
+
+/**
+ * 엑셀다운로드 View
+ *
+ * @author 패키지팀
+ * @since 2014. 11. 14.
+ * @version 1.0
+ *
+ */
+
+public class ExcelDownloadView2 extends AbstractView {
+
+	private static int ExcelMaxCnt = 65000;
+    public ExcelDownloadView2() {
+    	setContentType("application/octet-stream; charset=UTF-8");
+    }
+
+    @Override
+    public void renderMergedOutputModel(@SuppressWarnings("rawtypes") Map model, HttpServletRequest request,
+        HttpServletResponse response) throws Exception {
+
+    	InputStream is = null;
+
+    	@SuppressWarnings("unchecked")
+    	String SheetName = (String)model.get("SheetName");
+		List<String> excelTitle = (List<String>)model.get("excelTitle");
+		List<String> CellName = (List<String>)model.get("CellName");
+		List<String> sizeList = (List<String>)model.get("sizeList");
+
+		List<Map<String, Object>> list = (List<Map<String, Object>>)model.get("excelList");
+
+    	String fileName = model.get("fileName").toString();
+
+		File file = new File(fileName);// 위의 내용을 저장하기 위한 경로 생성
+		//if(!file.exists())file.mkdirs();//존재하지않을때 경로 생성
+
+//    	File file = new File("c:/exdown/download/" + UUID.randomUUID().toString());
+		WritableWorkbook workbook = Workbook.createWorkbook(response.getOutputStream());
+
+    	int i = 0;
+		int j = 0;
+
+    	try {
+
+    		// 0. 폰트 및 환경설정
+
+    		// 폰트 포맷
+    		WritableFont heard14font = new WritableFont(WritableFont.ARIAL, // 폰트이름
+    				11, // 폰트 크기
+    				WritableFont.BOLD, // 폰트 두께
+    				false, // 이탤릭 사용 유무
+    				UnderlineStyle.NO_UNDERLINE, // 밑줄 스타일
+    				Colour.BLACK);  // 폰트색
+
+    		// 헤더 형식
+    		WritableCellFormat headFormat = new WritableCellFormat(heard14font);
+    		// 헤더 좌우 정렬
+    		headFormat.setAlignment(Alignment.CENTRE);
+    		// 헤더 상하 정렬
+    		headFormat.setVerticalAlignment(VerticalAlignment.CENTRE);
+    		// 헤더 테두리
+    		headFormat.setBorder(Border.ALL, BorderLineStyle.THIN);
+    		// 백그라운드 색
+    		headFormat.setBackground(jxl.format.Colour.GRAY_25);
+
+    		// 셀형식
+    		WritableCellFormat textFormat = new WritableCellFormat();
+    		// 셀 좌우 정렬
+    		textFormat.setAlignment(Alignment.CENTRE);
+    		// 셀 상하 정렬
+    		textFormat.setVerticalAlignment(VerticalAlignment.CENTRE);
+    		// 테두리
+    		textFormat.setBorder(Border.ALL, BorderLineStyle.THIN);
+
+    		// 1.시트 생성
+    		//WritableSheet sheet = workbook.createSheet(SheetName, 0);
+    		WritableSheet sheet = null;
+
+    		int sheetSize = 0;
+    		for(int m=0;list.size()>m;m++){
+    			if(m % ExcelMaxCnt == 0){
+    				sheet = workbook.createSheet(SheetName+sheetSize, sheetSize);
+    				sheetSize++;
+    			}
+    		}
+
+//    		if((list.size() % ExcelMaxCnt) > 0){ // 나머지 건수 시트
+//    			sheet = workbook.createSheet(SheetName+sheetSize, sheetSize);
+//    		}
+
+    		logger.info("sheet cnt =" + sheetSize);
+
+    		for(int k=0;sheetSize>k;k++){
+    			sheet = workbook.getSheet(k);
+
+	    		for (String header : excelTitle) {
+						sheet.setColumnView(i, sizeList == null ? 30 : Integer.parseInt(sizeList.get(i)));
+						Label label = new Label(i++, 0, header,headFormat);
+						sheet.addCell(label);
+				}
+	    		i=0;
+    		}
+
+    		// 2. 행별로 각 셀 데이터 세팅.
+    		int sheetCnt = 0;sheetSize=0;
+    		try {
+	    		for(Map<String, Object> excelInfo : list ){
+					i = 0; j++;
+					// 열 개수 만큼 반복하며 멤버들의 값을 셀에 삽입한다.
+					if(sheetCnt % ExcelMaxCnt == 0){
+						j=1;
+						sheet = workbook.getSheet(sheetSize++);
+					}
+
+					for (String member : CellName) {
+						Label label = new Label(i++, j, nvlObj(excelInfo.get(member)),textFormat);
+						sheet.addCell(label);
+					}
+
+					sheetCnt ++;
+				}
+    		}catch(Exception e){
+    			e.printStackTrace();
+    			logger.info("j-->"+j);
+    		}
+
+    		// 3.엑셀 생성
+    		workbook.write();
+			workbook.close();
+
+			response.setContentType(getContentType());
+	        response.setContentLength((int)file.length());
+	        response.setHeader("Content-Disposition", "attachment; fileName=\"" + K2E(fileName) + "\";");
+	        response.setHeader("Content-Transfer-Encoding", "binary");
+
+//	        OutputStream out = response.getOutputStream();
+//	        FileInputStream fis = new FileInputStream(file);
+//            FileCopyUtils.copy(fis, out);
+
+    	}catch(Exception e) {
+    		e.printStackTrace();
+    	}finally {
+
+            if (is != null) {
+            	try {
+                    is.close();
+                } catch(IOException ex) {	}
+			}
+        }
+
+
+
+    }
+
+	public String K2E( String korean ){
+		String english = null;
+
+		if (korean == null ) return null;
+		try {
+			english = new String(korean.getBytes("KSC5601"), "8859_1");
+		}catch( UnsupportedEncodingException e ){
+			english =  korean;
+		}
+		return english;
+	}
+
+	public String nvlObj(Object src) {
+		if (src == null || "".equals(src.toString()) || src.toString().length() <=0) return "";
+		return src.toString();
+	}
+
+}

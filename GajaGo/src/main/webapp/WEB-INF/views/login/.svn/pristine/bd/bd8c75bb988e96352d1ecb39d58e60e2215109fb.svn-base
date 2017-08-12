@@ -1,0 +1,1107 @@
+package com.ssocio.sharing.service.admin;
+
+import java.io.File;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.ui.ModelMap;
+import org.springframework.web.multipart.MultipartFile;
+
+import com.ssocio.sharing.cmmn.admin.util.FileUtil;
+import com.ssocio.sharing.cmmn.admin.util.SFTPUtil;
+import com.ssocio.sharing.cmmn.instance.config.AppConfigManager;
+import com.ssocio.sharing.cmmn.util.CmmnCnst;
+import com.ssocio.sharing.cmmn.util.ExcelUploadUtil;
+import com.ssocio.sharing.cmmn.util.LoggerUtil;
+import com.ssocio.sharing.cmmn.util.StringUtil;
+import com.ssocio.sharing.dao.admin.AdminAdjustDao;
+import com.ssocio.sharing.vo.admin.PageNavigation;
+
+/**
+ * <pre>
+ * 공통 서비스
+ * 공통 서비스
+ * @author J.K.CHOI
+ * @version
+ * @since 2015. 7. 17. 오후 7:33:23
+ * @see
+ * @History
+ * Date			|	author	| 변경 내용
+ * 2015. 7. 17.	|	J.K.CHOI	|신규
+ * @비고
+ * </pre>
+ */
+@Service
+public class AdminAdjustServiceImpl extends AdminReferServiceImpl implements AdminAdjustService {
+
+	// --------------------------------------------------------------------------
+	// # Log 설정
+	// --------------------------------------------------------------------------
+	private static final Logger logger = LoggerFactory.getLogger(AdminAdjustServiceImpl.class);
+	
+	// --------------------------------------------------------------------------
+	// # DAO 설정
+	// --------------------------------------------------------------------------
+	@Resource(name="adminAdjustDao")
+	private AdminAdjustDao adminAdjustDao;
+	
+	/**
+	 * <pre>
+	 * 정산대기 전체정산 리스트 조회
+	 * 
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 17. 오후 2:03:43
+	 * @author J.K.CHOI
+	 * @see @see com.ssocio.sharing.service.admin.AdminAdjustService#selectListAdjust(java.util.Map)
+	 * @비고
+	 * 
+	 * </pre>
+	 */
+	@Override
+	public ModelMap selectListAdjust(Map<String, Object> inParam) throws Exception{
+		ModelMap mm = new ModelMap();
+		try {
+			//조회조건 기간 처리 start
+			String today = StringUtil.getCurrentDate();
+			inParam.put("S_END_DATE", StringUtil.nvl((String)inParam.get("S_END_DATE"), today));
+			
+			SimpleDateFormat format = new SimpleDateFormat("yyyyMMdd");
+			Calendar cal = Calendar.getInstance();
+			cal.add(Calendar.DATE, -7);
+			inParam.put("S_START_DATE", StringUtil.nvl((String)inParam.get("S_START_DATE"), format.format(cal.getTime())));
+			//조회조건 기간 처리 end
+			
+			
+			//페이징처리 start
+			inParam.put("PAGE_NO", StringUtil.nvl((String)inParam.get("PAGE_NO"), "1"));
+			int nowPage = StringUtil.nvlInt((String)inParam.get("PAGE_NO"), 1);
+			int rowTotal = adminAdjustDao.selectListAdjustCount(inParam);
+			
+			PageNavigation pageNav= new PageNavigation(nowPage, rowTotal, CmmnCnst.ADM_LIST_SIZE, CmmnCnst.ADM_BLOCK_SIZE );
+			mm.put("PAGE_NO", nowPage);
+			mm.put("pageNav", pageNav);
+		    inParam.put("START_ROW"	,pageNav.getStartRow());
+		    inParam.put("END_ROW"	,pageNav.getEndRow());
+		    //페이징처리 end
+			
+			LoggerUtil.writeMap(inParam);
+			mm.put("selectListAdjust",adminAdjustDao.selectListAdjust(inParam));
+			mm.put("selectAmtCnt",adminAdjustDao.selectAmtCnt(inParam));
+			mm.put("params", inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+	
+	/**
+	 * <pre>
+	 * 정산대기 판매정산 리스트 조회
+	 * 
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 17. 오후 2:03:43
+	 * @author J.K.CHOI
+	 * @see @see com.ssocio.sharing.service.admin.AdminAdjustService#selectListSellAdjust(java.util.Map)
+	 * @비고
+	 * 
+	 * </pre>
+	 */
+	@Override
+	public ModelMap selectListSellAdjust(Map<String, Object> inParam) throws Exception{
+		ModelMap mm = new ModelMap();
+		try {
+			//조회조건 기간 처리 start
+			String today = StringUtil.getCurrentDate();
+			inParam.put("S_END_DATE", StringUtil.nvl((String)inParam.get("S_END_DATE"), today));
+			
+			SimpleDateFormat format = new SimpleDateFormat("yyyyMMdd");
+			Calendar cal = Calendar.getInstance();
+			cal.add(Calendar.DATE, -7);
+			inParam.put("S_START_DATE", StringUtil.nvl((String)inParam.get("S_START_DATE"), format.format(cal.getTime())));
+			//조회조건 기간 처리 end
+			
+			
+			//페이징처리 start
+			inParam.put("PAGE_NO", StringUtil.nvl((String)inParam.get("PAGE_NO"), "1"));
+			int nowPage = StringUtil.nvlInt((String)inParam.get("PAGE_NO"), 1);
+			int rowTotal = adminAdjustDao.selectListSellAdjustCount(inParam);
+			
+			PageNavigation pageNav= new PageNavigation(nowPage, rowTotal, CmmnCnst.ADM_LIST_SIZE, CmmnCnst.ADM_BLOCK_SIZE );
+			mm.put("PAGE_NO", nowPage);
+			mm.put("pageNav", pageNav);
+			inParam.put("START_ROW"	,pageNav.getStartRow());
+			inParam.put("END_ROW"	,pageNav.getEndRow());
+			//페이징처리 end
+			
+			LoggerUtil.writeMap(inParam);
+			mm.put("selectListSellAdjust",adminAdjustDao.selectListSellAdjust(inParam));
+			mm.put("selectSellAmtCnt",adminAdjustDao.selectSellAmtCnt(inParam));
+			mm.put("params", inParam);
+			logger.debug(">>>>> mm : "+mm.toString());
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+	
+	/**
+	 * <pre>
+	 * 정산대기 셰어링정산 리스트 조회
+	 * 
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 17. 오후 2:03:43
+	 * @author J.K.CHOI
+	 * @see @see com.ssocio.sharing.service.admin.AdminAdjustService#selectListShareAdjust(java.util.Map)
+	 * @비고
+	 * 
+	 * </pre>
+	 */
+	@Override
+	public ModelMap selectListShareAdjust(Map<String, Object> inParam) throws Exception{
+		ModelMap mm = new ModelMap();
+		try {
+			//조회조건 기간 처리 start
+			String today = StringUtil.getCurrentDate();
+			inParam.put("S_END_DATE", StringUtil.nvl((String)inParam.get("S_END_DATE"), today));
+			
+			SimpleDateFormat format = new SimpleDateFormat("yyyyMMdd");
+			Calendar cal = Calendar.getInstance();
+			cal.add(Calendar.DATE, -7);
+			inParam.put("S_START_DATE", StringUtil.nvl((String)inParam.get("S_START_DATE"), format.format(cal.getTime())));
+			//조회조건 기간 처리 end
+			
+			
+			//페이징처리 start
+			inParam.put("PAGE_NO", StringUtil.nvl((String)inParam.get("PAGE_NO"), "1"));
+			int nowPage = StringUtil.nvlInt((String)inParam.get("PAGE_NO"), 1);
+			int rowTotal = adminAdjustDao.selectListShareAdjustCount(inParam);
+			
+			PageNavigation pageNav= new PageNavigation(nowPage, rowTotal, CmmnCnst.ADM_LIST_SIZE, CmmnCnst.ADM_BLOCK_SIZE );
+			mm.put("PAGE_NO", nowPage);
+			mm.put("pageNav", pageNav);
+			inParam.put("START_ROW"	,pageNav.getStartRow());
+			inParam.put("END_ROW"	,pageNav.getEndRow());
+			//페이징처리 end
+			
+			LoggerUtil.writeMap(inParam);
+			mm.put("selectListShareAdjust",adminAdjustDao.selectListShareAdjust(inParam));
+			mm.put("selectShareAmtCnt",adminAdjustDao.selectShareAmtCnt(inParam));
+			
+			mm.put("params", inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+
+	/**
+	 * <pre>
+	 * 정산대기 리스트 엑셀
+	 * 
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 17. 오후 2:03:43
+	 * @author J.K.CHOI
+	 * @see @see com.ssocio.sharing.service.admin.AdminAdjustService#selectListAdjustToExcel(java.util.Map)
+	 * @비고
+	 * 
+	 * </pre>
+	 */
+	@Override
+	public Object selectListAdjustToExcel(Map<String, Object> inParam) throws Exception{
+		try {
+			//조회조건 기간 처리 start
+			String today = StringUtil.getCurrentDate();
+			inParam.put("S_END_DATE", StringUtil.nvl((String)inParam.get("S_END_DATE"), today));
+			
+			SimpleDateFormat format = new SimpleDateFormat("yyyyMMdd");
+			Calendar cal = Calendar.getInstance();
+			cal.add(Calendar.DATE, -7);
+			inParam.put("S_START_DATE", StringUtil.nvl((String)inParam.get("S_START_DATE"), format.format(cal.getTime())));
+			//조회조건 기간 처리 end
+			
+			LoggerUtil.writeMap(inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return adminAdjustDao.selectListAdjustToExcel(inParam);
+	}
+	
+	@Override
+	public Object selectListAdjustByTrToExcel(Map<String, Object> inParam) throws Exception{
+		try {
+			//조회조건 기간 처리 start
+			String today = StringUtil.getCurrentDate();
+			inParam.put("S_END_DATE", StringUtil.nvl((String)inParam.get("S_END_DATE"), today));
+			
+			SimpleDateFormat format = new SimpleDateFormat("yyyyMMdd");
+			Calendar cal = Calendar.getInstance();
+			cal.add(Calendar.DATE, -7);
+			inParam.put("S_START_DATE", StringUtil.nvl((String)inParam.get("S_START_DATE"), format.format(cal.getTime())));
+			//조회조건 기간 처리 end
+			
+			LoggerUtil.writeMap(inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return adminAdjustDao.selectListAdjustByTrToExcel(inParam);
+	}
+	
+	/**
+	 * <pre>
+	 * 정산대기 판매정산 상세 리스트 조회
+	 * 
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 17. 오후 4:24:44
+	 * @author J.K.CHOI
+	 * @see @see com.ssocio.sharing.service.admin.AdminAdjustService#selectDtlListSellAdjust(java.util.Map)
+	 * @비고
+	 * 
+	 * </pre>
+	 */
+	@Override
+	public ModelMap selectDtlListSellAdjust(Map<String, Object> inParam) throws Exception{
+		ModelMap mm = new ModelMap();
+		try {
+			//페이징처리 start
+			inParam.put("PAGE_NO", StringUtil.nvl((String)inParam.get("PAGE_NO"), "1"));
+			int nowPage = StringUtil.nvlInt((String)inParam.get("PAGE_NO"), 1);
+			int rowTotal = adminAdjustDao.selectDtlListSellAdjustCount(inParam);
+			
+			System.out.println(">>>>>>>>>>>>>>PAGE_NO " + inParam.get("PAGE_NO"));
+			System.out.println(">>>>>>>>>>>>>>nowPage " + nowPage);
+			System.out.println(">>>>>>>>>>>>>>rowTotal " + rowTotal);
+			
+			PageNavigation pageNav= new PageNavigation(nowPage, rowTotal, CmmnCnst.ADM_LIST_SIZE, CmmnCnst.ADM_BLOCK_SIZE );
+			mm.put("PAGE_NO", nowPage);
+			mm.put("pageNav", pageNav);
+		    inParam.put("START_ROW"	,pageNav.getStartRow());
+		    inParam.put("END_ROW"	,pageNav.getEndRow());
+		    //페이징처리 end
+		    
+			System.out.println(">>>>>>>>>>>>>>START_ROW " + inParam.get("START_ROW"));
+			System.out.println(">>>>>>>>>>>>>>END_ROW " + inParam.get("END_ROW"));
+		    
+			LoggerUtil.writeMap(inParam);
+			mm.put("selectDtlListSellAdjust",adminAdjustDao.selectDtlListSellAdjust(inParam));
+			mm.put("selectSellAdjust",adminAdjustDao.selectSellAdjust(inParam));
+			mm.put("params"	   ,inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+	
+	/**
+	 * <pre>
+	 * 정산대기 셰어링정산 상세 리스트 조회
+	 * 
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 17. 오후 4:24:44
+	 * @author J.K.CHOI
+	 * @see @see com.ssocio.sharing.service.admin.AdminAdjustService#selectDtlListShareAdjust(java.util.Map)
+	 * @비고
+	 * 
+	 * </pre>
+	 */
+	@Override
+	public ModelMap selectDtlListShareAdjust(Map<String, Object> inParam) throws Exception{
+		ModelMap mm = new ModelMap();
+		try {
+			logger.debug(">>>>> mber_seq :"+inParam.toString());
+			logger.debug(">>>>> mber_seq :"+inParam.get("MBER_SEQ"));
+			
+			//페이징처리 start
+			inParam.put("PAGE_NO", StringUtil.nvl((String)inParam.get("PAGE_NO"), "1"));
+			int nowPage = StringUtil.nvlInt((String)inParam.get("PAGE_NO"), 1);
+			int rowTotal = adminAdjustDao.selectDtlListShareAdjustCount(inParam);
+			
+			System.out.println(">>>>>>>>>>>>>>PAGE_NO " + inParam.get("PAGE_NO"));
+			System.out.println(">>>>>>>>>>>>>>nowPage " + nowPage);
+			System.out.println(">>>>>>>>>>>>>>rowTotal " + rowTotal);
+			
+			PageNavigation pageNav= new PageNavigation(nowPage, rowTotal, CmmnCnst.ADM_LIST_SIZE, CmmnCnst.ADM_BLOCK_SIZE );
+			mm.put("PAGE_NO", nowPage);
+			mm.put("pageNav", pageNav);
+			inParam.put("START_ROW"	,pageNav.getStartRow());
+			inParam.put("END_ROW"	,pageNav.getEndRow());
+			//페이징처리 end
+			
+			System.out.println(">>>>>>>>>>>>>>START_ROW " + inParam.get("START_ROW"));
+			System.out.println(">>>>>>>>>>>>>>END_ROW " + inParam.get("END_ROW"));
+			
+			LoggerUtil.writeMap(inParam);
+			mm.put("selectDtlListShareAdjust",adminAdjustDao.selectDtlListShareAdjust(inParam));
+			mm.put("selectShareAdjust",adminAdjustDao.selectShareAdjust(inParam));
+			mm.put("params"	   ,inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+	
+	/**
+	 * <pre>
+	 * 정산대기 상세 선택정산완료 adjust_hist update
+	 * 
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 17. 오후 4:24:44
+	 * @author J.K.CHOI
+	 * @see @see com.ssocio.sharing.service.admin.AdminAdjustService#goCpltAdjust(java.util.Map)
+	 * @비고
+	 * 
+	 * </pre>
+	 */
+	@Override
+	public int goCpltAdjust(Map<String, Object> inParam) throws Exception {
+		int outParam = 0;
+		try {
+			
+			if(inParam.get("ORD_CD") != null && inParam.get("PROD_CD") != null){
+				String ord_cd_arr[] = inParam.get("ORD_CD").toString().split("\\|");
+				String prod_cd_arr[] = inParam.get("PROD_CD").toString().split("\\|");
+				
+				if(ord_cd_arr != null && ord_cd_arr.length > 0 && prod_cd_arr != null && prod_cd_arr.length > 0 ){
+					inParam.put("ord_cd", ord_cd_arr);
+					inParam.put("prod_cd", prod_cd_arr);
+					outParam = adminAdjustDao.goCpltAdjust(inParam);
+				}
+				
+			}
+			
+		}catch (Exception e) {
+			throw e;
+		}
+		return outParam;
+	}
+	
+	/**
+	 * <pre>
+	 * 정산대기 상세 선택정산완료 adjust_info insert
+	 * 
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 17. 오후 4:24:44
+	 * @author J.K.CHOI
+	 * @see @see com.ssocio.sharing.service.admin.AdminAdjustService#insertAdjustInfo(java.util.Map)
+	 * @비고
+	 * 
+	 * </pre>
+	 */
+	@Override
+	public int insertAdjustInfo(Map<String, Object> inParam) throws Exception {
+		int outParam = 0;
+		try {
+			
+			if(inParam.get("ORD_CD") != null && inParam.get("PROD_CD") != null){
+				String ord_cd_arr[] = inParam.get("ORD_CD").toString().split("\\|");
+				String prod_cd_arr[] = inParam.get("PROD_CD").toString().split("\\|");
+				if(ord_cd_arr != null && ord_cd_arr.length > 0 && prod_cd_arr != null && prod_cd_arr.length > 0 ){
+					
+					inParam.put("ord_cd_arr",ord_cd_arr);
+					inParam.put("prod_cd_arr",prod_cd_arr);
+					
+					outParam = adminAdjustDao.insertAdjustInfo(inParam);
+				}
+			}
+			
+		}catch (Exception e) {
+			throw e;
+		}
+		return outParam;
+	}
+	
+	/**
+	 * <pre>
+	 * 정산대기 상세 select box 정산상태변경 
+	 * 
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 17. 오후 4:24:44
+	 * @author J.K.CHOI
+	 * @see @see com.ssocio.sharing.service.admin.AdminAdjustService#chgAdjStat(java.util.Map)
+	 * @비고
+	 * 
+	 * </pre>
+	 */
+	@Override
+	public int chgAdjStat(Map<String, Object> inParam) throws Exception {
+		logger.info("AdminAdjustServiceImpl.chgAdjStat Start");
+		int outParam = 0;
+		try {
+			if("F".equals(inParam.get("ADJ_STAT"))){
+				adminAdjustDao.insertAdjInfo(inParam);
+				logger.debug(">>>>> sub_idx : "+inParam.get("sub_idx"));
+				logger.debug(">>>>> sub_idx : "+inParam.get("SUB_IDX"));
+				outParam = adminAdjustDao.chgAdjStatF(inParam);
+			}else if("W".equals(inParam.get("ADJ_STAT"))){
+				outParam = adminAdjustDao.chgAdjStatW(inParam);
+			}else if("".equals(inParam.get("ADJ_STAT"))){
+				outParam = adminAdjustDao.chgAdjStatN(inParam);
+			}else if("R".equals(inParam.get("ADJ_STAT"))){
+				outParam = adminAdjustDao.chgAdjStatR(inParam);
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return outParam;
+	}
+	
+	/**
+	 * <pre>
+	 * 정산완료 전체정산 리스트 조회
+	 * 
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 17. 오후 2:03:43
+	 * @author J.K.CHOI
+	 * @see @see com.ssocio.sharing.service.admin.AdminAdjustService#selectCpltListAdjust(java.util.Map)
+	 * @비고
+	 * 
+	 * </pre>
+	 */
+	@Override
+	public ModelMap selectCpltListAdjust(Map<String, Object> inParam) throws Exception{
+		ModelMap mm = new ModelMap();
+		try {
+			//조회조건 기간 처리 start
+			String today = StringUtil.getCurrentDate();
+			inParam.put("S_END_DATE", StringUtil.nvl((String)inParam.get("S_END_DATE"), today));
+			
+			SimpleDateFormat format = new SimpleDateFormat("yyyyMMdd");
+			Calendar cal = Calendar.getInstance();
+			cal.add(Calendar.DATE, -7);
+			inParam.put("S_START_DATE", StringUtil.nvl((String)inParam.get("S_START_DATE"), format.format(cal.getTime())));
+			//조회조건 기간 처리 end
+			
+			
+			//페이징처리 start
+			inParam.put("PAGE_NO", StringUtil.nvl((String)inParam.get("PAGE_NO"), "1"));
+			int nowPage = StringUtil.nvlInt((String)inParam.get("PAGE_NO"), 1);
+			int rowTotal = adminAdjustDao.selectCpltListAdjustCount(inParam);
+			
+			PageNavigation pageNav= new PageNavigation(nowPage, rowTotal, CmmnCnst.ADM_LIST_SIZE, CmmnCnst.ADM_BLOCK_SIZE );
+			mm.put("PAGE_NO", nowPage);
+			mm.put("pageNav", pageNav);
+		    inParam.put("START_ROW"	,pageNav.getStartRow());
+		    inParam.put("END_ROW"	,pageNav.getEndRow());
+		    //페이징처리 end
+			
+			LoggerUtil.writeMap(inParam);
+			mm.put("selectCpltListAdjust",adminAdjustDao.selectCpltListAdjust(inParam));
+			mm.put("selectCpltAmtCnt",adminAdjustDao.selectCpltAmtCnt(inParam));
+			mm.put("params", inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+	
+	/**
+	 * <pre>
+	 * 정산완료 판매정산 리스트 조회
+	 * 
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 17. 오후 2:03:43
+	 * @author J.K.CHOI
+	 * @see @see com.ssocio.sharing.service.admin.AdminAdjustService#selectCpltListSellAdjust(java.util.Map)
+	 * @비고
+	 * 
+	 * </pre>
+	 */
+	@Override
+	public ModelMap selectCpltListSellAdjust(Map<String, Object> inParam) throws Exception{
+		ModelMap mm = new ModelMap();
+		try {
+			//조회조건 기간 처리 start
+			String today = StringUtil.getCurrentDate();
+			inParam.put("S_END_DATE", StringUtil.nvl((String)inParam.get("S_END_DATE"), today));
+			
+			SimpleDateFormat format = new SimpleDateFormat("yyyyMMdd");
+			Calendar cal = Calendar.getInstance();
+			cal.add(Calendar.DATE, -7);
+			inParam.put("S_START_DATE", StringUtil.nvl((String)inParam.get("S_START_DATE"), format.format(cal.getTime())));
+			//조회조건 기간 처리 end
+			
+			
+			//페이징처리 start
+			inParam.put("PAGE_NO", StringUtil.nvl((String)inParam.get("PAGE_NO"), "1"));
+			int nowPage = StringUtil.nvlInt((String)inParam.get("PAGE_NO"), 1);
+			int rowTotal = adminAdjustDao.selectCpltListSellAdjustCount(inParam);
+			
+			PageNavigation pageNav= new PageNavigation(nowPage, rowTotal, CmmnCnst.ADM_LIST_SIZE, CmmnCnst.ADM_BLOCK_SIZE );
+			mm.put("PAGE_NO", nowPage);
+			mm.put("pageNav", pageNav);
+			inParam.put("START_ROW"	,pageNav.getStartRow());
+			inParam.put("END_ROW"	,pageNav.getEndRow());
+			//페이징처리 end
+			
+			LoggerUtil.writeMap(inParam);
+			mm.put("selectCpltListSellAdjust",adminAdjustDao.selectCpltListSellAdjust(inParam));
+			mm.put("selectCpltSellAmtCnt",adminAdjustDao.selectCpltSellAmtCnt(inParam));
+			mm.put("params", inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+	
+	/**
+	 * <pre>
+	 * 정산완료 셰어링정산 리스트 조회
+	 * 
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 17. 오후 2:03:43
+	 * @author J.K.CHOI
+	 * @see @see com.ssocio.sharing.service.admin.AdminAdjustService#selectCpltListShareAdjust(java.util.Map)
+	 * @비고
+	 * 
+	 * </pre>
+	 */
+	@Override
+	public ModelMap selectCpltListShareAdjust(Map<String, Object> inParam) throws Exception{
+		ModelMap mm = new ModelMap();
+		try {
+			//조회조건 기간 처리 start
+			String today = StringUtil.getCurrentDate();
+			inParam.put("S_END_DATE", StringUtil.nvl((String)inParam.get("S_END_DATE"), today));
+			
+			SimpleDateFormat format = new SimpleDateFormat("yyyyMMdd");
+			Calendar cal = Calendar.getInstance();
+			cal.add(Calendar.DATE, -7);
+			inParam.put("S_START_DATE", StringUtil.nvl((String)inParam.get("S_START_DATE"), format.format(cal.getTime())));
+			//조회조건 기간 처리 end
+			
+			
+			//페이징처리 start
+			inParam.put("PAGE_NO", StringUtil.nvl((String)inParam.get("PAGE_NO"), "1"));
+			int nowPage = StringUtil.nvlInt((String)inParam.get("PAGE_NO"), 1);
+			int rowTotal = adminAdjustDao.selectCpltListShareAdjustCount(inParam);
+			
+			PageNavigation pageNav= new PageNavigation(nowPage, rowTotal, CmmnCnst.ADM_LIST_SIZE, CmmnCnst.ADM_BLOCK_SIZE );
+			mm.put("PAGE_NO", nowPage);
+			mm.put("pageNav", pageNav);
+			inParam.put("START_ROW"	,pageNav.getStartRow());
+			inParam.put("END_ROW"	,pageNav.getEndRow());
+			//페이징처리 end
+			
+			LoggerUtil.writeMap(inParam);
+			mm.put("selectCpltListShareAdjust",adminAdjustDao.selectCpltListShareAdjust(inParam));
+			mm.put("selectCpltShareAmtCnt",adminAdjustDao.selectCpltShareAmtCnt(inParam));
+			mm.put("params", inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+
+	/**
+	 * <pre>
+	 * 정산완료 리스트 엑셀
+	 * 
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 17. 오후 2:03:43
+	 * @author J.K.CHOI
+	 * @see @see com.ssocio.sharing.service.admin.AdminAdjustService#selectCpltListAdjustToExcel(java.util.Map)
+	 * @비고
+	 * 
+	 * </pre>
+	 */
+	@Override
+	public Object selectCpltListAdjustToExcel(Map<String, Object> inParam) throws Exception{
+		try {
+			//조회조건 기간 처리 start
+			String today = StringUtil.getCurrentDate();
+			inParam.put("S_END_DATE", StringUtil.nvl((String)inParam.get("S_END_DATE"), today));
+			
+			SimpleDateFormat format = new SimpleDateFormat("yyyyMMdd");
+			Calendar cal = Calendar.getInstance();
+			cal.add(Calendar.DATE, -7);
+			inParam.put("S_START_DATE", StringUtil.nvl((String)inParam.get("S_START_DATE"), format.format(cal.getTime())));
+			//조회조건 기간 처리 end
+			
+			LoggerUtil.writeMap(inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return adminAdjustDao.selectCpltListAdjustToExcel(inParam);
+	}
+	
+	/**
+	 * <pre>
+	 * 지급요청 엑셀
+	 * 
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 17. 오후 2:03:43
+	 * @author J.K.CHOI
+	 * @see @see com.ssocio.sharing.service.admin.AdminAdjustService#selectPayRequestToExcel(java.util.Map)
+	 * @비고
+	 * 
+	 * </pre>
+	 */
+	@Override
+	public Object selectPayRequestToExcel(Map<String, Object> inParam) throws Exception{
+		try {
+			//조회조건 기간 처리 start
+			String today = StringUtil.getCurrentDate();
+			inParam.put("S_END_DATE", StringUtil.nvl((String)inParam.get("S_END_DATE"), today));
+			
+			SimpleDateFormat format = new SimpleDateFormat("yyyyMMdd");
+			Calendar cal = Calendar.getInstance();
+			cal.add(Calendar.DATE, -7);
+			inParam.put("S_START_DATE", StringUtil.nvl((String)inParam.get("S_START_DATE"), format.format(cal.getTime())));
+			//조회조건 기간 처리 end
+			
+			LoggerUtil.writeMap(inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return adminAdjustDao.selectPayRequestToExcel(inParam);
+	}
+	
+	/**
+	 * <pre>
+	 * 정산완료 판매정산 상세 리스트 조회
+	 * 
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 17. 오후 4:24:44
+	 * @author J.K.CHOI
+	 * @see @see com.ssocio.sharing.service.admin.AdminAdjustService#selectCpltDtlListSellAdjust(java.util.Map)
+	 * @비고
+	 * 
+	 * </pre>
+	 */
+	@Override
+	public ModelMap selectCpltDtlListSellAdjust(Map<String, Object> inParam) throws Exception{
+		ModelMap mm = new ModelMap();
+		try {
+			//페이징처리 start
+			inParam.put("PAGE_NO", StringUtil.nvl((String)inParam.get("PAGE_NO"), "1"));
+			int nowPage = StringUtil.nvlInt((String)inParam.get("PAGE_NO"), 1);
+			int rowTotal = adminAdjustDao.selectCpltDtlListSellAdjustCount(inParam);
+			
+			System.out.println(">>>>>>>>>>>>>>PAGE_NO " + inParam.get("PAGE_NO"));
+			System.out.println(">>>>>>>>>>>>>>nowPage " + nowPage);
+			System.out.println(">>>>>>>>>>>>>>rowTotal " + rowTotal);
+			
+			PageNavigation pageNav= new PageNavigation(nowPage, rowTotal, CmmnCnst.ADM_LIST_SIZE, CmmnCnst.ADM_BLOCK_SIZE );
+			mm.put("PAGE_NO", nowPage);
+			mm.put("pageNav", pageNav);
+		    inParam.put("START_ROW"	,pageNav.getStartRow());
+		    inParam.put("END_ROW"	,pageNav.getEndRow());
+		    //페이징처리 end
+		    
+			System.out.println(">>>>>>>>>>>>>>START_ROW " + inParam.get("START_ROW"));
+			System.out.println(">>>>>>>>>>>>>>END_ROW " + inParam.get("END_ROW"));
+		    
+			LoggerUtil.writeMap(inParam);
+			mm.put("selectCpltDtlListSellAdjust",adminAdjustDao.selectCpltDtlListSellAdjust(inParam));
+			mm.put("selectCpltSellAdjust",adminAdjustDao.selectCpltSellAdjust(inParam));
+			mm.put("params",inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+	
+	/**
+	 * <pre>
+	 * 정산완료 셰어링정산 상세 리스트 조회
+	 * 
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 17. 오후 4:24:44
+	 * @author J.K.CHOI
+	 * @see @see com.ssocio.sharing.service.admin.AdminAdjustService#selectCpltDtlListShareAdjust(java.util.Map)
+	 * @비고
+	 * 
+	 * </pre>
+	 */
+	@Override
+	public ModelMap selectCpltDtlListShareAdjust(Map<String, Object> inParam) throws Exception{
+		ModelMap mm = new ModelMap();
+		try {
+			//페이징처리 start
+			inParam.put("PAGE_NO", StringUtil.nvl((String)inParam.get("PAGE_NO"), "1"));
+			int nowPage = StringUtil.nvlInt((String)inParam.get("PAGE_NO"), 1);
+			int rowTotal = adminAdjustDao.selectCpltDtlListShareAdjustCount(inParam);
+			
+			PageNavigation pageNav= new PageNavigation(nowPage, rowTotal, CmmnCnst.ADM_LIST_SIZE, CmmnCnst.ADM_BLOCK_SIZE );
+			mm.put("PAGE_NO", nowPage);
+			mm.put("pageNav", pageNav);
+			inParam.put("START_ROW"	,pageNav.getStartRow());
+			inParam.put("END_ROW"	,pageNav.getEndRow());
+			//페이징처리 end
+			
+			LoggerUtil.writeMap(inParam);
+			mm.put("selectCpltDtlListShareAdjust",adminAdjustDao.selectCpltDtlListShareAdjust(inParam));
+			mm.put("selectCpltShareAdjust",adminAdjustDao.selectCpltShareAdjust(inParam));
+			mm.put("params",inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+
+	@Override
+	public ModelMap updateCpltListExcelToAdjust(MultipartFile file, ModelMap modelMap)	throws Exception {
+		
+		String[][] excelValue = null;
+		
+		
+		Map<String, Object> saveExcelFile = FileUtil.saveExcelFile(file);
+		
+		// 엑셀파일 내용 가져옴
+		excelValue = ExcelUploadUtil.doExcel(saveExcelFile.get("I_FILE_PATH").toString());
+		
+		int ord_cd = -1;
+		int prod_cd = -1;
+		int adj_amt = -1;
+		int prod_seq = -1;
+		for (int i = 0; i < excelValue[0].length; i++) {
+			if(excelValue[0][i].equals("ORD_CD")){
+				ord_cd = i;
+			} else if(excelValue[0][i].equals("PROD_CD")){
+				prod_cd = i;
+			} else if(excelValue[0][i].equals("ADJ_AMT")){
+				adj_amt = i;
+//			} else if(excelValue[0][i].equals("PROD_SEQ")){
+//				prod_seq = i;
+			}
+			logger.debug(">>>>> excelValue[0][i] : "+excelValue[0][i]);
+		}
+		
+		
+		
+		Map<String, Object> excelParam = new HashMap<String, Object>();
+		StringBuffer sb = new StringBuffer();
+		for (int i = 1; i < excelValue.length; i++) {
+			excelParam = new HashMap<String, Object>();
+			for (int j = 0; j < excelValue[0].length; j++) {
+				if( j == ord_cd ){
+					excelParam.put("ORD_CD", excelValue[i][j]);
+				} else if( j == prod_cd ) {
+					excelParam.put("PROD_CD", excelValue[i][j]);
+				} else if( j == adj_amt ) {
+					excelParam.put("ADJ_AMT", excelValue[i][j]);
+//				} else if( j == prod_seq ) {
+//					excelParam.put("PROD_SEQ", excelValue[i][j]);
+				}
+					
+//				adminAdjustDao.updateAdjHistStatA(excelParam);
+			}
+			excelParam.put("ADJ_STAT","F");
+			
+			// STAT Null 인 값을 'A' 로 바꿈 
+			try{
+				
+				logger.debug(">>>>> ORD_CD : "+excelParam.get("ORD_CD"));
+				logger.debug(">>>>> PROD_CD : "+excelParam.get("PROD_CD"));
+				logger.debug(">>>>> ADJ_AMT : "+excelParam.get("ADJ_AMT"));
+				adminAdjustDao.insertAdjInfo(excelParam);
+				logger.debug(">>>>> sub_idx : "+excelParam.get("sub_idx"));
+				logger.debug(">>>>> sub_idx : "+excelParam.get("SUB_IDX"));
+				adminAdjustDao.chgAdjStatF(excelParam);
+				sb.append("S : ORD_CD :"+excelParam.get("ORD_CD")+" : PROD_CD : "+excelParam.get("PROD_CD")+" : ADJ_AMT : "+excelParam.get("ADJ_AMT"));
+				sb.append("<br/>");
+			}catch(Exception e){
+				e.printStackTrace();
+				sb.append("E : ORD_CD :"+excelParam.get("ORD_CD")+" : PROD_CD : "+excelParam.get("PROD_CD")+" : ADJ_AMT : "+excelParam.get("ADJ_AMT")+" : ERROR : "+e.toString());
+				sb.append("<br/>");
+//				break;
+			}
+			
+		}
+		
+		modelMap.put("retMsg",sb.toString());
+		return modelMap;
+	}
+	
+	@Override
+//	@Transactional(propagation=Propagation.REQUIRED)
+	public ModelMap uploadTrTxt(Map<String, Object> inParam) throws Exception {
+		logger.info("########### AdminAdjustServiceImpl :: uploadTrTxt :: Start ##########");
+		logger.info("##### process #01 #####");
+		ModelMap mm = new ModelMap();
+		try {
+			
+			Map<String, Object> file_map = FileUtil.saveMultipartFile((MultipartFile)inParam.get("TR_TXT"), ".txt", CmmnCnst.ADJUST_TXT_FILE_PATH, AppConfigManager.getInstance().getUploadMiscRootPath());
+//			Map<String, Object> file_map = FileUtil.saveMultipartFile((MultipartFile)inParam.get("RTN_TXT"), ".txt", "ADJUST/",adminAdjustDao.getAdjustFilePath());
+			
+			if(!"S0000".equals(file_map.get("retCd"))){
+				mm.putAll(file_map);
+				return mm;
+			}
+			
+			String filePath = file_map.get("I_FILE_PATH").toString();
+			List<Map<String, Object>> list = FileUtil.readTxtFile(filePath, CmmnCnst.ADJUST_TXT_FILE_FIELD, "euc-kr");
+			int cnt = 0;
+			int totCnt = 0;
+			StringBuffer errMsg = new StringBuffer();
+			
+			for(Map<String, Object> map : list){
+				
+				try{
+					
+					logger.debug("####################################");
+					logger.debug(">>>>> SELT_GB_CD_NM : "+map.get("SELT_GB_CD_NM"));
+					logger.debug(">>>>> TR_ID : "+map.get("TR_ID"));
+					logger.debug(">>>>> CPID : "+map.get("CPID"));
+					logger.debug(">>>>> AMT : "+map.get("AMT"));
+					logger.debug(">>>>> TR_DT : "+map.get("TR_DT"));
+					logger.debug(">>>>> ORD_CD : "+map.get("ORD_CD"));
+					
+					// 매퍼에 쿼리 넣기 요청
+					adminAdjustDao.insertAdjustTrInfo(map);
+				}catch(Exception e){
+					e.printStackTrace();
+					errMsg.append("[ERROR 01] TR_ID : "+map.get("TR_ID")+" :: CPID : "+map.get("CPID")+" :: MSG : "+e.toString());
+					errMsg.append("<br/>######################################################################<br/>");
+				}
+				try{
+					
+					cnt += adminAdjustDao.insertAdjustLogForTr(map);
+				}catch(Exception e){
+					e.printStackTrace();
+					errMsg.append("[ERROR 02] TR_ID : "+map.get("TR_ID")+" :: CPID : "+map.get("CPID")+" :: MSG : "+e.toString());
+					errMsg.append("<br/>######################################################################<br/>");
+				}
+				totCnt++;
+			}
+			logger.debug(">>>>> totCnt : "+totCnt);
+			logger.debug(">>>>> cnt : "+cnt);
+			mm.put("retCd", "S0000");
+			mm.put("retMsg", totCnt+"건 중 "+cnt+" 건 저장 되었습니다.\n"+errMsg);
+		} catch (Exception e) {
+			e.printStackTrace();
+			throw new Exception(e);
+		}
+		logger.info("########### AdminAdjustServiceImpl :: uploadTrTxt :: End ##########");
+		return mm;
+	}
+
+	/**
+	 * 정산 예정 데이터
+	 * 다날 전송
+	 * SFTP
+	 */
+	@Override
+	public ModelMap uploadSFTP(Map<String, Object> inParam) throws Exception {
+		ModelMap mm = new ModelMap();
+		SFTPUtil sftp = null;
+		try{
+			
+			Calendar cal = Calendar.getInstance();
+			SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd");
+			
+			String filePath = AppConfigManager.getInstance().getUploadMiscRootPath()+CmmnCnst.ADJUST_RTN_TXT_FILE_PATH;
+//			String filePath = adminAdjustDao.getAdjustFilePath()+CmmnCnst.ADJUST_RTN_TXT_FILE_PATH;
+			String sftpFileNm = CmmnCnst.ADJUST_RTN_TXT_FILE_PATH_NM.replace("YYYYMMDD", sdf.format(cal.getTime()));
+			logger.debug(">>>>> filePath : "+filePath);
+			File file = new File(filePath);
+			
+			// 파일 위치 확보
+			if(!file.exists()){
+				file.mkdirs();
+			}
+			
+			int cnt = adminAdjustDao.getAdjustHistCnt(inParam);
+					
+			if(cnt < 1){
+				mm.put("retCd", "N0001");
+				mm.put("retMsg", "정산예정 데이터가 없습니다.");
+			}
+			
+			if(inParam != null){
+				if(!"".equals(inParam.get("FILENM"))){
+					sftpFileNm = inParam.get("FILENM").toString();
+				}
+			}
+			
+			// 정산 예정 데이터 조회
+			mm.put("list",adminAdjustDao.listAdjustHist(inParam));
+			mm.put("filePathNName", filePath+sftpFileNm);
+			mm.put("fileField",CmmnCnst.ADJUST_UPLOAD_TXT_FILE_FIELD);
+			
+			
+			// 텍스트 파일 저장
+			if(FileUtil.writeTxtFile(mm,"euc-kr")){
+				String sftptId = CmmnCnst.SFTP_ADJUST_TXT_FILE_USERNAME;
+				String sftpPwd = CmmnCnst.SFTP_ADJUST_TXT_FILE_PASSWORD;
+				String sftpHost = CmmnCnst.SFTP_ADJUST_TXT_FILE_HOST;
+				int sftpPort = CmmnCnst.SFTP_ADJUST_TXT_FILE_PORT;
+				
+				String sftpFilePath = CmmnCnst.SFTP_ADJUST_UPLOAD_TXT_FILE_PATH;
+				
+				if(inParam != null){
+					if(!"".equals(inParam.get("ID"))){
+						sftptId = inParam.get("ID").toString();
+					}
+					if(!"".equals(inParam.get("PWD"))){
+						sftpPwd = inParam.get("PWD").toString();
+					}
+					if(!"".equals(inParam.get("HOST"))){
+						sftpHost = inParam.get("HOST").toString();
+					}
+					
+					if(inParam.get("PORT") != null && !"".equals(inParam.get("PORT").toString().replaceAll("[^0-9]", ""))){
+						sftpPort = Integer.parseInt(inParam.get("PORT").toString().replaceAll("[^0-9]", ""));
+					}
+					if(!"".equals(inParam.get("PATH"))){
+						sftpFilePath = inParam.get("PATH").toString();
+					}
+				}
+				
+				// 텍스트 파일 SFTP 전송
+				sftp = new SFTPUtil();
+				sftp.init(sftpHost, sftptId, sftpPwd, sftpPort);
+				sftp.upload(sftpFilePath, new File(filePath+sftpFileNm));
+				
+				mm.put("retCd", "S0000");
+			}else{
+				
+				mm.put("retCd", "N0000");
+			}
+			
+		}catch(Exception e){
+			e.printStackTrace();
+			mm.put("retCd", "E0000");
+			mm.put("retMsg", e.toString());
+		}finally{
+			if(sftp != null){sftp.disconnection();}
+		}
+		return mm;
+	}
+	
+	/**
+	 * 정산 결과 TXT 파일 UPLOAD
+	 * 정산 결과 테이블 INSERT
+	 * 정산 테이블 UDPATE
+	 * 정산 결과 테이블 UPDATE
+	 */
+	@Override
+	public ModelMap uploadRtnTxt(Map<String, Object> inParam) throws Exception {
+		ModelMap mm = new ModelMap();
+		int reCnt = 0;
+		int retCnt = 0;
+		
+		try{
+			
+			Map<String, Object> file_map = FileUtil.saveMultipartFile((MultipartFile)inParam.get("RTN_TXT"), ".txt", "/ADJUST/",AppConfigManager.getInstance().getUploadMiscRootPath());
+//			Map<String, Object> file_map = FileUtil.saveMultipartFile((MultipartFile)inParam.get("RTN_TXT"), ".txt", "ADJUST/",adminAdjustDao.getAdjustFilePath());
+			
+			if(!"S0000".equals(file_map.get("retCd"))){
+				mm.putAll(file_map);
+				return mm;
+			}
+			
+			String filePath = file_map.get("I_FILE_PATH").toString();
+			
+			int cnt = adminAdjustDao.getAdjustHistCnt(inParam);
+			
+			if(cnt < 1){
+				mm.put("retCd", "N0001");
+				mm.put("retMsg", "정산예정 데이터가 없습니다.");
+			}
+			
+			List<Map<String, Object>> list = FileUtil.readTxtFile(filePath, CmmnCnst.ADJUST_RTN_TXT_FILE_FIELD, "euc-kr");
+			
+			for(Map<String, Object> map : list){
+				reCnt = 0;
+				reCnt = adminAdjustDao.insertAdjustPaymntInfo(map);
+				if(reCnt == 1){
+					
+					if(adminAdjustDao.getAdjustInfoByTxtCnt(map) > 0 && map.get("STAT") != null && !"".equals(map.get("STAT"))){
+						
+						if("T".equals(map.get("STAT"))){
+							adminAdjustDao.insertAdjustInfoByTxt(map);
+						}
+						reCnt = adminAdjustDao.updateAdjustHistCplt(map);
+						if(reCnt == 1){
+							map.put("RET_CD", "S0000");
+							reCnt = adminAdjustDao.updateAdjustPaymntInfo(map);
+							map.put("RET_CD", "");
+							retCnt++;
+							if("T".equals(map.get("STAT"))){
+								try{
+									adminAdjustDao.insertAdjustLog(map);
+								}catch(Exception e){
+									e.printStackTrace();
+								}
+							}
+						}
+					}else{
+						map.put("RET_CD", "E0000");
+						reCnt = adminAdjustDao.updateAdjustPaymntInfo(map);
+						map.put("RET_CD", "");
+					}
+				}
+			}
+			
+			// 정산 예정 데이터 조회
+			mm.put("filePathNName", filePath);
+			mm.put("retMsg", list.size()+"건 중 "+retCnt+"건 업데이트 되었습니다.");
+			mm.put("retCd", "S0000");
+			
+		}catch(Exception e){
+			e.printStackTrace();
+			mm.put("retCd", "E0000");
+			mm.put("retMsg", e.toString());
+		}finally{
+		}
+		return mm;
+	}
+	
+	
+}

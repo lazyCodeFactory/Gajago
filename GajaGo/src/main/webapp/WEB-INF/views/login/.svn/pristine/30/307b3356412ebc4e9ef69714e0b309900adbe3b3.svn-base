@@ -1,0 +1,183 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/web/common/cmmnHead.jsp"%>
+<script type="text/javascript" src="/js/web/cart.js" ></script> <!-- 장바구니용 js -->
+<script type="text/javascript">
+var limit = 300;
+var cur = 0;
+
+$(function(){
+// 	header.type	= 6;
+	header.type	= 4;
+	header.title = "댓글";
+	header.method = "POST";
+	if ('${inParam.PROD_TYPE_CD }' == '4') {
+		header.backUrl = '/mobile/shar/selectSharDtl.do?PROD_CODE=' + $("#PROD_CODE").val();
+	}
+	else {
+		header.backUrl = '/mobile/prod/selectProd.do?PROD_CODE=' + $("#PROD_CODE").val();
+	}
+	header.callback = headerCallback; // 장바구니용 callback
+	header.form = $("#form");
+	initHeader();
+	document.title = header.title;
+	displayFooter(false); 
+	
+	if( '${sessionScope.APP}' == 'SSOCIO'){
+		document.location.replace('ssocio://web/hideDetailBottomView');
+	}
+	
+	$('#SUSPECT_REASON').keyup(function(e){
+		cur = getBytesLength($(this).val());
+		
+		if( cur <= limit ){
+			$('.byte').text(cur + '/' + limit);
+		}
+		else{
+			alert("글자수가 " + limit + "Byte를 넘었습니다.");
+			$(this).val($(this).val().substring(0, limit));
+		}
+	});
+	
+	$(":radio[name='SUSPECT_GB_CD']").click(function(e){
+		if($(this).val() == '40'){
+			$(".textarea").show();
+		}
+		else{
+			$(".textarea").hide();
+		}
+	});
+	
+	$(".byte").text(cur + "/" + limit);
+//	$(":radio[name='SUSPECT_GB_CD']").eq(0).attr("checked", true);
+});
+
+function insertSuspectInfo(){
+	
+	if( $(":radio[name='SUSPECT_GB_CD']").is(":checked") == false ){
+		alert("신고유형을 선택해 주세요.");
+		return;
+	}
+	
+	if( $(":radio[name='SUSPECT_GB_CD']:checked").val() == '40' ){
+		if(validate($("#SUSPECT_REASON"), "기타 사유", 0) == false) return;
+	}
+	
+	var txt = "게시글을 신고하시겠습니까?\n";
+	txt += "신고하신 내용은 운영정책에 따라 처리되며,\n";
+	txt += "허위 신고시 불이익을 받을 수 있습니다.";
+
+	if(confirm(txt) == true){
+		
+		$.ajax({
+			type: 'post',
+			async: true, 
+			url: '/mobile/board/insertSuspectRegAjax.do', 
+			dataType:'json', 
+			data: {"BOARD_SEQ":$("#BOARD_SEQ").val(), 
+				"BOARD_TYPE_CD":$("#BOARD_TYPE_CD").val(),
+				"SUSPECT_GB_CD":$(":radio[name='SUSPECT_GB_CD']").val(), 
+				"SUSPECT_REASON":$("#SUSPECT_REASON").val()
+			},
+			//before: function() {
+		    //   loadingForm.showDialog();
+		    //}, 
+		    success: function(response) {
+		    	if( response.data == 0){
+		    		alert("이미 신고 된 게시글 입니다.");
+		    		return;
+		    	}
+		    	else{
+		    		alert("신고 접수가 완료 되었습니다.");
+		    		var prodTypeCd = $("#PROD_TYPE_CD").val();
+// 			    	if ('${inParam.PROD_TYPE_CD }' == '4') {
+// 			    		location.href = '/mobile/shar/selectSharDtl.do?PROD_CODE=' + $("#PROD_CODE").val();
+// 			    	}
+// 			    	else {
+// 			    		location.href = '/mobile/prod/selectProd.do?PROD_CODE=' + $("#PROD_CODE").val();
+// 			    	}
+					if ($("#BOARD_TYPE_CD").val() == '50') {
+						location.href = '/mobile/board/selectListComment.do?PROD_CODE='+$("#PROD_CODE").val()+'&PROD_TYPE_CD='+prodTypeCd;						
+					}
+					else if ($("#BOARD_TYPE_CD").val() == '70') {
+						location.href = "/mobile/board/selectListReview.do?PROD_CODE=" + $("#PROD_CODE").val();
+					}
+		    	}
+			}, 
+			//complete: function() {
+		    //	loadingForm.hideDialog();
+			//}, 
+			error : function(request, status, error) {
+				alert("통신 오류가 발생 하였습니다. 잠시 후 다시 시도해 주세요");
+			}
+		});
+	}
+}
+</script>
+
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+
+        <div class="roc">
+        	<ul class="inner">
+            	<li><img src="http://static.ssocio.net/pc/img/common/section/roc_home.png" alt="홈"></li>
+                <li>판매자신고하기</li>
+            </ul>
+        </div>
+        
+        <!-- inner -->
+		<div class="inner">
+			<h3 class="tit_cont"><img src="http://static.ssocio.net/pc/img/common/tit/mini3000.png" alt="판매자신고하기" /></h3>
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+	 <!-- container -->
+		<div id="container">
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>
+
+<form name="form" id="form" method="get">
+<input type="hidden" name="BOARD_SEQ" id="BOARD_SEQ" value="${inParam.BOARD_SEQ }" />
+<input type="hidden" name="PROD_CODE" id="PROD_CODE" value="${inParam.PROD_CODE }" />
+<input type="hidden" name="PROD_TYPE_CD" id="PROD_TYPE_CD" value="${inParam.PROD_TYPE_CD }" />
+<input type="hidden" name="BOARD_TYPE_CD" id="BOARD_TYPE_CD" value="${inParam.BOARD_TYPE_CD }" />
+
+	<div class="info-box pdtb">
+		<p>신고하신 내용은 운영정책에 따라 처리되며, <br><strong class="point_r">허위 신고시 불이익</strong>을 받을 수 있습니다.</p>
+	</div>
+	
+	<div class="content">
+		<ol class="list  radio-list">
+			<c:forEach var="type" items="${result.typeCd }" varStatus="status">
+				<li><input type="radio" name="SUSPECT_GB_CD" id="SUSPECT_GB_CD_${status.index }" value="${type.COM_CD }"> <label for="SUSPECT_GB_CD_${status.index }">${type.COM_CD_NM }</label></li>
+			</c:forEach>
+			<li class="textarea" style="display:none;">
+				<div class="text_box">
+					<textarea name="SUSPECT_REASON" id="SUSPECT_REASON" placeholder="기타사유를 작성해 주세요."></textarea>
+					<span class="byte"></span>
+				</div>
+			</li>
+		</ol>
+	</div>
+	<div class="btn_enter"><a href="javascript:insertSuspectInfo();" class="btn_r">등록</a></div>
+
+</form>
+
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+        </div>
+        <!-- //inner -->
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+	    </div>
+	    <!-- //container -->
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>

@@ -28,4 +28,19 @@ public class MemberDao {
 		return resultId;
 	}
 
+	public MemberVo findId(MemberVo paramVo) {
+		MemberVo resultVo = sqlsession.selectOne("findId",paramVo);
+		return resultVo;
+	}
+
+	public String findPwd(MemberVo member) {
+		 String reultPwd = sqlsession.selectOne("findPw",member);
+		return reultPwd;
+	}
+
+	public int initPwd(MemberVo member) {
+		int result =sqlsession.update("initPwd", member);
+		return result;
+	}
+
 }

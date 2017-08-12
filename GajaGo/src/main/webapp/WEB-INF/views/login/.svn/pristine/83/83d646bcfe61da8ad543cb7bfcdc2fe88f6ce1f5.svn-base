@@ -1,0 +1,1093 @@
+/**<pre>
+ * 1. Project Name : SSOCIO
+ * 2. Package Name : com.ssocio.sharing.controller.mobile
+ * 3. File Name	   : MobileBuySharingController.java
+ * 4. Date		   : 오후 2:20 2015-08-19
+ * 5. Author	   : H.M.Yang
+ * 6. Note		   :
+ * </pre>
+ */
+package com.ssocio.sharing.controller.mobile;
+
+import java.math.BigDecimal;
+import java.net.URLEncoder;
+import java.util.HashMap;
+import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpServletResponse;
+
+import org.slf4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.multipart.MultipartHttpServletRequest;
+import org.springframework.web.servlet.ModelAndView;
+import org.springframework.web.servlet.ModelAndView;
+
+import com.ssocio.sharing.cmmn.util.LoggerUtil;
+import com.ssocio.sharing.service.web.WebBuySharingService;
+import com.ssocio.sharing.vo.web.WebSession;
+
+import com.ssocio.sharing.cmmn.service.CommonService;
+
+/**
+ * <pre>
+ * 구매관리 셰어링 Controller
+ * 구매관리 셰어링 위한 Controller
+ * @author H.M.Yang
+ * @version
+ * @since 2015. 8. 19. 오후 2:20:00
+ * @see
+ * @History
+ *  Date          |    author    | 변경내용
+ *	2015. 8. 19.  |    H.M.Yang  | 신규
+ * @Todo
+ * </pre>
+ */
+@Controller
+public class MobileBuySharingController extends MobileReferController {
+	// --------------------------------------------------------------------------
+	// # Log 설정
+	// --------------------------------------------------------------------------
+	private static final Logger logger = LoggerFactory.getLogger(MobileBuySharingController.class);
+
+	// --------------------------------------------------------------------------
+	// # Service 설정
+	// --------------------------------------------------------------------------
+	@Autowired
+	private WebBuySharingService webBuySharingService;
+
+	@Autowired
+	private CommonService commonService;
+	/**
+	 * <pre>
+	 * 구매관리 메인 조회
+	 * 구매관리 메인 조회 합니다.
+	 * @param request
+	 * @param response
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 19. 오후 2:20:00
+	 * @author H.M.Yang
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/buy/selectBuyMain.do")
+	public ModelAndView selectBuyMain(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> paramDto) throws Exception {
+		ModelAndView mav = new ModelAndView();
+		WebSession user = (WebSession)request.getSession().getAttribute("user");
+		paramDto.put("S_MBER_SEQ", user.getMBER_SEQ());
+		//paramDto.put("MYPAGE_MBER_GB_CD", user.getMBER_GB_CD());
+
+		LoggerUtil.writeMap(paramDto);
+
+		try {
+			mav.addObject("buyList", webBuySharingService.selectBuyMain(paramDto));
+			//mav.addObject("searchParam", paramDto);
+			mav.setViewName("web/buy/selectBuyMain");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return mav;
+	}
+
+	/**
+	 * <pre>
+	 * 셰어링 주문 내역 조회
+	 * 셰어링 주문 내역 조회 합니다.
+	 * @param request
+	 * @param response
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 19. 오후 2:20:00
+	 * @author H.M.Yang
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/buy/selectListSharOrderHist.do")
+	public ModelAndView selectListSharOrderHist(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> paramDto) throws Exception {
+
+		/*
+		*  [2015-11-06] 레드마인 3047 대응.
+		*  세션이 끊어졌을 경우 로그인 화면으로 이동 로직 추가
+		*/
+		if(request.getSession().getAttribute("user")==null){
+			logger.debug("세션이 끊어졌습니다. 로그인 화면으로 이동합니다.");
+			String returnUrl = "/mobile/buy/selectListSharOrderHist.do?";
+			return new ModelAndView("redirect:/mobile/main/login.do"+"?ret="+URLEncoder.encode(returnUrl,"UTF-8"));
+		}
+
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(paramDto);
+		
+		// 2015.12.21 정명철
+		// 기본값 세팅
+		String ACTION = (String)paramDto.get("ACTION");
+		if(ACTION == null || ACTION.equals("")){
+			paramDto.put("ACTION","list");
+			paramDto.put("S_SEARCH_PERI","3M");
+		}
+
+		try {
+			if("list".equals(paramDto.get("ACTION"))) {
+				WebSession user = (WebSession)request.getSession().getAttribute("user");
+				paramDto.put("S_MBER_SEQ", user.getMBER_SEQ());
+				paramDto.put("S_MBER_GB_CD", user.getMBER_GB_CD());
+
+				logger.debug("----------------------------------------");
+				logger.debug("S_MBER_GB_CD:"+user.getMBER_GB_CD());
+				logger.debug("----------------------------------------");
+				mav.addObject("list", webBuySharingService.selectListSharOrderHist(paramDto));
+			}
+			mav.addObject("searchParam", paramDto);
+			mav.setViewName("web/buy/selectListSharOrderHist");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return mav;
+	}
+
+	/**
+	 * <pre>
+	 * 셰어링 주문 내역 PAGEING 조회
+	 * 셰어링 주문 내역 PAGEING 조회 합니다.
+	 * @param request
+	 * @param response
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 19. 오후 2:20:00
+	 * @author H.M.Yang
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/buy/selectListSharOrderHistPage.do")
+	public ModelAndView selectListSharOrderHistPage(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> paramDto) throws Exception {
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(paramDto);
+
+		try {
+			WebSession user = (WebSession)request.getSession().getAttribute("user");
+			paramDto.put("S_MBER_SEQ", user.getMBER_SEQ());
+			paramDto.put("S_MBER_GB_CD", user.getMBER_GB_CD());		// 개인/법인 구분코드값
+			mav.addObject("list", webBuySharingService.selectListSharOrderHist(paramDto));
+			mav.addObject("searchParam", paramDto);
+			mav.setViewName("jsonView");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return mav;
+	}
+
+	/**
+	 * <pre>
+	 * 셰어링 주문 내역 상세
+	 * 셰어링 주문 내역 상세를 조회 합니다.
+	 * @param request
+	 * @param response
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 19. 오후 2:20:00
+	 * @author H.M.Yang
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/buy/selectListSharOrderDtl.do")
+	public ModelAndView selectListSharOrderDtl(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> paramDto) throws Exception {
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(paramDto);
+
+		try {
+			mav.addObject("list", webBuySharingService.selectListSharOrderDtl(paramDto));
+			mav.addObject("searchParam", paramDto);
+			mav.setViewName("web/buy/selectListSharOrderDtl");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return mav;
+	}
+
+	/**
+	 * <pre>
+	 * 셰어링 교환신청 내역 조회
+	 * 셰어링 교환신청 내역을 조회 합니다.
+	 * @param request
+	 * @param response
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 19. 오후 2:20:00
+	 * @author H.M.Yang
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/buy/selectListSharExcReqHist.do")
+	public ModelAndView selectListSharExcReqHist(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> paramDto) throws Exception {
+
+		/*
+		*  [2015-11-06] 레드마인 3047 대응.
+		*  세션이 끊어졌을 경우 로그인 화면으로 이동 로직 추가
+		*/
+		if(request.getSession().getAttribute("user")==null){
+			logger.debug("세션이 끊어졌습니다. 로그인 화면으로 이동합니다.");
+			String returnUrl = "/mobile/buy/selectListSharExcReqHist.do?";
+			return new ModelAndView("redirect:/mobile/main/login.do"+"?ret="+URLEncoder.encode(returnUrl,"UTF-8"));
+		}
+
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(paramDto);
+
+		try {
+			if("list".equals(paramDto.get("ACTION"))) {
+				WebSession user = (WebSession)request.getSession().getAttribute("user");
+				paramDto.put("S_MBER_SEQ", user.getMBER_SEQ());
+				mav.addObject("list", webBuySharingService.selectListSharExcReqHist(paramDto));
+			}
+			mav.addObject("searchParam", paramDto);
+			mav.setViewName("web/buy/selectListSharExcReqHist");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return mav;
+	}
+
+	/**
+	 * <pre>
+	 * 셰어링 교환신청 PAGEING 조회
+	 * 셰어링 교환신청 PAGEING 조회 합니다.
+	 * @param request
+	 * @param response
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 19. 오후 2:20:00
+	 * @author H.M.Yang
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/buy/selectListSharExcReqHistPage.do")
+	public ModelAndView selectListSharExcReqHistPage(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> paramDto) throws Exception {
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(paramDto);
+
+		try {
+			WebSession user = (WebSession)request.getSession().getAttribute("user");
+			paramDto.put("S_MBER_SEQ", user.getMBER_SEQ());
+			mav.addObject("list", webBuySharingService.selectListSharExcReqHist(paramDto));
+			mav.addObject("searchParam", paramDto);
+			mav.setViewName("jsonView");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return mav;
+	}
+
+	/**
+	 * <pre>
+	 * 셰어링 교환신청 내역 상세 조회
+	 * 셰어링 교환신청 내역 상세 조회 합니다.
+	 * @param request
+	 * @param response
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 19. 오후 2:20:00
+	 * @author H.M.Yang
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/buy/selectListSharExcReqDtl.do")
+	public ModelAndView selectListSharExcReqDtl(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> paramDto) throws Exception {
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(paramDto);
+
+		try {
+			mav.addObject("list", webBuySharingService.selectListSharExcReqDtl(paramDto));
+			mav.addObject("searchParam", paramDto);
+			mav.setViewName("web/buy/selectListSharExcReqDtl");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return mav;
+	}
+
+	/**
+	 * <pre>
+	 * 셰어링 반품신청 내역 조회
+	 * 셰어링 반품신청 내역을 조회 합니다.
+	 * @param request
+	 * @param response
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 19. 오후 2:20:00
+	 * @author H.M.Yang
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/buy/selectListSharTakeBaReqHist.do")
+	public ModelAndView selectListSharTakeBaReqHist(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> paramDto) throws Exception {
+
+		/*
+		*  [2015-11-06] 레드마인 3047 대응.
+		*  세션이 끊어졌을 경우 로그인 화면으로 이동 로직 추가
+		*/
+		if(request.getSession().getAttribute("user")==null){
+			logger.debug("세션이 끊어졌습니다. 로그인 화면으로 이동합니다.");
+			String returnUrl = "/mobile/buy/selectListSharTakeBaReqHist.do?";
+			return new ModelAndView("redirect:/mobile/main/login.do"+"?ret="+URLEncoder.encode(returnUrl,"UTF-8"));
+		}
+
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(paramDto);
+
+		try {
+			if("list".equals(paramDto.get("ACTION"))) {
+				WebSession user = (WebSession)request.getSession().getAttribute("user");
+				paramDto.put("S_MBER_SEQ", user.getMBER_SEQ());
+				mav.addObject("list", webBuySharingService.selectListSharTakeBaReqHist(paramDto));
+			}
+			mav.addObject("searchParam", paramDto);
+			mav.setViewName("web/buy/selectListSharTakeBaReqHist");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return mav;
+	}
+
+	/**
+	 * <pre>
+	 * 셰어링 반품신청 PAGEING 조회
+	 * 셰어링 반품신청 PAGEING 조회 합니다.
+	 * @param request
+	 * @param response
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 19. 오후 2:20:00
+	 * @author H.M.Yang
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/buy/selectListSharTakeBaReqHistPage.do")
+	public ModelAndView selectListSharTakeBaReqHistPage(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> paramDto) throws Exception {
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(paramDto);
+
+		try {
+			WebSession user = (WebSession)request.getSession().getAttribute("user");
+			paramDto.put("S_MBER_SEQ", user.getMBER_SEQ());
+			mav.addObject("list", webBuySharingService.selectListSharTakeBaReqHist(paramDto));
+			mav.addObject("searchParam", paramDto);
+			mav.setViewName("jsonView");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return mav;
+	}
+
+	/**
+	 * <pre>
+	 * 셰어링 반품신청 내역 상세 조회
+	 * 셰어링 반품신청 내역 상세 조회 합니다.
+	 * @param request
+	 * @param response
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 19. 오후 2:20:00
+	 * @author H.M.Yang
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/buy/selectListSharTakeBaReqDtl.do")
+	public ModelAndView selectListSharTakeBaReqDtl(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> paramDto) throws Exception {
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(paramDto);
+
+		try {
+			mav.addObject("list", webBuySharingService.selectListSharTakeBaReqDtl(paramDto));
+			mav.addObject("searchParam", paramDto);
+			mav.setViewName("web/buy/selectListSharTakeBaReqDtl");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return mav;
+	}
+
+	/**
+	 * <pre>
+	 * 셰어링 주문취소 내역 조회
+	 * 셰어링 주문취소 내역을 조회 합니다.
+	 * @param request
+	 * @param response
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 19. 오후 2:20:00
+	 * @author H.M.Yang
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/buy/selectListSharOrderCanHist.do")
+	public ModelAndView selectListSharOrderCanHist(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> paramDto) throws Exception {
+
+		/*
+		*  [2015-11-06] 레드마인 3047 대응.
+		*  세션이 끊어졌을 경우 로그인 화면으로 이동 로직 추가
+		*/
+		if(request.getSession().getAttribute("user")==null){
+			logger.debug("세션이 끊어졌습니다. 로그인 화면으로 이동합니다.");
+			String returnUrl = "/mobile/buy/selectListSharOrderCanHist.do?";
+			return new ModelAndView("redirect:/mobile/main/login.do"+"?ret="+URLEncoder.encode(returnUrl,"UTF-8"));
+		}
+
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(paramDto);
+
+		try {
+			if("list".equals(paramDto.get("ACTION"))) {
+				WebSession user = (WebSession)request.getSession().getAttribute("user");
+				paramDto.put("S_MBER_SEQ", user.getMBER_SEQ());
+				mav.addObject("list", webBuySharingService.selectListSharOrderCanHist(paramDto));
+			}
+			mav.addObject("searchParam", paramDto);
+			mav.setViewName("web/buy/selectListSharOrderCanHist");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return mav;
+	}
+
+	/**
+	 * <pre>
+	 * 셰어링 주문취소 PAGEING 조회
+	 * 셰어링 주문취소 PAGEING 조회 합니다.
+	 * @param request
+	 * @param response
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 19. 오후 2:20:00
+	 * @author H.M.Yang
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/buy/selectListSharOrderCanHistPage.do")
+	public ModelAndView selectListSharOrderCanHistPage(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> paramDto) throws Exception {
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(paramDto);
+
+		try {
+			WebSession user = (WebSession)request.getSession().getAttribute("user");
+			paramDto.put("S_MBER_SEQ", user.getMBER_SEQ());
+			mav.addObject("list", webBuySharingService.selectListSharOrderCanHist(paramDto));
+			mav.addObject("searchParam", paramDto);
+			mav.setViewName("jsonView");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return mav;
+	}
+
+	/**
+	 * <pre>
+	 * 셰어링 주문취소 내역 상세 조회
+	 * 셰어링 주문취소 내역 상세 조회 합니다.
+	 * @param request
+	 * @param response
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 19. 오후 2:20:00
+	 * @author H.M.Yang
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/buy/selectListSharOrderCanDtl.do")
+	public ModelAndView selectListSharOrderCanDtl(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> paramDto) throws Exception {
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(paramDto);
+
+		try {
+			mav.addObject("list", webBuySharingService.selectListSharOrderCanDtl(paramDto));
+			mav.addObject("searchParam", paramDto);
+			mav.setViewName("web/buy/selectListSharOrderCanDtl");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return mav;
+	}
+
+	/**
+	 * <pre>
+	 * 공통 배송조회
+	 * 공통 배송을 조회 합니다.
+	 * @param request
+	 * @param response
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 19. 오후 2:20:00
+	 * @author H.M.Yang
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/buy/selectShipView.do")
+	public ModelAndView selectShipView(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> paramDto) throws Exception {
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(paramDto);
+
+		try {
+			mav.addObject("list", webBuySharingService.selectShipView(paramDto));
+			mav.addObject("searchParam", paramDto);
+			mav.setViewName("web/buy/selectShipView");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return mav;
+	}
+
+	/**
+	 * <pre>
+	 * 공통 주문 주소 조회
+	 * 공통 주문 주소를 조회 합니다.
+	 * @param request
+	 * @param response
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 19. 오후 2:20:00
+	 * @author H.M.Yang
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/buy/selectAddrChg.do")
+	public ModelAndView selectAddrChg(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> paramDto) throws Exception {
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(paramDto);
+		try {
+			mav.addObject("list", webBuySharingService.selectAddrChg(paramDto));
+			mav.addObject("searchParam", paramDto);
+			mav.setViewName("web/buy/saveAddrChg");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return mav;
+	}
+
+	/**
+	 * <pre>
+	 * 공통 주문 주소 확인 조회
+	 * 공통 주문 주소 확인 조회를 합니다.
+	 * @param request
+	 * @param response
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 19. 오후 2:20:00
+	 * @author H.M.Yang
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/buy/selectAddrConf.do")
+	public ModelAndView selectAddrConf(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> paramDto) throws Exception{
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(paramDto);
+		try {
+			mav.addObject("list", webBuySharingService.selectAddrConf(paramDto));
+			mav.setViewName("jsonView");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mav;
+	}
+
+	/**
+	 * <pre>
+	 * 공통 주소로 반납/회수 신청
+	 * 공통 주소로 반납/회수 신청 합니다.
+	 * @param request
+	 * @param response
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 19. 오후 2:20:00
+	 * @author H.M.Yang
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/buy/saveAddrRetColReq.do")
+	public ModelAndView saveAddrRetColReq(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> paramDto) throws Exception{
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(paramDto);
+		try {
+			WebSession user = (WebSession)request.getSession().getAttribute("user");
+			paramDto.put("S_MBER_SEQ", user.getMBER_SEQ());
+			mav.addObject("result", webBuySharingService.saveAddrRetColReq(paramDto));
+			mav.setViewName("jsonView");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mav;
+	}
+
+	/**
+	 * <pre>
+	 * 공통 주문취소 상품 조회
+	 * 공통 주문취소 상품을 조회 합니다.
+	 * @param request
+	 * @param response
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 19. 오후 2:20:00
+	 * @author H.M.Yang
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/buy/selectOrderCancel.do")
+	public ModelAndView selectOrderCancel(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> paramDto) throws Exception {
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(paramDto);
+
+		try {
+			mav.addObject("list", webBuySharingService.selectOrderCancel(paramDto));
+			mav.addObject("searchParam", paramDto);
+			mav.setViewName("web/buy/saveOrderCancel");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return mav;
+	}
+
+	/**
+	 * <pre>
+	 * 공통 상품별 주문취소 처리
+	 * 공통 상품별 주문취소를 처리 합니다.
+	 * @param request
+	 * @param response
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 19. 오후 2:20:00
+	 * @author H.M.Yang
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/buy/saveSharingOrderCancel.do")
+	public ModelAndView saveOrderCancel(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(inParam);
+			//취소가 되었는지 확인이 필요
+			//String ordStatCd = webBuySharingService.selectMobileSharOrderCancelOrdcd((String)inParam.get("ORD_CD"));
+			inParam.put("S_PROD_CD", (String)inParam.get("PROD_CODE"));
+			inParam.put("S_PROD_SEQ", (String)inParam.get("PROD_SEQ"));
+			String ordProcCd = commonService.getSelectProcStatCd(inParam);
+			
+			if("50".equals(ordProcCd)){
+				mav.addObject("result", -1);
+				mav.addObject("msg", "취소된 주문건 입니다.");
+			}else if("22".equals(ordProcCd)){
+				mav.addObject("result", -2);
+				mav.addObject("msg", "배송중인  주문건 입니다.");
+			}else{
+				Map<String, Object> cancelGroup = webBuySharingService.selectMobileSharOrderCancelGroupInfo(inParam);
+				if(Integer.parseInt(cancelGroup.get("CT").toString()) == 1){
+					//단일 상품 취소
+					inParam.put("BUYER_SEQ",Integer.parseInt(cancelGroup.get("MBER_SEQ").toString()));
+					int pointUseAmt = 0;
+					if(cancelGroup.get("POINT_USE_AMT") != null){
+						pointUseAmt= ((BigDecimal) cancelGroup.get("POINT_USE_AMT")).intValue();
+					}
+					inParam.put("POINT_USE_AMT",pointUseAmt);
+					inParam.put("REAL_SELT_AMT",cancelGroup.get("REAL_SELT_AMT").toString());
+					Map<String, Object> result = webBuySharingService.cancelMobileSharOrderOneItem(inParam);
+					if(result.get("RESULT").equals("OK")){
+						mav.addObject("result", 1);
+						mav.addObject("msg", "성공");
+					}else if(result.get("RESULT").equals("DB")){
+						mav.addObject("result", 0);
+						mav.addObject("msg", "DB UPDATE FAIL");
+					}else if(result.get("RESULT").equals("API")){
+						mav.addObject("result", 0);
+						mav.addObject("msg", "API FAIL");
+					}else{
+						mav.addObject("result", 0);
+						mav.addObject("msg", "ETC FAIL");
+					}
+				}else{
+					//복합 상품 취소
+					Map<String, Object> multiResult = new HashMap<String, Object>();
+					String seltGbCd = (String)inParam.get("SELT_GB_CD");	//결재 구분자
+					if(seltGbCd.equals("0")){
+						multiResult = webBuySharingService.cancelMobileSharOrderMultiItemZero(inParam);
+					}else{
+						multiResult = webBuySharingService.cancelMobileSharOrderMultiItem(inParam);
+					}
+					if(multiResult.get("RESULT").equals("OK")){
+						mav.addObject("result", 1);
+						mav.addObject("msg", "성공");
+					}else if(multiResult.get("RESULT").equals("DB")){
+						mav.addObject("result", 0);
+						mav.addObject("msg", "DB UPDATE FAIL");
+					}else if(multiResult.get("RESULT").equals("API")){
+						mav.addObject("result", 0);
+						mav.addObject("msg", "API FAIL");
+					}else{
+						mav.addObject("result", 0);
+						mav.addObject("msg", "ETC FAIL");
+					}
+				}
+			}
+
+			mav.setViewName("jsonView");
+		return mav;
+	}
+
+	/**
+	 * <pre>
+	 * 공통 교환신청 상품 조회
+	 * 공통 교환신청 상품을 조회 합니다.
+	 * @param request
+	 * @param response
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 19. 오후 2:20:00
+	 * @author H.M.Yang
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/buy/selectExcReq.do")
+	public ModelAndView selectExcReq(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> paramDto) throws Exception {
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(paramDto);
+
+		try {
+			mav.addObject("list", webBuySharingService.selectExcTakeBackReq(paramDto));
+			mav.addObject("searchParam", paramDto);
+			mav.setViewName("web/buy/saveExcReq");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return mav;
+	}
+
+	/**
+	 * <pre>
+	 * 공통 반품신청 상품 조회
+	 * 공통 반품신청 상품을 조회 합니다.
+	 * @param request
+	 * @param response
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 19. 오후 2:20:00
+	 * @author H.M.Yang
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/buy/selectTakeBackReq.do")
+	public ModelAndView selectTakeBackReq(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> paramDto) throws Exception {
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(paramDto);
+
+		try {
+			mav.addObject("list", webBuySharingService.selectExcTakeBackReq(paramDto));
+			mav.addObject("searchParam", paramDto);
+			mav.setViewName("web/buy/saveTakeBackReq");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return mav;
+	}
+
+	/**
+	 * <pre>
+	 * 공통 상품별 교환/반품신청 처리
+	 * 공통 상품별 교환/반품신청을 처리 합니다.
+	 * @param request
+	 * @param response
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 19. 오후 2:20:00
+	 * @author H.M.Yang
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/buy/saveExcTakeBackReq.do")
+	public ModelAndView saveExcTakeBackReq(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> paramDto) throws Exception{
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(paramDto);
+		try {
+			WebSession user = (WebSession)request.getSession().getAttribute("user");
+			paramDto.put("S_MBER_SEQ", user.getMBER_SEQ());
+			mav.addObject("result", webBuySharingService.saveExcTakeBackReq(paramDto));
+			mav.setViewName("jsonView");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mav;
+	}
+
+	/**
+	 * <pre>
+	 * 구매 확정 처리
+	 * 구매 확정을 처리 합니다.
+	 * @param request
+	 * @param response
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 19. 오후 2:20:00
+	 * @author H.M.Yang
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/buy/saveBuyFix.do")
+	public ModelAndView saveBuyFix(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> paramDto) throws Exception{
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(paramDto);
+		try {
+			// 상태값 체크
+			String ordStatCd = commonService.getSelectProcStatCd(paramDto);
+			if("99".equals(ordStatCd)){
+				mav.addObject("result", 99);
+
+			}else{
+				WebSession user = (WebSession)request.getSession().getAttribute("user");
+				paramDto.put("S_MBER_SEQ", user.getMBER_SEQ());
+				mav.addObject("result", webBuySharingService.saveBuyFix(paramDto));
+
+			}
+			mav.setViewName("jsonView");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mav;
+	}
+
+	/**
+	 * <pre>
+	 * 셰어링 확정 처리
+	 * 셰어링 확정을 처리 합니다.
+	 * @param request
+	 * @param response
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 19. 오후 2:20:00
+	 * @author H.M.Yang
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/buy/saveShareFix.do")
+	public ModelAndView saveShareFix(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> paramDto) throws Exception{
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(paramDto);
+		try {
+			WebSession user = (WebSession)request.getSession().getAttribute("user");
+			paramDto.put("S_MBER_SEQ", user.getMBER_SEQ());
+			mav.addObject("result", webBuySharingService.saveShareFix(paramDto));
+			mav.setViewName("jsonView");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mav;
+	}
+
+	/**
+	 * <pre>
+	 * 공통 상품 후기 상품 조회
+	 * 공통 상품 후기 상품을 조회 합니다.
+	 * @param request
+	 * @param response
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 19. 오후 2:20:00
+	 * @author H.M.Yang
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/buy/selectProdPost.do")
+	public ModelAndView selectProdPost(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> paramDto) throws Exception {
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(paramDto);
+
+		try {
+			//mav.addObject("list", webBuySharingService.selectProdPost(paramDto));
+			mav.addObject("searchParam", paramDto);
+			mav.setViewName("web/buy/saveProdPost");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return mav;
+	}
+
+	/**
+	 * <pre>
+	 * 공통 상품 후기 정보 저장
+	 * 공통 상품 후기 정보를 저장 합니다.
+	 * @param request
+	 * @param response
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 19. 오후 2:20:00
+	 * @author H.M.Yang
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/buy/saveProdPost.do")
+	public ModelAndView saveProdPost(HttpServletRequest request, HttpServletResponse response,
+			@RequestParam Map<String, Object> paramDto,
+			MultipartHttpServletRequest multReq) throws Exception{
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(paramDto);
+
+		// 앱접속여부
+		String appFlag = "N";
+		if(request.getSession().getAttribute("APP")!=null
+				&& request.getSession().getAttribute("APP")!= ""
+				&& request.getSession().getAttribute("APP").equals("SSOCIO")){
+			appFlag = "Y";
+		}
+
+		paramDto.put("appFlag", appFlag);
+		try {
+			WebSession user = (WebSession)request.getSession().getAttribute("user");
+			paramDto.put("S_MBER_SEQ", user.getMBER_SEQ());
+			mav.addObject("list", webBuySharingService.saveProdPost(paramDto, multReq));
+			mav.setViewName("jsonView");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mav;
+	}
+
+	/**
+	 * <pre>
+	 * 공통 상품 후기 정보 수정
+	 * 공통 상품 후기 정보를 수정 합니다.
+	 * @param request
+	 * @param response
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 19. 오후 2:20:00
+	 * @author H.M.Yang
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/buy/updateProdPost.do")
+	public ModelAndView updateProdPost(HttpServletRequest request, HttpServletResponse response,
+			@RequestParam Map<String, Object> paramDto,
+			MultipartHttpServletRequest multReq) throws Exception{
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(paramDto);
+		try {
+			WebSession user = (WebSession)request.getSession().getAttribute("user");
+			paramDto.put("MBER_SEQ", user.getMBER_SEQ());
+			mav.addObject("list", webBuySharingService.updateProdPost(paramDto, multReq)); //saveProdPost
+			mav.setViewName("jsonView");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mav;
+	}
+
+	/**
+	 * <pre>
+	 * 공통 배송조회
+	 * 공통 배송을 조회 합니다.
+	 * @param request
+	 * @param response
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 19. 오후 2:20:00
+	 * @author H.M.Yang
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/buy/selectRtnShipView.do")
+	public ModelAndView selectRtnShipView(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> paramDto) throws Exception {
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(paramDto);
+
+		try {
+			mav.addObject("list", webBuySharingService.selectRtnShipView(paramDto));
+			mav.addObject("searchParam", paramDto);
+			mav.setViewName("web/buy/selectRtnShipView");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return mav;
+	}
+
+	/**
+	 * <pre>
+	 * 배송 완료 처리
+	 * 배송 완료을 처리 합니다.
+	 * @param request
+	 * @param response
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 19. 오후 2:20:00
+	 * @author H.M.Yang
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/buy/updateShipProc.do")
+	public ModelAndView updateShipProc(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> paramDto) throws Exception{
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(paramDto);
+		try {
+			WebSession user = (WebSession)request.getSession().getAttribute("user");
+			paramDto.put("S_MBER_SEQ", user.getMBER_SEQ());
+			mav.addObject("result", webBuySharingService.updateShipProc(paramDto));
+			mav.setViewName("jsonView");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mav;
+	}
+}

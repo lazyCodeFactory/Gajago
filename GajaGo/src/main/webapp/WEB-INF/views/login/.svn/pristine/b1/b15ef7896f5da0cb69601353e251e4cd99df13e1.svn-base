@@ -1,0 +1,422 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/web/common/cmmnHead.jsp"%>
+<script type="text/javascript" src="/js/web/cart.js" ></script> <!-- 장바구니용 js -->
+<script type="text/javascript">
+
+	var btnFlag = true;
+	var regData = '${regData}';
+	var mainYn = '${params.mainYn }';
+	
+	//ready
+	$(document).ready(function(){
+		$("#regData").val(regData);
+		
+		// title 및 back 버튼 url set		
+		document.title = "상품 등록";
+// 		header.type	= 6;
+		header.type	= 4;
+		header.title = "상품 등록";
+		header.method = "POST";
+		if (mainYn == "Y") {
+			header.backUrl = "/mobile/main/main.do";
+		}
+		else {
+			header.backUrl = "/mobile/salemanage/main.do";
+		}
+		header.callback = headerCallback; // 장바구니용 callback
+		header.form = $("#form");
+		initHeader();
+		
+		// 뒤로가기 를 공통 제어를 쓰지 않고 재정의함
+		var data = JSON.parse(regData);
+		$("#id_btn_back").unbind('click');
+		$(".btn_back").click(function(event){
+			event.preventDefault();
+			location.href=data.refUrl;
+		});
+		
+		displayFooter(false);
+		
+		// 브랜드명 keyup event
+		$("#brandNm").bind('keyup input', function() {
+			proc.brandNmKeyup();
+		});
+		
+		// 팝업 브랜드명 keyup event
+		$("#popBrandNm").bind('keyup input', function() {
+			proc.popBrandNmKeyup();
+		});
+		
+		// init
+		var data = JSON.parse(regData);
+		
+		if( data.brandCd != null ){
+			proc.procChoice($("#"+data.brandCd));
+			proc.procBtnDel();
+		}
+		
+	});
+	
+	function pop_size(){
+		var wd = $(window).width();
+		var pop_wd = $('.brand_pop').width();
+		$('.brand_pop').css({"left":((wd-pop_wd)/2)+"px"}).show();
+		popup_show();
+	}
+
+	// 페이지 이동
+	var page = {
+			
+		// 다음 페이지 이동
+		goNextPage : function () {
+			//alert문구 추가 
+			if(!$("#btnNext").hasClass("btn_r")) {
+				alert("상품 브랜드를 선택해 주세요.");
+				return;
+			}
+			// 선택 브랜드
+			var brandId = $(".active").attr("id");
+			$("#brandCd").val(brandId);
+			
+			var url = "/mobile/salemanage/procInsertProdComm.do";
+			form.action = url;
+			form.submit();
+			
+		},
+		
+		// 이전 페이지 이동
+		goPrePage : function () {
+			
+			$("#movePage").val("3");
+			$("#moveBack").val("Y");
+			var url = "/mobile/salemanage/procInsertProdComm.do";
+			form.action = url;
+			form.submit();
+			
+		},
+		
+		// 브랜드 조회
+		selectBrandList : function () {
+			
+			$("#movePage").val("4");
+			var url = "/mobile/salemanage/procInsertProdComm.do";
+			form.action = url;
+			form.submit();
+			
+		},
+		
+		// 브랜드 신청
+		requestBrand : function () {
+			
+			if (btnFlag) {
+				
+				btnFlag = false;
+				$("#reqBrandNm").val($("#popBrandNm").val());
+				
+				$.ajax({
+					type: "post",
+					async: true,
+					url: "/mobile/salemanage/insertBrandReq.do",
+					dataType:"json",
+					data:  $("#form").serialize(),
+					success: function(data) {
+						if (data.rtn.rtnMsgCd == "Y") {
+							alert("브랜드 신청이 완료되었습니다.");
+							btnFlag = true;
+							// 팝업 닫기
+							popup_hide();
+						}
+						else {
+							alert("브랜드 신청에 실패하였습니다. 다시 시도해 주세요.");
+							btnFlag = true;
+						}
+					},
+					error: function(data, status, err) {
+						alert("브랜드 신청에 실패하였습니다. 다시 시도해 주세요.");
+						btnFlag = true;
+					}
+				});	
+				
+			}
+			
+		}
+			
+	};
+	
+	// script 처리 모음
+	var proc = {
+			
+		// 브랜드 선택 및 해제
+		procChoice : function (obj) {
+			
+			console.log(typeof(obj));
+			console.log(obj);
+			
+			// 선택여부 확인
+			var clsChk = $(obj).is(".active");
+			
+			
+			// 기존에 선택되어져 있을 시
+			if (clsChk) {
+				$(obj).removeClass("active");
+				// 버튼 비활성화
+				//$("#btnNext").attr("disabled",true);
+				$("#btnNext").removeClass("btn_r");
+				$("#btnNext").addClass("btn_b");
+			}
+			// 기존에 선택 안되어져 있을 시
+			else {
+				// 기존 선택 되어져 있는 브랜드 선택해제
+				$(".active").each(function () {
+					$(this).removeClass("active");
+				});
+				// 선택
+				$(obj).addClass("active");
+				// 버튼 활성화
+				//$("#btnNext").attr("disabled",false);
+				$("#btnNext").removeClass("btn_b");
+				$("#btnNext").addClass("btn_r");
+				// 다음 화면
+			}
+			
+		},
+		
+		// 브랜드 명 keyup
+		brandNmKeyup : function () {
+			proc.procBtnDel();
+		},
+		
+		// 브랜드 명 삭제
+		brandNmDel : function () {
+			$("#brandNm").val("");
+			proc.procBtnDel();
+			page.selectBrandList();
+		},
+		
+		// 삭제버튼 show/hide
+		procBtnDel : function () {
+			var len = $("#brandNm").val().length;
+			if (len > 0) {
+				// 삭제버튼 on
+				$("#btnDel").show();
+			}
+			else {
+				// 삭제버튼 off
+				$("#btnDel").hide();
+			}
+		},
+		
+		// 팝업 브랜드 명 keyup
+		popBrandNmKeyup : function () {
+			proc.procBtnPopDel();
+			proc.procPopBrandNmLen();
+			proc.procBtnRequest();
+		},
+		
+		// 팝업 삭제버튼 show/hide
+		procBtnPopDel : function () {
+			var len = $("#popBrandNm").val().length;
+			if (len > 0) {
+				// 삭제버튼 on
+				$("#btnPopDel").show();
+			}
+			else {
+				// 삭제버튼 off
+				$("#btnPopDel").hide();
+			}
+		},
+		
+		// 팝업 브랜드 명 삭제
+		popBrandNmDel : function () {
+			$("#popBrandNm").val("");
+			proc.procBtnPopDel();
+			proc.procPopBrandNmLen();
+			proc.procBtnRequest();
+		},
+		
+		// 팝업 브랜드명 글자수 spanLen
+		procPopBrandNmLen : function () {
+			var len = $("#popBrandNm").val().length;
+			var maxLen = $("#popBrandNm").attr("maxLength");
+			var txtLen = "("+len+"/"+maxLen+")";
+			$("#spanLen").text(txtLen);
+		},
+		
+		// 브랜드 신청 버튼 
+		procBtnRequest : function () {
+			
+			var len = $("#popBrandNm").val().length;
+			if (len > 0) {
+				// 버튼 활성화
+				$("#btnRequest").attr("disabled",false);
+				$("#btnRequest").removeClass("btn_g-line");
+				$("#btnRequest").addClass("btn_r");
+				$("#btnRequest").attr("href", "javascript:page.requestBrand();");
+			}
+			else {
+				// 버튼 비활성화
+				$("#btnRequest").attr("disabled",true);
+				$("#btnRequest").removeClass("btn_r");
+				$("#btnRequest").addClass("btn_g-line");
+				$("#btnRequest").removeAttr("href");
+			}
+			
+		},
+		
+		procBrandNmLen : function () {
+			var len = $("#brandNm").val().length;
+			var maxLen = $("#brandNm").attr("maxLength");
+			
+			// 글자수 제한
+			if (len > maxLen) {
+				$("#brandNm").val($("#brandNm").val().slice(0,maxLen));
+			}
+			
+			var txtLen = "("+$("#brandNm").val().length+"/"+maxLen+")";
+		}
+		
+	};
+
+</script>
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+		<div class="roc">
+			<ul class="inner">
+				<li><img src="http://static.ssocio.net/pc/img/common/section/roc_home.png" alt="홈"></li>
+				<li>판매관리</li>
+			</ul>
+		</div>
+		<jsp:include page="../common/sale_top.jsp" flush="false" />
+		<div class="mype_s_tit">
+			<p>주문취소</p>
+		</div>
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+		<!-- container -->
+		<div id="container">
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>
+
+
+<form id="form" name="form" method="post" action="">
+	<input type="hidden" id="movePage" name="movePage" value="5" />
+	<input type="hidden" id="brandCd" name="brandCd" value="" />
+	<input type="hidden" id="regData" name="regData" value="" />
+	<input type="hidden" id="reqBrandNm" name="reqBrandNm" value="" />
+	<input type="hidden" id="moveBack" name="moveBack" value="" />
+	<input type="hidden" id="ctryCd" name="ctryCd" value="${params.ctryCd }" />
+	<input type="hidden" id="mainYn" name="mainYn" value="${params.mainYn }" />
+
+		<div class="completed">
+        	<p class="percent"><strong>30% Completed</strong></p>
+            <div class="bar"><p style="width:30%"></p></div>
+        </div>
+		<div class="contents pic_reg">
+			<p class="purc-title">
+				<strong>브랜드</strong>를 선택해주세요.
+			</p>
+            <p class="tr" style="margin-right:10px;">
+            	<a href="javascript:pop_size();" class="ico_write">
+            		<strong>브랜드 신청</strong>
+            	</a>
+            </p>
+            <div class="sha_search">
+				<p>
+					<input type="text" id="brandNm" name="brandNm" placeholder="브랜드 검색" value="${params.brandNm }" maxLength="20">
+	                <a href="javascript:page.selectBrandList();" class="btn_search">
+	                	<span>검색</span>
+	                </a>
+	                <a id="btnDel" href="javascript:proc.brandNmDel();" style="display:none;">
+						<img src="http://static.ssocio.net/web/images/ico_del.png" alt="삭제" />
+					</a>
+	            </p>
+	        </div>
+	        
+	        
+	        <c:if test="${fn:length(brandList) <= 0 and (params.brandNm != null and params.brandNm != '') }">
+		        <div class="brand_nodata">
+	                <p>입력하신"${params.brandNm }"로<br/>등록된 정보가 없습니다.</p>
+	            </div>
+	        </c:if>
+	        
+	        <ol class="brand_list">
+				<li>
+					<div onClick="javascript:proc.procChoice(this);" id="0">
+						<p class="brand_img"><img src="http://static.ssocio.net/web/images/ico_nobrand.png" alt=""></p>
+						<p class="brand_name">없음</p>
+					</div>
+				</li>
+				<c:forEach var="brand" items="${brandList }" varStatus="status">
+					<li>
+						<div onClick="javascript:proc.procChoice(this);" id="${brand.BRAND_CD }">
+							<p class="brand_img">
+								<img alt="${brand.FILE_URL }" src="<custom:codeTag code="DEFAULT_IMG_URL" groupCode="SITE_DEFAULT" />" />
+							</p>
+							<p class="brand_name">${brand.BRAND_NM }</p>
+						</div>
+					</li>
+				</c:forEach>
+			</ol>
+			<div class="btn_enter">
+				<ul>
+					<li>
+						<input type="button" class="btn_b-line" onClick="javascript:page.goPrePage();" value="이전" title="이전" alt="이전" />
+					</li>
+					<li>
+						<input type="button" class="btn_b" id="btnNext"  onClick="javascript:page.goNextPage();" value="다음" title="다음" alt="다음" />
+					</li>
+				</ul>
+			</div>
+		</div>
+		<!-- 브랜드 신청 팝업 -->
+		<div class="popup brand_pop">
+			<p class="title">
+				<strong>브랜드 신청</strong>
+				<a href="javascript:popup_hide();" class="btn_close">
+					<img src="http://static.ssocio.net/web/images/btn_layer_close.png" alt="브랜드 신청 팝업 닫기" />
+				</a>
+			</p>
+			<p class="pop_title">
+				신청하실 브랜드를 입력해주세요.
+			</p>
+			<div class="content">
+				<ul class="sbox08">
+					<li>
+						<div class="input_text">
+							<input type="text" id="popBrandNm" name="popBrandNm" maxLength="20" value="" />
+							<a id="btnPopDel" href="javascript:proc.popBrandNmDel();" style="display:none;">
+								<img src="http://static.ssocio.net/web/images/ico_del.png" alt="삭제" />
+							</a>
+							<span class="byte" id="spanLen">(0/20)</span>
+						</div>
+					</li>
+				</ul>
+			</div>
+			<div class="bot_btn">
+				<a id="btnRequest" class="btn_g-line" >브랜드 신청하기</a>
+			</div>
+		</div>
+		<!-- //브랜드 신청 팝업 -->
+</form>
+
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+		<jsp:include page="../common/sale_bottom.jsp" flush="false" />
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+		    </div>
+		    <!-- //container -->
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>
+
+

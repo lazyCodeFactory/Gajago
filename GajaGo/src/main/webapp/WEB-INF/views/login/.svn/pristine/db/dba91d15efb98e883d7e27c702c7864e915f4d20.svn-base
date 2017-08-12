@@ -1,0 +1,1673 @@
+package com.ssocio.sharing.controller.seller;
+
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.servlet.ModelAndView;
+
+import com.ssocio.sharing.cmmn.util.CmmnCnst;
+import com.ssocio.sharing.cmmn.util.LoggerUtil;
+import com.ssocio.sharing.cmmn.util.StringUtil;
+import com.ssocio.sharing.service.seller.SellerOrderService;
+import com.ssocio.sharing.vo.seller.SellerSession;
+
+/**
+ * <pre>
+ * 주문관리
+ * 등록 상품 주문 관리
+ * @author KANG
+ * @version
+ * @since 2015. 10. 12. 오후 11:20:59
+ * @see
+ * @History
+ * Date			|	author	| 변경 내용
+ * 2015. 10. 12.|	KANG	| 신규
+ * @비고
+ * </pre>
+ */
+@Controller
+public class SellerOrderController extends SellerReferController {
+
+	// --------------------------------------------------------------------------
+	// # Log 설정
+	// --------------------------------------------------------------------------
+	private static final Logger logger = LoggerFactory.getLogger(SellerOrderController.class);
+	
+	// --------------------------------------------------------------------------
+	// # Service 설정
+	// --------------------------------------------------------------------------
+	@Autowired
+	private SellerOrderService sellerOrderService;
+	
+	/*==================================================================================================================================================*/
+	//나눔 주문 관리
+	
+	/**
+	 * <pre>
+	 * 나눔 내역 조회
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 10. 12. 오후 11:26:21
+	 * @author Kang
+	 * @see com.ssocio.sharing.controller.seller
+	 * </pre>
+	 */
+	@RequestMapping("/seller/order/selectListFreeShare.do")
+	public ModelAndView selectListFreeShare(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception	{
+		
+		logger.info("SellerOrderController.selectListFreeShare Start");
+
+		ModelAndView mav = new ModelAndView("seller/order/selectListFreeShare");
+		LoggerUtil.writeMap(inParam);
+		
+		// login user
+		SellerSession seller = (SellerSession) request.getSession().getAttribute("sellerManager");
+		inParam.put("MBER_SEQ", seller.getMBER_SEQ());
+		
+		String procStatCd[] = request.getParameterValues("PROC_STAT_CD[]");
+		
+		// service 호출
+		try {
+			mav.addObject("list", sellerOrderService.selectListFreeShare(inParam ,procStatCd));		
+		} 
+		catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		logger.info("SellerOrderController.selectListFreeShare End");
+		
+		return mav;
+	
+	}
+	
+	/**
+	 * <pre>
+	 * 나눔 내역 엑셀다운로드
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 10. 13. 오전 1:14:21
+	 * @author Kang
+	 * @see com.ssocio.sharing.controller.seller
+	 * </pre>
+	 */
+	@RequestMapping("/seller/order/selectListFreeShareExcel.do")
+	public ModelAndView selectListFreeShareExcel(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception	{
+		
+		logger.info("SellerOrderController.selectListFreeShareExcel Start");
+
+		ModelAndView mav = new ModelAndView("excelDownloadView");
+		LoggerUtil.writeMap(inParam);
+		
+		// login user
+		SellerSession seller = (SellerSession) request.getSession().getAttribute("sellerManager");
+		inParam.put("MBER_SEQ", seller.getMBER_SEQ());
+		
+		String procStatCd[] = request.getParameterValues("PROC_STAT_CD[]");
+		
+		// service 호출
+		try {
+			String today = StringUtil.getCurrentDate();
+			response.setContentType("application/msexcel");
+			response.setHeader("Content-Disposition", "attachment; filename="
+				+ new String(("freeShareList").getBytes("KSC5601"),"8859_1") +"_"+today+ ".xls");
+			
+			sellerOrderService.selectListFreeShareExcel(mav, inParam ,procStatCd);		
+		} 
+		catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		logger.info("SellerOrderController.selectListFreeShareExcel End");
+		
+		return mav;
+	
+	}
+	
+	/**
+	 * <pre>
+	 * 나눔 신청내역 상세조회
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 10. 13. 오전 1:43:21
+	 * @author Kang
+	 * @see com.ssocio.sharing.controller.seller
+	 * </pre>
+	 */
+	@RequestMapping("/seller/order/selectFreeShareReqDtl.do")
+	public ModelAndView selectFreeShareDtl(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception	{
+		
+		logger.info("SellerOrderController.selectFreeShareReqDtl Start");
+
+		ModelAndView mav = new ModelAndView("seller/order/selectFreeShareReqDtl");
+		LoggerUtil.writeMap(inParam);
+		
+		// service 호출
+		try {
+			mav.addObject("list", sellerOrderService.selectFreeShareReqDtl(inParam));		
+		} 
+		catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		logger.info("SellerOrderController.selectFreeShareReqDtl End");
+		
+		return mav;
+	
+	}
+	
+	/**
+	 * <pre>
+	 * 나눔수락
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 10. 13. 오전 2:26:21
+	 * @author Kang
+	 * @see com.ssocio.sharing.controller.seller
+	 * </pre>
+	 */
+	@RequestMapping("/seller/order/updateFreeShareConfirm.do")
+	public ModelAndView updateFreeConfirm(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) {
+		
+		logger.info("SellerOrderController.updateFreeShareConfirm Start");
+
+		ModelAndView mav = new ModelAndView("jsonView");
+		
+		// service 호출
+		try {
+			// 나눔수락
+			sellerOrderService.updateFreeShareConfirm(mav, inParam);
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+			mav.addObject("rtnMsg", CmmnCnst.PROC_MSG_N);
+		}
+		
+		logger.info("SellerOrderController.updateFreeShareConfirm End");
+		
+		return mav;
+		
+	}
+	
+	/**
+	 * <pre>
+	 * 나눔내역 상세조회
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 10. 13. 오전 2:39:21
+	 * @author Kang
+	 * @see com.ssocio.sharing.controller.seller
+	 * </pre>
+	 */
+	@RequestMapping("/seller/order/selectFreeShareConfDtl.do")
+	public ModelAndView selectFreeShareOrdDtl(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception	{
+		
+		logger.info("SellerOrderController.selectFreeShareConfDtl Start");
+
+		ModelAndView mav = new ModelAndView("seller/order/selectFreeShareConfDtl");
+		LoggerUtil.writeMap(inParam);
+
+		// service 호출
+		try {
+			mav.addObject("result", sellerOrderService.selectFreeShareConfDtl(inParam));
+			mav.addObject("param", inParam);
+		} 
+		catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		logger.info("SellerOrderController.selectFreeShareConfDtl End");
+		
+		return mav;
+	
+	}
+	
+	/**
+	 * <pre>
+	 * 배송지정보 변경
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 10. 13. 오전 3:03:21
+	 * @author Kang
+	 * @see com.ssocio.sharing.controller.seller
+	 * </pre>
+	 */
+	@RequestMapping("/seller/order/updateDlvInfo.do")
+	public ModelAndView updateDlvInfo(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) {
+		
+		logger.info("SellerOrderController.updateDlvInfo Start");
+
+		ModelAndView mav = new ModelAndView("jsonView");
+		
+		// service 호출
+		try {
+			// 배송지정보 변경
+			sellerOrderService.updateDlvInfo(mav, inParam);
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+			mav.addObject("rtnMsg", CmmnCnst.PROC_MSG_N);
+		}
+		
+		logger.info("SellerOrderController.updateDlvInfo End");
+		
+		return mav;
+		
+	}
+	
+	/**
+	 * <pre>
+	 * 제휴택배 배송신청
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 10. 13. 오전 3:22:21
+	 * @author Kang
+	 * @see com.ssocio.sharing.controller.seller
+	 * </pre>
+	 */
+	@RequestMapping("/seller/order/updateFreeShareDlvReq.do")
+	public ModelAndView updateFreeShareDlvReq(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) {
+		
+		logger.info("SellerOrderController.updateFreeShareDlvReq Start");
+
+		ModelAndView mav = new ModelAndView("jsonView");
+		
+		// service 호출
+		try {
+			// 제휴택배 배송신청
+			sellerOrderService.updateFreeShareDlvReq(mav, inParam);
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+			mav.addObject("rtnMsg", CmmnCnst.PROC_MSG_N);
+		}
+		
+		logger.info("SellerOrderController.updateFreeShareDlvReq End");
+		
+		return mav;
+		
+	}
+	
+	/**
+	 * <pre>
+	 * 일반택배, 우편/등기, 퀵서비스 상품배송
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 10. 13. 오전 3:28:21
+	 * @author Kang
+	 * @see com.ssocio.sharing.controller.seller
+	 * </pre>
+	 */
+	@RequestMapping("/seller/order/updateFreeShareProdDlv.do")
+	public ModelAndView updateFreeShareProdDlv(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) {
+		
+		logger.info("SellerOrderController.updateFreeShareProdDlv Start");
+
+		ModelAndView mav = new ModelAndView("jsonView");
+		
+		// service 호출
+		try {
+			// 일반택배, 우편/등기, 퀵서비스 상품배송
+			sellerOrderService.updateFreeShareProdDlv(mav, inParam);
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+			mav.addObject("rtnMsg", CmmnCnst.PROC_MSG_N);
+		}
+		
+		logger.info("SellerOrderController.updateFreeShareProdDlv End");
+		
+		return mav;
+		
+	}
+	
+	/**
+	 * <pre>
+	 * 일반택배, 우편/등기, 퀵서비스 배송완료
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 10. 13. 오전 3:31:21
+	 * @author Kang
+	 * @see com.ssocio.sharing.controller.seller
+	 * </pre>
+	 */
+	@RequestMapping("/seller/order/updateDlvComplete.do")
+	public ModelAndView updateDlvComplete(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) {
+		
+		logger.info("SellerOrderController.updateDlvComplete Start");
+
+		ModelAndView mav = new ModelAndView("jsonView");
+		
+		// service 호출
+		try {
+			// 일반택배, 우편/등기, 퀵서비스 배송완료
+			sellerOrderService.updateDlvComplete(mav, inParam);
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+			mav.addObject("rtnMsg", CmmnCnst.PROC_MSG_N);
+		}
+		
+		logger.info("SellerOrderController.updateDlvComplete End");
+		
+		return mav;
+		
+	}
+	
+	/*==================================================================================================================================================*/
+	
+	
+	
+	
+	/*==================================================================================================================================================*/
+	//판매
+		
+	/**
+	 * <pre>
+	 * 주문 관리 > 판매주문관리 
+	 * 판매 주문 조회
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 11. 05
+	 * @author Y.S.KIM
+	 * @see com.ssocio.sharing.controller.seller
+	 * </pre>
+	 */
+	@RequestMapping("/seller/order/selectListSaleOrd.do")
+	public ModelAndView selectListSaleOrder(HttpServletRequest request, HttpServletResponse response , @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("SELECT SALE PROD ORDER LIST START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		ModelAndView mav = new ModelAndView();
+		SellerSession seller = (SellerSession) request.getSession().getAttribute("sellerManager");
+		inParam.put("MBER_SEQ", seller.getMBER_SEQ());
+		LoggerUtil.writeMap(inParam);
+
+		try {
+			mav.addObject("list", sellerOrderService.selectListSaleOrd(inParam));
+			mav.addObject("params", inParam);
+			mav.setViewName("seller/order/selectListSaleOrd");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mav;
+	}
+	
+	/**
+	 * <pre>
+	 * 주문 관리 > 판매주문관리 excel 다운로드
+	 * 판매 주문 excel 다운로드
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @param seltArray
+	 * @param ordArray
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 11. 05
+	 * @author Y.S.KIM
+	 * @see com.ssocio.sharing.controller.seller
+	 * </pre>
+	 */
+	@RequestMapping("/seller/order/selectListSaleOrdExcel.do")
+	public ModelAndView selectListSaleOrdExcel(HttpServletRequest request, HttpServletResponse response , @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("SELECT SALE PROD ORDER LIST EXCL DOWNLOAD");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		SellerSession seller = (SellerSession) request.getSession().getAttribute("sellerManager");
+		inParam.put("MBER_SEQ", seller.getMBER_SEQ());
+		LoggerUtil.writeMap(inParam);
+		ModelAndView mav = new ModelAndView();
+		mav.setViewName("excelDownloadView2");
+		try {
+			String today = StringUtil.getCurrentDate();
+			response.setContentType("application/msexcel");
+			response.setHeader("Content-Disposition", getDisposition("판매주문조회_"+today+".xls", check_browser(request)));
+			String SheetName = "판매 주문 조회";
+			
+			List<String> excelTitle = new ArrayList<String>();
+			
+			excelTitle.add("주문번호");
+			excelTitle.add("주문일시");
+			excelTitle.add("주문자명(ID)");
+			excelTitle.add("휴대폰번호");
+			//excelTitle.add("판매자명(ID)");
+			excelTitle.add("상품코드");
+			excelTitle.add("주문상태");
+			excelTitle.add("상품명");
+			excelTitle.add("옵션");
+			excelTitle.add("판매가");
+			excelTitle.add("옵션가");
+			excelTitle.add("수량");
+			excelTitle.add("상품금액");
+			excelTitle.add("배송비");
+			excelTitle.add("쿠폰할인");
+			excelTitle.add("주문금액");
+			excelTitle.add("포인트사용");
+			excelTitle.add("결제금액");
+			excelTitle.add("결제수단");
+			excelTitle.add("카드사");
+			excelTitle.add("이름");
+			excelTitle.add("연락처");
+			excelTitle.add("안심번호");
+			excelTitle.add("우편번호");
+			excelTitle.add("도로명 주소(기본주소+상세주소)");
+			excelTitle.add("지번 주소(기본주소+상세주소)");
+			excelTitle.add("배송메모");
+			excelTitle.add("택배사");
+			excelTitle.add("송장번호");
+			excelTitle.add("배송일자");
+			excelTitle.add("도착일자");
+			
+	
+			List<String> CellName = new ArrayList<String>();
+			CellName.add("ORD_CD");
+			CellName.add("ORD_REG_DATE");
+			CellName.add("ORDER_INFO");
+			CellName.add("ORD_HP");
+			//CellName.add("SELLER_INFO");
+			CellName.add("PROD_CODE");
+			CellName.add("PROC_STAT_CD_NAME");
+			CellName.add("PROD_NM");
+			CellName.add("OPT_NM");
+			CellName.add("PROD_PRICE");
+			CellName.add("OPT_PRCE");
+			CellName.add("ORD_QTY");
+			CellName.add("PROD_PRCE");
+			CellName.add("DLV_PRCE");
+			CellName.add("CPN_USE_AMT");
+			CellName.add("ORDER_PRICE");
+			CellName.add("POINT_USE_AMT");
+			CellName.add("REAL_SELT_AMT");
+			CellName.add("SELT_GB_NAME");
+			CellName.add("CARD_COMP_NM");
+			CellName.add("RCV_NM");
+			CellName.add("RCV_TEL");
+			CellName.add("SECU_NO");
+			CellName.add("ZIP_CD");
+			CellName.add("JUSO_JIBEN");
+			CellName.add("JUSO_DORO");
+			CellName.add("DLV_MSG");
+			CellName.add("DLV_CMP_CD");
+			CellName.add("INVC_NO");
+			CellName.add("DLV_REGIST_DT");
+			CellName.add("DLV_END_DT");
+			
+			List<String> sizeList = new ArrayList<String>();
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("30");
+			sizeList.add("20");
+			sizeList.add("30");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("30");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("50");
+			sizeList.add("50");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+	
+			mav.addObject("fileName", "판매주문조회_"+today+".xls");
+			mav.addObject("sizeList", sizeList);
+			mav.addObject("SheetName", SheetName);
+			mav.addObject("excelTitle", excelTitle);
+			mav.addObject("CellName", CellName);
+			
+			mav.addObject("excelList", sellerOrderService.selectListSaleOrdExcel(inParam));
+			mav.addObject("param", inParam);
+
+		} catch (Exception e) {e.printStackTrace();}
+		return mav;
+	}
+	
+	/**
+	 * <pre>
+	 * 주문상세내용 조회
+	 * 주문상세내용을 조회합니다.
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 11. 05
+	 * @author Y.S.KIM
+	 * @see com.ssocio.sharing.controller.seller
+	 * </pre>
+	 */
+	@RequestMapping("/seller/order/selectSaleOrdDtl.do")
+	public ModelAndView selectSaleOrdDtl(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("SELECT ORDER DETAIL START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		SellerSession seller = (SellerSession) request.getSession().getAttribute("sellerManager");
+		inParam.put("MBER_SEQ", seller.getMBER_SEQ());
+		ModelAndView mav = new ModelAndView();
+		try {
+			mav.addObject("list", sellerOrderService.selectSaleOrdDtl(inParam));
+			mav.setViewName("seller/order/selectSaleOrdDtl");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mav;
+	}
+	
+	/**
+	 * <pre>
+	 * 주문상세내용 조회
+	 * 배송지 정보를 수정 합니다.
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 11. 09
+	 * @author Y.S.KIM
+	 * @see com.ssocio.sharing.controller.seller
+	 * </pre>
+	 */
+	@RequestMapping("/seller/order/updateDlvOrderDtl.do")
+	public ModelAndView updateDlvOrderDtl(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("SELECT updateDvlOrderDtl START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		ModelAndView mav = new ModelAndView();
+		try {
+			System.out.println(inParam);
+			mav.addObject("list", sellerOrderService.insertOrdDlv(inParam));
+			mav.setViewName("jsonView");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mav;
+	}
+	
+	/**
+	 * <pre>
+	 * 주문메모 저장
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 11. 09
+	 * @author Y.S.KIM
+	 * @see com.ssocio.sharing.controller.seller
+	 * </pre>
+	 */
+	@RequestMapping("/seller/order/updateAdminMemo.do")
+	public ModelAndView updateAdminMemo(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) {
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN updateAdminMemo START☆★☆★☆★☆★☆★☆★☆");
+		ModelAndView mav = new ModelAndView("jsonView");
+		try {
+			// 판매,판매교환신청,나눔수락
+			sellerOrderService.updateAdminMemo(mav, inParam);
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+			mav.addObject("rtnMsg", CmmnCnst.PROC_MSG_N);
+		}
+		return mav;
+	}
+	
+	/**
+	 * <pre>
+	 * 주문 취소
+	 * 
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 11. 09
+	 * @author Y.S.KIM
+	 * @see com.ssocio.sharing.controller.seller
+	 * </pre>
+	 */
+	@RequestMapping("/seller/order/cancelSaleOrderState.do")
+	public ModelAndView cancelSharOrderState(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("ORDER SALE CANCEL");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+		ModelAndView mav = new ModelAndView();
+		Map<String, Object> cancelGroup = sellerOrderService.selectSaleAdminOrderCancelGroupInfo(inParam);
+		if(Integer.parseInt(cancelGroup.get("CT").toString()) == 1){
+			//단일 상품 취소
+			inParam.put("BUYER_SEQ",Integer.parseInt(cancelGroup.get("MBER_SEQ").toString()));
+			inParam.put("POINT_USE_AMT",Integer.parseInt(cancelGroup.get("POINT_USE_AMT").toString()));
+			inParam.put("REAL_SELT_AMT",cancelGroup.get("REAL_SELT_AMT").toString());
+			Map<String, Object> result = sellerOrderService.cancelSaleAdminOrderOneItem(inParam);
+			if(result.get("RESULT").equals("OK")){
+				mav.addObject("result", 1);
+				mav.addObject("msg", "성공");
+			}else if(result.get("RESULT").equals("DB")){
+				mav.addObject("result", 0);
+				mav.addObject("msg", "DB UPDATE FAIL");
+			}else if(result.get("RESULT").equals("API")){
+				mav.addObject("result", 0);
+				mav.addObject("msg", "API FAIL");
+			}else{
+				mav.addObject("result", 0);
+				mav.addObject("msg", "ETC FAIL");
+			}
+		}else{
+			//복합 상품 취소
+			Map<String, Object> multiResult = new HashMap<String, Object>();
+			String seltGbCd = (String)inParam.get("SELT_GB_CD");	//결재 구분자
+			if(seltGbCd.equals("0")){
+				multiResult = sellerOrderService.cancelSaleAdminOrderMultiItemZero(inParam);
+			}else{
+				multiResult = sellerOrderService.cancelSaleAdminOrderMultiItem(inParam);
+			}
+			if(multiResult.get("RESULT").equals("OK")){
+				mav.addObject("result", 1);
+				mav.addObject("msg", "성공");
+			}else if(multiResult.get("RESULT").equals("DB")){
+				mav.addObject("result", 0);
+				mav.addObject("msg", "DB UPDATE FAIL");
+			}else if(multiResult.get("RESULT").equals("API")){
+				mav.addObject("result", 0);
+				mav.addObject("msg", "API FAIL");
+			}else{
+				mav.addObject("result", 0);
+				mav.addObject("msg", "ETC FAIL");
+			}
+		}
+		
+		mav.setViewName("jsonView");
+		return mav;
+	}
+	
+	/**
+	 * <pre>
+	 * 주문 관리 > 판매주문관리 
+	 * 배송 조회 팝업
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 11. 05
+	 * @author Y.S.KIM
+	 * @see com.ssocio.sharing.controller.seller
+	 * </pre>
+	 */
+	@RequestMapping("/seller/order/openDlvStatPopup.do")
+	public ModelAndView openDlvStatPopup(HttpServletRequest request, HttpServletResponse response , @RequestParam Map<String, Object> inParam) throws Exception{
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(inParam);
+		try {
+			mav.addObject("list", sellerOrderService.selectDvlStateInfo(inParam));
+			mav.addObject("params", inParam);
+			mav.setViewName("seller/order/dlvStatePopup");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mav;
+	}
+	
+	/**
+	 * <pre>
+	 * 주문 관리 > 판매주문관리 
+	 * 운송장 번호 입력 팝업
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 11. 05
+	 * @author Y.S.KIM
+	 * @see com.ssocio.sharing.controller.seller
+	 * </pre>
+	 */
+	@RequestMapping("/seller/order/dlvInfoInsertPopup.do")
+	public ModelAndView dlvInfoInsertPopup(HttpServletRequest request, HttpServletResponse response , @RequestParam Map<String, Object> inParam) throws Exception{
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(inParam);
+		try {
+			mav.addObject("params", inParam);
+			mav.setViewName("seller/order/dlvInfoInsertPopup");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mav;
+	}
+	
+	/**
+	 * <pre>
+	 * 주문 관리 > 판매주문관리 
+	 * 주문취소 사유 팝업
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 12. 01
+	 * @author Y.S.KIM
+	 * @see com.ssocio.sharing.controller.seller
+	 * </pre>
+	 */
+	@RequestMapping("/seller/order/cancelReasonPopup.do")
+	public ModelAndView cancelReasonPopup(HttpServletRequest request, HttpServletResponse response , @RequestParam Map<String, Object> inParam) throws Exception{
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(inParam);
+		try {
+			//mav.addObject("list", sellerOrderService.selectDvlStateInfo(inParam));
+			//mav.addObject("params", inParam);
+			mav.setViewName("seller/order/cancelReasonPopup");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mav;
+	}
+	
+	/**
+	 * <pre>
+	 * 주문 관리 > 판매주문관리 
+	 * 배송 업체 URL 링크 팝업
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 11. 10
+	 * @author Y.S.KIM
+	 * @see com.ssocio.sharing.controller.seller
+	 * </pre>
+	 */
+	@RequestMapping("/seller/order/selectDlvCompanyURL.do")
+	public ModelAndView selectDlvCompanyURL(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) {
+		ModelAndView mav = new ModelAndView("jsonView");
+		try {
+			mav.addObject("result", sellerOrderService.selectDlvCompanyURL(inParam));
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+			mav.addObject("result", "");
+		}
+		return mav;
+	}
+	
+	/**
+	 * <pre>
+	 * 주문 관리 > 판매주문관리 
+	 * 배송 업체 운송장 정보 입력
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 11. 10
+	 * @author Y.S.KIM
+	 * @see com.ssocio.sharing.controller.seller
+	 * </pre>
+	 */
+	@RequestMapping("/seller/order/insertDlvInvcNumber.do")
+	public ModelAndView insertDlvInvcNumber(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) {
+		ModelAndView mav = new ModelAndView("jsonView");
+		int result = 0;
+		try {
+			result = sellerOrderService.insertDlvInvcNumber(inParam);
+			mav.addObject("result", result);
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+			mav.addObject("result", 0);
+		}
+		return mav;
+	}
+	
+	/**
+	 * <pre>
+	 * 주문 관리 > 판매주문관리 
+	 * 판매 반품신청 조회
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 11. 10
+	 * @author Y.S.KIM
+	 * @see com.ssocio.sharing.controller.seller
+	 * </pre>
+	 */
+	@RequestMapping("/seller/order/selectListTakeBackOrd.do")
+	public ModelAndView selectListTakeBackOrd(HttpServletRequest request, HttpServletResponse response , @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("SELECT SALE TAKE BACK PROD ORDER LIST START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		SellerSession seller = (SellerSession) request.getSession().getAttribute("sellerManager");
+		inParam.put("MBER_SEQ", seller.getMBER_SEQ());
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(inParam);
+		
+		try {
+			mav.addObject("list", sellerOrderService.selectListTakeBackOrd(inParam));
+			mav.addObject("params", inParam);
+			mav.setViewName("seller/order/selectListTakeBackOrd");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mav;
+	}
+	
+	/**
+	 * <pre>
+	 * 주문 관리 > 판매주문관리 
+	 * 판매 반품상세 조회
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 11. 10
+	 * @author Y.S.KIM
+	 * @see com.ssocio.sharing.controller.seller
+	 * </pre>
+	 */
+	@RequestMapping("/seller/order/selectTakeBackOrdDtl.do")
+	public ModelAndView selectTakeBackOrdDtl(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("SELECT TAKE BACK ORDER DETAIL START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		ModelAndView mav = new ModelAndView();
+		SellerSession seller = (SellerSession) request.getSession().getAttribute("sellerManager");
+		inParam.put("MBER_SEQ", seller.getMBER_SEQ());
+		LoggerUtil.writeMap(inParam);
+		try {
+			mav.addObject("params", inParam);
+			mav.addObject("list", sellerOrderService.selectTakeBackOrdDtl(inParam));
+			mav.setViewName("seller/order/selectTakeBackOrdDtl");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return mav;
+	}
+	
+	/**
+	 * <pre>
+	 * 반품 완료 결제 처리
+	 * 
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 11. 11
+	 * @author Y.S.KIM
+	 * @see com.ssocio.sharing.controller.seller
+	 * </pre>
+	 */
+	@RequestMapping("/seller/order/takeBackOrderState.do")
+	public ModelAndView takeBackOrderState(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("TAKEBACK ORDER PROCESSING");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+		ModelAndView mav = new ModelAndView();
+		Map<String, Object> cancelGroup = sellerOrderService.selectSaleAdminOrderCancelGroupInfo(inParam);
+		if(Integer.parseInt(cancelGroup.get("CT").toString()) == 1){
+			//단일 상품 반품 처리
+			inParam.put("BUYER_SEQ",Integer.parseInt(cancelGroup.get("MBER_SEQ").toString()));
+			inParam.put("POINT_USE_AMT",Integer.parseInt(cancelGroup.get("POINT_USE_AMT").toString()));
+			inParam.put("REAL_SELT_AMT",cancelGroup.get("REAL_SELT_AMT").toString());
+			Map<String, Object> result = sellerOrderService.takeBackOrderOneItem(inParam);
+			if(result.get("RESULT").equals("OK")){
+				mav.addObject("result", 1);
+				mav.addObject("msg", "성공");
+			}else if(result.get("RESULT").equals("DB")){
+				mav.addObject("result", 0);
+				mav.addObject("msg", "DB UPDATE FAIL");
+			}else if(result.get("RESULT").equals("API")){
+				mav.addObject("result", 0);
+				mav.addObject("msg", "API FAIL");
+			}else{
+				mav.addObject("result", 0);
+				mav.addObject("msg", "ETC FAIL");
+			}
+		}else{
+			//복합 상품 반품 처리
+			Map<String, Object> multiResult = new HashMap<String, Object>();
+			String seltGbCd = (String)inParam.get("SELT_GB_CD");	//결재 구분자
+			if(seltGbCd.equals("0")){
+				multiResult = sellerOrderService.cancelSaleAdminOrderMultiItemZero(inParam);
+			}else{
+				multiResult = sellerOrderService.takeBackOrderMultiItem(inParam);
+			}
+			if(multiResult.get("RESULT").equals("OK")){
+				mav.addObject("result", 1);
+				mav.addObject("msg", "성공");
+			}else if(multiResult.get("RESULT").equals("DB")){
+				mav.addObject("result", 0);
+				mav.addObject("msg", "DB UPDATE FAIL");
+			}else if(multiResult.get("RESULT").equals("API")){
+				mav.addObject("result", 0);
+				mav.addObject("msg", "API FAIL");
+			}else{
+				mav.addObject("result", 0);
+				mav.addObject("msg", "ETC FAIL");
+			}
+		}
+		
+		mav.setViewName("jsonView");
+		return mav;
+	}
+	
+	/**
+	 * <pre>
+	 * 주문 관리 > 판매주문관리 
+	 * 교환신청 조회
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 11. 11
+	 * @author Y.S.KIM
+	 * @see com.ssocio.sharing.controller.seller
+	 * </pre>
+	 */
+	@RequestMapping("/seller/order/selectListExcOrd.do")
+	public ModelAndView selectListExcOrd(HttpServletRequest request, HttpServletResponse response , @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("SELECT SALE CHANGE PROD ORDER LIST START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		ModelAndView mav = new ModelAndView();
+		SellerSession seller = (SellerSession) request.getSession().getAttribute("sellerManager");
+		inParam.put("MBER_SEQ", seller.getMBER_SEQ());
+		LoggerUtil.writeMap(inParam);
+		
+		try {
+			mav.addObject("params", inParam);
+			mav.addObject("list", sellerOrderService.selectListExcOrd(inParam));
+			mav.setViewName("seller/order/selectListExcOrd");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return mav;
+	}
+	
+	/**
+	 * <pre>
+	 * 주문 관리 > 판매주문관리 
+	 * 교환신청 상세
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 11. 11
+	 * @author Y.S.KIM
+	 * @see com.ssocio.sharing.controller.seller
+	 * </pre>
+	 */
+	@RequestMapping("/seller/order/selectExcOrdDtl.do")
+	public ModelAndView selectExcOrdDtl(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("SELECT ORDER DETAIL START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		ModelAndView mav = new ModelAndView();
+		SellerSession seller = (SellerSession) request.getSession().getAttribute("sellerManager");
+		inParam.put("MBER_SEQ", seller.getMBER_SEQ());
+		LoggerUtil.writeMap(inParam);
+		try {
+			mav.addObject("params", inParam);
+			mav.addObject("list", sellerOrderService.selectExcOrdDtl(inParam));
+			mav.setViewName("seller/order/selectExcOrdDtl");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return mav;
+	}
+	
+	/**
+	 * <pre>
+	 * 주문 관리 > 판매주문관리 
+	 * 판매 주문취소 조회
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 11. 11
+	 * @author Y.S.KIM
+	 * @see com.ssocio.sharing.controller.seller
+	 * </pre>
+	 */
+	@RequestMapping("/seller/order/selectListCnclOrd.do")
+	public ModelAndView selectListCnclOrd(	HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception {
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("ORDER CANCEL LIST START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		ModelAndView mav = new ModelAndView();
+		SellerSession seller = (SellerSession) request.getSession().getAttribute("sellerManager");
+		inParam.put("MBER_SEQ", seller.getMBER_SEQ());
+		LoggerUtil.writeMap(inParam);
+
+		try {
+			mav.addObject("params", inParam);
+			mav.addObject("list", sellerOrderService.selectListCnclOrd(inParam));
+			mav.setViewName("seller/order/selectListCnclOrd");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return mav;
+	}
+	
+	/**
+	 * <pre>
+	 * 주문 관리 > 판매주문관리 
+	 * 판매 주문취소 상세
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 11. 11
+	 * @author Y.S.KIM
+	 * @see com.ssocio.sharing.controller.seller
+	 * </pre>
+	 */
+	@RequestMapping("/seller/order/selectCnclDtl.do")
+	public ModelAndView selectCnclDtl(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception {
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("SELECT CNCL DTL START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		ModelAndView mav = new ModelAndView();
+		SellerSession seller = (SellerSession) request.getSession().getAttribute("sellerManager");
+		inParam.put("MBER_SEQ", seller.getMBER_SEQ());
+		LoggerUtil.writeMap(inParam);
+
+		try {
+			mav.addObject("params", inParam);
+			mav.addObject("list", sellerOrderService.selectCnclDtl(inParam));
+			mav.setViewName("seller/order/selectCnclDtl");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return mav;
+	}
+	
+	/**
+	 * <pre>
+	 * 배송완료 상태 변경
+	 * 
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 10. 28
+	 * @author Y.S.KIM
+	 * @see com.ssocio.sharing.controller.seller
+	 * </pre>
+	 */
+	@RequestMapping("/seller/order/updateDlvClose.do")
+	public ModelAndView updateDlvClose(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("SELECT UPDATE ORDER STATE START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		ModelAndView mav = new ModelAndView();
+		try {
+			mav.addObject("result", sellerOrderService.updateDlvClose(inParam));
+			mav.setViewName("jsonView");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mav;
+	}
+	
+	/**
+	 * <pre>
+	 * 주문 관리 > 판매주문관리
+	 * 판매 교환 excel 다운로드
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 11. 18
+	 * @author Y.S.KIM
+	 * @see com.ssocio.sharing.controller.seller
+	 * </pre>
+	 */
+	@RequestMapping("/seller/order/selectListSaleOrdExcExcel.do")
+	public ModelAndView selectListSaleOrdExcExcel(HttpServletRequest request, HttpServletResponse response , @RequestParam Map<String, Object> inParam) throws Exception{
+		SellerSession seller = (SellerSession) request.getSession().getAttribute("sellerManager");
+		inParam.put("MBER_SEQ", seller.getMBER_SEQ());
+		LoggerUtil.writeMap(inParam);
+		ModelAndView mav = new ModelAndView();
+		mav.setViewName("excelDownloadView2");
+		try {
+			String today = StringUtil.getCurrentDate();
+			response.setContentType("application/msexcel");
+			response.setHeader("Content-Disposition", getDisposition("판매교환신청조회_"+today+".xls", check_browser(request)));
+			String SheetName = "판매 교환신청 조회";
+			
+			List<String> excelTitle = new ArrayList<String>();
+			
+			excelTitle.add("교환신청일시");
+			excelTitle.add("교환사유");
+			excelTitle.add("주문번호");
+			excelTitle.add("주문일시");
+			excelTitle.add("주문자명(ID)");
+			excelTitle.add("휴대폰번호");
+			//excelTitle.add("판매자명(ID)");
+			excelTitle.add("상품코드");
+			excelTitle.add("주문상태");
+			excelTitle.add("상품명");
+			excelTitle.add("옵션");
+			excelTitle.add("판매가");
+			excelTitle.add("옵션가");
+			excelTitle.add("수량");
+			excelTitle.add("상품금액");
+			excelTitle.add("배송비");
+			excelTitle.add("쿠폰할인");
+			excelTitle.add("주문금액");
+			excelTitle.add("포인트사용");
+			excelTitle.add("결제금액");
+			excelTitle.add("결제수단");
+			excelTitle.add("카드사");
+			excelTitle.add("이름");
+			excelTitle.add("연락처");
+			excelTitle.add("우편번호");
+			excelTitle.add("도로명 주소(기본주소+상세주소)");
+			excelTitle.add("지번 주소(기본주소+상세주소)");
+			excelTitle.add("배송메모");
+			excelTitle.add("택배사");
+			excelTitle.add("송장번호");
+			excelTitle.add("배송일자");
+			excelTitle.add("도착일자");
+	
+			List<String> CellName = new ArrayList<String>();
+			CellName.add("REQUEST_DT");
+			CellName.add("CHG_REASON");
+			CellName.add("ORD_CD");
+			CellName.add("ORD_REG_DATE");
+			CellName.add("ORDER_INFO");
+			CellName.add("ORD_HP");
+			//CellName.add("SELLER_INFO");
+			CellName.add("PROD_CODE");
+			CellName.add("PROC_STAT_CD_NAME");
+			CellName.add("PROD_NM");
+			CellName.add("OPT_NM");
+			CellName.add("PROD_PRICE");
+			CellName.add("OPT_PRCE");
+			CellName.add("ORD_QTY");
+			CellName.add("PROD_PRCE");
+			CellName.add("DLV_PRCE");
+			CellName.add("CPN_USE_AMT");
+			CellName.add("ORDER_PRICE");
+			CellName.add("POINT_USE_AMT");
+			CellName.add("REAL_SELT_AMT");
+			CellName.add("SELT_GB_NAME");
+			CellName.add("CARD_COMP_NM");
+			CellName.add("RCV_NM");
+			CellName.add("RCV_TEL");
+			CellName.add("ZIP_CD");
+			CellName.add("JUSO_JIBEN");
+			CellName.add("JUSO_DORO");
+			CellName.add("DLV_MSG");
+			CellName.add("DLV_CMP_CD");
+			CellName.add("INVC_NO");
+			CellName.add("DLV_REGIST_DT");
+			CellName.add("DLV_END_DT");
+			
+			List<String> sizeList = new ArrayList<String>();
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("30");
+			sizeList.add("20");
+			sizeList.add("30");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("30");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("50");
+			sizeList.add("50");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+	
+			mav.addObject("fileName", "판매교환신청조회_"+today+".xls");
+			mav.addObject("sizeList", sizeList);
+			mav.addObject("SheetName", SheetName);
+			mav.addObject("excelTitle", excelTitle);
+			mav.addObject("CellName", CellName);
+			
+			mav.addObject("excelList", sellerOrderService.selectListSaleOrdExcExcel(inParam));
+			mav.addObject("param", inParam);
+
+		} catch (Exception e) {e.printStackTrace();}
+		return mav;
+	}
+	
+	/**
+	 * <pre>
+	 * 주문 관리 > 판매주문관리
+	 * 판매 반품 excel 다운로드
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 11. 18
+	 * @author Y.S.KIM
+	 * @see com.ssocio.sharing.controller.seller
+	 * </pre>
+	 */
+	@RequestMapping("/seller/order/selectListSaleOrdTakeBackExcel.do")
+	public ModelAndView selectListSaleOrdTakeBackExcel(HttpServletRequest request, HttpServletResponse response , @RequestParam Map<String, Object> inParam) throws Exception{
+		SellerSession seller = (SellerSession) request.getSession().getAttribute("sellerManager");
+		inParam.put("MBER_SEQ", seller.getMBER_SEQ());
+		LoggerUtil.writeMap(inParam);
+		ModelAndView mav = new ModelAndView();
+		mav.setViewName("excelDownloadView2");
+		try {
+			String today = StringUtil.getCurrentDate();
+			response.setContentType("application/msexcel");
+			response.setHeader("Content-Disposition", getDisposition("판매반품신청조회_"+today+".xls", check_browser(request)));
+			String SheetName = "판매 반품신청 조회";
+			
+			List<String> excelTitle = new ArrayList<String>();
+			
+			excelTitle.add("반품신청일시");
+			excelTitle.add("반품사유");
+			excelTitle.add("주문번호");
+			excelTitle.add("주문일시");
+			excelTitle.add("주문자명(ID)");
+			excelTitle.add("휴대폰번호");
+			//excelTitle.add("판매자명(ID)");
+			excelTitle.add("상품코드");
+			excelTitle.add("주문상태");
+			excelTitle.add("상품명");
+			excelTitle.add("옵션");
+			excelTitle.add("판매가");
+			excelTitle.add("옵션가");
+			excelTitle.add("수량");
+			excelTitle.add("상품금액");
+			excelTitle.add("배송비");
+			excelTitle.add("쿠폰할인");
+			excelTitle.add("주문금액");
+			excelTitle.add("포인트사용");
+			excelTitle.add("결제금액");
+			excelTitle.add("결제수단");
+			excelTitle.add("카드사");
+			excelTitle.add("이름");
+			excelTitle.add("연락처");
+			excelTitle.add("우편번호");
+			excelTitle.add("도로명 주소(기본주소+상세주소)");
+			excelTitle.add("지번 주소(기본주소+상세주소)");
+			excelTitle.add("배송메모");
+			excelTitle.add("택배사");
+			excelTitle.add("송장번호");
+			excelTitle.add("배송일자");
+			excelTitle.add("도착일자");
+	
+			List<String> CellName = new ArrayList<String>();
+			CellName.add("REQUEST_DT");
+			CellName.add("CHG_REASON");
+			CellName.add("ORD_CD");
+			CellName.add("ORD_REG_DATE");
+			CellName.add("ORDER_INFO");
+			CellName.add("ORD_HP");
+			//CellName.add("SELLER_INFO");
+			CellName.add("PROD_CODE");
+			CellName.add("PROC_STAT_CD_NAME");
+			CellName.add("PROD_NM");
+			CellName.add("OPT_NM");
+			CellName.add("PROD_PRICE");
+			CellName.add("OPT_PRCE");
+			CellName.add("ORD_QTY");
+			CellName.add("PROD_PRCE");
+			CellName.add("DLV_PRCE");
+			CellName.add("CPN_USE_AMT");
+			CellName.add("ORDER_PRICE");
+			CellName.add("POINT_USE_AMT");
+			CellName.add("REAL_SELT_AMT");
+			CellName.add("SELT_GB_NAME");
+			CellName.add("CARD_COMP_NM");
+			CellName.add("RCV_NM");
+			CellName.add("RCV_TEL");
+			CellName.add("ZIP_CD");
+			CellName.add("JUSO_JIBEN");
+			CellName.add("JUSO_DORO");
+			CellName.add("DLV_MSG");
+			CellName.add("DLV_CMP_CD");
+			CellName.add("INVC_NO");
+			CellName.add("DLV_REGIST_DT");
+			CellName.add("DLV_END_DT");
+			
+			List<String> sizeList = new ArrayList<String>();
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("30");
+			sizeList.add("20");
+			sizeList.add("30");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("30");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("50");
+			sizeList.add("50");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+	
+			mav.addObject("fileName", "판매교환신청조회_"+today+".xls");
+			mav.addObject("sizeList", sizeList);
+			mav.addObject("SheetName", SheetName);
+			mav.addObject("excelTitle", excelTitle);
+			mav.addObject("CellName", CellName);
+			
+			mav.addObject("excelList", sellerOrderService.selectListSaleOrdTakeBackExcel(inParam));
+			mav.addObject("param", inParam);
+
+		} catch (Exception e) {e.printStackTrace();}
+		return mav;
+	}
+	
+	/**
+	 * <pre>
+	 * 주문 관리 > 판매주문관리
+	 * 판매 취소 excel 다운로드
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 11. 18
+	 * @author Y.S.KIM
+	 * @see com.ssocio.sharing.controller.seller
+	 * </pre>
+	 */
+	@RequestMapping("/seller/order/selectListSaleOrdCancelExcel.do")
+	public ModelAndView selectListSaleOrdCancelExcel(HttpServletRequest request, HttpServletResponse response , @RequestParam Map<String, Object> inParam) throws Exception{
+		SellerSession seller = (SellerSession) request.getSession().getAttribute("sellerManager");
+		inParam.put("MBER_SEQ", seller.getMBER_SEQ());
+		LoggerUtil.writeMap(inParam);
+		ModelAndView mav = new ModelAndView();
+		mav.setViewName("excelDownloadView2");
+		try {
+			String today = StringUtil.getCurrentDate();
+			response.setContentType("application/msexcel");
+			response.setHeader("Content-Disposition", getDisposition("판매주문취소조회_"+today+".xls", check_browser(request)));
+			String SheetName = "판매 주문취소 조회";
+			
+			List<String> excelTitle = new ArrayList<String>();
+			
+			excelTitle.add("취소신청일시");
+			excelTitle.add("주문취소사유");
+			excelTitle.add("주문번호");
+			excelTitle.add("주문일시");
+			excelTitle.add("주문자명(ID)");
+			excelTitle.add("휴대폰번호");
+			//excelTitle.add("판매자명(ID)");
+			excelTitle.add("상품코드");
+			excelTitle.add("주문상태");
+			excelTitle.add("상품명");
+			excelTitle.add("옵션");
+			excelTitle.add("판매가");
+			excelTitle.add("옵션가");
+			excelTitle.add("수량");
+			excelTitle.add("상품금액");
+			excelTitle.add("배송비");
+			excelTitle.add("쿠폰할인");
+			excelTitle.add("주문금액");
+			excelTitle.add("포인트사용");
+			excelTitle.add("결제금액");
+			excelTitle.add("결제수단");
+			excelTitle.add("카드사");
+			excelTitle.add("이름");
+			excelTitle.add("연락처");
+			excelTitle.add("우편번호");
+			excelTitle.add("도로명 주소(기본주소+상세주소)");
+			excelTitle.add("지번 주소(기본주소+상세주소)");
+			excelTitle.add("배송메모");
+			excelTitle.add("택배사");
+			excelTitle.add("송장번호");
+			excelTitle.add("배송일자");
+			excelTitle.add("도착일자");
+			
+	
+			List<String> CellName = new ArrayList<String>();
+			CellName.add("REQUEST_DT");
+			CellName.add("CHG_REASON");
+			CellName.add("ORD_CD");
+			CellName.add("ORD_REG_DATE");
+			CellName.add("ORDER_INFO");
+			CellName.add("ORD_HP");
+			//CellName.add("SELLER_INFO");
+			CellName.add("PROD_CODE");
+			CellName.add("PROC_STAT_CD_NAME");
+			CellName.add("PROD_NM");
+			CellName.add("OPT_NM");
+			CellName.add("PROD_PRICE");
+			CellName.add("OPT_PRCE");
+			CellName.add("ORD_QTY");
+			CellName.add("PROD_PRCE");
+			CellName.add("DLV_PRCE");
+			CellName.add("CPN_USE_AMT");
+			CellName.add("ORDER_PRICE");
+			CellName.add("POINT_USE_AMT");
+			CellName.add("REAL_SELT_AMT");
+			CellName.add("SELT_GB_NAME");
+			CellName.add("CARD_COMP_NM");
+			CellName.add("RCV_NM");
+			CellName.add("RCV_TEL");
+			CellName.add("ZIP_CD");
+			CellName.add("JUSO_JIBEN");
+			CellName.add("JUSO_DORO");
+			CellName.add("DLV_MSG");
+			CellName.add("DLV_CMP_CD");
+			CellName.add("INVC_NO");
+			CellName.add("DLV_REGIST_DT");
+			CellName.add("DLV_END_DT");
+			
+			List<String> sizeList = new ArrayList<String>();
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("30");
+			sizeList.add("20");
+			sizeList.add("30");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("30");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("50");
+			sizeList.add("50");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+			sizeList.add("20");
+	
+			mav.addObject("fileName", "판매교환신청조회_"+today+".xls");
+			mav.addObject("sizeList", sizeList);
+			mav.addObject("SheetName", SheetName);
+			mav.addObject("excelTitle", excelTitle);
+			mav.addObject("CellName", CellName);
+			
+			mav.addObject("excelList", sellerOrderService.selectListSaleOrdCancelExcel(inParam));
+			mav.addObject("param", inParam);
+
+		} catch (Exception e) {e.printStackTrace();}
+		return mav;
+	}
+	
+	/**
+	 * <pre>
+	 * 엑셀 다운로드 브라우저 체크
+	 * </pre>
+	 */
+	private String check_browser(HttpServletRequest request) {
+		String browser = "";
+		String header = request.getHeader("User-Agent");
+		//신규추가된 indexof : Trident(IE11) 일반 MSIE로는 체크 안됨
+		if (header.indexOf("MSIE") > -1 || header.indexOf("Trident") > -1){
+		browser = "ie";
+		}
+		//크롬일 경우
+		else if (header.indexOf("Chrome") > -1){
+		browser = "chrome";
+		}
+		//오페라일경우
+		else if (header.indexOf("Opera") > -1){
+		browser = "opera";
+		}
+		//사파리일 경우
+		else if (header.indexOf("Apple") > -1){
+		browser = "sarari";
+		} else {
+		browser = "firfox"; 
+		}
+		return browser;
+	}
+	
+	/**
+	 * <pre>
+	 * 엑셀 다운로드 파일명
+	 * </pre>
+	 */
+	private String getDisposition(String down_filename, String browser_check) throws UnsupportedEncodingException {
+		String prefix = "attachment;filename=";
+		String encodedfilename = null;
+		if (browser_check.equals("ie")) {
+		encodedfilename = URLEncoder.encode(down_filename, "UTF-8").replaceAll("\\+", "%20");
+		}else if (browser_check.equals("chrome")) {
+		StringBuffer sb = new StringBuffer();
+		for (int i = 0; i < down_filename.length(); i++){
+		    char c = down_filename.charAt(i);
+		    if (c > '~') {
+		        sb.append(URLEncoder.encode("" + c, "UTF-8"));
+		    } else {
+		        sb.append(c);
+		    }
+		}
+		encodedfilename = sb.toString();
+		}else {
+		encodedfilename = "\"" + new String(down_filename.getBytes("UTF-8"), "8859_1") + "\"";
+		} 
+		return prefix + encodedfilename;
+	}
+
+	
+}

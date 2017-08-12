@@ -1,0 +1,355 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/web/common/webJSTL.jsp"%>
+<script type="text/javascript">
+$(document).ready(function(){
+	//공통 HEADER SETTING
+// 	header.type = 6;
+	header.type	= 2;
+	header.title = "스마트폰 셰어링 교환신청 내역";
+	header.method = "GET";
+	header.backUrl = "/mobile/shar/procSharUsing.do";
+	header.callback = headerCallback;
+	initHeader();
+	//공통 FOOTER SETTING
+	displayFooter(false);
+	//APP TITLE
+	document.title = "스마트폰 셰어링 교환신청 내역";
+	
+	//이메일 삭제 버튼 숨김
+	if ( $("#keyword").val() == "" ) {
+		$("#btn_del").hide();
+	}
+	
+	sharOrdContainer.isNext = ${paging.next};
+	$(window).scroll(function(){
+		if( $(window).scrollTop() == $(document).height() - $(window).height()){
+			if(sharOrdContainer.isNext == true){
+				$("#CUR_PAGE").val(sharOrdContainer.curPage + 1);
+				getDataList();
+			}
+		}
+	});
+	
+	
+	
+});
+
+function moveLogin(){
+	alert('로그인 후 이용 가능합니다.\n로그인 페이지로 이동합니다. ');
+	var url = '/mobile/prod/selectProd.do?PROD_CODE=${result.prodInfo.PROD_CODE}';
+	location.href = '/mobile/main/login.do?ret=' + encodeURIComponent(url);
+}
+
+function moveMain(){
+	location.href = '/mobile/main/main.do';
+}
+
+function headerCallback(cls){
+	if( 'btn_basket' == cls ){
+		if( '${sessionScope.user.login}' != 'true' ){
+			moveLogin();
+		}
+		else{
+			location.href = "/mobile/myBasket/getMyBasketInfo.do";
+		}
+	}
+	else if( 'btn_home' == cls ){
+		location.href = "/mobile/main/main.do";
+	}
+}
+
+function getDataList(){
+	
+	if ($("#S_START_DATE").val() == "") {
+		getDateInterval('7D');
+	}
+	$.ajax({
+		type: 'post',
+		async: true, 
+		url: '/mobile/shar/selectSharOrdProd.do', 
+		dataType:'json', 
+		data: {
+			"CHG_PROC_TYPE_CD":$("#CHG_PROC_TYPE_CD").val(), 
+			"CUR_PAGE":$("#CUR_PAGE").val(),
+			"S_START_DATE":$("#S_START_DATE").val(),
+			"keyword":$("#keyword").val(),
+			"GUBUN":"page"
+		},
+		//before: function() {
+	    //   loadingForm.showDialog();
+	    //}, 
+	    success: function(response) {
+	    	//	상품 목록 정보를 세팅한다.
+	    	var prodList = response.outParam;
+	    	$.each(prodList, function(index){
+		    	sharOrdContainer.addJson(prodList[index], '<custom:codeTag code="DEFAULT_IMG_URL" groupCode="SITE_DEFAULT" />');
+	    	});
+	    	// CDN IMG Reload
+	    	cdnreload();
+	    	imgThombHeightResize();
+	    	//	페이징 정보를 세팅한다.
+	    	sharOrdContainer.isNext = response.paging.next;
+	    	sharOrdContainer.curPage = response.paging.curPage;
+	    	
+		}, 
+		//complete: function() {
+	    //	loadingForm.hideDialog();
+		//}, 
+		error : function(request, status, error) {
+			alert("통신 오류가 발생 하였습니다. 잠시 후 다시 시도해 주세요");
+		}
+	}); 
+	
+	
+}
+
+//new 연산자로 생성된 function 영역의 this는 새로 생성된 객체 그 자신이다. 
+var SharOrd = function(){
+	this.ordCd = '';
+	this.chgCd = '';
+	this.OrdRegDate = '';
+	this.procStatCd = '';
+	this.colorSeq = '';
+	this.openType = '';
+	this.stipCd = '';
+	this.payPlanCd = '';
+	this.prodCd = '';
+	this.prodNm = '';
+	this.spSizeCd = '';
+	this.sharPrce = '';
+	this.prodUrl = '';
+	this.telUrl = '';
+	this.colorNm = '';
+	this.payPlanNm = '';
+	this.stipPeriod = '';
+	this.chgCnt = '';
+	this.rtnCnt = '';
+	this.termiCnt = '';
+	this.prodPrce = '';
+};
+var sharOrdContainer = {
+		prods : new Array(),
+		area : $("#id_prod_area"),
+		curPage : 1,
+		isNext : false,
+		add : function(prod, defaultUrl){
+			var html = '';
+			html+='<li>';
+			html+='<p class="arrow">';
+			html+='<span class="fl">'+prod.ordCd+'<br><span>'+prod.OrdRegDate+'</span></span>';
+			html+='<a class="fr" onclick="goDtl('+prod.chgCd+')"><strong>상세보기</strong></a>';
+			html+='</p>';
+			html+='<ul>';
+			html+='<li><img src="'+defaultUrl+'" alt="'+prod.prodUrl+'"></li>';
+			html+='<li><img src="'+defaultUrl+'" alt="'+prod.telUrl+'"  width="55"></li>';
+			html+='<li><strong>'+prod.prodNm+'</strong></li>';
+			html+='<li><span class="round fl">'+prod.spSizeCd+'</span> <strong class="fr">월'+formatNumber(nvlInt(prod.prodPrce, 0))+'원</strong></li>';
+			html+='</ul>';
+			html+='<ol>';
+			html+='<li><span class="fl">색상</span> <span class="fr">'+prod.colorNm+'</span></li>';
+			html+='	<li><span class="fl">가입유형</span> <span class="fr">'+prod.openType+'</span></li>';
+			html+='	<li><span class="fl">약정기간</span> <span class="fr">'+prod.stipPeriod+'개월</span></li>';
+			html+='	<li><span class="fl">요금제</span> <span class="fr">'+prod.payPlanNm+'</span></li>';
+			html+='</ol>';
+			html+='	<p class="btn"><span class="fr"><strong>'+prod.procStatCd+'</strong></span></p>';
+			html+='</li>';
+			$("#id_prod_area").append(html);
+		},
+		addJson : function(prod, defaultUrl){
+			var product = new SharOrd();
+			product.ordCd = prod.ORD_CD;
+			product.chgCd = prod.CHG_CD;
+			product.OrdRegDate = prod.ORD_REG_PAGINE_DATE;
+			product.procStatCd = prod.PROC_NM;
+			product.colorSeq = prod.COLOR_SEQ;
+			product.openType = prod.OPEN_PAGING_TYPE;
+			product.stipCd = prod.STIP_CODE;
+			product.payPlanCd = prod.PAYPLAN_CODE;
+			product.prodCd = prod.PROD_CODE;
+			product.prodNm = prod.PROD_NM;
+			product.spSizeCd = prod.SP_SIZE_PAGING_CD;
+			product.sharPrce = prod.SHARING_PRICE;
+			product.prodUrl = prod.FILE_URL;
+			product.telUrl = prod.TEL_FILE_URL;
+			product.colorNm = prod.COLOR_NAME;
+			product.payPlanNm = prod.PAYPLAN_NM;
+			product.stipPeriod = prod.STIP_PERIOD;
+			product.chgCnt = prod.CHG_CNT;
+			product.rtnCnt = prod.RTN_CNT;
+			product.termiCnt = prod.TERMI_CNT;
+			product.prodPrce = prod.PROD_PRCE;
+			this.add(product, defaultUrl);
+		},
+		removeAll : function(){
+			this.area.empty();
+			this.prods.splice(0, this.prods.length);
+		},
+		_isNull : function(value){
+			if( value != undefined && value != ''){
+				return false;
+			}
+			
+			return true;
+		},
+	};
+	
+	
+function appCallback(cmd){
+
+	if( cmd == "LOGIN" ){
+		moveLogin();
+		return
+	}
+	else if( cmd == "CART"){
+		location.href = "/mobile/myBasket/getMyBasketInfo.do";
+	}
+}
+
+
+
+function search(){
+	var form = document.frm;
+	if ($("#S_START_DATE").val() == "") {
+		getDateInterval('7D');
+	}
+	form.S_CHG_PROC_TYPE_CD.value = $("#CHG_PROC_TYPE_CD").val();
+	form.action = "/mobile/shar/selectSharChgProd.do";
+	form.submit();
+}
+
+function goDtl(code){
+	var form = document.frmDtl;
+	form.ORD_CD.value = code;
+	form.action = "/mobile/shar/selectSharChgDtl.do";
+	form.submit();
+}
+
+/* ======================================================================
+Function : 검색어 정보 삭제
+Return   : 
+========================================================================= */
+function delKeyword(){
+	$("#keyword").val("");
+	$("#btn_del").hide();
+}
+
+/* ======================================================================
+Function : 검색어 삭제버튼 숨김 EVENT
+Return   : 
+========================================================================= */
+function delImg(){
+
+	if ( $("#keyword").val().length > 0 ) {
+		$("#btn_del").show();
+	} else {
+		$("#btn_del").hide();
+	}
+}
+
+function viewPageProdDtl(prodCode){
+	location.href = "/mobile/shar/selectSharDtl.do?PROD_CODE="+prodCode;
+}
+</script>
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+
+        <div class="roc">
+        	<ul class="inner">
+            	<li><img src="http://static.ssocio.net/pc/img/common/section/roc_home.png" alt="홈"></li>
+                <li>스마트폰 셰어링</li>
+            </ul>
+        </div>
+        
+        <!-- inner -->
+		<div class="inner">
+			<h3 class="tit_cate mb20"><p>스마트폰 셰어링</p></h3>
+
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+	 <!-- container -->
+		<div id="container">
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>
+
+	
+	<form id="frm" name="frm" method="post">
+		<input type="hidden" id="S_START_DATE" name="S_START_DATE" value=""/>
+		<input type="hidden" id="CUR_PAGE" name="CUR_PAGE" value=""/>
+		<div class="sha_search">
+			<ul>
+				<li>
+					<select id="ORD_REG_DATE" name="ORD_REG_DATE" onchange="getDateInterval(this.value)">
+						<option value="7D">1주일</option>
+						<option value="1M">1개월</option>
+						<option value="2M">2개월</option>
+						<option value="6M">6개월</option>
+						<option value="1Y">1년</option>
+						<option value="2Y">2년</option>
+						<option value="3Y">3년</option>
+					</select>
+				</li>
+				<li>
+					<select id="CHG_PROC_TYPE_CD" name="CHG_PROC_TYPE_CD">
+						<custom:codeList groupCode="CHG_PROC_TYPE_CD" var="codeList"/>
+						<option value="">교환신청상태 전체</option>
+						<c:forEach items="${codeList }" var="statList" varStatus="status">
+							<c:if test="${statList.key eq '10' || statList.key eq '20' || statList.key eq '30' }">
+								<option value="${statList.key }" <c:if test="${statList.key == params.S_CHG_PROC_TYPE_CD}"> selected="selected" </c:if> >${statList.value }</option>
+							</c:if>
+						</c:forEach>
+					</select>
+					<input type="hidden" id="S_CHG_PROC_TYPE_CD" name="S_CHG_PROC_TYPE_CD" value="" />
+				</li>
+			</ul>
+			<p>
+				<input type="text" id="keyword" name="keyword" placeholder="상품명 검색" value="${params.keyword }" onkeyup="delImg();">
+				<a href="javascript:search();" class="btn_search"><span>검색</span></a>
+				<a href="javascript:delKeyword();" id="btn_del"><img src="http://static.ssocio.net/web/images/ico_del.png" alt="삭제"></a>
+			</p>
+		</div>
+	</form>
+	<c:choose>
+		<c:when test="${ not empty outParam }">
+			<ul class="sha_oder" id="id_prod_area">
+				<c:forEach items="${outParam }" var="list" varStatus="status">
+					<li>
+						<p class="arrow">
+							<span class="fl">${list.ORD_CD }<br><span><fmt:formatDate value="${list.ORD_REG_DATE }" pattern="yyyy-MM-dd HH:mm"/></span></span>
+							<a class="fr" onclick="goDtl('${list.CHG_CD }')"><strong>상세보기</strong></a>
+						</p>
+						<ul>
+							<li onclick="viewPageProdDtl('${list.PROD_CODE}')"><img src="<custom:codeTag groupCode='SITE_DEFAULT' code='DEFAULT_IMG_URL'/>" alt="${list.FILE_URL }"></li>
+							<li><img src="<custom:codeTag groupCode='SITE_DEFAULT' code='DEFAULT_IMG_URL'/>" alt="${list.TEL_FILE_URL }" width="55"></li>
+							<li onclick="viewPageProdDtl('${list.PROD_CODE}')"><strong>${list.PROD_NM }</strong></li>
+							<li>
+								<span class="round fl"><custom:codeTag groupCode="SP_SIZE_GB_CD" code="${list.SP_SIZE_CD }"/></span>
+								<strong class="fr">월 <fmt:formatNumber value="${list.PROD_PRCE }" pattern="#,###"/>원</strong>
+							</li>
+						</ul>
+						<ol>
+							<li><span class="fl">색상</span> <span class="fr">${list.COLOR_NAME }</span></li>
+							<li><span class="fl">가입유형</span> <span class="fr"><custom:codeTag groupCode="OPEN_TYPE" code="${list.OPEN_TYPE }"/></span></li>
+							<li><span class="fl">약정기간</span> <span class="fr">${list.STIP_PERIOD }개월</span></li>
+							<li><span class="fl">요금제</span> <span class="fr">${list.PAYPLAN_NM }</span></li>
+						</ol>
+						<p class="btn"><span class="fr"><strong>${list.PROC_NM}</strong></span></p>
+					</li>
+				</c:forEach>
+			</ul>
+		</c:when>
+		<c:otherwise>
+			<div class="sha_nodata">
+				<p>교환신청 내역이 없습니다.</p>
+			</div>
+		</c:otherwise>
+	</c:choose>
+</div>
+<!-- //container -->
+<form id="frmDtl" name="frmDtl" method="post">
+	<input type="hidden" id="ORD_CD" name="ORD_CD"/>
+</form>

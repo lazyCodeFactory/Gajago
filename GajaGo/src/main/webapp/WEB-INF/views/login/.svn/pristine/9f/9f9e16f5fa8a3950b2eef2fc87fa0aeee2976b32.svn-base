@@ -1,0 +1,306 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/web/common/cmmnHead.jsp"%>
+<script type="text/javascript" charset="UTF-8" src="http://maps.google.com/maps/api/js?sensor=false"></script>
+<script type="text/javascript" src="/js/web/cart.js" ></script> <!-- 장바구니용 js -->
+<script type="text/javascript">
+
+	var btnFlag = true;
+	var regData = '${regData}';
+	var prodTypeCd = '${prodTypeCd}';
+	var mainYn = '${params.mainYn }';
+	
+	var positionopts = {
+		enableHighAccuracy : true,
+		timeout : 10000
+	};
+	var geocoder;
+	var blatlng;
+	
+	//ready
+	$(document).ready(function(){
+		
+		$("#regData").val(regData);
+		
+		// title 및 back 버튼 url set	
+		document.title = "상품 등록";
+// 		header.type	= 6;
+		header.type	= 4;
+		header.title = "상품 등록";
+		header.method = "POST";
+		if (mainYn == "Y") {
+			header.backUrl = "/mobile/main/main.do";
+		}
+		else {
+			header.backUrl = "/mobile/salemanage/main.do";
+		}
+		header.callback = headerCallback; // 장바구니용 callback
+		header.form = $("#form");
+		initHeader();
+
+		// 뒤로가기 를 공통 제어를 쓰지 않고 재정의함
+		var data = JSON.parse(regData);
+		$("#id_btn_back").unbind('click');
+		$(".btn_back").click(function(event){
+			event.preventDefault();
+			location.href=data.refUrl;
+		});
+		
+				
+		displayFooter(false);
+		
+		// 배송가능지역 keyup event
+		$("#tradLoc").bind('keyup input', function() {
+			proc.tradLocKeyup();
+		});
+		
+		// 현재 위치정보 받아오기
+		/*
+		
+		[2015-11-17 rocokang] 위치기반은 아직 협의가 되어있지 않으므로 임시 주석처리 함.
+		
+		if( '${sessionScope.APP}' == 'SSOCIO'){
+			var data = '{"callback":"loc.appHadler"}';
+			document.location.replace('SSOCIO://web/getGps?'+encodeURIComponent(data));
+		}
+		else {
+			loc.init();
+		}
+		*/
+		
+	});
+	
+	// 위치정보 관련
+	var loc = {
+			
+		// 지오로케이션 위치정보 생성
+		init : function () {
+			
+			geocoder = new google.maps.Geocoder();
+			if (navigator.geolocation) {
+				navigator.geolocation.getCurrentPosition(loc.handler, loc.problemhandler, positionopts);
+			}
+		},
+		
+		// 위치정보 호출 성공시 위경도 받기
+		handler : function (position) {
+			
+			var mylat = position.coords.latitude;
+			var mylong = position.coords.longitude;
+			blatlng = new google.maps.LatLng(mylat, mylong);
+			
+			loc.reversegeo(blatlng);
+			
+		},
+		
+		// 앱에서 위경도 받기
+		appHadler : function (latitude, longitude) {
+			
+			geocoder = new google.maps.Geocoder();
+			blatlng = new google.maps.LatLng(latitude, longitude);
+			
+			loc.reversegeo(blatlng);
+			
+		},
+		
+		// 위치정보생성 실패
+		problemhandler : function (prob) {
+			
+		},
+		
+		// 위 경도 받아서 주소로 변환
+		reversegeo : function (latlng) {
+			
+			geocoder.geocode({'latLng' : latlng}, function (results, status) {
+			
+				if (status == google.maps.GeocoderStatus.OK) {
+					if (results[0]) {
+						var tradLoc = results[0].formatted_address;
+						tradLoc = tradLoc.replace("대한민국 ", "");
+						$("#tradLoc").val(tradLoc);
+						proc.procBtnNext();
+					}
+				}
+				
+			});
+			
+		}
+			
+	};
+
+	// page 이동
+	var page = {
+			
+		// 다음 페이지 이동
+		goNextPage : function () {
+			//alert문구 추가 
+			if(!$("#btnNext").hasClass("btn_r")) {
+				alert("상품배송 가능지역을 입력해주세요.");
+				return;
+			}
+			if (prodTypeCd == "3") {
+				page.insertProd();
+			}
+			else {
+				var url = "/mobile/salemanage/procInsertProdSell.do";
+				form.action = url;
+				form.submit();
+			}
+			
+		},	
+			
+		// 이전 페이지 이동
+		goPrePage : function () {
+			
+			$("#movePage").val("2");
+			$("#moveBack").val("Y");
+			var url = "/mobile/salemanage/procInsertProdSell.do";
+			form.action = url;
+			form.submit();
+			
+		},
+		
+		// 나눔 상품일 경우 상품등록
+		insertProd : function () {
+			
+			if (btnFlag==true) {
+				
+				btnFlag = false;
+				
+				$.ajax({
+					type: "post",
+					async: true,
+					url: "/mobile/salemanage/insertSellProdInfo.do",
+					dataType:"json",
+					data:  $("#form").serialize(),
+					success: function(data) {
+						if (data.rtn.rtnMsgCd == "Y") {
+							alert("상품 등록이 완료되었습니다.");
+							// 상품 상세 페이지로 이동
+							setTimeout(function(){location.href = '/mobile/prod/selectProd.do?PROD_CODE=' + data.rtn.prodCode;},1000);
+
+						}
+						else {
+							alert("상품 등록에 실패하였습니다. 다시 시도해 주세요.");
+							btnFlag = true;
+						}
+					},
+					error: function(data, status, err) {
+						alert("상품 등록에 실패하였습니다. 다시 시도해 주세요.");
+						btnFlag = true;
+					}
+				});	
+				
+			}else{
+				alert('처리중 입니다. 잠시후 다시 시도해 주세요.');
+			}
+			
+		},	
+		
+		goMainPage : function () {
+			
+			// 상품관리 메인으로 이동
+			var url = "/mobile/salemanage/main.do";
+			form.action = url;
+			form.submit();
+			
+		}
+			
+	};
+	
+	// script 처리 모음
+	var proc = {
+			
+		// 상품명 keyup
+		tradLocKeyup : function () {
+			proc.procBtnNext();
+		},
+		
+		// 다음 버튼 활성화 비활성화
+		procBtnNext : function () {
+			var len = $("#tradLoc").val().length;
+			if (len > 0) {
+				// 버튼 활성화
+				//$("#btnNext").attr("disabled",false);
+				$("#btnNext").removeClass("btn_b");
+				$("#btnNext").addClass("btn_r");
+			}
+			else {
+				// 버튼 비활성화
+				//$("#btnNext").attr("disabled",true);
+				$("#btnNext").removeClass("btn_r");
+				$("#btnNext").addClass("btn_b");
+			}
+		}
+			
+	};
+
+</script>
+
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+		<div class="roc">
+			<ul class="inner">
+				<li><img src="http://static.ssocio.net/pc/img/common/section/roc_home.png" alt="홈"></li>
+				<li>판매관리</li>
+			</ul>
+		</div>
+		<jsp:include page="../common/sale_top.jsp" flush="false" />
+		<div class="mype_s_tit">
+			<p>상품등록</p>
+		</div>
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+		<!-- container -->
+		<div id="container">
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>
+
+<form id="form" name="form" method="post" action="">
+	<input type="hidden" id="movePage" name="movePage" value="4" />
+	<input type="hidden" id="regData" name="regData" value="" />
+	<input type="hidden" id="moveBack" name="moveBack" value="" />
+	<input type="hidden" id="mainYn" name="mainYn" value="${params.mainYn }" />
+
+		<div class="completed">
+        	<p class="percent"><strong>80% Completed</strong></p>
+            <div class="bar"><p style="width:80%"></p></div>
+        </div>
+		<div class="contents pic_reg">
+			<p class="purc-title"><strong>상품배송 가능지역</strong>을 입력해주세요.</p>
+			<ul class="sbox08">
+				<li>
+					<input type="text" id="tradLoc" name="tradLoc" value="" maxLength="100" autocomplete="off" />
+				</li>
+				<li class="clear"><span class="color_7">* 퀵서비스 배송이 가능한 지역을 입력 해주세요.</span></li>
+			</ul>
+			<div class="btn_enter">
+				<ul>
+					<li>
+						<input type="button" class="btn_b-line" onClick="javascript:page.goPrePage();" value="이전" title="이전" alt="이전" />
+					</li>
+					<li>
+						<input type="button" class="btn_b" id="btnNext"  onClick="javascript:page.goNextPage();" value="다음" title="다음" alt="다음" />
+					</li>
+				</ul>
+			</div>
+		</div>
+</form>
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+		<jsp:include page="../common/sale_bottom.jsp" flush="false" />
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+		    </div>
+		    <!-- //container -->
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>

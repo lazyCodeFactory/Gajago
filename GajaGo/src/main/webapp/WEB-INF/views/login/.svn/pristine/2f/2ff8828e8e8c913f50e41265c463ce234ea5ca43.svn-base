@@ -1,0 +1,331 @@
+<%@ page language="java" contentType="text/html; charset=utf-8"
+    pageEncoding="utf-8"%>
+<!-- 태그는 cmmnHead.jsp 에 선언함 -->
+<%@ include file="/WEB-INF/views/admin/common/cmmnHead.jsp"%>
+
+<script type="text/javascript">
+
+var yPointCnt = 0;
+var nPointCnt = 0;
+var errorCnt = 0;
+var fileUploadCnt = 0;
+
+$(document).ready(function(){
+	// 확인 클릭 이벤트
+	$("#btn_cfm").click(function() {
+		f_uploadPointExcel();
+	});
+	
+	// 등록 클릭 이벤트
+	$("#btn_reg").click(function() {
+		insertListPoint();
+	});
+	
+	// 전체 체크 클릭 이벤트
+	$("#allChk").click(function(){
+		if($(this).is(":checked")){
+			$("tbody input[name=chkYn]").attr("checked",true);
+		}else{
+			$("tbody input[name=chkYn]").attr("checked",false);
+		}
+	});
+});
+
+/* ======================================================================
+Function : 엑셀 데이터 업로드
+Return   : 없음
+========================================================================= */
+function f_uploadPointExcel(){
+	var file = $("#I_UPLOAD_FILE").val();
+	
+	if(gf_isNull(file)) {
+	    alert("파일을 선택해주세요.");
+	    return;
+	}else if(!f_checkFileType(file)) {
+	    alert("엑셀 파일만 업로드 해주세요.");
+	    return;
+	}
+	
+	if(confirm("업로드 하시겠습니까?")) {
+	  var options = {
+		dataType: "json",
+	    url : "/admin/point/uploadPointExcel.do",
+	    success : function(data) {
+	    	var innerHtml = "";	
+	    	var sCell0;
+	    	var sCell1;
+	    	var sCell2;
+	    	var sCell3;
+	    	
+	    	yPointCnt = 0;
+	    	nPointCnt = 0;
+	    	errorCnt = 0;
+	    	fileUploadCnt = 0;
+	    	//$("div.last-child tbody tr").remove();
+	    	$("#tbodyPoint").html("");
+	    	for (var i = 0; i < data.list.excelList.length; i++) {
+	    		fileUploadCnt++;
+		    	sCell0 = data.list.excelList[i].CELL0;
+		    	sCell1 = parseInt(Math.round(data.list.excelList[i].CELL1));
+		    	sCell2 = parseInt(Math.round(data.list.excelList[i].CELL2));
+		    	sCell3 = data.list.excelList[i].CELL3;
+		    	
+		    	if(gf_isNull(sCell1)) {
+		    		sCell1 = "";
+		    	}
+		    	if(gf_isNull(sCell2)) {
+		    		sCell2 = "";
+		    	}
+	    		
+	    		innerHtml += '<tr>';
+				innerHtml += '<td><input type="checkbox" id="chkYn" name="chkYn"></td>';
+				innerHtml += '<td>'+fileUploadCnt+'</td>';
+				innerHtml += '<td>'+sCell0+'</td>';
+				innerHtml += '<td>'+sCell1+'</td>';
+				innerHtml += '<td>'+sCell2+'</td>';
+				innerHtml += '<td>'+sCell3+'</td>';
+
+				if(gf_isNull(sCell0)) {
+					errorCnt++;
+			    	innerHtml += '<td><span class="text_r">오류</span></td>';
+	    		}else if(gf_isNull(sCell1) && gf_isNull(sCell2)) {
+					errorCnt++;
+					innerHtml += '<td><span class="text_r">오류</span></td>';
+			    }else if(!gf_isNull(sCell1) && !gf_isNull(sCell2)) {
+					errorCnt++;
+					innerHtml += '<td><span class="text_r">오류</span></td>';
+			    }else {
+			    	if(!gf_isNull(sCell1)) {
+			    		yPointCnt++;
+			    	}
+			    	if(!gf_isNull(sCell2)) {
+			    		nPointCnt++;
+			    	}
+				    innerHtml += '<td>정상</td>';
+			    }
+				
+				innerHtml += '</tr>';
+	    	}
+	    	$("#tbodyPoint").html(innerHtml);
+	    	
+	    	$("#uploadCnt").text("* 전체 대상 "+data.list.uploadCount+"건");
+	    	$("#errorCnt").text("오류 "+errorCnt+"건");
+	    	$("#yPointCnt").text("적립 "+yPointCnt+"건");
+	    	$("#nPointCnt").text("차감 "+nPointCnt+"건");
+	    	$("#btn_del").append("<a href='javascript:delPoint(this);' class='btn_w'>선택 상품 목록 삭제</a>");
+	    },
+	    error: function(data, status, err) {
+	      alert("서버와의 통신이 실패했습니다.");
+	    }
+	  };
+	  $("#frm").ajaxSubmit(options);
+	}
+}
+
+/* ======================================================================
+Function : 파일체크
+Return   : 없음
+========================================================================= */
+function f_checkFileType(filePath){
+   var fileFormat = filePath.split(".");
+   if(fileFormat.indexOf("xlsx") > -1){
+       return true;
+   }else{
+       return false;
+   }
+}
+
+/* ======================================================================
+Function : 포인트 일괄 등록
+Return   : 없음
+========================================================================= */
+function insertListPoint() {
+	
+	if(fileUploadCnt < 1) {
+		alert("파일 업로드를 진행해주세요.");
+		return;
+	}
+	
+	if(overlapCnt > 0 || errorCnt > 0) {
+		alert("오류 및 중복 항목이 있습니다.");
+		return;
+	}
+		
+	if($("#tbodyPoint tr").length > 100) {
+		alert("최대 100까지 등록 하실 수 있습니다.");
+		return;
+	}
+		
+	var cell0 = new Array();
+	var cell1 = new Array();
+	var cell2 = new Array();
+	var cell3 = new Array();
+	var cell4 = new Array();
+
+	var sEmail;
+	var sYpoint;
+	var sNpoint;
+	var sPoint;
+	var sChgReason;
+	var sPointCd;
+	var sPointType;
+	
+	for (var i=0; i < $("#tbodyPoint tr").length; i++) {
+		sEmail = $("#tbodyPoint tr").eq(i).find("td").eq(2).text();
+		sYpoint = $("#tbodyPoint tr").eq(i).find("td").eq(3).text();
+		sNpoint = $("#tbodyPoint tr").eq(i).find("td").eq(4).text();
+		sChgReason = $("#tbodyPoint tr").eq(i).find("td").eq(5).text();
+		
+		if(!gf_isNull(sYpoint)) {
+			sPointCd = "10";
+			sPointType = "Y";
+			sPoint = sYpoint;
+		}
+		
+		if(!gf_isNull(sNpoint)) {
+			sPointCd = "15";
+			sPointType = "N";
+			sPoint = sNpoint;
+		}
+		
+		cell0.push(sEmail);
+		cell1.push(sPoint);
+		cell2.push(sChgReason);
+		cell3.push(sPointCd);
+		cell4.push(sPointType);
+	}
+	
+	$("#CELL0").val(cell0);
+	$("#CELL1").val(cell1);
+	$("#CELL2").val(cell2);
+	$("#CELL3").val(cell3);
+	$("#CELL4").val(cell4);
+	
+	if(confirm("등록 하시겠습니까?") == false) { return; }
+	
+	$.ajax({
+		type: "post",
+		async: true,
+		url: "/admin/point/savePointExcel.do",
+		dataType:"json",
+		data:  $("#excelFrm").serialize(),
+		success: function(data) {
+			alert(data.list.uploadCnt+"건 등록이 완료 되었습니다.");
+			opener.f_searchPointList("list");
+			window.close();
+		},
+		error: function(data, status, err) {
+			alert("서버와의 통신이 실패했습니다.");
+		}
+	});	
+}
+
+/* ======================================================================
+Function : 선택 상품 목록 삭제
+Return   : 없음
+========================================================================= */
+function delPoint(obj) {
+	$("#tbodyPoint tr").each(function(i) {
+		var check = $(this).find('input[name=chkYn]').is(":checked");
+		if(check) {
+			if ($(this).find("td").eq(6).text() == "중복") {
+				overlapCnt--;
+			} else if ($(this).find("td").eq(6).text() == "오류") {
+				errorCnt--;
+			}
+			$(this).remove();
+		}
+	});
+}
+
+</script>
+<form id="frm" name="frm" method="post" enctype="multipart/form-data">
+	<div class="pop_text mt5">
+		<p>* 포인트 일괄 업로드는 엑셀로만 업로드 가능합니다.</p>
+		<p>* 등록 중 화면을 종료하시면 종료 직전까지 등록 성공한 정보는 정상 등록 됩니다.</p>
+		<p>* 한번에 100개 까지 대량 등록하실 수 있습니다.</p>
+	</div>
+	
+	<div class="pop_inner2">
+		<!-- tbl -->
+		<div class="tbl mt10">
+			<!-- pop_con -->
+			<div class="pop_con">
+				<div class="cont_bx line_type clear">
+					<div class="serial_bx clear">
+						<div class="file_upload_area ml10">
+							<input type="text" id="" name="" class="file_txt" style="width:350px;" />
+							<span class="txt_file">
+								<input type="file" id="I_UPLOAD_FILE" name="I_UPLOAD_FILE" class="inp_file" />
+								<a href="#" class="btn_w ml5 vmid file_add">파일찾기</a>
+							</span>
+							<a href="#" id="btn_cfm" class="btn_w">확인</a>
+							<a href="#" id="btn_del"></a>
+						</div>
+					</div>
+				</div>
+				<div class="cont_bx2">
+					<ul class="lst_type clear">						
+						<li id="uploadCnt">* 전체 대상 0건</li>
+						<li id="yPointCnt">적립 0건</li>
+						<li id="nPointCnt">차감 0건</li>
+						<li id="overlapCnt">중복 <span class="text_r">0</span>건</li>
+						<li id="errorCnt">오류 <span class="text_r">0</span>건</li>
+						
+					</ul>
+				</div>
+				<!-- fixed_tbl_v2 -->
+				<div class="layer_tbl_area">
+					<div class="fixed_tbl_v2" style="height:350px;">
+						<!-- thead -->
+						<div class="tbl last-child">
+							<table class="list">
+								<colgroup>
+									<col style="width:32px" />
+									<col style="width:65px" />
+									<col style="width:*" />
+									<col style="width:80px" />
+									<col style="width:80px" />
+									<col style="width:110px" />
+									<col style="width:80px" />
+								</colgroup>
+								<thead>	
+									<tr>
+										<th scope="col"><input type="checkbox" id="allChk" name="allChk" /></th>
+										<th scope="col">No</th>
+										<th scope="col">ID</th>
+										<th scope="col">적립포인트</th>
+										<th scope="col">사용포인트</th>
+										<th scope="col">변동사유</th>
+										<th scope="col" class="nolineR">결과</th>
+									</tr>
+								</thead>
+								<tbody id="tbodyPoint">
+									<tr>
+										<td colspan="7">파일을 업로드 해주세요.</td>
+									</tr>
+								</tbody>
+							</table>
+						</div>
+						<!-- //thead -->
+					</div>
+					<!-- //fixed_tbl_v2 -->
+				</div>
+				
+				<!-- btn_area -->
+				<div class="btn_area">
+					<a href="#" id="btn_reg" class="btn_br">등록</a>
+				</div>
+				<!-- //btn_area -->
+			</div>
+			<!-- //pop_con -->
+		</div>
+	</div>
+</form>
+<form id="excelFrm" name="excelFrm" action="">
+	<input type="hidden" name="CELL0" id="CELL0"/>
+	<input type="hidden" name="CELL1" id="CELL1"/>
+	<input type="hidden" name="CELL2" id="CELL2"/>
+	<input type="hidden" name="CELL3" id="CELL3"/>
+	<input type="hidden" name="CELL4" id="CELL4"/>
+</form>

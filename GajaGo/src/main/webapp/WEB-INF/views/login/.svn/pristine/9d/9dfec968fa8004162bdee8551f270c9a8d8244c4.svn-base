@@ -1,0 +1,370 @@
+package com.ssocio.openmarket.api.controller;
+
+import java.util.List;
+import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.ModelMap;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.servlet.ModelAndView;
+
+import com.ssocio.openmarket.common.Constant;
+import com.ssocio.sharing.cmmn.util.LoggerUtil;
+import com.ssocio.sharing.service.admin.AdminCodeService;
+import com.ssocio.sharing.service.admin.AdminOrderService;
+import com.ssocio.sharing.service.seller.SellerOrderService;
+import com.ssocio.sharing.vo.admin.PageNavigation;
+
+@Controller
+public class OMOrderController {
+	private static final Logger logger = LoggerFactory.getLogger(OMOrderController.class);
+	
+	@Autowired
+	AdminCodeService adminCodeService;
+	
+	@Autowired
+	private AdminOrderService adminOrderService;
+	
+	@Autowired
+	private SellerOrderService sellerOrderService;
+	
+	/**
+	 * 주문 리스트를 조회한다
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 */
+	@SuppressWarnings("unchecked")
+	@RequestMapping(value=Constant.OM_SELECTLISTORDER, method = RequestMethod.POST)
+	public ModelAndView selectListOrder(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info(Constant.OM_SELECTLISTORDER + " START");
+		ModelAndView mav = new ModelAndView("jsonView2");
+		
+//		inParam.put("mberSeq", String.valueOf(request.getAttribute("mberSeq")));
+//		inParam.put("S_DATE_OPTION", "01");
+//		Map<String, Object> orderList = adminOrderService.selectListOrder(inParam);
+//		PageNavigation pageNav = (PageNavigation) orderList.get("pageNav");
+//		int totalCount = ( pageNav.getRowTotal() > 0 ? pageNav.getRowTotal() : 0 );
+//		List<Map<String, Object>> order = (List<Map<String, Object>>) orderList.get("selectListOrder");
+//		mav.addObject("list", order);
+//		mav.addObject("totalCount", totalCount);
+		
+		inParam.put("MBER_SEQ", String.valueOf(request.getAttribute("mberSeq")));
+		inParam.put("CHECKBOX_PROC_STAT_CD", String.valueOf(inParam.get("PROC_STAT_CD")));
+		
+		try {
+			Map<String, Object> orderList = sellerOrderService.selectListSaleOrd(inParam);
+			PageNavigation pageNav = (PageNavigation) orderList.get("pageNav");
+			int totalCount = ( pageNav.getRowTotal() > 0 ? pageNav.getRowTotal() : 0 );
+			mav.addObject("list", orderList);
+			mav.addObject("totalCount", totalCount);
+			mav.addObject("params", inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return mav;
+	}
+	
+	/**
+	 * 택배사 리스트를 조회한다
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 */
+	@RequestMapping(value=Constant.OM_SELECTLISTDLV, method = RequestMethod.POST)
+	public ModelAndView selectListDlv(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info(Constant.OM_SELECTLISTDLV + " START");
+		ModelAndView mav = new ModelAndView("jsonView2");
+		ModelMap rtn = adminCodeService.selectDlvCompList(inParam);
+		mav.addObject(rtn);
+		return mav;
+	}
+	
+	/**
+	 * 주문 상세를 조회한다
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 */
+	@RequestMapping(value=Constant.OM_SELECTORDERDTL, method = RequestMethod.POST)
+	public ModelAndView selectOrderDtl(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info(Constant.OM_SELECTORDERDTL + " START");
+		ModelAndView mav = new ModelAndView("jsonView2");
+//		inParam.put("mberSeq", String.valueOf(request.getAttribute("mberSeq")));
+//		Map<String, Object> ordDtl = adminOrderService.selectSaleOrdDtl(inParam); 
+//		mav.addObject("orderDetail", ordDtl);
+		
+		inParam.put("MBER_SEQ", String.valueOf(request.getAttribute("mberSeq")));
+		try {
+			Map<String, Object> orderDetail = sellerOrderService.selectSaleOrdDtl(inParam);
+			mav.addObject("orderDetail", orderDetail);
+//			List<Map<String, Object>> selectSaleDetailGroupList =  (List<Map<String, Object>>) orderDetail.get("selectSaleDetailGroupList");
+//			List<Map<String, Object>> selectSaleDetailGroupProductList =  (List<Map<String, Object>>) orderDetail.get("selectSaleDetailGroupProductList");
+//			List<Map<String, Object>> selectSaleDetailProductOptionList =  (List<Map<String, Object>>) orderDetail.get("selectSaleDetailProductOptionList");
+//			if (selectSaleDetailGroupList.size() > 0 || selectSaleDetailGroupProductList.size() > 0 || selectSaleDetailProductOptionList.size() > 0) {
+//				mav.addObject("orderDetail", orderDetail);
+//			} else{
+//				mav.addObject("orderDetail", null);
+//			}
+		} catch (Exception e) {
+			e.printStackTrace();
+			mav.addObject("orderDetail", null);
+		}
+		return mav;
+	}
+	
+	/**
+	 * 주문 상태를 변경한다
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 */
+	@RequestMapping(value=Constant.OM_UPDATEORDERDTL, method = RequestMethod.POST)
+	public ModelAndView updateOrderDtl(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info(Constant.OM_UPDATEORDERDTL + " START");
+		ModelAndView mav = new ModelAndView("jsonView2");
+		return mav;
+	}
+	
+	/**
+	 * 선택 상품에 대해 주문 취소를 한다
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 */
+	@RequestMapping(value=Constant.OM_UPDATEORDCNCL, method = RequestMethod.POST)
+	public ModelAndView updateOrdCncl(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info(Constant.OM_UPDATEORDCNCL + " START");
+		ModelAndView mav = new ModelAndView("jsonView2");
+		return mav;
+	}
+	
+	/**
+	 * 운송장을 등록한다
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 */
+	@RequestMapping(value=Constant.OM_INSERTORDERSHIPPING, method = RequestMethod.POST)
+	public ModelAndView insertOrderShipping(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info(Constant.OM_INSERTORDERSHIPPING + " START");
+		ModelAndView mav = new ModelAndView("jsonView2");
+		return mav;
+	}
+	
+	
+	
+	/**
+	 * 교환/반품 상세 정보(상품배송지)를 수정한다
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 */
+	@RequestMapping(value=Constant.OM_UPDATERFNDDTL, method = RequestMethod.POST)
+	public ModelAndView updateRfndDtl(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info(Constant.OM_UPDATERFNDDTL + " START");
+		ModelAndView mav = new ModelAndView("jsonView2");
+		return mav;
+	}
+	
+	/**
+	 * 교환/반품 완료 처리를 한다
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 */
+	@RequestMapping(value=Constant.OM_INSERTRFNDDTL, method = RequestMethod.POST)
+	public ModelAndView insertRfndDtl(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info(Constant.OM_INSERTRFNDDTL + " START");
+		ModelAndView mav = new ModelAndView("jsonView2");
+		return mav;
+	}
+	
+	/**
+	 * 반품 신청 리스트를 조회한다
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 */
+	@RequestMapping(value=Constant.OM_SELECTLISTRFND, method = RequestMethod.POST)
+	public ModelAndView selectListRfnd(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info(Constant.OM_SELECTLISTRFND + " START");
+		ModelAndView mav = new ModelAndView("jsonView2");
+		
+		inParam.put("MBER_SEQ", String.valueOf(request.getAttribute("mberSeq")));
+		LoggerUtil.writeMap(inParam);
+		try {
+			Map<String, Object> refundList = sellerOrderService.selectListTakeBackOrd(inParam);
+			PageNavigation pageNav = (PageNavigation) refundList.get("pageNav");
+			int totalCount = ( pageNav.getRowTotal() > 0 ? pageNav.getRowTotal() : 0 );
+			mav.addObject("refundList", refundList);
+			mav.addObject("totalCount", totalCount);
+			mav.addObject("params", inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mav;
+	}
+	
+	/**
+	 * 반품 주문 상세를 조회한다
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 */
+	@RequestMapping(value=Constant.OM_SELECTRFNDDTL, method = RequestMethod.POST)
+	public ModelAndView selectRfndDtl(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info(Constant.OM_SELECTRFNDDTL + " START");
+		ModelAndView mav = new ModelAndView("jsonView2");
+		
+		inParam.put("MBER_SEQ", String.valueOf(request.getAttribute("mberSeq")));
+		LoggerUtil.writeMap(inParam);
+		try {
+			Map<String, Object> refundDetail = sellerOrderService.selectTakeBackOrdDtl(inParam);
+			mav.addObject("params", inParam);
+			mav.addObject("list", refundDetail);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mav;
+	}
+	
+	/**
+	 * 주문 취소 리스트를 조회한다
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 */
+	@RequestMapping(value=Constant.OM_SELECTLISTCNCL, method = RequestMethod.POST)
+	public ModelAndView selectListCncl(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info(Constant.OM_SELECTLISTCNCL + " START");
+		ModelAndView mav = new ModelAndView("jsonView2");
+		
+		inParam.put("MBER_SEQ", String.valueOf(request.getAttribute("mberSeq")));
+		LoggerUtil.writeMap(inParam);
+
+		try {
+			Map<String, Object> cancelList = sellerOrderService.selectListCnclOrd(inParam);
+			PageNavigation pageNav = (PageNavigation) cancelList.get("pageNav");
+			int totalCount = ( pageNav.getRowTotal() > 0 ? pageNav.getRowTotal() : 0 );
+			mav.addObject("totalCount", totalCount);
+			mav.addObject("params", inParam);
+			mav.addObject("list", cancelList);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mav;
+	}
+	
+	/**
+	 * 주문 취소 상세를 조회한다
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 */
+	@RequestMapping(value=Constant.OM_SELECTCNCLDTL, method = RequestMethod.POST)
+	public ModelAndView selectCnclDtl(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info(Constant.OM_SELECTCNCLDTL + " START");
+		ModelAndView mav = new ModelAndView("jsonView2");
+		
+		inParam.put("MBER_SEQ", String.valueOf(request.getAttribute("mberSeq")));
+		LoggerUtil.writeMap(inParam);
+
+		try {
+			Map<String, Object> cancelDetail = sellerOrderService.selectCnclDtl(inParam);
+			mav.addObject("params", inParam);
+			mav.addObject("list", cancelDetail);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mav;
+	}
+	
+	/**
+	 * 교환 리스트를 조회한다
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 */
+	@RequestMapping(value=Constant.OM_SELECTLISTEXCORD, method = RequestMethod.POST)
+	public ModelAndView selectListExcOrd(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info(Constant.OM_SELECTLISTEXCORD + " START");
+		ModelAndView mav = new ModelAndView("jsonView2");
+		
+		inParam.put("MBER_SEQ", String.valueOf(request.getAttribute("mberSeq")));
+		LoggerUtil.writeMap(inParam);
+		
+		try {
+			Map<String, Object> listMap = sellerOrderService.selectListExcOrd(inParam);
+			PageNavigation pageNav = (PageNavigation) listMap.get("pageNav");
+			int totalCount = ( pageNav.getRowTotal() > 0 ? pageNav.getRowTotal() : 0 );
+			mav.addObject("totalCount", totalCount);
+			mav.addObject("params", inParam);
+			mav.addObject("list", listMap);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return mav;
+	}
+	
+	/**
+	 * 교환 상세를 조회한다
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 */
+	@RequestMapping(value=Constant.OM_SELECTEXCORDDTL, method = RequestMethod.POST)
+	public ModelAndView selectExcOrdDtl(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info(Constant.OM_SELECTEXCORDDTL + " START");
+		ModelAndView mav = new ModelAndView("jsonView2");
+		
+		inParam.put("MBER_SEQ", String.valueOf(request.getAttribute("mberSeq")));
+		LoggerUtil.writeMap(inParam);
+		try {
+			Map<String, Object> detailMap = sellerOrderService.selectExcOrdDtl(inParam);
+			mav.addObject("params", inParam);
+			mav.addObject("list", detailMap);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mav;
+	}
+}

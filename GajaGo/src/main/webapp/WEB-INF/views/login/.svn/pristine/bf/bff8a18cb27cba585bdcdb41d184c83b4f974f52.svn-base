@@ -1,0 +1,725 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/web/common/cmmnHead.jsp"%>
+<script type="text/javascript" src="/js/web/ctry/ctry.js"/></script>
+<script type="text/javascript" src="/js/web/cart.js" ></script> <!-- 장바구니용 js -->
+<script type="text/javascript">
+var swiper = null;
+$(document).ready(function(){
+	header.method = "GET";
+	
+	if( nvlInt('${inParam.LVL_SEQ}', 1) > 1){
+		var curSlide = nvlInt('${inParam.SWIPER_INDEX}', 0);
+		
+		swiper = new Swiper('.category .swiper-container', {
+			scrollbarHide: true,
+			slidesPerView: 'auto',
+			spaceBetween: 0,
+			freeMode: true,
+			grabCursor: true,
+			initialSlide: curSlide
+		});
+		
+		//console.log(swiper.slides);
+
+		if( swiper.slides != undefined && swiper.slides.length >0 ){
+			
+			$(".swiper-slide").each(function (idx) {
+		         if (idx == curSlide) {
+		            $(this).addClass("active");
+		         }
+		      });
+						
+		}
+	}
+	
+	plan_banner();
+	
+	$(window).scroll(function(){
+		if( $(window).scrollTop() == $(document).height() - $(window).height()){
+			if(prodContainer.isNext == true){
+				$("#CUR_PAGE").val(prodContainer.curPage + 1);
+				getProd();
+			}
+		}
+	});
+	
+	$("input:checkbox[name='CPON_APPLY_PSBL_YN']").click(function(e){
+		if($(this).is(":checked") == true){
+			$(this).val("Y");	
+		}
+		else{
+			$(this).val("");
+		}
+		
+		selectListProd();
+	});
+	
+	$("input:checkbox[name='DLV_PAY_GB_CD']").click(function(e){
+		if($(this).is(":checked") == true){
+			$(this).val("1");	
+		}
+		else{
+			$(this).val("");
+		}
+		
+		selectListProd();
+	});
+	
+	$(".btn_close").on("click", function(e){
+		var orderKind = $("input:radio[name=ORD_KIND]:input[value='${inParam.ORDER_KIND}']").val(); 
+		$("input:radio[name=ORD_KIND]").each(function(index, evt){
+			//console.log(index + " : " + $(this).is(":checked") + " : " + $(this).val());
+			if($(this).val() == orderKind){
+				$(this).prop('checked', true);	
+			}
+			else{
+				$(this).prop('checked', false);
+			}
+		});
+	});
+	
+	if( '${inParam.CPON_APPLY_PSBL_YN}' == 'Y'){
+		$("input:checkbox[name='CPON_APPLY_PSBL_YN']").attr('checked', true).val('Y');
+	}
+	else{
+		$("input:checkbox[name='CPON_APPLY_PSBL_YN']").attr('checked', false).val('');
+	}
+	
+	if( '${inParam.DLV_PAY_GB_CD}' == '1'){
+		$("input:checkbox[name='DLV_PAY_GB_CD']").attr('checked', true).val('1');
+	}
+	else{
+		$("input:checkbox[name='DLV_PAY_GB_CD']").attr('checked', false).val('');
+	}
+
+	$("#LVL_SEQ").val('${inParam.LVL_SEQ }');
+	$("#PROD_TYPE_CD").val('${inParam.PROD_TYPE_CD }');
+	$("#PARENT_CTRY_NM").val(decodeURIComponent('${inParam.PARENT_CTRY_NM }'));
+
+	var isShared = false;
+	//	타이틀 초기화
+	if( $("#LVL_SEQ").val() == '1' && ($("#PROD_TYPE_CD").val() != 2 && $("#PROD_TYPE_CD").val() != '3') ){
+		// alert("111" + $("#PROD_TYPE_CD").val());
+// 		header.type	= 6;
+		header.type	= 4;
+		header.backUrl = "/mobile/main/mainSelectListCtry.do";
+		header.callback = headerCallback; // 장바구니용 callback
+		<c:forEach var="ctry" items="${categories.large}" varStatus="status">
+			if('${inParam.CTRY_CD}'.substring(0, 4) == '${ctry.CTRY_CD}'.substring(0, 4)){
+				header.title = '${ctry.CTRY_NM}';		
+			}
+		</c:forEach>
+	} else if ( $("#PROD_TYPE_CD").val() && $("#PROD_TYPE_CD").val() == '2' ) {
+		// alert("222" + $("#PROD_TYPE_CD").val());
+// 		header.type	= 6;
+		header.type	= 4;
+		header.backUrl = "/mobile/main/mainSelectListCtry.do";
+		header.callback = headerCallback; // 장바구니용 callback
+		header.title = '셰어링';
+		isShared = true;
+		if ($("#LVL_SEQ").val() != 1) {
+			// header.title = '셰어링 - ' + $("#PARENT_CTRY_NM").val();
+		} 
+	} else if ( $("#PROD_TYPE_CD").val() && $("#PROD_TYPE_CD").val() == '3' ) {
+		// alert("333" + $("#PROD_TYPE_CD").val());
+// 		header.type	= 6;
+		header.type	= 4;
+		header.backUrl = "/mobile/main/mainSelectListCtry.do";
+		header.callback = headerCallback; // 장바구니용 callback
+		header.title = '나눔';
+		isShared = true;
+		if ($("#LVL_SEQ").val() != 1) {
+			// header.title = '나눔 - ' + $("#PARENT_CTRY_NM").val();
+		} 
+	}
+	else{
+		//alert("444" + $("#PROD_TYPE_CD").val());
+		header.type	= 2;
+		header.backUrl = "/mobile/ctry/selectListProd.do?LVL_SEQ=1&CTRY_CD=${inParam.CTRY_CD }";
+		<c:forEach var="ctry" items="${categories.medium}" varStatus="status">
+			if('${inParam.CTRY_CD}'.substring(0, 8) == '${ctry.CTRY_CD}'.substring(0, 8)){
+				header.title = '${ctry.CTRY_NM}';		
+			}
+		</c:forEach>
+	}
+	
+	if (isShared ) {
+		$('.fr .styled-select').eq(0).hide();
+	}
+	
+	//	header 초기화
+	initHeader();
+	document.title = header.title;
+	
+	//	CUR_PAGE Initialize
+	if( '${inParam.CUR_PAGE}' == ''){
+		$("#CUR_PAGE").val("1");		
+	}
+	else{
+		$("#CUR_PAGE").val('${inParam.CUR_PAGE }');
+	}
+	
+	//	레이어 팝업 설정
+	initLayerPopup();
+	
+	
+	
+	initProdList();
+	
+	//	쿠폰상품 or 무료배송 세팅
+	if( '${inParam.CPON_APPLY_PSBL_YN}' == 'Y'){
+		$("#id_cpn_prod").removeClass().addClass("btn_sr");
+	}
+	else{
+		$("#id_cpn_prod").removeClass().addClass("btn_sg");
+	}
+	
+	if( '${inParam.DLV_PAY_GB_CD}' == '1'){
+		$("#id_dlv_free").removeClass().addClass("btn_sr");
+	}
+	else{
+		$("#id_dlv_free").removeClass().addClass("btn_sg");
+	}
+	// TOP 버튼
+	btn_top();
+});
+
+function initProdList(){
+	<c:forEach var="prod" items="${prod.prodList}" varStatus="status">
+		//	상품 리스트 container 초기화
+		prodContainer.area = $("#id_prod_area");
+		var product = new Product();
+		product.prodCode = '${prod.PROD_CODE}';
+// 		product.prodNm =  '${fn:replace(prod.PROD_NM, "\'", "\\\'")}';
+		product.prodNm =  '${fn:replace(fn:replace(prod.PROD_NM , "\'", "\\\'"),"\"", "\\\"")}';
+		product.ctryCd = '${prod.CTRY_CD}';
+		product.prodTypeCd = '${prod.PROD_TYPE_CD}';
+		product.imgUrl = '${prod.PROD_IMG_URL}';
+		product.brandNm = '${prod.BRAND_NM}';
+		product.sellPrce = '${prod.SELL_PRCE}';
+		product.nrmPrce = '${prod.NRM_PRCE}';
+		product.sharingPrce = '${prod.SHARING_PRCE}';
+		product.recomYn = '${prod.RECOM_YN}';
+		product.cponApplyPsblYn = '${prod.CPON_APPLY_PSBL_YN}';
+		product.dlvPayGbCd = '${prod.DLV_PAY_GB_CD}';
+		
+		product.dlvWayCd = '${prod.DLV_WAY_CD}';
+		
+		prodContainer.add(product, '<custom:codeTag code="DEFAULT_IMG_URL" groupCode="SITE_DEFAULT" />');
+	</c:forEach>
+	
+	<c:if test="${empty prod.prodList}">
+		//	빈 상품 리스트 container 초기화
+		$("#sha_nodata").show();
+		prodContainer.area = $("#sha_nodata");
+		prodContainer.beanAdd();
+	</c:if>
+	//	paging 처리
+	prodContainer.isNext = ${prod.paging.next};
+	prodContainer.curPage = ${prod.paging.curPage};
+	//이미지 cdn reload
+	cdnreload();
+	imgThombHeightResize();
+}
+
+function initLayerPopup(){
+	var prodTypeCd = '${inParam.PROD_TYPE_CD}'.split(',');
+	//console.log("prodTypeCd : " + prodTypeCd);
+	if( prodTypeCd.length == 4 || prodTypeCd == ''){
+		$("input:checkbox[name='PROD_TYPES']").each(function(){
+			$(this).attr("checked", true);
+		});
+	}
+	else{
+		for(var i=0 ; i<prodTypeCd.length ; i++){
+			$("input:checkbox[id='PROD_TYPE_CD_" + prodTypeCd[i] + "']").attr("checked", true);
+		}
+	}
+	
+	var orderKindNm = "";
+	
+	//	ORDER_KIND Initialize
+	if( '${inParam.ORDER_KIND}' == 'POPULAR'){
+		orderKindNm = "인기순";
+	}
+	else if( '${inParam.ORDER_KIND}' == 'REGIST'){
+		orderKindNm = "최신등록순";
+	}
+	else if( '${inParam.ORDER_KIND}' == 'LOWPRCE'){
+		orderKindNm = "낮은가격순";
+	}
+	else if( '${inParam.ORDER_KIND}' == 'HIGHPRCE'){
+		orderKindNm = "높은가격순";
+	}
+	
+	$("#id_order_kind").text(orderKindNm);
+}
+/**
+ * 
+ * <pre>
+ * 설명 : Item 객체
+ * 설명 : Containter에 들어갈 Item에 대한 구조체
+ * @param id : index
+ * @date 2015. 8. 21. 오후 05:12:47
+ * @author WOOK.KIM
+ * @see
+ * </pre>
+ */ 
+function changeCategory(lvlSeq, ctryCd, swiperIndex){
+	//console.log(lvlSeq + " : " + ctryCd + " : " + swiperIndex);
+	$("#CTRY_CD").val(ctryCd);
+	$("#LVL_SEQ").val(lvlSeq);
+	$("#CUR_PAGE").val("1");
+	$("#SWIPER_INDEX").val(isNull(swiperIndex) ? '' : swiperIndex);
+	
+	if ( swiperIndex == -1) {
+		$("#LVL_SEQ").val(lvlSeq-1);
+	} 
+	
+	var parent_nm =  $("#PARENT_CTRY_NM").val();
+	$("#PARENT_CTRY_NM").val(encodeURIComponent($('select[name=CTRY_CD] option:selected').text()));	
+	
+	if ( parent_nm ) {
+		$("#PARENT_CTRY_NM").val(encodeURIComponent(parent_nm));
+	}
+	
+	console.log($("#PARENT_CTRY_NM").val());
+	console.log(($('select[name=CTRY_CD] option:selected').text()));
+	console.log(decodeURIComponent($("#PARENT_CTRY_NM").val()));
+	
+	// console.log('name : ' + $('select[name=CTRY_CD] option:selected').text());
+	
+	//	전체를 선택했을 시 기존 조건을 초기화 한다.
+	if( ctryCd == ''){
+		$("#CPON_APPLY_PSBL_YN").val("");
+		$("#DLV_PAY_GB_CD").val("");
+		$("input:radio[name='PROD_TYPE_CD']").val("");
+		$("input:radio[name='ORDER_KIND']").val("");
+	}
+	
+	$("#form").attr("action", '/mobile/ctry/selectListProd.do').submit();
+}
+
+/**
+ * 
+ * <pre>
+ * 설명 : Item 객체
+ * 설명 : Containter에 들어갈 Item에 대한 구조체
+ * @param id : index
+ * @date 2015. 8. 21. 오후 03:20:35
+ * @author WOOK.KIM
+ * @see
+ * </pre>
+ */
+function getProd(){
+	$.ajax({
+		type: 'post',
+		async: true, 
+		url: '/mobile/ctry/selectCtryAjax.do', 
+		dataType:'json', 
+		data: {"CTRY_CD":$("#CTRY_CD").val(), 
+			"LVL_SEQ":$("#LVL_SEQ").val(), 
+			"CUR_PAGE":$("#CUR_PAGE").val(),
+			"CPON_APPLY_PSBL_YN":$("#CPON_APPLY_PSBL_YN").val(),
+			"DLV_PAY_GB_CD":$("#DLV_PAY_GB_CD").val(),
+			"PROD_TYPE_CD":$("#PROD_TYPE_CD").val(),
+			"ORDER_KIND":$("#ORDER_KIND").val()
+		},
+		//before: function() {
+	    //   loadingForm.showDialog();
+	    //}, 
+	    success: function(response) {
+	    	//	상품 목록 정보를 세팅한다.
+	    	var prodList = response.data.prodList;
+	    	$.each(prodList, function(index){
+	    		prodContainer.addJson(prodList[index], '<custom:codeTag code="DEFAULT_IMG_URL" groupCode="SITE_DEFAULT" />');
+	    	});
+	    	
+	    	// CDN IMG Reload
+	    	cdnreload();
+	    	imgThombHeightResize();
+	    	//	페이징 정보를 세팅한다.
+	    	prodContainer.isNext = response.data.paging.next;
+	    	prodContainer.curPage = response.data.paging.curPage;
+	    	
+	    	plan_banner();
+		}, 
+		//complete: function() {
+	    //	loadingForm.hideDialog();
+		//}, 
+		error : function(request, status, error) {
+			alert("통신 오류가 발생 하였습니다. 잠시 후 다시 시도해 주세요");
+		}
+	}); 
+}
+
+/**
+ * 
+ * <pre>
+ * 설명 : Item 객체
+ * 설명 : Containter에 들어갈 Item에 대한 구조체
+ * @param flag : 1:쿠폰상품, 2:무료배송, otherwise:없음
+ * @date 2015. 8. 24. 오전 10:37:52
+ * @author WOOK.KIM
+ * @see
+ * </pre>
+ */ 
+function selectListProd(ordKind){
+	var orderKind = isNull(ordKind) == true ? 'POPULAR' : ordKind;
+	
+	$("#CUR_PAGE").val("1");
+
+	var prodTypes = '';
+	$("input:checkbox[name='PROD_TYPES']:checked").each(function(){
+		prodTypes += $(this).val() + ',';
+	});
+	
+	if( prodTypes == ''){
+		alert("상품구분을 하나 이상 선택 하셔야 합니다.");
+		return;
+	}
+	
+	$("#PROD_TYPE_CD").val(prodTypes.substring(0, prodTypes.length - 1));
+
+	$("#ORDER_KIND").val(orderKind);
+	
+	$("#form").attr("action", '/mobile/ctry/selectListProd.do').submit();
+	
+	popup_hide();
+
+}
+
+/**
+ * 
+ * <pre>
+ * 설명 : Item 객체
+ * 설명 : Containter에 들어갈 Item에 대한 구조체
+ * @param id : index
+ * @date 2015. 8. 24. 오후 07:15:00
+ * @author WOOK.KIM
+ * @see
+ * </pre>
+ */
+function selectProd(prodCode){
+	if( prodCode.length < 16){
+		alert("상품 코드 정보가 올바르지 않습니다.");
+		return;
+	}
+	
+ 	location.href = '/mobile/prod/selectProd.do?PROD_CODE=' + prodCode;
+} 
+
+function checkProdTypes(prodTypeCd){
+	var types = new Array();
+	$("input:checkbox[name=PROD_TYPES]:checked").each(function(){
+		types.push($(this).val());
+	});
+	
+	if( prodTypeCd == '0'){
+		var checked = $("input:checkbox[id=PROD_TYPE_CD_0]").is(":checked");
+		$("input:checkbox[name='PROD_TYPES']").prop('checked', checked);
+	}
+	else{
+		//console.log(types);
+		
+		if( types[0] == '0'){
+			if( types.length < 5 ){
+				$("input:checkbox[id=PROD_TYPE_CD_0]").prop("checked", false);
+			}
+		}
+		else{
+			if( types.length == 4){
+				//console.log(types.length);
+				$("input:checkbox[id=PROD_TYPE_CD_0]").prop("checked", true);
+			}
+		}
+	}
+}
+</script>
+
+
+
+<form name="form" id="form" method="get">
+<input type="hidden" id="LVL_SEQ" name="LVL_SEQ" value="${inParam.LVL_SEQ }" />
+<input type="hidden" id="CTRY_CD" name="CTRY_CD" value="${inParam.CTRY_CD }" />
+<input type="hidden" id="PROD_TYPE_CD" name="PROD_TYPE_CD" value="${inParam.PROD_TYPE_CD }" />
+<input type="hidden" id="ORDER_KIND" name="ORDER_KIND" value="${inParam.ORDER_KIND }" />
+<input type="hidden" id="CUR_PAGE" name="CUR_PAGE" value="${inParam.CUR_PAGE }" />
+<input type="hidden" id="SWIPER_INDEX" name="SWIPER_INDEX" value="${inParam.SWIPER_INDEX }" />
+<input type="hidden" id="PARENT_CTRY_NM" name="PARENT_CTRY_NM" value="${inParam.PARENT_CTRY_NM }" />
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+
+		<div class="roc">
+			<ul class="inner">
+				<li><img src="http://static.ssocio.net/pc/img/common/section/roc_home.png" alt="홈"></li>
+				<li>
+					<div class="select">
+						<a href="#">대분류</a>
+						<ul>
+							<li><a href="#">상품구분</a></li>
+							<li><a href="#">상품구분</a></li>
+							<li><a href="#">상품구분</a></li>
+							<li><a href="#">상품구분</a></li>
+							<li><a href="#">상품구분</a></li>
+							<li><a href="#">상품구분</a></li>
+						</ul>
+					</div>
+				</li>
+				<li>
+					<div class="select">
+						<a href="#">중분류</a>
+						<ul>
+							<li><a href="#">상품구분</a></li>
+							<li><a href="#">상품구분</a></li>
+							<li><a href="#">상품구분</a></li>
+							<li><a href="#">상품구분</a></li>
+							<li><a href="#">상품구분</a></li>
+							<li><a href="#">상품구분</a></li>
+							<li><a href="#">상품구분</a></li>
+						</ul>
+					</div>
+				</li>
+			</ul>
+		</div>
+
+		<ul class="minor-list inner mb10">
+			<li>
+				<p><a href="#"><strong>전체 (3,800)</strong></a></p>
+				<p><a href="#">소분류 카테고리 5</a></p>
+			</li>
+			<li>
+				<p><a href="#">소분류 카테고리 5</a></p>
+				<p><a href="#">소분류 카테고리 5</a></p>
+			</li>
+			<li>
+				<p><a href="#">소분류 카테고리 5</a></p>
+				<p><a href="#">소분류 카테고리 5</a></p>
+			</li>
+			<li>
+				<p><a href="#">소분류 카테고리 5</a></p>
+				<p><a href="#">소분류 카테고리 5</a></p>
+			</li>
+			<li>
+				<p><a href="#">소분류 카테고리 5</a></p>
+				<p><a href="#">소분류 카테고리 5</a></p>
+			</li>
+		</ul>
+        
+        <!-- inner -->
+		<div class="inner">
+			<h3 class="tit_cate mb20"><p>스마트폰, 디지털, 자동차용품</p></h3>
+
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+		<div id="container">
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>
+
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+
+	<c:choose>
+		<c:when test="${inParam.LVL_SEQ == '1' && (inParam.PROD_TYPE_CD != '2' && inParam.PROD_TYPE_CD != '3')  }">
+			<p class="pd10 pdl-10">
+				<select id="CTRY_CD" name="CTRY_CD" onchange="javascript:changeCategory(2, this.value);">
+					<option value="" selected>전체</option>
+					<c:forEach var="ctry" items="${categories.medium }" varStatus="status">
+						obj.append('<option value="${ctry.CTRY_CD }">${ctry.CTRY_NM }</option>');	
+					</c:forEach>			
+				</select>
+			</p>
+		</c:when>
+		<c:when test="${inParam.PROD_TYPE_CD == '2' || inParam.PROD_TYPE_CD == '3'  }">
+			<c:choose >
+				<c:when test="${inParam.LVL_SEQ == '1' && inParam.CTRY_CD == '' }">
+					<p class="pd10">
+						<select id="CTRY_CD" name="CTRY_CD" onchange="javascript:changeCategory(2, this.value, -1);">
+							<option value="" selected>전체</option>
+							<c:forEach var="ctry" items="${categories.large }" varStatus="status">
+								obj.append('<option value="${ctry.CTRY_CD }">${ctry.CTRY_NM }</option>');	
+							</c:forEach>			
+						</select>
+					</p>
+				</c:when>
+				<c:when test="${(inParam.LVL_SEQ == '1' or inParam.LVL_SEQ == '2') and inParam.CTRY_CD != '' and categories.small == null }">
+					<p class="pd10">
+						<select id="CTRY_CD" name="CTRY_CD" onchange="javascript:changeCategory(2, this.value);">
+							<option value="" selected>전체</option>
+							<c:forEach var="ctry" items="${categories.medium }" varStatus="status">
+								obj.append('<option value="${ctry.CTRY_CD }">${ctry.CTRY_NM }</option>');	
+							</c:forEach>			
+						</select>
+					</p>
+				</c:when>
+				<c:when test="${ ( inParam.LVL_SEQ == '2' or inParam.LVL_SEQ == '3' )  }">
+					<section class="category">
+						<div class="swiper-container">
+							<ul class="swiper-wrapper">
+								<li class="swiper-slide">
+									<a href="#" onclick="javascript:changeCategory(2, '${inParam.CTRY_CD }', 0);">전체</a>
+								</li>
+								<c:forEach var="ctry" items="${categories.small }" varStatus="status">
+									<c:choose>
+										<c:when test="${inParam.CTRY_CD == ctry.CTRY_CD}">
+											<li class="swiper-slide swiper-slide-active">
+												<a href="#" onclick="javascript:changeCategory(3, '${ctry.CTRY_CD}', '${status.index + 1}');">${ctry.CTRY_NM}</a>
+											</li>
+										</c:when>
+										<c:otherwise>
+											<li class="swiper-slide">
+												<a href="#" onclick="javascript:changeCategory(3, '${ctry.CTRY_CD}', '${status.index + 1}');">${ctry.CTRY_NM}</a>
+											</li>
+										</c:otherwise>
+									</c:choose>
+								</c:forEach>
+							</ul>
+						</div>
+					</section>
+				</c:when>
+			</c:choose>
+		</c:when>
+ 		<c:otherwise>
+			<section class="category">
+				<div class="swiper-container">
+					<ul class="swiper-wrapper">
+						<li class="swiper-slide">
+							<a href="#" onclick="javascript:changeCategory(2, '${inParam.CTRY_CD }', 0);">전체</a>
+						</li>
+						<c:forEach var="ctry" items="${categories.small }" varStatus="status">
+							<c:choose>
+								<c:when test="${inParam.CTRY_CD == ctry.CTRY_CD}">
+									<li class="swiper-slide swiper-slide-active">
+										<a href="#" onclick="javascript:changeCategory(3, '${ctry.CTRY_CD}', '${status.index + 1}');">${ctry.CTRY_NM}</a>
+									</li>
+								</c:when>
+								<c:otherwise>
+									<li class="swiper-slide">
+										<a href="#" onclick="javascript:changeCategory(3, '${ctry.CTRY_CD}', '${status.index + 1}');">${ctry.CTRY_NM}</a>
+									</li>
+								</c:otherwise>
+							</c:choose>
+						</c:forEach>
+					</ul>
+				</div>
+			</section>
+		</c:otherwise>
+	</c:choose>	
+
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>
+
+
+	<div class="content">
+		<div class="clear h50">
+			<p class="fl btn_selt">
+				<input type="checkbox" name="CPON_APPLY_PSBL_YN" id="CPON_APPLY_PSBL_YN" value="Y"><label for="CPON_APPLY_PSBL_YN">쿠폰상품</label>
+				<input type="checkbox" name="DLV_PAY_GB_CD" id="DLV_PAY_GB_CD" value="1"><label for="DLV_PAY_GB_CD">무료배송</label>
+			</p>
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+
+	     <div class="right sel">
+	         <div class="select">
+	             <a href="#">상품구분</a>
+				<ul class="select">
+					<c:forEach var="prodType" items="${prod.prodTypeList }" varStatus="status">
+						<li>
+							<input type="checkbox" id="PROD_TYPE_CD_${prodType.PROD_TYPE_CD }" name="PROD_TYPES" value="${prodType.PROD_TYPE_CD }" onclick="javascript:checkProdTypes(this.value);"> 
+							<label for="PROD_TYPE_CD_${prodType.PROD_TYPE_CD }">${prodType.PROD_TYPE_NM } (${prodType.PROD_TYPE_CNT })</label>
+						</li>
+					</c:forEach>
+					<li><a href="javascript:selectListProd();" class="btn_r">선택</a></li>
+				</ul>
+	         </div>
+	         <div class="select">
+	             <a href="#" id="id_order_kind">인기순</a>
+				<ul class="select">
+					<li><a href="javascript:selectListProd('POPULAR');">인기순</a></li>
+					<li><a href="javascript:selectListProd('REGIST');">최신 등록순</a></li>
+					<li><a href="javascript:selectListProd('LOWPRCE');">낮은 가격순</a></li>
+					<li><a href="javascript:selectListProd('HIGHPRCE');">높은 가격순</a></li>    
+				</ul>
+	         </div>
+	     </div>
+
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+
+			<div class="fr">
+				<div class="styled-select"><a href="javascript:$('.product').show();popup_show();"><strong>상품구분</strong></a></div>
+				<div class="styled-select"><a href="javascript:$('.public').show();popup_show();"><strong id="id_order_kind">인기순</strong></a></div>
+			</div>
+
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>
+
+
+
+		</div>
+		<section class="plan_banner">
+			<ul id="id_prod_area" class="type-side">
+			</ul>
+		</section>
+		<div class="sha_nodata" id="sha_nodata" style="display:none;">
+		</div>
+	</div>
+
+</div>
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+
+		<div class="popup product">
+			<p class="title"><strong>상품구분</strong></p>
+		    <ul class="select">
+		    	<c:forEach var="prodType" items="${prod.prodTypeList }" varStatus="status">
+		    		<li>
+		    			<input type="checkbox" id="PROD_TYPE_CD_${prodType.PROD_TYPE_CD }" name="PROD_TYPES" value="${prodType.PROD_TYPE_CD }" onclick="javascript:checkProdTypes(this.value);"> 
+		    			<label for="PROD_TYPE_CD_${prodType.PROD_TYPE_CD }">${prodType.PROD_TYPE_NM } (${prodType.PROD_TYPE_CNT })</label>
+		    		</li>
+		    	</c:forEach>
+		    </ul>
+		    <div class="bot_btn"><a href="javascript:selectListProd();" class="btn_r">선택</a></div>
+		</div>
+		
+		<div class="popup public">
+			<p class="title"><strong>정렬</strong></p>
+		    <ul class="select">
+				<li onclick="javascript:selectListProd('POPULAR');"><span>인기순</span></li>
+				<li onclick="javascript:selectListProd('REGIST');"><span>최신 등록순</span></li>
+				<li onclick="javascript:selectListProd('LOWPRCE');"><span>낮은 가격순</span></li>
+				<li onclick="javascript:selectListProd('HIGHPRCE');"><span>높은 가격순</span></li>    
+		    </ul>
+		</div>
+
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>
+
+
+
+</form>
+

@@ -1,0 +1,70 @@
+package com.ssocio.openmarket.api.controller;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.servlet.ModelAndView;
+
+import com.ssocio.openmarket.common.Constant;
+import com.ssocio.openmarket.common.Util;
+import com.ssocio.sharing.service.admin.AdminBrandService;
+
+@Controller
+public class OMBrandController {
+	private static final Logger logger = LoggerFactory.getLogger(OMBrandController.class);
+
+	@Autowired
+	private AdminBrandService adminBrandService;
+
+	/**
+	 * 브랜드 리스트 조회
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 */
+	@RequestMapping(value=Constant.OM_SELECTBRANDLIST, method = RequestMethod.POST)
+	public ModelAndView selectBrandList(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info(Constant.OM_SELECTBRANDLIST + " START");
+		inParam.put("mberSeq", String.valueOf(request.getAttribute("mberSeq")));
+		logger.info("### inParam ###");
+		logger.info(String.valueOf(inParam));
+		
+		ModelAndView mav = new ModelAndView("jsonView2");
+		// Required Param check
+		String[] parameters = { "mberSeq" };
+		String checkParam = Util.checkRequiredParameters(parameters, inParam);
+		if ( checkParam != null || (inParam.get("searchBrandNm") == null && inParam.get("searchCtryCd") == null && inParam.get("searchBrandCode") == null) ) {
+			response.setStatus( HttpServletResponse.SC_OK);
+			Map<String, String> error = new HashMap<String, String>();
+			error.put("code", "412");
+			error.put("msg", "필수값 체크가 필요합니다. : " );
+			error.put("api", Constant.OM_SELECTPRODLIST );
+			mav.addObject("error", error);
+			return mav;
+		}
+		try {
+			mav.addObject("brandList", adminBrandService.selectBrandList(inParam).get("brandList"));
+		} catch (Exception e) {
+			e.printStackTrace();
+			response.setStatus( HttpServletResponse.SC_OK);
+			Map<String, String> error = new HashMap<String, String>();
+			error.put("code", "500");
+			error.put("msg", "Internal Server Error");
+			mav.addObject("error", error);
+			return mav;
+		}
+		return mav;
+	}
+}

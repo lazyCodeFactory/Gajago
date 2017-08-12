@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="adminPayPlanMapper">
+    
+    
+  <select id="selectListTelMenu" resultType="HashMap">
+      SELECT * FROM SP_TELCOM WHERE USE_YN = 'Y'
+  </select>
+  
+	<select id="selectListPayPlan" resultType="HashMap">
+	    SELECT S.*, (SELECT TELCOM_NM FROM SP_TELCOM WHERE TELCOM_CODE = #{TEL_CODE}) as TEL_NM
+	    FROM SP_PAYPLAN S
+	    WHERE S.TELCOM_CODE = #{TEL_CODE}
+	    ORDER BY CAST(S.SHOW_SEQ AS NUMBER) ASC
+	</select>
+
+	<insert id="insertTelPayInfo">
+		INSERT INTO SP_PAYPLAN(
+				PAYPLAN_CODE
+				, TELCOM_CODE
+				, PAYPLAN_NM
+				, SHOW_SEQ
+				, SHOW_YN
+				, MONTH_PRICE
+				, TELCOM_PAYPLAN_CODE
+				, REGIST_DT
+			  )VALUES(
+				(SELECT NVL(MAX(PAYPLAN_CODE),0)+1 FROM SP_PAYPLAN)
+				,#{REG_TEL_CODE}
+				,#{REG_PLAN_NM}
+				,(SELECT NVL(MAX(SHOW_SEQ),0)+1 FROM SP_PAYPLAN WHERE TELCOM_CODE = #{REG_TEL_CODE})
+				,'Y'
+				,#{REG_MONTH_PRICE}
+				,#{REG_TEL_PLAN_CODE}
+				,SYSDATE
+			  )
+	</insert>
+	
+	<update id="updateTelPayInfoReg">
+	    UPDATE SP_PAYPLAN
+	       SET TELCOM_CODE  = #{MOD_TEL_CODE}
+	       	   ,PAYPLAN_NM  = #{MOD_PLAN_NM}
+	       	   ,SHOW_YN     = #{USE_YN}
+	       	   ,MONTH_PRICE = #{MOD_MONTH_PRICE}
+	       	   ,TELCOM_PAYPLAN_CODE = #{MOD_TEL_PLAN_CODE}
+	       	   ,REGIST_DT   = SYSDATE
+	    where PAYPLAN_CODE = #{PAYPLAN_CODE}
+	</update>
+	
+	
+	<update id="updateSortSeq">
+	    UPDATE SP_PAYPLAN
+		   SET SHOW_SEQ = #{I_SORT}
+		 WHERE PAYPLAN_CODE = #{I_PAYPLAN_CODE}
+	</update>
+	
+	<delete id="deletePayplaninfo">
+	    DELETE FROM SP_PAYPLAN 
+	    WHERE PAYPLAN_CODE = #{PAYPLAN_CODE} AND TELCOM_CODE = #{MOD_TEL_CODE}
+	</delete>
+	
+ </mapper>

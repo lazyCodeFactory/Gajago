@@ -1,0 +1,425 @@
+package com.ssocio.sharing.service.web;
+
+import java.io.Reader;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import javax.annotation.Resource;
+
+import net.sf.json.JSONArray;
+import oracle.sql.CLOB;
+
+import org.json.simple.JSONObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.ui.ModelMap;
+
+import com.ssocio.sharing.cmmn.admin.util.CommonUtil;
+import com.ssocio.sharing.cmmn.util.StringUtil;
+import com.ssocio.sharing.dao.web.MobileMyActDao;
+import com.ssocio.sharing.vo.web.WebSession;
+
+@Service
+public class MobileMyActServiceImpl implements MobileMyActService {
+	
+	private static final Logger logger = LoggerFactory.getLogger(MobileMyActServiceImpl.class);
+	
+	@Resource(name="mobileMyActDao")
+	private MobileMyActDao mobileMyActDao;
+	
+	/**   
+	 * 승인여부 정보조회
+	 */
+	@Override
+	public ModelMap getMyAuthYnInfo(Map<String, Object> inParam, WebSession user){
+		ModelMap mm = new ModelMap();
+		inParam.put("MBER_SEQ", user.getMBER_SEQ());
+		try {
+			Map<String, Object> myAuthYnInfo = mobileMyActDao.getMyAuthYnInfo(inParam);
+			String mberEmail = myAuthYnInfo.get("MBER_EMAIL")==null?"":myAuthYnInfo.get("MBER_EMAIL").toString();
+			String mberNm = myAuthYnInfo.get("MBER_NM")==null?"":myAuthYnInfo.get("MBER_NM").toString();
+			logger.debug("### mberEmail	:"+mberEmail);
+			logger.debug("### mberNm	:"+mberNm);
+			String mberPhone = myAuthYnInfo.get("MBER_PHONE")==null?"":myAuthYnInfo.get("MBER_PHONE").toString();
+			logger.debug("### mberPhone	:"+mberPhone);
+			//String mberPhone = myAuthYnInfo.get("MBER_PHONE").toString();
+			// 핸드폰번호로 본인여부을 알수없다.(왜냐면 핸드폰 변경으로 핸드폰 번호을 등록할수 있기 때문)
+			// 승인여부체크
+			if(mberNm.length()<1){
+				mberNm = mberEmail;
+			}
+			mm.put("mberNm", mberNm);
+		}catch (Exception e) {
+			throw e;
+		}
+		return mm;
+	}
+	/**   
+	 * 1.상품후기(조회)
+	 */
+	@Override
+	public ModelMap getMyActAfterList(Map<String, Object> inParam, WebSession user){
+		ModelMap mm = new ModelMap();
+		inParam.put("MBER_SEQ", user.getMBER_SEQ());
+		try {
+			List<Map<String, Object>> countList = null;
+			countList = mobileMyActDao.getMyActAfterList(inParam);
+			mm.put("resultList", clobToString(countList)); 
+			mm.put("resultListCnt", countList.size());
+		}catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+	/**   
+	 * 2.이벤트참여(조회)
+	 */
+	@Override
+	public ModelMap getMyActEventList(Map<String, Object> inParam, WebSession user){
+		ModelMap mm = new ModelMap();
+		inParam.put("MBER_SEQ", user.getMBER_SEQ());
+		try {
+			List<Map<String, Object>> countList = null;
+			countList = mobileMyActDao.getMyActEventList(inParam);
+			mm.put("resultList", clobToString(countList)); 
+			mm.put("resultListCnt", countList.size());
+		}catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+	/**   
+	 * 3.상품문의(조회)
+	 */
+	@Override
+	public ModelMap getMyActQuesList(Map<String, Object> inParam, WebSession user){
+		ModelMap mm = new ModelMap();
+		inParam.put("MBER_SEQ", user.getMBER_SEQ());
+		try {
+			List<Map<String, Object>> countList = null;
+			countList = mobileMyActDao.getMyActQuesList(inParam);
+			mm.put("resultList", clobToString(countList)); 
+			mm.put("resultListCnt", countList.size());
+		}catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+	
+	/**   
+	 * 나의활동 > 상품문의 72
+	 * 		- 상세조회 화면으로 이동
+	 */
+	@Override
+	public ModelMap getProdAnsView(Map<String, Object> inParam, WebSession user){
+		ModelMap mm = new ModelMap();
+		int mberSeq = user.getMBER_SEQ();
+		logger.debug("mberSeq:"+mberSeq);
+		inParam.put("MBER_SEQ", mberSeq);
+		inParam.put("BOARD_TYPE_CD", "72");	// 상품문의
+		try {
+			Map<String, Object> orgS = mobileMyActDao.getProdAnsView(inParam);
+			mm.put("myActInfo", orgS);
+			if(orgS.get("CONTENTS")!=null){
+				// 내용
+				CLOB clobCONTENTS = (CLOB) orgS.get("CONTENTS");
+				logger.debug("[getProdAnsView]clobCONTENTS:"+clobCONTENTS);
+				mm.put("resultContent", clobToStr(clobCONTENTS));
+			}
+			if(orgS.get("ANS_CONTENTS")!=null){
+				// 답변내용
+				CLOB clobANSCONTENTS = (CLOB) orgS.get("ANS_CONTENTS");
+				logger.debug("[getProdAnsView]clobANSCONTENTS:"+clobANSCONTENTS);
+				mm.put("resultAnsContent", clobToStr(clobANSCONTENTS));
+			}
+			
+			// 상품문의 건수을 업데이트한다.  VIEW_CNT
+			String sViewCnt = orgS.get("VIEW_CNT")==null?"0":orgS.get("VIEW_CNT").toString();
+			int viewCnt = Integer.parseInt(sViewCnt);
+			viewCnt = viewCnt + 1 ;
+			logger.debug("sViewCnt:"+sViewCnt+" , [before] viewCnt:"+viewCnt+" , [after] viewCnt:"+viewCnt);
+			inParam.put("VIEW_CNT", viewCnt);
+			int updateStatus = mobileMyActDao.updateBoardViewCnt(inParam);
+			logger.debug("### updateStatus:"+updateStatus);
+		}catch (Exception e) {
+			//throw e;
+			e.printStackTrace();
+		}
+		return mm;
+	}
+	/**   
+	 * 나의활동 > 3.상품문의 > 상세화면 > 수정처리
+	 * 		- [상품문의]수정처리
+	 */
+	@Override
+	public ModelMap updateProdAnsProcess(Map<String, Object> inParam, WebSession user){
+		ModelMap mm = new ModelMap();
+		int mberSeq = user.getMBER_SEQ();
+		logger.debug("mberSeq:"+mberSeq);
+		inParam.put("MBER_SEQ", mberSeq);
+		Integer adrStatus = 0;
+		String msg = "";
+		try {
+			adrStatus = mobileMyActDao.updateProdAnsProcess(inParam);
+			logger.debug("adrStatus:"+adrStatus);
+			if(adrStatus == null){
+				msg = "상품문의 정보가 변경되었습니다.";
+			}
+			mm.put("msg", msg);
+		}catch (Exception e) {
+			//throw e;
+			e.printStackTrace();
+		}
+		return mm;
+	}
+	/**   
+	 * 4. 1:1문의(조회)
+	 */
+	@Override
+	public ModelMap getMyActOneList(Map<String, Object> inParam, WebSession user){
+		ModelMap mm = new ModelMap();
+		inParam.put("MBER_SEQ", user.getMBER_SEQ());
+		try {
+			List<Map<String, Object>> countList = null;
+			countList = mobileMyActDao.getMyActOneList(inParam);
+			mm.put("resultList", clobToString(countList)); 
+			mm.put("resultListCnt", countList.size());
+		}catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+	
+	/**   
+	 * 나의활동 > 4. 1:1문의 
+	 * 		- 상세조회 화면으로 이동
+	 */
+	@Override
+	public ModelMap getProdQnaView(Map<String, Object> inParam, WebSession user){
+		ModelMap mm = new ModelMap();
+		int mberSeq = user.getMBER_SEQ();
+		logger.debug("mberSeq:"+mberSeq);
+		inParam.put("MBER_SEQ", mberSeq);
+		
+		// 1:1 문의는 30이 아니라 40임. 
+		inParam.put("BOARD_TYPE_CD", "40");	// 1:1문의
+		try {
+			Map<String, Object> orgS = mobileMyActDao.getProdQnaView(inParam);
+			mm.put("myActInfo", orgS);
+			// 내용
+			CLOB clobCONTENTS = (CLOB) orgS.get("CONTENTS");
+			mm.put("resultContent", clobToStr(clobCONTENTS));
+			// 답변내용
+			CLOB clobANSCONTENTS = (CLOB) orgS.get("ANS_CONTENTS");			
+			mm.put("resultAnsContent", clobToStr(clobANSCONTENTS));
+			String sViewCnt = orgS.get("VIEW_CNT")==null?"0":orgS.get("VIEW_CNT").toString();
+			int viewCnt = Integer.parseInt(sViewCnt);
+			viewCnt = viewCnt + 1 ;
+			logger.debug("ORG VIEW_CNT:"+orgS.get("VIEW_CNT")+" , sViewCnt:"+sViewCnt+" , [before] viewCnt:"+viewCnt+" , [after] viewCnt:"+viewCnt);
+			inParam.put("VIEW_CNT", viewCnt);
+			// 1:1문의 건수을 업데이트한다.  VIEW_CNT
+			int updateStatus = mobileMyActDao.updateBoardViewCnt(inParam);
+			logger.debug("### updateStatus:"+updateStatus);
+		}catch (Exception e) {
+			//throw e;
+			e.printStackTrace();
+		}
+		return mm;
+	}
+	
+	/**
+	  *  List<Map<String, Object>>에 담긴 Clob를  json로 추출하여 String형태로 변환해서 Map를 Return.
+	  *  @param   map        Data
+	  *  @param   arryKey    CLOB key
+	  *  @return   List<Map<String, Object>>
+	  */
+	public static List<Map<String, Object>> clobToString(List<Map<String, Object>> countList) throws Exception{
+		JSONObject jsonObj = new JSONObject() ;
+		JSONObject jsonSubObj = new JSONObject() ;
+		JSONArray jsonArr = new JSONArray();
+		for(Map<String,Object> m : countList){
+			Set<String> key = m.keySet();
+			//logger.debug("### key	:"+key	+" >>>>");
+			jsonSubObj = new JSONObject();
+			for(Iterator<String> iterator = key.iterator(); iterator.hasNext();){
+				String k = (String) iterator.next();
+				//logger.debug("### k	:"+k	+" >>>>");
+				String val = "";
+				if(("CONTENTS".equals(k))||("ANS_CONTENTS".equals(k))){						
+					// 내용
+					CLOB clobANSCONTENTS = (CLOB) m.get(k);
+					if(clobANSCONTENTS!=null){
+						Reader readerANSCONTENTS = clobANSCONTENTS.getCharacterStream();
+						StringBuffer outANSCONTENTS = new StringBuffer();
+						char[] buffANSCONTENTS = new char[1024];
+						int ncharsANS = 0;
+						while ((ncharsANS = readerANSCONTENTS.read(buffANSCONTENTS)) > 0) {
+							outANSCONTENTS.append(buffANSCONTENTS, 0, ncharsANS);
+						}
+						val = outANSCONTENTS.toString();
+						if(val.length() > 16){
+							val = val.substring(0, 16)+"...";
+						}
+					}else{
+						val = "";
+					}
+				}else{
+					val = String.valueOf(m.get(k));
+				}
+				jsonSubObj.put(k,val);
+			}
+			jsonArr.add(jsonSubObj);
+		}
+		return jsonArr;
+	}
+	/**
+	  *  Clob를  추출하여 String형태로 변환 Return.
+	  *  @param   map        Data
+	  *  @param   arryKey    CLOB key
+	  *  @return   List<Map<String, Object>>
+	  */
+	public static String clobToStr(CLOB clobCONTENTS) throws Exception{
+		logger.debug("[clobToStr] clobCONTENTS:"+clobCONTENTS);
+		if(clobCONTENTS!=null){
+			Reader readerCONTENTS = clobCONTENTS.getCharacterStream();
+			StringBuffer outCONTENTS = new StringBuffer();
+			char[] buffCONTENTS = new char[1024];
+			int nchars = 0;
+			while ((nchars = readerCONTENTS.read(buffCONTENTS)) > 0) {
+				outCONTENTS.append(buffCONTENTS, 0, nchars);
+			}
+			return outCONTENTS.toString();
+		}else{
+			return "";
+		}
+		
+	}
+	@Override
+	public Map<String, Object> updateQnaInfo(Map<String, Object> inParam,
+			WebSession user) {
+		Map<String, Object>  resultData = new HashMap<String,Object>();
+		inParam.put("MBER_SEQ", user.getMBER_SEQ());
+		resultData = mobileMyActDao.updateQnaInfo(inParam);
+		
+		String user_phone  = (resultData.get("TEL")==null)?"":(String) resultData.get("TEL");
+		String first_phone = "";
+		String second_phone = "";
+		String third_phone = "";
+		logger.debug(user_phone);
+		
+		if(user_phone.length() > 10){
+			first_phone = user_phone.substring(0, 3);
+			second_phone = user_phone.substring(3, 7);
+			third_phone = user_phone.substring(7);
+		
+		}else if(user_phone.length() > 6){
+			first_phone = user_phone.substring(0, 3);
+			second_phone = user_phone.substring(3, 6);
+			third_phone = user_phone.substring(6);
+		}else{
+			first_phone = "010";
+			second_phone = "";
+			third_phone = "";
+		}
+		
+		logger.debug("first_phone : " + first_phone);
+		logger.debug("second_phone : " + second_phone);
+		logger.debug("third_phone : " + third_phone);
+		
+		resultData.put("FIRST_PHONE", first_phone);
+		resultData.put("SECOND_PHONE", second_phone);
+		resultData.put("THIRD_PHONE", third_phone);
+		
+		return resultData;
+	}
+	/**
+	 * <pre>
+	 * 1:1 문의 등록 수정 하기 
+	 * 1:1 문의 등록 수정 하기 
+	 * @param inParam
+	 * @param user
+	 * @return
+	 * @exception
+	 * @date 2015. 9. 29. 오후 11:31:39
+	 * @author LeeJinSe
+	 * @see com.ssocio.sharing.service.web.MobileMyActService#updateQnaInfoReg(java.util.Map, com.ssocio.sharing.vo.web.WebSession)
+	 * @비고
+	 * 
+	 * </pre>
+	*/
+	@Override
+	public int updateQnaInfoReg(Map<String, Object> inParam, WebSession user) {
+		inParam.put("MBER_SEQ", user.getMBER_SEQ());
+		String first_phone= (String) inParam.get("FIRST_PHONE");
+		String second_phone= (String) inParam.get("SECOND_PHONE");
+		String third_phone= (String) inParam.get("THIRD_PHONE");
+		
+		String sum_phone_number = first_phone+second_phone+third_phone;
+		inParam.put("TEL", sum_phone_number);
+		return mobileMyActDao.updateQnaInfoReg(inParam);
+	}
+	
+	
+	/**
+	 * <pre>
+	 * 나의 이벤트 응모 상세 화면  
+	 * 나의 이벤트 응모 상세 화면 
+	 * @param inParam
+	 * @param user
+	 * @return
+	 * @date 2015. 11. 6. 오전 2:50:55
+	 * @author S.B.LEE
+	 * @throws Exception 
+	 * @see @see com.ssocio.sharing.service.web.MobileMyActService#selectMyEvtDtl(java.util.Map, com.ssocio.sharing.vo.web.WebSession)
+	 * </pre>
+	 */
+	@Override
+	public Map<String, Object> selectMyEvtDtl(Map<String, Object> inParam,
+			WebSession user) throws Exception {
+		inParam.put("MBER_SEQ", user.getMBER_SEQ());
+		String[] arryKey = {"MOBILE_COMMENT"};
+		return CommonUtil.clobToString(mobileMyActDao.selectMyEvtDtl(inParam),arryKey);
+	}
+	@Override
+	public ModelMap deleteprodQna(Map<String, Object> inParam, WebSession user)
+			throws Exception {
+		ModelMap mm = new ModelMap();
+		int Cnt = mobileMyActDao.selectChkdel(inParam);
+		int confChk = mobileMyActDao.selectChkConf(inParam);
+		
+			//삭제후 historyback 후 삭제 클릭시 체크후 삭제.
+			if(Cnt > 0){
+				mm.put("chk", 1);
+				mm.put("msg", "이미 삭제된 문의건입니다.");
+			}else{
+				if(confChk > 0){
+					mm.put("chk", 2);
+					mm.put("msg", "답변이 등록된 문의건입니다.");
+				}else{
+					Cnt = mobileMyActDao.deleteprodQna(inParam);
+					if(Cnt > 0 ){
+						mm.put("chk", 0000);
+						mm.put("msg", "정상적으로 삭제되었습니다.");
+					}else{
+						mm.put("chk", 9999);
+						mm.put("msg", "해당 문의삭제를 실패하엿습니다.");
+					}
+				}
+				
+			}
+			
+		return mm;
+	}
+	@Override
+	public ModelMap selectChkdel(Map<String, Object> inParam, WebSession user)
+			throws Exception {
+		ModelMap mm = new ModelMap();
+		mm.put("delChk", mobileMyActDao.selectChkdel(inParam));
+		mm.put("confChk", mobileMyActDao.selectChkConf(inParam));
+		return mm;
+	}
+}

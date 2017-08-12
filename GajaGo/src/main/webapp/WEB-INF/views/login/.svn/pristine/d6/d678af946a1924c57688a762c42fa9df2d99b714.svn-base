@@ -1,0 +1,192 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="mobileNoAuthPayment">
+
+	<select id="selectCardCompNm" parameterType="String" resultType="String">
+		SELECT COM_CD_NM FROM CODE
+		 WHERE grp_cd = 'CARD_GB_CD'
+		   AND com_cd = #{com_cd}
+	</select>
+	
+	<insert id="insertPaymentInfo" parameterType="HashMap">
+	/*
+		결제 전, BILL_KEY 와 REG_SEQ 를 선 INSERT
+	*/
+		INSERT INTO TEST_ORD_INFO
+		(
+			BILL_KEY
+			, REG_SEQ
+			, AMOUNT
+			, INPUT_DATA
+			, REGIST_DT
+			, UPDATE_DT
+		)
+		VALUES
+		{
+			#{BILL_KEY} 
+			, TO_CHAR(SYSDATE, 'YYYYMMDD')||LPAD(SEQ_FILE_INFO.NEXTVAL,8,0)
+			, #{AMOUNT}
+			, #{INPUT_DATA}
+			, SYSDATE
+			, SYSDATE 
+		}
+	</insert>
+	   	
+	<update id="updatePaymentInfo" parameterType="HashMap">
+	/*
+		결제 후, 결제 완료 데이터들을 UPDATE
+	*/
+		UPDATE  TEST_ORD_INFO
+		   SET  TID 			= #{TID}
+			 	, RET_CD 		= #{RET_CD}
+			 	, RET_MSG 		= #{RET_MSG}
+			 	, OUTPUT_DATA 	= #{OUTPUT_DATA}
+			 	, UPDATE_DT 	= #{UPDATE_DT}
+		 WHERE 	BILL_KEY 		= #{BILL_KEY}
+		   AND 	REG_SEQ 		= #{REG_SEQ}
+	</update>
+	
+	
+	<insert id="insertSetlInfo" parameterType="HashMap">
+		INSERT INTO ORD_SETL_INFO( ORD_CD			<!-- 주문코드  -->
+							, REG_SEQ				<!-- 등록일련번호  -->
+							, TRD_GB_CD				<!-- 거래구분코드  -->
+							, TRD_NO				<!-- 거래번호  -->
+							, TRD_AMT				<!-- 거래금액  -->
+							, APPR_DT				<!-- 승인일시 (신용카드 전용)  -->
+							, APPR_NO				<!-- 승인번호 (신용카드 전용) -->
+							, FREE_INT_YN			<!-- 무이자여부 -->
+							, EASY_TERM				<!-- 할부개월수 -->
+							, RLT_CD				<!-- 결과코드  -->
+							, RLT_MSG				<!-- 결과메시지  -->
+							, SETL_NM				<!-- 결제자  -->
+							, CARD_COMP_NM			<!-- 결제카드명 (신용카드 전용)  -->
+							, CARD_NO				<!-- 결제카드번호 (신용카드 전용)  -->
+							, PAY_APPLY_DAY			<!-- 결제일  -->
+							, INPUT_DATA			<!--   -->
+							, OUTPUT_DATA			<!--   -->
+							, RESERVE_ORD_NO		<!-- 주문 예약 번호 (페이코 전용) -->
+							, ORD_NO				<!-- 주문 번호 (페이코 전용) -->
+							, ORD_CER_KEY			<!-- 주문 인증 키 (페이코 전용) -->
+							, BILL_KEY				<!-- 배치 키 (정기결제 전용)  -->
+							, BANK_CD				<!-- 은행 코드 [2015-11-04 추가] -->
+							, CARRIER				<!-- 통신사 [2015-11-04 추가] -->
+							, DSTADDR				<!-- 결제 전화번호 [2015-11-04 추가] -->
+							, REGIST_DT				<!-- 등록일시  -->
+							, UPDT_DT				<!-- 수정일시  -->
+		)VALUES ( #{ordCd}
+				, (SELECT NVL(MAX(REG_SEQ), 0) + 1 FROM ORD_SETL_INFO WHERE ORD_CD = #{ordCd})
+				, #{trdGbCd}
+				, #{trdNo}
+				, #{trdAmt}
+				, #{apprDt}
+				, #{apprNo}
+				, #{freeIntYn}
+				, #{easyTerm}
+				, #{rltCd}
+				, #{rltMsg}
+				, #{seltNm}
+				, #{cardCompNm}
+				, #{cardNo}
+				, #{payApplyDay}
+				, #{inputData}
+				, #{outputData}
+				, #{reserveOrdNo}
+				, #{ordNo}
+				, #{ordCerKey}
+				, #{billKey}
+				, #{bankCd}				<!-- 은행 코드 [2015-11-04 추가] -->
+				, #{carrier}				<!-- 통신사 [2015-11-04 추가] -->
+				, #{dstAddr}				<!-- 결제 전화번호 [2015-11-04 추가] -->
+				, SYSDATE
+				, SYSDATE
+		)	
+	
+	
+	</insert>
+
+
+	<select id="selectOrdInfo" parameterType="String" resultType="HashMap">
+	/* 주문정보 가져오기 */
+		SELECT 	* FROM ORD_INFO
+		 WHERE 	ORD_CD = #{ORD_CD}
+	</select>
+
+
+	<update id="updateOrdInfoStat" parameterType="HashMap">
+	/* 주문 테이블 상태값을 '주문완료' 로 업데이트 */
+	 UPDATE ORD_INFO
+		SET ORD_STAT_CD  = '20'
+	  WHERE ORD_CD = #{ordCd}
+	</update>
+
+	<update id="updateOrdProdInfoStat" parameterType="HashMap">
+	/* 주문 상품 테이블 상태값을 '주문완료' 로 업데이트 */
+	 UPDATE ORD_PROD_INFO
+		SET PROC_STAT_CD  = '10'
+	  WHERE ORD_CD = #{ordCd}
+	</update>
+
+
+
+	<select id="selectPointUseAmt" parameterType="String" resultType="HashMap">
+		/* 주문정보 확인 */	
+		SELECT MBER_SEQ, NVL(POINT_USE_AMT,0) AS POINT_USE_AMT
+		  FROM ORD_INFO
+		 WHERE ORD_CD = #{ordCd}
+	</select>
+
+	<select id="selectMberPoint" parameterType="String" resultType="int">
+		/* 유저의 잔여포인트 확인 */	
+		SELECT NVL(POINT,0) as POINT 
+		  FROM MBER_INFO
+		 WHERE MBER_SEQ = #{mberSeq}
+	</select>
+
+
+	<update id="updateUsedPoint" parameterType="hashmap">
+	/* 사용 포인트 update */
+		UPDATE MBER_INFO
+		SET POINT=POINT-#{POINT_USE_AMT} , UPDT_DT=SYSDATE
+		WHERE MBER_SEQ = #{MBER_SEQ}
+		AND POINT >= #{POINT_USE_AMT}
+	</update>
+
+
+	<update id="insertPointUseLog" parameterType="hashmap">
+	/* 포인트 로그 insert */
+		INSERT INTO POINT_USE_LOG(MBER_SEQ
+								, POINT_SEQ
+								, POINT
+								, POINT_CD
+								, CHG_REASON
+								, POINT_TYPE
+								, REGIST_DT
+		) VALUES(#{MBER_SEQ}
+				, SEQ_POINT_USE.nextval
+				, #{POINT_USE_AMT}
+				, '21'
+				, #{CHG_REASON}
+				, ''
+				, SYSDATE
+		)
+	</update>
+	
+	
+	<insert id="insertTryPayRef" parameterType="HashMap">
+		INSERT INTO TRY_PAY_REF
+		(O_TRD_NO, REG_SEQ, ORD_CD, MBER_ID, TRY_CNT, REGIST_DT, UPDATE_DT )
+		VALUES
+		(
+			#{TID}
+			, (SELECT NVL(MAX(REG_SEQ +1),1) FROM TRY_PAY_REF WHERE O_TRD_NO = #{TID} )
+			,#{ORDERID}
+			,#{USERID}
+			,0
+			,SYSDATE
+			,SYSDATE
+		)
+	</insert>
+
+</mapper>   	

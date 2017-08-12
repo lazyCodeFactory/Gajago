@@ -1,0 +1,218 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="sellerRentalOrderMapper">
+
+<!-- /** -->
+<!-- * <pre> -->
+<!-- * 1. 패키지명 : com.ssocio.sharing.dao.admin -->
+<!-- * 2. 타입명 : AdminRentalOrderDao.java -->
+<!-- * 3. 작성일 : 2015. 10. 20. 오후 2:05:51 -->
+<!-- * 4. 작성자 : guitarhyo -->
+<!-- * 5. 설명 : 렌탈 주문 관리 -->
+<!-- * </pre> -->
+<!-- */ -->
+
+ 	<resultMap id="prodRentalMap" type="String">
+    <result property="AGR"        column="AGR"         javaType="String" jdbcType="CLOB"/>    <!-- 약관 -->    
+    </resultMap>
+    
+    
+    <resultMap id="prodRentalExcelMap" type="hashmap">
+		<result property="REGIST_DT" column="REGIST_DT" javaType="java.lang.String"/>
+		<result property="ORD_MBER_EMAIL" column="ORD_MBER_EMAIL" javaType="java.lang.String"/>
+		<result property="ORD_MBER_NM" column="ORD_MBER_NM" javaType="java.lang.String"/>
+		<result property="SELL_MBER_EMAIL" column="SELL_MBER_EMAIL" javaType="java.lang.String"/>
+		<result property="SELL_MBER_NM" column="SELL_MBER_NM" javaType="java.lang.String"/>
+		<result property="SELL_MBER_GB_CD_NM" column="SELL_MBER_GB_CD_NM" javaType="java.lang.String"/>
+		<result property="PROD_NM" column="PROD_NM" javaType="java.lang.String"/>
+		<result property="PROC_STAT_CD_NM" column="PROC_STAT_CD_NM" javaType="java.lang.String"/>
+		<result property="RCV_NM" column="RCV_NM" javaType="java.lang.String"/>
+		<result property="ZIP_CD" column="ZIP_CD" javaType="java.lang.String"/>
+		<result property="JUSO_DORO" column="JUSO_DORO" javaType="java.lang.String"/>
+		<result property="JUSO_DTL" column="JUSO_DTL" javaType="java.lang.String"/>
+		<result property="TEL" column="TEL" javaType="java.lang.String"/>
+		<result property="CALLTIME" column="CALLTIME" javaType="java.lang.String"/>
+		<result property="EMAIL" column="EMAIL" javaType="java.lang.String"/>
+		<result property="AGR_YN" column="AGR_YN" javaType="java.lang.String"/>
+		<result property="PROD_CODE" column="PROD_CODE" javaType="java.lang.String"/>
+		<result property="REQ_SEQ" column="REQ_SEQ" javaType="java.lang.String"/>
+	</resultMap>
+	
+	
+	<select id="selectListExcelRentalOrder" parameterType="hashmap" resultMap="prodRentalExcelMap">
+		SELECT  
+                PS.REGIST_DT AS REGIST_DT ,
+                ODR.MBER_EMAIL AS ORD_MBER_EMAIL,
+                ODR.MBER_NM AS ORD_MBER_NM,
+ 				SEL.MBER_EMAIL AS SELL_MBER_EMAIL,
+ 				SEL.MBER_NM AS SELL_MBER_NM,
+                (SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'MBER_GB_CD' AND COM_CD =  SEL.MBER_GB_CD) AS SELL_MBER_GB_CD_NM,
+                P.PROD_NM ,
+                (SELECT COM_CD_NM
+                FROM    CODE
+                WHERE   GRP_CD = 'PROC_STAT_CD'
+                AND     COM_CD = PS.PROC_STAT_CD
+                )
+                AS PROC_STAT_CD_NM ,
+                PS.RCV_NM ,
+                PS.ZIP_CD,
+                PS.JUSO_DORO ,
+                PS.JUSO_DTL ,
+                PS.TEL ,
+                PS.CALLTIME ,
+                PS.EMAIL ,
+                P.AGR_YN,
+                PS.PROD_CODE AS PROD_CODE ,
+                PS.REQ_SEQ
+          FROM PROD_SUBMIT_INFO PS
+              ,PROD P
+              ,MBER_INFO SEL
+              ,MBER_INFO ODR
+              WHERE PS.PROD_CODE = P.PROD_CODE(+)
+              AND PS.MBER_SEQ = ODR.MBER_SEQ(+)
+              AND P.MBER_SEQ = SEL.MBER_SEQ(+)
+              AND PS.PROD_TYPE_CD = '5'
+               AND P.MBER_SEQ = ${MANAGE_MBER_SEQ }
+              AND TO_CHAR(PS.REGIST_DT , 'YYYYMMDD') BETWEEN #{S_START_DATE} AND #{S_END_DATE}
+              <if test="PROD_NM != null and PROD_NM != ''">
+					   AND P.PROD_NM LIKE '%'||#{PROD_NM}||'%'
+			  </if>
+			  <if test="SEARCH_NM != null and SEARCH_NM != ''">
+						<if test='SEARCH_GB == "1"'>
+							AND SEL.MBER_EMAIL LIKE '%'||#{SEARCH_NM}||'%'
+						</if>
+						<if test='SEARCH_GB == "2"'>
+							AND SEL.MBER_NM LIKE '%'||#{SEARCH_NM}||'%'
+						</if>
+						<if test='SEARCH_GB == "3"'>
+							AND ORD.MBER_EMAIL LIKE '%'||#{SEARCH_NM}||'%'
+						</if>
+						<if test='SEARCH_GB == "4"'>
+							AND ORD.MBER_NM LIKE '%'||#{SEARCH_NM}||'%'
+						</if>
+					</if>
+					<if test="PROC_STAT_CD != null and PROC_STAT_CD != ''">
+					   AND PS.PROC_STAT_CD IN
+						<foreach collection="PROC_STAT_CD" item="cd" open="(" close=")" separator=",">
+					  		#{cd}
+					  	</foreach>
+				  	</if>
+	</select>
+	
+	
+<!-- 렌탈 주문 내역 리스트 총갯수 -->
+	<select id="selectListRentalOrderCnt" parameterType="hashmap" resultType="int">
+		SELECT COUNT(*) AS CNT
+          FROM PROD_SUBMIT_INFO PS
+              ,PROD P
+              ,MBER_INFO SEL
+              ,MBER_INFO ODR
+              WHERE PS.PROD_CODE = P.PROD_CODE(+)
+              AND PS.MBER_SEQ = ODR.MBER_SEQ(+)
+              AND P.MBER_SEQ = SEL.MBER_SEQ(+)
+              AND PS.PROD_TYPE_CD = '5'
+              AND P.MBER_SEQ = ${MANAGE_MBER_SEQ }
+              AND TO_CHAR(PS.REGIST_DT , 'YYYYMMDD') BETWEEN #{S_START_DATE} AND #{S_END_DATE}
+				<if test="PROD_NM != null and PROD_NM != ''">
+					   AND P.PROD_NM LIKE '%'||#{PROD_NM}||'%'
+				</if>
+			  	<if test="SEARCH_NM != null and SEARCH_NM != ''">
+					<if test='SEARCH_GB == "3"'>
+						AND ODR.MBER_EMAIL LIKE '%'||#{SEARCH_NM}||'%'
+					</if>
+					<if test='SEARCH_GB == "4"'>
+						AND ODR.MBER_NM LIKE '%'||#{SEARCH_NM}||'%'
+					</if>
+				</if>
+				<if test="PROC_STAT_CD != null and PROC_STAT_CD != ''">
+					   AND PS.PROC_STAT_CD IN
+						<foreach collection="PROC_STAT_CD" item="cd" open="(" close=")" separator=",">
+					  		#{cd}
+					  	</foreach>
+				</if>
+	</select>
+
+	<!-- 렌탈 주문 내역 리스트 조회 -->
+	<select id="selectListRentalOrder" parameterType="hashmap" resultType="hashmap">
+		<include refid="sellerCommonMapper.pagingHeader" />
+		SELECT  ROW_NUMBER() OVER(ORDER BY PS.REGIST_DT DESC ) AS NO ,
+                PS.REGIST_DT AS REGIST_DT ,
+               PS.PROD_CODE AS PROD_CODE ,
+                ODR.MBER_SEQ AS ORD_MBER_SEQ,
+                ODR.MBER_NM AS ORD_MBER_NM,
+                ODR.MBER_EMAIL AS ORD_MBER_EMAIL,
+                SEL.MBER_GB_CD AS SELL_MBER_GB_CD,
+                (SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'MBER_GB_CD' AND COM_CD =  SEL.MBER_GB_CD) AS SELL_MBER_GB_CD_NM,
+                SEL.MBER_SEQ AS SELL_MBER_SEQ,
+                SEL.MBER_NM AS SELL_MBER_NM,
+                SEL.MBER_EMAIL AS SELL_MBER_EMAIL,
+                (SELECT PROD_IMG_URL
+                FROM    PROD_IMG
+                WHERE   PROD_CODE      = P.PROD_CODE
+                AND     PROD_IMG_GB_CD = '11'
+                )
+                AS PROD_IMG_URL ,
+                P.PROD_NM ,
+                PS.PROC_STAT_CD ,
+                (SELECT COM_CD_NM
+                FROM    CODE
+                WHERE   GRP_CD = 'PROC_STAT_CD'
+                AND     COM_CD = PS.PROC_STAT_CD
+                )
+                AS PROC_STAT_CD_NM ,
+                PS.RCV_NM ,
+                PS.ZIP_CD,
+                PS.JUSO_DORO ,
+                PS.JUSO_DTL ,
+                PS.TEL ,
+                PS.CALLTIME ,
+                PS.EMAIL ,
+                P.AGR_YN,
+                PS.REQ_SEQ,
+                PS.SCANC_REASON_CD,
+                PS.SCANC_REASON
+          FROM PROD_SUBMIT_INFO PS
+              ,PROD P
+              ,MBER_INFO SEL
+              ,MBER_INFO ODR
+              WHERE PS.PROD_CODE = P.PROD_CODE(+)
+              AND PS.MBER_SEQ = ODR.MBER_SEQ(+)
+              AND P.MBER_SEQ = SEL.MBER_SEQ(+)
+              AND PS.PROD_TYPE_CD = '5'
+              AND P.MBER_SEQ = ${MANAGE_MBER_SEQ }
+              AND TO_CHAR(PS.REGIST_DT , 'YYYYMMDD') BETWEEN #{S_START_DATE} AND #{S_END_DATE}
+              <if test="PROD_NM != null and PROD_NM != ''">
+					   AND P.PROD_NM LIKE '%'||#{PROD_NM}||'%'
+			  </if>
+			  <if test="SEARCH_NM != null and SEARCH_NM != ''">
+					<if test='SEARCH_GB == "3"'>
+						AND ODR.MBER_EMAIL LIKE '%'||#{SEARCH_NM}||'%'
+					</if>
+					<if test='SEARCH_GB == "4"'>
+						AND ODR.MBER_NM LIKE '%'||#{SEARCH_NM}||'%'
+					</if>
+			  </if>
+			  <if test="PROC_STAT_CD != null and PROC_STAT_CD != ''">
+				   AND PS.PROC_STAT_CD IN
+					<foreach collection="PROC_STAT_CD" item="cd" open="(" close=")" separator=",">
+				  		#{cd}
+				  	</foreach>
+			  </if>
+		<include refid="sellerCommonMapper.pagingFooter" />
+	
+	</select>
+	
+	<select id="selectRentalAgr" resultMap="prodRentalMap" parameterType="String">
+		SELECT AGR FROM PROD WHERE PROD_CODE = #{PROD_CODE } 
+	</select>
+	
+	<update id="updateRentalOrdCncl" parameterType="hashmap">
+		UPDATE PROD_SUBMIT_INFO SET
+			SCANC_REASON_CD = #{SCANC_REASON_CD } 
+			,SCANC_REASON = #{SCANC_REASON } 
+			,SCANC_DT = SYSDATE
+			,PROC_STAT_CD = '93'
+			WHERE PROD_CODE = #{PROD_CODE } 
+			AND REQ_SEQ =  #{REQ_SEQ } 
+	</update>
+</mapper>

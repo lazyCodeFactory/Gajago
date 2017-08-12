@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="MobileMyPageMapper">
+	<!-- 로그인 -->
+	<select id="getMyPageInfo" parameterType="HashMap" resultType="HashMap">
+		SELECT M.MBER_IMG
+			 , ( SELECT S.FILE_URL FROM FILE_INFO S WHERE S.FILE_SEQ = M.MBER_IMG ) AS FILE_URL
+			 , F.FILE_URL AS LEV_FILE_URL
+			 , F.FILE_PATH
+			 , ( SELECT S.COM_CD_NM FROM CODE S WHERE S.GRP_CD = 'MBER_GB_CD' AND S.COM_CD=M.MBER_GB_CD ) AS MBER_GB_CD_NM
+			 , M.MBER_GB_CD
+			 , ( SELECT S.COM_CD_NM FROM CODE S WHERE S.GRP_CD = 'MBER_REG_GB_CD' AND S.COM_CD=M.MBER_REG_GB_CD ) AS MBER_REG_GB_CD_NM
+			 , M.MBER_REG_GB_CD
+			 , M.MBER_EMAIL
+			 , M.BIRTH
+			 , M.MBER_NM
+			 , M.MBER_NICK
+			 , NVL(( SELECT COUNT(AA.CPN_GRP_CD) FROM (
+
+					SELECT M.CPN_GRP_CD
+			          , CASE WHEN S.EXP_CHK = 'A' THEN S.EXP_START_DT
+			              		ELSE S.ISSUE_DT
+			                  	END AS EXP_START_DT                                         /* 유효기간시작일 */
+			          , CASE WHEN S.EXP_CHK = 'A' THEN S.EXP_END_DT
+			                 	ELSE S.ISSUE_DT + S.EXP_DAY
+			            		END AS EXP_END_DT
+
+			        FROM MBER_CPN_INFO M, CPN_INFO S
+			        WHERE M.CPN_GRP_CD = S.CPN_GRP_CD
+			              AND M.USE_YN='N' AND M.MBER_SEQ =    <![CDATA[#{MBER_SEQ}]]>
+			              AND M.CPN_NO IS NOT NULL
+			              AND S.ISSUE_MTH = '20'                                          /* 쿠폰발급상태인것 */
+
+				) AA
+				WHERE 1=1
+				AND TO_CHAR(AA.EXP_START_DT, 'YYYYMMDD') <![CDATA[ <= ]]> TO_CHAR(SYSDATE, 'YYYYMMDD')
+				AND TO_CHAR(AA.EXP_END_DT, 'YYYYMMDD') <![CDATA[ >= ]]> TO_CHAR(SYSDATE, 'YYYYMMDD')),0) AS CPN_CNT
+			 , NVL(M.POINT,0) POINT
+			 , L.MBER_LEV_NM
+		 FROM MBER_INFO M
+		  JOIN MBER_DTL_INFO D
+		  ON M.MBER_SEQ = D.MBER_SEQ
+		  LEFT OUTER JOIN MBER_LEV L
+		  ON (L.MBER_LEV_SEQ = D.BUY_MBER_LEV_SEQ
+		      AND M.MBER_REG_GB_CD = '0')
+		  OR (L.MBER_LEV_SEQ = D.SELL_MBER_LEV_SEQ
+		      AND M.MBER_REG_GB_CD = '1')
+		  LEFT OUTER JOIN FILE_INFO F
+		  ON L.FILE_SEQ = F.FILE_SEQ
+		 WHERE M.MBER_SEQ = <![CDATA[#{MBER_SEQ}]]>
+	</select>
+	<!-- 스마트 셰어링 이용내역 : PROC_STAT_CD = '10' 상태 값이 10(주문완료)가 아닌 50(셰어링중) 으로 변경 -->
+	<select id="getMySmartUseList" parameterType="HashMap" resultType="HashMap">
+		SELECT MBER_SEQ,
+        	   ORD_CD AS ORD_CODE,
+        	   TO_CHAR(OPEN_DT, 'MM/DD') as OPEN_DT ,
+        	   TO_CHAR(END_DT, 'MM/DD') as END_DT ,
+               TO_CHAR(SYSDATE, 'MM/DD') as SYS_DT,
+        	   PROD_NM,
+        	   ((DAY_STR/DAY_TOTAL) * 100) AS  RATE,
+        	   DAY_END
+ 		  FROM(
+      				SELECT O.MBER_SEQ,
+        				   O.ORD_CD,
+        				   OP.OPEN_DT,
+        				   OP.END_DT,
+        				   P.PROD_NM,
+         				   TRUNC( TO_DATE(TO_CHAR(OP.END_DT, 'YYYYMMDDHH24MISS'),'YYYYMMDDHH24MISS') - TO_DATE(TO_CHAR(OP.OPEN_DT, 'YYYYMMDDHH24MISS'),'YYYYMMDDHH24MISS')	) AS DAY_TOTAL,
+        				   TRUNC( TO_DATE(TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'),'YYYYMMDDHH24MISS') - TO_DATE(TO_CHAR(OP.OPEN_DT, 'YYYYMMDDHH24MISS'),'YYYYMMDDHH24MISS')    ) AS DAY_STR,
+        				   TRUNC( TO_DATE(TO_CHAR(OP.END_DT, 'YYYYMMDDHH24MISS'),'YYYYMMDDHH24MISS') - TO_DATE(TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'),'YYYYMMDDHH24MISS')    ) AS DAY_END
+      				  FROM ORD_PROD_INFO O,
+        				   SP_OPEN_DETAIL OP,
+        				   SP_PROD P,
+        				   PROD M
+      				 WHERE O.ORD_CD  = OP.ORD_CD
+      				   AND O.PROD_CODE   = P.PROD_CODE
+      				   AND O.PROC_STAT_CD = '85'
+      				   AND P.PROD_CODE = M.PROD_CODE
+      				   AND O.MBER_SEQ = <![CDATA[#{MBER_SEQ}]]>
+		   )
+		    ORDER BY OPEN_DT DESC
+	</select>
+
+	<!-- 파일등록 -->
+	<insert id="regImg" parameterType="hashmap" useGeneratedKeys="true" keyProperty="FILE_SEQ" keyColumn="FILE_SEQ">
+		INSERT INTO FILE_INFO
+			 (FILE_SEQ,
+			 FILE_TITLE,
+			 FILE_NM,
+			 FILE_PATH,
+			 FILE_URL,
+			 FILE_SIZE,
+			 FILE_EXT,
+			 REGIST_DT,
+			 UPDT_DT,
+			 FILE_WIDTH,
+			 FILE_HEIGH
+		)VALUES (
+			TO_CHAR(SYSDATE, 'YYYYMMDD')||LPAD(SEQ_FILE_INFO.NEXTVAL,8,0),
+			#{I_FILE_TITLE},
+			#{I_FILE_NM},
+			#{I_FILE_PATH},
+			#{I_FILE_URL},
+			#{I_FILE_SIZE},
+			#{I_FILE_EXT},
+			SYSDATE,
+			SYSDATE,
+			#{I_FILE_WIDTH},
+			#{I_FILE_HEIGH}
+		)
+	</insert>
+	<!-- 나의 이미지등록 -->
+	<update id="updateMyPageImg" parameterType="HashMap">
+      UPDATE MBER_INFO
+      SET
+      	MBER_IMG = #{FILE_SEQ},
+      	UPDT_DT = SYSDATE
+      WHERE MBER_SEQ = <![CDATA[#{MBER_SEQ}]]>
+  	</update>
+
+</mapper>

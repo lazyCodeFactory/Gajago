@@ -1,0 +1,246 @@
+/* ======================================================================
+Function : 파일선택시 이미지 보여주기
+Return   : 
+========================================================================= */
+function preView(obj, targetId, targetPath){
+	
+  var target = $("#" + targetId).get(0);
+  if(window.FileReader){
+    if(obj.files && obj.files[0]){
+      // 2015-04-03 김명진 파일 확장차 체크 추가 Start
+      var fileExp = $(obj).val().split(".");
+      fileExp = $.trim(fileExp[fileExp.length-1].toLowerCase()); 
+      if(fileExp != "jpg" && fileExp != "png" && fileExp != "jpeg" && fileExp != "bmp" && fileExp != "gif"){
+        alert("JPG, PNG 파일 형식만 업로드 가능합니다.");
+        var fileInfo =$(obj);
+        fileInfo.replaceWith( fileInfo = fileInfo.clone( true ) );
+        return false;
+      }
+      // 2015-04-03 김명진 파일 확장차 체크 추가 End
+      
+      // 2015-04-03 김명진 용량체크 추가 Start  
+      var Mega = 1*1024*1024;//Mbyte
+      var maxSize = 5;//5M
+      var fileSize = obj.files[0].size;
+      
+      if(fileSize > maxSize * Mega){
+        alert("이미지 용량이"+maxSize+"MB를 초과하여 등록할 수 없습니다.");
+        var fileInfo =$(obj);
+        fileInfo.replaceWith( fileInfo = fileInfo.clone( true ) );
+        return false;
+      }
+      // 2015-04-03 김명진 용량체크 추가 End
+
+	  var image  = new Image();
+      var reader = new FileReader();
+      reader.onload = function(e){
+        $("#" + targetId).attr("src", e.target.result);
+    
+    	  if(targetId == "pcBannerImg" || targetId == "mobileBannerImg"){
+    	  	image.src    = e.target.result;
+          	image.onload = function() {
+       			$("#"+targetId+"Size").text(this.width + 'x' + this.height);
+          	};
+          	image.onerror= function() {
+           		alert('Invalid file type: '+ file.type);
+          	};     
+      	}; //if end
+      } //onload end
+      reader.readAsDataURL(obj.files[0]);
+    }
+    $("#" + targetPath).val(obj.value);
+  }else if(target.filters){
+    // 익스플로어일 경우
+
+    var inputFile = $(obj).get(0);
+    inputFile.select();
+    inputFile.blur();
+    
+    var imgSrc = document.selection.createRange().text;
+    var image = new Image();
+    image.dysrc = imgSrc;
+    
+    // 2015-04-03 김명진 파일 확장차 체크 추가 Start
+    var fileExp = imgSrc.split(".");
+    fileExp = $.trim(fileExp[fileExp.length-1].toLowerCase()); 
+    if(fileExp != "jpg" && fileExp != "png" && fileExp != "jpeg" && fileExp != "bmp" && fileExp != "gif"){
+      alert("JPG, PNG 파일 형식만 업로드 가능합니다.");
+      var fileInfo =$(obj);
+      fileInfo.replaceWith( fileInfo = fileInfo.clone( true ) );
+      return false;
+    }
+    // 2015-04-03 김명진 파일 확장차 체크 추가 End
+    
+    // 2015-04-03 김명진 용량체크 추가 Start  
+    var Mega = 1*1024*1024;//Mbyte
+    var maxSize = 5;//5M
+    var fileSize = image.fileSize;
+    
+    if(fileSize > maxSize * Mega){
+      alert("이미지 용량이"+maxSize+"MB를 초과하여 등록할 수 없습니다.");
+      var fileInfo =$(obj);
+      fileInfo.replaceWith( fileInfo = fileInfo.clone( true ) );
+      return false;
+    }
+    // 2015-04-03 김명진 용량체크 추가 End
+
+    target.style.filter = "progid:DXImageTransform.Microsoft.AlphaImageLoader(enable='true',sizingMethod='scale',src=\""+imgSrc+"\")";
+    /* 
+     * 2015-06-12 김명진 
+     * IE 9버전에서 이미지 미리보기는 되지만 해당 이미지 백그라운드에
+     * IMG 태그의 여운이 남아 있는 관계로 로컬 파일에 있는 투명 이미지를 덮어 씌워 처리.
+     */
+    imgSrc = "/resources/admin/images/empty.png";
+    $("#" + targetId).attr("src", imgSrc);//이미지 미리보기 경로 수정
+    $("#" + targetPath).val(obj.value);
+  }
+}
+
+function isUploadFilesSize(size){
+	var Mega = 1*1024*1024;//Mbyte
+	var maxSize = 70;//70M
+	var totSize = 0;
+	totSize += Number(((size == "" || size == undefined) ? 0 : size));
+	var isFlag = true;
+	$("input[type=file]").each(function(){
+		if(this.files && this.files[0]){
+			totSize += this.files[0].size;
+			if(totSize > maxSize * Mega){
+				alert("이미지 용량이"+maxSize+"MB를 초과하여 등록할 수 없습니다.");
+				isFlag = false;
+				return false;
+			}
+		}
+	});
+	return isFlag;
+}
+
+function getDateInterval(interval){
+	// 0D, 3D, 1W, 1M, 3M
+	// 오늘, 3일전, 1주일전, 1달전, 3달전
+	var today = Date.today().toString("yyyy-MM-dd");
+	var intervalDate = null;
+	var options = {};
+	if(interval == "3D"){
+		options.days = -3;
+	}else if(interval == "7D"){
+		options.days = -7;
+	}else if(interval == "1M"){
+		options.months = -1;
+	}else if(interval == "3M"){
+		options.months = -3;
+	}else if(interval == "6M"){
+		options.months = -6;
+	}
+	
+	intervalDate = Date.today().add(options).toString("yyyy-MM-dd");
+	
+	// 날짜 필드에 값 셋팅
+	$("#S_END_DATE").val(today);
+	$("#S_START_DATE").val(intervalDate);
+}
+
+/* ======================================================================
+Function : 숫자만입력받기
+Return   : 
+========================================================================= */
+function numberOnly(obj){
+	var pattern = /^[0-9+]*$/;
+	if(!pattern.test($(obj).val())){
+		$(obj).val($(obj).val().replace(/[^0-9]/ig, ""));
+	}
+	if($(obj).hasClass("ip")){
+	    if($(obj).val() > 255){
+	      alert("잘못된 IP주소입니다.");
+	      $(obj).focus();
+	    }
+    }else if($(obj).hasClass("numType")){
+    	if($(obj).val() != "" && $(obj).val() != "0"){
+    		$(obj).val(Number($(obj).val()));
+    	}
+    }
+	
+	return false;
+}
+
+/* ======================================================================
+Function : 소수를 포함한 숫자만 입력받기
+Return   : 
+========================================================================= */
+
+/* ======================================================================
+Function : 숫자콤마찍기
+Return   : 
+========================================================================= */
+function numberWithCommas(str){
+  return str.toString().replace(/\B(?=(\d{3})+(?!\d{3}))/g,",");
+}
+function numberWithCommaObj(obj){
+	$(obj).val(numberWithCommas($(obj).val()));
+  return false;
+}
+/* ======================================================================
+Function : HTML태그 <, > 변환
+Return   : 
+========================================================================= */
+function replaceHtmlTag(txt){
+	return txt.replace(/\</ig, "&lt;").replace(/\>/ig, "&gt;");
+}
+/* ======================================================================
+Function : 문자열의 byte length 얻기
+Return   : 
+========================================================================= */
+function getByteLength(str) {
+	if (str == "") {
+		return	0;
+	}
+
+	var len = 0;
+
+	for (var i = 0; i < str.length; i++) {
+		if (str.charCodeAt(i) > 128) {
+			len++;
+		}
+		len++;
+	}
+
+	return	len;
+}
+
+/* ======================================================================
+Function : null check
+Return   : 
+========================================================================= */
+function gf_isNull(sValue) {
+    if( new String(sValue).valueOf() == "undefined") 
+        return true;
+    if( sValue == null )
+        return true;
+    if( ("x"+sValue == "xNaN") && ( new String(sValue.length).valueOf() == "undefined" ) )
+        return true;
+    if( sValue.length == 0 )
+        return true;
+    return false;
+}
+
+/* ======================================================================
+Function : 폼을 이용한 팝업
+Return   : 
+========================================================================= */
+function popup2(url,pop_tit,width,height){
+	var left = screen.width;
+	var top = (screen.height/2) - (height/2);
+	window.open("",pop_tit,'width='+width+', height='+height + ', screenY=' + top + ', screenX=' + left + ', toolbar=no, menubar=no, scrollbars=yes, resizable=no');
+	$("#"+pop_tit).attr("action", url).attr("target", pop_tit).submit();
+}
+
+/* ======================================================================
+Function : CDN URL Change
+Return   : 
+========================================================================= */
+
+$(document).ready(function(){ 
+	$('img[alt*="cdn.ssocio.com<http://cdn.ssocio.com>"]').each(function(){ 
+	$(this).attr('src', $(this).attr('alt') + '?resize='+$(this).width()+'px:' ).attr('alt',''); 
+	}); 
+	}); 

@@ -1,0 +1,616 @@
+package com.ssocio.sharing.cmmn.admin.util;
+
+import java.io.IOException;
+import java.io.Reader;
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
+import java.sql.SQLException;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+
+import javax.crypto.IllegalBlockSizeException;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpSession;
+
+import oracle.sql.CLOB;
+
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.ss.usermodel.WorkbookFactory;
+import org.apache.poi.xssf.usermodel.XSSFSheet;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.springframework.web.multipart.MultipartFile;
+
+import com.ssocio.sharing.cmmn.security.AES256Cipher;
+import com.ssocio.sharing.cmmn.security.SHA256Cipher;
+import com.ssocio.sharing.cmmn.util.CmmnCnst;
+import com.ssocio.sharing.cmmn.util.StringUtil;
+import com.ssocio.sharing.vo.admin.AdminSession;
+
+/**
+ * @author Nam-Jung, Kim(bisop26@nate.com)
+ *
+ */
+
+/**
+ * <pre>
+ * 공통 Util
+ * 공통으로 처리 되는 항목.
+ * @author rocomo
+ * @version
+ * @since 2015. 2. 4. 오후 4:03:34
+ * @see
+ * @History
+ *  Date          |    author    | 변경내용
+ *	2015. 2. 4.  |    rocomo       | 신규
+ * @Todo
+ * </pre>
+ */
+public class CommonUtil {
+
+	// --------------------------------------------------------------------------
+	// # Log 설정
+	// --------------------------------------------------------------------------
+	public static boolean isLogin(HttpServletRequest request) {
+		HttpSession session = request.getSession();
+		AdminSession sessionVO = (AdminSession)session.getAttribute("manager");
+		if(sessionVO==null)return false;
+
+		return sessionVO.isLogin();
+	}
+
+	// --------------------------------------------------------------------------
+	// # CREATE NEW PASSWORD
+	// --------------------------------------------------------------------------
+	public static String newPassword() {
+		StringBuffer sb = new StringBuffer();
+		StringBuffer sc = new StringBuffer("!@#$%^&*?~");
+		// 대문자 4개 생성
+		sb.append((char) ((Math.random() * 26) + 65)); // 첫글자 대문자 생성
+
+		for (int i=0; i < 3; i++) {
+			sb.append((char) ((Math.random() * 26) + 65)); // 아스키번호 65(A) 부터 26글자 중 택일
+		}
+
+		// 소문자 4개 생성
+		for (int i=0; i < 4; i++) {
+			sb.append((char) ((Math.random() * 26) + 97)); // 아스키번호 97(a) 부터 26글자 중 택일
+		}
+
+		// 숫자 2개 생성
+		for (int i=0; i < 2; i++) {
+			sb.append((char) ((Math.random() * 10) + 48)); // 아스키번호 48(1) 부터 10글자 중 택일
+		}
+
+		// 특수문자 2개 생성 후 중간에 넣는다.
+		sb.setCharAt(((int)(Math.random()*3)+1), sc.charAt((int)(Math.random()*sc.length()-1))); // 대문자 3개 중 1개
+		sb.setCharAt(((int)(Math.random()*4)+4), sc.charAt((int)(Math.random()*sc.length()-1))); // 소문자 4개 중 1개
+
+		return sb.toString();              // 비밀번호
+	}
+
+
+	public static String newPasswordEight() {
+		StringBuffer sb = new StringBuffer();
+		StringBuffer sc = new StringBuffer("!@#$%^&*?~");
+		// 대문자 2개 생성
+		sb.append((char) ((Math.random() * 26) + 65)); // 첫글자 대문자 생성
+		sb.append((char) ((Math.random() * 26) + 65)); // 아스키번호 65(A) 부터 26글자 중 택일
+
+
+		// 소문자 4개 생성
+		for (int i=0; i < 4; i++) {
+			sb.append((char) ((Math.random() * 26) + 97)); // 아스키번호 97(a) 부터 26글자 중 택일
+		}
+
+		// 숫자 2개 생성
+		for (int i=0; i < 2; i++) {
+			sb.append((char) ((Math.random() * 10) + 48)); // 아스키번호 48(1) 부터 10글자 중 택일
+		}
+
+		// 특수문자 2개 생성 후 중간에 넣는다.
+		sb.setCharAt(((int)(Math.random()*3)+1), sc.charAt((int)(Math.random()*sc.length()-1))); // 대문자 3개 중 1개
+		sb.setCharAt(((int)(Math.random()*4)+4), sc.charAt((int)(Math.random()*sc.length()-1))); // 소문자 4개 중 1개
+
+		return sb.toString();              // 비밀번호
+	}
+	// --------------------------------------------------------------------------
+	// # PASSWORD ENCRYPTION
+	// --------------------------------------------------------------------------
+	public static String getEncPassword(String pwd) {
+		SHA256Cipher sha256 = new SHA256Cipher();		// 비밀번호 암호화(단방향)
+		return sha256.getSHA256Enc(pwd);				// 비밀번호(암호화)
+	}
+
+	/**
+	 * 암호화-AES256
+	 * @param strCode
+	 * @return
+	 */
+	public static String encodeAES(String strCode){
+		String strEncode = "";
+		try {
+			AES256Cipher.getInstance();
+			strEncode = AES256Cipher.AES_Encode(strCode);
+		} catch (IllegalBlockSizeException ie) {
+			System.out.println("패키지명 AES복호화 오류(ie) : " + ie.toString());
+		} catch (Exception e) {
+			System.out.println("패키지명 AES복호화 오류(e) : " + e.toString());
+		}
+		return strEncode;
+	}
+
+	/**
+	 * 암호화-AES256
+	 * @param strCode
+	 * @return
+	 */
+	public static String encodeAES(String strCode, String inKey){
+		String strEncode = "";
+		try {
+			if (StringUtil.isEmpty(inKey)) {
+				AES256Cipher.getInstance();
+			} else {
+				AES256Cipher.getInstance(inKey);
+			}
+			strEncode = AES256Cipher.AES_Encode(strCode);
+		} catch (IllegalBlockSizeException ie) {
+			System.out.println("패키지명 AES복호화 오류(ie) : " + ie.toString());
+		} catch (Exception e) {
+			System.out.println("패키지명 AES복호화 오류(e) : " + e.toString());
+		}
+		return strEncode;
+	}
+
+	/**
+	 * 복호화-AES256
+	 * @param strEncode
+	 * @return
+	 */
+	public static String decodeAES(String strCode){
+		String strDecode = "";
+		// ------------------------------------------------------------------
+		// 복호화-AES256
+		// ------------------------------------------------------------------
+		try {
+			AES256Cipher.getInstance();
+			strDecode = AES256Cipher.AES_Decode(strCode);
+		} catch (IllegalBlockSizeException ie) {
+			System.out.println("패키지명 AES복호화 오류(ie) : " + ie.toString());
+		} catch (Exception e) {
+			System.out.println("패키지명 AES복호화 오류(e) : " + e.toString());
+		}
+		return strDecode;
+	}
+
+	/**
+	 * 복호화-AES256
+	 * @param strEncode
+	 * @return
+	 */
+	public static String decodeAES(String strCode, String inKey){
+		String strDecode = "";
+		// ------------------------------------------------------------------
+		// 복호화-AES256
+		// ------------------------------------------------------------------
+		try {
+			if (StringUtil.isEmpty(inKey)) {
+				AES256Cipher.getInstance();
+			} else {
+				AES256Cipher.getInstance(inKey);
+			}
+			strDecode = AES256Cipher.AES_Decode(strCode);
+		} catch (IllegalBlockSizeException ie) {
+			System.out.println("패키지명 AES복호화 오류(ie) : " + ie.toString());
+		} catch (Exception e) {
+			System.out.println("패키지명 AES복호화 오류(e) : " + e.toString());
+		}
+		return strDecode;
+	}
+
+	/**
+	 * 첫번째 엑셀시트 읽기(Excel 2007 이상인경우)
+	 * @param excelFile
+	 * @param sheet_num
+	 * @return
+	 */
+	public static List<Map<String, Object>> getExcelList(MultipartFile excelFile){
+		List<Map<String, Object>> excelData = new ArrayList<Map<String, Object>>();
+		try {
+			if(excelFile!=null){
+
+				XSSFWorkbook workbook = new XSSFWorkbook(excelFile.getInputStream());
+				XSSFSheet sheet = workbook.getSheetAt(0);
+				Iterator<Row> rowIterator = sheet.iterator();
+				Map<String, Object> rowDate = null;
+
+				if(rowIterator.hasNext()){rowIterator.next();}//첫번째 Row Skip(첫번째 Row는 Title)
+
+				while(rowIterator.hasNext()){
+					Row row = rowIterator.next();
+					Iterator<Cell> celIterator = row.iterator();
+					rowDate = new HashMap<String, Object>();
+					while(celIterator.hasNext()){
+						Cell cell = celIterator.next();
+						if (cell != null) {
+							String value = null;
+							switch (cell.getCellType()) {
+								case Cell.CELL_TYPE_FORMULA:
+									value = cell.getCellFormula();
+									break;
+								case Cell.CELL_TYPE_NUMERIC:
+									value = "" + cell.getNumericCellValue();
+									break;
+								case Cell.CELL_TYPE_STRING:
+									value = "" + cell.getStringCellValue();
+									break;
+								case Cell.CELL_TYPE_BLANK:
+									value = "";
+									break;
+								case Cell.CELL_TYPE_ERROR:
+									value = "" + cell.getErrorCellValue();
+									break;
+								default:
+							}
+							rowDate.put("CELL"+cell.getColumnIndex(), value);
+						}
+					}
+					excelData.add(rowDate);
+				}
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return excelData;
+	}
+
+	/**
+	 * 첫번째 엑셀시트 읽기 - Excel 97~2007
+	 * @param excelFile
+	 * @param sheet_num
+	 * @return
+	 */
+	public static List<Map<String, Object>> getOldExcelList(MultipartFile excelFile){
+		List<Map<String, Object>> excelData = new ArrayList<Map<String, Object>>();
+		Workbook excel = null;
+		try {
+			if(excelFile!=null){
+				excel = WorkbookFactory.create(excelFile.getInputStream());
+				Sheet sheet = excel.getSheetAt(0);
+				Iterator<Row> rowIterator = sheet.iterator();
+				Map<String, Object> rowDate = null;
+
+				if(rowIterator.hasNext()){rowIterator.next();}//첫번째 Row Skip(첫번째 Row는 Title)
+
+				while(rowIterator.hasNext()){
+					Row row = rowIterator.next();
+					Iterator<Cell> celIterator = row.iterator();
+					rowDate = new HashMap<String, Object>();
+					while(celIterator.hasNext()){
+						Cell cell = celIterator.next();
+						if (cell != null) {
+							String value = null;
+							switch (cell.getCellType()) {
+								case Cell.CELL_TYPE_FORMULA:
+									value = cell.getCellFormula();
+									break;
+								case Cell.CELL_TYPE_NUMERIC:
+									value = "" + cell.getNumericCellValue();
+									break;
+								case Cell.CELL_TYPE_STRING:
+									value = "" + cell.getStringCellValue();
+									break;
+								case Cell.CELL_TYPE_BLANK:
+									value = "";
+									break;
+								case Cell.CELL_TYPE_ERROR:
+									value = "" + cell.getErrorCellValue();
+									break;
+								default:
+							}
+							rowDate.put("CELL"+cell.getColumnIndex(), value);
+						}
+					}
+					excelData.add(rowDate);
+				}
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return excelData;
+	}
+
+	/**
+	  *  Map<String, Object>에 담긴 Clob를  String[] key로 추출하여 String형태로 변환해서 Map를 Return.
+	  *
+	  *  @param   map        Data
+	  *  @param   arryKey    CLOB key
+	  *  @return   Map<String, Object>
+	  */
+	public static Map<String, Object> clobToString(Map<String, Object> map, String key) throws Exception{
+		CLOB clob = (CLOB)map.get(key);
+		Reader reader = clob.getCharacterStream();
+		StringBuffer out = new StringBuffer();
+		char[] buff = new char[1024];
+		int nchars = 0;
+
+		while((nchars = reader.read(buff))>0){
+			out.append(buff,0,nchars);
+		}
+		map.put(key, out.toString());
+
+		return map;
+	}
+
+	/**
+	 * 오라클 Clob 데이터를 String 형태로 변환 후 리턴
+	 * @param clob
+	 * @return
+	 * @throws SQLException
+	 * @throws IOException
+	 */
+	public static String clobToString(CLOB clob) throws Exception{
+		if(clob == null){
+			return "";
+		}
+
+		Reader reader = clob.getCharacterStream();
+		StringBuffer out = new StringBuffer();
+		char[] buff = new char[1024];
+		int nchars = 0;
+
+		while((nchars = reader.read(buff))>0){
+			out.append(buff,0,nchars);
+		}
+		return out.toString();
+	}
+
+	/**
+	  *  Map<String, Object>에 담긴 Clob를  String[] arryKey로 추출하여 String형태로 변환해서 Map를 Return.
+	  *
+	  *  @param   map        Data
+	  *  @param   arryKey    CLOB key
+	  *  @return   Map<String, Object>
+	  */
+	public static Map<String, Object> clobToString(Map<String, Object> map, String[] arryKey) throws Exception{
+		for(String key : arryKey){
+			if ( map.get(key) == null) {
+				map.put(key, "");
+				continue;
+			}
+			CLOB clob = (CLOB)map.get(key);
+			Reader reader = clob.getCharacterStream();
+			StringBuffer out = new StringBuffer();
+			char[] buff = new char[1024];
+			int nchars = 0;
+
+			while((nchars = reader.read(buff))>0){
+				out.append(buff,0,nchars);
+			}
+			map.put(key, out.toString());
+		}
+		return map;
+	}
+
+	/**
+	  *  List<Map<String, Object>>에 담긴 Clob를  String[] arryKey로 추출하여 String형태로 변환해서 Map를 Return.
+	  *
+	  *  @param   map        Data
+	  *  @param   arryKey    CLOB key
+	  *  @return   List<Map<String, Object>>
+	  */
+	public static List<Map<String, Object>> clobToString(List<Map<String, Object>> list, String[] arryKey) throws Exception{
+		List<Map<String, Object>> pasList = new ArrayList<Map<String,Object>>();
+		StringBuffer out = null;
+		Reader reader = null;
+		CLOB clob = null;
+
+		for(Map<String, Object> map: list){
+			for(String key : arryKey){
+				String data = "";
+				clob = (CLOB)map.get(key);
+				if(clob != null){
+				reader = clob.getCharacterStream();
+					out = new StringBuffer();
+					char[] buff = new char[1024];
+					int nchars = 0;
+
+					while((nchars = reader.read(buff))>0){
+						out.append(buff,0,nchars);
+					}
+
+					data = out.toString();
+				}
+
+				map.put(key, data);
+			}
+			pasList.add(map);
+		}
+		return pasList;
+	}
+
+	public static void main(String[] args) {
+//		String inStr  = "애드라";
+//		String encStr = "";
+//		String decStr = "";
+//		try {
+//			AES256Cipher.getInstance();
+//			encStr = CommonUtil.encodeAES(inStr);
+//			decStr = CommonUtil.decodeAES(encStr);
+//		}catch (Exception e) {
+//			e.printStackTrace();
+//		}
+//		System.out.println("encStr : " + encStr);
+//		System.out.println("decStr : " + decStr);
+		System.out.println(newPassword());
+	}
+
+
+	/**
+	 *  String 타입 형태의  날짜를 Date타입으로
+	 * @return Date
+	 * @param String dt, String format
+	 * @author rocomo
+	 * @throws Exception
+	 */
+	public static Date toDateString(String dt, String format) throws Exception{
+		if (format == null || "".equals(format)) {
+			format = "yyyyMMddHHmmss";
+		}
+		SimpleDateFormat sdf = new SimpleDateFormat(format);
+		Date sDate = null;
+		try {
+			sDate = sdf.parse(dt);
+		} catch (ParseException e) {
+			e.printStackTrace();
+		}
+		return sDate;
+	}
+
+	/**
+	 * 날짜를 문자열로
+	 */
+	public static String toDateString(String dt, String fromformat,
+			String toformat) {
+		if (fromformat == null)
+			fromformat = "yyyyMMdd";
+		if (toformat == null)
+			toformat = "yyyy/MM/dd";
+		SimpleDateFormat fromsdf = new SimpleDateFormat(fromformat);
+		SimpleDateFormat tosdf = new SimpleDateFormat(toformat);
+		Date sDate = null;
+		try {
+			sDate = fromsdf.parse(dt);
+		} catch (ParseException e) {
+			e.printStackTrace();
+		}
+		return tosdf.format(sDate);
+	}
+	/**
+	 * <pre>
+	 * URI를 현제 시스템의 URL로 변경한다.
+	 * @return
+	 * @exception
+	 * @date 2015. 7. 18. 오후 5:22:38
+	 * @author N.J.Kim
+	 * @비고
+	 *
+	 * </pre>
+	 */
+	public static String getURL(HttpServletRequest request, String uri){
+		String url = "";
+		if (request.getServerPort() == 80 || request.getServerPort() == 443) {
+			url = request.getScheme() + "://" + request.getServerName() + ":"+request.getServerPort() +uri;
+		} else {
+			url = request.getScheme() + "://" + request.getServerName() + ":"+request.getServerPort() +uri;
+		}
+		return url;
+	}
+	public static String check_browser(HttpServletRequest request) {
+		String browser = "";
+		String header = request.getHeader("User-Agent");
+		//신규추가된 indexof : Trident(IE11) 일반 MSIE로는 체크 안됨
+		if (header.indexOf("MSIE") > -1 || header.indexOf("Trident") > -1){
+		browser = "ie";
+		}
+		//크롬일 경우
+		else if (header.indexOf("Chrome") > -1){
+		browser = "chrome";
+		}
+		//오페라일경우
+		else if (header.indexOf("Opera") > -1){
+		browser = "opera";
+		}
+		//사파리일 경우
+		else if (header.indexOf("Apple") > -1){
+		browser = "sarari";
+		} else {
+		browser = "firfox";
+		}
+		return browser;
+	}
+
+	public static String getDisposition(String down_filename, String browser_check) throws UnsupportedEncodingException {
+		String prefix = "attachment;filename=";
+		String encodedfilename = null;
+		System.out.println("browser_check:"+browser_check);
+		if (browser_check.equals("ie")) {
+		encodedfilename = URLEncoder.encode(down_filename, "UTF-8").replaceAll("\\+", "%20");
+		}else if (browser_check.equals("chrome")) {
+		StringBuffer sb = new StringBuffer();
+		for (int i = 0; i < down_filename.length(); i++){
+		    char c = down_filename.charAt(i);
+		    if (c > '~') {
+		        sb.append(URLEncoder.encode("" + c, "UTF-8"));
+		    } else {
+		        sb.append(c);
+		    }
+		}
+		encodedfilename = sb.toString();
+		}else {
+		encodedfilename = "\"" + new String(down_filename.getBytes("UTF-8"), "8859_1") + "\"";
+		}
+		return prefix + encodedfilename;
+	}
+
+	/**
+	 * 상품 목록 조회시 상품 유형별로 UNION할 수 있게 만들어 준다.
+	 * @param inParam
+	 * @param isAll
+	 * @return
+	 */
+	public static  List<Map<String, Object>> makeProdTypeList(Map<String, Object> inParam, boolean isAll){
+		List<Map<String, Object>> list = new ArrayList<Map<String, Object>>();
+		String prodTypeCd = isAll ? CmmnCnst.PROD_TYPE_CD_ALL : StringUtil.nvl((String)inParam.get("PROD_TYPE_CD"), CmmnCnst.PROD_TYPE_CD_ALL);
+
+		String[] types = (prodTypeCd).split("\\,");
+
+		for( int i=0 ; i<types.length ; i++){
+			Map<String, Object> map = new HashMap<String, Object>();
+			map.put("SELLER_MBER_SEQ", (String)inParam.get("SELLER_MBER_SEQ"));
+			map.put("PARENT_CTRY_CD", (String)inParam.get("PARENT_CTRY_CD"));
+			map.put("CPON_APPLY_PSBL_YN", (String)inParam.get("CPON_APPLY_PSBL_YN"));
+			map.put("DLV_PAY_GB_CD", (String)inParam.get("DLV_PAY_GB_CD"));
+			map.put("PROD_NM", (String)inParam.get("PROD_NM"));
+			map.put("PROD_TYPE_CD", types[i]);
+			list.add(map);
+		}
+
+		return list;
+	}
+
+	/**
+	 * app용
+	 * @param inParam
+	 * @param isAll
+	 * @return
+	 */
+	public static  List<Map<String, Object>> appMakeProdTypeList(Map<String, Object> inParam, boolean isAll){
+		List<Map<String, Object>> list = new ArrayList<Map<String, Object>>();
+		String prodTypeCd = isAll ? CmmnCnst.PROD_TYPE_CD_ALL : StringUtil.nvl((String)inParam.get("PROD_TYPE_CD"), CmmnCnst.PROD_TYPE_CD_ALL);
+
+		String[] types = (prodTypeCd).split("\\,");
+
+		for( int i=0 ; i<types.length ; i++){
+			Map<String, Object> map = new HashMap<String, Object>();
+			map.put("SELLER_MBER_SEQ", (String)inParam.get("SELLER_MBER_SEQ"));
+			map.put("PARENT_CTRY_CD", ((String[])inParam.get("PARENT_CTRY_CD")).length == 0 ? null : ((String[])inParam.get("PARENT_CTRY_CD")));
+			map.put("CPON_APPLY_PSBL_YN", (String)inParam.get("CPON_APPLY_PSBL_YN"));
+			map.put("DLV_PAY_GB_CD", (String)inParam.get("DLV_PAY_GB_CD"));
+			map.put("PROD_NM", (String)inParam.get("PROD_NM"));
+			map.put("ctryGbn", (String)inParam.get("ctryGbn"));
+			map.put("PROD_TYPE_CD", types[i]);
+			list.add(map);
+		}
+
+		return list;
+	}
+}

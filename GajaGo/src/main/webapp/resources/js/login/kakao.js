@@ -5,7 +5,7 @@
         Kakao.API.request({
           url: '/v1/user/me',
           success: function(res) {
-        	  var id = res.id;
+        	var id = res.id;
             var kaccount_email = res.kaccount_email;
             var thumbnail_image = res.thumbnail_image;
             console.log(thumbnail_image)

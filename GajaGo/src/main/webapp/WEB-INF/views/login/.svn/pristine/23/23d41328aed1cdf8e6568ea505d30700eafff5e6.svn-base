@@ -1,0 +1,244 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="commonMapper">
+
+	<select id="reSetUerinfo" parameterType="int" resultType="com.ssocio.sharing.vo.web.WebSession">
+		SELECT MBER_SEQ
+			 , MBER_GB_CD
+			 , MBER_EMAIL
+			 , MBER_PASS
+			 , MBER_NM
+			 , MBER_PHONE
+			 , MBER_REG_GB_CD
+			 , MBER_STAT_CD
+			 , SERIAL_KEY
+			 , SSO_GB_CD
+		  FROM MBER_INFO
+		 WHERE MBER_SEQ = #{mberSeq}
+	</select>
+
+	<!-- 공통코드전체리스트조회 -->
+	<select id="getComCdAllList" resultType="com.ssocio.sharing.cmmn.instance.cmmncode.CmmnCodeDto">
+		SELECT B.GRP_CD AS grpCd
+			 , A.GRP_CD_NM AS grpCdNm
+			 , B.COM_CD AS comCd
+			 , B.COM_CD_NM AS comCdNm
+			 , B.COM_CD_VAL AS comCdVal
+			 , B.USE_YN AS useYn
+			 , B.SORT_SEQ AS sortSeq
+			 , B.DC AS dc
+			 , B.RM AS rm
+			 , B.REGIST_MBER_SN AS registMberSn
+			 , B.REGIST_DT AS registDt
+			 , B.UPDT_MBER_SN AS updtMberSn
+			 , B.UPDT_DT AS updtDt
+		  FROM GRP_CD A, CODE B
+		 WHERE 1 = 1
+		   AND A.USE_YN = #{useYn}
+		   AND A.GRP_CD = B.GRP_CD
+		   AND B.USE_YN = #{useYn}
+		 ORDER BY B.GRP_CD, B.SORT_SEQ
+	</select>
+
+	<!-- 회원 여부 조회 -->
+	<select id="getMberInfo" parameterType="hashmap" resultType="int">
+		SELECT COUNT(1)
+		  FROM MBER_INFO
+		 WHERE SERIAL_KEY = #{SERIAL_KEY}
+	</select>
+
+
+		<select id="getCartCnt" parameterType="String" resultType="int">
+		SELECT COUNT(*)
+			FROM cart
+			where MBER_SEQ = #{MBER_SEQ}
+			   AND VIEW_YN = 'N'
+		</select>
+	<!-- 장바구니 new 표시 여부 -->
+	<select id="getCartViewYn" parameterType="int" resultType="String">
+		SELECT VIEW_YN
+			 , NO
+		  FROM (SELECT VIEW_YN
+					 , DECODE(VIEW_YN, 'N', 1, 0)
+					 , ROW_NUMBER() OVER( ORDER BY DECODE(VIEW_YN, 'N', 1, 0) DESC ) AS NO
+				  FROM CART
+				 WHERE MBER_SEQ = #{MBER_SEQ}
+			)
+		 WHERE NO = '1'
+	</select>
+
+<!-- 푸시 중복 개발로 인하여 주석처리 추후 삭제 예정
+<insert id="insertPushSndGrp" parameterType="hashmap" useGeneratedKeys="true" keyProperty="PUSH_GRP_SEQ" keyColumn="PUSH_GRP_SEQ">
+ 		INSERT INTO PUSH_SND_GRP(
+			PUSH_GRP_SEQ
+			,SND_KIND_CD
+			,SND_GB_CD
+			,SND_CNT
+			,TITLE
+			,RESRV_YN
+			,SND_STAT
+			,SND_DT
+			,REGIST_DT
+		)VALUES (
+			 SEQ_PUSH_GRP.NEXTVAL
+			, #{SND_KIND_CD}
+			, #{SND_GB_CD}
+			, #{SND_CNT}
+			, #{TITLE}
+			, #{RESRV_YN}
+			, #{SND_STAT}
+			, SYSDATE
+			, SYSDATE
+			)
+  </insert>
+
+  <insert id="insertMsgInfo" parameterType="hashmap" useGeneratedKeys="true" keyProperty="MSG_SEQ" keyColumn="MSG_SEQ">
+ 		INSERT INTO MSG_INFO(
+			  MSG_SEQ
+			, MSG_GB_CD
+			, TITLE
+			, CONENTS
+			, SND_DT
+			, SND_MBER_SEQ
+			, RCV_MBER_SEQ
+		)VALUES (
+			MSG_SEQ.NEXTVAL
+			, #{MSG_GB_CD}
+			, #{TITLE}
+			, #{CONENTS}
+			, SYSDATE
+			, #{SND_MBER_SEQ}
+			, #{RCV_MBER_SEQ}
+		)
+  </insert>
+
+	<select id="selectListUserInfo" parameterType="hashmap" resultType="hashmap">
+      SELECT C.UUID
+           , C.PUSH_ID AS PUSH_ID
+           , C.OS_GB_CD AS OS_GB_CD
+           , A.MBER_SEQ RCV_MBER_SEQ
+           , NVL(#{MBER_SEQ}, 0) AS MBER_SEQ
+        FROM PROD A
+           , ALRM B
+           , MBER_CON_DEV C
+       WHERE 1=#{GUBUN}
+         AND A.PROD_CODE = NVL(#{PROD_CODE}, '')
+         AND A.MBER_SEQ = B.MBER_SEQ(+)
+         AND B.UUID = C.UUID(+)
+         AND C.PUSH_ID IS NOT NULL
+	 UNION ALL
+       SELECT C.UUID
+           , C.PUSH_ID AS PUSH_ID
+           , C.OS_GB_CD AS OS_GB_CD
+           , B.MBER_SEQ AS RCV_MBER_SEQ
+           , NVL(#{MBER_SEQ}, 0) AS MBER_SEQ
+        FROM ALRM B
+           , MBER_CON_DEV C
+       WHERE 2=#{GUBUN}
+         AND B.MBER_SEQ = NVL(#{RCV_MBER_SEQ}, 0)
+         AND B.UUID = C.UUID(+)
+         AND C.PUSH_ID IS NOT NULL
+	 UNION ALL
+       SELECT C.UUID
+           , C.PUSH_ID AS PUSH_ID
+           , C.OS_GB_CD AS OS_GB_CD
+           , 0 AS RCV_MBER_SEQ
+           , B.MBER_SEQ AS MBER_SEQ
+        FROM ALRM B
+           , MBER_CON_DEV C
+       WHERE 3=#{GUBUN}
+         AND B.UUID = C.UUID(+)
+         AND C.PUSH_ID IS NOT NULL
+	 UNION ALL
+            SELECT RM.UUID AS UUID
+               , DEV.PUSH_ID AS PUSH_ID
+               , DEV.OS_GB_CD AS OS_GB_CD
+               , PR.MBER_SEQ AS SND_MBER_SEQ
+               , FAVO.MBER_SEQ AS RCV_MBER_SEQ
+            FROM PROD PR
+               , SSOCIO_DEV.PROD_FAVO FAVO
+               , ALRM RM
+               , MBER_CON_DEV DEV
+          WHERE 37=#{GUBUN}
+             AND PR.PROD_CODE = NVL(#{PROD_CODE}, '')
+             AND PR.KEYWORD = FAVO.TAG
+             AND FAVO.MBER_SEQ = RM.MBER_SEQ(+)
+             AND RM.UUID = DEV.UUID(+)
+             AND FAVO.MBER_SEQ NOT IN (#{MBER_SEQ})
+	 UNION ALL
+	SELECT A.UUID AS UUID
+		 , D.PUSH_ID AS PUSH_ID
+		 , D.OS_GB_CD AS OS_GB_CD
+		 , A.MBER_SEQ
+		 , NVL((SELECT MBER_SEQ FROM PROD INFO WHERE INFO.PROD_CODE = NVL(#{PROD_CODE}, '')), '') AS RCV_MBER_SEQ
+	  FROM ALRM A LEFT OUTER JOIN MBER_CON_DEV D ON A.UUID = D.UUID
+          WHERE 36=#{GUBUN}
+	   AND A.MBER_SEQ = NVL(#{MBER_SEQ}, 0)
+	   AND D.PUSH_ID IS NOT NULL
+     UNION ALL
+      SELECT C.UUID
+           , C.PUSH_ID AS PUSH_ID
+           , C.OS_GB_CD AS OS_GB_CD
+           , A.MBER_SEQ RCV_MBER_SEQ
+           , NVL(#{MBER_SEQ}, 0) AS MBER_SEQ
+        FROM PROD A
+           , ALRM B
+           , MBER_CON_DEV C
+       WHERE 35=#{GUBUN}
+         AND A.PROD_CODE = NVL(#{PROD_CODE}, '')
+         AND A.MBER_SEQ = B.MBER_SEQ(+)
+         AND B.UUID = C.UUID(+)
+         AND C.PUSH_ID IS NOT NULL
+	 UNION ALL
+      SELECT C.UUID
+           , C.PUSH_ID AS PUSH_ID
+           , C.OS_GB_CD AS OS_GB_CD
+           , A.MBER_SEQ RCV_MBER_SEQ
+           , NVL(#{MBER_SEQ}, 0) AS MBER_SEQ
+        FROM PROD A
+           , ALRM B
+           , MBER_CON_DEV C
+       WHERE 31=#{GUBUN}
+         AND A.PROD_CODE = NVL(#{PROD_CODE}, '')
+         AND A.MBER_SEQ = B.MBER_SEQ(+)
+         AND B.UUID = C.UUID(+)
+         AND C.PUSH_ID IS NOT NULL
+	</select>
+	 -->
+	 
+	<!--  상태코드 가져오기 -->
+	<select id="getSelectProcStatCd" resultType="String" parameterType="String">
+		SELECT
+			 PROC_STAT_CD
+		FROM
+			ORD_PROD_INFO
+		WHERE
+			 ORD_CD = #{S_ORD_CD}
+			 AND PROD_CODE = #{S_PROD_CD}
+			 AND PROD_SEQ = #{S_PROD_SEQ}
+	</select>
+	
+	<!--  사용한 쿠폰 리스트 가져오기 -->
+	<select id="getSelectUseCouponList" parameterType="String" resultType="hashmap">
+		SELECT
+		    A.ORD_CD
+		  , A.PROD_CODE
+		  , A.PROD_SEQ
+		  , A.CPN_NO
+		  , A.REGIST_DT
+		  , A.UPDT_DT
+		  , A.CPN_USE_AMT
+		  , B.CPN_GRP_CD
+		  , B.MBER_SEQ
+		  , C.CPN_NM
+		FROM
+			ORD_PROD_CPN_INFO A, MBER_CPN_INFO B, CPN_INFO C
+		WHERE
+			    A.CPN_NO = B.CPN_NO
+			AND B.CPN_GRP_CD = C.CPN_GRP_CD
+			AND B.USE_YN = 'Y'
+			AND A.ORD_CD = #{ORD_CD}
+	</select>
+	
+</mapper>

@@ -1,0 +1,744 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<link rel="stylesheet" type="text/css" href="http://static.ssocio.net/admin/css/jquery.treeview.css" />
+<script type="text/javascript" src="http://static.ssocio.net/admin/js/layer_pop.js"></script>
+<script type="text/javascript" src="http://static.ssocio.net/admin/js/jquery.treeview.js"></script>
+<script type="text/javascript">
+$(document).ready(function(){
+	$("#browser").treeview();
+	$('.btn_cate_add').click(function(){
+		layer_popup('.cate_add_area');
+	});
+
+	$('.cate_gubun_area').find('[name=regCtryGubun]').each(function(index){
+		$(this).change(function(){
+			$(this).parents('.cate_gubun_area').siblings('.list').hide().eq(index).show();
+			return false;
+		});
+	})
+	
+	makeCategoryTree();
+});
+
+
+//--------------------------------- SETTING Function ------------------------------------
+
+function formatNum(numId){
+	var num = $("#"+numId).val();
+	var pattern = /^(\d{1,2})([.]\d{0,1}?)?$/;
+	
+	if(!pattern.test(num) && num != ''){
+		if(num.indexOf('.') > 0 ){
+			num = Number(num);
+			num = Math.floor(num*100)/100;
+			num = num.toFixed(1);
+		} else{
+			num = num.substring(0,1);
+		}
+		
+		$("#"+numId).val(num);
+	}
+}
+
+/* ======================================================================
+Function : 카테고리등록 중분류 라디오버튼 클릭
+Return   : 없음
+========================================================================= */
+function clickMdlCtryBtn(){
+	//makeCtryBox('1', '0000000000000000', 'M_ctryCd1');
+	makeCtryBox('1', '', 'M_ctryCd1');
+}
+/* ======================================================================
+Function : 카테고리등록 소분류 라디오버튼 클릭
+Return   : 없음
+========================================================================= */
+function clickSmlCtryBtn(){
+	makeCtryBox('1', '', 'S_ctryCd1');
+}
+/* ====================================================================== 
+Function : 카테고리등록 대분류 셀렉트박스 변경
+Return   : 없음
+========================================================================= */
+function chgLrgCtryBox(){
+	var ctryCd = $('#S_ctryCd1').val();
+	makeCtryBox('2', ctryCd, 'S_ctryCd2');
+}
+
+/* ======================================================================
+Function : 브랜드등록 이미지패스 INPUT
+Return   : 없음
+========================================================================= */
+function inputFilePath(){
+	$('#regCtryImgPath').val($('#regCtryImg').val());
+}
+
+
+
+//--------------------------------- SUBMIT Function ------------------------------------
+
+
+/* ======================================================================
+Function : 카테고리정보 등록
+Return   : 없음
+========================================================================= */
+function insertCtryInfo(){
+	
+	var ctryLevel = $('input[name=regCtryGubun]:checked').val();
+	
+	var ctryNm = $('#'+ctryLevel+'_ctryNm').val();
+	var ctryCd = '';
+	var lelSeq = '1';
+	//카테고리명
+	if(!ctryNm.length > 0){
+	    alert("카테고리명을 입력해주세요.");
+	    $('#'+ctryLevel+'_ctryNm').focus();
+	    return;
+	}
+	
+	if(ctryNm.length>20){
+	    alert("카테고리명은 20자이하로 입력해주세요.");
+	    return;
+	} 
+	$('#regCtryNm').val(ctryNm);
+	
+	//대분류
+	if(ctryLevel != 'L'){
+		if(!$('#'+ctryLevel+'_ctryCd1').val().length > 0){
+		    alert("대분류 카테고리를 선택해주세요.");
+		    $('#'+ctryLevel+'_ctryCd1').focus();
+		    return;
+		}
+		ctryCd = $('#'+ctryLevel+'_ctryCd1').val();
+		lelSeq = '2';
+	}
+	//소분류 등록시 중분류체크
+	if(ctryLevel == 'S'){
+		if(!$('#S_ctryCd2').val().length > 0){
+		    alert("중분류 카테고리를 선택해주세요.");
+		    $('#S_ctryCd2').val().focus();
+		    return;
+		}
+		ctryCd = $('#S_ctryCd2').val();
+		lelSeq = '3';
+	}  
+	
+	$('#parentCtryCd').val(ctryCd);
+	$('#lvlSeq').val(lelSeq);
+	if(confirm('등록하시겠습니까?')){
+		$("#regCtryFrm").attr('action', '/admin/prodMgr/insertCtryInfo.do');
+		$("#regCtryFrm").submit();
+	}
+}
+
+
+/* ======================================================================
+Function : 카테고리정보 수정
+Return   : 없음
+========================================================================= */
+function updateCtryInfo(){
+	if(!$("#ctryCd").val().length > 0){
+	    alert("카테고리를 선택해주세요.");
+	    return;
+	}
+	
+	if(!$("#ctryNm").val().length > 0){
+	    alert("카테고리명을 입력해주세요.");
+	    $("#ctryNm").focus();
+	    return;
+	}
+	
+	if($("#ctryNm").val().length>20){
+	    alert("카테고리명은 20자이하로 입력해주세요.");
+	    $("#ctryNm").focus();
+	    return;
+	} 
+	
+	var options = {
+        url : "/admin/prodMgr/updateCtryInfo.do",
+        success: function(){
+          alert("수정 되었습니다.");
+          $('#ctryImg').remove();
+          self.location.reload();
+        }
+	};
+	$("#ctryFrm").ajaxSubmit(options);
+}
+
+/* ======================================================================
+Function : 카테고리정보 삭제
+Return   : 없음
+========================================================================= */
+function deleteCtryInfo(){
+	if(!$("#ctryCd").val().length > 0){
+	    alert("카테고리를 선택해주세요.");
+	    return;
+	}
+	
+	if(confirm('삭제하시겠습니까?')){
+		$("#ctryFrm").attr('action', '/admin/prodMgr/deleteCtryInfo.do');
+		$("#ctryFrm").submit();
+	}
+}
+
+//--------------------------------- AJAX Function ------------------------------------
+
+
+/* ======================================================================
+Function : 메인 카테고리트리 생성
+Return   : 없음
+========================================================================= */
+function makeCategoryTree(){  
+
+	$.ajax({
+	    type: 'post'
+	    , async: true
+	    , url: '/admin/prodMgr/selectCtryTree.do'
+	    , beforeSend: function() {}
+	    , success: function(data) {
+	      $("#treeMain").empty();
+
+		  var first_ctryCd = '';
+
+	      if(data.ctryTreeInfo.length > 0){
+	    	  for(var i=0; i<data.ctryTreeInfo.length; i++) {
+	    		  var html='';
+	    		  var cate = data.ctryTreeInfo[i];
+	    		  
+	    		  if(cate.IS_LEAF == 'false'){
+	    			  html += '<li class="closed"><span id="span_' +cate.CTRY_CD+ '" onclick="onSelectCategory(\''+cate.CTRY_CD+'\', \''+cate.LVL_SEQ+'\');">'+cate.CTRY_NM+'</span>';
+	    			  html += '<ul id="'+cate.CTRY_CD+'"></ul></li>';
+	    		  }else{
+	    			  html += '<li>';
+	    			  html += '<span id="span_' +cate.CTRY_CD+ '" onclick="onSelectCategory(\''+cate.CTRY_CD+'\', \''+cate.LVL_SEQ+'\');">'+cate.CTRY_NM+'</span></li>';
+	    		  }
+	    		  if(cate.LVL_SEQ == '1'){
+	    			  $('#treeMain').append(html);
+	    		  }else{
+	    			  $('#'+cate.PARENT_CTRY_CD).append(html);
+	    		  }
+
+				  if(i == 0) {
+					 first_ctryCd = cate.CTRY_CD ;
+				  }
+	    	  }
+	    	  $("#browser").treeview();
+	      }
+	      onSelectCategoryAll( first_ctryCd, '1' );  
+//   		  onSelectCategory ( first_ctryCd, '1' );  
+	    }
+	    , error: function(data, status, err) {
+	      alert('서버와의 통신이 실패했습니다.');
+	    }
+	});
+}
+
+/* ======================================================================
+Function : 선택 카테고리정보 조회
+Return   : 없음
+========================================================================= */
+function onSelectCategory(ctryCd, lvlSeq){
+	  $('#span_all').css('background-color', '');
+  $("#ctryCd").val(ctryCd);
+  $('#treeMain span').each(function(){
+      $(this).css('background-color', '');
+  });
+  $('#span_'+ctryCd).css('background-color', '#99cc00');
+  
+  $.ajax({
+    type: 'post'
+    , async: true
+    , url: '/admin/prodMgr/selectCtryInfo.do'
+    , data: {"ctryCd":ctryCd}
+    , beforeSend: function() {}
+    , success: function(data) {
+    	var ctryInfo = data.ctryInfo;
+    	$('#spanCtryCd').text(ctryInfo.CTRY_CD);
+    	$('#ctryNm').val(ctryInfo.CTRY_NM);
+    	
+    	$('#tax_sharing').val(ctryInfo.TAX_SHARING);	// 수수료 셰어링
+    	$('#tax_sale').val(ctryInfo.TAX_SALE);			// 수수료 판매
+    	var viewYn = ctryInfo.VIEW_YN;
+    	if(viewYn == 'Y'){
+    		$('#viewY').attr('checked', 'checked');
+    	}else{
+    		$('#viewN').attr('checked', 'checked');
+    	}
+    	
+    	//대분류일때 아이콘영역표시
+    	if(lvlSeq == '1'){
+    		var fileUrl = ctryInfo.FILE_URL;
+        	if(fileUrl != null && fileUrl.length > 0){
+        		$('#ctryImgView').attr("src", ctryInfo.FILE_URL);
+        	}else{
+        		$('#ctryImgView').attr("src", "");
+        	}
+        	$('#imgRow').css('display', 'table-row');
+   	    }else{
+   	    	$('#imgRow').css('display', 'none');
+   	    }
+    	
+    	selectCtrySortList(lvlSeq, ctryInfo.PARENT_CTRY_CD);
+    	
+    }
+    , error: function(data, status, err) {
+      alert('서버와의 통신이 실패했습니다.');
+    }
+  });
+  
+  $("#cate_info").show();
+  $("#btn1").show();
+}
+
+
+function onSelectCategoryAll(ctryCd, lvlSeq){
+
+	  $("#ctryCd").val(ctryCd);
+
+	  $('#span_all').css('background-color', '#99cc00');
+	  
+	  $.ajax({
+	    type: 'post'
+	    , async: true
+	    , url: '/admin/prodMgr/selectCtryInfo.do'
+	    , data: {"ctryCd":ctryCd}
+	    , beforeSend: function() {}
+	    , success: function(data) {
+	    	var ctryInfo = data.ctryInfo;
+	    	$('#spanCtryCd').text(ctryInfo.CTRY_CD);
+	    	$('#ctryNm').val(ctryInfo.CTRY_NM);
+	    	
+	    	$('#tax_sharing').val(ctryInfo.TAX_SHARING);	// 수수료 셰어링
+	    	$('#tax_sale').val(ctryInfo.TAX_SALE);			// 수수료 판매
+	    	var viewYn = ctryInfo.VIEW_YN;
+	    	if(viewYn == 'Y'){
+	    		$('#viewY').attr('checked', 'checked');
+	    	}else{
+	    		$('#viewN').attr('checked', 'checked');
+	    	}
+	    	
+	    	//대분류일때 아이콘영역표시
+	    	if(lvlSeq == '1'){
+	    		var fileUrl = ctryInfo.FILE_URL;
+	        	if(fileUrl != null && fileUrl.length > 0){
+	        		$('#ctryImgView').attr("src", ctryInfo.FILE_URL);
+	        	}else{
+	        		$('#ctryImgView').attr("src", "");
+	        	}
+	        	$('#imgRow').css('display', 'table-row');
+	   	    }else{
+	   	    	$('#imgRow').css('display', 'none');
+	   	    }
+	    	
+	    	selectCtrySortList(lvlSeq, ctryInfo.PARENT_CTRY_CD);
+	    	
+	    }
+	    , error: function(data, status, err) {
+	      alert('서버와의 통신이 실패했습니다.');
+	    }
+	  });
+	  
+	  
+	  $("#cate_info").hide();
+	  $("#btn1").hide();
+	  
+	}
+
+/* ======================================================================
+Function : 카테고리 정렬순서리스트 조회
+Return   : 없음
+========================================================================= */
+function selectCtrySortList(lvlSeq, parentCtryCd){
+	$.ajax({
+	    type: 'post'
+	    , async: true
+	    , url: '/admin/prodMgr/selectCtryList.do'
+	    , data: {"lvlSeq":lvlSeq, "parentCtryCd":parentCtryCd}
+	    , beforeSend: function() {}
+	    , success: function(data) {
+	    	$('#ctrySortBody').empty();
+	    	var ctryList = data.ctryList;
+	    	if(ctryList.length > 0){
+	    		$('#ctrySort').show();
+		    	  for(var i=0; i<ctryList.length; i++){
+		    		  var cate = ctryList[i];
+		    		  var html = '';
+		    		  html += '<tr><td>' +cate.CTRY_CD+ '</td>';
+		    		  html += '<td class="tl">' +cate.CTRY_NM+ '</td>';
+		    		  html += '<td>' +cate.TAX_SHARING+ ' %</td><td>' +cate.TAX_SALE+ ' %</td>';
+		    		  html += '<td>' +cate.VIEW_YN_NM+ '</td>';
+		    		  html += '<input type="hidden" id="sortCtry' +cate.SORT_SEQ+ '" name="" value="' +cate.CTRY_CD+ '" />';
+		    		  html += '<td><a href="javascript:updateCtrySort(' +parentCtryCd+ ', ' +lvlSeq+ ', ' +cate.SORT_SEQ+ ', \'up\');"><img src="http://static.ssocio.net/admin/images/ico_num_up.gif" alt="올림"></a>';
+		    		  html += '<a href="javascript:updateCtrySort(' +parentCtryCd+ ', ' +lvlSeq+ ', ' +cate.SORT_SEQ+ ', \'down\');" class="ml5"><img src="http://static.ssocio.net/admin/images/ico_num_down.gif" alt="내림"></a></td></tr>';
+		    		  $('#ctrySortBody').append(html);
+		    	  }
+		    	  html = '<input type="hidden" id="sortCtry0" name="" value="" />';
+		    	  html += '<input type="hidden" id="sortCtry' +(ctryList.length+1)+ '" name="" value="" />';
+		    	  $('#ctrySortBody').append(html);
+	    	}
+	    }
+	    , error: function(data, status, err) {
+	      alert('서버와의 통신이 실패했습니다.');
+	    }
+	  });
+}
+
+/* ======================================================================
+Function : 카테고리 정렬순서 수정
+Return   : 없음
+========================================================================= */
+function updateCtrySort(parentCtryCd, lvlSeq, sortSeq, sortUpDown){
+	var sortCtryCd1 = $('#sortCtry'+sortSeq).val();
+	var sortSeq1 = 0;
+	var sortCtryCd2 = '';
+	var sortSeq2 = 0;
+	
+	if(sortUpDown == 'up'){
+		sortCtryCd2 = $('#sortCtry'+(sortSeq-1)).val();
+		if(sortCtryCd2 == ''){
+			alert('첫번째카테고리는 위로 올릴수 없습니다.');
+			return;
+		}
+		sortSeq1 = sortSeq-1;
+		sortSeq2 = sortSeq;
+	}else{
+		sortCtryCd2 = $('#sortCtry'+(sortSeq+1)).val();
+		if(sortCtryCd2 == ''){
+			alert('마지막카테고리는 아래로 올릴수 없습니다.');
+			return;
+		}
+		sortSeq1 = sortSeq+1;
+		sortSeq2 = sortSeq;
+	}
+	
+	$.ajax({
+	    type: 'post'
+	    , async: true
+	    , url: '/admin/prodMgr/updateCtrySort.do'
+	    , data: {"sortCtryCd1":sortCtryCd1, "sortSeq1":sortSeq1, "sortCtryCd2":sortCtryCd2, "sortSeq2":sortSeq2}
+	    , success: function(data) {
+	    	selectCtrySortList(lvlSeq, parentCtryCd);
+	    	makeCategoryTree();
+	    	alert('변경되었습니다.');
+	    }
+	    , error: function(data, status, err) {
+	      alert('서버와의 통신이 실패했습니다.');
+	    }
+	});
+}
+
+/* ======================================================================
+Function : 카테고리 셀렉트박스 생성
+Return   : 없음
+========================================================================= */
+function makeCtryBox(lvlSeq, parentCtryCd, targetNm){  
+	
+	$.ajax({
+	    type: 'post'
+	    , async: true
+	    , url: '/admin/prodMgr/selectCtryList.do'
+	    , data: {"lvlSeq":lvlSeq, "parentCtryCd":parentCtryCd}
+	    , success: function(data) {
+	    	var ctryList = data.ctryList;
+	    	var html='';
+			if(ctryList.length > 0){
+				if(lvlSeq == '1'){
+					html='<option value="">대분류</option>';
+				}else if(lvlSeq == '2'){
+					html='<option value="">중분류</option>';
+					
+				}
+				for(var i=0; i<ctryList.length; i++){
+					html += '<option value="' +ctryList[i].CTRY_CD+ '">' +ctryList[i].CTRY_NM+ '</option>';
+				}
+				
+				$('#'+targetNm).html(html);
+			}
+	    }
+	    , error: function(data, status, err) {
+	      alert('서버와의 통신이 실패했습니다.');
+	    }
+	});
+}
+</script>
+
+<!-- content -->
+<div id="content">
+	<!-- top_content -->
+	<div class="top_content">
+		<!-- location -->
+		<div class="location">
+			<ul class="clear">
+				<li class="first-child"><a href="#">Home</a></li>
+				<li><a href="#">상품 관리</a></li>
+				<li><a href="#" class="current">카테고리 관리</a></li>
+			</ul>
+		</div>
+		<!-- //location -->
+	</div>
+	<!-- //top_content -->
+	
+	<div class="inner clear">
+		<!-- category_list -->
+		<div class="category_list">
+			<div class="cate_add">
+				<h2>카테고리 관리</h2>
+				<a href="#" class="btn_cate_add"><img src="http://static.ssocio.net/admin/images/btn_add.gif" alt="카테고리 추가"></a>
+				<a href="javascript:deleteCtryInfo();" class="btn_cate_minus"><img src="http://static.ssocio.net/admin/images/btn_minus.gif" alt="카테고리 삭제"></a>
+			</div>
+			<div class="tree">
+				<h3><span id="span_all" onclick="window.location.reload();">전체카테고리</span> </h3>
+				<div id="browser">
+					<ul id="treeMain">
+					</ul>
+				</div>
+			</div>
+		</div>
+		<!-- //category_list -->
+		
+		<!-- cate_info_area -->
+		<form id="ctryFrm" name="ctryFrm" method="post" enctype="multipart/form-data">
+		<input type="hidden" id="ctryCd" name="ctryCd"/>
+		<input type="hidden" id="sortCtryCd1" name="sortCtryCd1"/>
+		<input type="hidden" id="sortCtryCd2" name="sortCtryCd2"/>
+		<input type="hidden" id="sortSeq1" name="sortSeq1"/>
+		<input type="hidden" id="sortSeq2" name="sortSeq2"/>
+		<div class="cate_info_area mt10">
+			<h2>카테고리 정보</h2>
+			<div id="ctrySort" class="tbl" style="display: none;">
+				<table class="upd type">
+					<colgroup>
+						<col style="width:16%" />
+						<col style="width:*" />
+						<col style="width:10%" />
+						<col style="width:10%" />
+						<col style="width:10%" />
+						<col style="width:20%" />
+					</colgroup>
+					<thead>
+						<tr>
+							<th scope="col"  rowspan="2">카테고리 코드</th>
+							<th scope="col"  rowspan="2">카테고리명</th>
+							<th scope="col"  colspan="2">수수료</th>
+							<th scope="col"  rowspan="2">사용여부</th>
+							<th scope="col"  rowspan="2">카테고리 순서</th>
+						</tr>
+						<tr>
+							<th scope="col">세어링</th>
+							<th scope="col">판매</th>
+						</tr>						
+					</thead>
+					<tbody id="ctrySortBody">
+					</tbody>
+				</table>
+			</div>
+			
+			<div class="tbl" id="cate_info">
+				<!-- list -->
+				<table class="upd type2">
+					<colgroup>
+						<col style="width:16%" />
+						<col style="width:34%" />
+						<col style="width:16%" />
+						<col style="width:34%" />
+					</colgroup>
+					<tbody>
+						<tr>
+							<th scope="row">카테고리 코드</th>
+							<td><span id="spanCtryCd"></span></td>
+							<th scope="row">카테고리명</th>
+							<td>
+								<input type="text" id="ctryNm" name="ctryNm" style="width:170px" maxlength="20"/>
+							</td>
+						</tr>
+						<tr id="imgRow" style="display:none;">
+							<th scope="row">아이콘</th>
+							<td colspan="3">
+								<div class="img_attach_area clear">
+									<div class="img_bx">
+										<img src="http://static.ssocio.net/admin/images/img_dummy.gif" id="ctryImgView" width="255" height="152"/>
+									</div>
+									<div class="img_file_bx">
+										<div class="file_upload_area ml5">
+											<input type="text" id="ctryImgPath" name="ctryImgPath" class="file_txt" style="width:330px;" />
+											<span class="txt_file">
+												<input type="file" id="ctryImg" name="ctryImg" class="inp_file" onchange="preView(this, 'ctryImgView', 'ctryImgPath');"/>
+												<a href="#" class="btn_w ml5 vmid file_add">파일찾기</a>
+											</span>
+										</div>
+										<p>* jpg, png 파일만 등록 가능합니다.</p>
+									</div>
+								</div>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+				<!-- //list -->
+				<table class="upd type bt0">
+					<colgroup>
+						<col style="width:16%">
+						<col style="width:*">
+					</colgroup>
+					<tbody>
+						<tr>
+							<th rowspan="2" scope="row">수수료</th>
+							<th>셰어링</th>
+							<th>판매</th>
+						</tr>
+						<tr>
+						  <td><input type="text"  id="tax_sharing" name="tax_sharing" style="width:60px;" onkeyup="formatNum('tax_sharing')"> %</td>
+						  <td><input type="text"  id="tax_sale" name="tax_sale" style="width:60px;" onkeyup="formatNum('tax_sale')"> %</td>
+		              	</tr>
+						<tr>
+						  <th scope="row">사용여부</th>
+							<td colspan="2" class="tl">
+								<input type="radio" id="viewY" name="viewYn" value="Y"/> <label for="viewY">사용</label>
+								<input type="radio" id="viewN" name="viewYn" value="N"/> <label for="viewN">미사용</label>
+							</td>
+					    </tr>
+					</tbody>
+				</table>
+			</div>
+			
+			<!-- bot_btn -->
+			<div class="bot_btn tc mt20" id="btn1">
+				<a href="javascript:updateCtryInfo();" class="btn_r">저장</a>
+			</div>
+			<!-- //bot_btn -->
+		</div>
+		</form>
+		<!-- //cate_info_area -->
+	</div>
+</div>
+<!-- //content -->
+
+<!-- 카테고리 추가 -->
+<div class="lay_pop cate_add_area" style="width:550px">
+	<!-- pop_header -->
+	<div class="pop_header">
+		<h1>카테고리 추가</h1>  
+		<a href="#" class="btn_close"><img src="http://static.ssocio.net/admin/images/btn_layer_close.gif" alt="close" /></a>
+	</div>
+	<!-- //pop_header -->
+	
+	<!-- pop_con -->
+	<form id="regCtryFrm" name="regCtryFrm" method="post" enctype="multipart/form-data">
+	<input type="hidden" id="regCtryNm" name="regCtryNm" />
+	<input type="hidden" id="parentCtryCd" name="parentCtryCd" />
+	<input type="hidden" id="lvlSeq" name="lvlSeq"/>
+	<div class="pop_con">
+		<div class="layer_tbl_area">
+			<!-- tbl -->
+			<div class="tbl tbl_gubun_area">
+				<div class="cate_gubun_area">
+					<span>카테고리 구분</span>
+					<span class="ml20"><input type="radio" id="gubun1" name="regCtryGubun" value="L" checked="checked" /><label for="gubun1">대분류</label></span>
+					<span class="ml10"><input type="radio" id="gubun2" name="regCtryGubun" value="M" onclick="clickMdlCtryBtn();"/><label for="gubun2">중분류</label></span>
+					<span class="ml10"><input type="radio" id="gubun3" name="regCtryGubun" value="S" onclick="clickSmlCtryBtn();"/><label for="gubun3">소분류</label></span>
+				</div>
+				<!-- list -->
+				<table class="list tbl_cate1">
+					<colgroup>
+						<col style="width:20%" />
+						<col style="width:*" />
+					</colgroup>
+					<tbody>
+						<tr>
+							<th scope="row">카테고리명</th>
+							<td class="tl">
+								<input type="text" id="L_ctryNm" name="L_ctryNm" style="width:300px" maxlength="20"/>
+							</td>
+						</tr>
+						<tr>
+							<th scope="row">아이콘</th>
+							<td>
+								<div class="file_upload_area tl">
+									<input type="text" id="regCtryImgPath" name="regCtryImgPath" style="width:220px" />
+									<span class="txt_file">
+										<input type="file" id="regCrtyImg" name="regCrtyImg" class="inp_file" onchange="inputFilePath();"/>
+										<a href="#" class="btn_w ml5 vmid file_add">파일찾기</a>
+									</span>
+								</div>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+				<!-- //list -->
+				<!-- list -->
+				<table class="list tbl_cate2">
+					<colgroup>
+						<col style="width:20%" />
+						<col style="width:*" />
+					</colgroup>
+					<tbody>
+						<tr>
+							<th scope="row">대분류 선택</th>
+							<td class="tl">
+								<span class="select" style="width:318px">
+									<span class="sel_txt"></span>
+									<select id="M_ctryCd1" name="M_ctryCd1">
+										<option value="">선택</option>
+									</select>
+								</span>
+							</td>
+						</tr>
+						<tr>
+							<th scope="row">카테고리명</th>
+							<td class="tl">
+								<input type="text" id="M_ctryNm" name="M_ctryNm"  style="width:300px" maxlength="20"/>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+				<!-- //list -->
+				<!-- list -->
+				<table class="list tbl_cate3">
+					<colgroup>
+						<col style="width:20%" />
+						<col style="width:*" />
+					</colgroup>
+					<tbody>
+						<tr>
+							<th scope="row">대분류 선택</th>
+							<td class="tl">
+								<span class="select" style="width:318px">
+									<span class="sel_txt"></span>
+									<select id="S_ctryCd1" name="S_ctryCd1" onchange="chgLrgCtryBox();">
+										<option value="">선택</option>
+									</select>
+								</span>
+							</td>
+						</tr>
+						<tr>
+							<th scope="row">중분류 선택</th>
+							<td class="tl">
+								<span class="select" style="width:318px">
+									<span class="sel_txt"></span>
+									<select id="S_ctryCd2" name="S_ctryCd2">
+										<option value="">선택</option>
+									</select>
+								</span>
+							</td>
+						</tr>
+						<tr>
+							<th scope="row">카테고리명</th>
+							<td class="tl">
+								<input type="text" id="S_ctryNm" name="S_ctryNm"  style="width:300px" maxlength="20"/>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+				<!-- //list -->
+			</div>
+			<!-- //tbl -->
+			
+			<!-- bot_btn -->
+			<div class="bot_btn tc mt20">
+				<a href="javascript:insertCtryInfo();" class="btn_r">확인</a>
+				<a href="#" class="btn_g2">취소</a>
+			</div>
+			<!-- //bot_btn -->
+		</div>
+	</div>
+	</form>
+	<!-- //pop_con -->
+</div>
+<!-- //카테고리 추가 -->

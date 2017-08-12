@@ -1,0 +1,217 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="adminDivideOrderMapper">
+	
+	<!-- 주문 리스트 엑셀 ResultMap -->
+	<resultMap id="orderMap" type="hashmap">
+		<result property="ORD_REG_DATE" column="ORD_REG_DATE" javaType="java.lang.String"/>
+		<result property="ORD_CD" column="ORD_CD" javaType="java.lang.String"/>
+		<result property="PROD_NM" column="PROD_NM" javaType="java.lang.String"/>
+		<result property="MBER_EMAIL" column="MBER_EMAIL" javaType="java.lang.String"/>
+		<result property="SELT_GB_CD" column="SELT_GB_CD" javaType="java.lang.String"/>
+		<result property="PROC_STAT_CD" column="PROC_STAT_CD" javaType="java.lang.String"/>
+		<result property="DLV_PRCE" column="DLV_PRCE" javaType="java.lang.String"/>
+		<result property="PROD_ORD_AMT" column="PROD_ORD_AMT" javaType="java.lang.String"/>
+	</resultMap>
+	
+	<!-- 나눔 주문 관리 엑셀 리스트 -->
+	<select id="selectListDivOrdExcel" parameterType="hashmap" resultMap="orderMap">
+		SELECT A.ORD_CD											<!-- 주문코드 -->
+			 , B.PROC_STAT_CD									<!-- 처리 상태 코드 -->
+			 , B.PROD_ORD_AMT									<!-- 상품 주문 금액 -->
+			 , B.DLV_PRCE										<!-- 배송비 -->
+			 , C.PROD_NM										<!-- 상품 이름 -->
+			 , A.SELT_GB_CD										<!-- 결제 구분 코드 -->
+			 , A.ORD_REG_DATE									<!-- 주문접수일 -->
+			 , D.MBER_EMAIL
+		  FROM ORD_INFO A
+		 INNER JOIN ORD_PROD_INFO B ON(B.ORD_CD = A.ORD_CD)
+		 INNER JOIN PROD C ON(C.PROD_CODE = B.PROD_CODE)
+		 INNER JOIN MBER_INFO D ON ( D.MBER_SEQ = C.MBER_SEQ)
+		 WHERE C.PROD_TYPE_CD = '3'
+		<if test="ORD_CD != null and ORD_CD != ''">
+		   AND A.ORD_CD = #{ORD_CD}
+		</if>
+		<if test="PROD_NM != null and PROD_NM != ''">
+		   AND C.PROD_NM = #{PROD_NM}
+		</if>
+		<if test="MBER_EMAIL != null and MBER_EMAIL != ''">
+		   AND D.MBER_EMAIL = #{MBER_EMAIL}
+		</if>
+		<if test="S_START_DATE != null and S_START_DATE != ''">
+		   AND A.ORD_REG_DATE BETWEEN  #{S_START_DATE} AND  #{S_END_DATE}
+		</if>
+		<if test="S_ORD_STAT_CD != null and S_ORD_STAT_CD != ''">
+		   AND B.PROC_STAT_CD =  #{S_ORD_STAT_CD}
+		</if>
+		<if test="S_SELT_GB_CD != null and S_SELT_GB_CD != ''">
+		   AND A.SELT_GB_CD =  #{S_SELT_GB_CD}
+		</if>
+		 ORDER BY A.UPDT_DT DESC, B.PROD_SEQ ASC
+	</select>
+	
+	<!-- 나눔 주문 관리 리스트 총 카운트 -->
+	<select id="selectListDivOrderCount" parameterType="hashmap" resultType="int">
+		SELECT COUNT(1)
+		  FROM ORD_INFO A
+		 INNER JOIN ORD_PROD_INFO B ON(B.ORD_CD = A.ORD_CD)
+		 INNER JOIN PROD C ON(C.PROD_CODE = B.PROD_CODE)
+		 INNER JOIN MBER_INFO D ON ( D.MBER_SEQ = C.MBER_SEQ)
+		 WHERE C.PROD_TYPE_CD = '3'
+		<if test="ORD_CD != null and ORD_CD != ''">
+		   AND A.ORD_CD = #{ORD_CD}
+		</if>
+		<if test="PROD_NM != null and PROD_NM != ''">
+		   AND C.PROD_NM = #{PROD_NM}
+		</if>
+		<if test="MBER_EMAIL != null and MBER_EMAIL != ''">
+		   AND D.MBER_EMAIL = #{MBER_EMAIL}
+		</if>
+		<if test="S_START_DATE != null and S_START_DATE != ''">
+		   AND A.ORD_REG_DATE BETWEEN  #{S_START_DATE} AND  #{S_END_DATE}
+		</if>
+		<if test="S_ORD_STAT_CD != null and S_ORD_STAT_CD != ''">
+		   AND B.PROC_STAT_CD =  #{S_ORD_STAT_CD}
+		</if>
+		<if test="S_SELT_GB_CD != null and S_SELT_GB_CD != ''">
+		   AND A.SELT_GB_CD =  #{S_SELT_GB_CD}
+		</if>
+		 ORDER BY A.UPDT_DT DESC, B.PROD_SEQ ASC
+	</select>
+	
+	<!-- 나눔 주문 관리 리스트 -->
+	<select id="selectListDivOrder" resultType="hashmap">
+		<include refid="adminCommonMapper.pagingHeader" />
+		SELECT A.ORD_CD											<!-- 주문코드 -->
+			 , A.ORG_ORD_CD										<!-- 원거래주문코드 -->
+			 , B.PROD_SEQ										<!-- 상품일련번호 -->
+			 , (SELECT MAX(PROD_SEQ)
+				  FROM ORD_PROD_INFO
+				 WHERE A.ORD_CD = ORD_CD ) MAX_PROD_SEQ			<!-- 상품구매최대값 -->
+			 , B.PROC_STAT_CD									<!-- 처리 상태 코드 -->
+			 , B.PROD_ORD_AMT									<!-- 상품 주문 금액 -->
+			 , B.DLV_PRCE										<!-- 배송비 -->
+			 , B.ORD_QTY										<!-- 주문 수량 -->
+			 , C.PROD_NM										<!-- 상품 이름 -->
+			 , A.SELT_GB_CD										<!-- 결제 구분 코드 -->
+			 , A.DSCNT_AMT										<!-- 할인금액 -->
+			 , A.ORD_REG_DATE									<!-- 주문접수일 -->
+			 , A.ORD_EMAIL
+			 , A.MBER_ID
+			 , D.MBER_EMAIL
+			 , ROW_NUMBER() OVER(ORDER BY A.REGIST_DT DESC ) AS NO
+		  FROM ORD_INFO A
+		 INNER JOIN ORD_PROD_INFO B ON(B.ORD_CD = A.ORD_CD)
+		 INNER JOIN PROD C ON(C.PROD_CODE = B.PROD_CODE)
+		 INNER JOIN MBER_INFO D ON ( D.MBER_SEQ = C.MBER_SEQ)
+		 WHERE C.PROD_TYPE_CD = '3'
+		<if test="ORD_CD != null and ORD_CD != ''">
+		   AND A.ORD_CD = #{ORD_CD}
+		</if>
+		<if test="PROD_NM != null and PROD_NM != ''">
+		   AND C.PROD_NM = #{PROD_NM}
+		</if>
+		<if test="MBER_EMAIL != null and MBER_EMAIL != ''">
+		   AND D.MBER_EMAIL = #{MBER_EMAIL}
+		</if>
+		<if test="S_START_DATE != null and S_START_DATE != ''">
+		   AND A.ORD_REG_DATE BETWEEN  #{S_START_DATE} AND  #{S_END_DATE}
+		</if>
+		<if test="S_ORD_STAT_CD != null and S_ORD_STAT_CD != ''">
+		   AND B.PROC_STAT_CD =  #{S_ORD_STAT_CD}
+		</if>
+		<if test="S_SELT_GB_CD != null and S_SELT_GB_CD != ''">
+		   AND A.SELT_GB_CD =  #{S_SELT_GB_CD}
+		</if>
+		 ORDER BY A.UPDT_DT DESC, B.PROD_SEQ ASC
+		<include refid="adminCommonMapper.pagingFooter" />
+	</select>
+	
+	<!-- 주문리스트 메인 주문현황 건수 조회 -->
+	<select id="selectDivOrdStatCnt" parameterType="hashmap" resultType="hashmap">
+		SELECT TO_CHAR(SUM(ORD_CNT),'FM99,999,999,999,999,990')			AS ORD_CNT
+		 , TO_CHAR(SUM(ORD_CNCL_CNT),'FM99,999,999,999,999,990')		AS ORD_CNCL_CNT
+		  FROM (
+				SELECT COUNT(1) AS ORD_CNT
+					 , 0		AS ORD_CNCL_CNT
+				  FROM ORD_INFO A
+				 INNER JOIN ORD_PROD_INFO B ON (B.ORD_CD = A.ORD_CD)
+				 INNER JOIN PROD C ON ( C.PROD_CODE = B.PROD_CODE)
+				 WHERE B.PROC_STAT_CD = 'OC'
+				   AND C.PROD_TYPE_CD = '3'
+				 UNION ALL
+				SELECT 0		AS ORD_CNT
+					 , COUNT(1)	AS ORD_CNCL_CNT
+				  FROM ORD_INFO A
+				 INNER JOIN ORD_PROD_INFO B ON (B.ORD_CD = A.ORD_CD)
+				 INNER JOIN PROD C ON ( C.PROD_CODE = B.PROD_CODE)
+				 WHERE B.PROC_STAT_CD = 'OD'
+				   AND C.PROD_TYPE_CD = '3'
+			)
+	</select>
+	
+	<!-- 나눔 주문 관리 상세 내역 -->
+	<select id="selectDivOrderDtl" parameterType="hashmap" resultType="hashmap">
+		SELECT A.ORD_CD											<!-- 주문코드 -->
+			 , A.ORG_ORD_CD										<!-- 원거래주문코드 -->
+			 , B.PROD_SEQ										<!-- 상품일련번호 -->
+			 , B.PROD_CODE										<!-- 상품코드번호 -->
+			 , (SELECT MAX(PROD_SEQ)
+				  FROM ORD_PROD_INFO
+				 WHERE A.ORD_CD = ORD_CD ) MAX_PROD_SEQ			<!-- 상품구매최대값 -->
+			 , B.PROC_STAT_CD									<!-- 처리 상태 코드 -->
+			 , B.PROD_ORD_AMT									<!-- 상품 주문 금액 -->
+			 , B.DLV_PRCE										<!-- 배송비 -->
+			 , B.ORD_QTY										<!-- 주문 수량 -->
+			 , C.PROD_NM										<!-- 상품 이름 -->
+			 , A.SELT_GB_CD										<!-- 결제 구분 코드 -->
+			 , A.ORD_REG_DATE									<!-- 주문접수일 -->
+			 , A.ORD_EMAIL
+			 , A.MBER_ID
+			 , A.REGIST_DT
+			 , A.UPDT_DT
+		  FROM ORD_INFO A
+		 INNER JOIN ORD_PROD_INFO B ON(B.ORD_CD = A.ORD_CD)
+		 INNER JOIN PROD C ON(C.PROD_CODE = B.PROD_CODE)
+		 INNER JOIN SELLER_INFO_CFG D ON ( D.SELLER_CD = B.SELLER_CD)
+		 WHERE A.ORD_CD = #{P_ORD_CD}
+		   AND C.PROD_TYPE_CD = '3'
+	</select>
+	
+	<!-- 주문상세결제정보 -->
+	<select id="selectDivOrdSetlDtl" parameterType="hashmap" resultType="hashmap">
+		SELECT *
+		  FROM (
+				SELECT SUM(B.PROD_ORD_AMT) OVER (PARTITION BY A.ORD_CD)					AS PROD_ORD_AMT				<!-- 상품금액합계 -->
+					 , SUM(A.DLV_SETL_AMT) OVER (PARTITION BY A.ORD_CD)					AS DLV_SETL_AMT				<!-- 배송비합계-->
+					 , SUM(C.CPN_USE_PSBL_AMT) OVER (PARTITION BY B.PROD_CPN_CD)		AS CPN_USE_PSBL_AMT			<!-- 쿠폰사용금액 -->
+					 , A.POINT_USE_AMT													AS POINT_USE_AMT			<!-- 포인트사용금액 -->
+					 , A.ORD_AMT 														AS ORD_AMT					<!-- 주문금액 -->
+					 , A.ORD_NM
+					 , A.ORD_EMAIL
+					 , A.ORD_HP
+					 , A.SELT_GB_CD														AS SELT_GB_CD				<!-- 결제수단 -->
+					 , D.RCV_NM															AS RCV_NM					<!-- 받는자명 -->
+					 , D.RCV_TEL														AS RCV_TEL					<!-- 받는자전화번호 -->
+					 , D.RCV_HP															AS RCV_HP					<!-- 받는자휴대폰번호 -->
+					 , D.DLV_ZIP_CD														AS DLV_ZIP_CD				<!-- 배송지우편번호 -->
+					 , D.DLV_ADDR														AS DLV_ADDR					<!-- 배송지 주소 -->
+					 , D.DLV_ADDR_DTL													AS DLV_ADDR_DTL				<!-- 배송지 주소 상세 -->
+				  FROM ORD_INFO A
+				 INNER JOIN ORD_PROD_INFO B ON ( B.ORD_CD = A.ORD_CD )
+				 INNER JOIN PROD_CPN C ON ( C.PROD_CPN_CD = B.PROD_CPN_CD )
+				 INNER JOIN ORD_DLV_INFO D ON ( D.ORD_CD = A.ORD_CD )
+				 WHERE A.ORD_CD = #{P_ORD_CD}
+			 )
+		 WHERE ROWNUM BETWEEN 1 AND 1
+	</select>
+	
+	<!-- 주문상태변경 -->
+	<update id="updateDivOrderDtl" parameterType="hashmap">
+		UPDATE ORD_PROD_INFO
+		   SET PROC_STAT_CD = #{PROC_STAT_CD}
+		 WHERE ORD_CD = #{ORD_CD}
+		   AND PROD_CODE = #{PROD_CODE}
+	</update>
+	
+</mapper>

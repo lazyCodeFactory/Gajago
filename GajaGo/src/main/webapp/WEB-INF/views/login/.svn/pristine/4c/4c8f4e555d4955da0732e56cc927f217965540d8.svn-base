@@ -1,0 +1,385 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="adminMainMapper">
+
+	<select id="selectOrderSituation" parameterType="hashmap" resultType="hashmap">
+	SELECT
+		'0' AS ORD_GB_CD,
+		(SELECT COUNT(ORD_CD) FROM ORD_INFO WHERE ORD_STAT_CD = '10') AS ORD_CNT,
+		(SELECT SUM(ORD_AMT) FROM ORD_INFO WHERE ORD_STAT_CD = '10') AS ORD_AMT,
+		(SELECT COUNT(ORD_CD) FROM ORD_INFO WHERE ORD_STAT_CD = '20') AS CNL_CNT,
+		(SELECT SUM(ORD_AMT) FROM ORD_INFO WHERE ORD_STAT_CD = '20') AS CNL_AMT, 
+		(SELECT COUNT(ORD_CD) FROM ORD_INFO WHERE ORD_STAT_CD = '30') AS CNG_CNT,
+		(SELECT COUNT(ORD_CD) FROM ORD_INFO WHERE ORD_STAT_CD = '40') AS RTN_CNT
+	FROM 
+		DUAL
+		
+	UNION ALL
+	
+	SELECT
+		A.ORD_GB_CD, 
+		A.ORD_CNT, 
+		A.ORD_AMT, 
+		B.ORD_CNT AS CNL_CNT, 
+		B.ORD_AMT AS CNL_AMT, 
+		C.ORD_CNT AS CNG_CNT,
+		D.ORD_CNT AS RTN_CNT
+	FROM 
+		(SELECT ORD_GB_CD, COUNT(ORD_CD) AS ORD_CNT, SUM(ORD_AMT) AS ORD_AMT FROM ORD_INFO WHERE ORD_STAT_CD = #{ordStatCd} GROUP BY ORD_GB_CD) A,
+		(SELECT ORD_GB_CD, COUNT(ORD_CD) AS ORD_CNT, SUM(ORD_AMT) AS ORD_AMT FROM ORD_INFO WHERE ORD_STAT_CD = #{cnlStatCd} GROUP BY ORD_GB_CD) B,
+		(SELECT ORD_GB_CD, COUNT(ORD_CD) AS ORD_CNT, SUM(ORD_AMT) AS ORD_AMT FROM ORD_INFO WHERE ORD_STAT_CD = #{cngStatCd} GROUP BY ORD_GB_CD) C,
+		(SELECT ORD_GB_CD, COUNT(ORD_CD) AS ORD_CNT, SUM(ORD_AMT) AS ORD_AMT FROM ORD_INFO WHERE ORD_STAT_CD = #{rtnStatCd} GROUP BY ORD_GB_CD) D
+	WHERE
+		A.ORD_GB_CD = B.ORD_GB_CD
+	AND A.ORD_GB_CD = C.ORD_GB_CD
+	AND A.ORD_GB_CD = D.ORD_GB_CD
+	
+	ORDER BY 
+		ORD_GB_CD
+	</select>
+	
+	<select id="selectProdSituation" parameterType="hashmap" resultType="hashmap">
+	SELECT
+'0' AS PROD_TYPE_CD,
+(SELECT COUNT(PROD_CODE) FROM PROD WHERE REGIST_DT > SYSDATE-1) AS NEW_CNT,
+(SELECT COUNT(PROD_CODE) FROM PROD WHERE VIEW_YN = 'Y') AS SELL_CNT,
+(SELECT COUNT(PROD_CODE) FROM PROD WHERE VIEW_YN = 'N' OR VIEW_YN IS NULL) AS NOT_SELL_CNT,
+(SELECT COUNT(PROD_CODE) FROM PROD) AS TOT_CNT
+FROM DUAL
+UNION ALL
+SELECT
+		A.PROD_TYPE_CD, 
+		A.CNT AS NEW_CNT, 
+		B.CNT AS SELL_CNT, 
+		C.CNT AS NOT_SELL_CNT,
+		D.CNT AS TOT_CNT
+	FROM 
+		(SELECT PROD_TYPE_CD, COUNT(PROD_TYPE_CD) AS CNT FROM PROD WHERE REGIST_DT > SYSDATE-1 GROUP BY PROD_TYPE_CD) A,
+		(SELECT PROD_TYPE_CD, COUNT(PROD_TYPE_CD) AS CNT FROM PROD WHERE VIEW_YN = 'Y' GROUP BY PROD_TYPE_CD) B,
+		(SELECT PROD_TYPE_CD, COUNT(PROD_TYPE_CD) AS CNT FROM PROD WHERE VIEW_YN = 'N' GROUP BY PROD_TYPE_CD) C,
+		(SELECT PROD_TYPE_CD, COUNT(PROD_TYPE_CD) AS CNT FROM PROD GROUP BY PROD_TYPE_CD) D
+	WHERE
+		A.PROD_TYPE_CD = B.PROD_TYPE_CD
+	AND A.PROD_TYPE_CD = C.PROD_TYPE_CD
+	AND A.PROD_TYPE_CD = D.PROD_TYPE_CD
+	</select>
+	
+	<!-- 메뉴 리스트 조회 -->
+  <select id="selectMenuList" resultType="hashmap">
+    SELECT
+      MENU_CD
+      , PARENT_MENU_CD
+      , LVL_SEQ
+      , SORT_SEQ
+      , MENU_NM
+      , LINK_ADDR
+      , VIEW_YN
+    FROM MENU_INFO_CFG
+    WHERE VIEW_YN = 'Y'
+    START WITH   PARENT_MENU_CD IS NULL
+    CONNECT BY   PRIOR MENU_CD = PARENT_MENU_CD
+    ORDER SIBLINGS BY PARENT_MENU_CD ASC, SORT_SEQ ASC
+  </select>
+
+
+  <select id="selectOrderCntList" parameterType="hashmap" resultType="hashmap">
+	/* selectOrderCntList - main 주문조회  */ 
+    SELECT B.COM_CD, 
+           DECODE(GROUPING(B.COM_CD), '1', '합계', MAX(B.COM_CD_NM) ) AS GP , 
+           COUNT(ORD_CD) AS ORD_CNT, 
+           NVL(SUM(REAL_SELT_AMT), 0) AS REAL_SELT_AMT, 
+           NVL(SUM(TOTAL_ORDER_PRICE), 0) AS TOTAL_ORDER_PRICE 
+      FROM 
+           (SELECT  P.*  
+             FROM 
+                  (SELECT TB.* 
+                    FROM 
+                         (SELECT T.* 
+                           FROM 
+                              (SELECT (ROW_NUMBER() OVER(PARTITION BY A.ORD_CD ORDER BY ORD_REG_DATE DESC )) AS RNUM,  
+                                       A.ORD_CD , 
+                                       A.ORD_REG_DATE , 
+                                       A.ORD_NM , 
+                                       A.ORD_EMAIL , 
+                                       B.PROD_TYPE_CD, 
+                                       B.PROD_PRCE, 
+                                       B.ORD_QTY, 
+                                       B.DLV_PRCE, 
+                                       B.CPN_USE_AMT, 
+                                       NVL(B.PROD_PRCE,0) * NVL(B.ORD_QTY,0) + NVL(B.DLV_PRCE,0) - NVL(B.CPN_USE_AMT,0) AS TOTAL_ORDER_PRICE , 
+                                       A.ORD_AMT , 
+                                       A.POINT_USE_AMT , 
+                                       A.REAL_SELT_AMT , 
+                                       A.SELT_GB_CD , 
+                                       A.CREDIT_APPR_NO , 
+                                       B.PROD_CODE , 
+                                       B.PROC_STAT_CD 
+                                  FROM 
+                                       (SELECT ORD_CD , 
+                                              TO_CHAR(ORD_REG_DATE , 'YYYY-MM-DD HH24:MI') AS ORD_REG_DATE , 
+                                              ORD_NM , 
+                                              ORD_EMAIL , 
+                                              ORD_AMT , 
+                                              POINT_USE_AMT , 
+                                              NVL(REAL_SELT_AMT, 0) AS REAL_SELT_AMT , 
+                                              SELT_GB_CD , 
+                                              CREDIT_APPR_NO 
+                                         FROM ORD_INFO 
+						                WHERE TO_CHAR(ORD_REG_DATE, 'YYYYMMDDHH24MISS') <![CDATA[ < ]]> #{curDay} || '000000'
+
+                                       ) A , 
+                                       ORD_PROD_INFO B , 
+                                       PROD C, 
+                                       MBER_INFO D  
+                                 WHERE A.ORD_CD = B.ORD_CD 
+                                       AND A.SELT_GB_CD IN ('0','1', '2', '3', '4') /* 신용카드 무통장 휴대폰 PayCo */ 
+                                       AND B.PROC_STAT_CD IN ('10', '21', '22', '23', '99') /* 10 주문완료 / 21 상품준비중 / 22 배송중 / 23 배송완료 / 99 구매완료 */  
+                                       AND B.PROD_CODE = C.PROD_CODE 
+                                       AND C.MBER_SEQ = D.MBER_SEQ     
+                                ) T   
+                          WHERE T.RNUM = 1  
+                         ) TB   
+                     LEFT OUTER JOIN 
+                         (SELECT ORD_CD, 
+                                CARD_COMP_NM, 
+                                CARD_NO, 
+                                SETL_NM, 
+                                CARRIER, 
+                                DSTADDR 
+                           FROM ORD_SETL_INFO 
+                          WHERE TRD_GB_CD = '10' 
+                         ) TC 
+                         ON TB.ORD_CD = TC.ORD_CD  
+                  ) p, 
+                  ORD_PROD_INFO Q , 
+                  PROD R, 
+                  MBER_INFO S  
+            WHERE P.ORD_CD = Q.ORD_CD 
+                  AND Q.PROD_CODE = R.PROD_CODE 
+                  AND R.MBER_SEQ = S.MBER_SEQ    
+           ) A , 
+           (SELECT COM_CD, 
+                  COM_CD_NM 
+             FROM CODE B 
+            WHERE GRP_CD = 'PROD_TYPE_CD' 
+           ) B 
+     WHERE B.COM_CD = A.PROD_TYPE_CD(+) 
+     GROUP BY ROLLUP(B.COM_CD) 
+     ORDER BY GROUPING(B.COM_CD) DESC,  B.COM_CD ASC   
+
+  </select>
+
+
+  <select id="selectOrderCancelCntList" parameterType="hashmap" resultType="hashmap">
+	/* selectOrderCancelCntList - main 주문취소 조회  */
+    SELECT  
+           B.COM_CD,
+           DECODE(GROUPING(B.COM_CD), '1', '합계', MAX(B.COM_CD_NM) ) AS GP  , 
+           COUNT(ORD_CD) AS ORD_CNT, 
+           NVL(SUM(REAL_SELT_AMT), 0) AS REAL_SELT_AMT
+      FROM 
+           (
+           SELECT TA.* 
+             FROM 
+                  (
+
+                  SELECT A.ORD_CD , 
+                         TO_CHAR(C.CANC_DT, 'YYYY-MM-DD HH24:MI') AS REQUEST_DT , 
+                         A.ORD_REG_DATE , 
+                         A.ORD_NM , 
+                         A.ORD_EMAIL , 
+                         B.PROD_TYPE_CD, 
+                         NVL(REAL_SELT_AMT, 0) AS REAL_SELT_AMT , 
+                         (ROW_NUMBER() OVER(PARTITION BY A.ORD_CD ORDER BY ROWNUM DESC )) AS RNUM                    
+                    FROM ORD_INFO A, 
+                         ORD_PROD_INFO B, 
+                         ORD_CANC_INFO C, 
+                         PROD D, 
+                         MBER_INFO E
+                   WHERE A.ORD_CD = B.ORD_CD 
+                     AND B.CANC_CD = C.CANC_CD 
+                     AND B.PROD_CODE = D.PROD_CODE 
+                     AND D.MBER_SEQ = E.MBER_SEQ 
+                     AND B.PROC_STAT_CD = '50' /* 주문취소  */
+                     AND TO_CHAR(C.CANC_DT, 'YYYYMMDDHH24MISS') <![CDATA[ < ]]> #{curDay} || '000000'
+                     AND A.SELT_GB_CD IN ('0','1', '2', '3', '4') 
+   
+                  ) TA 
+ 
+           WHERE RNUM = 1 
+/* 
+             AND REAL_SELT_AMT <![CDATA[ > ]]> 0
+           ORDER BY TA.REQUEST_DT DESC  
+*/
+         
+           ) A  ,
+           (SELECT COM_CD, 
+                  COM_CD_NM 
+             FROM CODE B 
+            WHERE GRP_CD = 'PROD_TYPE_CD' 
+           ) B  
+     WHERE B.COM_CD = A.PROD_TYPE_CD(+)   
+     GROUP BY ROLLUP(B.COM_CD) 
+     ORDER BY GROUPING(B.COM_CD) DESC, B.COM_CD ASC       
+  </select>
+
+
+  <select id="selectOrderRtnCntList" parameterType="hashmap" resultType="hashmap">
+    /*  교환 반품 신청  */  
+    SELECT B.COM_CD, 
+           DECODE(GROUPING(B.COM_CD), '1', '합계', MAX(B.COM_CD_NM) ) AS GP, 
+           COUNT(CHG_CD) AS ORD_CNT 
+      FROM 
+           (SELECT TA.* 
+             FROM 
+              (
+              SELECT ROW_NUMBER() OVER(PARTITION BY A.CHG_CD ORDER BY A.CHG_CD DESC ) AS RNUM, 
+                     A.CHG_CD , 
+                     A.ORD_CD , 
+                     TO_CHAR(A.REGIST_DT , 'YYYY-MM-DD HH24:MI') AS REQUEST_DT , 
+                     A.CHG_REASON_CD , 
+                     A.CHG_REASON , 
+                     B.PROD_CODE , 
+                     B.PROD_SEQ , 
+                     B.PROC_STAT_CD , 
+                     D.PROD_TYPE_CD, 
+                     O.ORD_NM , 
+                     O.ORD_EMAIL 
+                FROM CHG_RTN_PROC_INFO A, 
+                     CHG_PROD_INFO B, 
+                     ORD_INFO O , 
+                     ORD_PROD_INFO D , 
+                     PROD E, 
+                     MBER_INFO F  
+               WHERE A.CHG_CD = B.CHG_CD 
+                     AND A.ORD_CD = O.ORD_CD 
+                     AND A.ORD_CD = D.ORD_CD 
+                     AND B.PROD_CODE = D.PROD_CODE  
+                     AND B.PROD_CODE = E.PROD_CODE 
+                     AND E.MBER_SEQ = F.MBER_SEQ  
+                     AND TO_CHAR(A.REGIST_DT, 'YYYYMMDDHH24MISS') <![CDATA[ < ]]> #{curDay} || '000000'
+             <choose>
+                 <when test="rtn_gp != null and rtn_gp.equals('4X')">
+                     AND B.PROC_STAT_CD IN (41, 42, 43)      /*  교환신청 교환완료 교환처리중 */   
+                 </when>
+                 <when test="rtn_gp != null and rtn_gp.equals('3X')">
+                     AND B.PROC_STAT_CD IN (31, 32, 33)      /* 반품신청 반품처리중 반품완료   */
+                 </when>
+             </choose>
+
+                ) TA  
+            WHERE RNUM = 1 
+
+           ) A , 
+           (SELECT COM_CD, COM_CD_NM 
+             FROM CODE B 
+            WHERE GRP_CD = 'PROD_TYPE_CD' 
+           ) B 
+     WHERE B.COM_CD = A.PROD_TYPE_CD(+) 
+     GROUP BY ROLLUP(B.COM_CD) 
+     ORDER BY GROUPING(B.COM_CD) DESC, B.COM_CD ASC  
+
+  </select>
+
+
+
+  <select id="selectProdCntList" parameterType="hashmap" resultType="hashmap">
+    /* 상품 판매 지표 */ 
+    SELECT B.COM_CD, 
+           DECODE(GROUPING(B.COM_CD), '1', '합계', MAX(B.COM_CD_NM) ) AS GP , 
+           NVL(SUM(N.NEW_CNT), 0) AS NEW_CNT, 
+           NVL(SUM(A.CNT_0), 0) AS CNT_0, 
+           NVL(SUM(A.CNT_1), 0) AS CNT_1, 
+           NVL(SUM(A.CNT_2), 0) AS CNT_2, 
+           NVL(SUM(A.CNT_3), 0) AS CNT_3, 
+           NVL(SUM(A.CNT_FULL), 0) AS CNT_FULL 
+      FROM 
+           (SELECT PROD_TYPE_CD, 
+                  COUNT(PROD_CODE) AS CNT_FULL, 
+                  NVL(SUM(DECODE(PROD_STAT_CD, '0', 1, 0)), 0) AS CNT_0,  /* 판매중    */
+                  NVL(SUM(DECODE(PROD_STAT_CD, '1', 1, 0)), 0) AS CNT_1,  /* 판매종료  */
+                  NVL(SUM(DECODE(PROD_STAT_CD, '2', 1, 0)), 0) AS CNT_2,  /* 판매중지  */  
+                  NVL(SUM(DECODE(PROD_STAT_CD, '3', 1, 0)), 0) AS CNT_3   /* 상품삭제  */ 
+             FROM 
+                  (SELECT ROW_NUMBER() OVER(PARTITION BY A.PROD_CODE ORDER BY ROWNUM DESC ) AS RNUM, 
+                          A.PROD_CODE, 
+                          A.PROD_TYPE_CD, 
+                          A.PROD_STAT_CD 
+                     FROM PROD A 
+                    WHERE 1 = 1 
+                      AND TO_CHAR(NVL(A.UPDT_DT, A.REGIST_DT), 'YYYYMMDDHH24MISS') <![CDATA[ < ]]> #{curDay} || '000000' 
+                  ) TA 
+            WHERE RNUM = 1 
+            GROUP BY PROD_TYPE_CD 
+           ) A , 
+           (SELECT PROD_TYPE_CD, 
+                  COUNT(PROD_CODE) AS NEW_CNT 
+             FROM PROD A 
+            WHERE 1=1 
+              AND TO_CHAR(A.REGIST_DT, 'YYYYMMDD') = #{last_date}    
+            GROUP BY PROD_TYPE_CD 
+           ) N, 
+           (SELECT COM_CD, 
+                  COM_CD_NM 
+             FROM CODE B 
+            WHERE GRP_CD = 'PROD_TYPE_CD' 
+           ) B 
+     WHERE B.COM_CD = A.PROD_TYPE_CD(+) 
+       AND B.COM_CD = N.PROD_TYPE_CD(+) 
+     GROUP BY ROLLUP(B.COM_CD) 
+     ORDER BY GROUPING(B.COM_CD) DESC, B.COM_CD ASC 
+
+  </select>
+
+
+
+  <select id="selectQnaCntList" parameterType="hashmap" resultType="hashmap">
+    /* 서비스문의_미답변 */
+    SELECT '서비스 문의 접수/처리중' AS GP,
+           COUNT(A.BOARD_SEQ) AS READY_CNT 
+      FROM BOARD_INFO A , 
+           MBER_INFO B , 
+           ORD_INFO C , 
+           PROD D 
+     WHERE A.BOARD_TYPE_CD = '40' 
+       AND A.MBER_SEQ = B.MBER_SEQ (+) 
+       AND A.ORD_CD = C.ORD_CD (+) 
+       AND A.PROD_CODE = D.PROD_CODE (+) 
+       AND A.ANS_GB_CD IN ('10', '20') /* 접수  처리중 */ 
+           
+     UNION ALL
+           
+    /* 상품문의_미답변 */       
+    SELECT '상품 문의 접수/처리중' AS GP,
+           COUNT(A.BOARD_SEQ) AS READY_CNT 
+      FROM BOARD_INFO A , 
+           MBER_INFO B , 
+           ORD_INFO C , 
+           PROD D 
+     WHERE A.BOARD_TYPE_CD = '72' 
+       AND A.MBER_SEQ = B.MBER_SEQ (+) 
+       AND A.ORD_CD = C.ORD_CD (+) 
+       AND A.PROD_CODE = D.PROD_CODE (+) 
+       AND A.ANS_GB_CD IN ('10', '20') /* 접수  처리중 */             
+
+     UNION ALL
+           
+    /* 상담관리_처리중  */         
+           
+    SELECT '상담관리 접수/처리중' AS GP,
+           COUNT(A.BOARD_SEQ) AS READY_CNT        
+      FROM BOARD_INFO A , 
+           MBER_INFO B , 
+           ORD_INFO C , 
+           PROD D 
+     WHERE A.BOARD_TYPE_CD = '30'
+       AND A.MBER_SEQ = B.MBER_SEQ (+) 
+       AND A.ORD_CD = C.ORD_CD (+) 
+       AND A.PROD_CODE = D.PROD_CODE (+) 
+       AND A.ANS_GB_CD IN ('10', '20') /* 접수  처리중 */ 
+
+  </select>
+
+
+</mapper>

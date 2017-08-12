@@ -1,0 +1,170 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/web/common/webJSTL.jsp"%>
+<script type="text/javascript" src="/js/web/board/selectListboard.js"></script>
+<script type="text/javascript">
+$(document).ready(function(){
+	header.type	= 10;
+	header.title = "고객센터";
+	header.method = "GET";
+	header.backUrl = "/mobile/board/selectListNotice.do";
+	header.callback = headerCallback;
+	initHeader();
+
+	//APP TITLE
+	document.title = "고객센터";
+});
+
+//mobile-web에서 버튼을 클릭할 경우
+function headerCallback(rtn){
+	if( 'help-h' == rtn ){
+		if("" != '${sessionScope.user}'){
+			$("#sndfrm").attr("action","/mobile/board/insertOne.do").submit();
+		}else{
+			setLogin();
+		}
+	}
+}
+//앱에서 1:1문의 등록 버튼을 클릭할 경우
+function AppCallBack(){
+
+	if("" != '${sessionScope.user}'){
+		$("#sndfrm").attr("action","/mobile/board/insertOne.do").submit();
+	}else{
+		setLogin();
+	}
+}
+
+
+function setLogin(){
+	location.href="/mobile/main/login.do?ret="+encodeURIComponent("/mobile/board/insertOne.do");
+}
+function btnClick(SEQ,BOARD_TYPE_CD){
+	$("#BOARD_SEQ").val(SEQ);
+	$("#BOARD_TYPE_CD").val(BOARD_TYPE_CD);
+	$.ajax({
+	    type: 'get'
+	    , async: true
+	    , dataType:'json'
+	    , url: '/mobile/board/selectNotice.do'
+		, data: $("#sndfrm").serialize()
+	    , success: function(data) {
+	    	var outData = data.NOTIDTL_LIST;
+	    	console.log(outData)
+				$("#VIEW_TITLE").html(outData.TITLE);
+				$("#VIEW_CONTENT").html(outData.CONTENTS);
+				$("#PAGING_UL").html("");
+				var str = "";
+
+				if(typeof outData.PREV_SEQ == "undefined" && typeof outData.NEXT_SEQ != "undefined"){
+					str +="<li ><a href=\"#\" class=\"off\"><span>이전글</span>이전 글이 없습니다.</a></li>";
+					str +="<li ><a href=\"javascript:btnClick('"+outData.NEXT_SEQ+"','"+outData.BOARD_TYPE_CD+"')\"><span>다음글</span>"+outData.NEXT_TITLE+"</a></li>";
+
+				}
+				if(typeof outData.PREV_SEQ != "undefined" && typeof outData.NEXT_SEQ == "undefined"){
+					str +="<li ><a href=\"javascript:btnClick('"+outData.PREV_SEQ+"','"+outData.BOARD_TYPE_CD+"')\"><span>이전글</span>"+outData.PREV_TITLE+"</a></li>";
+					str +="<li ><a href=\"#\" class=\"off\"><span>다음글</span>다음 글이 없습니다.</a></li>";
+
+				}
+				if(typeof outData.PREV_SEQ == "undefined" && typeof outData.NEXT_SEQ == "undefined"){
+					str +="<li ><a href=\"#\" class=\"off\"><span>이전글</span>이전 글이 없습니다.</a></li>";
+					str +="<li ><a href=\"#\" class=\"off\"><span>다음글</span>다음 글이 없습니다.</a></li>";
+
+				}
+				if(typeof outData.PREV_SEQ != "undefined" && typeof outData.NEXT_SEQ != "undefined"){
+					str +="<li ><a href=\"javascript:btnClick('"+outData.PREV_SEQ+"','"+outData.BOARD_TYPE_CD+"')\"><span>이전글</span>"+outData.PREV_TITLE+"</a></li>";
+					str +="<li ><a href=\"javascript:btnClick('"+outData.NEXT_SEQ+"','"+outData.BOARD_TYPE_CD+"')\"><span>다음글</span>"+outData.NEXT_TITLE+"</a></li>";
+
+				}
+	    	$("#PAGING_UL").append(str);
+	    }
+	    , error: function(data, status, err) {
+	    	console.log(err)
+	      alert('서버와의 통신이 실패했습니다.');
+	    }
+	});
+}
+</script>
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+
+        <div class="roc">
+        	<ul class="inner">
+            	<li><img src="http://static.ssocio.net/pc/img/common/section/roc_home.png" alt="홈"></li>
+                <li>고객센터</li>
+            </ul>
+        </div>
+
+        <!-- inner -->
+		<div class="inner">
+			<h3 class="tit_cont"><img src="http://static.ssocio.net/pc/img/common/tit/help1000.png" alt="고객센터" /></h3>
+      	  	<!-- Title -->
+	        <p class="title tit-type lineb">스미싱 사기 주의 바랍니다.</p>
+
+
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+	 <!-- container -->
+		<div id="container">
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>
+
+<form id="sndfrm" name="sndfrm" method="get">
+	<input type="hidden" id="BOARD_SEQ" name="BOARD_SEQ">
+	<input type="hidden" id="BOARD_TYPE_CD" name="BOARD_TYPE_CD">
+	<input type="hidden" id="NOTICE_TITLE" name="NOTICE_TITLE">
+	<input type="hidden" id="NOTICE_CONTENTS" name="NOTICE_CONTENTS">
+	<input type="hidden" id="NOTICE_VIEW" name="NOTICE_VIEW" value="">
+</form>
+
+
+        <div class="content">
+        	<div class="board">
+                <!-- Title -->
+				  <div class="view-title" id="VIEW_TITLE"><h3>${NOTIDTL_LIST.TITLE}</h3></div>
+				<!-- Content -->
+                <div class="view-content" id="VIEW_CONTENT">
+                ${NOTIDTL_LIST.CONTENTS}
+                </div>
+
+                <div class="view-btn"><a href="javascript:history.go(-1)" class="btn btn2">목록</a></div>
+                <ul class="view-list" id="PAGING_UL">
+                <c:if test="${empty NOTIDTL_LIST.PREV_SEQ  && empty NOTIDTL_LIST.NEXT_SEQ }">
+					<li ><a href="#" class="off"><span>이전글</span>이전 글이 없습니다.</a></li>
+					<li ><a href="#" class="off"><span>다음글</span>다음 글이 없습니다.</a></li>
+                </c:if>
+                <c:if test="${!empty NOTIDTL_LIST.PREV_SEQ  && !empty NOTIDTL_LIST.NEXT_SEQ }">
+					<li ><a href="javascript:btnClick('${NOTIDTL_LIST.PREV_SEQ}','${NOTIDTL_LIST.BOARD_TYPE_CD}')"><span>이전글</span>${NOTIDTL_LIST.PREV_TITLE}</a></li>
+					<li ><a href="javascript:btnClick('${NOTIDTL_LIST.NEXT_SEQ}','${NOTIDTL_LIST.BOARD_TYPE_CD}')"><span>다음글</span>${NOTIDTL_LIST.NEXT_TITLE}</a></li>
+                </c:if>
+                 <c:if test="${empty NOTIDTL_LIST.PREV_SEQ  && !empty NOTIDTL_LIST.NEXT_SEQ}">
+                 	<li ><a href="#" class="off"><span>이전글</span>이전 글이 없습니다.</a></li>
+					<li ><a href="javascript:btnClick('${NOTIDTL_LIST.NEXT_SEQ}','${NOTIDTL_LIST.BOARD_TYPE_CD}')"><span>다음글</span>${NOTIDTL_LIST.NEXT_TITLE}</a></li>
+                 </c:if>
+                  <c:if test="${!empty NOTIDTL_LIST.PREV_SEQ  && empty NOTIDTL_LIST.NEXT_SEQ}">
+					<li ><a href="javascript:btnClick('${NOTIDTL_LIST.PREV_SEQ}','${NOTIDTL_LIST.BOARD_TYPE_CD}')"><span>이전글</span>${NOTIDTL_LIST.PREV_TITLE}</a></li>
+					<li ><a href="#" class="off"><span>다음글</span>다음 글이 없습니다.</a></li>
+                 </c:if>
+
+                </ul>
+            </div>
+        </div>
+
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+        </div>
+        <!-- //inner -->
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+	    </div>
+	    <!-- //container -->
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>

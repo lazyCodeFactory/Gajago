@@ -1,0 +1,401 @@
+<%@ page language="java" contentType="text/html; charset=utf-8"
+    pageEncoding="utf-8"%>
+<!-- 태그는 cmmnHead.jsp 에 선언함 -->
+<%@ include file="/WEB-INF/views/admin/common/cmmnHead.jsp"%>
+<script type="text/javascript">
+$(document).ready(function(){
+	//2015-07-13 추가
+	fixed_tbl_height();
+	prod_padding()
+});
+/* ======================================================================
+Function : 주문상태 처리
+Return   : 없음
+========================================================================= */
+function statProc(ordCd, prodCd, procStatCd, prodSeq, obj){
+/* =============
+	CC	교환완료
+	CR	교환신청
+	DC	배송완료
+	DE	배송중
+	IR	상품준비
+	OC	주문완료
+	OD	주문취소
+	PD	결제취소
+	RC	반품완료
+	RR	반품신청 
+	
+	1:쉐어링
+	2.판매
+	3나눔
+================ */
+	if ( procStatCd == 'IR' ) {
+		insInvc(obj, procStatCd, ordCd, prodCd, prodSeq);
+	} else if ( procStatCd == 'DC' || procStatCd == 'OD' ) {
+		return;
+	} else {
+		statChg(obj, procStatCd);
+	}
+	
+}
+
+/* ======================================================================
+Function : 주문상태 변경
+Return   : 없음
+========================================================================= */
+function statChg(obj, procStatCd){
+// 	alert("상태변경");
+/* =============
+	CC	교환완료
+	CR	교환신청
+	DC	배송완료
+	DE	배송중
+	IR	상품준비
+	OC	주문완료
+	OD	주문취소
+	PD	결제취소
+	RC	반품완료
+	RR	반품신청 
+================ */
+	var statText = "";
+	var procText = "";
+	if (procStatCd == "OC") {
+		statText = "상품준비";
+		procText = "배송처리";
+		$(obj).parent().parent().find("td").eq(4).find("input[id=L_PROC_STAT_CD]").val('IR');
+		$(obj).children().text(procText);
+		$(obj).parent().parent().find("td").eq(5).text(statText);
+	} else if (procStatCd == "IR") {
+		statText = "배송중";
+		procText = "배송추적";
+		$(obj).parent().parent().find("td").eq(4).find("input[id=L_PROC_STAT_CD]").val('DE');
+		$(obj).children().text(procText);
+		$(obj).parent().parent().find("td").eq(5).text(statText);
+	} else if (procStatCd == "RR") {
+		statText = "반품완료";
+		procText = "-";
+		$(obj).parent().parent().find("td").eq(4).find("input[id=L_PROC_STAT_CD]").val('RC');
+		$(obj).children().text(procText);
+		$(obj).parent().parent().find("td").eq(5).text(statText);
+	} else if (procStatCd == "CR") {
+		statText = "교환완료";
+		procText = "-";
+		$(obj).parent().parent().find("td").eq(4).find("input[id=L_PROC_STAT_CD]").val('CC');
+		$(obj).children().text(procText);
+		$(obj).parent().parent().find("td").eq(5).text(statText);
+	}
+	
+}
+
+/* ======================================================================
+Function : 운송장 번호 등록
+Return   : 없음
+========================================================================= */
+function insInvc(obj, procStatCd, ordCd, prodCd, prodSeq){
+	var width = 1044;
+	var height = 420;
+	var url = "/admin/order/procOrderShipping.do"
+	var prodNm = $(obj).parent().parent().find("td").eq(1).text();
+	var left = screen.width;
+	var top = (screen.height/2) - (height/2);
+	$("#P_ORD_CD").val(ordCd);
+	$("#P_PROD_CODE").val(prodCd);
+	$("#P_PROD_NM").val(prodNm.trim());
+	$("#P_PROD_SEQ").val(prodSeq);
+	window.open('', 'popupForm','width=' + width + ', height=' + height + ', screenY=' + top + ', screenX=' + left + ',toolbar=no, menubar=no, scrollbars=yes, resizeable=no');
+	$("#popupForm").attr("action", url).attr("target", "popupForm").submit();
+	
+	$(obj).parent().parent().find("td").eq(4).find("input[id=L_PROC_STAT_CD]").val('DE');
+	$(obj).children().text("배송추적");
+	$(obj).parent().parent().find("td").eq(5).text("배송중");
+}
+
+/* ======================================================================
+Function : 확인
+Return   : 없음
+========================================================================= */
+function updateOrderStat() {
+// 	$("#frm").attr("action","/admin/order/selectTest.do").submit();
+	$.ajax({
+		type: 'post'
+		, async: true
+		, url: '/admin/order/updateDivOrderStat.do'
+		, dataType:'json'
+		, data:  $("#frm").serialize()
+		, success: function(data) {
+			alert('정상적으로 변경되었습니다.');
+			location.reload();
+		}
+		, error: function(data, status, err) {
+			alert('서버와의 통신이 실패했습니다.');
+		}
+	});
+}
+
+</script>
+	<!-- content -->
+	<div id="content">
+		<!-- top_content -->
+		<div class="top_content">
+			<!-- location -->
+			<div class="location">
+				<ul class="clear">
+					<li class="first-child"><a href="#">주문관리</a></li>
+					<li><a href="#">나눔 주문 관리</a></li>
+					<li><a href="#" class="current">상세</a></li>
+				</ul>
+			</div>
+			<!-- //location -->
+		</div>
+		<!-- //top_content -->
+		
+		<div class="inner">
+			<div class="tbl mt10">
+				<table class="upd type">
+					<colgroup>
+						<col style="width:20%" />
+						<col style="width:30%" />
+						<col style="width:20%" />
+						<col style="width:30%" />
+					</colgroup>
+					<tbody>
+						<tr>
+							<th scope="row">주문번호</th>
+							<td>${list.params.P_ORD_CD }</td>
+							<th scope="row" class="bl">주문일시</th>
+							<td>${list.params.P_ORD_REG_DATE}</td>
+						</tr>
+						<tr>
+							<td colspan="4" class="first">
+								<div class="order_payment clear">
+									<p class="left ml10">주문정보</p>
+									<a href="#" class="right mr10 btn_r">선택 결제취소</a>
+								</div>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			
+			<!-- fixed_tbl_list -->
+			<!-- 2015-07-13 수정영역 -->
+			<div class="fixed_tbl_list mt10">
+				<!-- thead -->
+				<div class="tbl thead" style="height:79px;">
+					<table class="list">
+						<colgroup>
+							<col style="width:3%" />
+							<col style="width:27%" />
+							<col style="width:6%" />
+							<col style="width:10%" />
+							<col style="width:6%" />
+							<col style="width:6%" />
+							<col style="width:6%" />
+							<col style="width:6%" />
+							<col style="width:6%" />
+							<col style="width:6%" />
+							<col style="width:6%" />
+							<col style="width:6%" />
+							<col style="width:6%" />
+						</colgroup>
+						<thead>	
+							<tr>
+								<th scope="col" rowspan="2" class="first"><input type="checkbox" id="" name="" /></th>
+								<th scope="col" rowspan="2">주문상품</th>
+								<th scope="col" rowspan="2">판매채널</th>
+								<th scope="col" rowspan="2">판매자ID</th>
+								<th scope="col" rowspan="2">결제수단</th>
+								<th scope="col" colspan="2" class="bdb">주문상태</th>
+								<th scope="col" rowspan="2">상품금액</th>
+								<th scope="col" rowspan="2">배송비</th>
+								<th scope="col" rowspan="2">수문수량</th>
+								<th scope="col" colspan="2" class="bdb">할인금액</th>
+								<th scope="col" rowspan="2">주문금액</th>
+							</tr>
+							<tr>
+								<th scope="col">상태</th>
+								<th scope="col">처리</th>
+								<th scope="col">포인트</th>
+								<th scope="col">쿠폰</th>
+							</tr>
+						</thead>
+					</table>
+				</div>
+				<!-- //thead -->
+
+				<!-- tbody -->
+				<form id="frm" name="frm" method="post">
+					<div class="tbl tbody" style="top:82px;">
+						<table class="list">
+							<colgroup>
+								<col style="width:3%" />
+								<col style="width:27%" />
+								<col style="width:6%" />
+								<col style="width:10%" />
+								<col style="width:6%" />
+								<col style="width:6%" />
+								<col style="width:6%" />
+								<col style="width:6%" />
+								<col style="width:6%" />
+								<col style="width:6%" />
+								<col style="width:6%" />
+								<col style="width:6%" />
+								<col style="width:6%" />
+							</colgroup>
+							<tbody>
+								<c:forEach var="order" items="${list.selectDivOrderDtl }" varStatus="status">
+									<tr>
+										<td class="first"><input type="checkbox" id="" name="" /></td>
+										<td>
+											<div class="thumbnail_bx">
+												<img src="http://static.ssocio.net/admin/images/sample.jpg" alt="${order.PROD_NM }">
+												<span class="prod_name" style="width:300px">${order.PROD_NM }</span>
+											</div>
+										</td>
+										<td>모바일웹</td>
+										<td>${order.MBER_EMAIL}</td>
+										<td>
+											<custom:codeTag code="${order.SELT_GB_CD}" groupCode="SELT_GB_CD" />
+											<input type="hidden" id="L_ORD_CD" name="L_ORD_CD" value="${list.params.P_ORD_CD }"/>
+											<input type="hidden" id="L_PROD_CODE" name="L_PROD_CODE" value="${order.PROD_CODE}"/>
+											<input type="hidden" id="L_PROC_STAT_CD" name="L_PROC_STAT_CD" value="${order.PROC_STAT_CD}"/>
+										</td>
+										<td>
+											<custom:codeTag code="${order.PROC_STAT_CD}" groupCode="PROC_STAT_CD" />
+										</td>
+										<c:choose>
+											<c:when test="${order.PROC_STAT_CD eq 'OC'}">
+												<td><a class="btn_w" onclick="statProc('${list.params.P_ORD_CD }','${order.PROD_CODE}','${order.PROC_STAT_CD}','${order.PROD_SEQ}', this);"><span>주문접수</span></a></td>
+											</c:when>
+											<c:when test="${order.PROC_STAT_CD eq 'IR'}">
+												<td><a class="btn_w" onclick="statProc('${list.params.P_ORD_CD }','${order.PROD_CODE}','${order.PROC_STAT_CD}','${order.PROD_SEQ}', this);"><span>배송처리</span></a></td>
+											</c:when>
+											<c:when test="${order.PROC_STAT_CD eq 'DE'}">
+												<td><a class="btn_w" onclick="statProc('${list.params.P_ORD_CD }','${order.PROD_CODE}','${order.PROC_STAT_CD}','${order.PROD_SEQ}', this);"><span>배송추적</span></a></td>
+											</c:when>
+											<c:when test="${order.PROC_STAT_CD eq 'DC'}">
+												<td><a class="btn_w" onclick="statProc('${list.params.P_ORD_CD }','${order.PROD_CODE}','${order.PROC_STAT_CD}','${order.PROD_SEQ}', this);"><span>-</span></a></td>
+											</c:when>
+											<c:when test="${order.PROC_STAT_CD eq 'RR'}">
+												<td><a class="btn_w" onclick="statProc('${list.params.P_ORD_CD }','${order.PROD_CODE}','${order.PROC_STAT_CD}','${order.PROD_SEQ}', this);"><span>반품완료</span></a></td>
+											</c:when>
+											<c:when test="${order.PROC_STAT_CD eq 'CR'}">
+												<td><a class="btn_w" onclick="statProc('${list.params.P_ORD_CD }','${order.PROD_CODE}','${order.PROC_STAT_CD}','${order.PROD_SEQ}', this);"><span>교환완료</span></a></td>
+											</c:when>
+											<c:when test="${order.PROC_STAT_CD eq 'OD'}">
+												<td><a class="btn_w" onclick="statProc('${list.params.P_ORD_CD }','${order.PROD_CODE}','${order.PROC_STAT_CD}','${order.PROD_SEQ}', this);"><span>-</span></a></td>
+											</c:when>
+											<c:otherwise>
+												<td><a class="btn_w" onclick="statProc('${list.params.P_ORD_CD }','${order.PROD_CODE}','${order.PROC_STAT_CD}','${order.PROD_SEQ}', this);"><span>-</span></a></td>
+											</c:otherwise>
+										</c:choose>
+										<td><fmt:formatNumber value="${order.PROD_ORD_AMT}" pattern="#,###" /></td>
+										<td><fmt:formatNumber value="${order.DLV_PRCE}" pattern="#,###" /></td>
+										<td>${order.ORD_QTY}</td>
+										<td><fmt:formatNumber value="${list.selectDivSetlDtl.POINT_USE_AMT }" pattern="#,###" /></td>
+										<td><fmt:formatNumber value="${list.selectDivSetlDtl.CPN_USE_PSBL_AMT }" pattern="#,###" /></td>
+										<td>37,500</td>
+									</tr>
+								</c:forEach>
+							</tbody>
+						</table>
+					</div>
+				</form>
+				<!-- //tbody -->
+			</div>
+			<!-- //2015-07-13 수정영역 -->
+			<!-- //fixed_tbl_list -->
+			
+			<!-- tbl -->
+			<div class="tbl mt10">
+				<p class="tbl_tit"><img src="http://static.ssocio.net/admin/images/ico_admin.gif" alt="" />결제 정보</p>
+				<table class="list">
+					<colgroup>
+						<col style="width:17%" />
+						<col style="width:17%" />
+						<col style="width:16%" /> 
+						<col style="width:16%" />
+						<col style="width:17%" />
+						<col style="width:17%" />
+					</colgroup>
+					<thead>
+						<tr>
+							<th scope="col" rowspan="2" class="first">상품금액</th>
+							<th scope="col" rowspan="2">배송비</th>
+							<th scope="col" colspan="2" class="bdb">할인금액</th>
+							<th scope="col" rowspan="2">주문금액</th>
+							<th scope="col" rowspan="2">결제수단</th>
+						</tr>
+						<tr>
+							<th scope="col">포인트</th>
+							<th scope="col">쿠폰</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td class="first tr"><fmt:formatNumber value="${list.selectDivSetlDtl.PROD_ORD_AMT }" pattern="#,###" /></td>
+							<td class="tr"><fmt:formatNumber value="${list.selectDivSetlDtl.DLV_SETL_AMT }" pattern="#,###" /></td>
+							<td class="tr"><fmt:formatNumber value="${list.selectDivSetlDtl.POINT_USE_AMT }" pattern="#,###" /></td>
+							<td class="tr"><fmt:formatNumber value="${list.selectDivSetlDtl.CPN_USE_PSBL_AMT }" pattern="#,###" /></td>
+							<td class="tr"><fmt:formatNumber value="${list.selectDivSetlDtl.ORD_AMT }" pattern="#,###" /></td>
+							<td><custom:codeTag code="${list.selectDivSetlDtl.SELT_GB_CD}" groupCode="SELT_GB_CD" /></td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			<!-- //tbl -->
+			
+			<!-- tbl -->
+			<div class="tbl mt10">
+				<p class="tbl_tit"><img src="http://static.ssocio.net/admin/images/ico_admin.gif" alt="" />주문자 정보</p>
+				<table class="list">
+					<colgroup>
+						<col style="width:33%" />
+						<col style="width:*" /> 
+						<col style="width:33%" />
+					</colgroup>
+					<thead>
+						<tr>
+							<th scope="col" class="first">주문자명</th>
+							<th scope="col">주문자ID</th>
+							<th scope="col">휴대폰번호</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td class="first">${list.selectDivSetlDtl.ORD_NM }</td>
+							<td>${list.selectDivSetlDtl.ORD_EMAIL }</td>
+							<td>${list.selectDivSetlDtl.ORD_HP }</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			<!-- //tbl -->
+			
+			<!-- tbl -->
+			<div class="tbl mt10">
+				<p class="tbl_tit"><img src="http://static.ssocio.net/admin/images/ico_admin.gif" alt="" />배송정보</p>
+				<div class="ship_info_area">
+					<p>   
+						${list.selectDivSetlDtl.RCV_NM } | ${list.selectDivSetlDtl.RCV_HP }<br />
+						(${list.selectDivSetlDtl.DLV_ZIP_CD }) ${list.selectDivSetlDtl.DLV_ADDR } ${list.selectDivSetlDtl.DLV_ADDR_DTL }
+					</p>
+				</div>
+			</div>
+			<!-- //tbl -->
+			
+			<!-- bot_btn -->
+			<div class="bot_btn tc mt20">
+				<a href="javascript:updateOrderStat();" class="btn_r">확인</a>
+				<a href="#" class="btn_g2 ml10">취소</a>
+			</div>
+			<!-- //bot_btn -->
+		</div>
+	</div>
+	<!-- //content -->
+	<form name="popupForm" id="popupForm" method="post">
+		<input type="hidden" name="P_ORD_CD" id="P_ORD_CD" />
+		<input type="hidden" name="P_PROD_CODE" id="P_PROD_CODE" />
+		<input type="hidden" name="P_PROD_NM" id="P_PROD_NM" />
+		<input type="hidden" name="P_PROD_SEQ" id="P_PROD_SEQ" />
+	</form>	

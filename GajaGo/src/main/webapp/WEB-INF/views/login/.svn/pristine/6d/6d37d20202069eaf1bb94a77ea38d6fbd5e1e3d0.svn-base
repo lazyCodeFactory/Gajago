@@ -1,0 +1,342 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/web/common/cmmnHead.jsp"%>
+<script type="text/javascript" src="/js/web/cart.js" ></script> <!-- 장바구니용 js -->
+<script type="text/javascript">
+
+	var regData = '${regData}';
+	var prodTypeCd = '${prodTypeCd}';
+	var mainYn = '${params.mainYn }';
+	
+	//ready
+	$(document).ready(function(){
+		
+		$("#regData").val(regData);
+// 		console.log($("#regData").val())
+		// title 및 back 버튼 url set		
+		document.title = "상품 등록";
+// 		header.type	= 6;
+		header.type	= 4;
+		header.title = "상품 등록";
+		header.method = "POST";
+		if (mainYn == "Y") {
+			header.backUrl = "/mobile/main/main.do";
+		}
+		else {
+			header.backUrl = "/mobile/salemanage/main.do";
+		}
+		header.callback = headerCallback; // 장바구니용 callback
+		header.form = $("#form");
+		initHeader();
+		
+		// 뒤로가기 를 공통 제어를 쓰지 않고 재정의함
+		var data = JSON.parse(regData);
+		$("#id_btn_back").unbind('click');
+		$(".btn_back").click(function(event){
+			event.preventDefault();
+			location.href=data.refUrl;
+		});
+		
+		displayFooter(false);
+		
+		proc.setYear();
+		
+		// 년도 변경
+		$("#freeEndYear").change(function () {
+			proc.setMonth();
+			proc.procNextBtn();
+		});
+		// 월 변경
+		$("#freeEndMonth").change(function () {
+			proc.setDay();
+			proc.procNextBtn();
+		});
+		// 일 변경
+		$("#freeEndDay").change(function () {
+			proc.procNextBtn();
+		});
+		
+	});
+
+	// page 이동
+	var page = {
+			
+		// 다음 페이지 이동
+		goNextPage : function () {
+			//alert문구 추가 
+			if(!$("#btnNext").hasClass("btn_r")) {
+				alert("나눔신청 마감일을 선택해주세요");
+				return;
+			}
+			var year = $("#freeEndYear option:selected").val();
+			var month = $("#freeEndMonth option:selected").val();
+			var day = $("#freeEndDay option:selected").val();
+			var freeShareEndDt = year+""+month+""+day+"235959";
+			$("#freeShareEndDt").val(freeShareEndDt);
+			
+			if (!validation.saveValidation()) {
+				return;
+			}
+			
+			var url = "/mobile/salemanage/procInsertProdSell.do";
+			form.action = url;
+			form.submit();
+			
+		},
+		
+		// 이전 페이지 이동
+		goPrePage : function () {
+		var data = JSON.parse(regData);
+			
+			if("Y" == data.jusoPageFlag){
+				$("#movePage").val("7");
+			}else{
+				$("#movePage").val("8");
+			}
+			$("#moveBack").val("Y");
+			var url = "/mobile/salemanage/procInsertProdComm.do";
+			form.action = url;
+			form.submit();
+			
+		}
+			
+	};
+	
+	var validation = {
+			
+		saveValidation : function () {
+			
+			var yearIdx = $("#freeEndYear option").index($("#freeEndYear option:selected"));
+			var monthIdx = $("#freeEndMonth option").index($("#freeEndMonth option:selected"));
+			var dayIdx = $("#freeEndDay option").index($("#freeEndDay option:selected"));
+			var freeShareEndDt = $("#freeShareEndDt").val().substr(0,8);
+			var date = new Date();
+			var year = date.getFullYear();
+			var month = date.getMonth() + 1;
+			var day = date.getDate();
+			
+			if (month < 10) {
+				month = "0"+month;
+			}
+			
+			if (day < 10) {
+				day = "0"+day;
+			}
+			var today = year+""+month+""+day;
+			
+			// 날짜 선택
+			if (yearIdx == null || yearIdx <= 0) {
+				alert("마감년도를 선택해 주세요.");
+				$("#freeEndYear").focus();
+				return false;
+			}
+			if (monthIdx == null || monthIdx <= 0) {
+				alert("마감월을 선택해 주세요.");
+				$("#freeEndMonth").focus();
+				return false;
+			}
+			if (dayIdx == null || dayIdx <= 0) {
+				alert("마감일을 선택해 주세요.");
+				$("#freeEndDay").focus();
+				return false;
+			}
+			// 날짜크기
+			if (freeShareEndDt < today) {
+				alert("마감일은 오늘날짜보다 작을 수 없습니다.");
+				return false;
+			}
+			
+			return true;
+			
+		}
+			
+	};
+	
+	var proc = {
+			
+		// 년도
+		setYear : function () {
+			
+			var date = new Date();
+			var curYear = date.getFullYear();
+			var nextYear = date.getFullYear()+5;
+			var yearHtml = "";
+			for (var i = curYear ; i < nextYear ; i++) {
+				yearHtml += "<option value='";
+				yearHtml += i;
+				yearHtml += "'>";
+				yearHtml += i+"년";
+				yearHtml += "</option>";
+			}
+			$("#freeEndYear").append(yearHtml);
+			
+		},
+		
+		// 월
+		setMonth : function () {
+			
+			var date = new Date();
+			var curMon = date.getMonth()+1;
+			
+			if (curMon < 10) {
+				curMon = "0"+curMon;
+			}
+			else {
+				curMon = curMon;
+			}
+			
+			$("#freeEndMonth option[value="+curMon+"]").attr("selected", true);	
+			
+			proc.setDay();
+		},
+		
+		// 일
+		setDay : function () {
+			
+			var year = $("#freeEndYear option:selected").val();
+			var month = $("#freeEndMonth option:selected").val();
+			var dayArr = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+			var maxDay = dayArr[month-1];  
+			var dayHtml = "";
+			
+			// 윤년 체크
+			if( month==2 &&	( year%4==0 && year%100!=0 || year%400==0 ) ) {
+				maxDay = 29;
+			}
+			
+			// 일 set
+			$("#freeEndDay").empty();
+			dayHtml += "<option value=''>일</option>";
+			for (var i = 1 ; i <= maxDay ; i++) {
+				dayHtml += "<option value='";
+				if (i < 10) {
+					dayHtml += "0"+i;
+				}
+				else {
+					dayHtml += i;
+				}
+				dayHtml += "'>";
+				dayHtml += i+"일";
+				dayHtml += "</option>";
+			}
+			$("#freeEndDay").append(dayHtml);
+		},
+		
+		// 다음 버튼 활성화
+		procNextBtn : function () {
+			
+			var freeEndYear = $("#freeEndYear option:selected").val();
+			var freeEndMonth = $("#freeEndMonth option:selected").val();
+			var freeEndDay = $("#freeEndDay option:selected").val();
+			
+			if ((freeEndYear != null && freeEndYear != "") && (freeEndMonth != null && freeEndMonth != "") && (freeEndDay != null && freeEndDay != "")) {
+				// 버튼 활성화
+				//$("#btnNext").attr("disabled",false);
+				$("#btnNext").removeClass("btn_b");
+				$("#btnNext").addClass("btn_r");
+			}
+			else {
+				// 버튼 비활성화
+				//$("#btnNext").attr("disabled",true);
+				$("#btnNext").removeClass("btn_r");
+				$("#btnNext").addClass("btn_b");
+			}
+			
+		}
+			
+	};
+	
+</script>
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+		<div class="roc">
+			<ul class="inner">
+				<li><img src="http://static.ssocio.net/pc/img/common/section/roc_home.png" alt="홈"></li>
+				<li>판매관리</li>
+			</ul>
+		</div>
+		<jsp:include page="../common/sale_top.jsp" flush="false" />
+		<div class="mype_s_tit">
+			<p>상품등록</p>
+		</div>
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+		<!-- container -->
+		<div id="container">
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>
+
+
+<form id="form" name="form" method="post" action="">
+	<input type="hidden" id="movePage" name="movePage" value="2" />
+	<input type="hidden" id="regData" name="regData" value="" />
+	<input type="hidden" id="moveBack" name="moveBack" value="" />
+	<input type="hidden" id="freeShareEndDt" name="freeShareEndDt" value="" />
+	<input type="hidden" id="mainYn" name="mainYn" value="${params.mainYn }" />
+		<div class="completed">
+        	<p class="percent"><strong>50% Completed</strong></p>
+            <div class="bar"><p style="width:50%"></p></div>
+        </div>
+		<div class="contents pic_reg">
+			<p class="purc-title"><strong>나눔신청 마감일</strong>을 선택해주세요.</p>
+			<ul class="sbox08">
+                <li class="data">
+                	<p>
+                		<select id="freeEndYear" name="freeEndYear">
+	                    	<option value="">년도</option>
+	                    </select>
+                	</p>
+                	<p>
+                		<select id="freeEndMonth" name="freeEndMonth">
+	                    	<option value="">월</option>
+	                    	<option value="01">1월</option>
+	                    	<option value="02">2월</option>
+	                    	<option value="03">3월</option>
+	                    	<option value="04">4월</option>
+	                    	<option value="05">5월</option>
+	                    	<option value="06">6월</option>
+	                    	<option value="07">7월</option>
+	                    	<option value="08">8월</option>
+	                    	<option value="09">9월</option>
+	                    	<option value="10">10월</option>
+	                    	<option value="11">11월</option>
+	                    	<option value="12">12월</option>
+	                    </select>
+                	</p>
+                	<p>
+                		<select id="freeEndDay" name="freeEndDay">
+	                    	<option value="">일</option>
+	                    </select>
+                	</p>
+                </li>
+            </ul>
+            <div class="btn_enter">
+				<ul>
+					<li>
+						<input type="button" class="btn_b-line" onClick="javascript:page.goPrePage();" value="이전" title="이전" alt="이전" />
+					</li>
+					<li>
+						<input type="button" class="btn_b" id="btnNext"  onClick="javascript:page.goNextPage();" value="다음" title="다음" alt="다음" />
+					</li>
+				</ul>
+			</div>
+		</div>
+</form>
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+		<jsp:include page="../common/sale_bottom.jsp" flush="false" />
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+		    </div>
+		    <!-- //container -->
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>

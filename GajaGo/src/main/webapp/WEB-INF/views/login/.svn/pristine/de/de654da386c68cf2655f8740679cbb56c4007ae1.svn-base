@@ -1,0 +1,314 @@
+package com.ssocio.sharing.controller.admin;
+
+import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.multipart.MultipartHttpServletRequest;
+import org.springframework.web.servlet.ModelAndView;
+
+import com.ssocio.sharing.cmmn.util.StringUtil;
+import com.ssocio.sharing.service.admin.AdminBrandService;
+
+/**
+ * <pre>
+ * 브랜드 콘트롤러
+ * 브랜드 콘트롤러
+ * @author Y.I.Chun
+ * @version
+ * @since 2015. 7. 8. 오후 5:50:30
+ * @see
+ * @History
+ * Date			|	author	    | 변경 내용
+ * 2015. 7. 8.	|	Y.I.Chun	| 신규
+ * @비고
+ * </pre>
+ */
+@Controller
+public class AdminBrandController extends AdminReferController {
+
+	// --------------------------------------------------------------------------
+	// # Log 설정
+	// --------------------------------------------------------------------------
+	private static final Logger logger = LoggerFactory.getLogger(AdminBrandController.class);
+	
+	// --------------------------------------------------------------------------
+	// # Service 설정
+	// --------------------------------------------------------------------------
+	@Autowired
+	private AdminBrandService adminBrandService;
+	
+	/**
+	 * <pre>
+	 * 브랜드관리
+	 * 브랜드관리화면을 표시한다.
+	 * @param request
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 7. 9. 오후 8:08:47
+	 * @author Y.I.Chun
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@RequestMapping("/admin/prodMgr/procBrandMain.do")
+	public ModelAndView procBrandMain(@RequestParam Map<String, Object> inParam) throws Exception	{
+		ModelAndView mav = new ModelAndView();
+		try {
+			String tabIndex =StringUtil.nvl((String) inParam.get("tabIndex"),"1");
+			if(tabIndex.equals("1")){
+				inParam.put("tabIndex", "1");
+				mav.addObject("brandList", adminBrandService.selectBrandList(inParam).get("brandList"));
+			}else if(tabIndex.equals("2")){
+				mav.addObject("list", adminBrandService.selectBrandReqList(inParam));			
+			}else if(tabIndex.equals("3")){
+				String reqSeq =(String) inParam.get("reqSeq");
+				if(reqSeq!=null){
+					mav.addObject("brandReq", adminBrandService.selectBrandReq(inParam).get("brandReq"));
+				}
+			}
+			mav.addObject("searchParam", inParam);
+			mav.setViewName("admin/prodMgr/brandList");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+			
+		return mav;
+	}
+	
+	/**
+	 * <pre>
+	 * 브랜드정보 조회
+	 * 브랜드정보를 조회한다.
+	 * @param request
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 7. 9. 오후 8:08:47
+	 * @author Y.I.Chun
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@RequestMapping("/admin/prodMgr/selectBrandInfo.do")
+	public ModelAndView selectBrandInfo(HttpServletRequest request, @RequestParam Map<String, Object> inParam) throws Exception	{
+		ModelAndView mav = new ModelAndView();
+		try {
+			mav.addObject("brandInfo", adminBrandService.selectBrandInfo(inParam).get("brandInfo"));
+			mav.addObject("brandCtryList", adminBrandService.selectBrandInfo(inParam).get("brandCtryList"));
+			mav.setViewName("jsonView");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+			
+		return mav;
+	}
+	
+	/**
+	 * <pre>
+	 * 브랜드정보 수정
+	 * 브랜드정보를 수정한다.
+	 * @param req
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 7. 9. 오후 8:08:47
+	 * @author Y.I.Chun
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@RequestMapping("/admin/prodMgr/updateBrandInfo.do")
+	public ModelAndView updateBrandInfo(MultipartHttpServletRequest req, @RequestParam Map<String, Object> inParam) throws Exception	{
+		ModelAndView mav = new ModelAndView();
+		try {
+			String brandCd = "";
+			String inBrandCd =StringUtil.nvl((String) inParam.get("brandCd"),"");
+			String brandNm =StringUtil.nvl((String) inParam.get("brandNm"),"");
+			
+			if(brandNm!=null && !brandNm.equals("")){
+				 brandCd =  adminBrandService.selectBrandInfoDupBrandNm(inParam);
+			}
+			if(brandCd!=null && !brandCd.equals("") && !inBrandCd.equals(brandCd)){
+
+				mav.addObject("RESULT", "FALSE");
+				mav.addObject("RESULT_MSG", "이미 등록된 브랜드명이 존재합니다.");
+			}else{
+				//브랜드정보수정
+				adminBrandService.updateBrandInfo(req, inParam);
+				mav.addObject("RESULT", "SUCCESS");
+			}
+			mav.setViewName("jsonView");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+			
+		return mav;
+	}
+	
+	/**
+	 * <pre>
+	 * 브랜드정보 삭제
+	 * 브랜드정보를 삭제한다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 7. 9. 오후 8:08:47
+	 * @author Y.I.Chun
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@RequestMapping("/admin/prodMgr/deleteBrandInfo.do")
+	public ModelAndView deleteBrandInfo(@RequestParam Map<String, Object> inParam) throws Exception	{
+		ModelAndView mav = new ModelAndView("jsonView");
+		try {
+			
+			//브랜드정보삭제
+			adminBrandService.deleteBrandInfo(inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+			
+		return mav;
+	}
+	
+	/**
+	 * <pre>
+	 * 브랜드정보 등록
+	 * 브랜드정보를 등록한다.
+	 * @param req
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 7. 9. 오후 8:08:47
+	 * @author Y.I.Chun
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@RequestMapping("/admin/prodMgr/insertBrandInfo.do")
+	public ModelAndView insertBrandInfo(MultipartHttpServletRequest req, @RequestParam Map<String, Object> inParam
+			, @RequestParam(value="brandCtryCd", required=false) String[] brandCtryCd) throws Exception {
+		ModelAndView mav = new ModelAndView("jsonView");
+		try {
+			//카테고리정보
+			String brandCd =  adminBrandService.selectBrandInfoDupBrandNm(inParam);
+			System.out.println(brandCd +":BRAND_CD");
+			if(brandCd !=null  && !brandCd.equals("")){
+				mav.addObject("RESULT", "FALSE");
+				mav.addObject("RESULT_MSG", "이미 등록된 브랜드명이 존재합니다.");
+			}else{
+				inParam.put("brandCtryCd", brandCtryCd);
+				//브랜드정보등록
+				adminBrandService.insertBrandInfo(req, inParam);
+				mav.addObject("RESULT", "SUCCESS");
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+			
+		return mav;
+	}
+	
+	/**
+	 * <pre>
+	 * 브랜드카테고리 정보 삭제
+	 * 브랜드카테고리 정보를 삭제한다.
+	 * @param request
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 7. 9. 오후 8:08:47
+	 * @author Y.I.Chun
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@RequestMapping("/admin/prodMgr/insertBrandCtry.do")
+	public ModelAndView insertBrandCtry(@RequestParam Map<String, Object> inParam) throws Exception	{
+		ModelAndView mav = new ModelAndView("jsonView");
+		try {
+			mav.addObject("result", adminBrandService.insertBrandCtry(inParam));
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+			
+		return mav;
+	}
+	
+	/**
+	 * <pre>
+	 * 브랜드카테고리 정보 삭제
+	 * 브랜드카테고리 정보를 삭제한다.
+	 * @param request
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 7. 9. 오후 8:08:47
+	 * @author Y.I.Chun
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@RequestMapping("/admin/prodMgr/deleteBrandCtry.do")
+	public ModelAndView deleteBrandCtry(@RequestParam Map<String, Object> inParam) throws Exception	{
+		ModelAndView mav = new ModelAndView("jsonView");
+		try {
+			mav.addObject("brandCtryList", adminBrandService.deleteBrandCtry(inParam).get("brandCtryList"));
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+			
+		return mav;
+	}
+	
+	/**
+	 * <pre>
+	 * 브랜드리스트 조회(AJAX)
+	 * 브랜드리스트를 조회(AJAX)한다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 7. 9. 오후 8:08:47
+	 * @author Y.I.Chun
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@RequestMapping("/admin/prodMgr/selectBrandList.do")
+	public ModelAndView selectBrandList(@RequestParam Map<String, Object> inParam) throws Exception{
+		ModelAndView mav = new ModelAndView();
+		try {
+			//브랜드리스트 조회
+			mav.addObject("brandList", adminBrandService.selectBrandList(inParam).get("brandList"));
+			mav.setViewName("jsonView");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+			
+		return mav;
+	}
+	
+	/**
+	 * <pre>
+	 * 브랜드 신청내역 삭제
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * </pre>
+	 */
+	@RequestMapping("/admin/prodMgr/deleteBrandReq.do")
+	public ModelAndView deleteBrandReq(@RequestParam Map<String, Object> inParam) throws Exception{
+		System.out.println("deleteBrandReq");
+		ModelAndView mav = new ModelAndView("jsonView");
+		try {
+			adminBrandService.deleteBrandReq(inParam);
+			mav.addObject("result", "OK");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mav;
+	}
+	
+	
+}

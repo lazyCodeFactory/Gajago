@@ -1,0 +1,117 @@
+package com.ssocio.sharing.controller.mobile;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.SortedSet;
+import java.util.TreeSet;
+
+import javax.servlet.http.HttpServletRequest;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.ModelMap;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.servlet.ModelAndView;
+
+import com.lambdaworks.redis.RedisConnection;
+import com.ssocio.sharing.cmmn.util.Redis;
+import com.ssocio.sharing.service.web.AppCommonService;
+import com.ssocio.sharing.service.web.MobilePlanService;
+import com.ssocio.sharing.vo.web.HeaderVO;
+import com.ssocio.sharing.vo.web.WebSession;
+
+import net.sf.json.JSONObject;
+
+@Controller
+public class MobilePlanController {
+
+	// --------------------------------------------------------------------------
+	// # Log 설정
+	// --------------------------------------------------------------------------
+	@SuppressWarnings("unused")
+	private static final Logger logger = LoggerFactory.getLogger(MobileMainController.class);
+	
+	// --------------------------------------------------------------------------
+	// # Service 설정
+	// --------------------------------------------------------------------------
+	@Autowired
+	private MobilePlanService mobilePlanservice;
+	
+	@Autowired
+	private AppCommonService appCommonService;
+	
+	// 기획전 배너이미지 조회
+	@RequestMapping("/mobile/planning/SelectListPlan.do")
+	public ModelAndView planList(@RequestParam Map<String, Object> inParam) throws Exception {
+		ModelAndView mav = new ModelAndView("web/planning/planList");
+		mav.addObject("result", mobilePlanservice.selectListPlan());
+		return mav;
+	}
+	
+	@RequestMapping("/mobile/planning/planDetail.do")
+	public ModelAndView planDetail(HttpServletRequest request, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆MOBILE main START☆★☆★☆★☆★☆★☆★☆");
+		String planCd = request.getParameter("PLAN_CD");
+		inParam.put("PLAN_CD", planCd);
+		ModelAndView mav = new ModelAndView("web/planning/planDetail");
+		
+		HeaderVO headerObj= new HeaderVO();
+		headerObj.setScreen("1280x640");
+		WebSession session = (WebSession)request.getSession().getAttribute("user");
+		if (session != null && session.getMBER_SEQ() > 0 ) {
+			headerObj.setMber_seq(String.valueOf((session.getMBER_SEQ())));
+		}
+		
+		Map<String, Object> resultMap = mobilePlanservice.planDetail(inParam, headerObj);
+		
+		String userAgent = request.getHeader("user-agent");			
+		if (userAgent.toLowerCase().split("android").length > 1) {
+			userAgent = userAgent.toLowerCase().split("android")[1].split(";")[0].trim();
+		}
+		
+		mav.addObject("main_app_version", userAgent);
+		mav.addObject("result", resultMap);
+		logger.info(resultMap.toString());
+		return mav;
+	}
+	
+	/*
+	 * 실시간 인기셰어링, Latest Sharing
+	 */
+	@RequestMapping("/mobile/planning/setRealTimePlan.do")
+	public ModelAndView setRealTimePlan(HttpServletRequest request, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆ setRealTimePlan START☆★☆★☆★☆★☆★☆★☆");
+		ModelAndView mav = new ModelAndView("jsonView");
+		
+		Map<String, Object> resultMap = mobilePlanservice.setRealTimePlan(inParam);
+		mav.addObject("result", resultMap);
+		logger.info(resultMap.toString());
+		return mav;
+	}
+	
+	/*
+	 * User's Sharing
+	 */
+	@RequestMapping("/mobile/planning/setRealTimePlanUserSharing.do")
+	public ModelAndView setRealTimePlanUserSharing(HttpServletRequest request, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆ setRealTimePlan START☆★☆★☆★☆★☆★☆★☆");
+		ModelAndView mav = new ModelAndView("jsonView");
+		
+		Map<String, Object> resultMap = mobilePlanservice.setRealTimePlanUserSharing(inParam);
+		mav.addObject("result", resultMap);
+		logger.info(resultMap.toString());
+		return mav;
+	}
+}
+
+
+
+
+
+
+

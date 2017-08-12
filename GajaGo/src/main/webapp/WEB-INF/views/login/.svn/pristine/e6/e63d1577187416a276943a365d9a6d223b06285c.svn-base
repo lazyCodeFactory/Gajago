@@ -1,0 +1,579 @@
+package com.ssocio.sharing.vo.admin;
+
+import java.io.IOException;
+import java.util.Map;
+
+import org.json.simple.JSONObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.multipart.MultipartHttpServletRequest;
+
+import com.ssocio.sharing.cmmn.admin.util.FileUtil;
+import com.ssocio.sharing.cmmn.util.StringUtil;
+
+public class PlanContent extends PlanContainer{
+	
+	private static final Logger logger = LoggerFactory.getLogger(PlanContent.class);
+	
+	public static final String[] HTML_CONTENT_HEADER = 
+		{
+		"<div class=\"image_tbl_area\" id=\"id_template_%d\">"	//	*(0 - idx)
+		, "	<div class=\"card_type\">"
+		, "		<strong>%s 컨텐츠</strong>"		//	*(2 - 컨텐츠 타입)
+		, "		<a href=\"#\" class=\"btn_card\"><img src=\"http://static.ssocio.net/admin/images/btn_open.png\" alt=\"열림\" /></a>"		//	*(3 - idx)
+		, "		<a href=\"#\" class=\"btn_card on\"><img src=\"http://static.ssocio.net/admin/images/btn_close.png\" alt=\"닫기\" /></a>" 	//	*(4 - idx)
+		, "	</div>"
+		};
+
+	public static final String[] HTML_CONTENT_FOOTER = 
+		{
+		"	<div class=\"card_type\">"
+		, "		<div class=\"clear\">"
+		, "			<div class=\"left\">"
+		, "				<a href=\"javascript:delTemplate(%d);\" class=\"btn_b\">삭제</a>"	//	***(3 - idx)
+		, "			</div>"
+		, "			<div class=\"ord_show right\">"		
+		, "				<span>노출 순서 변경</span>"
+		, "				<a href=\"javascript:movePrev('10', %d);\" class=\"btn_s_up\"><img src=\"http://static.ssocio.net/admin/images/ico_b_up.png\" alt=\"올림\"></a>"		//	***(7 - idx)
+		, "				<a href=\"javascript:moveNext('10', %d);\" class=\"btn_s_down\"><img src=\"http://static.ssocio.net/admin/images/ico_b_down.png\" alt=\"내림\"></a>"	//	***(8 - idx)
+		, "			</div>"
+		, "		</div>"
+		, "	</div>"
+		, " <div style=\"height:10px;\"></div>"
+		, "</div>"
+		};
+	
+	public static final String[] HTML_CONTENT_CARDS = 
+		{
+		"	<div id=\"id_div_content_%d_%d\" class=\"innerTbl_area on\">"	//	**(0 - idx, seq)
+		, "		<table class=\"infoTbl innerTbl v2 \">"
+		, "			<colgroup>"
+		, "				<col style=\"width:15%\" />"
+		, "				<col style=\"width:*\" />"
+		, "			</colgroup>"
+		, "			<tbody>"
+		, "				<tr>"
+		, "					<th scope=\"row\">URL</th>"
+		, "					<td class=\"tl\">http:// <input type=\"text\" id=\"PLAN_CONTENT_URL_%d_%d\" name=\"PLAN_CONTENT_URL_%d_%d\" style=\"width:300px\" /> <a href=\"javascript:selectProd(%d, %d);\" class=\"btn_url\"><img src=\"http://static.ssocio.net/admin/images/ico_num_right2.png\" alt=\"URL로 이동\" /></a></td>"	//	******(9 - idx, seq, idx, seq, idx, seq)
+		, "				</tr>"//	10
+		, "				<tr>"
+		, "					<th scope=\"row\">이름</th>"
+		, "					<td class=\"tl\">"
+		, "						<input type=\"text\" id=\"PLAN_CONTENT_NM_%d_%d\" name=\"PLAN_CONTENT_NM_%d_%d\" style=\"width:200px\" / maxlength=\"30\">"//	****(14 - idx, seq, idx, seq) 
+		, "						<span class=\"ml5\">최대 30자까지 입력 가능 합니다.</span>"	
+		, "						<span class=\"ml30\"><input type=\"checkbox\" id=\"PLAN_CONTENT_NM_USE_%d_%d\" name=\"PLAN_CONTENT_NM_USE_%d_%d\" onclick=\"javascript:checkUseName(%d, %d);\"/><label for=\"PLAN_CONTENT_NM_USE_%d_%d\">이름 사용 안함</label></span>"		//	******(16 - idx, seq, idx, seq, idx, seq, idx, seq)
+		, "					</td>"
+		, "				</tr>"
+		, "				<tr>"
+		, "					<th scope=\"row\">이미지</th>"//	20
+		, "					<td class=\"tl\">"
+		, "						<div class=\"img_attach_area clear\">"
+		, "							<div class=\"img_bx\">"
+		, "								<img src=\"http://static.ssocio.net/admin/images/img_dummy.gif\" id=\"PLAN_CONTENT_IMG_%d_%d\" alt=\"컨텐츠 이미지\" style=\"width:255px;height:152px;\"/>"//	**(24 - idx, seq)
+		, "							</div>"
+		, "							<div class=\"img_file_bx\">"
+		, "								<p class=\"img_name_area\">"
+		, "									<span id=\"PLAN_CONTENT_FILE_NM_%d_%d\"></span><a href=\"javascript:delPreviewImage(%d, %d, %d);\" class=\"btn_img_del\"><img src=\"http://static.ssocio.net/admin/images/btn_b_close.gif\" alt=\"첨부이미지 삭제\" /></a>"		//	*****(28 - idx, seq, type, idx, seq)
+		, "								</p>"
+		, "								<div class=\"file_upload_area ml5\">"//	30
+		, "									<input type=\"hidden\" id=\"PLAN_CONTENT_FILE_SEQ_%d_%d\" name=\"PLAN_CONTENT_FILE_SEQ_%d_%d\" value=\"\" class=\"file_txt\" style=\"width:350px;\" readonly/>"		//	****(31 - idx, seq, idx, seq)
+		, "									<input type=\"text\" id=\"PLAN_CONTENT_FILE_PATH_%d_%d\" name=\"PLAN_CONTENT_FILE_PATH_%d_%d\" class=\"file_txt\" style=\"width:350px;\" readonly/>"		//	****(32 - idx, seq, idx, seq)
+		, "									<span class=\"txt_file\">"
+		, "										<input type=\"file\" id=\"PLAN_CONTENT_FILE_%d_%d\" name=\"PLAN_CONTENT_FILE_%d_%d\" class=\"inp_file\"  onchange=\"javascript:inputImgPath(%d, %d, %d);\"/>"	//	*******(34 - idx, seq, idx, seq, type, idx, seq)
+		, "										<a href=\"#\" class=\"btn_w ml5 vmid file_add\">파일찾기</a>"
+		, "									</span>"
+		, "								</div>"
+		, "								<p class=\"tl\">* jpg, png 파일만 업로드 가능합니다.(사이즈 000x000)</p>"
+		, "							</div>"
+		, "						</div>"//	40
+		, "					</td>"
+		, "				</tr>"
+		, "				<tr>"
+		, "					<th scope=\"row\">옵션</th>"
+		, "					<td class=\"tl\">"
+		, "						<input type=\"radio\" id=\"PLAN_CONTENT_OPT_%d_%d\" name=\"PLAN_CONTENT_OPT_%d_%d\" value=\"10\"/> <label for=\"\">반투명 효과 적용</label>"	//	****(46 - idx, seq, idx, seq)
+		, "						<span class=\"ml10\"><input type=\"radio\" id=\"PLAN_CONTENT_OPT_%d_%d\" name=\"PLAN_CONTENT_OPT_%d_%d\" value=\"20\"/> <label for=\"\">그라데이션 효과 적용</label></span>"	//	****(47 - idx, seq, idx, seq)
+		, "						<span class=\"ml10\"><input type=\"radio\" id=\"PLAN_CONTENT_OPT_%d_%d\" name=\"PLAN_CONTENT_OPT_%d_%d\" value=\"30\" checked/> <label for=\"\">효과 적용하지 않음</label></span>"	//	****(48 - idx, seq, idx, seq)
+		, "					</td>"
+		, "				</tr>"
+		, "			</tbody>"//	50
+		, "		</table>"
+		, "		<input type=\"hidden\" name=\"PLAN_CONTENT_GB_CD_%d_%d\" id=\"PLAN_CONTENT_GB_CD_%d_%d\" value=\"30\">"	//	****(52 - idx, seq, idx, seq)
+		, "		<input type=\"hidden\" name=\"PLAN_CONTENT_NO_%d_%d\" id=\"PLAN_CONTENT_NO_%d_%d\" value=\"\">"	//	****(53 - idx, seq, idx, seq)
+		, "	</div>"
+		};	
+
+	public static final String[] HTML_CONTENT_BANNER = 
+		{
+		"	<div id=\"id_div_content_%d_%d\" class=\"innerTbl_area on\">"	//	**(0 - idx, seq)
+		, "		<table class=\"infoTbl innerTbl v2 \">"
+		, "			<colgroup>"
+		, "				<col style=\"width:15%\" />"
+		, "				<col style=\"width:*\" />"
+		, "			</colgroup>"
+		, "			<tbody>"
+		, "				<tr>"
+		, "					<th scope=\"row\">URL</th>"
+		, "					<td class=\"tl\">http:// <input type=\"text\" id=\"PLAN_CONTENT_URL_%d_%d\" name=\"PLAN_CONTENT_URL_%d_%d\" style=\"width:300px\" /></td>"	//	******(9 - idx, seq, idx, seq, idx, seq)
+		, "				</tr>"//	10
+		, "				<tr>"
+		, "					<th scope=\"row\">이미지</th>"
+		, "					<td class=\"tl\">"
+		, "						<div class=\"img_attach_area clear\">"
+		, "							<div class=\"img_bx\">"
+		, "								<img src=\"http://static.ssocio.net/admin/images/img_dummy.gif\" id=\"PLAN_CONTENT_IMG_%d_%d\" alt=\"컨텐츠 이미지\" style=\"width:255px;height:152px;\"/>"//	**(16 - idx, seq)
+		, "							</div>"
+		, "							<div class=\"img_file_bx\">"
+		, "								<p class=\"img_name_area\">"
+		, "									<span id=\"PLAN_CONTENT_FILE_NM_%d_%d\"></span><a href=\"javascript:delPreviewImage(%d, %d, %d);\" class=\"btn_img_del\"><img src=\"http://static.ssocio.net/admin/images/btn_b_close.gif\" alt=\"첨부이미지 삭제\" /></a>"		//	*****(20 - idx, seq, type, idx, seq)
+		, "								</p>"
+		, "								<div class=\"file_upload_area ml5\">"
+		, "									<input type=\"hidden\" id=\"PLAN_CONTENT_FILE_SEQ_%d_%d\" name=\"PLAN_CONTENT_FILE_SEQ_%d_%d\" value=\"\" class=\"file_txt\" style=\"width:350px;\" readonly/>"		//	****(23 - idx, seq, idx, seq)
+		, "									<input type=\"text\" id=\"PLAN_CONTENT_FILE_PATH_%d_%d\" name=\"PLAN_CONTENT_FILE_PATH_%d_%d\" class=\"file_txt\" style=\"width:350px;\" readonly/>"		//	****(24 - idx, seq, idx, seq)
+		, "									<span class=\"txt_file\">"
+		, "										<input type=\"file\" id=\"PLAN_CONTENT_FILE_%d_%d\" name=\"PLAN_CONTENT_FILE_%d_%d\" class=\"inp_file\"  onchange=\"javascript:inputImgPath(%d, %d, %d);\"/>"	//	*******(26 - idx, seq, idx, seq, type, idx, seq)
+		, "										<a href=\"#\" class=\"btn_w ml5 vmid file_add\">파일찾기</a>"
+		, "									</span>"
+		, "								</div>"
+		, "								<p class=\"tl\">* jpg, png 파일만 업로드 가능합니다.(사이즈 000x000)</p>"	// 30
+		, "							</div>"
+		, "						</div>"
+		, "					</td>"
+		, "				</tr>"
+		, "				<tr>"
+		, "					<th scope=\"row\">옵션</th>"
+		, "					<td class=\"tl\">"
+		, "						<input type=\"radio\" id=\"PLAN_CONTENT_OPT_%d_%d\" name=\"PLAN_CONTENT_OPT_%d_%d\" value=\"10\"/> <label for=\"\">반투명 효과 적용</label>"	//	****(38 - idx, seq, idx, seq)
+		, "						<span class=\"ml10\"><input type=\"radio\" id=\"PLAN_CONTENT_OPT_%d_%d\" name=\"PLAN_CONTENT_OPT_%d_%d\" value=\"20\"/> <label for=\"\">그라데이션 효과 적용</label></span>"	//	****(39 - idx, seq, idx, seq)
+		, "						<span class=\"ml10\"><input type=\"radio\" id=\"PLAN_CONTENT_OPT_%d_%d\" name=\"PLAN_CONTENT_OPT_%d_%d\" value=\"30\" checked/> <label for=\"\">효과 적용하지 않음</label></span>"	//	****(40 - idx, seq, idx, seq)
+		, "					</td>"
+		, "				</tr>"
+		, "			</tbody>"
+		, "		</table>"
+		, "		<input type=\"hidden\" name=\"PLAN_CONTENT_GB_CD_%d_%d\" id=\"PLAN_CONTENT_GB_CD_%d_%d\" value=\"30\">"	//	****(45 - idx, seq, idx, seq)
+		, "		<input type=\"hidden\" name=\"PLAN_CONTENT_NO_%d_%d\" id=\"PLAN_CONTENT_NO_%d_%d\" value=\"\">"	//	****(46 - idx, seq, idx, seq)
+		, "	</div>"
+		};	
+	
+	public static final String[] HTML_CONTENT_SYMMETRY_HEADER = 
+		{
+		"	<div id=\"id_div_content_%d_%d\" class=\"innerTbl_area on\">"	//	**(0 - idx, seq)
+		, "		<table class=\"infoTbl innerTbl v2 \">"
+		, "			<colgroup>"
+		, "				<col style=\"width:15%\" />"
+		, "				<col style=\"width:*\" />"
+		, "			</colgroup>"
+		, "			<tbody>"
+		};
+	
+	public static final String[] HTML_CONTENT_SYMMETRY_FOOTER = 
+		{
+		"			</tbody>"//	50
+		, "		</table>"
+		, "	</div>"
+		};
+	
+	public static final String[] HTML_CONTENT_SYMMETRY_BODY =
+		{
+		"				<tr>"
+		, "					<td colspan=\"2\" class=\"bg_type tl\">%s 들어가는 컨텐츠 정보 입력 영역입니다.</td>"		//	*(1 - type)
+		, "				</tr>"
+		, "				<tr>"
+		, "					<th scope=\"row\">URL</th>"
+		, "					<td class=\"tl\">http:// <input type=\"text\" id=\"PLAN_CONTENT_URL_%d_%d\" name=\"PLAN_CONTENT_URL_%d_%d\" style=\"width:300px\" /> <a href=\"javascript:selectProd(%d, %d);\" class=\"btn_url\"><img src=\"http://static.ssocio.net/admin/images/ico_num_right2.png\" alt=\"URL로 이동\" /></a></td>"		//	******(5 - idx, seq, idx, seq, idx, seq)
+		, "				</tr>"
+		, "				<tr>"
+		, "					<th scope=\"row\">이름</th>"
+		, "					<td class=\"tl\">"
+		, "						<input type=\"text\" id=\"PLAN_CONTENT_NM_%d_%d\" name=\"PLAN_CONTENT_NM_%d_%d\" style=\"width:200px\" />"//	****(10 - idx, seq, idx, seq) 
+		, "						<span class=\"ml5\">최대 30자까지 입력 가능 합니다.</span>" 
+		, "						<span class=\"ml30\"><input type=\"checkbox\" id=\"PLAN_CONTENT_NM_USE_%d_%d\" name=\"PLAN_CONTENT_NM_USE_%d_%d\" onclick=\"javascript:checkUseName(%d, %d);\"/><label for=\"PLAN_CONTENT_NM_USE_%d_%d\">이름 사용 안함</label></span>"		//	******(12 - idx, seq, idx, seq, idx, seq, idx, seq)
+		, "					</td>"
+		, "				</tr>"
+		, "				<tr>"
+		, "					<th scope=\"row\">이미지</th>"
+		, "					<td class=\"tl\">"
+		, "						<div class=\"img_attach_area clear\">"
+		, "							<div class=\"img_bx\">"
+		, "								<img src=\"http://static.ssocio.net/admin/images/img_dummy.gif\" id=\"PLAN_CONTENT_IMG_%d_%d\" alt=\"컨텐츠 이미지\" style=\"width:255px;height:152px;\"/>"//	**(20 - idx, seq)
+		, "							</div>"
+		, "							<div class=\"img_file_bx\">"
+		, "								<p class=\"img_name_area\">"
+		, "									<span id=\"PLAN_CONTENT_FILE_NM_%d_%d\"></span><a href=\"javascript:delPreviewImage(%d, %d, %d);\" class=\"btn_img_del\"><img src=\"http://static.ssocio.net/admin/images/btn_b_close.gif\" alt=\"첨부이미지 삭제\" /></a>"		//	*****(24 - idx, seq, type, idx, seq)
+		, "								</p>"
+		, "								<div class=\"file_upload_area ml5\">"
+		, "									<input type=\"hidden\" id=\"PLAN_CONTENT_FILE_SEQ_%d_%d\" name=\"PLAN_CONTENT_FILE_SEQ_%d_%d\" value=\"\" class=\"file_txt\" style=\"width:350px;\" readonly/>"		//	****(27 - idx, seq, idx, seq)
+		, "									<input type=\"text\" id=\"PLAN_CONTENT_FILE_PATH_%d_%d\" name=\"PLAN_CONTENT_FILE_PATH_%d_%d\" class=\"file_txt\" style=\"width:350px;\" readonly/>"		//	****(28 - idx, seq, idx, seq)
+		, "									<span class=\"txt_file\">"
+		, "										<input type=\"file\" id=\"PLAN_CONTENT_FILE_%d_%d\" name=\"PLAN_CONTENT_FILE_%d_%d\" class=\"inp_file\"  onchange=\"javascript:inputImgPath(%d, %d, %d);\"/>"	//	*******(30 - idx, seq, idx, seq, type, idx, seq)
+		, "										<a href=\"#\" class=\"btn_w ml5 vmid file_add\">파일찾기</a>"
+		, "									</span>"
+		, "								</div>"
+		, "								<p class=\"tl\">* jpg, png 파일만 업로드 가능합니다.(사이즈 000x000)</p>"
+		, "							</div>"
+		, "						</div>"
+		, "					</td>"
+		, "				</tr>"
+		, "				<tr>"
+		, "					<th scope=\"row\">옵션</th>"	//	40
+		, "					<td class=\"tl\">"
+		, "						<input type=\"radio\" id=\"PLAN_CONTENT_OPT_%d_%d\" name=\"PLAN_CONTENT_OPT_%d_%d\" value=\"10\"/> <label for=\"\">반투명 효과 적용</label>"	//	****(42 - idx, seq, idx, seq)
+		, "						<span class=\"ml10\"><input type=\"radio\" id=\"PLAN_CONTENT_OPT_%d_%d\" name=\"PLAN_CONTENT_OPT_%d_%d\" value=\"20\"/> <label for=\"\">그라데이션 효과 적용</label></span>"	//	****(43 - idx, seq, idx, seq)
+		, "						<span class=\"ml10\"><input type=\"radio\" id=\"PLAN_CONTENT_OPT_%d_%d\" name=\"PLAN_CONTENT_OPT_%d_%d\" value=\"30\" checked/> <label for=\"\">효과 적용하지 않음</label></span>"	//	****(44 - idx, seq, idx, seq)
+		, "							<span class=\"ml5\">화면 Type</span> "
+		, "								<select id=\"PLAN_VIEW_CSS_%d_%d\" name=\"PLAN_VIEW_CSS_%d_%d\"> "  //	****(46 - idx, seq, idx, seq)
+		, "									<option value=\"type01\">직사각형 배너</option> "
+		, "									<option value=\"type02\">직사각형 상품</option> "
+		, "									<option value=\"type03\">직사각형 상품(겹치는 부분)</option> "
+		, "									<option value=\"type04\">정사각형 배너</option> "
+		, "									<option value=\"type05\">정사각형 상품(겹치는 부분)</option> "
+		, "								</select> "
+		, "					</td>"
+		, "					<input type=\"hidden\" name=\"PLAN_CONTENT_GB_CD_%d_%d\" id=\"PLAN_CONTENT_GB_CD_%d_%d\" value=\"30\">"	//	****(54 - idx, seq, idx, seq)
+		, "					<input type=\"hidden\" name=\"PLAN_CONTENT_NO_%d_%d\" id=\"PLAN_CONTENT_NO_%d_%d\" value=\"\">"	//	****(55 - idx, seq, idx, seq)
+		, "				</tr>"
+		};		
+
+	private static final String TAG_CONTENT_URL = "PLAN_CONTENT_URL_%d_%d";
+	private static final String TAG_CONTENT_NM = "PLAN_CONTENT_NM_%d_%d";
+	private static final String TAG_CONTENT_NM_USE = "PLAN_CONTENT_NM_USE_%d_%d";
+	private static final String TAG_CONTENT_FILE = "PLAN_CONTENT_FILE_%d_%d";
+	private static final String TAG_CONTENT_FILE_SEQ = "PLAN_CONTENT_FILE_SEQ_%d_%d";
+	private static final String TAG_CONTENT_OPT = "PLAN_CONTENT_OPT_%d_%d";
+	private static final String TAG_CONTENT_GB_CD = "PLAN_CONTENT_GB_CD_%d_%d";
+	private static final String TAG_CONTENT_NO = "PLAN_CONTENT_NO_%d_%d";
+	private static final String TAG_CONTENT_VIEW_CSS = "PLAN_VIEW_CSS_%d_%d";
+	
+
+	String contGbCd;
+	String url;
+	String contNm;
+	boolean contNmUseYn;
+	String contNo;
+	int planViewGbCd;
+	private String fileSeq;
+	String planViewCss;
+	boolean fileLocal;
+	
+	private Map<String, Object> fileInfo;
+	
+	public PlanContent(){
+		super();
+
+		contGbCd = "";
+		url = "";
+		contNm = "";
+		contNmUseYn = false;
+		contNo = "";
+		planViewGbCd = 30;
+		fileSeq = "";
+		
+		fileInfo = null;
+		planViewCss = "";
+		
+		fileLocal = false;
+	}
+	
+	public PlanContent(JSONObject json){
+		//super(json);
+		
+		contGbCd = (String)json.get("contGbCd");
+		url = (String)json.get("url");
+		contNm = (String)json.get("name");
+		contNmUseYn = StringUtil.nvlBoolean((String)json.get("useYn"), false);
+		contNo = (String)json.get("contNo");
+		planViewGbCd = Integer.parseInt((String)json.get("planViewGbCd"));
+		fileSeq = "";
+		
+		fileInfo = null;
+		planViewCss = (String)json.get("planViewCss");
+		
+		fileLocal = (boolean)json.get("isFileLocal");
+	}
+	
+	public void init(int idx, int seq, MultipartHttpServletRequest inParam){
+		viewSeq = seq;
+		this.contNm = StringUtil.nvl((String)inParam.getParameter(String.format(TAG_CONTENT_NM, idx, seq)));
+		//this.contGbCd = StringUtil.nvl((String)inParam.getParameter(String.format(TAG_CONTENT_GB_CD, idx, seq)));
+		//this.contNo = StringUtil.nvl((String)inParam.getParameter(String.format(TAG_CONTENT_NO, idx, seq)));
+		this.contNmUseYn = StringUtil.nvlBoolean((String)inParam.getParameter(String.format(TAG_CONTENT_NM_USE, idx, seq)), false);
+		this.url = StringUtil.nvl((String)inParam.getParameter(String.format(TAG_CONTENT_URL, idx, seq)));
+		this.planViewGbCd = StringUtil.nvlInt((String)inParam.getParameter(String.format(TAG_CONTENT_OPT, idx, seq)), 30);
+		this.fileSeq =  StringUtil.nvl((String)inParam.getParameter(String.format(TAG_CONTENT_FILE_SEQ, idx, seq)));
+		this.planViewCss = StringUtil.nvl((String)inParam.getParameter(String.format(TAG_CONTENT_VIEW_CSS, idx, seq)));
+		
+		if(this.fileLocal){
+			MultipartFile multiFile = inParam.getFile(String.format(TAG_CONTENT_FILE, idx, seq));
+			try{
+				this.fileInfo = FileUtil.saveMultipartFile(multiFile);//파일 저장
+				
+				if( StringUtil.isEmpty((String)this.fileInfo.get("I_FILE_TITLE"))){
+					this.fileInfo = null;
+				}
+			}catch(IOException ioe){
+				logger.warn(ioe.getMessage());
+			}
+		}
+	}
+	
+	public String getContGbCd() {
+		return contGbCd;
+	}
+
+	public void setContGbCd(String contGbCd) {
+		this.contGbCd = contGbCd;
+	}
+
+	public String getUrl() {
+		return url;
+	}
+
+	public void setUrl(String url) {
+		this.url = url;
+	}
+
+	public String getContNm() {
+		return contNm;
+	}
+
+	public void setContNm(String contNm) {
+		this.contNm = contNm;
+	}
+
+	public boolean isContNmUseYn() {
+		return contNmUseYn;
+	}
+
+	public void setContNmUseYn(boolean contNmUseYn) {
+		this.contNmUseYn = contNmUseYn;
+	}
+
+	public String getContNo() {
+		return contNo;
+	}
+
+	public void setContNo(String contNo) {
+		this.contNo = contNo;
+	}
+
+	public int getPlanViewGbCd() {
+		return planViewGbCd;
+	}
+
+	public void setPlanViewGbCd(int planViewGbCd) {
+		this.planViewGbCd = planViewGbCd;
+	}
+
+	public String getFileSeq() {
+		return fileSeq;
+	}
+
+	public void setFileSeq(String fileSeq) {
+		this.fileSeq = fileSeq;
+	}
+	
+	public Map<String, Object> getFileInfo() {
+		return fileInfo;
+	}
+	
+	public String getPlanViewCss() {
+		return planViewCss;
+	}
+
+	public void setPlanViewCss(String planViewCss) {
+		this.planViewCss = planViewCss;
+	}
+
+	public void toString(StringBuffer sb){
+	}
+	
+	public static String makeHeader(String type, int idx){
+		logger.info("makeHeader()::type[" + type + "]:idx[" + idx + "]");
+		String retVal = "";
+		for(int i=0 ; i<PlanContent.HTML_CONTENT_HEADER.length ; i++){
+			switch(i){
+			case 0:
+			case 3:
+			case 4:
+				retVal += String.format(HTML_CONTENT_HEADER[i], idx);
+				break;
+			case 2:
+				retVal += String.format(HTML_CONTENT_HEADER[i], type);
+				break;
+			default:
+				retVal += HTML_CONTENT_HEADER[i];
+				break;
+			}
+		}
+		
+		logger.info("makeHeader()::html[" + retVal + "]");
+		return retVal;
+	}
+	
+	public static String makeFooter(int idx){
+		logger.info("makeFooter()::idx[" + idx + "]");
+
+		String retVal = "";
+		for( int i=0 ; i<HTML_CONTENT_FOOTER.length ; i++){
+			switch(i){
+			case 3:
+			case 7:
+			case 8:
+				retVal += String.format(HTML_CONTENT_FOOTER[i], idx);
+				break;
+			default:
+				retVal += HTML_CONTENT_FOOTER[i];
+				break;
+			}
+		}
+		logger.info("makeFooter()::html[" + retVal + "]");
+
+		return retVal;
+	}
+	
+	public static String makeCardHtml(int idx, int rowNum){
+		logger.info("makeCardHtml()::idx[" + idx + "]:rowNum[" + rowNum + "]");
+
+		String retVal = "";
+		for(int seq=0 ; seq<rowNum ; seq++){
+			for( int i=0 ; i<HTML_CONTENT_CARDS.length ; i++ ){
+				switch(i){
+				case 0:
+				case 24:
+					retVal += String.format(HTML_CONTENT_CARDS[i], idx, seq);
+					break;
+				case 14:
+				case 31:
+				case 32:
+				case 46:
+				case 47:
+				case 48:
+				case 52:
+				case 53:
+					retVal += String.format(HTML_CONTENT_CARDS[i], idx, seq, idx, seq);
+					break;
+				case 28:
+					retVal += String.format(HTML_CONTENT_CARDS[i], idx, seq, CONTAINER_TYPE_TPL_CARD, idx, seq);
+					break;
+				case 9:
+					retVal += String.format(HTML_CONTENT_CARDS[i], idx, seq, idx, seq, idx, seq);
+					break;
+				case 34:
+					retVal += String.format(HTML_CONTENT_CARDS[i], idx, seq, idx, seq, CONTAINER_TYPE_TPL_CARD, idx, seq);
+					break;				
+				case 16:
+					retVal += String.format(HTML_CONTENT_CARDS[i], idx, seq, idx, seq, idx, seq, idx, seq);
+					break;
+				default:
+					retVal += HTML_CONTENT_CARDS[i];
+					break;
+				}
+			}
+		}
+		logger.info("makeCardHtml()::html[" + retVal + "]");
+
+		return retVal;
+	}
+	
+	public static String makeSymmetryHtml(int idx, int rowNum){
+		logger.info("makeSymmetryHtml()::idx[" + idx + "]:rowNum[" + rowNum + "]");
+
+		String retVal = "";
+		for(int seq=0 ; seq<rowNum ; seq++){
+			for( int i=0 ; i<HTML_CONTENT_SYMMETRY_HEADER.length ; i++ ){
+				if( i==0 ){
+					retVal += String.format(HTML_CONTENT_SYMMETRY_HEADER[i], idx, seq);
+				}
+				else{
+					retVal += HTML_CONTENT_SYMMETRY_HEADER[i];
+				}
+			}
+			
+			for( int i=0 ; i<2 ; i++ ){
+				String direction = (i==0) ? "좌측에" : "우측에";
+				
+				for( int j=0 ; j<HTML_CONTENT_SYMMETRY_BODY.length ; j++){
+					switch(j){
+					case 1:
+						retVal += String.format(HTML_CONTENT_SYMMETRY_BODY[j], direction);
+						break;
+					case 20:
+						retVal += String.format(HTML_CONTENT_SYMMETRY_BODY[j], idx, seq*2 + i);
+						break;
+					case 10:
+					case 27:
+					case 28:
+					case 42:
+					case 43:
+					case 44:
+					case 46:
+					case 54:
+					case 55:
+						retVal += String.format(HTML_CONTENT_SYMMETRY_BODY[j], idx, seq*2 + i, idx, seq*2 + i);
+						break;
+					case 24:
+						retVal += String.format(HTML_CONTENT_SYMMETRY_BODY[j], idx, seq*2 + i, CONTAINER_TYPE_TPL_SYMMETRY, idx, seq*2 + i);
+						break;
+					case 05:
+						retVal += String.format(HTML_CONTENT_SYMMETRY_BODY[j], idx, seq*2 + i, idx, seq*2 + i, idx, seq*2 + i);
+						break;
+					case 30:
+						retVal += String.format(HTML_CONTENT_SYMMETRY_BODY[j], idx, seq*2 + i, idx, seq*2 + i, CONTAINER_TYPE_TPL_SYMMETRY, idx, seq*2 + i);
+						break;				
+					case 12:
+						retVal += String.format(HTML_CONTENT_SYMMETRY_BODY[j], idx, seq*2 + i, idx, seq*2 + i, idx, seq*2 + i, idx, seq*2 + i);
+						break;
+					default:
+						retVal += PlanContent.HTML_CONTENT_SYMMETRY_BODY[j];
+						break;
+					}
+				}
+			}
+			
+			for( int i=0 ; i<HTML_CONTENT_SYMMETRY_FOOTER.length ; i++ ){
+				retVal += HTML_CONTENT_SYMMETRY_FOOTER[i];
+			}
+		}
+		logger.info("makeSymmetryHtml()::html[" + retVal + "]");
+
+		return retVal;
+	}
+	
+	public static String makeBannerHtml(int idx, int rowNum){
+		logger.info("makeBannerHtml()::idx[" + idx + "]:rowNum[" + rowNum + "]");
+
+		String retVal = "";
+		for(int seq=0 ; seq<rowNum ; seq++){
+			for( int i=0 ; i<HTML_CONTENT_BANNER.length ; i++ ){
+				switch(i){
+				case 0:
+				case 16:
+					retVal += String.format(HTML_CONTENT_BANNER[i], idx, seq);
+					break;
+				case 23:
+				case 24:
+				case 38:
+				case 39:
+				case 40:
+				case 45:
+				case 46:
+					retVal += String.format(HTML_CONTENT_BANNER[i], idx, seq, idx, seq);
+					break;
+				case 20:
+					retVal += String.format(HTML_CONTENT_BANNER[i], idx, seq, CONTAINER_TYPE_TPL_BANNER, idx, seq);
+					break;
+				case 26:
+					retVal += String.format(HTML_CONTENT_BANNER[i], idx, seq, idx, seq, CONTAINER_TYPE_TPL_BANNER, idx, seq);
+					break;				
+				default:
+					retVal += HTML_CONTENT_BANNER[i];
+					break;
+				}
+			}
+		}
+		logger.info("makeBannerHtml()::html[" + retVal + "]");
+
+		return retVal;
+	}
+}

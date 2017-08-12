@@ -1,0 +1,393 @@
+<%@ page language="java" contentType="text/html; charset=utf-8"
+    pageEncoding="utf-8"%>
+<script type="text/javascript" src="/js/smartEditor/js/HuskyEZCreator.js" charset="utf-8"></script>
+<!-- 태그는 cmmnHead.jsp 에 선언함 -->
+<%@ include file="/WEB-INF/views/admin/common/cmmnHead.jsp"%>
+<script type="text/javascript">
+
+	var oEditors = [];
+	var evtStateYn = '${list.selectPromoEvtDtl.EVT_STATE_YN}';
+	
+	// ready
+	$(document).ready(function(){
+		$('.calendar').datepicker({
+			showOn: "button",
+			buttonImage: "http://static.ssocio.net/admin/images/ico_calendar.gif",
+			buttonImageOnly: true
+		});	
+		
+		//PC상세 에디터
+		nhn.husky.EZCreator.createInIFrame({
+			oAppRef: oEditors,
+			elPlaceHolder: "evtComment",
+			sSkinURI: "/js/smartEditor/SmartEditor2Skin.html",
+			fCreator: "createSEditor2"
+		});
+		
+		if (evtStateYn == '40') { //마감된 이벤트의 경우
+			
+			$("input").not("[type=hidden]").attr("disabled", true);
+			$("select").attr("disabled", true);
+			$("textarea").attr("disabled", true);
+			$("a").each( function (idx) {
+				var aId = $(this).attr("id");
+				if (aId != "btnCancel") {
+					$(this).removeAttr("href");
+				}
+			});
+		}
+		
+		init();
+		
+	});
+	
+	// 초기
+	function init() {
+		
+	}
+	
+	// 수정
+	function updateEvt() {
+		
+		// confirm
+		if (!confirm("수정 하시겠습니까?")) {
+			return;
+		}
+		
+		oEditors[0].exec("UPDATE_CONTENTS_FIELD", []);   // 에디터의 내용이 textarea에 적용된다.
+		
+		// validation
+		if (!updateValidation()) {
+			return;
+		}
+		
+		// replace - 제거
+		$("#evtStartDt").val($("#evtStartDt").val().replace(/\-/ig, ''));
+		$("#evtEndDt").val($("#evtEndDt").val().replace(/\-/ig, ''));
+		
+		// submit
+		$("#form").attr("action","/admin/promo/updatePromoEvt.do").submit();
+		
+	}
+	
+	// 수정 validation
+	function updateValidation() {
+		
+		// 이벤트명
+		var evtNm = $("#evtNm").val();
+		if (evtNm == null || evtNm == "") {
+			alert("프로모션명을 입력해 주세요.");
+			$("#evtNm").focus();
+			return false;
+		}
+		
+		// 이벤트 기간
+		var today = Date.today().toString("yyyyMMdd");
+		var evtStartDt = $("#evtStartDt").val();
+		var evtEndDt = $("#evtEndDt").val();
+		if (evtStartDt == null || evtStartDt == "") {
+			alert("프로모션 시작일을 입력하세요.");
+			$("#evtStartDt").focus();
+			return false;
+		}
+		if (evtEndDt == null || evtEndDt == "") {
+			alert("프로모션 종료일을 입력하세요.");
+			$("#evtEndDt").focus();
+			return false;
+		}
+		if (evtStartDt.replace(/\-/ig, '') < today) {
+			/* alert("프로모션 시작일은 현재일보다 과거일수 없습니다.");
+			$("#evtStartDt").focus();
+			return false; */
+		}
+		if (evtStartDt.replace(/\-/ig, '') > evtEndDt.replace(/\-/ig, '')) {
+			alert("프로모션 시작일은 종료일보다 클수 없습니다.");
+			$("#evtStartDt").focus();
+			return false;
+		}
+		
+		// 링크 주소
+		var evtPageUrl = $("#evtPageUrl").val();
+		if (evtPageUrl == null || evtPageUrl == "") {
+			alert("링크 주소를 입력해 주세요.");
+			$("#evtPageUrl").focus();
+			return false;
+		}
+		
+		// 프로모션 상세 설명
+		var evtComment = $('#evtComment').val().replace(/<p>&nbsp;<\/p>/gi,'');
+		if (evtComment == null || evtComment == "") {
+			alert("프로모션 상세 설명을 입력해 주세요.");
+			$("#evtComment").focus();
+			return false;
+		}
+
+		return true;
+		
+	}
+	
+	// 참여회원 조회
+	function evtJoinPopup() {
+		
+		var url = "/admin/promo/selectPromoEvtJoinPopup.do";
+		//var width = "1044";
+		var width = "1300";
+		var height = "600";
+		var left = screen.width;
+		var top = (screen.height/2) - (height/2);
+		window.open('', 'popupForm','width=' + width + ', height=' + height + ', screenY=' + top + ', screenX=' + left + ',toolbar=no, menubar=no, scrollbars=yes, resizeable=no');
+		$("#form").attr("action", url).attr("target", "popupForm").submit();
+		
+	}
+	
+	// 당첨회원 조회
+	function evtWinPopup() {
+		
+		var url = "/admin/promo/selectPromoEvtWinPopup.do";
+		//var width = "1044";
+		var width = "1300";
+		var height = "600";
+		var left = screen.width;
+		var top = (screen.height/2) - (height/2);
+		window.open('', 'popupForm','width=' + width + ', height=' + height + ', screenY=' + top + ', screenX=' + left + ',toolbar=no, menubar=no, scrollbars=yes, resizeable=no');
+		$("#form").attr("action", url).attr("target", "popupForm").submit();
+		
+	}
+	
+	// 이벤트 마감
+	function updateEvtState() {
+		
+		// confirm
+		if (!confirm("프로모션을 마감 하시겠습니까?")) {
+			return;
+		}
+		
+		// 마감
+		$("#evtStateYn").val("N");
+		
+		// submit
+		$("#form").attr("action","/admin/promo/updateEvtState.do").attr("target", "").submit();
+		
+	}
+
+	
+</script>
+
+
+<form id="form" name="form" method="post" action="" enctype="multipart/form-data">
+	<input type="hidden" id="no" name="NO" value="${list.selectPromoEvtDtl.NO }" />
+	<input type="hidden" id="evtStateYn" name="EVT_STATE_YN" value="" />
+	<input type="hidden" id="pcSeq" name="PC_SEQ" value="${list.selectPromoEvtDtl.EVT_IMG_URL_PC }" />
+	<input type="hidden" id="evtGrpCd" name="EVT_GRP_CD" value="${list.selectPromoEvtDtl.EVT_GRP_CD }" />
+	<!-- content -->
+	<div id="content">
+		<!-- top_content -->
+		<div class="top_content">
+			<!-- location -->
+			<div class="location">
+				<ul class="clear">
+					<li class="first-child"><a href="/admin/main.do">Home</a></li>
+					<li><a href="/admin/plan/selectListPlan.do">프로모션/쿠폰</a></li>
+					<li><a href="/admin/promo/promoEvtList.do">프로모션</a></li>
+					<li><a class="current">상세</a></li>
+				</ul>
+			</div>
+			<!-- //location -->
+		</div>
+		<!-- //top_content -->
+		
+		<!-- inner -->
+		<div class="inner">
+			<!-- tbl -->
+			<div class="tbl mt20">
+				<table class="upd">
+					<colgroup>
+						<col style="width:15%" />
+						<col style="width:35%" />
+						<col style="width:15%" />
+						<col style="width:35%" />
+					</colgroup>
+					<tbody>
+						<tr>
+							<th scope="row">등록일자</th>
+							<td>${list.selectPromoEvtDtl.REGIST_DT }</td>
+							<th scope="row" class="bl">수정일자</th>
+							<td>
+								<c:choose>
+									<c:when test="${list.selectPromoEvtDtl.UPDT_DT ne null and list.selectPromoEvtDtl.UPDT_DT ne '' }">
+										${list.selectPromoEvtDtl.UPDT_DT }
+									</c:when>
+									<c:otherwise>
+										-
+									</c:otherwise>
+								</c:choose>
+							</td>
+						</tr>
+						<tr>
+							<th scope="row">진행상태</th>
+							<td>
+								<c:choose>
+				    				<c:when test="${list.selectPromoEvtDtl.EVT_STATE_YN eq '10' }">
+				    					대기
+				    				</c:when>
+				    				<c:when test="${list.selectPromoEvtDtl.EVT_STATE_YN eq '20' }">
+				    					진행중
+				    				</c:when>
+				    				<c:when test="${list.selectPromoEvtDtl.EVT_STATE_YN eq '30' }">
+				    					종료
+				    				</c:when>
+				    				<c:when test="${list.selectPromoEvtDtl.EVT_STATE_YN eq '40' }">
+				    					마감
+				    				</c:when>
+				    			</c:choose>
+							</td>
+							<th scope="row" class="bl">노출상태</th>
+							<td>
+								<input type="radio" id="exposureY" name="EXPOSURE_YN" value="Y" 
+									<c:if test="${list.selectPromoEvtDtl.EXPOSURE_YN == 'Y' }">checked</c:if> 
+								/>
+								<label for="exposureY">노출</label>
+								<input type="radio" id="exposureY" name="EXPOSURE_YN" value="N" 
+									<c:if test="${list.selectPromoEvtDtl.EXPOSURE_YN == 'N' }">checked</c:if> 
+								/>
+								<label for="exposureY">미노출</label>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			<!-- //tbl -->
+			<!-- tbl -->
+			<div class="tbl mt10">
+				<p class="tbl_tit"><img src="http://static.ssocio.net/admin/images/ico_admin.gif" alt="" />프로모션 정보</p>
+				<table class="upd">
+					<colgroup>
+						<col style="width:15%" />
+						<col style="width:35%" />
+						<col style="width:15%" />
+						<col style="width:35%" />
+					</colgroup>
+					<tbody>
+						<tr>
+							<th scope="row">구분</th>
+								<td>프로모션</td>
+							<th scope="row" class="bl">프로모션 NO</th>
+								<td><B>${list.selectPromoEvtDtl.EVT_GRP_CD }</B></td>							
+						</tr>
+						<tr>
+							<th scope="row">프로모션명</th>
+							<td>
+								<input type="text" id="evtNm" name="EVT_NM" maxLength="30" style="width:200px" value="${list.selectPromoEvtDtl.EVT_NM }" /><span></span>
+							</td>
+							<th scope="row" class="bl">프로모션 ID</th>
+							<td>
+									<input type="text" id="evtApiNm" name="EVT_API_NM" maxLength="30" style="width:200px" value="${list.selectPromoEvtDtl.EVT_API_NM }"/> <span><font color=red>* 수정 금지</font></span>
+							</span></td>
+						</tr>	
+						<tr>
+							<th scope="row">프로모션 기간</th>
+							<td>
+								<c:choose>
+									<c:when test="${list.selectPromoEvtDtl.EVT_STATE_YN eq '40' }">
+										<input type="text" id="evtStartDt" name="EVT_START_DT" style="width:100px" readOnly value="${list.selectPromoEvtDtl.EVT_START_DT }" /> ~ 
+										<input type="text" id="evtEndDt" name="EVT_END_DT" style="width:100px" readOnly value="${list.selectPromoEvtDtl.EVT_END_DT }" />
+									</c:when>
+									<c:otherwise>
+										<input type="text" id="evtStartDt" name="EVT_START_DT" class="calendar" style="width:100px" readOnly value="${list.selectPromoEvtDtl.EVT_START_DT }" /> ~ 
+										<input type="text" id="evtEndDt" name="EVT_END_DT" class="calendar" style="width:100px" readOnly value="${list.selectPromoEvtDtl.EVT_END_DT }" />
+									</c:otherwise>
+								</c:choose>
+							</td>
+							<th scope="row"  class="bl">링크 주소 </th>
+							<td>
+								<input type="text" id="evtPageUrl" name="EVT_PAGE_URL" maxLength="50" style="width:320px" value="${list.selectPromoEvtDtl.EVT_PAGE_URL }"> <span><font color=red>* 수정 금지</font></span>
+							</td>
+						</tr>
+						
+						<tr>
+							<td colspan="4">
+								<table class="infoTbl innerTbl v2">
+									<thead>
+										<tr>
+											<th scope="col" class="file_find" colspan="4">
+												<p>
+													<span class="text_bl ml0">프로모션 이미지</span>
+													<a href="#" class="btn_w btn_add_img">파일찾기</a>
+													<input type="file" id="evtImgUrlPc" name="EVT_IMG_URL_PC" class="file_upload" onchange="preView(this, 'pcBannerImg', '');" />
+												</p>
+											</th>
+										</tr>
+									</thead>
+									<tbody>
+										<tr>
+											<td class="bg_type" class="tl" colspan="4">JPG, PNG 파일 확장자만 등록 가능</td>
+										</tr>
+										<tr>
+											<td colspan="4">
+												<div class="evt_bn_area">
+													<!-- 이미지 영역 -->
+													<img src="${list.selectPromoEvtDtl.PC_PATH }" id="pcBannerImg" alt="PC용 배너 이미지">
+												</div>
+											</td>
+										</tr>
+									</tbody>
+								</table>
+							</td>
+						</tr>
+						
+						
+						<tr>
+							<th scope="row" rowspan="2">프로모션 페이지 소스<p>JSP Source</th>
+							<td class="bg_type" colspan="3">
+								<p class="text_bl">프로모션  페이지 소스 (HTML tab 선택 후 등록) <font color=red>* 수정 금지</font></p>
+							</td>
+						</tr>
+						<tr>
+							<td colspan="3">
+								<div class="edit_area">
+									<textarea id="evtComment" name="EVT_COMMENT" rows="10" cols="162">${list.selectPromoEvtDtl.EVT_COMMENT}</textarea>
+								</div>
+							</td>
+						</tr>
+<%-- 						<tr id="trJoinCnt">
+							<th scope="row">프로모션 참여 회원</th>
+							<td colspan="3">
+								총 <fmt:formatNumber value="${list.selectPromoEvtDtl.JOIN_CNT }" type="number" />명 
+								<a href="javascript:evtJoinPopup();" class="btn_w ml20">
+									<span>조회</span>
+								</a>
+							</td>
+						</tr>
+						<tr id="trWinCnt">
+<!-- 						<tr id="trWinCnt" style="display:none;"> -->
+							<th scope="row">프로모션 당첨 회원</th>
+							<td colspan="3">
+								총 <fmt:formatNumber value="${list.selectPromoEvtDtl.WIN_CNT }" type="number" />명
+								<a href="javascript:evtWinPopup();" class="btn_w ml20">
+									<span>조회</span>
+								</a>
+							</td>
+						</tr> --%>
+					</tbody>
+				</table>
+			</div>
+			<!-- //tbl -->
+			<!-- bot_btn -->
+			<div class="bot_btn tc mt20">
+				<a href="javascript:updateEvt();" class="btn_r">확인</a>
+				<c:if test="${list.dtlFlag == 'A' }">
+					<a href="javascript:history.go(-1);" id="btnCancel" class="btn_g2 ml10">취소</a>
+				</c:if>
+				<c:if test="${list.dtlFlag == 'B' }">
+					<a href="javascript:history.go(-2);" id="btnCancel" class="btn_g2 ml10">취소</a>
+				</c:if>
+				<c:if test="${list.selectPromoEvtDtl.EVT_STATE_YN eq '20' }">
+					<a href="javascript:updateEvtState();" class="btn_r right_btn">프로모션 마감</a>
+				</c:if>
+			</div>
+			<!-- //bot_btn -->
+		</div>
+		<!-- //inner -->
+	</div>
+	<!-- //content -->
+</form>

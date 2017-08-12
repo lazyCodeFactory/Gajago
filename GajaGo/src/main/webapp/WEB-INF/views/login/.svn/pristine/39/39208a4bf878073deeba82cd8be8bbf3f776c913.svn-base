@@ -1,0 +1,952 @@
+package com.ssocio.sharing.controller.seller;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.servlet.ServletRequest;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.ModelMap;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.multipart.MultipartHttpServletRequest;
+import org.springframework.web.servlet.ModelAndView;
+
+import com.mysql.fabric.xmlrpc.base.Array;
+import com.ssocio.sharing.cmmn.admin.util.CommonUtil;
+import com.ssocio.sharing.cmmn.util.StringUtil;
+import com.ssocio.sharing.service.admin.AdminProdService;
+import com.ssocio.sharing.service.seller.SellerBrandService;
+import com.ssocio.sharing.service.seller.SellerProdService;
+import com.ssocio.sharing.vo.seller.SellerSession;
+
+/**
+ * <pre>
+ * 상품 콘트롤러
+ * 상품 콘트롤러
+ * @author Y.I.Chun
+ * @version
+ * @since 2015. 7. 8. 오후 5:50:30
+ * @see
+ * @History
+ * Date			|	author	| 변경 내용
+ * 2015. 7. 8.	|	Y.I.Chun	|신규
+ * @비고
+ * </pre>
+ */
+@Controller
+public class SellerProdController extends SellerReferController {
+
+	// --------------------------------------------------------------------------
+	// # Log 설정
+	// --------------------------------------------------------------------------
+	private static final Logger logger = LoggerFactory.getLogger(SellerProdController.class);
+	
+	// --------------------------------------------------------------------------
+	// # Service 설정
+	// --------------------------------------------------------------------------
+	@Autowired
+	private SellerProdService sellerProdService;
+	
+	@Autowired
+	private SellerBrandService sellerBrandService;
+	
+	@RequestMapping("/seller/prodMgr/selectProdList.do")
+	public ModelAndView selectProdList(@RequestParam Map<String, Object> inParam
+			, @RequestParam(value="prodTypeCd", required=false) String[] prodTypeCd
+			, @RequestParam(value="prodStatCd", required=false) String[] prodStatCd
+			, HttpServletRequest request) throws Exception	{
+		ModelAndView mav = new ModelAndView();
+		inParam.put("prodTypeCd", prodTypeCd);   
+		inParam.put("prodStatCd", prodStatCd);
+		
+		SellerSession seller = (SellerSession) request.getSession().getAttribute("sellerManager");
+		inParam.put("MBER_SEQ", seller.getMBER_SEQ());
+		try {
+			mav.addObject("list", sellerProdService.selectProdList(inParam));
+			mav.addObject("searchParam", inParam);
+			mav.setViewName("seller/prodMgr/prodList");
+		} catch (Exception e) {e.printStackTrace();}
+			
+		return mav;
+	}
+	
+	@RequestMapping("/seller/prodMgr/prodReg.do")
+	public ModelAndView prodReg(@RequestParam Map<String, Object> inParam) throws Exception	{
+		ModelAndView mav = new ModelAndView();
+		try {
+			ModelMap result = sellerProdService.selectProdInfo(inParam);
+			
+				int agrCnt = 0;
+				 
+				if(result.containsKey("prodInfo")){
+					Map<String, String> prodInfo = (Map<String, String>) result.get("prodInfo");
+					if(prodInfo.get("PROD_TYPE_CD").equalsIgnoreCase("5")){
+						// 렌탈의 경우 약관변경 체크를 위해서
+						inParam.put("prodCode", prodInfo.get("PROD_CODE"));
+						agrCnt = sellerProdService.selectCountProdInfo(inParam);
+					}
+				}
+			
+			mav.addObject("result", result);
+			mav.addObject("agrCnt", agrCnt);
+			mav.addObject("searchParam", inParam);			
+			mav.setViewName("seller/prodMgr/prodReg");
+		} catch (Exception e) {e.printStackTrace();}
+			
+		return mav;
+	}
+	
+	@RequestMapping("/seller/prodMgr/saveProdInfo.do")
+	public ModelAndView insertProdInfo(MultipartHttpServletRequest req, @RequestParam Map<String, Object> inParam
+			, @RequestParam(value="grpProdSeq", required=false) String[] grpProdSeq
+			, @RequestParam(value="entrySeq", required=false) String[] entrySeq
+			, @RequestParam(value="infoTitle", required=false) String[] infoTitle
+			, @RequestParam(value="infoDtl", required=false) String[] infoDtl
+			, @RequestParam(value="extShowYn", required=false) String[] extShowYn, ServletRequest request) throws Exception	{
+		ModelAndView mav = new ModelAndView("jsonView");
+		inParam.put("grpProdSeq", grpProdSeq);
+		inParam.put("entrySeq", entrySeq);
+		inParam.put("infoTitle", infoTitle);
+		inParam.put("infoDtl", infoDtl);
+		inParam.put("extShowYn", extShowYn);
+		
+		String prodCd = "";
+		String brandCd = "";
+		
+		// 상품등록시에 상태값을 넣지 않으므로 강제로 판매중으로 입력
+		if(StringUtil.isEmpty((String)inParam.get("prodStatCd"))){
+			inParam.put("prodStatCd",StringUtil.nvl(String.valueOf(inParam.get("prodStatCd")),"0"));
+		}
+		
+		//퀵서비스일때 배송비 설정값 입력
+		if(!((String) inParam.get("prodTypeCd")).equalsIgnoreCase("5")){
+			if(((String) inParam.get("dlvWayCd")).equalsIgnoreCase("4")){
+				inParam.put("dlvPayGbCd",inParam.get("dlvPayGbCd2"));
+			}
+			if(!((String) inParam.get("dlvWayCd")).equalsIgnoreCase("1") && !((String) inParam.get("dlvWayCd")).equalsIgnoreCase("2")){
+				inParam.put("dlvPrce","0");
+				inParam.put("dlvStandYn","0");
+			}
+		}
+		
+		if(!StringUtil.isEmpty((String)inParam.get("regBrandNm"))){ 
+			//브랜드정보등록
+			brandCd = sellerBrandService.insertBrandInfo(req, inParam);
+			//inParam.put("brandCd", brandCd);
+		}
+		
+		//prodCode가 존재하면 수정, 아니면 등록
+		if(StringUtil.isEmpty((String)inParam.get("prodCode"))){
+			prodCd = sellerProdService.insertProdInfo(req, inParam);
+		}else{ 
+			sellerProdService.updateProdInfo(req, inParam);
+		}
+		mav.addObject("prodCd", prodCd);
+			
+		return mav;
+	}
+	
+	/**
+	 * <pre>
+	 * 상품 옵션 저장
+	 * 상품 옵션을 저장한다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 7. 9. 오후 8:08:47seller/prodMgr/prodReg.doseller/prodMgr/prodReg.do
+	 * @author Y.I.Chun
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@RequestMapping("/seller/prodMgr/saveProdOption.do")
+	public ModelAndView saveProdOption(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> paramDto) throws Exception{
+		ModelAndView mav = new ModelAndView();
+		try {
+			mav.addObject("list", sellerProdService.insertProdOption(paramDto));
+			mav.setViewName("jsonView2");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return mav;
+	}
+	/**
+	 * <pre>
+	 * 상품 옵션 조회
+	 * 상품 옵션을 조회한다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 7. 9. 오후 8:08:47
+	 * @author Y.I.Chun
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@RequestMapping("/seller/prodMgr/selectProdOption.do")
+	public ModelAndView selectProdOption(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> paramDto) throws Exception{
+		ModelAndView mav = new ModelAndView();
+		try {
+			List<Map<String, Object>> result = sellerProdService.selectProdOption(paramDto);
+			mav.addObject("result", result);
+			mav.setViewName("jsonView2");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return mav;
+	}
+	
+	@RequestMapping("/seller/prodMgr/selectSellerListPopup.do")
+	public ModelAndView selectSellerListPopup(@RequestParam Map<String, Object> inParam) throws Exception	{
+		ModelAndView mav = new ModelAndView("admin/prodMgr/sellerSearchPopup");
+		try {
+			String sellerId = (String) inParam.get("sellerId");
+			if(StringUtil.isEmpty(sellerId)){
+				mav.addObject("result", null);
+			}else{
+				mav.addObject("result", sellerProdService.selectSellerList(inParam));
+			}
+			mav.addObject("searchParam", inParam);
+		} catch (Exception e) {e.printStackTrace();}
+			
+		return mav;
+	}
+	
+	/**
+	 * <pre>
+	 * 정보고시상세리스트 조회
+	 * 정보고시상세 리스트정보를 조회 합니다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 7. 9. 오후 8:08:47
+	 * @author Y.I.Chun
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@RequestMapping("/seller/prodMgr/selectItemDtlList.do")
+	public ModelAndView selectItemDtlList(@RequestParam Map<String, Object> inParam) throws Exception{
+		ModelAndView mav = new ModelAndView();
+		try {
+			//브랜드리스트 조회
+			mav.addObject("result", sellerProdService.selectItemDtlList(inParam));
+			mav.setViewName("jsonView");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+			
+		return mav;
+	}
+	
+	/**
+	 * <pre>
+	 * 출하지팝업표시
+	 * 출하지팝업을 표시 합니다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 7. 9. 오후 8:08:47
+	 * @author Y.I.Chun
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@RequestMapping("/seller/prodMgr/shipmentPopup.do")
+	public ModelAndView shipmentPopup(@RequestParam Map<String, Object> inParam) throws Exception{
+		ModelAndView mav = new ModelAndView("seller/prodMgr/shipmentPopup");
+		try {
+			mav.addObject("inParam", inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mav;
+	}
+	
+	/**
+	 * <pre>
+	 * 출하지리스트 조회
+	 * 출하지 리스트정보를 조회 합니다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 7. 9. 오후 8:08:47
+	 * @author Y.I.Chun
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@RequestMapping("/seller/prodMgr/selectShipmentList.do")
+	public ModelAndView selectShipmentList(@RequestParam Map<String, Object> inParam) throws Exception{
+		ModelAndView mav = new ModelAndView("jsonView");
+		try {
+			//브랜드리스트 조회
+			mav.addObject("result", sellerProdService.selectShipmentList(inParam));
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mav;
+	}
+	
+	/**
+	 * <pre>
+	 * 출하지 등록
+	 * 출하지 정보를 등록 합니다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 7. 9. 오후 8:08:47
+	 * @author Y.I.Chun
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@RequestMapping("/seller/prodMgr/insertShipment.do")
+	public ModelAndView insertShipment(HttpServletRequest request ,@RequestParam Map<String, Object> inParam) throws Exception{
+		ModelAndView mav = new ModelAndView("jsonView");
+		SellerSession seller = (SellerSession) request.getSession().getAttribute("sellerManager");
+		try {
+			inParam.put("MBER_SEQ", seller.getMBER_SEQ());
+			//출하지 등록
+			sellerProdService.insertShipment(inParam);
+			mav.addObject("result", "OK");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mav;
+	}
+	
+	/**
+	 * <pre>
+	 * 출하지 수정
+	 * 출하지 수정를 등록 합니다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 7. 9. 오후 8:08:47
+	 * @author Y.I.Chun
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@RequestMapping("/seller/prodMgr/updateShipment.do")
+	public ModelAndView updateShipment(@RequestParam Map<String, Object> inParam) throws Exception{
+		ModelAndView mav = new ModelAndView("jsonView");
+		try {
+			//출하지 등록
+			sellerProdService.updateShipment(inParam);
+			mav.addObject("result", "OK");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mav;
+	}
+	
+	@RequestMapping("/seller/prodMgr/excelDownProdList.do")
+	public ModelAndView getProdListExcelDownload(HttpServletRequest request
+			, HttpServletResponse response
+			, @RequestParam Map<String, Object> inParam
+			, @RequestParam(value="prodTypeCd", required=false) String[] prodTypeCd
+			, @RequestParam(value="prodStatCd", required=false) String[] prodStatCd
+			) throws Exception{
+		
+		SellerSession seller = (SellerSession) request.getSession().getAttribute("sellerManager");
+		inParam.put("MBER_SEQ", seller.getMBER_SEQ());
+		inParam.put("prodTypeCd", prodTypeCd);   
+		inParam.put("prodStatCd", prodStatCd);
+
+		ModelAndView mav = new ModelAndView("excelDownloadView");
+		String[] title = {"등록일시", "판매자", "상품코드" , "상품명", "판매구분", "카테고리", "판매가", "배송비", "재고수량", "옵션여부", "상태"};
+		String[] colName = {"REGIST_DT", "SELLER", "PROD_CODE" ,"PROD_NM", "PROD_TYPE_NM", "CTRY_NM", "SELL_PRCE", "DLV_PRCE", "STOCK_QTY", "OPT_PROD_YN", "PROD_STAT_NM"};
+		
+		try {
+			response.setContentType("application/msexcel");
+			response.setHeader("Content-Disposition", CommonUtil.getDisposition("상품목록.xls", CommonUtil.check_browser(request)));
+			
+			List<String> excelTitle = new ArrayList<String>(Arrays.asList(title));
+			List<String> CellName = new ArrayList<String>(Arrays.asList(colName));
+			
+			mav.addObject("SheetName", "상품목록");
+			mav.addObject("excelTitle", excelTitle);
+			mav.addObject("CellName", CellName);
+			
+			mav.addObject("excelList", sellerProdService.selectProdListExcel(inParam));
+			mav.addObject("param", inParam);
+			
+		} catch(Exception e){
+			e.printStackTrace();
+		}
+		
+		return mav;
+	}
+	
+	@RequestMapping("/seller/prodMgr/prodListDownloadExcel.do")
+	public ModelAndView prodListDownloadExcel(HttpServletRequest request
+			, HttpServletResponse response
+			, @RequestParam Map<String, Object> inParam
+			, @RequestParam(value="prodTypeCd", required=false) String[] prodTypeCd
+			, @RequestParam(value="prodStatCd", required=false) String[] prodStatCd
+			) throws Exception{
+		
+		SellerSession seller = (SellerSession) request.getSession().getAttribute("sellerManager");
+		inParam.put("MBER_SEQ", seller.getMBER_SEQ());
+		inParam.put("prodTypeCd", prodTypeCd);   
+		inParam.put("prodStatCd", prodStatCd);
+
+		ModelAndView mav = new ModelAndView("excelDownloadView");
+//		ModelAndView mav = new ModelAndView("jsonView2");
+
+		// prod_code를 in 구문에 사용할 수 있도록 string으로 변환 & prod table 정보를 map 형태로 저장
+		Map<String, Object> prodMap = new HashMap<String, Object>();
+		List<Map<String, Object>> prodMapList = sellerProdService.getProdFromExcel(inParam);
+		List<Map<String, Object>> sharingMapList = sellerProdService.getSharingFromExcel(inParam);
+		StringBuffer PROD_CODES = new StringBuffer();
+		if (prodMapList != null && prodMapList.size() > 0) {
+			for (int i = 0; i < prodMapList.size(); i++) {
+				String PROD_CODE = String.valueOf(prodMapList.get(i).get("PROD_CODE"));
+				PROD_CODES.append("'");
+				PROD_CODES.append(PROD_CODE);
+				PROD_CODES.append("'");
+				if ( i < prodMapList.size() -1 ) {
+					PROD_CODES.append(",");
+				}
+				prodMap.put(PROD_CODE, prodMapList.get(i));
+			}
+		}
+		if (sharingMapList != null && sharingMapList.size() > 0) {
+			for (int i = 0; i < sharingMapList.size(); i++) {
+				String PROD_CODE = String.valueOf(sharingMapList.get(i).get("PROD_CODE"));
+				PROD_CODES.append("'");
+				PROD_CODES.append(PROD_CODE);
+				PROD_CODES.append("'");
+				if ( i < sharingMapList.size() -1 ) {
+					PROD_CODES.append(",");
+				}
+				prodMap.put(PROD_CODE, sharingMapList.get(i));
+			}
+		}
+		inParam.put("PROD_CODES", String.valueOf(PROD_CODES));
+		mav.addObject("inParam", inParam);
+
+		// 이미지 정보를 map 형태로 저장
+		Map<String, Object> prodImageMap = new HashMap<String, Object>();
+		List<Map<String, Object>> prodImageMapList = sellerProdService.getProdImageFromExcel(inParam);
+		if (prodImageMapList != null && prodImageMapList.size() > 0) {
+			
+			String[] imgArr = { "11", "12", "13", "14", "15", "16", "21", "22", "23", "24", "25", "26", "20" };
+			for (int i = 0; i < prodImageMapList.size(); i++) {
+				Map<String, Object> tempMap = prodImageMapList.get(i);
+				String prod_code = String.valueOf(tempMap.get("PROD_CODE"));
+				String prod_img_gb_cd = String.valueOf(tempMap.get("PROD_IMG_GB_CD"));
+				
+				Map<String, Object> tempImageMap = (Map<String, Object>) prodImageMap.get(prod_code);
+				if ( tempImageMap == null ) {
+					tempImageMap = new HashMap<String, Object>();
+				}
+				
+				for (String img : imgArr) {
+					if ( tempMap != null && img.equalsIgnoreCase(prod_img_gb_cd)){
+						tempImageMap.put("img_" + img, tempMap.get("PROD_IMG_URL"));
+						tempImageMap.put("imgFileSeq_" + img, tempMap.get("FILE_SEQ"));
+					} else {
+						if ( tempImageMap.get("img_" + img) == null ) {
+							tempImageMap.put("img_" + img, "");
+						}
+						if ( tempImageMap.get("imgFileSeq_" + img) == null ) {
+							tempImageMap.put("imgFileSeq_" + img, "");
+						}
+					}
+				}
+				prodImageMap.put(prod_code, tempImageMap);
+			}
+		}
+//		mav.addObject("prodImageMap", prodImageMap);
+		
+		// 정보고시를 map 형태로 저장
+		Map<String, Object> prodNotiMap = new HashMap<String, Object>();
+		List<Object> oPerlishArray = new ArrayList<Object>();
+		List<Map<String, Object>> prodNotiMapList = sellerProdService.getProdInfoNotiFromExcel(inParam);
+		if (prodNotiMapList != null && prodNotiMapList.size() > 0) {
+			for (int i = 0; i < prodNotiMapList.size(); i++) {
+				Map<String, Object> tempMap = prodNotiMapList.get(i);
+				String prod_code = String.valueOf(tempMap.get("PROD_CODE"));
+				String entry_seq = String.valueOf(tempMap.get("ENTRY_SEQ"));
+				String info_title = String.valueOf(tempMap.get("INFO_TITLE"));
+				String info_dtl = String.valueOf(tempMap.get("INFO_DTL"));
+				String ext_show_yn = String.valueOf(tempMap.get("EXT_SHOW_YN"));
+				
+				Map<String, Object> tempNotiMap = (Map<String, Object>) prodNotiMap.get(prod_code);
+				if (tempNotiMap == null) {
+					tempNotiMap = new HashMap<String, Object>();
+				}
+
+				if (tempMap != null && entry_seq != null) {
+					tempNotiMap.put("entrySeq_" + entry_seq, entry_seq);
+					tempNotiMap.put("infoTitle_" + entry_seq, info_title);
+					tempNotiMap.put("infoDtl_" + entry_seq, info_dtl);
+					tempNotiMap.put("extShowYn_" + entry_seq, ext_show_yn);
+				}
+				prodNotiMap.put(prod_code, tempNotiMap);
+			}
+		}
+//		mav.addObject("prodNotiMap", prodNotiMap);
+		
+		// 옵션 정보를 map 형태로 저장
+		Map<String, Object> prodOpInfoMap = new HashMap<String, Object>();
+		List<Map<String, Object>> prodOpInfoMapList = sellerProdService.getProdOpInfoFromExcel(inParam);
+//		Map<String, Object> prodOpMap = new HashMap<String, Object>();
+//		List<Map<String, Object>> prodOpMapList = sellerProdService.getProdOpFromExcel(inParam);
+		StringBuffer CELL0 = new StringBuffer();
+		StringBuffer CELL1 = new StringBuffer();
+		StringBuffer CELL2 = new StringBuffer();
+		StringBuffer CELL3 = new StringBuffer();
+		StringBuffer CELL4 = new StringBuffer();
+		StringBuffer CELL5 = new StringBuffer();
+		if (prodOpInfoMapList != null && prodOpInfoMapList.size() > 0) {
+			for (int i = 0; i < prodOpInfoMapList.size(); i++) {
+				Map<String, Object> tempMap = prodOpInfoMapList.get(i);
+				String prod_code = String.valueOf(tempMap.get("PROD_CODE"));
+				String op_gb_cd = String.valueOf(tempMap.get("OP_GB_CD"));
+				String maxDepth = String.valueOf(tempMap.get("MAXDEPTH"));
+				String depth = String.valueOf(tempMap.get("DEPTH"));
+				String opt_nm = String.valueOf(tempMap.get("OPT_NM"));
+				
+				Map<String, Object> tempOpMap = (Map<String, Object>) prodOpInfoMap.get(prod_code);
+				if (tempOpMap == null) {
+					tempOpMap = new HashMap<String, Object>();
+				}
+				
+				if ( "0".equalsIgnoreCase(depth) ) {
+					StringBuffer optName = new StringBuffer();
+					for ( int cdepth = 1; cdepth < Integer.parseInt(maxDepth) + 1; cdepth++ ) {
+						optName.append(String.valueOf(tempMap.get("GRP" + cdepth + "_NM")));
+						if ( cdepth < Integer.parseInt(maxDepth) ) {
+							optName.append(",");
+						}
+					}
+					if ( "10".equalsIgnoreCase(op_gb_cd) ) {
+						tempOpMap.put("optFlg", "Y");
+						tempOpMap.put("optName", String.valueOf(optName));
+						tempOpMap.put("maxDepth", maxDepth);
+						tempOpMap.put("opGbCd", "10");
+						tempOpMap.put("opt_rad", "Y");
+						CELL0.setLength(0);
+						CELL1.setLength(0);
+						CELL2.setLength(0);
+						CELL0.append(StringUtil.nvl(String.valueOf(tempOpMap.get("CELL0")), ""));
+						CELL0.append(String.valueOf(tempMap.get("OPT_NM")));
+						CELL1.append(StringUtil.nvl(String.valueOf(tempOpMap.get("CELL1")), ""));
+						CELL2.append(StringUtil.nvl(String.valueOf(tempOpMap.get("CELL2")), ""));
+						tempOpMap.put("CELL0", String.valueOf(CELL0));
+						tempOpMap.put("CELL1", String.valueOf(CELL1));
+						tempOpMap.put("CELL2", String.valueOf(CELL2));
+					} 
+					// CELL3, CELL4(가격), CELL5(수량), optName2, maxDepth2, optFlg2, opt_ext_rad
+					else if ( "20".equalsIgnoreCase(op_gb_cd) ) {
+						tempOpMap.put("optFlg2", "Y");
+						tempOpMap.put("optName2", String.valueOf(optName));
+						tempOpMap.put("maxDepth", maxDepth);
+						tempOpMap.put("opGbCd2", "20");
+						tempOpMap.put("opt_ext_rad", "Y");
+						CELL3.setLength(0);
+						CELL4.setLength(0);
+						CELL5.setLength(0);
+						CELL3.append(StringUtil.nvl(String.valueOf(tempOpMap.get("CELL3")), ""));
+						CELL3.append(String.valueOf(tempMap.get("OPT_NM")));
+						CELL4.append(StringUtil.nvl(String.valueOf(tempOpMap.get("CELL4")), ""));
+						CELL5.append(StringUtil.nvl(String.valueOf(tempOpMap.get("CELL5")), ""));
+						tempOpMap.put("CELL3", String.valueOf(CELL3));
+						tempOpMap.put("CELL4", String.valueOf(CELL4));
+						tempOpMap.put("CELL5", String.valueOf(CELL5));
+					} 
+				} else {
+					if ( Integer.parseInt(depth) == ( Integer.parseInt(maxDepth) - 1 )  ) {
+						if ( "10".equalsIgnoreCase(op_gb_cd) ) {
+							CELL0.append("-");
+							CELL0.append(String.valueOf(tempMap.get("OPT_NM")));
+							CELL0.append(",");
+							CELL1.append(",");
+							CELL2.append(",");
+							CELL1.append(String.valueOf(tempMap.get("OPT_EXP_QTY")));
+							CELL2.append(String.valueOf(tempMap.get("OPT_STOCK_QTY")));
+							tempOpMap.put("CELL0", String.valueOf(CELL0));
+							tempOpMap.put("CELL1", String.valueOf(CELL1));
+							tempOpMap.put("CELL2", String.valueOf(CELL2));
+						} 
+						// CELL3, CELL4(가격), CELL5(수량), optName2, maxDepth2, optFlg2, opt_ext_rad
+						else if ( "20".equalsIgnoreCase(op_gb_cd) ) {
+							CELL3.append("-");
+							CELL3.append(String.valueOf(tempMap.get("OPT_NM")));
+							CELL3.append(",");
+							CELL4.append(",");
+							CELL5.append(",");
+							CELL4.append(String.valueOf(tempMap.get("OPT_EXP_QTY")));
+							CELL5.append(String.valueOf(tempMap.get("OPT_STOCK_QTY")));
+							tempOpMap.put("CELL3", String.valueOf(CELL3));
+							tempOpMap.put("CELL4", String.valueOf(CELL4));
+							tempOpMap.put("CELL5", String.valueOf(CELL5));
+						} 
+					} else {
+						if ( "10".equalsIgnoreCase(op_gb_cd) ) {
+							CELL0.append("-");
+							CELL0.append(String.valueOf(tempMap.get("OPT_NM")));
+							tempOpMap.put("CELL0", String.valueOf(CELL0));
+						} 
+						// CELL3, CELL4(가격), CELL5(수량), optName2, maxDepth2, optFlg2, opt_ext_rad
+						else if ( "20".equalsIgnoreCase(op_gb_cd) ) {
+							CELL3.append("-");
+							CELL3.append(String.valueOf(tempMap.get("OPT_NM")));
+							tempOpMap.put("CELL3", String.valueOf(CELL3));
+						}
+					}
+				}
+				prodOpInfoMap.put(prod_code, tempOpMap);
+			}
+		}
+//		mav.addObject("prodOpInfoMap", prodOpInfoMap);
+		
+		Map<String, Object> prodMapMap = new HashMap<String, Object>();
+		List<Map<String, Object>> prodMapMapList = sellerProdService.getMapFromExcel(inParam);
+		if (prodMapMapList != null && prodMapMapList.size() > 0) {
+			for (int i = 0; i < prodMapMapList.size(); i++) {
+				Map<String, Object> tempMap = prodMapMapList.get(i);
+				String prod_code = String.valueOf(tempMap.get("PROD_CODE"));
+				String grpProdSeq = String.valueOf(tempMap.get("GRP_PROD_SEQ"));
+				Map<String, Object> tempProdMap = (Map<String, Object>) prodMapMap.get(prod_code);
+				if (tempProdMap == null) {
+					tempProdMap = new HashMap<String, Object>();
+				}
+				tempProdMap.put("grpProdSeq", grpProdSeq);
+				prodMapMap.put(prod_code, tempProdMap);
+			}
+		}
+//		mav.addObject("prodMapMap", prodMapMap);
+		
+		Map<String, Object> prodDeliveryMap = new HashMap<String, Object>();
+		List<Map<String, Object>> prodDeliveryMapList = sellerProdService.getDeliveryFromExcel(inParam);
+		if (prodDeliveryMapList != null && prodDeliveryMapList.size() > 0) {
+			for (int i = 0; i < prodDeliveryMapList.size(); i++) {
+				Map<String, Object> tempMap = prodDeliveryMapList.get(i);
+				String prod_code = String.valueOf(tempMap.get("PROD_CODE"));
+				String extLandCd = String.valueOf(tempMap.get("EXT_LAND_CD"));
+				String addDlvPrice = String.valueOf(tempMap.get("ADD_DLV_PRICE"));
+				Map<String, Object> tempDeliveryMap = (Map<String, Object>) prodDeliveryMap.get(prod_code);
+				if (tempDeliveryMap == null) {
+					tempDeliveryMap = new HashMap<String, Object>();
+				}
+				// 제주도
+				if ( "10".equalsIgnoreCase(extLandCd) ) {
+					tempDeliveryMap.put("addDlvPrice1", addDlvPrice);
+				}
+				// 기타산간
+				else if ( "20".equalsIgnoreCase(extLandCd) ) {
+					tempDeliveryMap.put("addDlvPrice2", addDlvPrice);
+				}
+				prodDeliveryMap.put(prod_code, tempDeliveryMap);
+			}
+		}
+//		mav.addObject("prodDeliveryMap", prodDeliveryMap);
+		
+		// prodMap, prodImageMap, prodNotiMap, prodOpInfoMap, prodMapMap, prodDeliveryMap
+		
+		List<Map<String, Object>> prodInfoList = new ArrayList<Map<String, Object>>();
+		for( String key : prodMap.keySet() ){
+			Map<String, Object> tempProdMap = (Map<String, Object>) prodMap.get(key);
+			Map<String, Object> tempProdImageMap = (Map<String, Object>) prodImageMap.get(key);
+			Map<String, Object> tempProdNotiMap = (Map<String, Object>) prodNotiMap.get(key);
+			Map<String, Object> tempProdOpInfoMap = (Map<String, Object>) prodOpInfoMap.get(key);
+			Map<String, Object> tempProdMapMap = (Map<String, Object>) prodMapMap.get(key);
+			Map<String, Object> tempProdDeliveryMap = (Map<String, Object>) prodDeliveryMap.get(key);
+			
+			Map<String, Object> mergeMap = new HashMap<String, Object>();
+			if ( tempProdMap != null ) {
+				mergeMap.putAll(tempProdMap);
+			}
+			if ( tempProdImageMap != null ) {
+				mergeMap.putAll(tempProdImageMap);
+			}
+			if ( tempProdNotiMap != null ) {
+				mergeMap.putAll(tempProdNotiMap);
+			}
+			if ( tempProdOpInfoMap != null ) {
+				mergeMap.putAll(tempProdOpInfoMap);
+			}
+			if ( tempProdMapMap != null ) {
+				mergeMap.putAll(tempProdMapMap);
+			}
+			if ( tempProdDeliveryMap != null ) {
+				mergeMap.putAll(tempProdDeliveryMap);
+			}
+			
+			prodInfoList.add(mergeMap);
+        } 
+		
+//		mav.addObject("prodInfoList", prodInfoList.toString());
+		
+		try {
+			response.setContentType("application/msexcel");
+			response.setHeader("Content-Disposition", CommonUtil.getDisposition("상품목록.xls", CommonUtil.check_browser(request)));
+			
+			String[] title = {
+					"addDlvPrce1","addDlvPrice2","bndlDlvYn","brandCd","CELL0","CELL1","CELL2","CELL3","CELL4","CELL5"
+					,"ctryCd","dlvCmpCd","dlvPayGbCd","dlvPrce","dlvStandAmt","dlvStandYn","dlvWayCd","freeShareEndDt","freeShareOkGbCd"
+					,"grpProdSeq[0]","img_11","img_12","img_13","img_14","img_15","img_16","img_20","img_21","img_22","img_23","img_24","img_25","img_26"
+					,"imgFileSeq_11","imgFileSeq_12","imgFileSeq_13","imgFileSeq_14","imgFileSeq_15","imgFileSeq_16","imgFileSeq_20"
+					,"imgFileSeq_21","imgFileSeq_22","imgFileSeq_23","imgFileSeq_24","imgFileSeq_25","imgFileSeq_26","keyword","maxDepth","maxDepth2"
+					,"mberSeq","nprodGbCd","nrmPrce","opGbCd","opGbCd2","opt_ext_rad","opt_rad","optBuyGbCd",/*"optCd",*/"optFlg","optFlg2","optName","optName2"
+					,"prodCode","prodItemCode","prodMbDtl","prodNm","prodPcDtl","prodStatCd","prodTax","prodTypeCd","sellPrce","seller","stockQty","tradLoc","txnOnYn"
+					, "entrySeq_1", "entrySeq_2", "entrySeq_3", "entrySeq_4", "entrySeq_5", "entrySeq_6", "entrySeq_7", "entrySeq_8", "entrySeq_9", "entrySeq_10", "entrySeq_11"
+					, "infoTitle_1", "infoTitle_2", "infoTitle_3", "infoTitle_4", "infoTitle_5", "infoTitle_6", "infoTitle_7", "infoTitle_8", "infoTitle_9", "infoTitle_10", "infoTitle_11"
+					, "infoDtl_1", "infoDtl_2", "infoDtl_3", "infoDtl_4", "infoDtl_5", "infoDtl_6", "infoDtl_7", "infoDtl_8", "infoDtl_9", "infoDtl_10", "infoDtl_11"
+					, "extShowYn_1", "extShowYn_2", "extShowYn_3", "extShowYn_4", "extShowYn_5", "extShowYn_6", "extShowYn_7", "extShowYn_8", "extShowYn_9", "extShowYn_10", "extShowYn_11"
+					};
+			String[] colName = {
+					"addDlvPrice1","addDlvPrice2","BNDL_DLV_YN","BRAND_CD","CELL0","CELL1","CELL2","CELL3","CELL4","CELL5"
+					,"CTRY_CD","DLV_CMP_CD","DLV_PAY_GB_CD","DLV_PRCE","DLV_STAND_AMT","DLV_STAND_YN","DLV_WAY_CD","FREESHARE_END_DT","FREESHARE_OK_GB_CD"
+					,"grpProdSeq","img_11","img_12","img_13","img_14","img_15","img_16","img_20","img_21","img_22","img_23","img_24","img_25","img_26"
+					,"imgFileSeq_11","imgFileSeq_12","imgFileSeq_13","imgFileSeq_14","imgFileSeq_15","imgFileSeq_16","imgFileSeq_20"
+					,"imgFileSeq_21","imgFileSeq_22","imgFileSeq_23","imgFileSeq_24","imgFileSeq_25","imgFileSeq_26","KEYWORD","maxDepth","maxDepth2"
+					,"MBER_SEQ","NPROD_GB_CD","NRM_PRCE","opGbCd","opGbCd2","OPT_PROD_EXT_YN","OPT_PROD_YN","OPT_BUY_GB_CD","optFlg","optFlg2","optName","optName2"
+					,"PROD_CODE","PROD_ITEM_CODE","PROD_MB_DTL","PROD_NM","PROD_PC_DTL","PROD_STAT_CD","PROD_TAX","PROD_TYPE_CD"/*,"REGIST_DT"*/,"SELL_PRCE","SELLER_CD","STOCK_QTY","TRAD_LOC","TXN_ON_YN"/*,"UPDT_DT"*/
+					, "entrySeq_1", "entrySeq_2", "entrySeq_3", "entrySeq_4", "entrySeq_5", "entrySeq_6", "entrySeq_7", "entrySeq_8", "entrySeq_9", "entrySeq_10", "entrySeq_11"
+					, "infoTitle_1", "infoTitle_2", "infoTitle_3", "infoTitle_4", "infoTitle_5", "infoTitle_6", "infoTitle_7", "infoTitle_8", "infoTitle_9", "infoTitle_10", "infoTitle_11"
+					, "infoDtl_1", "infoDtl_2", "infoDtl_3", "infoDtl_4", "infoDtl_5", "infoDtl_6", "infoDtl_7", "infoDtl_8", "infoDtl_9", "infoDtl_10", "infoDtl_11"
+					, "extShowYn_1", "extShowYn_2", "extShowYn_3", "extShowYn_4", "extShowYn_5", "extShowYn_6", "extShowYn_7", "extShowYn_8", "extShowYn_9", "extShowYn_10", "extShowYn_11"		
+					};
+			
+			List<String> excelTitle = new ArrayList<String>(Arrays.asList(title));
+			List<String> CellName = new ArrayList<String>(Arrays.asList(colName));
+			
+			mav.addObject("SheetName", "상품목록");
+			mav.addObject("excelTitle", excelTitle);
+			mav.addObject("CellName", CellName);
+			
+			mav.addObject("excelList", prodInfoList);
+			
+		} catch(Exception e){
+			e.printStackTrace();
+		}
+		
+		return mav;
+	}
+	
+	/**
+	 * <pre>
+	 * 출하지 관리
+	 * 출하지 관리를 표시 합니다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 9. 7. 오후 8:08:47
+	 * @author SEKIM
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@RequestMapping("/seller/prodMgr/shipmentList.do")
+	public ModelAndView shipmentList(HttpServletRequest request , @RequestParam Map<String, Object> inParam) throws Exception{
+		ModelAndView mav = new ModelAndView("seller/prodMgr/shipmentList");
+		SellerSession seller = (SellerSession) request.getSession().getAttribute("sellerManager");
+		try {
+			inParam.put("mberSeq", seller.getMBER_SEQ());
+			mav.addObject("result", sellerProdService.selectShipmentList(inParam));
+			mav.addObject("inParam", inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mav;
+	}
+	
+	/**
+	 * <pre>
+	 * 출하지 상세 관리
+	 * 출하지 상세 관리를 표시 합니다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 9. 7. 오후 8:08:47
+	 * @author SEKIM
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@RequestMapping("/seller/prodMgr/shipmentDetail.do")
+	public ModelAndView shipmentDetail(@RequestParam Map<String, Object> inParam) throws Exception{
+		ModelMap mm = new ModelMap();
+		try { 
+			mm.put("inParam", inParam);
+			mm.put("shipmentDetail", sellerProdService.selectShipmentList(inParam));
+//			mm.put("list", sellerProdService.selectShipmentProdList(inParam));
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return new ModelAndView("seller/prodMgr/shipmentDetail",mm);
+	}
+	
+	/**
+	 * <pre>
+	 * 출하지 등록 상품 삭제
+	 * 출하지에 등록된 상품을 삭제 합니다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 7. 9. 오후 8:08:47
+	 * @author SEKIM
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@RequestMapping("/seller/prodMgr/deleteShipmentProd.do")
+	public ModelAndView deleteShipmentProd(@RequestParam Map<String, Object> inParam) throws Exception{
+		ModelAndView mav = new ModelAndView("jsonView");
+		try {
+			//출하지 등록
+			sellerProdService.deleteShipmentProd(inParam);
+			mav.addObject("result", "OK");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mav;
+	}
+	
+	/**
+	 * <pre>
+	 * 출하지 관리
+	 * 출하지 관리를 표시 합니다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 9. 7. 오후 8:08:47
+	 * @author SEKIM
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@RequestMapping("/seller/prodMgr/shipmentReg.do")
+	public ModelAndView shipmentReg(HttpServletRequest request,@RequestParam Map<String, Object> inParam) throws Exception{
+		ModelAndView mav = new ModelAndView("seller/prodMgr/shipmentReg");
+		SellerSession seller = (SellerSession) request.getSession().getAttribute("sellerManager");
+		inParam.put("MBER_SEQ", seller.getMBER_SEQ());
+		try {
+			mav.addObject("inParam", inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mav;
+	}
+	
+	/**
+	 * <pre>
+	 * 출하지 등록 상품 삭제
+	 * 출하지에 등록된 상품을 삭제 합니다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 7. 9. 오후 8:08:47
+	 * @author SEKIM
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@RequestMapping("/seller/prodMgr/selectAddShipmentProdList.do")
+	public ModelAndView selectShipmentProdList(@RequestParam Map<String, Object> inParam) throws Exception{
+		ModelAndView mav = new ModelAndView("jsonView");
+		try {
+			//출하지 등록
+			mav.addObject("result", sellerProdService.selectAddShipmentProdList(inParam));
+			//mav.addObject("result", "OK");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mav;
+	}
+	
+	/**
+	 * <pre>
+	 * 출하지 상품 등록
+	 * 출하지에 해당 상품을 등록한다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 7. 9. 오후 8:08:47
+	 * @author SEKIM
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@RequestMapping("/seller/prodMgr/insetShipmentProdMap.do")
+	public ModelAndView insetShipmentProdMap(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> paramDto) throws Exception{
+		ModelAndView mav = new ModelAndView();
+		try {
+			mav.addObject("list", sellerProdService.insetShipmentProdMap(paramDto));
+			mav.setViewName("jsonView2");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return mav;
+	}
+	
+	/**
+	 * <pre>
+	 * 상품옵션 사용안함 업데이트
+	 * 상품옵션 사용안함으로 업데이트 합니다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 7. 9. 오후 8:08:47
+	 * @author SEKIM
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@RequestMapping("/seller/prodMgr/deleteProdOpInfo.do")
+	public ModelAndView deleteProdOpInfo(@RequestParam Map<String, Object> inParam) throws Exception{
+		ModelAndView mav = new ModelAndView("jsonView");
+		try {
+			//상품 옵션 사용안함 처리
+			String[] optCd = ((String) inParam.get("optCd")).split(",");
+			for(int i =0; i < optCd.length; i++){
+				inParam.put("optCd", optCd[i]);
+				sellerProdService.deleteProdOpInfo(inParam);
+			}
+
+			// 상품옵션중 사용가능한 갯수 파악하여 사용가능 옵션이 없으면 prod 테이블 옵션 사용여부 삭제
+			int opUseCnt = sellerProdService.selectopUseCnt(inParam);
+			
+			// 사용가능 옵션 없으면 prod 테이블에 옵션사용 x 처리
+			if(opUseCnt == 0){
+				sellerProdService.updateProdOpUse(inParam);
+			}
+			
+			
+			mav.addObject("result", "OK");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mav;
+	}
+	
+	/**
+	 * <pre>
+	 * 상품옵션 조회
+	 * 상품옵션 조회 합니다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 7. 9. 오후 8:08:47
+	 * @author SEKIM
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@RequestMapping("/seller/prodMgr/selectOptionJson.do")
+	public ModelAndView selectOptionJson(@RequestParam Map<String, Object> inParam) throws Exception	{
+		ModelAndView mav = new ModelAndView();
+		try {
+			ModelMap result = sellerProdService.selectOptionJson(inParam);
+			
+			mav.addObject("result", result);
+			mav.setViewName("jsonView2");
+		} catch (Exception e) {e.printStackTrace();}
+			
+		return mav;
+	}
+	
+}

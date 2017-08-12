@@ -1,0 +1,185 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/web/common/cmmnHead.jsp"%>
+<script type="text/javascript" src="http://static.ssocio.net/web/js/ctry/ctry.js" ></script>
+<script type="text/javascript" src="/js/web/cart.js" ></script> <!-- 장바구니용 js -->
+<script type="text/javascript">
+var limit = 2000;
+var cur = 0;
+
+$(function(){
+// 	header.type	= 6;
+	header.type	= 4;
+	header.title = "상품문의";
+	header.method = "POST";
+	header.backUrl = "/mobile/prod/selectProd.do?PROD_CODE=${inParam.PROD_CODE }";
+	header.callback = headerCallback; // 장바구니용 callback
+	header.form = $("#form");
+	initHeader();
+	document.title = header.title;
+	displayFooter(false); 
+	
+	if( '${sessionScope.APP}' == 'SSOCIO'){
+		document.location.replace('ssocio://web/hideDetailBottomView');
+	}
+	
+	$('#CONTENTS').bind('keyup input', function(e) {
+		cur = getBytesLength($(this).val());
+		
+		if( cur <= limit ){
+			$('.byte').text(cur + '/' + limit + "byte");
+		}
+		else{
+			alert("글자수가 " + limit + "Byte를 넘었습니다.");
+			var dtl = assertMsg(limit, $(this).val());
+			$(this).val(dtl);
+			cur = getBytesLength($(this).val());
+			$(".byte").text(cur + '/' + limit + "byte");
+		}
+	});
+	
+	$("input#TITLE").keypress(function (evt) {
+		if (evt.keyCode == 13) {
+			evt.returnValue = false;
+			evt.preventDefault();
+			return false;
+		}
+	});
+	$("input#TITLE").bind('keyup input',  function () {
+		
+		countLen_title();
+		
+	});
+	
+});
+
+//text 카운트
+function countLen_title(){
+// 	var val = $('input#TITLE').val();
+// 	var txtLen = "(" + getByteLength(val) + "/40 byte)";
+// 	$(".byte1").html(txtLen);
+	
+	var len = $("input#TITLE").val().length;
+	var maxLen = $("input#TITLE").attr("maxLength");
+	
+	// 글자수 제한
+	if (len > maxLen) {
+		$("input#TITLE").val($("input#TITLE").val().slice(0,maxLen));
+	}
+	
+	var txtLen = "("+$("input#TITLE").val().length+"/"+maxLen+")";
+	$(".byte1").text(txtLen);
+	
+}
+
+function insertProdQnaReg(){
+	if( validates() == false ) return;
+	
+	var data = {
+		"BOARD_TYPE_CD": $("#BOARD_TYPE_CD").val(),
+		"PROD_CODE": $("#PROD_CODE").val(),
+		"QNA_TYPE_CD": $("#QNA_TYPE_CD option:selected").val(),
+		"TITLE": $("#TITLE").val(),
+		"CONTENTS": $("#CONTENTS").val()
+	};
+	
+	$.ajax({
+		type: 'post',
+		async: true, 
+		url: '/mobile/board/insertProdQnaReg.do', 
+		dataType:'json', 
+		data: data,
+		//before: function() {
+		//   loadingForm.showDialog();
+		//}, 
+	    success: function(response) {
+	    	if( response.data == 0){
+				alert("상품 문의 등록에 실패했습니다.\n다시 시도해 주세요.");
+			}
+			else{
+				alert("상품 문의가 등록되었습니다.");
+				location.href = '/mobile/prod/selectProd.do?PROD_CODE=' + $("#PROD_CODE").val();
+			}	    
+	    },
+		//complete: function() {
+		//	loadingForm.hideDialog();
+		//}, 
+		error : function(request, status, error) {
+			alert("통신 오류가 발생 하였습니다. 잠시 후 다시 시도해 주세요");
+		}
+	}); 
+}
+
+function validates(){
+	if( validate($("#QNA_TYPE_CD option:selected"), "문의 유형", 1) == false) return false;
+	if( validate($("#TITLE"), "제목", 0) == false) return false;
+	if( validate($("#CONTENTS"), "문의 내용", 0) == false) return false;
+	
+	return true;
+}
+
+</script>
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+		<div class="roc">
+			<ul class="inner">
+				<li><img src="http://static.ssocio.net/pc/img/common/section/roc_home.png" alt="홈"></li>
+				<li>마이페이지</li>
+				<li>상품문의</li>
+			</ul>
+		</div>
+		<jsp:include page="../common/mype_top.jsp" flush="false" />
+		<div class="mype_s_tit">
+			<p>상품문의</p>
+		</div>
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+		<div id="">
+		
+			<!-- container -->
+			<div id="container">
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>
+
+<form name="form" id="form" method="get">
+<input type="hidden" name="PROD_CODE" id="PROD_CODE" value="${inParam.PROD_CODE }" />
+<input type="hidden" name="BOARD_TYPE_CD" id="BOARD_TYPE_CD" value="72" />
+
+	<ul class="sbox01 nobg">
+		<li>
+			<select id="QNA_TYPE_CD" name="QNA_TYPE_CD">
+				<option value="">문의유형을 선택하세요.</option>
+				<c:forEach var="type" items="${result.typeCd }" varStatus="status">
+					<option value="${type.COM_CD }">${type.COM_CD_NM }</option>
+				</c:forEach>
+			</select>
+		</li>
+		<li><input type="text" id="TITLE" name="TITLE" value="" placeholder="제목을 입력해 주세요." maxlength="20"><span class="byte1">(0/20)</span></li>
+		<li>
+			<div class="text_box">
+				<textarea id="CONTENTS" name="CONTENTS" class="prod_textarea" placeholder="전화번호 등 개인정보를 개시하면 개인정보 유출 피해가 발생할 수 있으니 주의하시기 바랍니다."  ></textarea>
+				<span class="byte">(0/2,000 byte)</span>
+			</div>
+		</li>
+	</ul>
+	<div class="btn_enter"><a href="javascript:insertProdQnaReg();" class="btn_r">등록</a></div>
+
+</form>
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+		<jsp:include page="../common/mype_bottom.jsp" flush="false" />
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+		    </div>
+		    <!-- //container -->
+		</div>
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>

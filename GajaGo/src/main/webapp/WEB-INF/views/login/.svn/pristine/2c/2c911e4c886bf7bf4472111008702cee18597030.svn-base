@@ -1,0 +1,313 @@
+<%@ page language="java" contentType="text/html; charset=utf-8"
+    pageEncoding="utf-8"%>
+<!-- 태그는 cmmnHead.jsp 에 선언함 -->
+<%@ include file="/WEB-INF/views/web/common/webJSTL.jsp"%>
+<script type="text/javascript">
+
+$(document).ready(function() {
+	// 헤더 set	
+	header.type	= 2; // 0 : 타이틀영역만존재, 1 : 검색HEADER, 2 : SELECT TYPE HEADER, 3 : AD MENU TYPE HEADER, 4 : SUB TYPE HEADER
+	header.title = "나눔상품 신청내역 상세";
+	document.title = "나눔상품 신청내역 상세";
+	header.method = "POST";
+	header.backUrl = "/mobile/buy/selectListDivideReqHist.do";
+	header.form = $("#frm");
+	header.callback = f_headerCallBack();
+	initHeader();
+	
+	displayFooter(false);
+	
+	if( '${sessionScope.APP}' == 'SSOCIO'){
+		document.location.replace('ssocio://web/hideDetailBottomView');
+	}
+});
+
+/* ======================================================================
+Function : 헤더 콜백 처리
+Return   : 없음
+========================================================================= */
+function f_headerCallBack() {
+	$("#ACTION").val("list");
+}
+
+/* ======================================================================
+Function : 공통 화면 호출
+Return   : 없음
+========================================================================= */
+function f_goCommCall(url, sOrdCd, sProdCd, sProdSeq, sScrGubun) {
+	var arrProdCd = new Array();
+	var arrProdSeq = new Array();
+	var sConfMsg = "";
+	
+	arrProdCd.push(sProdCd);
+	arrProdSeq.push(sProdSeq);
+	$("#S_ORD_CD").val(sOrdCd);
+	$("#S_PROD_CD").val(arrProdCd);
+	$("#S_PROD_SEQ").val(arrProdSeq);
+	$("#S_SCR_GUBUN").val(sScrGubun);
+	$("#frm").attr("action", url).submit();
+}
+
+/* ======================================================================
+Function : 상품수령
+Return   : 없음
+========================================================================= */
+function f_saveProdRec(sOrdCd, sProdCd, sProdSeq) {
+	
+	if(confirm("나눔 상품을 수령 하시겠습니까?") == false) { return; }
+	
+	$.ajax({
+	    type: "post",
+	    async: true,
+	    url: "/mobile/buy/saveProdRec.do",
+	    data: {"S_ORD_CD":sOrdCd, "S_PROD_CD":sProdCd, "S_PROD_SEQ":sProdSeq, "I_PROC_STAT_CD":"23"},
+	    success: function(data) {
+	    	if(data.result > 0) {
+				alert("나눔상품 수령이 완료 되었습니다.");
+				f_searchBuyDivideList("list");
+			}else {
+				alert("나눔상품 수령에 실패했습니다.");
+			}
+	    },
+	    error: function(data, status, err) {
+	      alert('서버와의 통신이 실패했습니다.');
+	    }
+	});
+}
+
+//페이지
+var page = {
+		// 상태변경
+		updateOrderFree : function (ordCd, prodSeq, prodCode, procStatCd) {
+			
+			var msg = "";
+			if (procStatCd == "23") {msg = "선택하신 상품을 배송완료 처리"}
+			
+			if (!confirm(msg+" 하시겠습니까?")) {
+				return;
+			}
+			
+			$("#ordCd").val(ordCd);
+			$("#prodSeq").val(prodSeq);
+			$("#prodCode").val(prodCode);
+			$("#upProcStatCd").val(procStatCd);
+			
+			$.ajax({
+			    type: 'post'
+			    , async: true
+			    , dataType:'json'
+			    , url: "/mobile/salemanage/updateOrderFreeProcStat.do"
+			    , data: $("#frm").serialize()
+			    , success: function(data) {
+			    	
+			    	alert(data.rtnMsg);
+			    	
+			    	$("#S_PROD_CD").val(prodCode);
+			    	//$("#S_MBER_SEQ").val(sMberSeq);
+			    	$("#frm").attr("method","get");
+			    	$("#frm").attr("action", "/mobile/buy/selectListDivideReqDtl.do").submit();
+			    	
+			    	
+			    }
+			    , error: function(data, status, err) {
+			      alert('서버와의 통신이 실패했습니다.');
+			    }
+			
+			});
+			
+		}	
+};
+
+/* ======================================================================
+Function : 상품상세로 이동
+Return   : 없음
+========================================================================= */
+function goProdDtlPage(prodCode){
+	location.href = '/mobile/prod/selectProd.do?PROD_CODE=' + prodCode;
+}
+
+/* ======================================================================
+Function : 상품후기 수정 페이지
+Return   : 없음
+========================================================================= */
+function selectProdReviewForm(boardSeq, prodCode){
+	$('#BOARD_SEQ').val(boardSeq);
+	$('#PROD_CODE').val(prodCode);
+	$("#frm").attr("action", "/mobile/board/saveProdPostMod.do").submit();
+}
+</script>
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+		<div class="roc">
+			<ul class="inner">
+				<li><img src="http://static.ssocio.net/pc/img/common/section/roc_home.png" alt="홈"></li>
+				<li>마이페이지</li>
+				<li>나눔상품 신청 내역</li>
+			</ul>
+		</div>
+		<jsp:include page="../common/mype_top.jsp" flush="false" />
+		<div class="mype_s_tit">
+			<p>나눔상품 신청 내역</p>
+		</div>
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+		<div id="">
+		
+			<!-- container -->
+			<div id="container">
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>
+
+<form name="frm" id="frm" method="post">
+<input type="hidden" id="ACTION" name="ACTION">
+<input type="hidden" id="S_SEARCH_PERI" name="S_SEARCH_PERI" value="${searchParam.S_SEARCH_PERI}">
+<input type="hidden" id="S_PROC_STAT_CD" name="S_PROC_STAT_CD" value="${searchParam.S_PROC_STAT_CD}">
+<input type="hidden" id="S_PROD_NM" name="S_PROD_NM" value="${searchParam.S_PROD_NM}">
+<input type="hidden" id="S_ORD_CD" name="S_ORD_CD" value="${searchParam.S_ORD_CD}">
+<input type="hidden" id="S_MBER_SEQ" name="S_MBER_SEQ" value="${searchParam.S_MBER_SEQ}">
+<input type="hidden" id="S_PROD_CD" name="S_PROD_CD">
+<input type="hidden" id="S_PROD_SEQ" name="S_PROD_SEQ">
+<input type="hidden" id="S_SCR_ID" name="S_SCR_ID" value="selectListDivideReqDtl">
+<input type="hidden" id="S_SCR_GUBUN" name="S_SCR_GUBUN">
+<input type="hidden" id="S_PROD_TYPE_CD" name="S_PROD_TYPE_CD" value="3">
+<input type="hidden" id="ordCd" name="ordCd" value="" />
+<input type="hidden" id="prodCode" name="prodCode" value="" />
+<input type="hidden" id="prodSeq" name="prodSeq" value="" />
+<input type="hidden" id="upProcStatCd" name="upProcStatCd" value="" />
+
+
+        <h3 class="title">
+        	<c:forEach var="buyDivideList" items="${list.buyDivideList}" varStatus="status">
+        		<c:if test="${status.first}">
+        			<strong class="fl">${buyDivideList.ORD_CD}</strong> 
+        			<span class="fr">신청일 : ${buyDivideList.REQ_DT}</span>
+        		</c:if>
+			</c:forEach>
+        </h3>
+        <p class="title">나눔상품 정보</p>
+        <c:forEach var="buyDivideList" items="${list.buyDivideList}" varStatus="status">
+	       <ul class="sha_oder <c:if test="${status.index > 0}">mt10</c:if>">
+	        	<li>
+	        		<p class="phone"><span class="fl">
+	        			<img src=<custom:codeTag groupCode='SITE_DEFAULT' code='DEFAULT_IMG_URL'/> alt="${buyDivideList.MINI_SHOP_PATH}">${buyDivideList.MINI_SHOP_NM}</span> 
+	        			<a href="TEL:${buyDivideList.MBER_PHONE }" class="fr">
+			        		<strong>전화걸기</strong>
+			        	</a>
+	        		</p>
+	                <ul>
+	                	<li><a href="javascript:goProdDtlPage('${buyDivideList.PROD_CODE}')"><img src=<custom:codeTag groupCode='SITE_DEFAULT' code='DEFAULT_IMG_URL'/> alt="${buyDivideList.IMG_URL}"></a></li>
+	                	<li><a href="javascript:goProdDtlPage('${buyDivideList.PROD_CODE}')"><strong>${buyDivideList.PROD_NM}</strong></a></li>
+	                	<li><strong>신청기간 : ${buyDivideList.FREESHARE_START_DT} ~ ${buyDivideList.FREESHARE_END_DT} </strong></li>
+	                </ul>
+
+	                <p class="btn">
+	                	<span class="fl">
+		                <c:choose>
+						  	<c:when test="${buyDivideList.PROC_STAT_CD == '22' || buyDivideList.PROC_STAT_CD == '24'}" >
+						  		<c:choose>
+						  			<c:when test="${buyDivideList.DLV_WAY_CD == '1'}">
+						  				<a href="javascript:f_goCommCall('/mobile/buy/selectShipView.do', '${buyDivideList.ORD_CD}', '${buyDivideList.PROD_CODE}', '${buyDivideList.PROD_SEQ}', 'divShipView');" id="divShipView" class="btn_b">배송조회</a>
+						  			</c:when>
+						  			<c:when test="${buyDivideList.DLV_WAY_CD == '2'}">
+						  				<a href="javascript:f_goCommCall('/mobile/buy/selectShipView.do', '${buyDivideList.ORD_CD}', '${buyDivideList.PROD_CODE}', '${buyDivideList.PROD_SEQ}', 'divShipView');" id="divShipView" class="btn_b">배송조회</a>
+						  				<a href="javascript:page.updateOrderFree('${buyDivideList.ORD_CD }','${buyDivideList.PROD_SEQ }','${buyDivideList.PROD_CODE }','23');" class="btn_b">배송완료</a>
+						  			</c:when>
+						  			<c:when test="${buyDivideList.DLV_WAY_CD == '3' || buyDivideList.DLV_WAY_CD == '4'}">
+						  				<a href="javascript:page.updateOrderFree('${buyDivideList.ORD_CD }','${buyDivideList.PROD_SEQ }','${buyDivideList.PROD_CODE }','23');" class="btn_b">배송완료</a>
+						  			</c:when>
+						  		</c:choose>
+						  		 
+						  	</c:when>
+						  	<c:when test="${buyDivideList.PROC_STAT_CD == '23'}" >
+						  		<c:if test="${buyDivideList.BOARD_SEQ eq null}" >
+							  			<a href="javascript:f_goCommCall('/mobile/buy/selectProdPost.do', '${buyDivideList.ORD_CD}', '${buyDivideList.PROD_CODE}', '${buyDivideList.PROD_SEQ}', 'prodPost');" id="prodPost" class="btn_b">상품후기작성</a>
+							  		</c:if>
+							  		<c:if test="${buyDivideList.BOARD_SEQ ne null}">
+								  			<a href="javascript:selectProdReviewForm('${buyDivideList.BOARD_SEQ }', '${buyDivideList.PROD_CODE}');" id="prodPost" class="btn_b">상품후기 수정</a>
+								  	</c:if>
+						  		
+						  	</c:when>
+						  	<c:when test="${buySaleList.PROC_STAT_CD == '95'}" >
+						  		<a href="javascript:f_saveProdRec('${buyDivideList.ORD_CD}', '${buyDivideList.PROD_CODE}', '${buyDivideList.PROD_SEQ}');" id="prodRec" class="btn_b">상품수령</a>
+						  	</c:when>
+						  	<c:otherwise></c:otherwise>
+						</c:choose>
+						</span>
+						<span class="fr">
+							<strong>${buyDivideList.PROC_STAT_NM}</strong>
+						</span>
+					</p>
+	            </li>
+	        </ul>
+	        
+	        <p class="title">배송지 정보</p>
+	        <div class="tbl">
+	            <table class="tbl-data">
+	                <colgroup>
+	                    <col width="100px">
+	                    <col width="*">
+	                </colgroup>
+	                <tbody>
+	                    <tr>
+	                        <th>받는사람</th>
+	                        <td>${buyDivideList.RCV_NM}</td>
+	                    </tr>
+	                    <tr>
+	                        <th>주소</th>
+	                        <td>(${buyDivideList.ZIP_CODE}) ${buyDivideList.BAS_ADDR} ${buyDivideList.DTL_ADDR}</td>
+	                    </tr>
+	                    <tr>
+	                        <th>연락처</th>
+	                        <td>${buyDivideList.CONTACT} <br>
+	                        	<c:if test="${buyDivideList.ANSIM_YN == 'Y'}">
+	                        		<span>(안심번호 사용)</span>
+	                        	</c:if>
+	                        </td>
+	                    </tr>
+	                    <tr>
+	                        <th>배송메모</th>
+	                        <td>${buyDivideList.SHIP_MEMO}</td>
+	                    </tr>
+	                </tbody>
+	            </table>
+	        </div>
+	
+	        <p class="title">신청메시지</p>
+	        <div class="tbl">
+	            <table class="tbl-data">
+	                <colgroup>
+	                    <col width="*">
+	                </colgroup>
+	                <tbody>
+	                    <tr>
+	                        <td>${buyDivideList.REQ_MEMO}</td>
+	                    </tr>
+	                </tbody>
+	            </table>
+	        </div>
+	        
+        </c:forEach>
+
+
+</form>
+
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+		<jsp:include page="../common/mype_bottom.jsp" flush="false" />
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+		    </div>
+		    <!-- //container -->
+		</div>
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>

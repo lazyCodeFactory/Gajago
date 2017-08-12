@@ -1,0 +1,80 @@
+package com.ssocio.sharing.service.web;
+
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.ui.ModelMap;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.multipart.MultipartHttpServletRequest;
+
+import com.ssocio.sharing.cmmn.admin.util.FileUtil;
+import com.ssocio.sharing.cmmn.util.CmmnCnst;
+import com.ssocio.sharing.cmmn.util.LoggerUtil;
+import com.ssocio.sharing.dao.web.MobileMyPageDao;
+import com.ssocio.sharing.dao.web.WebMainDao;
+import com.ssocio.sharing.vo.web.WebSession;
+
+@Service
+public class MobileMyPageServiceImpl implements MobileMyPageService {
+
+	private static final Logger logger = LoggerFactory.getLogger(MobileMyPageServiceImpl.class);
+
+	@Resource(name="mobileMyPageDao")
+	private MobileMyPageDao mobileMyPageDao;
+	@Resource(name="webMainDao")
+	private WebMainDao webMainDao;
+
+	/*
+	 * 마이페이지 정보조회
+	 * @see com.ssocio.sharing.service.web.MobileMyPageService#getMyPageInfo(java.util.Map, com.ssocio.sharing.vo.web.WebSession)
+	 */
+	@Override
+	public ModelMap getMyPageInfo(Map<String, Object> inParam, WebSession user){
+		ModelMap mm = new ModelMap();
+		int mberSeq = user.getMBER_SEQ();
+		inParam.put("MBER_SEQ", mberSeq);
+		List<Map<String, Object>> prodList = null;
+		try {
+			mm.put("myPageInfo"			,  mobileMyPageDao.getMyPageInfo(inParam));
+			mm.put("SharCnt"			,  webMainDao.selectSharCnt(mberSeq));
+			prodList = mobileMyPageDao.getMySmartUseList(inParam);
+			mm.put("mySmartUseList"		,  prodList);
+			mm.put("mySmartUseListCnt"	,  prodList.size());
+		}catch (Exception e) {
+			throw e;
+		}
+		return mm;
+	}
+	/**
+	 * 파일업로드
+	 */
+	@Override
+	public Map<String, Object> regImg(Map<String, Object> inParam,  WebSession user, MultipartHttpServletRequest req) throws Exception {
+		int mberSeq = user.getMBER_SEQ();
+		inParam.put("MBER_SEQ", mberSeq);
+		//MultipartFile mainImg = req.getFile("fileMyPageImg");				// 메인 이미지
+		MultipartFile mainImg = req.getFile("myPageImg");				// 메인 이미지
+		Integer fileStatus = 0;;										// 저장 파일 seq
+		// 파일저장
+		if(mainImg != null && mainImg.getSize() > 0){
+			logger.debug(">>>>>> [파일저장] ");
+			Map<String, Object> fileInfo = FileUtil.saveMultipartFile(mainImg);//파일 저장
+			logger.debug(">>>>>> 파일저장 후 [FILE 등록처리] ");
+			fileStatus = mobileMyPageDao.regImg(fileInfo);
+			logger.debug("FILE 등록처리 후 [회원정보에 파일정보세팅]");
+			inParam.put("FILE_SEQ", fileInfo.get("FILE_SEQ") );
+			inParam.put("MBER_SEQ", mberSeq);
+			fileStatus = mobileMyPageDao.updateMyPageImg(inParam);
+			logger.debug("[FILE 등록처리가 완료!]");
+			inParam.put("mainImgSeq", fileStatus );
+			inParam.put("mainImgUrl", fileInfo.get("I_FILE_URL"));
+			//inParam.put("mainImgGbCd", CmmnCnst.cmmn12);
+		}
+		return inParam;
+	}
+}

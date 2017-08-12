@@ -1,0 +1,312 @@
+<%@ page language="java" contentType="text/html; charset=utf-8"
+    pageEncoding="utf-8"%>
+<!-- 태그는 cmmnHead.jsp 에 선언함 -->
+<%@ include file="/WEB-INF/views/admin/common/cmmnHead.jsp"%>
+<script type="text/javascript">
+$(document).ready(function(){
+	$('.calendar').datepicker({
+      showOn: "button",
+      buttonImage: "http://static.ssocio.net/admin/images/ico_calendar.gif",
+      buttonImageOnly: true
+    });
+	
+    //fixed_tbl_height();
+    prod_padding();
+});
+
+/* ======================================================================
+Function : 검색
+Return   : 없음
+========================================================================= */
+function goSearch(){
+	if(validDate()){
+		$("#PAGE_NO").val("1");
+		$("#S_START_DATE").val($("#S_START_DATE").val().replace(/\-/ig, ""));
+	 	$("#S_END_DATE").val($("#S_END_DATE").val().replace(/\-/ig, ""));
+	 	$("#sndfrm").attr({"method" : "post", "action" : "/admin/order/selectListSharCan.do"}).submit();
+	}
+}
+
+/* ======================================================================
+Function : 취소 상세페이지
+Return   : 없음
+========================================================================= */
+function selectDtlPage(request_dt,ord_cd){
+	$("#REQUEST_DT").val(request_dt);
+	$("#ORD_CD").val(ord_cd);
+	var sndfrm = document.getElementById("sndfrm");
+	sndfrm.method = "POST";
+	sndfrm.action = "/admin/order/selectSharCanDtl.do";
+	sndfrm.submit();
+	
+}
+
+/* ======================================================================
+Function : 엑셀 다운로드
+Return   : 없음
+========================================================================= */
+function goExcel(){
+	$("#S_START_DATE").val($("#S_START_DATE").val().replace(/\-/ig, ''));
+ 	$("#S_END_DATE").val($("#S_END_DATE").val().replace(/\-/ig, ''));
+	$("#sndfrm").attr("action","/admin/order/selectListSharCancelExcelDownload.do").submit();
+}
+
+/* ======================================================================
+Function : 탭 이동
+Return   : 없음
+========================================================================= */
+function mvTab(url){
+	location.href = url;
+}
+
+/* ======================================================================
+Function : 상품상세 페이지 새창 열기
+Return   : 없음
+========================================================================= */
+function popProductDetail(product_code){
+	var frm = document.getElementById("page_moave_frm");
+	$("#prodCode").val(product_code);
+	window.open('', 'viewer','_blank');
+ 	frm.action = "/admin/prodMgr/prodReg.do";
+	frm.target = "viewer";
+	frm.method = "post";
+	frm.submit();
+}
+
+/* ======================================================================
+Function : 날짜 유효성 체크
+Return   : true, false
+========================================================================= */
+function validDate(){
+	if($("#S_START_DATE").val() != "" || $("#S_END_DATE").val() != ""){
+		var startDate = $("#S_START_DATE").val().replace(/\-/ig, "");
+		var endDate = $("#S_END_DATE").val().replace(/\-/ig, "");
+		var now = $.datepicker.formatDate('yymmdd', new Date());
+		if(startDate > now){
+			alert("시작일 > 오늘");
+			return ;
+		}
+		if(endDate > now){
+			alert("종료일 > 오늘");
+			return ;
+		}
+		if(startDate > endDate){
+			alert("시작일 > 종료일");
+			return ;
+		}
+	}
+	return true;
+}
+
+/* ======================================================================
+Function : 다른페이지 이동
+Return   : 없음
+========================================================================= */
+function GoPage(pageNo) {
+	$("#PAGE_NO").val(pageNo);
+	$("#S_START_DATE").val($("#S_START_DATE").val().replace(/\-/ig, ''));
+ 	$("#S_END_DATE").val($("#S_END_DATE").val().replace(/\-/ig, ''));
+ 	$("#sndfrm").attr({"method" : "post", "action" : "/admin/order/selectListSharCan.do"}).submit();
+}
+</script>
+	<!-- content -->
+	<div id="content">
+	<form name="sndfrm" id="sndfrm" action="post">
+	<input type="hidden" id="ORD_CD" name="ORD_CD">
+	<input type="hidden" id="REQUEST_DT" name="REQUEST_DT">
+	<input type="hidden" id="PAGE_NO" name="PAGE_NO" value="${list.pageNav.nowPage}">
+		<!-- top_content -->
+		<div class="top_content">
+			<!-- location -->
+			<div class="location">
+				<ul class="clear">
+					<li class="first-child"><a href="#">Home</a></li>
+					<li><a href="#">셰어링 주문관리</a></li>
+					<li><a href="#" class="current">셰어링 주문취소 조회</a></li>
+				</ul>
+			</div>
+			<!-- //location -->
+		</div>
+		<!-- //top_content -->
+		
+		<!-- 2015-10-12_s -->
+		<div class="inner">
+			<ul class="lst_tab type2">
+				<li><a href="#" onclick="mvTab('/admin/order/selectListSharOrder.do');">셰어링 주문 조회</a></li>
+				<li><a href="#" onclick="mvTab('/admin/order/selectListSharExc.do');">셰어링 교환신청 조회</a></li>
+				<li><a href="#" onclick="mvTab('/admin/order/selectListSharRtn.do');">셰어링 반품신청 조회</a></li>
+				<li class="on"><a href="#">셰어링 주문취소 조회</a></li>				
+			</ul>
+			<!-- tbl -->
+			<div class="tbl">
+				<table class="search">
+					<colgroup>
+						<col style="width:9%">
+						<col style="width:50%">
+						<col style="width:8%">
+						<col style="width:*">
+					</colgroup>
+					<tbody>
+						<tr>
+							<th scope="row">신청일</th>
+							<td colspan="3">
+								<fmt:parseDate value="${params.S_START_DATE }" var="S_START_DATE" pattern="yyyymmdd" scope="page" />
+								<fmt:parseDate value="${params.S_END_DATE }" var="S_END_DATE" pattern="yyyymmdd" scope="page" />
+								<input type="text" id="S_START_DATE" name="S_START_DATE" class="calendar" style="width:100px" value='<fmt:formatDate value="${S_START_DATE }" pattern="yyyy-mm-dd"/>' readonly="readonly" /> - <input type="text" id="S_END_DATE" name="S_END_DATE" class="calendar" style="width:100px" value='<fmt:formatDate value="${S_END_DATE }" pattern="yyyy-mm-dd"/>' readonly="readonly" />	
+								<span class="ml5">
+									<a href="javascript:getDateInterval('0D');" class="btn_w">오늘</a>
+									<a href="javascript:getDateInterval('3D');" class="btn_w">3일</a>
+									<a href="javascript:getDateInterval('7D');" class="btn_w">7일</a>
+									<a href="javascript:getDateInterval('1M');" class="btn_w">1개월</a>
+									<a href="javascript:getDateInterval('3M');" class="btn_w">3개월</a>
+									<a href="javascript:getDateInterval('6M');" class="btn_w">6개월</a>
+								</span>
+							</td>
+						</tr>
+						<tr>
+							<th scope="row">주문번호</th>
+							<td>
+								<input type="text" id="SEARCH_ORD_CD" name="SEARCH_ORD_CD" value="${params.SEARCH_ORD_CD}" style="width:150px">
+								<span class="select ml10" style="width:100px">
+									<span class="sel_txt"></span>
+									<select id="SearchUserSel" name="SearchUserSel">
+										<option value="SEARCH_SELLER_ID" <c:if test="${params.SearchUserSel == null or params.SearchUserSel == 'SEARCH_SELLER_ID' }"> selected="selected" </c:if>>판매자 ID</option>
+										<option value="SEARCH_SELLER_NM" <c:if  test="${params.SearchUserSel == 'SEARCH_SELLER_NM' }"> selected="selected" </c:if>>판매자 명</option>
+										<option value="SEARCH_ORD_ID" <c:if  test="${params.SearchUserSel == 'SEARCH_ORD_ID' }"> selected="selected" </c:if>>주문자 ID</option>
+										<option value="SEARCH_ORD_NM" <c:if  test="${params.SearchUserSel == 'SEARCH_ORD_NM' }"> selected="selected" </c:if>>주문자 명</option>
+									</select>
+								</span>
+								<input type="text" id="SEARCH_USER" name="SEARCH_USER" style="width:180px" value="${params.SEARCH_USER}"/>
+							</td>
+							<th scope="row">상품명</th>
+							<td><input type="text" id="SEARCH_PROD_NM" name="SEARCH_PROD_NM" style="width:180px" value="${params.SEARCH_PROD_NM}"></td>
+						</tr>
+						<tr>
+							<th scope="row">주문취소 사유</th>
+							<td>
+								<span class="select" style="width:200px;">
+									<span class="sel_txt" style="width: 143px;"></span>
+									<select id="CANC_REASON_CD" name="CANC_REASON_CD">
+										<option value="">선택</option>
+										<custom:codeList groupCode="CANC_REASON_CD" var="canReasonCd"/>
+										<c:forEach items="${canReasonCd}" var="chgList">
+											<option value="${chgList.key }" <c:if test="${list.params.CANC_REASON_CD eq chgList.key }">selected="selected"</c:if> >${chgList.value }</option>
+										</c:forEach>
+									</select>
+								</span>
+							</td>
+							<th scope="row">판매자 구분</th>
+							<td>
+								<input type="radio" id="mberOverlap" name="S_MBER_GB" value="" <c:if test="${params.S_MBER_GB == '' or params.S_MBER_GB == null}">checked</c:if> > <label for="mberOverlap">전체</label>
+								<custom:codeList var="mberGbCd" groupCode="MBER_GB_CD" />
+								<c:forEach var="mberGbList" items="${mberGbCd }" >
+									<input type="radio" id="mberOverlap${mberGbList.key }" name="S_MBER_GB" value="${mberGbList.key }"
+										<c:forEach var="seltList" items="${params.S_MBER_GB }">
+										${seltList }
+											<c:if test="${params.S_MBER_GB == mberGbList.key }">checked</c:if>
+										</c:forEach>
+									/> <label for="mberOverlap${mberGbList.key }">${mberGbList.value }</label>
+								</c:forEach>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+				<p class="btn_area type"><a href="javascript:goSearch();" class="btn_chk btn_r">조회</a></p>
+			</div>
+			<!-- //tbl -->
+			
+			<!-- top_tbl -->
+			<div class="top_tbl mt20 clear">
+				<div class="right">
+					<span class="select" style="width:130px;">
+						<span class="sel_txt" style="width: 123px;">20개씩</span>
+						<select name="S_ROW_CNT" id="S_ROW_CNT" onchange="javascript:goSearch();">
+							<option value="10" <c:if test="${list.params.S_ROW_CNT == '10' }"> selected="selected" </c:if> >10개씩</option>
+							<option value="20" <c:if test="${list.params.S_ROW_CNT == '20' }"> selected="selected" </c:if> >20개씩</option>
+							<option value="40" <c:if test="${list.params.S_ROW_CNT == '40' }"> selected="selected" </c:if> >40개씩</option>
+						</select>
+					</span>
+					<a href="javascript:goExcel();" class="btn_excel ml5 mr0"><span>엑셀 다운로드</span></a>
+				</div>
+			</div>
+			<!-- //top_tbl -->
+			
+			<!-- fixed_tbl_list -->
+			<div class="fixed_tbl_list mt10">
+				<div class="tbl type" style="width:2299px;">
+					<table class="list">
+						<colgroup>
+							<col style="width:183px;">
+							<col style="width:183px;">
+							<col style="width:183px;">
+							<col style="width:229px;">
+							<col style="width:229px;">
+							<col style="width:689px;">
+							<col style="width:603px;">
+						</colgroup>
+						<thead>	
+							<tr>
+								<th scope="col" class="first">신청일시</th>
+								<th scope="col">주문번호</th>
+								<th scope="col">주문일시</th>
+								<th scope="col">주문자(ID)</th>
+								<th scope="col">판매자(ID)</th>
+								<th scope="col">상품명</th>
+								<th scope="col">주문취소 사유</th>
+							</tr>
+						</thead>
+						<tbody>
+							<c:forEach items="${list.selectListGroup}" var="listGroup" varStatus="status">
+								<tr>
+									<td>${listGroup.REQUEST_DT}</td>
+									<td><a href="javascript:selectDtlPage('${listGroup.REQUEST_DT}','${listGroup.ORD_CD}');" class="alink">${listGroup.ORD_CD}</a></td>
+									<td>${listGroup.ORDER_DT}</td>
+									<td>${listGroup.ORD_NM}<br>(${listGroup.ORD_EMAIL})</td>
+									<td class="inner_tbox type2" colspan="3">
+										<c:forEach items="${list.selectListGroupList}" var="orderItemlist" varStatus="status">
+											<c:if test="${listGroup.REQUEST_DT eq orderItemlist.REQUEST_DT and listGroup.ORD_CD eq orderItemlist.ORD_CD and listGroup.ORDER_DT eq orderItemlist.ORDER_DT and listGroup.ORD_NM eq orderItemlist.ORD_NM and listGroup.ORD_EMAIL eq orderItemlist.ORD_EMAIL}">
+												<table class="inner_tbl">
+													<colgroup>
+														<col style="width:228px;">
+														<col style="width:689px;">
+														<col style="width:603px;">
+													</colgroup>
+													<tr>
+														<td>[<custom:codeTag groupCode="MBER_GB_CD" code="${orderItemlist.SELLER_TYPE}"/>] ${orderItemlist.SELLER_NAME}<br>[${orderItemlist.MBER_EMAIL}]</td>
+														<td>
+															<div class="thumbnail_bx">
+																<img src="${orderItemlist.PROD_IMG_URL}" alt="상품 이미지">
+																<a href="javascript:popProductDetail('${orderItemlist.PROD_CODE}')" class="prod_name alink" style="padding-top: 14.5px; padding-bottom: 14.5px;">
+																	<span class="ellipsis" style="width:200px;">${orderItemlist.PROD_NM}</span>
+																</a>
+															</div>
+														</td>
+														<td class="last" style="text-align: left;">[<custom:codeTag groupCode="CANC_REASON_CD" code="${orderItemlist.CANC_REASON_CD}"/>]&nbsp;${orderItemlist.CANC_REASON}</td>
+													</tr>
+												</table>
+											</c:if>
+										</c:forEach>
+									</td>
+								</tr>
+							</c:forEach>
+						</tbody>
+					</table>
+				</div>
+
+			</div>
+			<!-- //fixed_tbl_list -->
+			<div class="bot_tbl">
+				<!-- paging -->
+				<%@ include file="/WEB-INF/views/admin/common/PageView.jsp" %>
+				<!-- //paging -->
+			</div>
+		</div>
+		<!-- 2015-10-12_e -->
+	</form>
+	</div>
+	<!-- //content -->
+
+<form id="page_moave_frm" name="page_moave_frm"	><input type="hidden" id="prodCode" name="prodCode" /></form>
+<!-- //wrap -->
+</body>
+</html> 

@@ -1,0 +1,686 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/web/common/cmmnHead.jsp"%>
+<script type="text/javascript">
+
+	var prodTypeCd = '${params.prodTypeCd}'; 
+	var rtnMsg = '${rtnMsg}';
+	
+
+	//ready
+	$(document).ready(function(){
+		
+		// title 및 back 버튼 url set
+		document.title = "상품조회";
+		header.type	= 7;
+		header.title = "상품조회";
+		header.method = "POST";
+		header.backUrl = "/mobile/salemanage/main.do";
+		header.form = $("#form");
+		header.callback = page.goInsertProd;
+		initHeader();
+		
+		displayFooter(false);
+		
+		init.initTab();
+
+		// 조회
+		$("input[name=orderSel]").bind("click change", function () {
+			page.orderSearch();
+		});
+		$("input[name=prodStatSel]").bind("click change", function () {
+			page.statSearch();
+		});
+		
+		
+		// [2015-11-12][kang] 바깥영역 클릭 이벤트는 공통에 선언되어 있어 제거함
+// 		$(document).on("click",".mask",function(){
+// 			popup_hide();
+// 		});
+		
+	});
+
+	// 초기
+	var init = {
+			
+		// 탭 선택
+		initTab : function () {
+			
+			$("li[id^=liProdType]").each(function () {
+				$(this).removeClass("on");
+			});
+			
+			if (prodTypeCd == "1") {
+				$("#liProdType1").addClass("on");
+				$("#aProdType1").removeAttr("href");
+			}
+			else if (prodTypeCd == "2") {
+				$("#liProdType2").addClass("on");
+				$("#aProdType2").removeAttr("href");
+			}
+			else if (prodTypeCd == "3") {
+				$("#liProdType3").addClass("on");
+				$("#aProdType3").removeAttr("href");
+			}
+
+		}
+
+	};
+
+	// page 관련
+	var page = {
+
+		// 조회
+		searchPage : function (prodTypeCd) {
+
+			$("#prodTypeCd").val(prodTypeCd);
+
+			var url = "/mobile/salemanage/selectListProd.do";
+			form.action = url;
+			form.submit();
+
+		},
+
+		// 정렬 순서 변경
+		orderSearch : function () {
+
+			$("input[name=orderSel]").each(function () {
+				var chk = $(this).is(":checked");
+				var id = $(this).attr("id");
+				if (chk) {
+					$("#aOrderCd").text($("#"+id+" + label").text());
+					$("#orderCd").val($(this).val());
+				}
+			});
+
+			page.searchPage(prodTypeCd);
+
+		},
+
+		// 상태변경
+		statSearch : function () {
+
+			$("input[name=prodStatSel]").each(function () {
+				var chk = $(this).is(":checked");
+				var id = $(this).attr("id");
+				if (chk) {
+					$("#aStatCd").text($("#"+id+" + label").text());
+					$("#prodStatCd").val($(this).val());
+				}
+			});
+
+			page.searchPage(prodTypeCd);
+
+		},
+
+		// 상품등록 페이지로
+		goInsertProd : function () {
+			
+			var url = "/mobile/salemanage/procInsertProdCommV2.do";
+			if('${appVerCheck}' == "V1"){
+				url = "/mobile/salemanage/procInsertProdComm.do";
+			} else if('${appVerCheck}' == "V2"){
+				url = "/mobile/salemanage/procInsertProdCommV2.do";
+			}
+			
+			$("#movePage").val("1");
+
+			form.action = url;
+			form.submit();
+
+		},
+
+		// 상품수정 페이지로
+		goUpdateProd : function (prodCode) {
+
+			$("#prodCode").val(prodCode);
+
+			
+			var url = "/mobile/salemanage/procUpdateProdOpenV2.do";
+			if('${appVerCheck}' == "V1"){
+				url = "/mobile/salemanage/procUpdateProdOpen.do";
+			} else if('${appVerCheck}' == "V2"){
+				url = "/mobile/salemanage/procUpdateProdOpenV2.do";
+			}
+
+			form.action = url;
+			form.submit();
+
+		},
+
+		// 상품상세 페이지로
+		goProdDtl : function (prodCode) {
+
+			location.href = '/mobile/prod/selectProd.do?PROD_CODE=' + prodCode;
+
+		},
+
+		// 상품문의 페이지로
+		goBoardInfo : function (prodCode) {
+
+			$("#prodCode").val(prodCode);
+
+			var url = "/mobile/salemanage/selectListProdQna.do";
+			form.action = url;
+			form.submit();
+		}
+
+	};
+
+	// 처리
+	var proc = {
+
+		// 판매중지 상세보기
+		stopNoticePop : function (prodCode, prodNm, fileUrl, prce, registDt, admMemo, prodTypeCd, prodStopReasonNm, prodStopReason ) {
+
+			$("#tdStopProdNm").html(prodNm);
+			$("#tdProdStopReason").html('분류 : ' + prodStopReasonNm + '<br>' + '상세 : ' + prodStopReason);   
+
+			$("#aStopProdImg").attr("src", fileUrl+'?resize=50px:50px');
+			prce = numberWithCommas(prce)+"원";
+			if (prodTypeCd != '3') {
+				$("#trPrce").show();
+			}
+			else {
+				$("#trPrce").hide();
+			}
+			$("#tdStopSellPrce").html(prce);
+			$("#tdStopRegistDt").html(registDt);
+			$("#taAdmMemo").text(admMemo);
+			$("#aStopUpdate").attr("href", "javascript:page.goUpdateProd('"+prodCode+"');");
+
+			$('.public_stop').show();
+			popup_show();
+
+		},
+
+		// 판매중지 상세보기
+		stopNoticeSharePop : function (prodCode, prodNm, fileUrl, deposit, sharePrce, registDt, admMemo, prodTypeCd, prodStopReasonNm, prodStopReason ) {
+
+			$("#tdStopProdNm").html(prodNm);
+			$("#tdProdStopReason").html('분류 : ' + prodStopReasonNm + '<br>' + '상세 : ' + prodStopReason);
+
+			$("#aStopProdImg").attr("src", fileUrl+'?resize=50px:50px');
+			var prce = numberWithCommas(deposit)+"원<br/>(일 셰어링금액 "+numberWithCommas(sharePrce)+"원)";
+			$("#trPrce").show();
+			$("#tdStopSellPrce").html(prce);
+			$("#tdStopRegistDt").html(registDt);
+			$("#taAdmMemo").text(admMemo);
+			$("#aStopUpdate").attr("href", "javascript:page.goUpdateProd('"+prodCode+"');");
+
+			$('.public_stop').show();
+			popup_show();
+
+		}
+
+	};
+
+</script>
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+		<div class="roc">
+			<ul class="inner">
+				<li><img src="http://static.ssocio.net/pc/img/common/section/roc_home.png" alt="홈"></li>
+				<li>판매관리</li>
+			</ul>
+		</div>
+		<jsp:include page="../common/sale_top.jsp" flush="false" />
+		<div class="mype_s_tit">
+			<p>상품조회</p>
+		</div>
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+		<!-- container -->
+		<div id="container">
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>
+
+
+<form id="form" name="form" method="get" action="">
+	<input type="hidden" id="movePage" name="movePage" value="" />
+	<input type="hidden" id="prodTypeCd" name="prodTypeCd" value="" />
+	<input type="hidden" id="orderCd" name="orderCd" value="" />
+	<input type="hidden" id="prodStatCd" name="prodStatCd" value="" />
+	<input type="hidden" id="prodCode" name="prodCode" value="" />
+
+		<ul class="tab tab3">
+        	<li id="liProdType1">
+        		<a id="aProdType1" href="javascript:page.searchPage('1');">판매</a>
+        	</li>
+        	<li id="liProdType2">
+        		<a id="aProdType2" href="javascript:page.searchPage('2');">셰어링</a>
+        	</li>
+        	<li id="liProdType3">
+        		<a id="aProdType3" href="javascript:page.searchPage('3');">나눔</a>
+        	</li>
+        </ul>
+        <div class="sharing">
+
+
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+
+	     <div class="clear">
+		     <div class="right sel">
+		         <div class="select">
+		             <a href="#">
+	               		<c:choose>
+	               			<c:when test="${params.orderCd == '0' }">
+	               				<strong>등록일순</strong>
+	               			</c:when>
+	               			<c:when test="${params.orderCd == '1' }">
+	               				<strong>낮은가격순</strong>
+	               			</c:when>
+	               			<c:when test="${params.orderCd == '2' }">
+	               				<strong>높은가격순</strong>
+	               			</c:when>
+	               			<c:when test="${params.orderCd == '3' }">
+	               				<strong>누적거래순</strong>
+	               			</c:when>
+	               		</c:choose>
+		             </a>
+					<ul class="select">
+				    	<li><input type="radio" id="orderCd0" name="orderSel" value="0" <c:if test="${params.orderCd == '0' }">checked</c:if>><label for="orderCd0">등록일순</label></li>
+				    	<li><input type="radio" id="orderCd1" name="orderSel" value="1" <c:if test="${params.orderCd == '1' }">checked</c:if>><label for="orderCd1">낮은가격순</label></li>
+				    	<li><input type="radio" id="orderCd2" name="orderSel" value="2" <c:if test="${params.orderCd == '2' }">checked</c:if>><label for="orderCd2">높은가격순</label></li>
+				    	<li><input type="radio" id="orderCd3" name="orderSel" value="3" <c:if test="${params.orderCd == '3' }">checked</c:if>><label for="orderCd3">누적거래순</label></li>
+					</ul>
+		         </div>
+		         <div class="select">
+		             <a href="#" id="id_order_kind">
+	               		<c:choose>
+	               			<c:when test="${params.prodStatCd == null or params.prodStatCd == '' }">
+	               				<strong>전체</strong>
+	               			</c:when>
+	               			<c:when test="${params.prodStatCd == '0' }"> <!-- 판매중 -->
+	               				<c:if test="${params.prodTypeCd == '1' }">
+	               					<strong>판매중</strong>
+	               				</c:if>
+	               				<c:if test="${params.prodTypeCd == '2' }">
+	               					<strong>셰어링가능</strong>
+	               				</c:if>
+	               				<c:if test="${params.prodTypeCd == '3' }">
+	               					<strong>나눔가능</strong>
+	               				</c:if>
+	               			</c:when>
+	               			<c:when test="${params.prodStatCd == '01' }">
+	               				<strong>셰어링중</strong>
+	               			</c:when>
+	               			<c:when test="${params.prodStatCd == '02' }">
+	               				<strong>회수대기</strong>
+	               			</c:when>
+	               			<c:when test="${params.prodStatCd == '1' }">  <!-- 판매종료 -->
+	               				<c:if test="${params.prodTypeCd == '1' }"><!-- 판매  -->
+	               					<strong>품절</strong>
+	               				</c:if>
+	               				<c:if test="${params.prodTypeCd == '2' }">
+	               					<strong>품절</strong>
+	               				</c:if>
+	               				<c:if test="${params.prodTypeCd == '3' }">
+	               					<strong>나눔완료</strong>
+	               				</c:if>
+	               			</c:when>
+	               			<c:when test="${params.prodStatCd == '2' }">
+	               				<strong>판매중지</strong>
+	               			</c:when>
+	               		</c:choose>
+		             </a>
+				    <ul class="select">
+				    	<c:choose>
+				    		<c:when test="${params.prodTypeCd == '1' }"> <!-- 판매 -->
+				    			<li><input type="radio" id="statSelAll" name="prodStatSel" value="" <c:if test="${params.prodStatCd == null or params.prodStatCd == '' }">checked</c:if>><label for="statSelAll">전체</label></li>
+						    	<li><input type="radio" id="statSel0" name="prodStatSel" value="0" <c:if test="${params.prodStatCd == '0' }">checked</c:if>><label for="statSel0">판매중</label></li>
+						    	<li><input type="radio" id="statSel1" name="prodStatSel" value="1" <c:if test="${params.prodStatCd == '1' }">checked</c:if>><label for="statSel1">품절</label></li>
+						    	<li><input type="radio" id="statSel2" name="prodStatSel" value="2" <c:if test="${params.prodStatCd == '2' }">checked</c:if>><label for="statSel2">판매중지</label></li>
+				    		</c:when>
+				    		<c:when test="${params.prodTypeCd == '2' }"> <!-- 셰어링 -->
+				    			<li><input type="radio" id="statSelAll" name="prodStatSel" value="" <c:if test="${params.prodStatCd == null or params.prodStatCd == '' }">checked</c:if>><label for="statSelAll">전체</label></li>
+						    	<li><input type="radio" id="statSel0" name="prodStatSel" value="0" <c:if test="${params.prodStatCd == '0' }">checked</c:if>><label for="statSel0">셰어링가능</label></li>
+						    	<li><input type="radio" id="statSel01" name="prodStatSel" value="01" <c:if test="${params.prodStatCd == '01' }">checked</c:if>><label for="statSel01">셰어링중</label></li>
+						    	<li><input type="radio" id="statSel02" name="prodStatSel" value="02" <c:if test="${params.prodStatCd == '02' }">checked</c:if>><label for="statSel02">회수대기</label></li>
+						    	<li><input type="radio" id="statSel1" name="prodStatSel" value="1" <c:if test="${params.prodStatCd == '1' }">checked</c:if>><label for="statSel1">품절</label></li>
+						    	<li><input type="radio" id="statSel2" name="prodStatSel" value="2" <c:if test="${params.prodStatCd == '2' }">checked</c:if>><label for="statSel2">판매중지</label></li>
+				    		</c:when>
+				    		<c:when test="${params.prodTypeCd == '3' }"> <!-- 나눔 -->
+				    			<li><input type="radio" id="statSelAll" name="prodStatSel" value="" <c:if test="${params.prodStatCd == null or params.prodStatCd == '' }">checked</c:if>><label for="statSelAll">전체</label></li>
+						    	<li><input type="radio" id="statSel0" name="prodStatSel" value="0" <c:if test="${params.prodStatCd == '0' }">checked</c:if>><label for="statSel0">나눔가능</label></li>
+						    	<li><input type="radio" id="statSel1" name="prodStatSel" value="1" <c:if test="${params.prodStatCd == '1' }">checked</c:if>><label for="statSel1">나눔완료</label></li>
+						    	<li><input type="radio" id="statSel2" name="prodStatSel" value="2" <c:if test="${params.prodStatCd == '2' }">checked</c:if>><label for="statSel2">판매중지</label></li>
+				    		</c:when>
+				    	</c:choose>
+				    </ul>
+		         </div>
+		     </div>
+	     </div>
+
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+	        <div class="group">
+	        	<div class="fr">
+	                <div class="styled-select">
+	                	<a id="aOrderCd" href="javascript:$('.agency').show();popup_show();">
+	                		<c:choose>
+	                			<c:when test="${params.orderCd == '0' }">
+	                				<strong>등록일순</strong>
+	                			</c:when>
+	                			<c:when test="${params.orderCd == '1' }">
+	                				<strong>낮은가격순</strong>
+	                			</c:when>
+	                			<c:when test="${params.orderCd == '2' }">
+	                				<strong>높은가격순</strong>
+	                			</c:when>
+	                			<c:when test="${params.orderCd == '3' }">
+	                				<strong>누적거래순</strong>
+	                			</c:when>
+	                		</c:choose>
+	                	</a>
+	                </div>
+	                <div class="styled-select">
+	                	<a id="aStatCd" href="javascript:$('.public').show();popup_show();">
+	                		<c:choose>
+	                			<c:when test="${params.prodStatCd == null or params.prodStatCd == '' }">
+	                				<strong>전체</strong>
+	                			</c:when>
+	                			<c:when test="${params.prodStatCd == '0' }">
+	                				<c:if test="${params.prodTypeCd == '1' }"><!-- 판매 -->
+	                					<strong>판매중</strong>
+	                				</c:if>
+	                				<c:if test="${params.prodTypeCd == '2' }"><!-- 셰어링 -->
+	                					<strong>판매중</strong>
+	                				</c:if>
+	                				<c:if test="${params.prodTypeCd == '3' }"><!-- 나눔 -->
+	                					<strong>판매중</strong>
+	                				</c:if>
+	                			</c:when>
+	                			<c:when test="${params.prodStatCd == '01' }">
+	                				<strong>셰어링중</strong>
+	                			</c:when>
+	                			<c:when test="${params.prodStatCd == '02' }">
+	                				<strong>회수대기</strong>
+	                			</c:when>
+	                			<c:when test="${params.prodStatCd == '1' }"> <!-- 판매종료 -->
+	                				<c:if test="${params.prodTypeCd == '1' }"><!-- 판매 -->
+	                					<strong>판매종료</strong>
+	                				</c:if>
+	                				<c:if test="${params.prodTypeCd == '2' }"><!-- 셰어링 -->
+	                					<strong>판매종료</strong>
+	                				</c:if>
+	                				<c:if test="${params.prodTypeCd == '3' }"><!-- 나눔 -->
+	                					<strong>판매종료</strong>
+	                				</c:if>
+	                			</c:when>
+	                			<c:when test="${params.prodStatCd == '2' }">
+	                				<strong>판매중지</strong>
+	                			</c:when>
+
+	                			<c:when test="${params.prodStatCd == '3' }">
+	                				<strong>상품삭제</strong>
+	                			</c:when>
+	                		</c:choose>
+	                	</a>
+	                </div>
+	            </div>
+	        </div>
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>
+
+
+
+
+
+
+        </div>
+        <c:choose>
+			<c:when test="${fn:length(prodList)>0}">
+				<c:forEach var="list" items="${prodList}" varStatus="status">
+					<div class="lst_prod_area <c:if test="${status.index > 0 }">mt10</c:if>">
+			        	<p>상품 등록일 : ${list.REGIST_DT }</p>
+				        <c:choose>
+				        	<c:when test="${params.prodTypeCd == '1' }">
+				        		<ul class="sha_oder">
+						        	<li>
+						                <ul class="mt10">
+						                	<li>
+						                		<a href="javascript:page.goProdDtl('${list.PROD_CODE }');" class="btn_close">
+						                			<img src="<custom:codeTag code="DEFAULT_IMG_URL" groupCode="SITE_DEFAULT" />" alt="${list.FILE_URL }" style="height:100%;" />
+						                		</a>
+						                	</li>
+						                	<li><strong>${list.PROD_NM }</strong></li>
+						                	<li class="last">
+						                		<div class="price_area">
+						                			<c:choose>
+						                				<c:when test="${list.NRM_PRCE == list.SELL_PRCE }">
+						                					<span class="fl"></span>
+								                			<span class="fr">
+								                				<del></del>
+								                				<br/>
+								                				<span>
+								                					<fmt:formatNumber value="${list.SELL_PRCE }" type="number" />원
+								                				</span>
+								                			</span>
+						                				</c:when>
+						                				<c:otherwise>
+						                					<span class="fl">${list.SELLL_PER }%</span>
+								                			<span class="fr">
+								                				<del>
+								                					<fmt:formatNumber value="${list.NRM_PRCE }" type="number" />원
+								                				</del>
+								                				<br/>
+								                				<span>
+								                					<fmt:formatNumber value="${list.SELL_PRCE }" type="number" />원
+								                				</span>
+								                			</span>
+						                				</c:otherwise>
+						                			</c:choose>
+						                		</div>
+						                	</li>
+						                </ul>
+						            </li>
+						        </ul>
+				        	</c:when>
+				        	<c:when test="${params.prodTypeCd == '2' }">
+				        		<ul class="sha_oder">
+						        	<li>
+						        		<ul class="mt10">
+						                	<li>
+						                		<a href="javascript:page.goProdDtl('${list.PROD_CODE }');" class="btn_close">
+						                			<img src="<custom:codeTag code="DEFAULT_IMG_URL" groupCode="SITE_DEFAULT" />" alt="${list.FILE_URL }" alt="" style="height:100%;" />
+						                		</a>
+						                	</li>
+						                	<li><strong>${list.PROD_NM }</strong></li>
+						                	<li>
+						                		<strong class="point_r"><fmt:formatNumber value="${list.DEPOSIT }" type="number" />원</strong>
+						                		<span class="txt_type">일 <fmt:formatNumber value="${list.SHARING_PRICE }" type="number" />원</span>
+						                	</li>
+						                </ul>
+						            </li>
+						        </ul>
+				        	</c:when>
+				        	<c:otherwise>
+				        		<ul class="sha_oder">
+						        	<li>
+						                <ul class="mt10">
+						                	<li>
+						                		<a href="javascript:page.goProdDtl('${list.PROD_CODE }');" class="btn_close">
+						                			<img src="<custom:codeTag code="DEFAULT_IMG_URL" groupCode="SITE_DEFAULT" />" alt="${list.FILE_URL }" alt="" style="height:100%;" />
+						                		</a>
+						                	</li>
+						                	<li><strong>${list.PROD_NM }</strong></li>
+						                	<li>
+						                		<span class="txt_type">
+						                		</span>
+						                	</li>
+						                </ul>
+						            </li>
+						        </ul>
+				        	</c:otherwise>
+				        </c:choose>
+				        <div class="btn_area">
+				        	<c:choose>
+				        		<c:when test="${list.BOARD_CNT > 0 }">
+				        			<a href="javascript:page.goBoardInfo('${list.PROD_CODE }');" class="btn_qna">상품문의(${list.BOARD_CNT })</a>
+				        		</c:when>
+				        		<c:otherwise>
+				        			<a class="btn_qna">상품문의(${list.BOARD_CNT })</a>
+				        		</c:otherwise>
+				        	</c:choose>
+				        	<a href="javascript:page.goUpdateProd('${list.PROD_CODE }');" class="btn_mod">정보수정</a>
+				        </div>
+				        <!-- [D] 판매중지시 노출-->
+				        <c:if test="${list.PROD_STAT_CD == '2' }">
+				        	<div class="prod_stop_area">
+								<img src="http://static.ssocio.net/web/images/ico_notice.png" alt="" />
+								<span>해당 상품은 관리자에 의해<br/> 판매중지 되었습니다.</span>
+								<div>
+									<c:choose>
+										<c:when test="${list.PROD_TYPE_CD == '2' }">
+											<a href="javascript:proc.stopNoticeSharePop('${list.PROD_CODE }','${list.PROD_NM }','${list.FILE_URL }','${list.DEPOSIT }','${list.SHARING_PRICE }','${list.REGIST_DT }','${list.ADM_MEMO }','${list.PROD_TYPE_CD }' ,'${list.PROD_STOP_REASON_NM}', '${list.PROD_STOP_REASON }' );" class="btn_detail">
+												상세보기
+											</a>
+
+										</c:when>
+										<c:otherwise>
+											<a href="javascript:proc.stopNoticePop('${list.PROD_CODE }','${list.PROD_NM }','${list.FILE_URL }','${list.SELL_PRCE }','${list.REGIST_DT }','${list.ADM_MEMO }','${list.PROD_TYPE_CD }' ,'${list.PROD_STOP_REASON_NM }', '${list.PROD_STOP_REASON }' );" class="btn_detail">
+												상세보기
+											</a>
+										</c:otherwise>
+									</c:choose>
+								</div>
+							</div>
+				        </c:if>
+				        <!-- [D] 판매중지시 노출-->
+			        </div>
+			    </c:forEach>
+			</c:when>
+			<c:otherwise>
+				<div class="sha_nodata">
+		        	<p>등록된 상품이 없습니다.</p>
+		        </div>
+			</c:otherwise>
+		</c:choose>
+		<!-- 판매중지 팝업 -->
+		<div class="popup public_stop">
+			<p class="title">
+				<strong>판매중지 상세보기</strong>
+				<!-- <a href="#" ><img src="http://static.ssocio.net/web/images/btn_layer_close.png" alt="판매중지 상세보기 닫기" /></a> -->
+			</p>
+			<p class="prod_info">상품정보</p>
+		    <div class="tbl">
+		        <table class="tbl-data">
+		            <colgroup>
+		                <col width="100px">
+		                <col width="*">
+		            </colgroup>
+		            <tbody>
+		                <tr>
+		                    <th>상품명</th>
+		                    <td id="tdStopProdNm"></td>
+		                </tr>
+		                <!-- <tr>
+		                    <th>상품이미지</th>
+		                    <td class="thumb">
+		                    	<img id="aStopProdImg" src="" alt="" />
+		                    </td>
+		                </tr>
+		                <tr id="trPrce">
+		                    <th>상품가격</th>
+		                    <td id="tdStopSellPrce"></td>
+		                </tr>
+		                <tr>
+		                    <th>상품 등록일</th>
+		                    <td id="tdStopRegistDt"></td>
+		                </tr> -->
+		            </tbody>
+		        </table>
+		    </div>
+		    <div class="prod_info v2">
+		    	<p>관리자 판매중지 사유</p>
+		    	<div class="text_box" >
+		            <p class="txt_cause_info" style="overflow-y:auto;" id="tdProdStopReason" ></p>
+		        </div>
+		    </div>
+			<custom:codeList var="siteDefault" groupCode="SITE_DEFAULT" />
+			<c:forEach var="list" items="${siteDefault}" varStatus="status">
+				<c:if test="${list.key == 'CALLCENTER_TEL' }">
+					<c:set var="callCenterTel" value="${list.value }" />
+				</c:if>
+			</c:forEach>
+		    <div class="bot_btn">
+		    	<ul class="btn">
+		        	<li><a href="tel:${callCenterTel}" class="btn_r">고객센터 전화</a></li>
+		        	<li><a id="aStopUpdate" class="btn_r-line">상품정보 수정</a></li>
+		        </ul>
+		    </div>
+		</div>
+		<!-- //판매중지 팝업-->
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+		<jsp:include page="../common/sale_bottom.jsp" flush="false" />
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+		    </div>
+		    <!-- //container -->
+
+	<div class="popup agency">
+		<p class="title">
+			<strong>정렬</strong>
+		</p>
+	    <ul class="select">
+	    	<li><input type="radio" id="orderCd0" name="orderSel" value="0" <c:if test="${params.orderCd == '0' }">checked</c:if>><label for="orderCd0">등록일순</label></li>
+	    	<li><input type="radio" id="orderCd1" name="orderSel" value="1" <c:if test="${params.orderCd == '1' }">checked</c:if>><label for="orderCd1">낮은가격순</label></li>
+	    	<li><input type="radio" id="orderCd2" name="orderSel" value="2" <c:if test="${params.orderCd == '2' }">checked</c:if>><label for="orderCd2">높은가격순</label></li>
+	    	<li><input type="radio" id="orderCd3" name="orderSel" value="3" <c:if test="${params.orderCd == '3' }">checked</c:if>><label for="orderCd3">누적거래순</label></li>
+	    </ul>
+<!-- 	    <div class="bot_btn"><a href="javascript:page.orderSearch();" class="btn_r">선택</a></div> -->
+	</div>
+	<div class="popup public">
+		<p class="title"><strong>정렬</strong></p>
+	    <ul class="select">
+	    	<c:choose>
+	    		<c:when test="${params.prodTypeCd == '1' || params.prodTypeCd == '2' || params.prodTypeCd == '3'}">
+	    			<li><input type="radio" id="statSelAll" name="prodStatSel" value=""  <c:if test="${params.prodStatCd == null or params.prodStatCd == '' }">checked</c:if>><label for="statSelAll">전체</label></li>
+			    	<li><input type="radio" id="statSel0"   name="prodStatSel" value="0" <c:if test="${params.prodStatCd == '0' }">checked</c:if>><label for="statSel0">판매중</label></li>
+			    	<li><input type="radio" id="statSel1"   name="prodStatSel" value="1" <c:if test="${params.prodStatCd == '1' }">checked</c:if>><label for="statSel1">판매종료</label></li>
+			    	<li><input type="radio" id="statSel2"   name="prodStatSel" value="2" <c:if test="${params.prodStatCd == '2' }">checked</c:if>><label for="statSel2">판매중지</label></li>
+			    	<li><input type="radio" id="statSel3"   name="prodStatSel" value="3" <c:if test="${params.prodStatCd == '3' }">checked</c:if>><label for="statSel3">상품삭제</label></li>
+	    		</c:when>
+<%--
+	    		<c:when test="${params.prodTypeCd == '2' }">
+	    			<li><input type="radio" id="statSelAll" name="prodStatSel" value="" <c:if test="${params.prodStatCd == null or params.prodStatCd == '' }">checked</c:if>><label for="statSelAll">전체</label></li>
+			    	<li><input type="radio" id="statSel0" name="prodStatSel" value="0" <c:if test="${params.prodStatCd == '0' }">checked</c:if>><label for="statSel0">셰어링가능</label></li>
+			    	<li><input type="radio" id="statSel01" name="prodStatSel" value="01" <c:if test="${params.prodStatCd == '01' }">checked</c:if>><label for="statSel01">셰어링중</label></li>
+			    	<li><input type="radio" id="statSel02" name="prodStatSel" value="02" <c:if test="${params.prodStatCd == '02' }">checked</c:if>><label for="statSel02">회수대기</label></li>
+			    	<li><input type="radio" id="statSel1" name="prodStatSel" value="1" <c:if test="${params.prodStatCd == '1' }">checked</c:if>><label for="statSel1">품절</label></li>
+			    	<li><input type="radio" id="statSel2" name="prodStatSel" value="2" <c:if test="${params.prodStatCd == '2' }">checked</c:if>><label for="statSel2">판매중지</label></li>
+	    		</c:when>
+	    		<c:when test="${params.prodTypeCd == '3' }">
+	    			<li><input type="radio" id="statSelAll" name="prodStatSel" value="" <c:if test="${params.prodStatCd == null or params.prodStatCd == '' }">checked</c:if>><label for="statSelAll">전체</label></li>
+			    	<li><input type="radio" id="statSel0" name="prodStatSel" value="0" <c:if test="${params.prodStatCd == '0' }">checked</c:if>><label for="statSel0">나눔가능</label></li>
+			    	<li><input type="radio" id="statSel1" name="prodStatSel" value="1" <c:if test="${params.prodStatCd == '1' }">checked</c:if>><label for="statSel1">나눔완료</label></li>
+			    	<li><input type="radio" id="statSel2" name="prodStatSel" value="2" <c:if test="${params.prodStatCd == '2' }">checked</c:if>><label for="statSel2">판매중지</label></li>
+	    		</c:when>
+--%>
+	    	</c:choose>
+	    </ul>
+<!-- 	    <div class="bot_btn"><a href="javascript:page.statSearch();" class="btn_r">선택</a></div> -->
+	</div>
+
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>
+
+
+</form>

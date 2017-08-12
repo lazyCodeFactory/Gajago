@@ -1,0 +1,514 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="mobileCpnMapper">
+
+    <select id="selectCpnGrpCd" resultType="String" parameterType="hashmap">
+
+        SELECT AA.CPN_GRP_CD
+          FROM (
+                 SELECT A.CPN_GRP_CD
+                      , CASE WHEN A.EXP_CHK = 'A' THEN A.EXP_START_DT 
+                             ELSE A.ISSUE_DT 
+                        END AS EXP_START_DT                                         /* 유효기간시작일 */
+                      , CASE WHEN A.EXP_CHK = 'A' THEN A.EXP_END_DT 
+                             ELSE A.ISSUE_DT + A.EXP_DAY 
+                        END AS EXP_END_DT                                           /* 유효기간종료일 */
+                   FROM CPN_INFO A
+                  WHERE 1=1
+                    AND A.ISSUE_CD = 'A'                                            /* 전체회원 */
+                    AND A.ISSUE_MTH = '20'                                          /* 쿠폰발급상태인것 */
+			        <if test="cpn_gb_cd_arr != null and cpn_gb_cd_arr != ''">
+			            AND A.CPN_GB_CD IN 
+			            <foreach collection="cpn_gb_cd_arr" item="cpn_gb_cd" open="(" close=")" separator=",">
+			                #{cpn_gb_cd}
+			            </foreach>
+			        </if>
+               ) AA
+         WHERE 1=1
+           AND TO_CHAR(AA.EXP_START_DT, 'YYYYMMDD') <![CDATA[ <= ]]> TO_CHAR(SYSDATE, 'YYYYMMDD')
+           AND TO_CHAR(AA.EXP_END_DT, 'YYYYMMDD') <![CDATA[ >= ]]> TO_CHAR(SYSDATE, 'YYYYMMDD')
+        MINUS
+        SELECT Z.CPN_GRP_CD
+          FROM MBER_CPN_INFO Z
+         WHERE 1=1
+           AND Z.MBER_SEQ = #{MBER_SEQ}
+
+    </select>
+
+	<select id="selectCpnIsNull" resultType="String" parameterType="hashmap">
+
+        SELECT AA.CPN_GRP_CD
+          FROM (
+                 SELECT A.CPN_GRP_CD
+                      , CASE WHEN A.EXP_CHK = 'A' THEN A.EXP_START_DT 
+                             ELSE A.ISSUE_DT 
+                        END AS EXP_START_DT                                         /* 유효기간시작일 */
+                      , CASE WHEN A.EXP_CHK = 'A' THEN A.EXP_END_DT 
+                             ELSE A.ISSUE_DT + A.EXP_DAY 
+                        END AS EXP_END_DT                                           /* 유효기간종료일 */
+                   FROM CPN_INFO A
+                  WHERE 1=1
+                    AND A.ISSUE_CD = 'B'                                            /* 지정회원 */
+                    AND ISSUE_MTH = '20'                                            /* 쿠폰발급상태인것 */
+                    <if test="cpn_gb_cd_arr != null and cpn_gb_cd_arr != ''">
+                        AND A.CPN_GB_CD IN 
+                        <foreach collection="cpn_gb_cd_arr" item="cpn_gb_cd" open="(" close=")" separator=",">
+                            #{cpn_gb_cd}
+                        </foreach>
+                    </if>
+               ) AA
+         WHERE 1=1
+           AND TO_CHAR(AA.EXP_START_DT, 'YYYYMMDD') <![CDATA[ <= ]]> TO_CHAR(SYSDATE, 'YYYYMMDD')
+           AND TO_CHAR(AA.EXP_END_DT, 'YYYYMMDD') <![CDATA[ >= ]]> TO_CHAR(SYSDATE, 'YYYYMMDD')
+        INTERSECT
+        SELECT Z.CPN_GRP_CD
+          FROM MBER_CPN_INFO Z
+         WHERE 1=1
+           AND Z.MBER_SEQ = #{MBER_SEQ}
+           AND Z.CPN_NO IS NULL 
+
+	</select>
+
+
+	<select id="selectCpnNo" resultType="String" parameterType="hashmap">
+
+		SELECT CPN_NO
+		FROM MBER_CPN_INFO
+		WHERE CPN_NO IS NOT NULL
+
+	</select>
+
+
+	<update id="updateCpn"  parameterType="hashmap">
+
+    	UPDATE MBER_CPN_INFO SET
+	        CPN_NO = #{CPN_NO}
+	        ,UPDT_DT = SYSDATE
+	        ,USE_YN = #{USE_YN}
+	    WHERE MBER_SEQ = #{MBER_SEQ}
+	    AND CPN_GRP_CD = #{CPN_GRP_CD}
+
+	</update>
+
+
+	<insert id="insertCpn"  parameterType="hashmap">
+
+    	INSERT INTO MBER_CPN_INFO
+	    (
+	        MBER_SEQ
+	        ,CPN_GRP_CD
+	        ,USE_YN
+	        ,USE_DATE
+	        ,DOWN_DATE
+	        ,CPN_NO
+	        ,REGIST_DT
+	        ,UPDT_DT
+	        ,PROD_CODE
+	    )
+	    VALUES
+	    (
+	        #{MBER_SEQ}
+	        ,#{CPN_GRP_CD}
+	        ,#{USE_YN}
+	        ,NULL
+	        ,NULL
+	        ,#{CPN_NO}
+	        ,SYSDATE
+	        ,SYSDATE
+	        ,NULL
+	    )
+
+	</insert>
+
+
+	<select id="selectCpnList" resultType="hashmap" parameterType="hashmap">
+
+		SELECT AA.CPN_GRP_CD
+              ,AA.MBER_SEQ
+              ,TO_CHAR(AA.EXP_START_DT, 'YYYYMMDD') AS EXP_START_DT
+              ,TO_CHAR(AA.EXP_END_DT, 'YYYYMMDD') AS EXP_END_DT
+              ,TO_CHAR(AA.EXP_END_DT, 'YYYY') AS END_YYYY
+              ,TO_CHAR(AA.EXP_END_DT, 'MM') AS END_MM
+              ,TO_CHAR(AA.EXP_END_DT, 'DD') AS END_DD
+              ,AA.DELY_FREE_CHK
+              ,AA.BNFIT_CHK
+              ,AA.BNFIT_DSCNT_PRCE
+              ,AA.BNFIT_DSCNT_RATE
+              ,AA.BNFIT_MAX_DSCNT_PRCE
+              ,AA.DUPL_USE_YN
+              ,AA.PROD_PRCE
+              ,AA.USE_YN
+              ,AA.CPN_NO
+              ,AA.CPN_GB_CD
+		FROM (
+			SELECT B.CPN_GRP_CD
+	              ,A.MBER_SEQ
+	              ,B.DELY_FREE_CHK
+	              ,B.BNFIT_CHK
+	              ,B.BNFIT_DSCNT_PRCE
+	              ,B.BNFIT_DSCNT_RATE
+	              ,B.BNFIT_MAX_DSCNT_PRCE
+	              ,B.DUPL_USE_YN
+	              ,B.PROD_PRCE
+	              ,A.USE_YN
+	              ,A.CPN_NO
+	              ,B.CPN_GB_CD
+	              ,(SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'CPN_GB_CD' AND COM_CD = B.CPN_GB_CD) CPN_GB_NM
+	              ,CASE WHEN B.EXP_CHK = 'A' THEN B.EXP_START_DT 
+	                      ELSE B.ISSUE_DT 
+	                      END AS EXP_START_DT                                         /* 유효기간시작일 */
+	              ,CASE WHEN B.EXP_CHK = 'A' THEN B.EXP_END_DT 
+			                      ELSE B.ISSUE_DT + B.EXP_DAY 
+			                      END AS EXP_END_DT
+	        FROM MBER_CPN_INFO A, CPN_INFO B
+	        WHERE A.MBER_SEQ =  #{MBER_SEQ}
+	        AND A.USE_YN != 'Y'
+	        AND B.CPN_GRP_CD = A.CPN_GRP_CD
+	        AND A.CPN_NO IS NOT NULL
+<!-- 	        AND B.ISSUE_MTH = '20'                  -->
+		)AA
+		WHERE 1=1
+		AND TO_CHAR(AA.EXP_START_DT, 'YYYYMMDD') <![CDATA[ <= ]]> TO_CHAR(SYSDATE, 'YYYYMMDD')
+		AND TO_CHAR(AA.EXP_END_DT, 'YYYYMMDD') <![CDATA[ >= ]]> TO_CHAR(SYSDATE, 'YYYYMMDD')
+	</select>
+
+
+	<select id="selectCpnUselist_old" resultType="hashmap" parameterType="hashmap">
+
+		SELECT B.CPN_GRP_CD
+		      ,A.MBER_SEQ
+		      ,TO_CHAR(B.EXP_START_DT, 'YYYYMMDD') AS EXP_START_DT
+		      ,TO_CHAR(B.EXP_END_DT, 'YYYYMMDD') AS EXP_END_DT
+		      ,TO_CHAR(B.EXP_END_DT, 'YYYY') AS END_YYYY
+		      ,TO_CHAR(B.EXP_END_DT, 'MM') AS END_MM
+		      ,TO_CHAR(B.EXP_END_DT, 'DD') AS END_DD
+		      ,B.DELY_FREE_CHK  <!-- A 배송비무료 B(BNFIT_DAY 몇일까지만사용가능) -->
+<!-- 		      ,B.BNFIT_DAY -->
+		      ,B.BNFIT_CHK      <!-- 혜택체크   A(BNFIT_DSCNT_PRCE)  B(BNFIT_DSCNT_RATE,BNFIT_MAX_DSCNT_PRCE) -->
+		      ,B.BNFIT_DSCNT_PRCE <!-- 상품할인(금액만큼) -->
+		      ,B.BNFIT_DSCNT_RATE <!-- 몇개의 상품에대해 -->
+		      ,B.BNFIT_MAX_DSCNT_PRCE  <!-- 최대 얼마까지 할인 -->
+		      ,B.DUPL_USE_YN   <!-- 중복사용 여부 -->
+		      ,A.USE_YN
+		      ,B.PROD_PRCE
+		      ,A.CPN_NO
+		      ,B.CPN_GB_CD
+		      ,TO_CHAR(A.USE_DATE, 'YYYY.MM.DD HH24:MI') AS USE_DATE
+		      ,(SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'CPN_GB_CD' AND COM_CD = B.CPN_GB_CD) CPN_GB_NM
+		      , 'A' AS GUBUN_CD
+		      , '사용완료' AS GUBUN_NM
+		FROM MBER_CPN_INFO A, CPN_INFO B
+		WHERE A.MBER_SEQ = #{MBER_SEQ}
+		AND A.USE_YN = 'Y'
+		AND TO_CHAR(B.EXP_START_DT, 'YYYYMMDD') <![CDATA[<=]]> SYSDATE
+		AND TO_CHAR(B.EXP_END_DT, 'YYYYMMDD') <![CDATA[>=]]> SYSDATE
+		AND B.CPN_GRP_CD = A.CPN_GRP_CD
+
+		UNION
+
+		SELECT B.CPN_GRP_CD
+		      ,A.MBER_SEQ
+		      ,TO_CHAR(B.EXP_START_DT, 'YYYYMMDD') AS EXP_START_DT
+		      ,TO_CHAR(B.EXP_END_DT, 'YYYYMMDD') AS EXP_END_DT
+		      ,TO_CHAR(B.EXP_END_DT, 'YYYY') AS END_YYYY
+		      ,TO_CHAR(B.EXP_END_DT, 'MM') AS END_MM
+		      ,TO_CHAR(B.EXP_END_DT, 'DD') AS END_DD
+		      ,B.DELY_FREE_CHK
+<!-- 		      ,B.BNFIT_DAY -->
+		      ,B.BNFIT_CHK
+		      ,B.BNFIT_DSCNT_PRCE
+		      ,B.BNFIT_DSCNT_RATE
+		      ,B.BNFIT_MAX_DSCNT_PRCE
+		      ,B.DUPL_USE_YN
+		      ,A.USE_YN
+		      ,B.PROD_PRCE
+		      ,A.CPN_NO
+		      ,B.CPN_GB_CD
+		      ,TO_CHAR(A.USE_DATE, 'YYYY.MM.DD HH24:MI') AS USE_DATE
+		      ,(SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'CPN_GB_CD' AND COM_CD = B.CPN_GB_CD) CPN_GB_NM
+		      , 'B' AS GUBUN_CD
+		      , '기간만료' AS GUBUN_NM
+		FROM MBER_CPN_INFO A, CPN_INFO B
+		WHERE A.MBER_SEQ = #{MBER_SEQ}
+		AND TO_CHAR(B.EXP_START_DT, 'YYYYMMDD') <![CDATA[<]]> SYSDATE
+		AND TO_CHAR(B.EXP_END_DT, 'YYYYMMDD') <![CDATA[<]]> SYSDATE
+		AND B.CPN_GRP_CD = A.CPN_GRP_CD
+
+	</select>
+	
+	<select id="selectCpnUselist" resultType="hashmap" parameterType="hashmap">
+
+		SELECT TO_CHAR(AA.EXP_START_DT, 'YYYYMMDD') AS EXP_START_DT
+		      ,TO_CHAR(AA.EXP_END_DT, 'YYYYMMDD') AS EXP_END_DT
+		      ,TO_CHAR(AA.EXP_END_DT, 'YYYY') AS END_YYYY
+		      ,TO_CHAR(AA.EXP_END_DT, 'MM') AS END_MM
+		      ,TO_CHAR(AA.EXP_END_DT, 'DD') AS END_DD
+		      ,AA.CPN_GRP_CD
+		      ,AA.DELY_FREE_CHK  
+		      ,AA.BNFIT_CHK      
+		      ,AA.BNFIT_DSCNT_PRCE 
+		      ,AA.BNFIT_DSCNT_RATE 
+		      ,AA.BNFIT_MAX_DSCNT_PRCE  
+		      ,AA.DUPL_USE_YN   
+		      ,AA.USE_YN
+		      ,AA.PROD_PRCE
+		      ,AA.CPN_NO
+		      ,AA.CPN_GB_CD
+		      ,TO_CHAR(AA.USE_DATE, 'YYYY.MM.DD HH24:MI') AS USE_DATE
+		      ,AA.CPN_GB_NM
+		      , 'A' AS GUBUN_CD
+		      , '사용완료' AS GUBUN_NM
+		FROM (
+		    SELECT B.CPN_GRP_CD
+		                  ,A.MBER_SEQ
+		                  , CASE WHEN B.EXP_CHK = 'A' THEN B.EXP_START_DT 
+		                            ELSE B.ISSUE_DT 
+		                            END AS EXP_START_DT                                        
+		                  , CASE WHEN B.EXP_CHK = 'A' THEN B.EXP_END_DT 
+		                         	ELSE B.ISSUE_DT + B.EXP_DAY 
+		                    		END AS EXP_END_DT
+		                  ,B.DELY_FREE_CHK  
+		                  ,B.BNFIT_CHK      
+		                  ,B.BNFIT_DSCNT_PRCE 
+		                  ,B.BNFIT_DSCNT_RATE 
+		                  ,B.BNFIT_MAX_DSCNT_PRCE  
+		                  ,B.DUPL_USE_YN   
+		                  ,A.USE_YN
+		                  ,B.PROD_PRCE
+		                  ,A.CPN_NO
+		                  ,B.CPN_GB_CD
+		                  ,TO_CHAR(A.USE_DATE, 'YYYY.MM.DD HH24:MI') AS USE_DATE
+		                  ,(SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'CPN_GB_CD' AND COM_CD = B.CPN_GB_CD) CPN_GB_NM
+		                  , 'A' AS GUBUN_CD
+		                  , '사용완료' AS GUBUN_NM
+		            FROM MBER_CPN_INFO A, CPN_INFO B
+		            WHERE A.MBER_SEQ =  #{MBER_SEQ}
+		            AND A.USE_YN = 'Y'
+		          
+		            AND B.CPN_GRP_CD = A.CPN_GRP_CD
+		)AA
+		WHERE 1=1
+		AND TO_CHAR(AA.EXP_START_DT, 'YYYYMMDD')  <![CDATA[ <= ]]> TO_CHAR(SYSDATE, 'YYYYMMDD')
+		AND TO_CHAR(AA.EXP_END_DT, 'YYYYMMDD')  <![CDATA[ >= ]]> TO_CHAR(SYSDATE, 'YYYYMMDD')
+		
+		UNION
+		
+		SELECT TO_CHAR(BB.EXP_START_DT, 'YYYYMMDD') AS EXP_START_DT
+		      ,TO_CHAR(BB.EXP_END_DT, 'YYYYMMDD') AS EXP_END_DT
+		      ,TO_CHAR(BB.EXP_END_DT, 'YYYY') AS END_YYYY
+		      ,TO_CHAR(BB.EXP_END_DT, 'MM') AS END_MM
+		      ,TO_CHAR(BB.EXP_END_DT, 'DD') AS END_DD
+		      ,BB.CPN_GRP_CD
+		      ,BB.DELY_FREE_CHK  
+		      ,BB.BNFIT_CHK      
+		      ,BB.BNFIT_DSCNT_PRCE 
+		      ,BB.BNFIT_DSCNT_RATE 
+		      ,BB.BNFIT_MAX_DSCNT_PRCE  
+		      ,BB.DUPL_USE_YN   
+		      ,BB.USE_YN
+		      ,BB.PROD_PRCE
+		      ,BB.CPN_NO
+		      ,BB.CPN_GB_CD
+		      ,TO_CHAR(BB.USE_DATE, 'YYYY.MM.DD HH24:MI') AS USE_DATE
+		      ,BB.CPN_GB_NM
+		      , 'B' AS GUBUN_CD
+		      , '기간만료' AS GUBUN_NM
+		FROM(
+		        SELECT B.CPN_GRP_CD
+		              ,A.MBER_SEQ
+		              , CASE WHEN B.EXP_CHK = 'A' THEN B.EXP_START_DT 
+		                        ELSE B.ISSUE_DT 
+		                        END AS EXP_START_DT                                        
+		              , CASE WHEN B.EXP_CHK = 'A' THEN B.EXP_END_DT 
+		                     	ELSE B.ISSUE_DT + B.EXP_DAY 
+		                		END AS EXP_END_DT
+		              ,B.DELY_FREE_CHK
+		              ,B.BNFIT_CHK
+		              ,B.BNFIT_DSCNT_PRCE
+		              ,B.BNFIT_DSCNT_RATE
+		              ,B.BNFIT_MAX_DSCNT_PRCE
+		              ,B.DUPL_USE_YN
+		              ,A.USE_YN
+		              ,B.PROD_PRCE
+		              ,A.CPN_NO
+		              ,B.CPN_GB_CD
+		              ,TO_CHAR(A.USE_DATE, 'YYYY.MM.DD HH24:MI') AS USE_DATE
+		              ,(SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'CPN_GB_CD' AND COM_CD = B.CPN_GB_CD) CPN_GB_NM
+		              , 'B' AS GUBUN_CD
+		              , '기간만료' AS GUBUN_NM
+		        FROM MBER_CPN_INFO A, CPN_INFO B
+		        WHERE A.MBER_SEQ =  #{MBER_SEQ}
+		       
+		        AND B.CPN_GRP_CD = A.CPN_GRP_CD
+		)BB        
+		WHERE 1=1
+		AND TO_CHAR(BB.EXP_START_DT, 'YYYYMMDD')  <![CDATA[ < ]]> TO_CHAR(SYSDATE, 'YYYYMMDD')
+		AND TO_CHAR(BB.EXP_END_DT, 'YYYYMMDD')  <![CDATA[ < ]]> TO_CHAR(SYSDATE, 'YYYYMMDD')
+
+	</select>
+
+
+	<select id="selectPointList" resultType="hashmap" parameterType="hashmap">
+
+		SELECT TO_CHAR(A.REGIST_DT, 'YYYY-MM-DD HH24:MI:SS') REGIST_DT
+		      ,(SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'POINT_CD' AND COM_CD = A.POINT_CD) AS POINT_NM
+		      ,DECODE(A.POINT_CD , '10', '지급', '20', '지급', '30' , '지급' , '차감') AS CHG_REASON
+		      ,A.POINT_SEQ
+		      ,A.POINT
+		FROM POINT_USE_LOG A
+		WHERE MBER_SEQ = #{MBER_SEQ}
+        ORDER BY A.REGIST_DT DESC
+	</select>
+
+
+	<select id="selectPoint" resultType="int" parameterType="hashmap">
+
+		SELECT
+        		NVL(POINT,0) AS POINT
+		FROM MBER_INFO
+		WHERE MBER_SEQ = #{MBER_SEQ}
+
+	</select>
+
+	<select id="cpnCheckNot" resultType="int" parameterType="hashmap">
+
+		SELECT COUNT(1) CPN_NO
+		FROM PRINT_CPN_INFO A, CPN_INFO B
+		WHERE A.CPN_GRP_CD = B.CPN_GRP_CD 
+			AND A.CPN_NO = #{CPN_NO}
+			AND B.ISSUE_MTH = '20'
+
+	</select>
+
+	<select id="cpnCheckDate" resultType="int" parameterType="hashmap">
+
+<!-- 		SELECT COUNT(1) CPN_NO -->
+<!-- 		FROM PRINT_CPN_INFO A, CPN_INFO B -->
+<!-- 		WHERE A.CPN_NO = #{CPN_NO} -->
+<!-- 		AND A.CPN_GRP_CD = B.CPN_GRP_CD -->
+<!-- 		AND TO_CHAR(EXP_START_DT , 'YYYYMMDD') <![CDATA[<]]> TO_CHAR(SYSDATE , 'YYYYMMDD') -->
+<!-- 		AND TO_CHAR(EXP_END_DT , 'YYYYMMDD') <![CDATA[<]]> TO_CHAR(SYSDATE , 'YYYYMMDD') -->
+		
+		SELECT COUNT(1) CPN_NO
+		FROM(
+			SELECT CPN_NO
+			        , CASE WHEN B.EXP_CHK = 'A' THEN B.EXP_START_DT 
+			             ELSE B.ISSUE_DT 
+			             END AS EXP_START_DT                                        
+			        , CASE WHEN B.EXP_CHK = 'A' THEN B.EXP_END_DT 
+			             ELSE B.ISSUE_DT + B.EXP_DAY 
+			             END AS EXP_END_DT
+	        FROM PRINT_CPN_INFO A, CPN_INFO B
+	        WHERE A.CPN_NO =  #{CPN_NO}
+	        AND A.CPN_GRP_CD = B.CPN_GRP_CD
+		)AA
+		WHERE 
+		1=1
+		AND TO_CHAR(AA.EXP_START_DT , 'YYYYMMDD')  <![CDATA[ < ]]>  TO_CHAR(SYSDATE , 'YYYYMMDD')
+		AND TO_CHAR(AA.EXP_END_DT , 'YYYYMMDD')  <![CDATA[ < ]]>  TO_CHAR(SYSDATE , 'YYYYMMDD')
+
+	</select>
+
+	<select id="cpnCheckReg" resultType="int" parameterType="hashmap">
+
+<!-- 		SELECT COUNT(1) CPN_NO -->
+<!-- 		FROM PRINT_CPN_INFO A, CPN_INFO B -->
+<!-- 		WHERE A.CPN_NO = #{CPN_NO} -->
+<!-- 		AND A.CPN_GRP_CD = B.CPN_GRP_CD -->
+<!-- 		AND A.REG_YN = 'Y' -->
+<!-- 		AND TO_CHAR(EXP_START_DT , 'YYYYMMDD')  <![CDATA[<=]]>TO_CHAR(SYSDATE , 'YYYYMMDD') -->
+<!-- 		AND TO_CHAR(EXP_END_DT , 'YYYYMMDD') <![CDATA[>=]]> TO_CHAR(SYSDATE , 'YYYYMMDD') -->
+		
+		SELECT COUNT(1) CPN_NO
+		FROM(
+			SELECT CPN_NO
+			        , CASE WHEN B.EXP_CHK = 'A' THEN B.EXP_START_DT 
+			             ELSE B.ISSUE_DT 
+			             END AS EXP_START_DT                                        
+			        , CASE WHEN B.EXP_CHK = 'A' THEN B.EXP_END_DT 
+			             ELSE B.ISSUE_DT + B.EXP_DAY 
+			             END AS EXP_END_DT
+	        FROM PRINT_CPN_INFO A, CPN_INFO B
+	        WHERE A.CPN_NO =  #{CPN_NO}
+	        AND A.CPN_GRP_CD = B.CPN_GRP_CD
+	        AND A.REG_YN = 'Y'
+		)AA
+		WHERE 
+		1=1
+		AND TO_CHAR(AA.EXP_START_DT , 'YYYYMMDD')  <![CDATA[ <= ]]>  TO_CHAR(SYSDATE , 'YYYYMMDD')
+		AND TO_CHAR(AA.EXP_END_DT , 'YYYYMMDD')  <![CDATA[ >= ]]>  TO_CHAR(SYSDATE , 'YYYYMMDD')
+
+	</select>
+
+	<select id="cpnCheck" resultType="String" parameterType="hashmap">
+
+<!-- 		SELECT B.CPN_GRP_CD -->
+<!-- 		FROM PRINT_CPN_INFO A, CPN_INFO B -->
+<!-- 		WHERE A.CPN_NO = #{CPN_NO} -->
+<!-- 		AND A.CPN_GRP_CD = B.CPN_GRP_CD -->
+<!-- 		AND (A.REG_YN IS NULL OR A.REG_YN = 'N') -->
+<!-- 		AND TO_CHAR(EXP_START_DT , 'YYYYMMDD') <![CDATA[<=]]>TO_CHAR(SYSDATE , 'YYYYMMDD') -->
+<!-- 		AND TO_CHAR(EXP_END_DT , 'YYYYMMDD')<![CDATA[>=]]> TO_CHAR(SYSDATE , 'YYYYMMDD') -->
+		
+		SELECT AA.CPN_GRP_CD
+		FROM(
+			SELECT B.CPN_GRP_CD
+			        , CASE WHEN B.EXP_CHK = 'A' THEN B.EXP_START_DT 
+			             ELSE B.ISSUE_DT 
+			             END AS EXP_START_DT                                        
+			        , CASE WHEN B.EXP_CHK = 'A' THEN B.EXP_END_DT 
+			             ELSE B.ISSUE_DT + B.EXP_DAY 
+			             END AS EXP_END_DT
+	        FROM PRINT_CPN_INFO A, CPN_INFO B
+	        WHERE A.CPN_NO =  #{CPN_NO}
+	        AND A.CPN_GRP_CD = B.CPN_GRP_CD
+	        AND (A.REG_YN IS NULL OR A.REG_YN = 'N')
+		)AA
+		WHERE 
+		1=1
+		AND TO_CHAR(AA.EXP_START_DT , 'YYYYMMDD')  <![CDATA[ <= ]]>  TO_CHAR(SYSDATE , 'YYYYMMDD')
+		AND TO_CHAR(AA.EXP_END_DT , 'YYYYMMDD')  <![CDATA[ >= ]]>  TO_CHAR(SYSDATE , 'YYYYMMDD')
+
+	</select>
+
+	<insert id="insertMberCpnInfo"  parameterType="hashmap">
+
+    	INSERT INTO MBER_CPN_INFO
+		(
+		    MBER_SEQ
+		    ,CPN_GRP_CD
+		    ,CPN_NO
+		    ,USE_YN
+		    ,REGIST_DT
+		    ,UPDT_DT
+		)
+		VALUES
+		(
+		     #{MBER_SEQ}
+		    ,#{CPN_GRP_CD}
+		    ,#{CPN_NO}
+		    ,'N'
+		    ,SYSDATE
+		    ,SYSDATE
+		)
+
+	</insert>
+
+
+	<update id="updatePrintCpnInfo"  parameterType="hashmap">
+
+    	UPDATE PRINT_CPN_INFO
+		SET REG_YN = 'Y'
+		    ,UPDT_DT = SYSDATE
+		WHERE CPN_NO = #{CPN_NO}
+
+	</update>
+
+    <select id="selectCpnCnt" resultType="int" parameterType="hashmap">
+        SELECT COUNT(*) CPN_CNT
+          FROM MBER_CPN_INFO
+         WHERE CPN_NO = #{CPN_NO}
+    </select>
+
+</mapper>

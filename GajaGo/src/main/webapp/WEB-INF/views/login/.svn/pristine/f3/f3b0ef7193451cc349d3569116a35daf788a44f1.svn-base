@@ -1,0 +1,311 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/web/common/cmmnHead.jsp"%> 
+<script type="text/javascript" src="/js/web/cart.js" ></script> <!-- 장바구니용 js -->
+<script type="text/javascript">
+
+	var limit = 500;
+	var cur = 0;
+
+	//ready
+	$(document).ready(function(){
+		alert("ddddddd");
+		// title 및 back 버튼 url set	
+		document.title = "출하지 관리";
+// 		header.type	= 6;
+		header.type	= 4;
+		header.title = "출하지 관리";
+		header.method = "POST";
+// 		header.callback = headerCallback; // 장바구니용 callback
+		header.backUrl = "/mobile/salemanage/selectListProdQna.do";
+		header.form = $("#form");
+		initHeader();
+		
+		displayFooter(false);
+		
+		
+	});
+	
+	
+	// 처리
+	var proc = {
+		insertMyGrpinfo : function(guBun,seq){
+			$("#guBun").val(guBun);
+			if('Upt'== guBun){
+			$("#grpSeq").val(seq);
+			}
+			$("#form").attr("action","/mobile/myGrp/insertMyGrpinfo.do").submit();
+		},
+		updateBaseGrpinf : function(seq){
+			$("#grpSeq").val(seq);
+			if(confirm("기본출하지로 설정하시겠습니까?")){
+				$.ajax({
+					type: "post",
+					async: true,
+					url: "/mobile/myGrp/updateBaseGrpinfReg.do",
+					dataType:"json",
+					data:  $("#form").serialize(),
+					success: function(data) {
+						if (data.Cnt > 0) {
+								alert("기본출하지 변경이 완료되었습니다.");
+								init();
+						}
+						else {
+							alert("기본출하지 변경을 실패하였습니다. 다시 시도해 주세요.");
+						}
+					},
+					error: function(data, status, err) {
+						alert("기본출하지 변경을 실패하였습니다. 다시 시도해 주세요.");
+					}
+				});	
+			}
+		},
+		deleteGrpInfo : function(seq){
+			$("#grpSeq").val(seq);
+			if(confirm("출하지를 삭제 하시겠습니까?")){
+				$.ajax({
+					type: "post",
+					async: true,
+					url: "/mobile/myGrp/deleteGrpInfoReg.do",
+					dataType:"json",
+					data:  $("#form").serialize(),
+					success: function(data) {
+						if (data.Cnt > 0) {
+								alert("출하지 정보가 정상적으로 삭제되었습니다.");
+								init();
+						}
+						else {
+							alert("출하지 정보 삭제를 실패하였습니다. 다시 시도해 주세요.");
+						}
+					},
+					error: function(data, status, err) {
+						alert("출하지 정보 삭제를 실패하였습니다. 다시 시도해 주세요.");
+						btnFlag = true;
+					}
+				});	
+			}
+		},
+		// 답변 길이
+		procAnsContentsLen : function () {
+			cur = getBytesLength($("#ansContents").val());
+			
+			if( cur <= limit ){
+				$("#spanLen").text(cur + '/' + limit);
+			}
+			else{
+				alert("글자수가 " + limit + "Byte를 넘었습니다.");
+				$("#ansContents").val($("#ansContents").val().substring(0, limit));
+			}
+			
+		}
+	};
+	
+	function init(){
+	
+		$.ajax({
+			type: "post",
+			async: true,
+			url: "/mobile/myGrp/selectListAjaxGrpinfo.do",
+			dataType:"json",
+			data:  $("#form").serialize(),
+			success: function(data) {
+				$('#dlvList').html("");
+				$.each(data.list, function(key,val) {
+				var str = "";
+				if(key == 0){
+				str += "<div class=\"tbl02\">";
+				}else{
+				str += "<div class=\"tbl02\">";
+				}
+				str += "<table class=\"tbl-list02\">";
+				str += "<colgroup>";
+						str += "<col width=\"100px\">";
+						str += "<col width=\"*\">";
+				str += "</colgroup>";
+				str += "<tbody>";
+					str += "<tr class=\"line\">";
+						str += "<th>"+val.GRP_NM+"</th>";
+						if("Y" == val.BASE_YN){
+						str += "<td  class=\"tr\" ><strong class=\"check\">기본 출하지</strong></td>";
+						}else{
+						str += "<td  class=\"tr\" ><a href=\"javascript:proc.updateBaseGrpinf("+val.GRP_PROD_SEQ+");\" class=\"btn_b small\">기본출하지로 설정</a></td>";
+							
+						}
+					str += "</tr>";
+					str += "<tr class=\"dot\">";
+					str += "<th >주소</th>";
+					str += "<td>"+val.JUSO_DORO+"</td>";
+					str += "</tr>";
+					str += "<tr class=\"dot\">";
+					str += "<th>전화번호</th>";
+					if(undefined == val.TEL){
+					str += "<td >-</td>";
+					}else{
+					str += "<td >"+val.TEL+"</td>";
+					}
+					str += "</tr>";
+					str += "<tr class=\"dot\">";
+					str += "<th>휴대폰번호</th>";
+					str += "<td>"+val.HP+"</td>";
+					str += "</tr>";
+					str += "<tr>";
+					str += "<td class=\"tr\" colspan=\"2\">";
+					str += "<a href=\"javascript:proc.insertMyGrpinfo('Upt',"+val.GRP_PROD_SEQ+")\" class=\"edit\">수정</a>";
+					str += "<a href=\"javascript:proc.deleteGrpInfo("+val.GRP_PROD_SEQ+")\"  class=\"del\">삭제</a>";
+					str += "</td>";
+					str += "</tr>";
+					str += "</tbody>";
+					str += "</table>";
+					str += "</div>";
+					$('#dlvList').append(str);
+			})
+			},
+			error: function(data, status, err) {
+				btnFlag = true;
+			}
+		});	
+		
+	}
+
+</script>
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+		<div class="roc">
+			<ul class="inner">
+				<li><img src="http://static.ssocio.net/pc/img/common/section/roc_home.png" alt="홈"></li>
+				<li>판매관리</li>
+			</ul>
+		</div>
+		<jsp:include page="../common/sale_top.jsp" flush="false" />
+		<div class="mype_s_tit">
+			<p>상품등록</p>
+		</div>
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+		<!-- container -->
+		<div id="container">
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>
+
+
+
+<form id="form" name="form" method="get" action="">
+	<input type="hidden" id="guBun" name="guBun" value="" />
+	<input type="hidden" id="grpSeq" name="grpSeq" value="" />
+	 <p class="title clear">
+            <a href="javascript:proc.insertMyGrpinfo('Ins','')" class="btn_add fr">출하지 등록</a>
+        </p>
+	<div id="dlvList">
+        <c:forEach items="${result}" var="list" varStatus="">
+        	<c:choose>
+        	<c:when test="${status.first}">
+	        	<div class="tbl">
+		        	<table class="tbl-list02">
+		            	<colgroup>
+		                	<col width="100px">
+		                	<col width="*">
+		                </colgroup>
+		                <tbody>
+		                	<tr class="line">
+		                    	<th>${list.GRP_NM}</th>
+		                    	<c:choose>
+			                    	<c:when test="${list.BASE_YN eq 'Y'}">
+			                        	<td class="tr"><strong class="check">기본 출하지</strong></td>
+			                    	</c:when>
+			                    	<c:otherwise>
+			                    	<td class="tr"><a href="javascript:proc.updateBaseGrpinf('${list.GRP_PROD_SEQ}');" class="btn_b small">기본출하지로 설정</a></td>
+			                    	</c:otherwise>
+		                    	</c:choose>
+		                    </tr>
+		                    <tr class="dot">
+		                    	<th>주소</th>
+		                        <td >${list.JUSO_DORO}</td>
+		                    </tr>
+		                	<tr class="dot">
+		                    	<th>전화번호</th>
+		                        <td >${list.TEL}</td>
+		                    </tr>
+		                	<tr class="dot">
+		                    	<th>휴대폰번호</th>
+		                        <td >${list.HP}</td>
+		                    </tr>
+		                	<tr>
+		                        <td class="tr" colspan="2">	
+		                        	<a href="javascript:proc.insertMyGrpinfo('Upt','${list.GRP_PROD_SEQ}')" class="edit">수정</a> 
+              						<a href="javascript:proc.deleteGrpInfo('${list.GRP_PROD_SEQ}')" class="del">삭제</a>
+           						</td>
+		                    </tr>
+		                </tbody>
+		            </table>
+		        </div>
+        	</c:when>
+        	<c:otherwise>
+        		<div class="tbl02">
+		        	<table class="tbl-list02">
+		            	<colgroup>
+		                	<col width="100px">
+		                	<col width="*">
+		                </colgroup> 
+		                <tbody>
+		                	<tr class="line">
+		                    	<th>${list.GRP_NM}</th>
+		                      	<c:choose>
+			                    	<c:when test="${list.BASE_YN eq 'Y'}">
+			                        	<td class="tr"><strong class="check">기본 출하지</strong></td>
+			                    	</c:when>
+			                    	<c:otherwise>
+			                    	<td class="tr"><a href="javascript:proc.updateBaseGrpinf('${list.GRP_PROD_SEQ}');" class="btn_b small">기본출하지로 설정</a></td>
+			                    	</c:otherwise>
+		                    	</c:choose>
+		                    </tr>
+		                    <tr class="dot">
+		                    	<th>주소</th>
+		                        <td>${list.JUSO_DORO}</td>
+		                    </tr>
+		                	<tr class="dot">
+		                    	<th>전화번호</th>
+		                    	<c:choose>
+			                    	<c:when test="${empty list.TEL}">
+			                    	  <td >-</td>
+			                    	</c:when>
+			                    	<c:otherwise>
+			                    	   <td >${list.TEL}</td>
+			                    	</c:otherwise>
+		                    	</c:choose>
+		                    </tr>
+		                	<tr class="dot">
+		                    	<th>휴대폰번호</th>
+		                        <td >${list.HP}</td>
+		                    </tr>
+		                	<tr>
+		                        <td class="tr" colspan="2">	
+		                        	<a href="javascript:proc.insertMyGrpinfo('Upt','${list.GRP_PROD_SEQ}')" class="edit">수정</a> 
+              						<a href="javascript:proc.deleteGrpInfo('${list.GRP_PROD_SEQ}')" class="del">삭제</a>
+           						</td>
+		                    </tr>
+		                </tbody>
+		            </table>
+		        </div>
+        	</c:otherwise>
+        	</c:choose>
+        </c:forEach>
+        </div>
+</form>
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+		<jsp:include page="../common/sale_bottom.jsp" flush="false" />
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+		    </div>
+		    <!-- //container -->
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>

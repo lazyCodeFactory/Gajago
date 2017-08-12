@@ -1,0 +1,194 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/admin/common/cmmnHead.jsp" %>
+<script type="text/javascript">
+$(document).ready(function(){
+	$('.calendar').datepicker({
+		showOn: "button",
+		buttonImage: "http://static.ssocio.net/admin/images/ico_calendar.gif",
+		buttonImageOnly: true
+	});
+
+	$('#S_START_DATE').datepicker("option", "maxDate", $("#S_END_DATE").val());
+	$('#S_START_DATE').datepicker("option", "onClose", function ( selectedDate ) {
+    $("#S_END_DATE").datepicker( "option", "minDate", selectedDate );
+	});
+
+	$('#S_END_DATE').datepicker("option", "minDate", $("#S_START_DATE").val());
+	$('#S_END_DATE').datepicker("option", "onClose", function ( selectedDate ) {
+    $("#S_START_DATE").datepicker( "option", "maxDate", selectedDate );
+	});
+
+	init();
+});
+
+
+//--------------------------------- INIT Function ------------------------------------
+/* ======================================================================
+Function : 초기화
+========================================================================= */
+function init(){
+}
+
+//--------------------------------- SETTING Function ------------------------------------
+
+/* ======================================================================
+Function : 기간버튼클릭시 날짜 셋팅
+========================================================================= */
+function clickDate(dateType, date){
+	var now = new Date();
+	var toDate = now.getFullYear() + '-' + (now.getMonth()+1) + '-' + now.getDate();
+	$('#toDate').val(toDate);
+
+	if(dateType == 'day'){
+		now.setDate(now.getDate() - date);
+	}else{
+		now.setMonth(now.getMonth() - date);
+	}
+
+	var fromDate = now.getFullYear() + '-' + (now.getMonth()+1) + '-' + now.getDate();
+	$('#fromDate').val(fromDate);
+}
+
+
+//--------------------------------- SUBMIT Function ------------------------------------
+/* ======================================================================
+Function :
+Return   : 없음
+========================================================================= */
+function search(){
+
+	if(validDate()){
+		$("#S_START_DATE").val($("#S_START_DATE").val().replace(/\-/ig, ''));
+	 	$("#S_END_DATE").val($("#S_END_DATE").val().replace(/\-/ig, ''));
+
+	//	넘기는 값 stat , mberSeq S_START_DATE, S_END_DATE
+		$("#PAGE_NO").val("1");
+		$("#searchFrm").attr('action', '/admin/mber/mberSuspPopup.do').submit();
+	}
+}
+
+function GoPage(pageNo) {
+	$("#PAGE_NO").val(pageNo);
+
+	$("#S_START_DATE").val($("#S_START_DATE").val().replace(/\-/ig, ''));
+	$("#S_END_DATE").val($("#S_END_DATE").val().replace(/\-/ig, ''));
+	$("#searchFrm").attr('action', '/admin/mber/mberSuspPopup.do').submit();
+}
+
+
+/* ======================================================================
+Function : 날짜 밸리데이션
+Return   : 없음
+========================================================================= */
+function validDate(){
+	if($("#S_START_DATE").val() != "" || $("#S_END_DATE").val() != ""){
+		var startDate = $("#S_START_DATE").val().replace(/\-/ig, "");
+		var endDate = $("#S_END_DATE").val().replace(/\-/ig, "");
+		var now = $.datepicker.formatDate('yymmdd', new Date());
+		if(startDate > now){
+			alert("시작일 > 오늘");
+			return ;
+		}
+		if(endDate > now){
+			alert("종료일 > 오늘");
+			return ;
+		}
+		if(startDate > endDate){
+			alert("시작일 > 종료일");
+			return ;
+		}
+	}
+	return true;
+}
+</script>
+
+
+<div class="pop_inner">
+	<form id="searchFrm" name="searchFrm" method="post">
+	<input type="hidden" name="mberSeq" value="${searchParam.mberSeq}"/>
+	<input type="hidden" id="PAGE_NO" name="PAGE_NO" value="${list.PAGE_NO }"/>
+	<input type="hidden" id="mberEmail" name="mberEmail" value="${searchParam.mberEmail}" />
+
+	<!-- tbl -->
+	<div class="tbl">
+		<table class="search">
+			<colgroup>
+				<col style="width:10%" />
+				<col style="width:30%" />
+				<col style="width:40%" />
+				<col style="width:*" />
+			</colgroup>
+			<tbody>
+				<tr>
+					<th scope="row">신고일 </th>
+					<td>
+ 						<fmt:parseDate value="${searchParam.S_START_DATE }" var="S_START_DATE" pattern="yyyymmdd" scope="page" />
+						<fmt:parseDate value="${searchParam.S_END_DATE }" var="S_END_DATE" pattern="yyyymmdd" scope="page" />
+						<input type="text" id="S_START_DATE" name="S_START_DATE" class="calendar" style="width:82px" value='<fmt:formatDate value="${S_START_DATE }" pattern="yyyy-mm-dd"/>' readonly="readonly" />
+						- <input type="text" id="S_END_DATE" name="S_END_DATE" class="calendar" style="width:82px" value='<fmt:formatDate value="${S_END_DATE }" pattern="yyyy-mm-dd"/>' readonly="readonly" />
+					</td>
+					<td scope="row" class="nolineR">
+					  <span class="select" style="width:150px;">
+					    <span class="sel_txt"></span>
+					    	<select name="stat" class="stat">
+								<option value="">전체</option>
+								<c:forEach var="vo" items="${list.suspectGbCd}" varStatus="status">
+								<option value="${vo.COM_CD }"<c:if test="${vo.COM_CD eq searchParam.stat }">selected="selected"</c:if>>${vo.COM_CD_NM }</option>
+								</c:forEach>
+					     	</select>
+				      </span>
+                      <input type="text" id="story" name="story" style="width:180px;" value="${searchParam.story }">
+                    </td>
+					<td class="tl"><a href="javascript:search();" class="btn_chk btn_r">조회</a></td>
+				</tr>
+			</tbody>
+		</table>
+	</div>
+	<!-- //tbl -->
+	</form>
+
+	<!-- tbl -->
+	<div class="tbl mt20">
+		<table class="list">
+			<colgroup>
+				<col style="width:15%" />
+				<col style="width:15%" />
+				<col style="width:20%" />
+				<col style="width:*" />
+			</colgroup>
+			<thead>
+				<tr>
+					<th scope="col">신고일시</th>
+					<th scope="col">신고유형</th>
+					<th scope="col">신고자  ID</th>
+					<th scope="col">신고내용</th>
+				</tr>
+			</thead>
+			<tbody>
+
+			<c:if test="${empty list.sl}">
+				<tr>
+					<td colspan="4">조회된 결과가 없습니다.</td>
+				</tr>
+			</c:if>
+			<c:if test="${not empty list.sl}">
+			<c:forEach var="mberAlertList" items="${list.sl}" >
+				<tr>
+					<td class="nolineL">${mberAlertList.REGIST_DT }</td>
+					<td>${mberAlertList.COM_CD_NM }</td>
+					<td>${mberAlertList.MBER_EMAIL }</td>
+					<td class="tl">${mberAlertList.SUSPECT_REASON }</td>
+				</tr>
+			</c:forEach>
+			</c:if>
+			</tbody>
+		</table>
+	</div>
+	<!-- //tbl -->
+
+	<!-- bot_tbl -->
+	<div class="bot_tbl">
+		<%@ include file="/WEB-INF/views/admin/common/PageView.jsp" %>
+	</div>
+	<!-- //bot_tbl -->
+</div>

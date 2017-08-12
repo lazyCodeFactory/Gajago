@@ -1,0 +1,503 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/web/common/cmmnHead.jsp"%>
+<%@ include file="/WEB-INF/views/web/common/CmmnJuso.jsp"%>
+
+
+<!-- [2015-11-03] document.doamin='ssocio.net' 추가를 위해 js include -->
+<script type="text/javascript" src="/js/web/webCommon.js"/></script>
+<script type="text/javascript" src="/js/web/ctry/auth.js"/></script>
+<script type="text/javascript" src="/js/web/function.js"/></script>
+<script type="text/javascript">
+
+var authYn = false;
+var auth = null;
+var delivery = null;
+var adultYn = false;
+
+$(document).ready(function() {
+	//공통 HEADER SETTING
+	header.type = 11;
+	header.title = "회원가입";
+	header.backUrl = "/mobile/join/sellEmailView.do";
+	header.method = "GET";
+	initHeader();
+	//공통 FOOTER SETTING
+	displayFooter(false);
+	//APP TITLE
+	document.title = "회원가입";
+
+
+	auth = new Auth(authYn, '', 'phonediv');
+
+
+	// 상품명 keyup event
+	$("#ph").bind('keyup input', function() {
+
+		var len = $("#ph").val().length;
+		var maxLen = $("#ph").attr("maxlength");
+
+		// 글자수 제한
+		if (len > maxLen) {
+			$("#ph").val($("#ph").val().slice(0,maxLen));
+		}
+
+	});
+
+	// 상품명 keyup event
+	$("#MINI_SHOP_PATH").on('keyup', function() {
+		var len = $("#MINI_SHOP_PATH").val().length;
+		var maxLen = $("#MINI_SHOP_PATH").attr("maxlength");
+		$("#tooltip01").hide();
+		// 글자수 제한
+		if (len > maxLen) {
+			$("#MINI_SHOP_PATH").val($("#MINI_SHOP_PATH").val().slice(0,maxLen));
+		}
+	}).on("focusout", function(){
+
+		if($(this).val() != "" && $(this).val() != null){
+			if(!checkMiniShopPath($(this).val())){
+				alert("미니샵 주소에 한글과 특수 문자는 입력하실 수 없습니다.");
+				$(this).val("");
+				$(this).focus();
+			}
+		}
+
+	});
+
+	$("#MINI_SHOP_PATH").keyup(function(event){
+		if (!(event.keyCode >=37 && event.keyCode<=40)) {
+		var inputVal = $(this).val();
+		$(this).val(inputVal.replace(/[^a-z0-9]/gi,''));
+		}
+	});
+
+	// 상품명 keyup event
+	$("#MINI_SHOP_NM").bind('keyup input', function() {
+
+		var len = $("#MINI_SHOP_NM").val().length;
+		var maxLen = $("#MINI_SHOP_NM").attr("maxlength");
+
+		// 글자수 제한
+		if (len > maxLen) {
+			$("#MINI_SHOP_NM").val($("#MINI_SHOP_NM").val().slice(0,maxLen));
+		}
+
+	});
+
+	$('#MINI_SHOP_NM').focus(function(){
+    	$('#tooltip01').show();
+    }).blur(function(){
+    	$('#tooltip01').hide();
+    });
+	$('#MINI_SHOP_PATH').focus(function(){
+    	$('#tooltip02').show();
+    }).blur(function(){
+    	$('#tooltip02').hide();
+    });
+});
+
+
+
+function goAccount() {
+
+	if(!validate()){
+		return;
+	}
+
+	$("#MBER_PHONE").val($("#PHONE_TEMP").val());
+
+	var MINI_SHOP_PATH = $("#MINI_SHOP_PATH").val();
+
+	if( adultYn == false ){
+		alert("14세 미만의 회원은 렌탈 상품을 구매할 수 없습니다.");
+		$("#PHONE_CHECK").val("N");
+		$('#ph').attr('disabled',false);
+		return;
+	}
+
+	$.ajax({
+	      type: 'post'
+	      , async: true
+	      , url: '/mobile/join/selectShopChek.do'
+	      , dataType:'json'
+	      , data: {"MINI_SHOP_PATH":MINI_SHOP_PATH}
+	      , before: function() {
+		        loadingForm.showDialog();
+		      }
+	      , success: function(data) {
+	    	  if(Number(data.selectShopChek) > 0){
+	    		  alert("해당 미니샵 주소는 이미 존재합니다.");
+	    		  $('#MINI_SHOP_PATH').focus();
+	    		  return;
+	    	  }else{
+	    		  $("#frm").attr("action","/mobile/join/accountChekView.do").attr("target", "").submit();
+	    	  }
+	      }
+	      , complete: function() {
+		        loadingForm.hideDialog();
+		      }
+
+	      , error : function(request, status, error) {
+				alert("통신 오류가 발생 하였습니다. 잠시 후 다시 시도해 주세요");
+			}
+	    });
+
+
+}
+
+function cfmValidate(){
+
+	$("#PHONE_CHECK").val("N");
+	var ph =  $("#ph").val();
+	var phVal = "";
+
+	if(ph.length < 10){
+		alert("휴대폰번호를 입력해주세요.");
+		$('#ph').focus();
+		return;
+	}else{
+		phVal = ph.substring(0,3);
+	}
+
+	if(phVal == "010"){
+		if(ph.length < 11){
+			alert("휴대폰번호를 입력해주세요.");
+			$('#ph').focus();
+			return;
+		}
+		$("#PHONE_TEMP").val(ph);
+		ph = ph.substring(0,3)+"-"+ph.substring(3,7)+"-"+ph.substring(7,11);
+		$("#MBER_PHONE").val(ph);
+	}else if(phVal == "011" || phVal == "016" || phVal == "017" || phVal == "018" || phVal == "019"){
+		if(phVal.length == 10){
+			$("#PHONE_TEMP").val(ph);
+			ph = ph.substring(0,3)+"-"+ph.substring(3,6)+"-"+ph.substring(6,10);
+			$("#MBER_PHONE").val(ph);
+		}else{
+			$("#PHONE_TEMP").val(ph);
+			ph = ph.substring(0,3)+"-"+ph.substring(3,7)+"-"+ph.substring(7,11);
+			$("#MBER_PHONE").val(ph);
+		}
+	}else{
+		alert("휴대폰번호를 입력해주세요.");
+		$('#ph').focus();
+		return;
+	}
+
+	return true;
+
+}
+
+/* function confirmChek(){
+
+	if(!cfmValidate()){
+		return;
+	}
+
+	$('#ph').attr('disabled',false);
+
+	var documentHeight = $(window).height() - 60;
+	var documentWidth = $(window).width();
+	$(".full_iframe_auth").show().find('iframe').css('width', documentWidth+'px' );popup_show();
+	$(".full_iframe_auth").css('top', '30px').css('height', documentHeight+'px').css('left',0);
+
+	var form = document.frm;
+	form.target = "iframe_credit_auth";
+	form.method = "post";
+	form.action = "/mobile/common/nameConfPopup.do?MBER_PHONE="+$("#ph").val();
+	form.submit();
+
+} */
+
+/* ======================================================================
+Function : 본인인증 팝업
+Return   : CI, DI, NAME, IDEN
+========================================================================= */
+function userAuth(code){
+	//본인인증(다날) 팝업
+	if(!cfmValidate()){
+		return;
+	}
+
+
+	auth.createEl('iframe_phoneCredit');
+	auth.display();
+
+	var form = document.authFrm;
+	form.target = "iframe_phoneCredit";
+	form.method = "post";
+	form.action = "/mobile/common/nameConfPopup.do?MBER_PHONE="+$("#ph").val();
+	form.submit();
+}
+
+
+
+function getAuth(ci, di, name, tid, birth, sex){
+
+	/* console.log(ci);
+	console.log(di);
+	console.log(name);
+	console.log(tid);
+	console.log(birth);
+	console.log(sex); */
+
+	auth.removeEl();
+
+	/* $(".full_iframe_auth").show();popup_hide();
+	$(".full_iframe_auth").remove(); */
+//	$('#ph').attr('disabled',true);
+	$("#CI").val(ci);
+	$("#DI").val(di);
+	$("#MBER_NM").val(name);
+	$("#TID").val(tid);
+	$("#BIRTH").val(birth);
+	$("#SEX").val(sex);
+
+	$("#PHONE_CHECK").val("Y");
+	$('#ch').text('본인인증완료');
+	$('#ph').attr('disabled',true);
+	adultYn = isAdult(birth, 14);
+
+
+}
+
+// [2015-11-01] 취소버튼 이벤트 추가
+function popupBack(msg){
+	auth.removeEl();
+	if( !isNull(msg) ){
+		alert(msg);
+	}
+}
+
+
+function validate(){
+
+	var CMPNY_ZIP_CD = $("#CMPNY_ZIP_CD").val();
+	var CMPNY_JUSO_JIBEN = $("#CMPNY_JUSO_JIBEN").val();
+	var CMPNY_JUSO_DTL = $("#CMPNY_JUSO_DTL").val();
+	var CMPNY_JUSO_DORO = $("#CMPNY_JUSO_DORO").val();
+	var MINI_SHOP_NM = $("#MINI_SHOP_NM").val();
+	var MINI_SHOP_PATH = $("#MINI_SHOP_PATH").val();
+	var PHONE_CHECK = $("#PHONE_CHECK").val();
+
+	if(MINI_SHOP_NM.length == 0 ){
+		alert("미니샵 이름은 최대 20자까지 입력해주십시오.");
+		$('#MINI_SHOP_NM').focus();
+		return;
+	}
+
+	if(MINI_SHOP_PATH.length == 0 ){
+		alert("미니샵 주소를 입력해주세요.");
+		$('#MINI_SHOP_PATH').focus();
+		return;
+	}
+
+	if(PHONE_CHECK == "" ){
+		alert("휴대폰번호를 인증해주세요.");
+		$('#PHONE_CHECK').focus();
+		return;
+	}
+
+	if(PHONE_CHECK == "N" ){
+		alert("휴대폰번호가 일치하지 않습니다.");
+		$('#ph').attr('disabled',false);
+		$('#PHONE_CHECK').focus();
+		return;
+	}
+
+	if(CMPNY_ZIP_CD.length == 0 ){
+		alert("우편번호를 입력해주세요.");
+		$('#CMPNY_ZIP_CD').focus();
+		return;
+	}
+
+	if(CMPNY_JUSO_JIBEN.length == 0  && CMPNY_JUSO_DORO.length == 0 ){
+		alert("주소를 입력해주세요.");
+		$('#CMPNY_JUSO_JIBEN').focus();
+		return;
+	}
+
+	if(CMPNY_JUSO_DTL.length == 0 ){
+		alert("상세주소를 입력해주세요.");
+		$('#CMPNY_JUSO_DTL').focus();
+		return;
+	}
+
+
+
+
+
+
+	return true;
+}
+
+
+function selAddr(gubun,addr,jiben_addr,road_addr){
+
+	$('.add_layer').hide();
+	$('#wrap div#container').show();
+// 	$('#id_tile_footer').show();
+	// 1.도로명 , 2.지번
+	 if(gubun == "1"){
+
+			$("#CMPNY_ADDR_GB").val(gubun); // 우편번호
+			$("#CMPNY_ZIP_CD").val(addr); // 우편번호
+			$("#CMPNY_JUSO_DORO").val(road_addr);
+			$("#CMPNY_JUSO_JIBEN").val(jiben_addr);
+			$("#JUSO").val(road_addr);
+	 }else if(gubun == "2"){
+
+		    $("#CMPNY_ADDR_GB").val(gubun); // 우편번호
+			$("#CMPNY_ZIP_CD").val(addr); // 우편번호
+			$("#CMPNY_JUSO_DORO").val(road_addr);
+			$("#CMPNY_JUSO_JIBEN").val(jiben_addr);
+			$("#JUSO").val(road_addr);
+	 }
+
+
+	popup_hide();
+}
+
+
+function goPrePage () {
+
+	var url = "/mobile/join/sellEmailView.do";
+	frm.action = url;
+	frm.submit();
+
+}
+
+function del () {
+
+	 $("#MINI_SHOP_NM").val("");
+
+}
+
+
+</script>
+
+<!--  한들때문에 post로 전송해야 함. ykkim  -->
+<form id="frm" name="frm" method="post">
+
+<input type="hidden" name="MBER_EMAIL" id="MBER_EMAIL" value="${params.MBER_EMAIL}" />
+<input type="hidden" name="EMAIL_AGREE_YN" id="EMAIL_AGREE_YN" value="${params.EMAIL_AGREE_YN }"  />
+<input type="hidden" name="MBER_PASS" id="MBER_PASS" value="${params.MBER_PASS }"  />
+<input type="hidden" name="MBER_PHONE" id="MBER_PHONE" value=""  />
+<input type="hidden" name="MBER_NM" id="MBER_NM" value=""  />
+<input type="hidden" name="AGR_GB_CD" id="AGR_GB_CD" value=""  />
+<input type="hidden" name="SSO_GB_CD" id="SSO_GB_CD" value="${params.SSO_GB_CD }"  />
+<input type="hidden" name="MBER_GB_CD" id="MBER_GB_CD" value="${params.MBER_GB_CD }"  />
+<input type="hidden" name="MBER_REG_GB_CD" id="MBER_REG_GB_CD" value="${params.MBER_REG_GB_CD }"  />
+<c:forEach var="list" items="${params.AGR_SEQ_VER}" varStatus="status">
+	<input type="hidden" id="agrSeq${status.index }" name="AGR_SEQ_VER[]" value="${list}" />
+</c:forEach>
+<input type="hidden" name="CALL" id="CALL" value="${params.CALL }"  />
+<input type="hidden" name="AGR_SEQ_VER_N" id="AGR_SEQ_VER_N" value="${params.AGR_SEQ_VER_N }"  />
+<input type="hidden" name="MBER_PHONE" id="MBER_PHONE" value=""  />
+<input type="hidden" name="PHONE_CHECK" id="PHONE_CHECK" value="" />
+<input type="hidden" name="PHONE_TEMP" id="PHONE_TEMP" value="" />
+<input type="hidden" name="CI" id="CI" value="" />
+<input type="hidden" name="DI" id="DI" value="" />
+<input type="hidden" name="MBER_NM" id="MBER_NM" value="" />
+<input type="hidden" name="TID" id="TID" value="" />
+<input type="hidden" name="BIRTH" id="BIRTH" value="" />
+<input type="hidden" name="SEX" id="SEX" value="" />
+
+<input type="hidden" id="CMPNY_ADDR_GB" 	name="CMPNY_ADDR_GB" 	value=""/><!-- 주소구분코드 	-->
+<input type="hidden" name="CMPNY_JUSO_DORO" id="CMPNY_JUSO_DORO" value=""  />
+<input type="hidden" name="CMPNY_JUSO_JIBEN" id="CMPNY_JUSO_JIBEN" value=""  />
+
+
+    <!-- container -->
+	<div id="container">
+        <ul class="step">
+        	<li>약관동의</li>
+        	<li class="active">회원정보 입력</li>
+        	<li>가입완료</li>
+        </ul>
+        <p class="title">2. 미니샵 이름과 주소, 판매자 주소를 입력해주세요.</p>
+        <div class="content">
+             <ul class="sbox01">
+                <li>
+                	<div class="input_text">
+                        <input type="text"  placeholder="미니샵 이름 입력" id="MINI_SHOP_NM" name="MINI_SHOP_NM" maxlength="20">
+<!--                         <input type="text" onClick="$('#tooltip01').toggle();" placeholder="미니샵 이름 입력" id="MINI_SHOP_NM" name="MINI_SHOP_NM" maxlength="20"> -->
+                         <a href="#"><img src="http://static.ssocio.net/web/images/ico_del.png" alt="삭제" onclick="del();"></a>
+                    	<div id="tooltip01" class="tooltip" onClick="$('#tooltip01').hide();">
+                        	<p class="arrow"></p>
+                            <p class="box"><strong>미니샵을 통해 쏘시오에서 본인의 상점을 가질 수 있습니다.</strong><br>예) 다날쏘시오, 쏘시오짱, 헬로쏘시오, 쏘시오구구</p>
+                        </div>
+                    </div>
+                </li>
+                <li class="text line-dot">
+                	<p>* 최대 20자까지 입력 가능합니다.</p>
+                    <p>* 한글, 영문, 숫자, 특수문자까지 입력 가능합니다.</p>
+                </li>
+                <li>
+                	<div class="inner_bx">
+                        <span class="fl"><input type="text" value = "http://mall.ssocio.com"  disabled="disabled" ></span>
+                        <span class="fr"><input type="text"  placeholder="미니샵 주소 입력" id="MINI_SHOP_PATH" name="MINI_SHOP_PATH" maxlength="20" value=""></span>
+                    </div>
+                    <div id="tooltip02" class="tooltip" onClick="$('#tooltip02').hide();">
+                        <p class="arrow"></p>
+                        <p class="box"><strong>미니샵 주소를 입력해 주세요.</strong><br>예) danalssocio, ssocio, hellossocio, ssocio99</p>
+                    </div>
+                </li>
+                <li class="text line-dot">
+                    <p>* 영문, 숫자 포함 최대 20자 까지 입력 가능합니다.</p>
+                </li>
+
+                <li class="mb0">
+                    <table class="tbl-data">
+                        <colgroup>
+                            <col width="*">
+                        </colgroup>
+                        <tbody>
+                        	<tr class="line">
+                                <td class="pd5">
+                                    <ul class="add">
+                                        <li>
+							                <input type="text" placeholder="휴대폰번호입력" id="ph" name="ph"  onkeyup="numberOnly(this);" maxlength="11" class="fl" >
+							              <%--   <a href="javascript:userAuth('${sessionScope.APP}');" class="btn_r">본인인증</a> --%>
+<%-- 							                 <a href="javascript:userAuth('${sessionScope.APP}');" id="ch" class="send btn_b">본인인증하기</a>                 --%>
+							                 <a href="#none" id="ch" onclick="userAuth('${sessionScope.APP}');" class="send btn_b">본인인증하기</a>
+						                </li>
+                                    </ul>
+                                    <p class="text mt10">* 휴대폰번호 입력시 (-)는 제외하고 입력해주세요.</p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <ul class="add">
+                                        <li><input type="text" class="fl" id="CMPNY_ZIP_CD" name="CMPNY_ZIP_CD" maxlength="5" readonly><a href="javascript:postShow();" class="btn_b fr">우편번호</a></li>
+                                        <li><input type="text" id="JUSO" name="JUSO" readonly maxlength="50"></li>
+                                        <li><input type="text" placeholder="상세 주소 입력" id="CMPNY_JUSO_DTL" name="CMPNY_JUSO_DTL" maxlength="60"></li>
+                                    </ul>
+                                    <p class="text mt10">* 우편번호와 나머지 주소를 반드시 입력해주세요.</p>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </li>
+
+            </ul>
+       </div>
+        <div class="btn_enter">
+            <ul>
+            	<li><input type="button" class="btn_r-line" value="이전" title="이전" alt="이전" onclick="goPrePage();"></li>
+            	<li><input type="button" class="btn_r" value="다음 " title="다음 " alt="다음 " onclick="goAccount();"></li>
+            </ul>
+        </div>
+    </div>
+    <!-- //container -->
+<div class="popup full_iframe_auth">
+	<iframe name="iframe_credit_auth" src="" style="width:327px; height:452px;"></iframe>
+</div>
+
+</form>
+<form id="authFrm" name="authFrm" method="post">
+	<input type="hidden" id="authPhone" name="authPhone" />
+</form>
+<div  id="phonediv" style="left: 0px; top: 0;  display: block; height: 100%; width: 100%">
+</div>
+

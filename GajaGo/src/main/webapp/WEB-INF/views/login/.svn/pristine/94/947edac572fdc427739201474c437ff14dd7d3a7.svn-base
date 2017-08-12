@@ -1,0 +1,1332 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="mobileSearchMapper">
+
+<!-- 사용자 카테고리코드  -->
+	<select id="selectDefaultCtry" resultType="String">
+		SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'SITE_DEFAULT' AND COM_CD = 'CTRY_TEMP'
+	</select>
+
+	<select id="selectListProd" parameterType="hashmap" resultType="hashmap">
+	<![CDATA[
+		SELECT PROD.PROD_CODE AS PROD_CODE 
+      , PROD.CTRY_CD AS CTRY_CD 
+      , PROD.DLV_WAY_CD
+      , PROD.CTRY AS CTRY
+      , PROD.PROD_TYPE_CD AS PROD_TYPE_CD 
+      , PROD.PROD_NM AS PROD_NM 
+      , PROD.BRAND_CD AS BRAND_CD 
+      , PROD.KEYWORD AS KEYWORD 
+      , PROD.RECOM_YN AS RECOM_YN 
+      , PROD.BUY_PRCE AS BUY_PRCE 
+      , PROD.NRM_PRCE AS NRM_PRCE 
+      , PROD.SELL_PRCE AS SELL_PRCE 
+      , PROD.CPON_APPLY_PSBL_YN AS CPON_APPLY_PSBL_YN 
+      , PROD.DLV_PAY_GB_CD AS DLV_PAY_GB_CD 
+      , PROD.DLV_PRCE_TYPE_NM AS DLV_PRCE_TYPE_NM 
+      , PROD.REGIST_DT AS REGIST_DT 
+      , PROD.BRAND_NM AS BRAND_NM 
+      , PROD.PROD_IMG_URL AS PROD_IMG_URL 
+      , PROD.ORD_QTY AS ORD_QTY
+      , PROD.CNT AS CNT 
+      ,PROD.FILE_URL AS FILE_URL
+      ,(SELECT  FILE_URL FROM FILE_INFO WHERE FILE_SEQ = PROD.TELCOM_IMG) AS TEL_FILE_URL
+      ,PROD.TELCOM_NM
+  FROM (
+      SELECT 
+                  X.PROD_CODE AS PROD_CODE,
+                  X.DLV_WAY_CD,
+                  X.CTRY_CD   AS CTRY_CD ,
+                  SUBSTR(X.CTRY_CD,1,4) CTRY ,
+                  X.PROD_TYPE_CD        AS PROD_TYPE_CD ,
+                  X.PROD_NM             AS PROD_NM ,
+                  X.BRAND_CD            AS BRAND_CD ,
+                  X.RECOM_YN            AS RECOM_YN ,
+                  X.KEYWORD             AS KEYWORD ,
+                  NVL(X.BUY_PRCE,0)     AS BUY_PRCE ,
+                  NVL(X.NRM_PRCE,0)     AS NRM_PRCE ,
+                  X.CPON_APPLY_PSBL_YN  AS CPON_APPLY_PSBL_YN ,
+                  X.DLV_PAY_GB_CD       AS DLV_PAY_GB_CD ,
+                  X.DLV_PRCE_TYPE_NM    AS DLV_PRCE_TYPE_NM ,
+                  BI.BRAND_NM           AS BRAND_NM ,
+                  PI.PROD_IMG_URL       AS PROD_IMG_URL ,
+                  NVL(OP.ORD_QTY,0)     AS ORD_QTY ,
+                  COUNT(PBCI.PROD_CODE) AS CNT,
+                  NVL(DECODE(X.PROD_TYPE_CD, '2',PS.SHARING_PRICE,'4', SPD.SHARING_PRICE, X.SELL_PRCE),0) AS SELL_PRCE,
+                  STEL.TELCOM_IMG AS TELCOM_IMG,
+                   STEL.TELCOM_NM AS TELCOM_NM,
+                  FILEI.FILE_URL AS FILE_URL,
+                  DECODE(X.PROD_TYPE_CD ,'4', SP.REGIST_DT, X.REGIST_DT ) AS REGIST_DT
+         FROM     ( SELECT PROD_CODE ,
+         					DLV_WAY_CD,
+                          CTRY_CD ,
+                          PROD_TYPE_CD ,
+                          PROD_NM ,
+                          BRAND_CD ,
+                          RECOM_YN ,
+                          KEYWORD ,
+                          BUY_PRCE ,
+                          NRM_PRCE ,
+                          SELL_PRCE ,
+                          NVL(CPON_APPLY_PSBL_YN,'N') AS CPON_APPLY_PSBL_YN ,
+                          DLV_PAY_GB_CD ,
+                          (SELECT COM_CD_NM
+                          FROM    CODE
+                          WHERE   GRP_CD = 'DLV_PAY_GB_CD'
+                          AND     COM_CD = DLV_PAY_GB_CD
+                          )
+                          AS DLV_PRCE_TYPE_NM ,
+                          REGIST_DT
+                  FROM    PROD
+                  WHERE   PROD_STAT_CD = '0'
+                  AND     PROD_TYPE_CD IN ('1',
+                                           '2',
+                                           '4',
+                                           '5')
+                  UNION
+                  
+                  SELECT PROD_CODE ,
+                  			DLV_WAY_CD,
+                         CTRY_CD ,
+                         PROD_TYPE_CD ,
+                         PROD_NM ,
+                         BRAND_CD ,
+                         RECOM_YN ,
+                         KEYWORD ,
+                         BUY_PRCE ,
+                         NRM_PRCE ,
+                         SELL_PRCE ,
+                         NVL(CPON_APPLY_PSBL_YN,'N') AS CPON_APPLY_PSBL_YN ,
+                         DLV_PAY_GB_CD ,
+                         (SELECT COM_CD_NM
+                         FROM    CODE
+                         WHERE   GRP_CD = 'DLV_PAY_GB_CD'
+                         AND     COM_CD = DLV_PAY_GB_CD
+                         )
+                         AS DLV_PRCE_TYPE_NM ,
+                         REGIST_DT
+                  FROM   PROD
+                  WHERE  PROD_STAT_CD      = '0'
+                  AND    PROD_TYPE_CD      = '3'
+                  AND REGIST_DT <= SYSDATE AND CEIL(FREESHARE_END_DT - SYSDATE) >= 0
+                  )
+                  X
+                   LEFT OUTER JOIN PROD_IMG PI
+                  ON       X.PROD_CODE       = PI.PROD_CODE
+                  AND      PI.PROD_IMG_GB_CD = '11'
+                  LEFT OUTER JOIN PROD_BUY_CONF_INFO PBCI
+                  ON       X.PROD_CODE = PBCI.PROD_CODE
+                  LEFT OUTER JOIN BRAND_INFO BI
+                  ON       X.BRAND_CD = BI.BRAND_CD
+                  LEFT OUTER JOIN PROD_SHARING PS
+                  ON       X.PROD_CODE = PS.PROD_CODE
+                  LEFT OUTER JOIN ORD_PROD_INFO OP
+                  ON       X.PROD_CODE = OP.PROD_CODE
+                  LEFT OUTER JOIN SP_PROD SP
+                  ON       X.PROD_CODE = SP.PROD_CODE
+                  LEFT OUTER JOIN SP_PROD_DTL SPD
+                  ON       X.PROD_CODE = SPD.PROD_CODE
+                  LEFT OUTER JOIN SP_TELCOM STEL
+                  ON       SP.TELCOM_CODE = STEL.TELCOM_CODE
+                    LEFT OUTER JOIN SP_IMAGE SIMAGE
+                  ON 		X.PROD_CODE = SIMAGE.PROD_CODE
+                  AND SIMAGE.SP_IMG_GB_CD = '11'
+                  LEFT OUTER JOIN FILE_INFO FILEI
+                  ON      FILEI.FILE_SEQ = SIMAGE.FILE_NO
+         GROUP BY 
+                  X.PROD_CODE,
+                  X.DLV_WAY_CD,
+                  X.CTRY_CD,
+                  X.PROD_TYPE_CD,
+                  X.PROD_NM,
+                  X.BRAND_CD,
+                  X.RECOM_YN,
+                  X.KEYWORD,
+                  X.BUY_PRCE,
+                  X.NRM_PRCE,
+                  X.SELL_PRCE,
+                  X.CPON_APPLY_PSBL_YN,
+                  X.DLV_PAY_GB_CD,
+                  X.DLV_PRCE_TYPE_NM,
+                  X.REGIST_DT,
+                  STEL.TELCOM_NM,
+                  PS.SHARING_PRICE,
+                  BI.BRAND_NM,
+                  PI.PROD_IMG_URL,
+                  OP.ORD_QTY,
+                  SPD.SHARING_PRICE,
+                   STEL.TELCOM_IMG,
+                  FILEI.FILE_URL,
+                  SP.REGIST_DT
+         ORDER BY CNT DESC
+         )
+         PROD 
+]]>
+WHERE 1=1
+<if test='PROD_CODE != "" and PROD_CODE != null'>
+AND PROD.PROD_CODE  IN 
+    <foreach collection="PROD_CODE" item="prodCode" open="(" close=")" separator=",">
+     #{prodCode}
+    </foreach>
+</if>
+<choose>
+<when test='ORDER_KIND == "REGIST"'>
+ORDER BY PROD.REGIST_DT DESC
+</when>
+<when test='ORDER_KIND == "HIGHPRCE"'>
+ORDER BY PROD.SELL_PRCE DESC
+</when>
+<when test='ORDER_KIND == "LOWPRCE"'>
+ORDER BY PROD.SELL_PRCE ASC
+</when>
+<otherwise>
+ORDER BY PROD.ORD_QTY DESC
+</otherwise>
+</choose>
+</select>
+
+
+
+
+	<select id="selectListCtryType" parameterType="hashmap" resultType="hashmap">
+			 <![CDATA[
+			SELECT '0000' AS CTRY,'스마트폰셰어링' AS CTRY_NM,'0000' AS CTRY_CD FROM DUAL
+      		UNION ALL
+			SELECT SUBSTR(CTRY_CD,1,4) CTRY    
+		      ,CTRY_NM      
+		      ,CTRY_CD
+		FROM CTRY
+		WHERE LVL_SEQ = '1'
+		AND VIEW_YN = 'Y'
+			]]>
+	</select>
+	
+	
+<select id="selectListProdALL" parameterType="hashmap" resultType="hashmap">
+	<![CDATA[
+	SELECT   
+          PROD.PROD_CODE          AS PROD_CODE ,
+         PROD.PROD_TYPE_CD       AS PROD_TYPE_CD ,
+         PROD.PROD_NM            AS PROD_NM ,
+         PROD.KEYWORD            AS KEYWORD ,
+         PROD.SELL_PRCE          AS SELL_PRCE ,
+         TO_CHAR(PROD.REGIST_DT,'YYYYMMDD')          AS REGIST_DT ,
+         PROD.ORD_QTY            AS ORD_QTY,
+          PROD.PROD_STAT_CD     AS PROD_STAT_CD,
+           PROD.CTRY     AS CTRY
+          FROM 
+          ( SELECT 
+                  X.PROD_CODE AS PROD_CODE,
+                  X.CTRY_CD   AS CTRY_CD ,
+                  SUBSTR(X.CTRY_CD,1,4) CTRY ,
+                  X.PROD_TYPE_CD        AS PROD_TYPE_CD ,
+                  X.PROD_NM             AS PROD_NM ,
+                  X.BRAND_CD            AS BRAND_CD ,
+                  X.RECOM_YN            AS RECOM_YN ,
+                  X.KEYWORD             AS KEYWORD ,
+                  NVL(X.BUY_PRCE,0)     AS BUY_PRCE ,
+                  NVL(X.NRM_PRCE,0)     AS NRM_PRCE ,
+                  X.CPON_APPLY_PSBL_YN  AS CPON_APPLY_PSBL_YN ,
+                  X.DLV_PAY_GB_CD       AS DLV_PAY_GB_CD ,
+                  X.DLV_PRCE_TYPE_NM    AS DLV_PRCE_TYPE_NM ,
+                  BI.BRAND_NM           AS BRAND_NM ,
+                  PI.PROD_IMG_URL       AS PROD_IMG_URL ,
+                  NVL(OP.ORD_QTY,0)     AS ORD_QTY ,
+                  COUNT(PBCI.PROD_CODE) AS CNT,
+                  NVL(DECODE(X.PROD_TYPE_CD, '2',PS.SHARING_PRICE,'4', SPD.SHARING_PRICE, X.SELL_PRCE),0) AS SELL_PRCE,
+                  STEL.TELCOM_IMG AS TELCOM_IMG,
+                  FILEI.FILE_URL AS FILE_URL,
+                  DECODE(X.PROD_TYPE_CD ,'4', SP.REGIST_DT, X.REGIST_DT ) AS REGIST_DT,
+                  X.PROD_STAT_CD AS PROD_STAT_CD
+         FROM     ( SELECT PROD_CODE ,
+                          CTRY_CD ,
+                          PROD_TYPE_CD ,
+                          PROD_NM ,
+                          BRAND_CD ,
+                          RECOM_YN ,
+                          KEYWORD ,
+                          BUY_PRCE ,
+                          NRM_PRCE ,
+                          SELL_PRCE ,
+                          NVL(CPON_APPLY_PSBL_YN,'N') AS CPON_APPLY_PSBL_YN ,
+                          DLV_PAY_GB_CD ,
+                          (SELECT COM_CD_NM
+                          FROM    CODE
+                          WHERE   GRP_CD = 'DLV_PAY_GB_CD'
+                          AND     COM_CD = DLV_PAY_GB_CD
+                          )
+                          AS DLV_PRCE_TYPE_NM ,
+                          REGIST_DT,
+                          PROD_STAT_CD
+                  FROM    PROD
+                  WHERE   PROD_STAT_CD = '0'
+                  AND     PROD_TYPE_CD IN ('1',
+                                           '2',
+                                           '4',
+                                           '5')
+                  AND
+                          (
+                                  NVL(STOCK_QTY, 1) - NVL(EXP_QTY, 0)
+                          )
+                          > 0
+                  
+                  UNION
+                  
+                  SELECT PROD_CODE ,
+                         CTRY_CD ,
+                         PROD_TYPE_CD ,
+                         PROD_NM ,
+                         BRAND_CD ,
+                         RECOM_YN ,
+                         KEYWORD ,
+                         BUY_PRCE ,
+                         NRM_PRCE ,
+                         SELL_PRCE ,
+                         NVL(CPON_APPLY_PSBL_YN,'N') AS CPON_APPLY_PSBL_YN ,
+                         DLV_PAY_GB_CD ,
+                         (SELECT COM_CD_NM
+                         FROM    CODE
+                         WHERE   GRP_CD = 'DLV_PAY_GB_CD'
+                         AND     COM_CD = DLV_PAY_GB_CD
+                         )
+                         AS DLV_PRCE_TYPE_NM ,
+                         REGIST_DT,
+                         PROD_STAT_CD
+                  FROM   PROD
+                  WHERE  PROD_STAT_CD      = '0'
+                  AND    PROD_TYPE_CD      = '3'
+                  AND REGIST_DT <= SYSDATE AND CEIL(FREESHARE_END_DT - SYSDATE) >= 0
+                  )
+                  X
+                   LEFT OUTER JOIN PROD_IMG PI
+                  ON       X.PROD_CODE       = PI.PROD_CODE
+                  AND      PI.PROD_IMG_GB_CD = '11'
+                  LEFT OUTER JOIN PROD_BUY_CONF_INFO PBCI
+                  ON       X.PROD_CODE = PBCI.PROD_CODE
+                  LEFT OUTER JOIN BRAND_INFO BI
+                  ON       X.BRAND_CD = BI.BRAND_CD
+                  LEFT OUTER JOIN PROD_SHARING PS
+                  ON       X.PROD_CODE = PS.PROD_CODE
+                  LEFT OUTER JOIN ORD_PROD_INFO OP
+                  ON       X.PROD_CODE = OP.PROD_CODE
+                  LEFT OUTER JOIN SP_PROD SP
+                  ON       X.PROD_CODE = SP.PROD_CODE
+                  LEFT OUTER JOIN SP_PROD_DTL SPD
+                  ON       X.PROD_CODE = SPD.PROD_CODE
+                  LEFT OUTER JOIN SP_TELCOM STEL
+                  ON       SP.TELCOM_CODE = STEL.TELCOM_CODE
+                    LEFT OUTER JOIN SP_IMAGE SIMAGE
+                  ON 		X.PROD_CODE = SIMAGE.PROD_CODE
+                  AND SIMAGE.SP_IMG_GB_CD = '11'
+                  LEFT OUTER JOIN FILE_INFO FILEI
+                  ON      FILEI.FILE_SEQ = SIMAGE.FILE_NO
+         GROUP BY 
+                  X.PROD_CODE,
+                  X.CTRY_CD,
+                  X.PROD_TYPE_CD,
+                  X.PROD_NM,
+                  X.BRAND_CD,
+                  X.RECOM_YN,
+                  X.KEYWORD,
+                  X.BUY_PRCE,
+                  X.NRM_PRCE,
+                  X.SELL_PRCE,
+                  X.CPON_APPLY_PSBL_YN,
+                  X.DLV_PAY_GB_CD,
+                  X.DLV_PRCE_TYPE_NM,
+                  X.REGIST_DT,
+                  X.PROD_STAT_CD,
+                  PS.SHARING_PRICE,
+                  BI.BRAND_NM,
+                  PI.PROD_IMG_URL,
+                  OP.ORD_QTY,
+                  SPD.SHARING_PRICE,
+                   STEL.TELCOM_IMG,
+                  FILEI.FILE_URL,
+                  SP.REGIST_DT
+         ORDER BY CNT DESC
+         )
+         PROD  
+]]>
+
+</select>
+
+	
+	<!-- 상위 카테고리 코드로 상품 개수 조회-->
+	<select id="selectCountProd" parameterType="hashmap" resultType="int">
+	<![CDATA[
+		SELECT COUNT(1) AS CNT
+		  FROM (
+		    SELECT 
+                  X.PROD_CODE AS PROD_CODE,
+                  X.CTRY_CD   AS CTRY_CD ,
+                  SUBSTR(X.CTRY_CD,1,4) CTRY ,
+                  X.PROD_TYPE_CD        AS PROD_TYPE_CD ,
+                  X.PROD_NM             AS PROD_NM ,
+                  X.BRAND_CD            AS BRAND_CD ,
+                  X.RECOM_YN            AS RECOM_YN ,
+                  X.KEYWORD             AS KEYWORD ,
+                  NVL(X.BUY_PRCE,0)     AS BUY_PRCE ,
+                  NVL(X.NRM_PRCE,0)     AS NRM_PRCE ,
+                  X.CPON_APPLY_PSBL_YN  AS CPON_APPLY_PSBL_YN ,
+                  X.DLV_PAY_GB_CD       AS DLV_PAY_GB_CD ,
+                  X.DLV_PRCE_TYPE_NM    AS DLV_PRCE_TYPE_NM ,
+                  BI.BRAND_NM           AS BRAND_NM ,
+                  PI.PROD_IMG_URL       AS PROD_IMG_URL ,
+                  NVL(OP.ORD_QTY,0)     AS ORD_QTY ,
+                  COUNT(PBCI.PROD_CODE) AS CNT,
+                  NVL(DECODE(X.PROD_TYPE_CD, '2',PS.SHARING_PRICE,'4', SPD.SHARING_PRICE, X.SELL_PRCE),0) AS SELL_PRCE,
+                  STEL.TELCOM_IMG AS TELCOM_IMG,
+                  FILEI.FILE_URL AS FILE_URL,
+                  DECODE(X.PROD_TYPE_CD ,'4', SP.REGIST_DT, X.REGIST_DT ) AS REGIST_DT
+         FROM     ( SELECT PROD_CODE ,
+                          CTRY_CD ,
+                          PROD_TYPE_CD ,
+                          PROD_NM ,
+                          BRAND_CD ,
+                          RECOM_YN ,
+                          KEYWORD ,
+                          BUY_PRCE ,
+                          NRM_PRCE ,
+                          SELL_PRCE ,
+                          NVL(CPON_APPLY_PSBL_YN,'N') AS CPON_APPLY_PSBL_YN ,
+                          DLV_PAY_GB_CD ,
+                          (SELECT COM_CD_NM
+                          FROM    CODE
+                          WHERE   GRP_CD = 'DLV_PAY_GB_CD'
+                          AND     COM_CD = DLV_PAY_GB_CD
+                          )
+                          AS DLV_PRCE_TYPE_NM ,
+                          REGIST_DT
+                  FROM    PROD
+                  WHERE   PROD_STAT_CD = '0'
+                  AND     PROD_TYPE_CD IN ('1',
+                                           '2',
+                                           '4',
+                                           '5')
+                  AND
+                          (
+                                  NVL(STOCK_QTY, 1) - NVL(EXP_QTY, 0)
+                          )
+                          > 0
+                  
+                  UNION
+                  
+                  SELECT PROD_CODE ,
+                         CTRY_CD ,
+                         PROD_TYPE_CD ,
+                         PROD_NM ,
+                         BRAND_CD ,
+                         RECOM_YN ,
+                         KEYWORD ,
+                         BUY_PRCE ,
+                         NRM_PRCE ,
+                         SELL_PRCE ,
+                         NVL(CPON_APPLY_PSBL_YN,'N') AS CPON_APPLY_PSBL_YN ,
+                         DLV_PAY_GB_CD ,
+                         (SELECT COM_CD_NM
+                         FROM    CODE
+                         WHERE   GRP_CD = 'DLV_PAY_GB_CD'
+                         AND     COM_CD = DLV_PAY_GB_CD
+                         )
+                         AS DLV_PRCE_TYPE_NM ,
+                         REGIST_DT
+                  FROM   PROD
+                  WHERE  PROD_STAT_CD      = '0'
+                  AND    PROD_TYPE_CD      = '3'
+                  AND    REGIST_DT        <= SYSDATE
+                  AND    FREESHARE_END_DT >= SYSDATE
+                  )
+                  X
+                   LEFT OUTER JOIN PROD_IMG PI
+                  ON       X.PROD_CODE       = PI.PROD_CODE
+                  AND      PI.PROD_IMG_GB_CD = '11'
+                  LEFT OUTER JOIN PROD_BUY_CONF_INFO PBCI
+                  ON       X.PROD_CODE = PBCI.PROD_CODE
+                  LEFT OUTER JOIN BRAND_INFO BI
+                  ON       X.BRAND_CD = BI.BRAND_CD
+                  LEFT OUTER JOIN PROD_SHARING PS
+                  ON       X.PROD_CODE = PS.PROD_CODE
+                  LEFT OUTER JOIN ORD_PROD_INFO OP
+                  ON       X.PROD_CODE = OP.PROD_CODE
+                  LEFT OUTER JOIN SP_PROD SP
+                  ON       X.PROD_CODE = SP.PROD_CODE
+                  LEFT OUTER JOIN SP_PROD_DTL SPD
+                  ON       X.PROD_CODE = SPD.PROD_CODE
+                  LEFT OUTER JOIN SP_TELCOM STEL
+                  ON       SP.TELCOM_CODE = STEL.TELCOM_CODE
+                    LEFT OUTER JOIN SP_IMAGE SIMAGE
+                  ON 		X.PROD_CODE = SIMAGE.PROD_CODE
+                  AND SIMAGE.SP_IMG_GB_CD = '11'
+                  LEFT OUTER JOIN FILE_INFO FILEI
+                  ON      FILEI.FILE_SEQ = SIMAGE.FILE_NO
+         GROUP BY 
+                  X.PROD_CODE,
+                  X.CTRY_CD,
+                  X.PROD_TYPE_CD,
+                  X.PROD_NM,
+                  X.BRAND_CD,
+                  X.RECOM_YN,
+                  X.KEYWORD,
+                  X.BUY_PRCE,
+                  X.NRM_PRCE,
+                  X.SELL_PRCE,
+                  X.CPON_APPLY_PSBL_YN,
+                  X.DLV_PAY_GB_CD,
+                  X.DLV_PRCE_TYPE_NM,
+                  X.REGIST_DT,
+                  PS.SHARING_PRICE,
+                  BI.BRAND_NM,
+                  PI.PROD_IMG_URL,
+                  OP.ORD_QTY,
+                  SPD.SHARING_PRICE,
+                   STEL.TELCOM_IMG,
+                  FILEI.FILE_URL,
+                  SP.REGIST_DT
+         ORDER BY CNT DESC
+         )
+         PROD 
+		]]>
+		where 1=1
+<if test='CTRY_CD != "" and CTRY_CD != null'>
+AND PROD.CTRY  IN 
+    <foreach collection="CTRY_CD" item="ctryType" open="(" close=")" separator=",">
+     #{ctryType}
+    </foreach>
+</if>
+
+<if test='PROD_TYPE_CD != "" and PROD_TYPE_CD != null'>
+AND PROD.PROD_TYPE_CD  IN 
+    <foreach collection="PROD_TYPE_CD" item="prodType" open="(" close=")" separator=",">
+     #{prodType}
+    </foreach>
+</if>
+<if test='PROD_CODE != "" and PROD_CODE != null'>
+AND PROD.PROD_CODE  IN 
+    <foreach collection="PROD_CODE" item="prodCode" open="(" close=")" separator=",">
+     #{prodCode}
+    </foreach>
+</if>
+	</select>
+
+
+
+	<select id="selectCountProd2" parameterType="hashmap" resultType="int">
+	<![CDATA[
+		SELECT COUNT(1) AS CNT
+		  FROM (   SELECT 
+                  X.PROD_CODE AS PROD_CODE ,
+                  X.CTRY_CD   AS CTRY_CD ,
+                  SUBSTR(X.CTRY_CD,1,4) CTRY ,
+                  X.PROD_TYPE_CD        AS PROD_TYPE_CD ,
+                  X.PROD_NM             AS PROD_NM ,
+                  X.BRAND_CD            AS BRAND_CD ,
+                  X.RECOM_YN            AS RECOM_YN ,
+                  X.KEYWORD             AS KEYWORD ,
+                  NVL(X.BUY_PRCE,0)     AS BUY_PRCE ,
+                  NVL(X.NRM_PRCE,0)     AS NRM_PRCE ,
+                  NVL(X.SELL_PRCE,0)    AS SELL_PRCE ,
+                  X.CPON_APPLY_PSBL_YN  AS CPON_APPLY_PSBL_YN ,
+                  X.DLV_PAY_GB_CD       AS DLV_PAY_GB_CD ,
+                  X.DLV_PRCE_TYPE_NM    AS DLV_PRCE_TYPE_NM ,
+                  X.REGIST_DT           AS REGIST_DT ,
+                  NVL(PS.SHARING_PRICE ,0)     AS SHARING_PRCE ,
+                  BI.BRAND_NM           AS BRAND_NM ,
+                  PI.PROD_IMG_URL       AS PROD_IMG_URL ,
+                  NVL(OP.ORD_QTY,0)     AS ORD_QTY ,
+                  COUNT(PBCI.PROD_CODE) AS CNT,
+                  SPD.SHARING_PRICE AS SMART_SHARING_PRICE,
+                  STEL.TELCOM_IMG AS TELCOM_IMG,
+                  FILEI.FILE_URL AS FILE_URL
+         FROM     ( SELECT PROD_CODE ,
+                          CTRY_CD ,
+                          PROD_TYPE_CD ,
+                          PROD_NM ,
+                          BRAND_CD ,
+                          RECOM_YN ,
+                          KEYWORD ,
+                          BUY_PRCE ,
+                          NRM_PRCE ,
+                          SELL_PRCE ,
+                          NVL(CPON_APPLY_PSBL_YN,'N') AS CPON_APPLY_PSBL_YN ,
+                          DLV_PAY_GB_CD ,
+                          (SELECT COM_CD_NM
+                          FROM    CODE
+                          WHERE   GRP_CD = 'DLV_PAY_GB_CD'
+                          AND     COM_CD = DLV_PAY_GB_CD
+                          )
+                          AS DLV_PRCE_TYPE_NM ,
+                          REGIST_DT
+                  FROM    PROD
+                  WHERE   PROD_STAT_CD = '0'
+                  AND     PROD_TYPE_CD IN ('1',
+                                           '2',
+                                           '4',
+                                           '5')
+                  AND
+                          (
+                                  NVL(STOCK_QTY, 1) - NVL(EXP_QTY, 0)
+                          )
+                          > 0
+                  UNION
+                  SELECT PROD_CODE ,
+                         CTRY_CD ,
+                         PROD_TYPE_CD ,
+                         PROD_NM ,
+                         BRAND_CD ,
+                         RECOM_YN ,
+                         KEYWORD ,
+                         BUY_PRCE ,
+                         NRM_PRCE ,
+                         SELL_PRCE ,
+                         NVL(CPON_APPLY_PSBL_YN,'N') AS CPON_APPLY_PSBL_YN ,
+                         DLV_PAY_GB_CD ,
+                         (SELECT COM_CD_NM
+                         FROM    CODE
+                         WHERE   GRP_CD = 'DLV_PAY_GB_CD'
+                         AND     COM_CD = DLV_PAY_GB_CD
+                         )
+                         AS DLV_PRCE_TYPE_NM ,
+                         REGIST_DT
+                  FROM   PROD
+                  WHERE  PROD_STAT_CD      = '0'
+                  AND    PROD_TYPE_CD      = '3'
+                  AND    REGIST_DT        <= SYSDATE
+                  AND    FREESHARE_END_DT >= SYSDATE
+                  )
+                  X
+                   LEFT OUTER JOIN PROD_IMG PI
+                  ON       X.PROD_CODE       = PI.PROD_CODE
+                  AND      PI.PROD_IMG_GB_CD = '11'
+                  LEFT OUTER JOIN PROD_BUY_CONF_INFO PBCI
+                  ON       X.PROD_CODE = PBCI.PROD_CODE
+                  LEFT OUTER JOIN BRAND_INFO BI
+                  ON       X.BRAND_CD = BI.BRAND_CD
+                  LEFT OUTER JOIN PROD_SHARING PS
+                  ON       X.PROD_CODE = PS.PROD_CODE
+                  LEFT OUTER JOIN ORD_PROD_INFO OP
+                  ON       X.PROD_CODE = OP.PROD_CODE
+                  LEFT OUTER JOIN SP_PROD SP
+                  ON       X.PROD_CODE = SP.PROD_CODE
+                  LEFT OUTER JOIN SP_PROD_DTL SPD
+                  ON       X.PROD_CODE = SPD.PROD_CODE
+                  LEFT OUTER JOIN SP_TELCOM STEL
+                  ON       SP.TELCOM_CODE = STEL.TELCOM_CODE
+                    LEFT OUTER JOIN SP_IMAGE SIMAGE
+                  ON 		X.PROD_CODE = SIMAGE.PROD_CODE
+                  AND SIMAGE.SP_IMG_GB_CD = '11'
+                  LEFT OUTER JOIN FILE_INFO FILEI
+                  ON      FILEI.FILE_SEQ = SIMAGE.FILE_NO
+         GROUP BY 
+                  X.PROD_CODE,
+                  X.CTRY_CD,
+                  X.PROD_TYPE_CD,
+                  X.PROD_NM,
+                  X.BRAND_CD,
+                  X.RECOM_YN,
+                  X.KEYWORD,
+                  X.BUY_PRCE,
+                  X.NRM_PRCE,
+                  X.SELL_PRCE,
+                  X.CPON_APPLY_PSBL_YN,
+                  X.DLV_PAY_GB_CD,
+                  X.DLV_PRCE_TYPE_NM,
+                  X.REGIST_DT,
+                  PS.SHARING_PRICE,
+                  BI.BRAND_NM,
+                  PI.PROD_IMG_URL,
+                  OP.ORD_QTY,
+                  SPD.SHARING_PRICE,
+                   STEL.TELCOM_IMG,
+                  FILEI.FILE_URL
+         ORDER BY CNT DESC
+         )
+         PROD 
+		]]>
+		where 1=1
+<if test='CTRY_CD != "" and CTRY_CD != null'>
+AND PROD.CTRY  IN 
+    <foreach collection="CTRY_CD" item="ctryType" open="(" close=")" separator=",">
+     #{ctryType}
+    </foreach>
+</if>
+
+<if test='PROD_TYPE_CD != "" and PROD_TYPE_CD != null'>
+AND PROD.PROD_TYPE_CD  IN 
+    <foreach collection="PROD_TYPE_CD" item="prodType" open="(" close=")" separator=",">
+     #{prodType}
+    </foreach>
+</if>
+<if test='SEARCH_NM != "" and SEARCH_NM != null'>
+AND (PROD.PROD_NM  LIKE   '%' ||  #{SEARCH_NM}|| '%' OR PROD.KEYWORD  LIKE   '%' ||  #{SEARCH_NM}|| '%' )
+</if>
+	</select>
+
+	<select id="selectListProd2" parameterType="hashmap" resultType="hashmap">
+	<![CDATA[
+SELECT   * FROM(SELECT   
+          ROWNUM     AS PROD_RNUM ,
+          PROD.PROD_CODE          AS PROD_CODE ,
+         PROD.CTRY_CD            AS CTRY_CD ,
+         PROD.CTRY               AS CTRY ,
+         PROD.PROD_TYPE_CD       AS PROD_TYPE_CD ,
+         PROD.PROD_NM            AS PROD_NM ,
+         PROD.BRAND_CD           AS BRAND_CD ,
+         PROD.KEYWORD            AS KEYWORD ,
+         PROD.RECOM_YN           AS RECOM_YN ,
+         PROD.BUY_PRCE           AS BUY_PRCE ,
+         PROD.NRM_PRCE           AS NRM_PRCE ,
+         PROD.SELL_PRCE          AS SELL_PRCE ,
+         PROD.CPON_APPLY_PSBL_YN AS CPON_APPLY_PSBL_YN ,
+         PROD.DLV_PAY_GB_CD      AS DLV_PAY_GB_CD ,
+         PROD.DLV_PRCE_TYPE_NM   AS DLV_PRCE_TYPE_NM ,
+         PROD.REGIST_DT          AS REGIST_DT ,
+         PROD.SHARING_PRCE       AS SHARING_PRCE ,
+         PROD.BRAND_NM           AS BRAND_NM ,
+         PROD.PROD_IMG_URL       AS PROD_IMG_URL ,
+         PROD.ORD_QTY            AS ORD_QTY ,
+         PROD.CNT                AS CNT,
+        PROD.SMART_SHARING_PRICE AS SMART_SHARING_PRICE,
+        PROD.FILE_URL AS FILE_URL,
+          (SELECT  FILE_URL FROM FILE_INFO WHERE FILE_SEQ = PROD.TELCOM_IMG) AS TEL_FILE_URL
+          FROM 
+          (  SELECT 
+                  X.PROD_CODE AS PROD_CODE ,
+                  X.CTRY_CD   AS CTRY_CD ,
+                  SUBSTR(X.CTRY_CD,1,4) CTRY ,
+                  X.PROD_TYPE_CD        AS PROD_TYPE_CD ,
+                  X.PROD_NM             AS PROD_NM ,
+                  X.BRAND_CD            AS BRAND_CD ,
+                  X.RECOM_YN            AS RECOM_YN ,
+                  X.KEYWORD             AS KEYWORD ,
+                  NVL(X.BUY_PRCE,0)     AS BUY_PRCE ,
+                  NVL(X.NRM_PRCE,0)     AS NRM_PRCE ,
+                  NVL(X.SELL_PRCE,0)    AS SELL_PRCE ,
+                  X.CPON_APPLY_PSBL_YN  AS CPON_APPLY_PSBL_YN ,
+                  X.DLV_PAY_GB_CD       AS DLV_PAY_GB_CD ,
+                  X.DLV_PRCE_TYPE_NM    AS DLV_PRCE_TYPE_NM ,
+                  X.REGIST_DT           AS REGIST_DT ,
+                  PS.SHARING_PRICE      AS SHARING_PRCE ,
+                  BI.BRAND_NM           AS BRAND_NM ,
+                  PI.PROD_IMG_URL       AS PROD_IMG_URL ,
+                  NVL(OP.ORD_QTY,0)     AS ORD_QTY ,
+                  COUNT(PBCI.PROD_CODE) AS CNT,
+                  SPD.SHARING_PRICE AS SMART_SHARING_PRICE,
+                  STEL.TELCOM_IMG AS TELCOM_IMG,
+                  FILEI.FILE_URL AS FILE_URL
+         FROM     ( SELECT PROD_CODE ,
+                          CTRY_CD ,
+                          PROD_TYPE_CD ,
+                          PROD_NM ,
+                          BRAND_CD ,
+                          RECOM_YN ,
+                          KEYWORD ,
+                          BUY_PRCE ,
+                          NRM_PRCE ,
+                          SELL_PRCE ,
+                          NVL(CPON_APPLY_PSBL_YN,'N') AS CPON_APPLY_PSBL_YN ,
+                          DLV_PAY_GB_CD ,
+                          (SELECT COM_CD_NM
+                          FROM    CODE
+                          WHERE   GRP_CD = 'DLV_PAY_GB_CD'
+                          AND     COM_CD = DLV_PAY_GB_CD
+                          )
+                          AS DLV_PRCE_TYPE_NM ,
+                          REGIST_DT
+                  FROM    PROD
+                  WHERE   PROD_STAT_CD = '0'
+                  AND     PROD_TYPE_CD IN ('1',
+                                           '2',
+                                           '4',
+                                           '5')
+                  AND
+                          (
+                                  NVL(STOCK_QTY, 1) - NVL(EXP_QTY, 0)
+                          )
+                          > 0
+                  UNION
+                  SELECT PROD_CODE ,
+                         CTRY_CD ,
+                         PROD_TYPE_CD ,
+                         PROD_NM ,
+                         BRAND_CD ,
+                         RECOM_YN ,
+                         KEYWORD ,
+                         BUY_PRCE ,
+                         NRM_PRCE ,
+                         SELL_PRCE ,
+                         NVL(CPON_APPLY_PSBL_YN,'N') AS CPON_APPLY_PSBL_YN ,
+                         DLV_PAY_GB_CD ,
+                         (SELECT COM_CD_NM
+                         FROM    CODE
+                         WHERE   GRP_CD = 'DLV_PAY_GB_CD'
+                         AND     COM_CD = DLV_PAY_GB_CD
+                         )
+                         AS DLV_PRCE_TYPE_NM ,
+                         REGIST_DT
+                  FROM   PROD
+                  WHERE  PROD_STAT_CD      = '0'
+                  AND    PROD_TYPE_CD      = '3'
+                  AND    REGIST_DT        <= SYSDATE
+                  AND    FREESHARE_END_DT >= SYSDATE
+                  )
+                  X
+                   LEFT OUTER JOIN PROD_IMG PI
+                  ON       X.PROD_CODE       = PI.PROD_CODE
+                  AND      PI.PROD_IMG_GB_CD = '11'
+                  LEFT OUTER JOIN PROD_BUY_CONF_INFO PBCI
+                  ON       X.PROD_CODE = PBCI.PROD_CODE
+                  LEFT OUTER JOIN BRAND_INFO BI
+                  ON       X.BRAND_CD = BI.BRAND_CD
+                  LEFT OUTER JOIN PROD_SHARING PS
+                  ON       X.PROD_CODE = PS.PROD_CODE
+                  LEFT OUTER JOIN ORD_PROD_INFO OP
+                  ON       X.PROD_CODE = OP.PROD_CODE
+                  LEFT OUTER JOIN SP_PROD SP
+                  ON       X.PROD_CODE = SP.PROD_CODE
+                  LEFT OUTER JOIN SP_PROD_DTL SPD
+                  ON       X.PROD_CODE = SPD.PROD_CODE
+                  LEFT OUTER JOIN SP_TELCOM STEL
+                  ON       SP.TELCOM_CODE = STEL.TELCOM_CODE
+                    LEFT OUTER JOIN SP_IMAGE SIMAGE
+                  ON 		X.PROD_CODE = SIMAGE.PROD_CODE
+                  AND SIMAGE.SP_IMG_GB_CD = '11'
+                  LEFT OUTER JOIN FILE_INFO FILEI
+                  ON      FILEI.FILE_SEQ = SIMAGE.FILE_NO
+         GROUP BY 
+                  X.PROD_CODE,
+                  X.CTRY_CD,
+                  X.PROD_TYPE_CD,
+                  X.PROD_NM,
+                  X.BRAND_CD,
+                  X.RECOM_YN,
+                  X.KEYWORD,
+                  X.BUY_PRCE,
+                  X.NRM_PRCE,
+                  X.SELL_PRCE,
+                  X.CPON_APPLY_PSBL_YN,
+                  X.DLV_PAY_GB_CD,
+                  X.DLV_PRCE_TYPE_NM,
+                  X.REGIST_DT,
+                  PS.SHARING_PRICE,
+                  BI.BRAND_NM,
+                  PI.PROD_IMG_URL,
+                  OP.ORD_QTY,
+                  SPD.SHARING_PRICE,
+                   STEL.TELCOM_IMG,
+                  FILEI.FILE_URL
+         ORDER BY CNT DESC
+         )
+         PROD 
+]]>
+WHERE 1=1
+<if test='SEARCH_NM != "" and SEARCH_NM != null'>
+AND (PROD.PROD_NM  LIKE   '%' ||  #{SEARCH_NM}|| '%' OR PROD.KEYWORD  LIKE   '%' ||  #{SEARCH_NM}|| '%' )
+</if>
+<if test='CTRY_CD != "" and CTRY_CD != null'>
+AND PROD.CTRY  IN 
+    <foreach collection="CTRY_CD" item="ctryType" open="(" close=")" separator=",">
+     #{ctryType}
+    </foreach>
+</if>
+
+<if test='PROD_TYPE_CD != "" and PROD_TYPE_CD != null'>
+AND PROD.PROD_TYPE_CD  IN 
+    <foreach collection="PROD_TYPE_CD" item="prodType" open="(" close=")" separator=",">
+     #{prodType}
+    </foreach>
+</if>
+<choose>
+<when test="ORDER_KIND == 'REGIST'">
+ORDER BY PROD.REGIST_DT DESC
+</when>
+<when test="ORDER_KIND == 'HIGHPRCE'">
+ORDER BY PROD.SELL_PRCE DESC
+</when>
+<when test="ORDER_KIND == 'LOWPRCE'">
+ORDER BY PROD.SELL_PRCE ASC
+</when>
+<otherwise>
+ORDER BY PROD.ORD_QTY DESC
+</otherwise>
+</choose>
+
+) PROD_ALL
+where  
+      PROD_ALL.PROD_RNUM     <![CDATA[>=]]> #{S_NUM}
+AND      PROD_ALL.PROD_RNUM      <![CDATA[<=]]> #{E_NUM}
+ORDER BY PROD_ALL.PROD_RNUM
+
+</select>
+
+
+
+	
+	
+	<!-- 상품 유형 및 개수 조회-->
+	<select id="selectListProdType" parameterType="hashmap" resultType="hashmap">
+		
+			 		SELECT '0' AS PROD_TYPE_CD 
+			      , '전체 상품' AS PROD_TYPE_NM 
+			      , COUNT(X.PROD_CODE) AS PROD_TYPE_CNT 
+			FROM(
+			      SELECT A.PROD_CODE      
+			            , A.CTRY_CD
+			            , A.CTRY
+			      FROM ( 
+			       <if test='check3Type == "Y" '>     
+			            SELECT PROD_CODE 
+			                  , CTRY_CD
+			                  , SUBSTR(CTRY_CD,1,4) CTRY    
+			            FROM PROD 
+			            WHERE PROD_STAT_CD = '0' 
+			            AND PROD_TYPE_CD = '3'
+			            AND REGIST_DT	 <![CDATA[ <= ]]> SYSDATE 
+			            AND FREESHARE_END_DT >= SYSDATE 
+						      <if test='PROD_CODE != "" and PROD_CODE != null'>
+							AND PROD.PROD_CODE  IN 
+							    <foreach collection="PROD_CODE" item="prodCode" open="(" close=")" separator=",">
+							     #{prodCode}
+							    </foreach>
+							</if>
+							</if>     
+			    	<if test='check3Type == "Y" and checkOtherType == "Y"'>     
+			            UNION      
+			        </if> 
+			      <if test='checkOtherType == "Y" '>      
+			            SELECT PROD_CODE 
+			                  , CTRY_CD
+			                  , SUBSTR(CTRY_CD,1,4) CTRY    
+			            FROM PROD 
+			            WHERE PROD_STAT_CD = '0' 
+				    AND (NVL(STOCK_QTY, 1) - NVL(EXP_QTY, 0)) > 0 
+				    <if test='PROD_CODE != "" and PROD_CODE != null'>
+					AND PROD.PROD_CODE  IN 
+					    <foreach collection="PROD_CODE" item="prodCode" open="(" close=")" separator=",">
+					     #{prodCode}
+					    </foreach>
+					</if>
+				       AND PROD_TYPE_CD IN
+				    <foreach collection="PROD_TYPE_CD" item="prodCode" open="(" close=")" separator=",">
+				     #{prodCode}
+				    </foreach>
+				</if>
+			            
+			      ) A
+			
+				where 1=1
+				<if test='CTRY_CD != "" and CTRY_CD != null'>
+				AND A.CTRY IN
+				    <foreach collection="CTRY_CD" item="ctryType" open="(" close=")" separator=",">
+				     #{ctryType}
+				    </foreach>
+				</if>
+
+			)X
+			 UNION ALL 
+			SELECT Y.PROD_TYPE_CD      
+			      , Y.PROD_TYPE_NM
+			      , NVL(COUNT(Y.PROD_CODE),0) AS PROD_TYPE_CNT
+			FROM(      
+			      SELECT A.PROD_CODE      
+			             , A.CTRY_CD
+			             , A.CTRY
+			             , A.PROD_TYPE_CD
+			             , (SELECT COM_CD_NM FROM CODE WHERE A.PROD_TYPE_CD = COM_CD AND GRP_CD = 'PROD_TYPE_CD' ) AS PROD_TYPE_NM
+			      FROM (
+			           <if test='check3Type == "Y" '>     
+			            SELECT PROD_TYPE_CD
+			            		,PROD_CODE 
+			                  , CTRY_CD
+			                  , SUBSTR(CTRY_CD,1,4) CTRY    
+			            FROM PROD 
+			            WHERE PROD_STAT_CD = '0' 
+			            AND PROD_TYPE_CD = '3'
+			            AND REGIST_DT	 <![CDATA[ <= ]]> SYSDATE 
+			            AND FREESHARE_END_DT >= SYSDATE 
+			           <if test='PROD_CODE != "" and PROD_CODE != null'>
+							AND PROD.PROD_CODE  IN 
+							    <foreach collection="PROD_CODE" item="prodCode" open="(" close=")" separator=",">
+							     #{prodCode}
+							    </foreach>
+							</if>
+			       </if>     
+			    	<if test='check3Type == "Y" and checkOtherType == "Y"'>     
+			            UNION      
+			        </if> 
+			      <if test='checkOtherType == "Y" '>      
+			            SELECT PROD_TYPE_CD
+			            		,	PROD_CODE 
+			                  , CTRY_CD
+			                  , SUBSTR(CTRY_CD,1,4) CTRY    
+			            FROM PROD 
+			            WHERE PROD_STAT_CD = '0' 
+				    AND (NVL(STOCK_QTY, 1) - NVL(EXP_QTY, 0)) > 0 
+				     <if test='PROD_CODE != "" and PROD_CODE != null'>
+						AND PROD.PROD_CODE  IN 
+						    <foreach collection="PROD_CODE" item="prodCode" open="(" close=")" separator=",">
+						     #{prodCode}
+						    </foreach>
+						</if>
+				       AND PROD_TYPE_CD IN
+				    <foreach collection="PROD_TYPE_CD" item="prodCode" open="(" close=")" separator=",">
+				     #{prodCode}
+				    </foreach>
+				</if>
+			      ) A
+			   
+				where 1=1
+				<if test='CTRY_CD != "" and CTRY_CD != null'>
+				AND A.CTRY IN
+				    <foreach collection="CTRY_CD" item="ctryType" open="(" close=")" separator=",">
+				     #{ctryType}
+				    </foreach>
+				</if>
+			) Y
+			 GROUP BY PROD_TYPE_CD ,PROD_TYPE_NM
+	</select>
+	
+	
+		<select id="selectListProdType2" parameterType="hashmap" resultType="hashmap">
+		
+			 		SELECT '0' AS PROD_TYPE_CD 
+			      , '전체 상품' AS PROD_TYPE_NM 
+			      , COUNT(X.PROD_CODE) AS PROD_TYPE_CNT 
+			FROM(
+			      SELECT A.PROD_CODE      
+			            , A.CTRY_CD
+			            , A.CTRY
+			      FROM ( 
+			       <if test='check3Type == "Y" '>     
+			            SELECT PROD_CODE 
+			                  , CTRY_CD
+			                  , SUBSTR(CTRY_CD,1,4) CTRY    
+			            FROM PROD 
+			            WHERE PROD_STAT_CD = '0' 
+			            AND PROD_TYPE_CD = '3'
+			            AND REGIST_DT	 <![CDATA[ <= ]]> SYSDATE 
+			            AND FREESHARE_END_DT >= SYSDATE 
+			            <if test='SEARCH_NM != "" and SEARCH_NM != null'>
+						AND (PROD.PROD_NM  LIKE   '%' ||  #{SEARCH_NM}|| '%' OR PROD.KEYWORD  LIKE   '%' ||  #{SEARCH_NM}|| '%' )
+						</if>
+			       </if>     
+			    	<if test='check3Type == "Y" and checkOtherType == "Y"'>     
+			            UNION      
+			        </if> 
+			      <if test='checkOtherType == "Y" '>      
+			            SELECT PROD_CODE 
+			                  , CTRY_CD
+			                  , SUBSTR(CTRY_CD,1,4) CTRY    
+			            FROM PROD 
+			            WHERE PROD_STAT_CD = '0' 
+				    AND (NVL(STOCK_QTY, 1) - NVL(EXP_QTY, 0)) > 0 
+				    <if test='SEARCH_NM != "" and SEARCH_NM != null'>
+					AND (PROD.PROD_NM  LIKE   '%' ||  #{SEARCH_NM}|| '%' OR PROD.KEYWORD  LIKE   '%' ||  #{SEARCH_NM}|| '%' )
+					</if>
+				       AND PROD_TYPE_CD IN
+				    <foreach collection="PROD_TYPE_CD" item="prodCode" open="(" close=")" separator=",">
+				     #{prodCode}
+				    </foreach>
+				</if>
+			            
+			      ) A
+			
+				where 1=1
+				<if test='CTRY_CD != "" and CTRY_CD != null'>
+				AND A.CTRY IN
+				    <foreach collection="CTRY_CD" item="ctryType" open="(" close=")" separator=",">
+				     #{ctryType}
+				    </foreach>
+				</if>
+
+			)X
+			 UNION ALL 
+			SELECT Y.PROD_TYPE_CD      
+			      , Y.PROD_TYPE_NM
+			      , NVL(COUNT(Y.PROD_CODE),0) AS PROD_TYPE_CNT
+			FROM(      
+			      SELECT A.PROD_CODE      
+			             , A.CTRY_CD
+			             , A.CTRY
+			             , A.PROD_TYPE_CD
+			             , (SELECT COM_CD_NM FROM CODE WHERE A.PROD_TYPE_CD = COM_CD AND GRP_CD = 'PROD_TYPE_CD' ) AS PROD_TYPE_NM
+			      FROM (
+			           <if test='check3Type == "Y" '>     
+			            SELECT PROD_TYPE_CD
+			            		,PROD_CODE 
+			                  , CTRY_CD
+			                  , SUBSTR(CTRY_CD,1,4) CTRY    
+			            FROM PROD 
+			            WHERE PROD_STAT_CD = '0' 
+			            AND PROD_TYPE_CD = '3'
+			            AND REGIST_DT	 <![CDATA[ <= ]]> SYSDATE 
+			            AND FREESHARE_END_DT >= SYSDATE 
+			            <if test='SEARCH_NM != "" and SEARCH_NM != null'>
+						AND (PROD.PROD_NM  LIKE   '%' ||  #{SEARCH_NM}|| '%' OR PROD.KEYWORD  LIKE   '%' ||  #{SEARCH_NM}|| '%' )
+						</if>
+			       </if>     
+			    	<if test='check3Type == "Y" and checkOtherType == "Y"'>     
+			            UNION      
+			        </if> 
+			      <if test='checkOtherType == "Y" '>      
+			            SELECT PROD_TYPE_CD
+			            		,	PROD_CODE 
+			                  , CTRY_CD
+			                  , SUBSTR(CTRY_CD,1,4) CTRY    
+			            FROM PROD 
+			            WHERE PROD_STAT_CD = '0' 
+				    AND (NVL(STOCK_QTY, 1) - NVL(EXP_QTY, 0)) > 0 
+				       <if test='SEARCH_NM != "" and SEARCH_NM != null'>
+						AND (PROD.PROD_NM  LIKE   '%' ||  #{SEARCH_NM}|| '%' OR PROD.KEYWORD  LIKE   '%' ||  #{SEARCH_NM}|| '%' )
+						</if>
+				       AND PROD_TYPE_CD IN
+				    <foreach collection="PROD_TYPE_CD" item="prodCode" open="(" close=")" separator=",">
+				     #{prodCode}
+				    </foreach>
+				</if>
+			      ) A
+			   
+				where 1=1
+				<if test='CTRY_CD != "" and CTRY_CD != null'>
+				AND A.CTRY IN
+				    <foreach collection="CTRY_CD" item="ctryType" open="(" close=")" separator=",">
+				     #{ctryType}
+				    </foreach>
+				</if>
+			) Y
+			 GROUP BY PROD_TYPE_CD ,PROD_TYPE_NM
+	</select>
+	
+	
+	<select id="selectListProdTypeALL" parameterType="hashmap" resultType="hashmap">
+							 SELECT '0' AS PROD_TYPE_CD 
+				      , '전체 상품' AS PROD_TYPE_NM 
+				      , COUNT(X.PROD_CODE) AS PROD_TYPE_CNT 
+				FROM ( 
+				      SELECT PROD_CODE 
+				      FROM PROD 
+				      WHERE PROD_STAT_CD = '0' 
+				      AND PROD_TYPE_CD = '3'
+				      AND REGIST_DT <![CDATA[<=]]> SYSDATE 
+				      AND FREESHARE_END_DT >= SYSDATE 
+				        <if test='PROD_CODE != "" and PROD_CODE != null'>
+						AND PROD_CODE  IN 
+						    <foreach collection="PROD_CODE" item="prodCode" open="(" close=")" separator=",">
+						     #{prodCode}
+						    </foreach>
+						</if>			
+						<if test='CTRY_CD != "" and CTRY_CD != null'>
+						AND SUBSTR(CTRY_CD,1,4) IN
+						    <foreach collection="CTRY_CD" item="ctryType" open="(" close=")" separator=",">
+						     #{ctryType}
+						    </foreach>
+						</if>
+						
+				      UNION       
+	
+				      SELECT PROD_CODE 
+				      FROM PROD 
+				      WHERE PROD_STAT_CD = '0' 
+				      AND PROD_TYPE_CD IN ('1','2','4','5') 
+				      AND (NVL(STOCK_QTY, 1) - NVL(EXP_QTY, 0)) > 0 
+						 <if test='PROD_CODE != "" and PROD_CODE != null'>
+						AND PROD_CODE  IN 
+						    <foreach collection="PROD_CODE" item="prodCode" open="(" close=")" separator=",">
+						     #{prodCode}
+						    </foreach>
+						</if>			
+						<if test='CTRY_CD != "" and CTRY_CD != null'>
+						AND SUBSTR(CTRY_CD,1,4) IN
+						    <foreach collection="CTRY_CD" item="ctryType" open="(" close=")" separator=",">
+						     #{ctryType}
+						    </foreach>
+						</if>
+				     
+						
+				) X 
+				     
+				      UNION ALL 
+				( 
+				      SELECT X.COM_CD AS PROD_TYPE_CD 
+				      , X.COM_CD_NM AS PROD_TYPE_NM 
+				      , NVL(Y.COM_CD_CNT, 0) AS PROD_TYPE_CNT 
+				      FROM CODE X 
+				      LEFT OUTER JOIN (
+				              SELECT PROD_TYPE_CD 
+				                    , COUNT(PROD_CODE) AS COM_CD_CNT 
+				              FROM PROD WHERE PROD_STAT_CD = '0' 
+				              AND PROD_TYPE_CD IN ('1','2','4','5') 
+				              AND (NVL(STOCK_QTY, 1) - NVL(EXP_QTY, 0)) > 0 
+						       <if test='PROD_CODE != "" and PROD_CODE != null'>
+								AND PROD_CODE  IN 
+								    <foreach collection="PROD_CODE" item="prodCode" open="(" close=")" separator=",">
+								     #{prodCode}
+								    </foreach>
+								</if>			
+								<if test='CTRY_CD != "" and CTRY_CD != null'>
+								AND SUBSTR(CTRY_CD,1,4) IN
+								    <foreach collection="CTRY_CD" item="ctryType" open="(" close=")" separator=",">
+								     #{ctryType}
+								    </foreach>
+								</if>
+				              GROUP BY PROD_TYPE_CD
+    
+				              UNION 
+
+				              SELECT PROD_TYPE_CD 
+				                    , COUNT(PROD_CODE) AS COM_CD_CNT 
+				              FROM PROD 
+				              WHERE PROD_STAT_CD = '0' 
+				              AND PROD_TYPE_CD = '3' 
+				              AND REGIST_DT <![CDATA[<=]]> SYSDATE 
+				              AND FREESHARE_END_DT >= SYSDATE 
+				               <if test='PROD_CODE != "" and PROD_CODE != null'>
+								AND PROD_CODE  IN 
+								    <foreach collection="PROD_CODE" item="prodCode" open="(" close=")" separator=",">
+								     #{prodCode}
+								    </foreach>
+								</if>			
+								<if test='CTRY_CD != "" and CTRY_CD != null'>
+								AND SUBSTR(CTRY_CD,1,4) IN
+								    <foreach collection="CTRY_CD" item="ctryType" open="(" close=")" separator=",">
+								     #{ctryType}
+								    </foreach>
+								</if>
+				               GROUP BY PROD_TYPE_CD
+
+				            
+				        ) Y ON Y.PROD_TYPE_CD = X.COM_CD 
+				        WHERE X.GRP_CD = 'PROD_TYPE_CD' 
+				) 
+				ORDER BY PROD_TYPE_CD 
+			  
+	</select>
+	
+	
+	
+	<select id="selectListProdTypeALL2" parameterType="hashmap" resultType="hashmap">
+							 SELECT '0' AS PROD_TYPE_CD 
+				      , '전체 상품' AS PROD_TYPE_NM 
+				      , COUNT(X.PROD_CODE) AS PROD_TYPE_CNT 
+				FROM ( 
+				      SELECT PROD_CODE 
+				      FROM PROD 
+				      WHERE PROD_STAT_CD = '0' 
+				      AND PROD_TYPE_CD = '3'
+				      AND REGIST_DT <![CDATA[<=]]> SYSDATE 
+				      AND FREESHARE_END_DT >= SYSDATE 
+				       <if test='SEARCH_NM != "" and SEARCH_NM != null'>
+						AND (PROD.PROD_NM  LIKE   '%' ||  #{SEARCH_NM}|| '%' OR PROD.KEYWORD  LIKE   '%' ||  #{SEARCH_NM}|| '%' )
+						</if>
+				       
+				      UNION       
+				    
+				      SELECT PROD_CODE 
+				      FROM PROD 
+				      WHERE PROD_STAT_CD = '0' 
+				      AND PROD_TYPE_CD IN ('1','2','4','5') 
+				      AND (NVL(STOCK_QTY, 1) - NVL(EXP_QTY, 0)) > 0 
+				       <if test='SEARCH_NM != "" and SEARCH_NM != null'>
+						AND (PROD.PROD_NM  LIKE   '%' ||  #{SEARCH_NM}|| '%' OR PROD.KEYWORD  LIKE   '%' ||  #{SEARCH_NM}|| '%' )
+						</if>
+				) X 
+				     
+				      UNION ALL 
+				( 
+				      SELECT X.COM_CD AS PROD_TYPE_CD 
+				      , X.COM_CD_NM AS PROD_TYPE_NM 
+				      , NVL(Y.COM_CD_CNT, 0) AS PROD_TYPE_CNT 
+				      FROM CODE X 
+				      LEFT OUTER JOIN (
+				              SELECT PROD_TYPE_CD 
+				                    , COUNT(PROD_CODE) AS COM_CD_CNT 
+				              FROM PROD WHERE PROD_STAT_CD = '0' 
+				              AND PROD_TYPE_CD IN ('1','2','4','5') 
+				              AND (NVL(STOCK_QTY, 1) - NVL(EXP_QTY, 0)) > 0 
+				               <if test='SEARCH_NM != "" and SEARCH_NM != null'>
+								AND (PROD.PROD_NM  LIKE   '%' ||  #{SEARCH_NM}|| '%' OR PROD.KEYWORD  LIKE   '%' ||  #{SEARCH_NM}|| '%' )
+								</if>
+				              GROUP BY PROD_TYPE_CD 
+				              
+				                          
+				              UNION 
+				              
+				              SELECT PROD_TYPE_CD 
+				                    , COUNT(PROD_CODE) AS COM_CD_CNT 
+				              FROM PROD 
+				              WHERE PROD_STAT_CD = '0' 
+				              AND PROD_TYPE_CD = '3' 
+				              AND REGIST_DT <![CDATA[<=]]> SYSDATE 
+				              AND FREESHARE_END_DT >= SYSDATE 
+				             <if test='SEARCH_NM != "" and SEARCH_NM != null'>
+							AND (PROD.PROD_NM  LIKE   '%' ||  #{SEARCH_NM}|| '%' OR PROD.KEYWORD  LIKE   '%' ||  #{SEARCH_NM}|| '%' )
+							</if>
+				              GROUP BY PROD_TYPE_CD      
+				        ) Y ON Y.PROD_TYPE_CD = X.COM_CD 
+				        WHERE X.GRP_CD = 'PROD_TYPE_CD' 
+				) 
+				ORDER BY PROD_TYPE_CD 
+			  
+	</select>
+	<select id="selectListAutoSearch" parameterType="String" resultType="String">
+			SELECT PROD_NM FROM (
+			SELECT  ROWNUM , PROD_NM  
+				FROM PROD WHERE    PROD_STAT_CD = '0' AND
+				ROWNUM BETWEEN 1 AND 10 AND PROD_NM LIKE '%' || #{searchNm,jdbcType=VARCHAR} || '%'
+				)
+	</select>
+
+	
+
+	<update id="updateHitKeyword" parameterType="hashmap" >
+		 MERGE INTO HIT_KEYWORD
+      USING DUAL
+         ON (KEYWORD= #{SEARCH_NM, jdbcType=VARCHAR} )
+       WHEN MATCHED THEN
+     UPDATE 
+        SET 
+            WEIGHT = WEIGHT+1
+            , REGIST_DT = SYSDATE
+       WHEN NOT MATCHED THEN
+     INSERT(
+            HIT_NO
+            , KEYWORD
+            , WEIGHT
+            , REGIST_DT
+            )
+     VALUES(
+                SEQ_HIT_KEYWORD.NEXTVAL
+                ,#{SEARCH_NM, jdbcType=VARCHAR}
+                ,1
+                , SYSDATE
+            )
+		
+	</update>
+	
+	<select id="selectListHitKeyword"  resultType="hashmap">
+			SELECT * FROM(
+			SELECT 
+				ROWNUM,KEYWORD,WEIGHT FROM HIT_KEYWORD 	
+			ORDER BY WEIGHT DESC)
+      		WHERE ROWNUM <![CDATA[<=]]> 10
+	</select>
+	
+
+	<insert id="insertWantProd" parameterType="hashmap">
+		INSERT INTO PROD_WANT
+			 ( WANT_SEQ
+			 , MBER_SEQ
+			 , REGIST_DT
+			 , WANT_PROD_COMMENT
+			 , HANDLING_YN
+			 ) VALUES (
+			  SEQ_PROD_WANT.NEXTVAL
+			 , #{MBER_SEQ}
+			 , SYSDATE
+			 , #{WANT_PROD_COMMENT}
+			 , 'N'
+			)
+	</insert>
+	
+</mapper>

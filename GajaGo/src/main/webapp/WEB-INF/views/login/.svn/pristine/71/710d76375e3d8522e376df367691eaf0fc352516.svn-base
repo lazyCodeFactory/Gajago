@@ -1,0 +1,166 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/web/common/cmmnHead.jsp"%>
+<script type="text/javascript" src="/js/web/cart.js" ></script> <!-- 장바구니용 js -->
+<script type="text/javascript">
+var limit = 300;
+var cur = 0;
+
+$(function(){
+// 	header.type	= 6;
+	header.type	= 4;
+	header.title = "신고하기";
+	header.method = "GET";
+	header.backUrl = "/mobile/myMini/selectMiniShop.do?LVL_SEQ=0&SELLER_MBER_SEQ=${inParam.SELLER_MBER_SEQ}";
+	header.callback = headerCallback; // 장바구니용 callback
+	header.form = $("#form");
+	initHeader();
+	document.title = header.title;
+	displayFooter(false); 
+	
+	if( '${sessionScope.APP}' == 'SSOCIO'){
+		document.location.replace('ssocio://web/hideDetailBottomView');
+	}
+	
+	$(":radio[name='SELLER_SUSPECT_GB_CD']").click(function(e){
+		if($(this).val() == '40'){
+			$(".textarea").show();
+		}
+		else{
+			$(".textarea").hide();
+		}
+	});
+	
+	$('#SUSPECT_REASON').bind('keyup input', function(e) {
+		cur = getBytesLength($(this).val());
+		
+		if( cur <= limit ){
+			$('.byte').text(cur + '/' + limit);
+		}
+		else{
+			alert("글자수가 " + limit + "Byte를 넘었습니다.");
+			var dtl = assertMsg(limit, $(this).val());
+			$(this).val(dtl);
+			cur = getBytesLength($(this).val());
+			$(".byte").text(cur + '/' + limit);
+		}		
+	});
+	
+	$(".byte").text(cur + "/" + limit);
+	
+});
+
+function insertSuspectInfo(){
+
+	if( $(":radio[name='SELLER_SUSPECT_GB_CD']").is(":checked") == false ){
+		alert("신고유형을 선택해 주세요.");
+		return;
+	}
+	
+	if( $(":radio[name='SELLER_SUSPECT_GB_CD']:checked").val() == '40' ){
+		if(validate($("#SUSPECT_REASON"), "기타 사유", 0) == false) return;
+	}
+	
+	var txt = "판매자를 신고하시겠습니까?\n";
+	txt += "신고하신 내용은 운영정책에 따라 처리되며,\n";
+	txt += "허위 신고시 불이익을 받을 수 있습니다.";
+
+	if(confirm(txt) == true){
+		
+		$.ajax({
+			type: 'post',
+			async: true, 
+			url: '/mobile/board/insertSellerSuspectRegAjax.do', 
+			dataType:'json', 
+			data: {"SELLER_MBER_SEQ":$("#SELLER_MBER_SEQ").val(),
+				"SELLER_SUSPECT_GB_CD":$(":radio[name='SELLER_SUSPECT_GB_CD']:checked").val(), 
+				"SUSPECT_REASON":$("#SUSPECT_REASON").val()
+			},
+		    success: function(response) {
+		    	if( response.data == 0){
+	    			alert("이미 신고 된 판매자 입니다.");	
+		    		return;
+		    	}
+		    	else{
+		    		
+		    		if( '${sessionScope.APP}' == 'SSOCIO'){
+		    			document.location.replace('ssocio://web/miniShopSuspect');
+		    		}
+		    		else{
+		    			alert("신고 접수가 완료 되었습니다.");
+		    			location.href = '/mobile/prod/selectProd.do?PROD_CODE=' + $("#PROD_CODE").val();
+		    		}
+		    		return;
+		    	}
+			}, 
+			error : function(request, status, error) {
+				alert("통신 오류가 발생 하였습니다. 잠시 후 다시 시도해 주세요");
+			}
+		});
+	}
+
+}
+</script>
+
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+
+        <div class="roc">
+        	<ul class="inner">
+            	<li><img src="http://static.ssocio.net/pc/img/common/section/roc_home.png" alt="홈"></li>
+                <li>판매자신고하기</li>
+            </ul>
+        </div>
+        
+        <!-- inner -->
+		<div class="inner">
+			<h3 class="tit_cont"><img src="http://static.ssocio.net/pc/img/common/tit/mini3000.png" alt="판매자신고하기" /></h3>
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+	 <!-- container -->
+		<div id="container">
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>
+
+<form name="form" id="form" method="get">
+	<input type="hidden" name="SELLER_MBER_SEQ" id="SELLER_MBER_SEQ" value="${inParam.SELLER_MBER_SEQ }" />
+	<input type="hidden" name="PROD_CODE" id="PROD_CODE" value="${inParam.PROD_CODE }" />
+		<div class="mype_title nobot">
+			<p><strong>신고하신 내용은 운영정책에 따라 처리되며, <br><strong class="point_r">허위 신고시 불이익</strong>을 받을 수 있습니다.</strong></p>
+		</div>
+		<div class="content">
+			<ol class="list radio-list">
+				<li><input type="radio" name="SELLER_SUSPECT_GB_CD" value="10" id="susCd1"><label for="susCd1">허위 과대 광고</label></li>
+				<li><input type="radio" name="SELLER_SUSPECT_GB_CD" value="20" id="susCd2"><label for="susCd2">이미지/상세 설명 도용</label></li>
+				<li><input type="radio" name="SELLER_SUSPECT_GB_CD" value="30" id="susCd3"><label for="susCd3">거래 금지 물품 판매</label></li>
+				<li><input type="radio" name="SELLER_SUSPECT_GB_CD" value="40" id="susCd4"><label for="susCd4">기타</label></li>
+				<li class="textarea" style="display:none;">
+					<div class="text_box">
+						<textarea name="SUSPECT_REASON" id="SUSPECT_REASON" placeholder="기타사유를 작성해 주세요."></textarea>
+						<span class="byte"></span>
+					</div>
+				</li>
+			</ol>
+		</div>
+		<div class="btn_enter"><a href="javascript:insertSuspectInfo();" class="btn_r">신고하기</a></div>
+
+</form>
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+        </div>
+        <!-- //inner -->
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+	    </div>
+	    <!-- //container -->
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>

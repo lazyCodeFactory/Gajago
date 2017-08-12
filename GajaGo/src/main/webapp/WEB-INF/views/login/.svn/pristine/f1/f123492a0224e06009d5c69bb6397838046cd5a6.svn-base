@@ -1,0 +1,308 @@
+package com.ssocio.sharing.service.admin;
+
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.ui.ModelMap;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.multipart.MultipartHttpServletRequest;
+
+import com.ssocio.sharing.cmmn.admin.util.CommonUtil;
+import com.ssocio.sharing.cmmn.util.CmmnCnst;
+import com.ssocio.sharing.cmmn.util.LoggerUtil;
+import com.ssocio.sharing.cmmn.util.StringUtil;
+import com.ssocio.sharing.cmmn.web.RspnsCnst;
+import com.ssocio.sharing.dao.admin.AdminEmailDao;
+import com.ssocio.sharing.vo.admin.PageNavigation;
+/**
+ * <pre>
+ * admin 발송관리
+ * 발송 관리를 윈한 서비스 
+ * @author guitarhyo
+ * @version
+ * @since 2015. 7. 13. 오후 6:15:37
+ * @see
+ * @History
+ * Date			|	author	| 변경 내용
+ * 2015. 7. 13.	|	guitarhyo	|신규
+ * @비고
+ * </pre>
+ */
+@Service
+public class AdminEmailServiceImpl implements AdminEmailService {
+	
+	// --------------------------------------------------------------------------
+	// # Log 설정
+	// --------------------------------------------------------------------------
+	private static final Logger logger = LoggerFactory.getLogger(AdminEmailServiceImpl.class);
+
+	// --------------------------------------------------------------------------
+	// # DAO 설정
+	// --------------------------------------------------------------------------
+	@Resource(name="adminEmailDao")
+	private AdminEmailDao adminEmailDao;
+
+
+	@Override
+	public ModelMap selectListEmail(Map<String, Object> inParam) throws Exception {
+		
+		ModelMap mm = new ModelMap();
+		try {
+			
+			inParam.put("param_snd_stat", StringUtil.nvl((String)inParam.get("param_snd_stat"), ""));
+			
+			
+			//페이지번호
+			inParam.put("PAGE_NO",StringUtil.nvl((String)inParam.get("PAGE_NO"), "1"));
+			int nowPage = StringUtil.nvlInt((String)inParam.get("PAGE_NO"), 1);
+			int rowCnt	= StringUtil.nvlInt((String)inParam.get("S_ROW_CNT"), 20);;
+			inParam.put("S_ROW_CNT", rowCnt);
+			
+			String today = StringUtil.getCurrentDate();
+			inParam.put("S_END_DATE", StringUtil.nvl((String)inParam.get("S_END_DATE"), today));
+			
+			SimpleDateFormat format = new SimpleDateFormat("yyyyMMdd");
+			Calendar cal = Calendar.getInstance();
+			cal.add(Calendar.DATE, -7);
+			inParam.put("S_START_DATE", StringUtil.nvl((String)inParam.get("S_START_DATE"), format.format(cal.getTime())));
+			
+			LoggerUtil.writeMap(inParam);
+			
+			
+			int rowTotal = adminEmailDao.selectListEmailCount(inParam);
+			
+			
+			PageNavigation pageNav= new PageNavigation(nowPage, rowTotal, rowCnt, CmmnCnst.ADM_BLOCK_SIZE);
+			mm.put("PAGE_NO", nowPage);
+			mm.put("pageNav", pageNav);
+			inParam.put("START_ROW", pageNav.getStartRow());
+			inParam.put("END_ROW", pageNav.getEndRow());
+			
+			mm.put("selectListEmail",adminEmailDao.selectListEmail(inParam));
+			mm.put("params", inParam);
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+
+
+	@Override
+	public ModelMap selectListEmailMberSearch(Map<String, Object> inParam) throws Exception {
+		ModelMap mm = new ModelMap();
+		try {
+			mm.put("selectListEmailMber",adminEmailDao.selectListEmailMberSearch(inParam));
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+
+
+	@Override
+	public ModelMap insertEmailReg(MultipartHttpServletRequest req,
+			Map<String, Object> paramDto) throws Exception {
+		ModelMap mm = new ModelMap();
+		int retCnt = 0;
+		//파라미터 셋팅
+		//최초 발송 대기
+		paramDto.put("SND_STAT", "00");
+
+		try {
+			//컨탠츠 셋팅
+			String HTMLYN = StringUtil.nvl((String)paramDto.get("HTMLYN"), "Y");
+			if("N".equals(HTMLYN)){
+
+				paramDto.put("CONTENTS", StringUtil.nvl((String)paramDto.get("CONTENTS_EIT"), ""));
+			}else{
+				paramDto.put("CONTENTS", StringUtil.nvl((String)paramDto.get("CONTENTS_HTML"), ""));
+			}
+			 //발송 대상에 따라 발송건수 셋팅
+			  if("00".equals(paramDto.get("SND_GB_CD") )){
+				  paramDto.put("SND_CNT",adminEmailDao.selectListEmailMberCnt(paramDto));
+			  }else if("01".equals(paramDto.get("SND_GB_CD") )){
+				  String user_length = (String) paramDto.get("user_length");
+				  if("".endsWith(user_length)){user_length = "0";};
+				  paramDto.put("SND_CNT",user_length);
+			  }
+//			  else if("11".equals(paramDto.get("SND_GB_CD") )){
+//				  
+//			  }
+			  
+			  //즉시발송 및 예약발송에 따라 셋팅 후 등록
+			 
+			  if("Y".equals(paramDto.get("RESRV_YN") )){
+				  String send_ymd =(String) paramDto.get("send_ymd");
+				  send_ymd = send_ymd.replaceAll("-", "");
+				  String send_hour  =(String) paramDto.get("send_hour");
+				  String send_min  =(String) paramDto.get("send_min");
+				  Date SND_DT = CommonUtil.toDateString(send_ymd+send_hour+send_min+"00", "yyyyMMddHHmmss");
+				  paramDto.put("SND_DT", SND_DT);
+				  
+				
+			  }
+				  LoggerUtil.writeMap(paramDto);
+
+			  //발송 대상에 따라 발송 회원 등록
+				  if("00".equals(paramDto.get("SND_GB_CD") )){
+					  retCnt= adminEmailDao.insertEmail(paramDto);
+				  }else if("01".equals(paramDto.get("SND_GB_CD") )){
+					  retCnt= adminEmailDao.insertEmail(paramDto);
+					  if(retCnt>0){
+						  if(!"".equals(paramDto.get("email_snd_mber") )){
+							  
+							  String email_snd_mber = (String) paramDto.get("email_snd_mber");
+							  String[] mberList = email_snd_mber.split("::");
+								  for (int i = 0; i < mberList.length; i++) {
+									String[] mber = mberList[i].split(":");
+									paramDto.put("MBER_SEQ", mber[0]);
+									paramDto.put("TO_EMAIL", mber[1]);
+									paramDto.put("SND_SEQ", i+1);
+									retCnt = adminEmailDao.insertEmailMber(paramDto);
+								  }
+							  }
+					  }
+					
+				  }else if("11".equals(paramDto.get("SND_GB_CD") )){
+					  retCnt= adminEmailDao.updateEmailGrp(paramDto);
+				  }
+			  
+		} catch (Exception e) {
+			e.printStackTrace();
+			throw new Exception(RspnsCnst.RC1033030001);
+		}
+		
+		if(retCnt > 0){
+			mm.put("retCode", "S");
+		}else{
+			mm.put("retCode", "F");
+		}
+
+		return mm;
+	}
+
+
+	@Override
+	public ModelMap updateEmail(Map<String, Object> paramDto) throws Exception {
+		ModelMap mm = new ModelMap();
+		int retCnt = 0;
+		//파라미터 셋팅
+		//발송 취소
+		paramDto.put("SND_STAT", "01");
+
+		try {
+			
+			retCnt = adminEmailDao.updateEmail(paramDto);
+			if(retCnt > 0){
+				mm.put("retCode", "S");
+			}else{
+				mm.put("retCode", "F");
+			}
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+			
+		}
+
+		return mm;
+	}
+
+
+	@Override
+	public ModelMap selectEmail(Map<String, Object> paramDto) throws Exception {
+		ModelMap mm = new ModelMap();
+		Map<String, Object> retMap = null;
+		String content = "";
+		try {
+			retMap = adminEmailDao.selectEmail(paramDto);
+			if(retMap != null){
+				mm.put("selectEmail",retMap);
+				if("01".equals(retMap.get("SND_GB_CD")) || "11".equals(retMap.get("SND_GB_CD"))){
+					mm.put("selectListEmailMberCount",adminEmailDao.selectListEmailMberCount(paramDto)); 
+					
+					mm.put("selectListEmailMber",adminEmailDao.selectListEmailMber(paramDto)); //화면설계서에 없기에 주석
+				}else{
+					mm.put("selectListEmailMberCnt",adminEmailDao.selectListEmailMberCnt(paramDto));
+				}
+				mm.put("params", paramDto);
+				mm.put("SND_STAT",retMap.get("SND_STAT"));
+			}
+			
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+
+
+	@Override
+	public ModelMap uploadEmailExcel(MultipartHttpServletRequest req,
+			Map<String, Object> inParam) throws Exception {
+
+
+		MultipartFile excelFile = req.getFile("I_UPLOAD_FILE");
+		ModelMap mm = new ModelMap();
+		
+		int uploadCount = 0;
+		int jungCount = 0;
+		int etcCount = 0;
+		try {
+			
+			int insertCnt = adminEmailDao.insertEmailNone(inParam);
+			if(insertCnt > 0){
+				List<Map<String, Object>> excelData = CommonUtil.getOldExcelList(excelFile);
+
+				for(Map<String, Object> rowData:excelData){
+					
+					String MBER_SEQ = (String) rowData.get("CELL0");
+					if(MBER_SEQ != null && !"".equals(MBER_SEQ)){
+							inParam.put("MBER_SEQ", MBER_SEQ);
+							inParam.put("SND_SEQ", uploadCount);
+							try {
+								int ret = adminEmailDao.insertEmailMber2(inParam);
+								if(ret > 0){
+									uploadCount++;
+								}
+							} catch (Exception e) {
+								e.printStackTrace();
+								jungCount++;
+							}
+					}else{
+						etcCount++;
+					}
+					
+					
+					
+				}
+				
+				mm.put("mailSeq", String.valueOf(inParam.get("MAIL_SEQ")));
+			}
+		
+			
+			mm.put("uploadCount", uploadCount);
+			mm.put("jungCount", jungCount);
+			mm.put("etcCount", etcCount);
+			mm.put("totalCount", uploadCount+jungCount+etcCount);
+//			logger.debug("@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#");
+//			LoggerUtil.writeMap(mm);
+
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+
+	}
+	
+
+}

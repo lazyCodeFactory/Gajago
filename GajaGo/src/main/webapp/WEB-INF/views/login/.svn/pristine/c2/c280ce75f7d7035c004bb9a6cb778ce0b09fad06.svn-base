@@ -1,0 +1,650 @@
+package com.ssocio.sharing.controller.admin;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+
+import javax.servlet.ServletRequest;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.ModelMap;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.multipart.MultipartHttpServletRequest;
+import org.springframework.web.servlet.ModelAndView;
+
+import com.ssocio.sharing.cmmn.admin.util.CommonUtil;
+import com.ssocio.sharing.cmmn.util.StringUtil;
+import com.ssocio.sharing.service.admin.AdminProdService;
+
+/**
+ * <pre>
+ * 상품 콘트롤러
+ * 상품 콘트롤러
+ * @author Y.I.Chun
+ * @version
+ * @since 2015. 7. 8. 오후 5:50:30
+ * @see
+ * @History
+ * Date			|	author	| 변경 내용
+ * 2015. 7. 8.	|	Y.I.Chun	|신규
+ * @비고
+ * </pre>
+ */
+@Controller
+public class AdminProdController extends AdminReferController {
+
+	// --------------------------------------------------------------------------
+	// # Log 설정
+	// --------------------------------------------------------------------------
+	private static final Logger logger = LoggerFactory.getLogger(AdminProdController.class);
+	
+	// --------------------------------------------------------------------------
+	// # Service 설정
+	// --------------------------------------------------------------------------
+	@Autowired
+	private AdminProdService adminProdService;
+	
+	@RequestMapping("/admin/prodMgr/selectProdList.do")
+	public ModelAndView selectProdList(@RequestParam Map<String, Object> inParam
+			, @RequestParam(value="prodTypeCd", required=false) String[] prodTypeCd
+			, @RequestParam(value="prodStatCd", required=false) String[] prodStatCd) throws Exception	{
+		
+		logger.info(" ### inParam ::: " + inParam);
+		
+		ModelAndView mav = new ModelAndView();
+		
+		inParam.put("prodTypeCd", prodTypeCd);
+		inParam.put("prodStatCd", prodStatCd);
+		
+		try {
+			mav.addObject("list", adminProdService.selectProdList(inParam));
+			mav.addObject("searchParam", inParam);
+			mav.setViewName("admin/prodMgr/prodList");
+		} catch (Exception e) {e.printStackTrace();}
+			
+		return mav;
+	}
+	
+	@RequestMapping("/admin/prodMgr/prodReg.do")
+	public ModelAndView prodReg(@RequestParam Map<String, Object> inParam) throws Exception	{
+		ModelAndView mav = new ModelAndView();
+		try {
+			ModelMap result = adminProdService.selectProdInfo(inParam);
+			
+				int agrCnt = 0;
+				 
+				if(result.containsKey("prodInfo")){
+					Map<String, String> prodInfo = (Map<String, String>) result.get("prodInfo");
+					if(prodInfo.get("PROD_TYPE_CD").equalsIgnoreCase("5")){
+						// 렌탈의 경우 약관변경 체크를 위해서
+						inParam.put("prodCode", prodInfo.get("PROD_CODE"));
+						agrCnt = adminProdService.selectCountProdInfo(inParam);
+					}
+				}
+			
+			mav.addObject("result", result);
+			mav.addObject("agrCnt", agrCnt);
+			mav.addObject("searchParam", inParam);			
+			mav.setViewName("admin/prodMgr/prodReg");
+		} catch (Exception e) {e.printStackTrace();}
+			
+		return mav;
+	}
+	
+	@RequestMapping("/admin/prodMgr/saveProdInfo.do")
+	public ModelAndView insertProdInfo(MultipartHttpServletRequest req, @RequestParam Map<String, Object> inParam
+			, @RequestParam(value="grpProdSeq", required=false) String[] grpProdSeq
+			, @RequestParam(value="entrySeq", required=false) String[] entrySeq
+			, @RequestParam(value="infoTitle", required=false) String[] infoTitle
+			, @RequestParam(value="infoDtl", required=false) String[] infoDtl
+			, @RequestParam(value="extShowYn", required=false) String[] extShowYn, ServletRequest request) throws Exception	{
+		ModelAndView mav = new ModelAndView("jsonView");
+		inParam.put("grpProdSeq", grpProdSeq);
+		inParam.put("entrySeq", entrySeq);
+		inParam.put("infoTitle", infoTitle);
+		inParam.put("infoDtl", infoDtl);
+		inParam.put("extShowYn", extShowYn);
+		
+		String prodCd = "";
+		
+		// 상품등록시에 상태값을 넣지 않으므로 강제로 판매중으로 입력
+		if(StringUtil.isEmpty((String)inParam.get("prodStatCd"))){
+			inParam.put("prodStatCd",StringUtil.nvl(String.valueOf(inParam.get("prodStatCd")),"0"));
+		}
+		
+		//퀵서비스일때 배송비 설정값 입력
+		if(!((String) inParam.get("prodTypeCd")).equalsIgnoreCase("5")){
+			if(((String) inParam.get("dlvWayCd")).equalsIgnoreCase("4")){
+				inParam.put("dlvPayGbCd",inParam.get("dlvPayGbCd2"));
+			}
+			if(!((String) inParam.get("dlvWayCd")).equalsIgnoreCase("1") && !((String) inParam.get("dlvWayCd")).equalsIgnoreCase("2")){
+				inParam.put("dlvPrce","0");
+				inParam.put("dlvStandYn","0");
+			}
+		}
+		 
+		//prodCode가 존재하면 수정, 아니면 등록
+		if(StringUtil.isEmpty((String)inParam.get("prodCode"))){
+			
+		prodCd = adminProdService.insertProdInfo(req, inParam);
+		}else{
+			adminProdService.updateProdInfo(req, inParam);
+		}
+		mav.addObject("prodCd", prodCd);
+			
+		return mav;
+	}
+	
+	/**
+	 * <pre>
+	 * 상품 옵션 저장
+	 * 상품 옵션을 저장한다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 7. 9. 오후 8:08:47
+	 * @author Y.I.Chun
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@RequestMapping("/admin/prodMgr/saveProdOption.do")
+	public ModelAndView saveProdOption(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> paramDto) throws Exception{
+		ModelAndView mav = new ModelAndView();
+		try {
+			mav.addObject("list", adminProdService.insertProdOption(paramDto));
+			mav.setViewName("jsonView2");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return mav;
+	}
+	/**
+	 * <pre>
+	 * 상품 옵션 조회
+	 * 상품 옵션을 조회한다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 7. 9. 오후 8:08:47
+	 * @author Y.I.Chun
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@RequestMapping("/admin/prodMgr/selectProdOption.do")
+	public ModelAndView selectProdOption(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> paramDto) throws Exception{
+		ModelAndView mav = new ModelAndView();
+		try {
+			List<Map<String, Object>> result = adminProdService.selectProdOption(paramDto);
+			mav.addObject("result", result);
+			mav.setViewName("jsonView2");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return mav;
+	}
+	
+	@RequestMapping("/admin/prodMgr/selectSellerListPopup.do")
+	public ModelAndView selectSellerListPopup(@RequestParam Map<String, Object> inParam) throws Exception	{
+		ModelAndView mav = new ModelAndView("admin/prodMgr/sellerSearchPopup");
+		try {
+			String sellerId = (String) inParam.get("sellerId");
+			if(StringUtil.isEmpty(sellerId)){
+				mav.addObject("result", null);
+			}else{
+				mav.addObject("result", adminProdService.selectSellerList(inParam));
+			}
+			mav.addObject("searchParam", inParam);
+		} catch (Exception e) {e.printStackTrace();}
+			
+		return mav;
+	}
+	
+	/**
+	 * <pre>
+	 * 정보고시상세리스트 조회
+	 * 정보고시상세 리스트정보를 조회 합니다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 7. 9. 오후 8:08:47
+	 * @author Y.I.Chun
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@RequestMapping("/admin/prodMgr/selectItemDtlList.do")
+	public ModelAndView selectItemDtlList(@RequestParam Map<String, Object> inParam) throws Exception{
+		ModelAndView mav = new ModelAndView();
+		try {
+			//브랜드리스트 조회
+			mav.addObject("result", adminProdService.selectItemDtlList(inParam));
+			mav.setViewName("jsonView");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+			
+		return mav;
+	}
+	
+	/**
+	 * <pre>
+	 * 출하지팝업표시
+	 * 출하지팝업을 표시 합니다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 7. 9. 오후 8:08:47
+	 * @author Y.I.Chun
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@RequestMapping("/admin/prodMgr/shipmentPopup.do")
+	public ModelAndView shipmentPopup(@RequestParam Map<String, Object> inParam) throws Exception{
+		ModelAndView mav = new ModelAndView("admin/prodMgr/shipmentPopup");
+		try {
+			mav.addObject("inParam", inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mav;
+	}
+	
+	/**
+	 * <pre>
+	 * 출하지리스트 조회
+	 * 출하지 리스트정보를 조회 합니다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 7. 9. 오후 8:08:47
+	 * @author Y.I.Chun
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@RequestMapping("/admin/prodMgr/selectShipmentList.do")
+	public ModelAndView selectShipmentList(@RequestParam Map<String, Object> inParam) throws Exception{
+		ModelAndView mav = new ModelAndView("jsonView");
+		try {
+			//출하지리스트 조회
+			mav.addObject("result", adminProdService.selectShipmentList(inParam));
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mav;
+	}
+	
+	/**
+	 * <pre>
+	 * 출하지 등록
+	 * 출하지 정보를 등록 합니다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 7. 9. 오후 8:08:47
+	 * @author Y.I.Chun
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@RequestMapping("/admin/prodMgr/insertShipment.do")
+	public ModelAndView insertShipment(@RequestParam Map<String, Object> inParam) throws Exception{
+		ModelAndView mav = new ModelAndView("jsonView");
+		try {
+			//출하지 등록
+			adminProdService.insertShipment(inParam);
+			mav.addObject("result", "OK");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mav;
+	}
+	
+	/**
+	 * <pre>
+	 * 출하지 수정
+	 * 출하지 수정를 등록 합니다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 7. 9. 오후 8:08:47
+	 * @author Y.I.Chun
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@RequestMapping("/admin/prodMgr/updateShipment.do")
+	public ModelAndView updateShipment(@RequestParam Map<String, Object> inParam) throws Exception{
+		ModelAndView mav = new ModelAndView("jsonView");
+		try {
+			//출하지 등록
+			adminProdService.updateShipment(inParam);
+			mav.addObject("result", "OK");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mav;
+	}
+	
+	@RequestMapping("/admin/prodMgr/excelDownProdList.do")
+	public ModelAndView getProdListExcelDownload(HttpServletRequest request
+			, HttpServletResponse response
+			, @RequestParam Map<String, Object> inParam
+			, @RequestParam(value="prodTypeCd", required=false) String[] prodTypeCd
+			, @RequestParam(value="prodStatCd", required=false) String[] prodStatCd) throws Exception{
+		
+		ModelAndView mav = new ModelAndView("excelDownloadView");
+		String[] title = {"등록일시", "판매자", "상품코드", "상품명", "판매구분", "카테고리", "판매가", "배송비", "재고수량", "옵션여부", "상태"};
+		String[] colName = {"REGIST_DT", "SELLER" , "PROD_CODE", "PROD_NM", "PROD_TYPE_NM", "CTRY_NM", "SELL_PRCE", "DLV_PRCE", "STOCK_QTY", "OPT_PROD_YN", "PROD_STAT_NM"};
+		
+		try {
+			
+			inParam.put("prodTypeCd", prodTypeCd);
+			inParam.put("prodStatCd", prodStatCd);
+			
+			response.setContentType("application/msexcel");
+			response.setHeader("Content-Disposition", CommonUtil.getDisposition("상품목록.xls", CommonUtil.check_browser(request)));
+			
+			List<String> excelTitle = new ArrayList<String>(Arrays.asList(title));
+			List<String> CellName = new ArrayList<String>(Arrays.asList(colName));
+			
+			mav.addObject("SheetName", "상품목록");
+			mav.addObject("excelTitle", excelTitle);
+			mav.addObject("CellName", CellName);
+			
+			mav.addObject("excelList", adminProdService.selectProdListExcel(inParam));
+			mav.addObject("param", inParam);
+			
+		} catch(Exception e){
+			e.printStackTrace();
+		}
+		
+		return mav;
+	}
+	
+	/**
+	 * <pre>
+	 * 출하지 관리
+	 * 출하지 관리를 표시 합니다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 9. 7. 오후 8:08:47
+	 * @author SEKIM
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@RequestMapping("/admin/prodMgr/shipmentList.do")
+	public ModelAndView shipmentList(@RequestParam Map<String, Object> inParam) throws Exception{
+		ModelAndView mav = new ModelAndView("admin/prodMgr/shipmentList");
+		try {
+			mav.addObject("inParam", inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mav;
+	}
+	
+	/**
+	 * <pre>
+	 * 출하지 상세 관리
+	 * 출하지 상세 관리를 표시 합니다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 9. 7. 오후 8:08:47
+	 * @author SEKIM
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@RequestMapping("/admin/prodMgr/shipmentDetail.do")
+	public ModelAndView shipmentDetail(@RequestParam Map<String, Object> inParam) throws Exception{
+		ModelAndView mav = new ModelAndView("admin/prodMgr/shipmentDetail");
+		try { 
+			mav.addObject("inParam", inParam);
+			mav.addObject("shipmentDetail", adminProdService.selectShipmentList(inParam));
+			mav.addObject("prodList", adminProdService.selectShipmentProdList(inParam));
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mav;
+	}
+	
+	/**
+	 * <pre>
+	 * 출하지 등록 상품 삭제
+	 * 출하지에 등록된 상품을 삭제 합니다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 7. 9. 오후 8:08:47
+	 * @author SEKIM
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@RequestMapping("/admin/prodMgr/deleteShipmentProd.do")
+	public ModelAndView deleteShipmentProd(@RequestParam Map<String, Object> inParam) throws Exception{
+		ModelAndView mav = new ModelAndView("jsonView");
+		try {
+			//출하지 등록
+			adminProdService.deleteShipmentProd(inParam);
+			mav.addObject("result", "OK");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mav;
+	}
+	
+	/**
+	 * <pre>
+	 * 출하지 관리
+	 * 출하지 관리를 표시 합니다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 9. 7. 오후 8:08:47
+	 * @author SEKIM
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@RequestMapping("/admin/prodMgr/shipmentReg.do")
+	public ModelAndView shipmentReg(@RequestParam Map<String, Object> inParam) throws Exception{
+		ModelAndView mav = new ModelAndView("admin/prodMgr/shipmentReg");
+		try {
+			mav.addObject("inParam", inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mav;
+	}
+	
+	/**
+	 * <pre>
+	 * 출하지 등록 상품 삭제
+	 * 출하지에 등록된 상품을 삭제 합니다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 7. 9. 오후 8:08:47
+	 * @author SEKIM
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@RequestMapping("/admin/prodMgr/selectAddShipmentProdList.do")
+	public ModelAndView selectShipmentProdList(@RequestParam Map<String, Object> inParam) throws Exception{
+		ModelAndView mav = new ModelAndView("jsonView");
+		try {
+			//출하지 등록
+			mav.addObject("result", adminProdService.selectAddShipmentProdList(inParam));
+			//mav.addObject("result", "OK");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mav;
+	}
+	
+	/**
+	 * <pre>
+	 * 출하지 상품 등록
+	 * 출하지에 해당 상품을 등록한다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 7. 9. 오후 8:08:47
+	 * @author SEKIM
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@RequestMapping("/admin/prodMgr/insetShipmentProdMap.do")
+	public ModelAndView insetShipmentProdMap(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> paramDto) throws Exception{
+		ModelAndView mav = new ModelAndView();
+		try {
+			mav.addObject("list", adminProdService.insetShipmentProdMap(paramDto));
+			mav.setViewName("jsonView2");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return mav;
+	}
+	
+	/**
+	 * <pre>
+	 * 상품옵션 사용안함 업데이트
+	 * 상품옵션 사용안함으로 업데이트 합니다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 7. 9. 오후 8:08:47
+	 * @author SEKIM
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@RequestMapping("/admin/prodMgr/deleteProdOpInfo.do")
+	public ModelAndView deleteProdOpInfo(@RequestParam Map<String, Object> inParam) throws Exception{
+		ModelAndView mav = new ModelAndView("jsonView");
+		try {
+			//상품 옵션 사용안함 처리
+			String[] optCd = ((String) inParam.get("optCd")).split(",");
+			for(int i =0; i < optCd.length; i++){
+				inParam.put("optCd", optCd[i]);
+				adminProdService.deleteProdOpInfo(inParam);
+			}
+			
+			// 상품옵션중 사용가능한 갯수 파악하여 사용가능 옵션이 없으면 prod 테이블 옵션 사용여부 삭제
+			int opUseCnt = adminProdService.selectopUseCnt(inParam);
+			
+			// 사용가능 옵션 없으면 prod 테이블에 옵션사용 x 처리
+			if(opUseCnt == 0){
+				adminProdService.updateProdOpUse(inParam);
+			}
+			mav.addObject("result", "OK");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mav;
+	}
+	
+	/**
+	 * <pre>
+	 * 상품옵션 조회
+	 * 상품옵션 조회 합니다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 7. 9. 오후 8:08:47
+	 * @author SEKIM
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@RequestMapping("/admin/prodMgr/selectOptionJson.do")
+	public ModelAndView selectOptionJson(@RequestParam Map<String, Object> inParam) throws Exception	{
+		ModelAndView mav = new ModelAndView();
+		try {
+			ModelMap result = adminProdService.selectOptionJson(inParam);
+			
+			mav.addObject("result", result);
+			mav.setViewName("jsonView2");
+		} catch (Exception e) {e.printStackTrace();}
+			
+		return mav;
+	}
+	
+	/**
+	 * <pre>
+	 * 상품 등록 요청 리스트 조회
+	 * 상품 등록 요청 리스트를 조회 합니다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 
+	 * @author arkim
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@RequestMapping("/admin/prodWant/selectProdWantList.do")
+	public ModelAndView selectProdWantList(HttpServletRequest request, @RequestParam Map<String, Object> inParam) throws Exception	{
+		
+		ModelAndView mav = new ModelAndView();
+		
+		String handlingYn[] 	= null;
+		handlingYn				= request.getParameterValues("HANDLING_YN[]");
+		inParam.put("handlingYn", handlingYn);
+		
+		try {
+		
+			ModelMap result = adminProdService.selectProdWantList(inParam);
+			
+			mav.addObject("list", result);
+			mav.setViewName("admin/prodWant/selectProdWantList");
+			
+		} catch (Exception e) {e.printStackTrace();}
+			
+		return mav;
+	}
+	
+	/**
+	 * <pre>
+	 * 상품 등록 요청 건 처리 내용 Update
+	 * 상품 등록 요청 건의 처리 내용을 Update 합니다. Y : 처리 완료
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 
+	 * @author arkim
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@RequestMapping("/admin/prodWant/updateProdWantHandlingInfo.do")
+	public ModelAndView updateProdWantHandlingInfo(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception	{
+		
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN updateProdWantHandlingInfo START☆★☆★☆★☆★☆★☆★☆");
+		
+		ModelAndView mav = new ModelAndView();		
+		String wantSeq[] = null;
+		wantSeq 			= request.getParameterValues("WANT_SEQ[]");
+
+		try {
+
+			adminProdService.updateProdWantHandlingInfo(request,inParam,wantSeq);		
+			
+			ModelMap result = adminProdService.selectProdWantList(inParam);
+			
+			mav.addObject("list", result);
+			mav.setViewName("admin/prodWant/selectProdWantList");
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN updateProdWantHandlingInfo END☆★☆★☆★☆★☆★☆★☆");
+		return mav;
+	
+	}
+	
+	
+}

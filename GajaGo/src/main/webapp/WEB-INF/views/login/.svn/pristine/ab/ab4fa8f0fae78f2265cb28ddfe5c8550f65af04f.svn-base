@@ -1,0 +1,315 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/admin/common/cmmnHead.jsp"%>
+<script type="text/javascript">
+
+
+$(document).ready(function(){
+	//달력이미지
+	$('.calendar').datepicker({
+      showOn: "button",
+      buttonImage: "http://static.ssocio.net/admin/images/ico_calendar.gif",
+      buttonImageOnly: true
+    });
+	//조회버튼클릭
+	$(".btn_r").click(function(){
+		searchForm();
+	});
+	
+	//구분 체크박스 param 처리
+	var chkType = new Array();
+	<c:forEach var="listChkType" items="${params.chkType}"  varStatus="status">
+		chkType['${status.index}'] = '${listChkType}';
+	</c:forEach>
+	if(chkType != null && chkType.length > 0)
+	{
+	   for(var i=0; i < chkType.length; i++)
+	   {
+		   $("input:checkbox[name=chkType]").each(function(index){
+				if(chkType[i] == $(this).val()){
+					$(this).attr("checked", true); 
+				}
+			});
+	   }
+	}else{
+	   $('input[name="chkType"]').each(function(){
+	      $(this).attr('checked', 'checked');
+	   });
+	}
+	
+	
+});
+//리스트 조회
+function searchForm(){
+	if(validDate())
+	{
+		replDate();
+		$("#frm").attr("action", "/admin/policy/selectListPolicy.do").submit();
+	}
+}
+//상세 입력 페이지로
+function goUpdate(BOARD_SEQ, BOARD_TYPE_CD){
+	$("#BOARD_SEQ").val(BOARD_SEQ);
+	$("#BOARD_TYPE_CD").val(BOARD_TYPE_CD);
+	replDate();
+	$("#frm").attr("action", "/admin/policy/updatePolicy.do").submit();
+}
+//엔터키입력
+function enterKeyPress(){
+	if(event.keyCode == 13){
+		$(".btn_r").click();
+	}
+}
+//날짜유효성체크
+function validDate(){
+	if($("#S_START_DATE").val() != "" || $("#S_END_DATE").val() != ""){
+		var startDate = $("#S_START_DATE").val().replace(/\-/ig, "");
+		var endDate = $("#S_END_DATE").val().replace(/\-/ig, "");
+		if(startDate > endDate){
+	      alert("시작일이 종료일보다 크게 설정될 수 없습니다.");
+	      $("#S_START_DATE").val('');
+	      $("#S_END_DATE").val('');
+	      return false;
+	    }
+	}
+	return true;
+}
+//페이지이동
+function GoPage(pageNo) {
+	$("#PAGE_NO").val(pageNo);
+	replDate();
+	$("#frm").attr("action","/admin/policy/selectListPolicy.do").submit();
+}
+//날짜 형식 '-' 제외 시키기
+function replDate(){
+	$("#S_START_DATE").val($("#S_START_DATE").val().replace(/\-/ig, ''));
+	$("#S_END_DATE").val($("#S_END_DATE").val().replace(/\-/ig, ''));
+}
+</script>
+<!-- content -->
+<div id="content">
+	<!-- top_content -->
+	<div class="top_content">
+		<!-- location -->
+		<div class="location">
+			<ul class="clear">
+				<li class="first-child"><a href="#">Home</a></li>
+				<li><a href="#">서비스 관리</a></li>
+				<li><a href="#" class="current">게시글 관리</a></li>
+			</ul>
+		</div>
+		<!-- //location -->
+	</div>
+	<!-- //top_content -->
+	
+	<div class="inner">
+		<fmt:parseDate value="${params.S_START_DATE }" var="S_START_DATE" pattern="yyyymmdd" scope="page" />
+	    <fmt:parseDate value="${params.S_END_DATE }" var="S_END_DATE" pattern="yyyymmdd" scope="page" />
+	    <form id="frm" method="post" name="frm">
+	    <input type="hidden" id="PAGE_NO" name="PAGE_NO">
+	    <input type="hidden" id="BOARD_SEQ" name="BOARD_SEQ">
+	    <input type="hidden" id="BOARD_TYPE_CD" name="BOARD_TYPE_CD" >
+		<!-- tbl -->
+		<div class="tbl mt20">
+			<table class="search">
+				<colgroup>
+					<col style="width:8%" />
+					<col style="width:*" />
+					<col style="width:12%" />
+					<col style="width:8%" />
+					<col style="width:26%" />
+				</colgroup>
+				<tbody>
+					<tr>
+						<td colspan="3">
+							<span class="select" style="width:120px">
+								<span class="sel_txt"></span>
+								<select id="dateFlag" name="dateFlag">
+									<option value="10"<c:if test="${params.textFlag == '10'}">selected</c:if>>작성일</option>
+									<option value="20"<c:if test="${params.textFlag == '20'}">selected</c:if>>차단일</option>
+								</select>
+							</span>
+							<input type="text" id="S_START_DATE" name="S_START_DATE" class="calendar" style="width:82px" value='<fmt:formatDate value="${S_START_DATE }" pattern="yyyy-mm-dd" />' readonly/> - 
+							<input type="text" id="S_END_DATE" name="S_END_DATE" class="calendar" style="width:82px" value='<fmt:formatDate value="${S_END_DATE }" pattern="yyyy-mm-dd" />' readonly/>
+							<span class="ml5">
+								<a href="javascript:getDateInterval('0D');" class="btn_w">오늘</a>
+								<a href="javascript:getDateInterval('3D');" class="btn_w">3일</a>
+								<a href="javascript:getDateInterval('7D');" class="btn_w">7일</a>
+								<a href="javascript:getDateInterval('1M');" class="btn_w">1개월</a>
+								<a href="javascript:getDateInterval('3M');" class="btn_w">3개월</a>
+								<a href="javascript:getDateInterval('6M');" class="btn_w">6개월</a>
+							</span> 
+						</td>
+						<th scope="row">구분</th>
+						<td>
+							<custom:codeList var="BOARD_TYPE_CD" groupCode="BOARD_TYPE_CD" />
+							<c:forEach var="boardTypeCd" items="${BOARD_TYPE_CD}">
+<%-- 								<c:if test="${boardTypeCd.key == '30' or boardTypeCd.key == '50' or boardTypeCd.key == '70'}"> --%>
+								<c:if test="${boardTypeCd.key == '50' or boardTypeCd.key == '70'}">
+									<label><input type="checkbox"  name="chkType" value="${boardTypeCd.key }"/>${boardTypeCd.value}</label>
+								</c:if>
+							</c:forEach>
+						</td>
+					</tr>
+					<tr>
+						<td colspan="2">
+							<span class="select" style="width:120px">
+								<span class="sel_txt"></span>
+								<select id="textFlag" name="textFlag">
+									<option value="10" <c:if test="${params.textFlag == '10'}">selected</c:if>>상품명</option>
+									<option value="20" <c:if test="${params.textFlag == '20'}">selected</c:if>>판매자ID</option>
+									<option value="30" <c:if test="${params.textFlag == '30'}">selected</c:if>>판매자이름</option>
+									<option value="40" <c:if test="${params.textFlag == '40'}">selected</c:if>>게시글번호</option>
+									<option value="50" <c:if test="${params.textFlag == '50'}">selected</c:if>>작성자ID</option>
+									<option value="60" <c:if test="${params.textFlag == '60'}">selected</c:if>>작성자이름</option>
+									<option value="70" <c:if test="${params.textFlag == '70'}">selected</c:if>>처리담당자</option>
+								</select>
+							</span>
+							<input type="text" style="width: 300px" name="textVal" value="${params.textVal }" onkeyup="enterKeyPress();">
+						</td>
+						<td style="border-left-style: hidden;">
+							<span class="select" style="width:110px;">
+								<span class="sel_txt"></span>
+								<custom:codeList var="BAN_GB_CD" groupCode="BAN_GB_CD" />
+								<select id="P_BAN_GB_CD" name="P_BAN_GB_CD">
+									<option value="" <c:if test="${empty params.P_BAN_GB_CD}"> selected="selected" </c:if>>전체</option>
+									<c:forEach var="banGbCd" items="${BAN_GB_CD}">
+				                      <option value="${banGbCd.key}" <c:if test="${banGbCd.key == params.P_BAN_GB_CD}"> selected="selected" </c:if>>${banGbCd.value}</option>
+				                    </c:forEach>
+								</select>
+							</span>
+						</td>
+						<td colspan="2">
+							<label><input type="radio" name="P_BAN_YN" value="" <c:if test="${empty params.P_BAN_YN}">checked</c:if>/>전체</label>	
+							<label><input type="radio" name="P_BAN_YN" value="Y" <c:if test="${params.P_BAN_YN == 'Y'}">checked</c:if>/>차단글만보기</label>
+							<label><input type="radio" name="P_BAN_YN" value="N" <c:if test="${params.P_BAN_YN == 'N'}">checked</c:if>/>정상글만보기</label>
+						</td>
+					</tr>
+				</tbody>
+			</table>
+			<p class="btn_area type"><a href="#" class="btn_chk btn_r">조회</a></p>
+		</div>
+		<!-- //tbl -->
+		</form>
+		<!-- top_tbl -->
+		<div class="top_tbl mt20 clear">
+			<div class="right">
+				<span class="select" style="width:130px;">
+					<span class="sel_txt"></span>
+					<custom:codeList var="DISPLAY_CNT" groupCode="DISPLAY_CNT" />
+					<select id="DISPLAY_CNT" name="DISPLAY_CNT">
+						<c:forEach var="displayCnt" items="${DISPLAY_CNT}">
+	                      <option value="${displayCnt.key}" <c:if test="${displayCnt.key == params.DISPLAY_CNT}"> selected="selected" </c:if>>${displayCnt.value}</option>
+	                    </c:forEach>
+					</select>
+				</span>
+			</div>
+		</div>
+		<!-- //top_tbl -->
+		
+		<!-- fixed_tbl_list -->
+		<div class="fixed_tbl_list mt20" style="height: 375px">
+			<!-- thead -->
+			<div class="tbl thead" style="height:54px;">
+				<table class="list">
+					<colgroup>
+						<col style="width:6%" />
+						<col style="width:5%" />
+						<col style="width:10%" />
+						<col style="width:20%" />
+						<col style="width:19%" />
+						<col style="width:10%" />
+						<col style="width:8%" />
+						<col style="width:5%" />
+						<col style="width:7%" />
+						<col style="width:10%" />
+					</colgroup>
+					<thead>	
+						<tr>
+							<th scope="col" class="nolineL">게시글번호</th>
+							<th scope="col">구분</th>
+							<th scope="col">판매자/이름</th>
+							<th scope="col">상품명</th>
+							<th scope="col">내용</th>
+							<th scope="col">작성자ID/이름</th>
+							<th scope="col">작성일시</th>
+							<th scope="col">차단유무</th>
+							<th scope="col">차단구분</th>
+							<th scope="col">차단일시<br/>/처리담당자</th>
+						</tr>
+					</thead>
+				</table>
+			</div>
+			<!-- //thead -->
+			<!-- tbody -->
+			<div class="tbl tbody" style="top:57px;">
+				<table class="list">
+					<colgroup>
+						<col style="width:6%" />
+						<col style="width:5%" />
+						<col style="width:10%" />
+						<col style="width:20%" />
+						<col style="width:19%" />
+						<col style="width:10%" />
+						<col style="width:8%" />
+						<col style="width:5%" />
+						<col style="width:7%" />
+						<col style="width:10%" />
+					</colgroup>
+					
+					
+					<tbody>
+						<!-- 반복 -->
+						<c:forEach var="list" items="${list.selectListPolicy }">
+						<tr <c:if test="${list.BAN_YN == 'Y' }">style="background-color: skyblue"</c:if>>
+							<td class="nolineL"><fmt:formatNumber pattern="00" value="${list.BOARD_SEQ}"/></td>
+							<td>${list.BOARD_TYPE_NM }</td>
+							<td>${list.MBER_EMAIL } /<br/>${list.MBER_NICK }</td>
+							<td>
+								<div class="thumbnail_bx">
+									<img src="${list.IMG_URL }" alt="상품 이미지">
+									<a href="#" class="prod_name"><span class="ellipsis" style="width:200px;">${list.PROD_NM }</span></a>
+								</div>
+							</td>
+							<td class="tl"><a href="javascript:goUpdate('${list.BOARD_SEQ }', '${list.BOARD_TYPE_CD }');" class="alink">${list.CONTENTS }</a></td>
+							<td>${list.WRITE_ID } <br/>
+							<c:choose>
+							<c:when test="${list.WRITE_NM != null && list.WRITE_NM != ''}">
+							/${list.WRITE_NM }
+							</c:when>
+							<c:otherwise>
+							/-
+							</c:otherwise>
+							</c:choose>
+							</td>
+							<td>${list.REGIST_DT }</td>
+							<td>${list.BAN_YN }</td>
+							<td>${list.BAN_GB_NM }</td>
+							<td>${list.BAN_DT } /<br/>${list.BAN_ADM_NM } </td>
+						</tr>
+						</c:forEach>
+						<!-- //반복 -->
+						<c:if test="${empty list.selectListPolicy }">
+						<tr>
+							<td class="nolineL" colspan="10">조회된 결과가 없습니다.</td>
+						</tr>
+						</c:if>
+					</tbody>
+				</table>
+			</div>
+			<!-- //tbody -->
+		</div>
+		<!-- //fixed_tbl_list -->
+		
+		<!-- bot_tbl -->
+		<div class="bot_tbl">
+			<!-- paging -->
+			<div class="paging">
+				<%@ include file="/WEB-INF/views/admin/common/PageView.jsp" %>
+			</div>
+			<!-- //paging -->
+		</div>
+		<!-- //bot_tbl -->
+	</div>
+</div>
+<!-- //content -->
+

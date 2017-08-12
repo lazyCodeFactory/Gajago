@@ -1,0 +1,634 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ taglib prefix="c"       uri="http://java.sun.com/jsp/jstl/core" %>
+<%@ taglib prefix="fn"      uri="http://java.sun.com/jsp/jstl/functions" %>
+<%@ taglib prefix="custom"  uri="http://taglib.gapping.co.kr" %>
+<script type="text/javascript" src="/js/web/webCommon.js" ></script>
+<script type="text/javascript">
+var isLogin = false;
+var mberInfo = null;
+
+$(function(){
+
+	//이미지 cdn reload
+	//cdnreload();
+
+	$.ajax({
+		type: 'post',
+		async: true,
+		url: '/mobile/main/selectMenuAjax.do',
+		dataType:'json',
+		data: '',
+	    success: function(response) {
+// 	    	console.log(response);
+	    	//	로그인 안되어 있을 경우
+	    	if( response.data == 0){
+				$(".btn_login").show();
+				$(".member_profile").hide();
+// 				$(".btn_basket").hide();
+				$("#id_carts_count").hide();
+				$(".btn_basket").attr("href", "/mobile/main/login.do");
+				$(".btn_arlam").attr("href", "/mobile/main/login.do");
+				$(".ring_list").hide();
+				$("#id_li_18").hide();
+	    	}
+	    	else{
+	    		$(".btn_basket").attr("href", "/mobile/myBasket/getMyBasketInfo.do");
+				$(".btn_arlam").attr("href", "/mobile/myMessage/getMyMessageList.do");
+	    		$(".btn_login").hide();
+	    		$(".member_profile").show();
+	    		setMenu(response.menu);
+	    		cdnreload();
+	    		isLogin = true;
+	    	}
+		},
+		error : function(request, status, error) {
+			alert("통신 오류가 발생 하였습니다. 잠시 후 다시 시도해 주세요");
+		}
+	});
+
+	$('.btn_nav').click(function(){
+		sideMenuOpen();
+	});
+
+	//$.removeCookie('LAYER_APP', { path: '/mobile' });
+
+	var mobileInfo = new Array('Android', 'iPhone', 'iPod', 'BlackBerry', 'Windows CE', 'SAMSUNG', 'LG', 'MOT', 'SonyEricsson');
+	for (var info in mobileInfo){
+	    if (navigator.userAgent.match(mobileInfo[info]) != null){
+	    	var check = $.cookie('LAYER_APP');
+	    	if ('${sessionScope.APP}' != 'SSOCIO') {
+	    		if("LAYER_APP" != check){
+
+	    			var str ='<div class="popup layer_app" style="display: none;">';
+	    			str += '<p><img src="http://static.ssocio.net/web/images/app_link01.png" alt="처음만나는 서비스 SHARING PORTAL"></p>';
+	    			if(navigator.userAgent.match(mobileInfo[info]) == 'iPhone' || navigator.userAgent.match(mobileInfo[info])  == 'iPod'){
+	    				str += '<p><a  onclick="startIosStore();" custom-scheme-url="danalssocio://" data-appstore-url="https://itunes.apple.com/kr/app/id1047545424?mt=8"><img src="http://static.ssocio.net/web/images/app_link02.png" alt="SSOCIO 앱으로 보기"></a></p>';
+	    			}else{
+	    				str += '<p><a href="intent://#Intent;scheme=danalssociomain;package=com.danalssocio.ssocio;end" data-app-intent="intent://#Intent;scheme=danalssociomain;package=com.danalssocio.ssocio;end" data-search-keyword="쏘시오앱"><img src="http://static.ssocio.net/web/images/app_link02.png" alt="SSOCIO 앱으로 보기"></a></p>';
+	    			}
+	    			str += '<p><a href="javascript:;" onclick="layerAppClose();"><img src="http://static.ssocio.net/web/images/app_link03.png" alt="모바일웹으로 보기"></a></p></div>';
+	    			$('.nav').append(str);
+	    			try {
+	    				$('.layer_app').show();popup_show();
+					} catch (e) {
+						console.log("LAYER_APP error");
+					}
+
+
+
+	    		}
+	    	}
+	        break;
+	    }
+	}
+
+});
+
+function setMenu(menu){
+	mberInfo = menu.mberInfo;
+
+	//	구매회원
+	if(menu.mberInfo.MBER_REG_GB_CD == '0' ){
+		//	프로필 영역
+		$("#mainImg").attr("alt", menu.mberInfo.FILE_URL);
+		if ( menu.mberInfo.SSO_GB_CD == "FBO" || menu.mberInfo.SSO_GB_CD == "KKO" ) {
+			if ( !isNull(menu.mberInfo.MBER_NM) ) {
+				$(".tit").text(menu.mberInfo.MBER_NM);
+			} else if ( !isNull(menu.mberInfo.MBER_NICK)) {
+				$(".tit").text(menu.mberInfo.MBER_NICK);
+			} else {
+				if (menu.mberInfo.SSO_GB_CD == "FBO") {
+					$(".tit").text("페이스북 친구 쏘시오");
+				} else {
+					$(".tit").text("카카오톡 친구 쏘시오");
+				}
+			}
+		} else {
+			if ( !isNull(menu.mberInfo.MBER_NM) ) {
+				$(".tit").text(menu.mberInfo.MBER_NM);
+			} else if ( !isNull(menu.mberInfo.MBER_NICK)) {
+				$(".tit").text(menu.mberInfo.MBER_NICK);
+			} else {
+				$(".tit").text(menu.mberInfo.MBER_EMAIL);
+			}
+		}
+
+// 		$(".tit").text(menu.mberInfo.MBER_NM);
+// 		$(".url").text(menu.mberInfo.MBER_EMAIL);
+
+		$(".tr p").text(nvlInt(menu.mberInfo.CPN_CNT, 0) + "장");
+		$(".tl p").text(formatNumber(nvlInt(menu.mberInfo.POINT, 0)) + "P");
+
+		$("#id_buy_wish").text(menu.mberInfo.WISH_CNT);
+		$("#id_buy_cart").text(menu.mberInfo.CART_CNT);
+		$("#id_buy_cancel").text(menu.mberInfo.BUY_CANCEL_QNA_CNT);
+	}
+	//	판매회원
+	else{
+		//	개인 회원
+		if( menu.mberInfo.MBER_GB_CD == '0'){
+			//	프로필 영역
+			$("#mainImg").attr("alt", isNull(menu.mberInfo.MINI_SHOP_FILE_URL) == false ? menu.mberInfo.MINI_SHOP_FILE_URL: menu.mberInfo.FILE_URL);
+			$(".tit").text(menu.mberInfo.MINI_SHOP_NM);
+			$(".url").text(menu.mberInfo.MINI_SHOP_PATH != '' ? "http://mall.ssocio.com/" + menu.mberInfo.MINI_SHOP_PATH : "");
+			$("#id_li_01").show();
+			$("#id_li_02").show();
+			$("#id_li_03").show();
+			$("#id_li_04").show();
+			$("#id_li_06").show();
+			$("#id_li_07").show();
+			$("#id_li_08").show();
+
+			for(var i=0 ; i<menu.prodInfo.length ; i++){
+				var prod = menu.prodInfo[i];
+				switch(prod.PROD_TYPE_CD){
+				case '1':	//	판매상품
+					$("#id_prod_sell").text(prod.PROD_QTY);
+					break;
+				case '2':	//	셰어링상품
+					$("#id_prod_share").text(prod.PROD_QTY);
+					break;
+				case '3':	//	나눔 상품
+					$("#id_prod_free_share").text(prod.PROD_QTY);
+					break;
+				}
+			}
+
+			for(var i=0 ; i<menu.sellInfo.length ; i++){
+				var prod = menu.sellInfo[i];
+				switch(prod.PROD_TYPE_CD){
+				case '1':	//	판매상품
+					$("#id_sell_sell").text(prod.PROD_QTY);
+					break;
+				case '2':	//	셰어링상품
+					$("#id_sell_share").text(prod.PROD_QTY);
+					break;
+				case '3':	//	나눔 상품
+					$("#id_sell_free_share").text(prod.PROD_QTY);
+					break;
+				}
+			}
+
+			$(".tr p").text(nvlInt(menu.mberInfo.CPN_CNT, 0) + "장");
+			$(".tl p").text(formatNumber(nvlInt(menu.mberInfo.POINT, 0)) + "P");
+
+			$("#id_buy_wish").text(menu.mberInfo.WISH_CNT);
+			$("#id_buy_cart").text(menu.mberInfo.CART_CNT);
+
+			$("#id_sell_prod_qna").text(menu.mberInfo.SELL_PROD_QNA_CNT); // 상품문의 확인
+		}
+		//	사업자
+		else{
+			$("#mainImg").attr("alt", isNull(menu.mberInfo.MINI_SHOP_FILE_URL) == false ? menu.mberInfo.MINI_SHOP_FILE_URL: menu.mberInfo.FILE_URL);
+			$(".tit").text(menu.mberInfo.MINI_SHOP_NM);
+			$(".url").text(menu.mberInfo.MINI_SHOP_PATH != '' ? "http://mall.ssocio.com/" + menu.mberInfo.MINI_SHOP_PATH : "");
+			$("#cupon").hide();	//  마이페이지 cupon클래스와 충돌현상으로 변경함.- (수정자: 김성훈)
+			$("#id_li_01").show();
+			$("#id_li_05").show();
+			$("#id_li_07").show();
+			$("#id_li_08").show();
+		}
+		//건수 이상함
+		$("#id_sell_cancel").text(menu.mberInfo.SELL_CANCEL_QNA_CNT); // 판매 확인
+		$("#id_buy_cancel").text(menu.mberInfo.BUY_CANCEL_QNA_CNT); //  구매 확인
+	}
+
+	//console.log(menu.buyInfo);
+	for(var i=0 ; i<menu.buyInfo.length ; i++){
+		var prod = menu.buyInfo[i];
+		//console.log("prod = " + prod.PROD_TYPE_CD + " : " + prod.PROD_QTY);
+		switch(prod.PROD_TYPE_CD){
+		case '1':	//	판매상품
+			$("#id_buy_sell").text(prod.PROD_QTY);
+			break;
+		case '2':	//	셰어링상품
+			$("#id_buy_share").text(prod.PROD_QTY);
+			break;
+		case '3':	//	나눔 상품
+			$("#id_buy_free_share").text(prod.PROD_QTY);
+			break;
+		case '5':	//	렌탈 상품
+			$("#id_buy_rental").text(prod.PROD_QTY);
+			break;
+		}
+	}
+
+	if( menu.mberInfo.CART_CNT > 0 ){
+		$(".btn_basket").show();
+		$("#id_carts_count").show();
+		$("#id_carts_count").text(menu.mberInfo.CART_CNT);
+	}
+	else{
+		$("#id_carts_count").hide();
+	}
+
+	$("#id_shar_cnt").text(menu.sharCnt);
+
+	if( menu.sharInfo.length > 0 ){
+		var html = '';
+		html += '<p class="tr">현재 ' + menu.sharInfo.length + '개 이용중</p>';
+		for(var i=0 ; i<menu.sharInfo.length ; i++){
+			var shar = menu.sharInfo[i];
+			html += '<div class="line_graph">';
+			html += '<p class="clear"><strong class="fl">' + shar.PROD_NM + '</strong> <span class="fr">' + (shar.END_DT == undefined ? '' : shar.END_DT) + '</span></p>';
+			html += '<div class="bar"><p style="width:' + shar.PERC + '%"></p></div>';
+			html += '</div>';
+		}
+
+		$("#graph_area_left").append(html); // 마이페이지에서 같은 클래스을 사용하고 있어서 변경함(.graph_area에서 #graph_area_left) 작업자:김성훈
+		$("#graph_area_left").css({'display' : 'block'});
+		$("#id_sp_shar").addClass("sha");
+	}
+
+	//console.log(menu.qna);
+
+	if( menu.qna.CUSTOM_QNA_CNT > 0){
+		$("#id_custom_qna_cnt").text(menu.qna.CUSTOM_QNA_CNT);
+	}
+
+	if( menu.qna.CUSTOM_QNA_NEW > 0 ){
+		$("#id_custom_qna_yn").show();
+	}
+
+	if( menu.qna.PROD_QNA_CNT > 0){
+		$("#id_prod_qna_cnt").text(menu.qna.PROD_QNA_CNT);
+	}
+
+	if( menu.qna.PROD_QNA_NEW > 0 ){
+		$("#id_prod_qna_yn").show();
+	}
+
+//  	cdnreload();
+
+// 	if($('img[titleId="left_menu"]').attr("data-original") != undefined){
+// 		$('img[titleId="left_menu"]').attr("src", $('img[titleId="left_menu"]').attr("data-original").split("?")[0] + "?resize=50px:*").attr("style", "width:100%;height:100%");
+// 	}
+
+
+
+}
+
+function showPopup(url){
+
+	alert("로그인 상태에서 이용 가능합니다.\n로그인 페이지로 이동됩니다.");
+	if("" != url){
+		location.href = '/mobile/main/login.do?ret=' + encodeURIComponent(url);
+
+	}else{
+		location.href = '/mobile/main/login.do';
+	}
+
+}
+
+function goEventScr(){
+	location.href="/mobile/event/selectListEvent.do";
+}
+
+
+function goMyPage(){
+	location.href="/mobile/myPage/getMyPageInfo.do";
+}
+
+/*
+ *	포인트 (myPoint)
+ */
+function goMyPoint() {
+	location.href="/mobile/myInfo/selectPointList.do";
+}
+
+function goMyCpn() {
+	location.href="/mobile/myInfo/selectCpnList.do";
+}
+
+
+function goMySharOrdProdPage(){
+
+	var url = "/mobile/shar/selectSharOrdProd.do"
+		if(isLogin){
+			location.href=url;
+		}
+		else{
+			showPopup(url);
+		}
+}
+
+function goCancel(){
+	var url = "/mobile/buy/selectBuyMain.do"
+	if(isLogin){
+		location.href=url;
+	}
+	else{
+		showPopup(url);
+	}
+}
+
+function goSearchPage(){
+
+	location.href='/mobile/search/selectSearch.do';
+}
+
+function goMyWish(){
+	var url = "/mobile/myWish/getMyWishList.do"
+	if(isLogin){
+		location.href=url;
+	}
+	else{
+		showPopup(url);
+	}
+}
+
+function goCart(){
+	var url = "/mobile/myBasket/getMyBasketInfo.do"
+	if(isLogin){
+		location.href=url;
+	}
+	else{
+		showPopup(url);
+	}
+}
+
+function goQna(flag){
+	var url = ""
+		if( flag == '0'){
+			url= '/mobile/myAct/getMyActInfo.do?GUBUN=D';
+		}
+		else if( flag == '1'){
+			url= '/mobile/myAct/getMyActInfo.do?GUBUN=C';
+		}
+
+	if( isLogin){
+			location.href =url;
+	}
+	else{
+		showPopup(url);
+	}
+}
+
+function selectImage(){
+	if(mberInfo.MBER_REG_GB_CD == '0'){
+		goMyPage();
+	}
+	else{
+		location.href='/mobile/myMini/getMyMiniInfo.do?movePage=';
+	}
+}
+
+function goSelectListPlan(){
+	location.href='/mobile/planning/SelectListPlan.do';
+}
+
+function goSelectListEvent(){
+	location.href='/mobile/event/selectListEvent.do';
+}
+
+function goSelectListNotice(){
+	location.href='/mobile/board/selectListNotice.do';
+}
+
+function goSetLogout(){
+	location.href='/mobile/setLogout.do';
+}
+
+function goProcInsertProdComm(){
+	location.href='/mobile/salemanage/procInsertProdCommV2.do';
+}
+
+function goProcOrderSearchMain(){
+	location.href='/mobile/salemanage/procOrderSearchMain.do';
+}
+
+function goSelectListProdQna(){
+	location.href='/mobile/salemanage/selectListProdQna.do';
+}
+
+function startApp(){
+	$("#footers").append("<iframe id='____applink____'></iframe>");
+	$("#____applink____").hide();
+
+
+	var openAt = +new Date;
+	var uagentLow = navigator.userAgent.toLocaleLowerCase(),
+	chrome25,
+	kitkatWebview;
+
+	//자동 이동
+	setTimeout( function() {
+	    if (+new Date - openAt < 2000) {
+
+// 	    	if (window.confirm("쏘시오앱이 설치되어 있지 않습니다.\n설치페이지로 이동하시겠습니까?"))
+// 	         {
+	    	    if (uagentLow.search("android") > -1) {
+		            $("#____applink____").attr("src","market://details?id=com.danalssocio.ssocio");
+		        } else if (uagentLow.search("iphone") > -1) {
+		            location.replace("https://itunes.apple.com/kr/app/id1047545424?mt=8");
+		        }
+// 	         }
+	    }
+	}, 1500);
+
+
+	if(uagentLow.search("android") > -1){
+	    chrome25 = uagentLow.search("chrome") > -1 && navigator.appVersion.match(/Chrome\/\d+.\d+/)[0].split("/")[1] > 25;
+	    kitkatWebview = uagentLow.indexOf("naver") != -1 || uagentLow.indexOf("daum") != -1;
+	    if (chrome25 && !kitkatWebview){
+	       document.location.replace("intent://#Intent;scheme=danalssociomain;package=com.danalssocio.ssocio;end");
+	    } else{
+	        $("#____applink____").attr("src", 'danalssociomain://');
+	    }
+	    $("#____applink____").attr("src", 'danalssociomain://');
+	}
+	else if(uagentLow.search("iphone") > -1){
+
+		location.href = "danalssocio://";
+
+// 	    $("#____applink____").attr("src", 'danalssocio://');
+	}
+}
+
+function startIosStore(){
+	var openAt = +new Date;
+
+	setTimeout( function() {
+	    if (+new Date - openAt < 2000) {
+
+
+		            location.replace("https://itunes.apple.com/kr/app/id1047545424?mt=8");
+
+	    }
+	}, 1500);
+	 location.replace("danalssocio://");
+
+}
+function layerAppClose(){
+	$.cookie('LAYER_APP', 'LAYER_APP',{ expires: 180, path: '/' });
+
+	$('.layer_app').hide();popup_hide();
+	$('.layer_app').remove();
+}
+</script>
+
+
+<!-- header -->
+<header>
+	<a href="#" class="btn_nav"><span>사이드 메뉴</span></a>
+	<h1><a href="/mobile/main/main.do" class="logo"><span>SSOCIO</span></a></h1>
+	<div class="header_search"><a href="#" class="search_link" onclick="goSearchPage();return false;"> </a><span class="btn_serch"></span></div>
+	<div class="btn_set">
+		<c:choose>
+			<c:when test="${cartViewYn eq 'N' }">
+				<a href="#" class="btn_basket"><span>장바구니</span> <p class="cycle" id="id_carts_count"></p></a>
+			</c:when>
+			<c:otherwise>
+				<a href="#" class="btn_basket"><span>장바구니</span></a>
+			</c:otherwise>
+		</c:choose>
+
+<%-- 		${cartViewYn } --%>
+	</div>
+</header>
+<!-- //header -->
+<form id="fileForm" name="fileForm" method="post" action="" enctype="multipart/form-data">
+<nav>
+	<div class="nav">
+		<a href="javascript:sideMenuClos2();" class="close">닫기</a>
+		<div class="navBox01">
+			<a href="/mobile/setup/selectInfo.do" class="setup"><img src="http://static.ssocio.net/web/images/nav_setup.png" alt="설정"></a>
+			<p class="btn_login"><a href="/mobile/main/login.do">로그인</a></p>
+			<div class="member_profile"> <!-- title="left_menu" -->
+				<p class="pic_bx">
+					<a href="javascript:selectImage();">
+						<img src='<custom:codeTag code="DEFAULT_IMG_URL" groupCode="SITE_DEFAULT" />?resize=200px:100px' style="width:100%;height:100%" alt="" id='mainImg' titleId="left_menu" style="">
+					</a>
+				</p>
+				<p class="tit"></p>
+				<p class="url"></p>
+				<ul class="cupon" id="cupon">
+					<li class="tr" onclick="javascript:goMyCpn();"><p></p></li>
+					<li class="tl" onclick="javascript:goMyPoint();"><p></p></li>
+				</ul>
+			</div>
+		</div>
+		<div class="navBox02">
+			<ol class="nav_list">
+				<li id="id_li_01" style="display:none;"><p class="tc"><strong>판매정보</strong></p></li>
+				<li id="id_li_02" style="display:none;" onclick="javascript:goProcInsertProdComm();"><p class="arrow"><a href="#">상품등록</a></p></li>
+				<li id="id_li_03" style="display:none;">
+					<p class="line"><a href="#">등록상품</a></p>
+					<ul class="ring_list type2">
+						<li>
+							<a href="/mobile/salemanage/selectListProd.do?movePage=&prodTypeCd=2&orderCd=&prodStatCd=&prodCode=&orderSel=0">
+								<p class="ring" id="id_prod_share" >0</p>
+								<p class="sub">셰어링</p>
+							</a>
+						</li>
+						<li>
+							<a href="/mobile/salemanage/selectListProd.do?movePage=&prodTypeCd=1&orderCd=&prodStatCd=&prodCode=&orderSel=0">
+								<p class="ring" id="id_prod_sell">0</p>
+								<p class="sub">판매</p>
+							</a>
+						</li>
+						<li>
+							<a href="/mobile/salemanage/selectListProd.do?movePage=&prodTypeCd=3&orderCd=&prodStatCd=&prodCode=&orderSel=0">
+								<p class="ring" id="id_prod_free_share">0</p>
+								<p class="sub">나눔</p>
+							</a>
+						</li>
+					</ul>
+				</li>
+				<li id="id_li_04" style="display:none;">
+					<p class="line"><a href="#">판매내역</a></p>
+					<ul class="ring_list type3">
+						<li>
+							<a href="/mobile/salemanage/selectListOrderShare.do?ordGb=1">
+								<p class="ring" id="id_sell_share">0</p>
+								<p class="sub">셰어링</p>
+							</a>
+						</li>
+						<li>
+							<a href="/mobile/salemanage/selectListOrderSell.do?ordGb=1">
+								<p class="ring" id="id_sell_sell">0</p>
+								<p class="sub">판매</p>
+							</a>
+						</li>
+						<li>
+							<a href="/mobile/salemanage/selectListOrderFree.do?ordGb=">
+								<p class="ring" id="id_sell_free_share">0</p>
+								<p class="sub">나눔</p>
+							</a>
+						</li>
+					</ul>
+				</li>
+				<li id="id_li_05" style="display:none;">
+					<p class="tc">사업자 판매회원의 경우 셀러 오피스<br><strong>(Http://seller.ssocio.com)</strong>에서<br>정보 확인이 가능합니다.</p>
+				</li>
+				<li id="id_li_06" style="display:none;" onclick="javascript:goProcOrderSearchMain();"><p class="arrow"><a href="/mobile/salemanage/procOrderSearchMain.do" class="fl">취소/교환/반품</a> <strong class="fr" id="id_sell_cancel">0</strong></p></li>
+				<li id="id_li_07" style="display:none;" onclick="javascript:goSelectListProdQna();"><p class="arrow"><a href="/mobile/salemanage/selectListProdQna.do" class="fl">상품문의 확인</a> <strong class="fr" id="id_sell_prod_qna">0</strong></p></li>
+				<li id="id_li_08" style="display:none;"><p class="tc"><strong>구매정보</strong></p></li>
+				<li id="id_li_09" onclick="javascript:goMySharOrdProdPage();">
+					<p class="arrow"><a href="#" class="fl" id="id_sp_shar" onclick="goMySharOrdProdPage();">스마트폰셰어링</a> <strong class="fr" id="id_shar_cnt">0</strong></p>
+					<div class="graph_area" id="graph_area_left">
+
+					</div>
+				</li>
+				<li id="id_li_10">
+					<p class="line">구매내역</p>
+					<ul class="ring_list">
+						<li>
+							<a href="/mobile/buy/selectListSharOrderHist.do?ACTION=list">
+								<p class="ring" id="id_buy_share">0</p>
+								<p class="sub">셰어링</p>
+							</a>
+						</li>
+						<li>
+							<!-- [2015-10-31] 판매상품 주문내역 LIST 조회에 필수 파라미터인, ACTION=list 를 추가함 -->
+							<a href="/mobile/buy/selectListSaleOrderHist.do?ACTION=list">
+								<p class="ring" id="id_buy_sell">0</p>
+								<p class="sub">판매</p>
+							</a>
+						</li>
+						<li>
+							<a href="/mobile/buy/selectListDivideReqHist.do?ACTION=list">
+								<p class="ring" id="id_buy_free_share">0</p>
+								<p class="sub">나눔</p>
+							</a>
+						</li>
+						<li>
+							<a href="/mobile/buy/selectListRentalReqHist.do?ACTION=list&S_SEARCH_PERI=3M">
+								<p class="ring" id="id_buy_rental">0</p>
+								<p class="sub">렌탈</p>
+							</a>
+						</li>
+					</ul>
+				</li>
+				<!-- 구매관리 페이지로 이동 -->
+				<li id="id_li_11" onclick="javascript:goCancel();"><p class="arrow"><a href="javascript:goCancel();" class="fl">취소/교환/반품</a> <strong class="fr" id="id_buy_cancel">0</strong></p></li>
+				<li id="id_li_12" onclick="javascript:goMyWish();"><p class="arrow"><a href="javascript:goMyWish();" class="fl">위시리스트</a> <strong class="fr" id="id_buy_wish">0</strong></p></li>
+				<li id="id_li_13" onclick="javascript:goCart();"><p class="arrow"><a href="javascript:goCart();" class="fl">장바구니</a> <strong class="fr" id="id_buy_cart">0</strong></p></li>
+				<li id="id_li_14" onclick="javascript:goSelectListPlan();"><p class="arrow"><a href="/mobile/planning/SelectListPlan.do" class="fl">기획전</a></p></li>
+				<li id="id_li_15" onclick="javascript:goSelectListEvent();"><p class="arrow"><a href="/mobile/event/selectListEvent.do" class="fl">이벤트</a></p></li>
+				<li id="id_li_16" >
+					<p class="line"><a href="#">문의내역</a></p>
+					<ul class="help">
+						<li>
+							<a href="javascript:goQna('0');">
+								<p id="id_custom_qna_cnt">0</p>
+								<p>고객센터 문의 <img src="http://static.ssocio.net/web/images/new.png" alt="new" width="15" class="ml5" id="id_custom_qna_yn" style="display:none;">
+								</p>
+							</a>
+						</li>
+						<li>
+							<a href="javascript:goQna('1');">
+								<p id="id_prod_qna_cnt">0</p>
+								<p>판매상품 문의<img src="http://static.ssocio.net/web/images/new.png" alt="new" width="15" class="ml5" id="id_prod_qna_yn" style="display:none;"></p>
+							</a>
+						</li>
+					</ul>
+				</li>
+				<li id="id_li_17" onclick="javascript:goSelectListNotice();"><p class="tel_line"><a href="/mobile/board/selectListNotice.do" class="fl">고객센터 </a><a href="TEL:1877-0101" class="user_phone"><strong class="tel">1877-0101</strong></a></p></li>
+
+				<li id="id_li_18" onclick="javascript:goSetLogout();"><p class="arrow"><a href="/mobile/setLogout.do">로그아웃</a></p></li>
+			</ol>
+		</div>
+	</div>
+</nav>
+</form>

@@ -1,0 +1,1288 @@
+package com.ssocio.sharing.controller.mobile;
+
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.net.URLDecoder;
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Enumeration;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.ModelMap;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.servlet.ModelAndView;
+
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.gson.Gson;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonParser;
+import com.ssocio.sharing.cmmn.util.CmmnCnst;
+import com.ssocio.sharing.cmmn.util.LoggerUtil;
+import com.util.PaycoUtil;
+
+@Controller
+public class MobilePaycoController extends MobileReferController {
+	
+	// --------------------------------------------------------------------------
+	// # Log 설정
+	// --------------------------------------------------------------------------
+	private static final Logger logger = LoggerFactory.getLogger(MobilePaycoController.class);
+	
+	
+	
+	@SuppressWarnings("unused")
+	private String PAYCO_SELLERKEY = null;
+	@SuppressWarnings("unused")
+	private String PAYCO_CPID = null;
+	@SuppressWarnings("unused")
+	private String PAYCO_PRODUCTID = null;
+	@SuppressWarnings("unused")
+	private String PAYCO_SERVERTYPE = null;
+	
+	
+	@ModelAttribute
+	public void paycoKeySelector(HttpServletRequest request) {
+
+		String initUrl = (String)request.getAttribute("INIT_URL");
+		if (initUrl.indexOf("sso-mobile.ssocio.net") > -1  || initUrl.indexOf("mydev.ssocio.net") > -1 ){
+			
+			logger.info("sso-mobile 입니다. test key가 적용 됩니다.");
+			
+			this.PAYCO_SELLERKEY = CmmnCnst.PAYCO_SELLERKEY;
+			this.PAYCO_CPID = CmmnCnst.PAYCO_CPID;
+			this.PAYCO_PRODUCTID = CmmnCnst.PAYCO_PRODUCTID;
+			this.PAYCO_SERVERTYPE = CmmnCnst.PAYCO_SERVERTYPE;
+			
+		} else if ( initUrl.indexOf("ssocio.net") > -1 || initUrl.indexOf("ssocio.com") > -1 ){
+			
+			logger.info("ssoio.net 입니다. prod key 가 적용 됩니다.");
+			
+			this.PAYCO_SELLERKEY = CmmnCnst.PAYCO_SELLERKEY_PROD;
+			this.PAYCO_CPID = CmmnCnst.PAYCO_CPID_PROD;
+			this.PAYCO_PRODUCTID = CmmnCnst.PAYCO_PRODUCTID_PROD;
+			this.PAYCO_SERVERTYPE = CmmnCnst.PAYCO_SERVERTYPE_PROD;
+		} else {
+			
+			logger.info("test key가 적용 됩니다.");
+			
+			this.PAYCO_SELLERKEY = CmmnCnst.PAYCO_SELLERKEY;
+			this.PAYCO_CPID = CmmnCnst.PAYCO_CPID;
+			this.PAYCO_PRODUCTID = CmmnCnst.PAYCO_PRODUCTID;
+			this.PAYCO_SERVERTYPE = CmmnCnst.PAYCO_SERVERTYPE;
+		}
+		
+	}
+	
+	
+
+	@RequestMapping("/mobile/easypay/pay2/product.do")
+	public ModelAndView paycoProduct(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception	{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("Order START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+
+		String domainName = (String)request.getAttribute("INIT_URL")+"/mobile/easypay/pay2";
+		
+		ModelMap modelMap = new ModelMap();
+		modelMap.put("domainName",domainName);
+
+		
+		
+		return new ModelAndView("web/easypay/pay2/product", modelMap);
+	}
+
+	
+	
+	/**-----------------------------------------------------------------------
+	 * 구매예약처리 페이지(JSP)
+	 *------------------------------------------------------------------------
+	 * @Class payco_reserve.jsp
+	 * @author PAYCO기술지원<dl_payco_ts@nhnent.com>
+	 * @since
+	 * @version
+	 * @return 
+	 * @Description 
+	 * 가맹점에서 전달한 파라미터를 받아 JSON 형태로 페이코API 와 통신한다.
+	 */
+	@RequestMapping("/mobile/easypay/pay2/reserve.do")
+	public ModelAndView paycoReserve(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception	{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("Order START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+
+		String domainName = (String)request.getAttribute("INIT_URL")+"/mobile/easypay/pay2";
+		
+		ModelMap modelMap = new ModelMap();
+		
+		
+		ObjectMapper mapper = new ObjectMapper(); 		  //jackson json object
+		PaycoUtil util 		= new PaycoUtil(this.PAYCO_SERVERTYPE); //CommonUtil
+
+		
+
+		/*======== 상품정보 변수 선언 ========*/
+		int OrderNumber, orderQuantity, productUnitPrice, productUnitPaymentPrice, productAmt, deliveryFeeAmt; 
+		int productPaymentAmt, TotalProductPaymentAmt, sortOrdering;
+		int totalTaxfreeAmt, totalTaxableAmt, totalVatAmt;
+		String iOption;
+		String productName;
+		String productInfoUrl;
+		String orderConfirmUrl;
+		String orderConfirmMobileUrl;
+		String productImageUrl;
+		String sellerOrderProductReferenceKey;
+		String taxationType;
+		/*=====================================*/
+		
+		/*======== 변수 초기화 ========*/
+		TotalProductPaymentAmt = 0;	//주문 상품이 여러개일 경우 상품들의 총 금액을 저장할 변수
+		OrderNumber = 0;			//주문 상품이 여러개일 경우 순번을 매길 변수
+		totalTaxfreeAmt = 0;		//총 면세 금액
+		totalTaxableAmt = 0;		//총 과세 공급가액
+		totalVatAmt = 0;			//총 과세 부가세액
+		/*=============================*/
+
+		
+		String tmpAmt = (String) inParam.get("AMT_PAY");
+		tmpAmt =  tmpAmt.replaceAll(",", "");
+		int paramAmount = Integer.parseInt(tmpAmt);	// 상품가격
+		
+		String paramProductName = (String) inParam.get("NM_ITEM");	// 상품이름
+		
+		String paramProductKey = (String) inParam.get("ID_ORDER");	// 상품 키 (unique)	// 개별상품으로 관리하는것이 아니기 때문에 상품키는 따로 관리하지 않음. 따라서 주문번호로 그냥 처리함
+			
+		/* 이전 페이지에서 전달받은 고객 주문번호 설정 */
+		String paramSellerOrderReferenceKey = (String)request.getParameter("ID_ORDER");	// 주문번호
+		
+		
+		
+		/*==== 첫번째 상품정보 값 입력 ====*/
+		OrderNumber = OrderNumber + 1; 										// 상품에 순번을 정하기 위해 값을 증가합니다.
+		orderQuantity = 1;													//[필수]주문수량 (배송비 상품인 경우 1로 세팅)
+		productUnitPrice = paramAmount;										//[필수]상품 단가 ( 테스트용으로써 12000원으로 설정)
+		productUnitPaymentPrice = paramAmount;					 			//[필수]상품 결제 단가 ( 테스트용으로써 10000원으로 설정, 배송비 설정시 상품가격에 포함시킴 ex) 1000원)
+		sortOrdering = OrderNumber;											//[필수]상품노출순서, 10자 이내
+		productName = paramProductName;							 	 		//[필수]상품명, 4000자 이내
+		sellerOrderProductReferenceKey = paramProductKey;					//[필수]가맹점에서 관리하는 상품키, 100자 이내.(외부가맹점에서 관리하는 주문상품 연동 키(sellerOrderProductReferenceKey)는 주문 별로 고유한 key이어야 합니다.)
+		
+		productAmt = productUnitPrice * orderQuantity;						//[필수]상품 결제금액(상품단가 * 수량)
+		productPaymentAmt = productUnitPaymentPrice * orderQuantity;		//[필수]상품 결제금액(상품결제단가 * 수량)
+		
+		
+//		iOption = "신발사이즈 외";											//[선택]옵션(최대 100 자리)
+		orderConfirmUrl = "";												//[선택]주문완료 후 주문상품을 확인할 수 있는 url, 4000자 이내
+		orderConfirmMobileUrl = "";											//[선택]주문완료 후 주문상품을 확인할 수 있는 모바일 url, 1000자 이내
+		productImageUrl = "";												//[선택]이미지URL(배송비 상품이 아닌 경우는 필수), 4000자 이내, productImageUrl에 적힌 이미지를 썸네일해서 PAYCO 주문창에 보여줍니다.
+//		taxationType = "TAXATION";											//[선택]과세타입(기본값 : 과세). DUTYFREE :면세, COMBINE : 결합상품, TAXATION : 과세
+		
+		//주문정보를 구성하기 위한 상품들 누적 결제 금액(상품결제금액) 
+		TotalProductPaymentAmt = TotalProductPaymentAmt + productPaymentAmt; // 주문상품 총 금액
+		
+		// totalTaxfreeAmt(면세상품 총액) / totalTaxableAmt(과세상품 총액) / totalVatAmt(부가세 총액) => 일부 필요한 가맹점을위한 예제입니다.
+		//면세상품일 경우
+//		if(taxationType.equals("DUTYFREE")){ 
+//			totalTaxfreeAmt = 11000;
+//		
+//		//과세상품일 경우
+//		}else if(taxationType.equals("TAXATION")){
+//			totalTaxableAmt = 9900; 
+//			totalVatAmt = 1100;
+//					
+//		//복합상품일 경우
+//		}else if(taxationType.equals("COMBINE")){
+//			totalTaxfreeAmt = 0;
+//			totalTaxableAmt = 9900;
+//			totalVatAmt = 1100;
+//		}
+
+		//상품값으로 읽은 변수들로 Json String 을 작성합니다.
+		List<Map<String,Object>> orderProducts = new ArrayList<Map<String,Object>>();
+		
+		Map<String,Object> productInfo = new HashMap<String,Object>(); 
+		productInfo.put("cpId", this.PAYCO_CPID);										//[필수]상점ID 
+		productInfo.put("productId", this.PAYCO_PRODUCTID);								//[필수]상품ID (물건이 아님.. 발급받는 키임)
+		productInfo.put("productAmt", productAmt);											//[필수]상품금액(상품단가 * 수량)
+		productInfo.put("productPaymentAmt", TotalProductPaymentAmt);						//[필수]상품결제금액(상품결제단가 * 수량)
+		productInfo.put("orderQuantity", orderQuantity);									//[필수]주문수량(배송비 상품인 경우 1로 셋팅)
+		productInfo.put("sortOrdering", sortOrdering);										//[필수]상품 노출순서
+		productInfo.put("productName", productName);										//[필수]상품명
+		productInfo.put("sellerOrderProductReferenceKey", sellerOrderProductReferenceKey);	//[필수]외부가맹점에서 관리하는 주문상품 연동 키
+		
+		logger.debug("==== productInfo ====");
+		LoggerUtil.writeMap(productInfo);
+		
+		productInfo.put("productImageUrl", productImageUrl);								//[선택]이미지 URL(배송비 상품이 아닌 경우는 필수)
+		productInfo.put("orderConfirmMobileUrl", orderConfirmMobileUrl); 					//[선택]주문완료 후 주문상품을 확인할 수 있는 모바일 URL
+//		productInfo.put("orderConfirmUrl", orderConfirmUrl);								//[선택]주문완료 후 주문상품을 확인할 수 있는 URL
+//		productInfo.put("taxationType", taxationType);										//[선택]과세타입(면세상품 : DUTYFREE, 과세상품 : TAXATION (기본), 결합상품 : COMBINE)
+//		productInfo.put("option", iOption);													//[선택]상품 옵션
+		
+		orderProducts.add(productInfo);
+
+		
+		
+		
+		/*=====================================================================================================*/
+		
+		/*======== 주문정보 변수 선언 ========*/
+		int totalOrderAmt, totalDeliveryFeeAmt, totalPaymentAmt; 
+		String sellerOrderReferenceKey;
+		String sellerOrderReferenceKeyType;
+		String iCurrency;
+		String orderSheetUiType;
+		String orderTitle;
+		String orderMethod;
+		String serviceUrl;
+		String serviceUrlParam;
+		String returnUrl;
+		String returnUrlParam;
+		String nonBankbookDepositInformUrl;
+		String orderChannel;
+		String inAppYn;
+		String individualCustomNoInputYn;
+		String payMode;
+		/*=====================================*/		
+				
+
+
+
+		
+		
+		/*==== 주문정보 값 입력(가맹점 수정 가능 부분) ========================================================*/		
+		sellerOrderReferenceKey 	= paramSellerOrderReferenceKey;						 //[필수]외부가맹점의 주문번호
+		totalPaymentAmt 			= TotalProductPaymentAmt;			 		 //[필수]총 결재 할 금액
+		orderMethod					= "EASYPAY";								 //[필수]주문유형
+		orderChannel 				= "MOBILE";									 //[선택]주문채널 (default : PC/MOBILE)
+		returnUrl 					= domainName+"/payco_return.do";			 //[선택]주문완료 후 Redirect 되는 Url
+		
+		inAppYn 					= "Y";										 //[선택]인앱결제 여부(Y/N) (default = N)
+		String session = (String) request.getSession().getAttribute("APP");	// SSOCIO 면 app
+		if(session != null && session.equals("SSOCIO")){
+			inAppYn = "Y";
+		}else{
+			inAppYn = "N";
+		}
+		
+//		individualCustomNoInputYn 	= "N";										 //[선택]개인통관고유번호 입력 여부 (Y/N) (default = N)
+//		orderSheetUiType 			= "GRAY";									 //[선택]주문서 UI 타입 선택(선택 가능값 : RED/GRAY)		
+		payMode						= "PAY2";									 //[선택]결제모드(PAY1 : 결제인증,승인통합 / PAY2 : 결제인증,승인분리)
+		sellerOrderReferenceKeyType = "UNIQUE_KEY";								 //[선택]외부가맹점의 주문번호 타입(UNIQUE_KEY : 기본값, DUPLICATE_KEY : 중복가능한 키->외부가맹점의 주문번호가 중복 가능한 경우 사용)
+		iCurrency 					= "KRW";									 //[선택]통화(default=KRW)
+//		returnUrlParam 				= "{\"cart_no\":\"20151234567\"}";			 //[선택]주문완료 후 Redirect 되는 URL과 함께 전달되어야 하는 파라미터(Json 형태의 String)
+//		nonBankbookDepositInformUrl = domainName+"/payco_without_bankbook.jsp";	 //[선택]무통장입금완료통보 URL
+//		orderTitle 					= "payco 결제 테스트 주문(JSP)";			 	 //[선택]주문 타이틀
+																				 
+		
+		//설정한 주문정보로 Json String 을 작성합니다.		
+		Map<String,Object> orderInfo = new HashMap<String,Object>();
+		orderInfo.put("sellerKey", this.PAYCO_SELLERKEY);						//[필수]가맹점 코드
+		orderInfo.put("sellerOrderReferenceKey", sellerOrderReferenceKey); 			//[필수]외부가맹점 주문번호
+		orderInfo.put("orderProducts", orderProducts);								//[필수]주문상품 리스트
+		orderInfo.put("totalPaymentAmt", totalPaymentAmt);							//[필수]총 결제금액(면세금액,과세금액,부가세의 합) totalTaxfreeAmt + totalTaxableAmt + totalVatAmt
+		orderInfo.put("orderMethod", orderMethod);									//[필수]주문유형
+		orderInfo.put("orderChannel", orderChannel);								//[선택]주문채널
+		orderInfo.put("returnUrl", returnUrl);										//[선택]주문완료 후 Redirect 되는 URL
+		
+		orderInfo.put("inAppYn", inAppYn);											//[선택]인앱결제 여부
+//		orderInfo.put("customUrlSchemeUseYn", inAppYn);											//[선택]인앱결제 여부
+		
+		
+		
+//		orderInfo.put("individualCustomNoInputYn", individualCustomNoInputYn);		//[선택]개인통관 고유번호 입력 여부
+//		orderInfo.put("orderSheetUiType", orderSheetUiType);						//[선택]주문서 UI타입 선택
+		orderInfo.put("payMode", payMode);											//[선택]결제모드(PAY1 : 결제인증,승인통합 / PAY2 : 결제인증,승인분리)
+		orderInfo.put("sellerOrderReferenceKeyType", sellerOrderReferenceKeyType);  //[선택]외부가맹점의 주문번호 타입
+		orderInfo.put("currency", iCurrency);										//[선택]통화
+//		orderInfo.put("totalTaxfreeAmt", totalTaxfreeAmt);							//[선택]면세금액(면세상품의 공급가액 합)
+//		orderInfo.put("totalTaxableAmt", totalTaxableAmt);							//[선택]과세금액(과세상품의 공급가액 합)
+//		orderInfo.put("totalVatAmt", totalVatAmt);									//[선택]부가세(과세상품의 부가세 합)
+//		orderInfo.put("orderTitle", orderTitle); 									//[선택]주문 타이틀
+//		orderInfo.put("returnUrlParam", returnUrlParam);							//[선택]주문완료 후 Redirect 되는 URL과 함께 전달되어야 하는 파라미터(Json 형태의 String)
+//		orderInfo.put("nonBankbookDepositInformUrl", nonBankbookDepositInformUrl); 	//[선택]무통장입금완료 통보 URL
+		
+
+		
+		Calendar oCalendar = Calendar.getInstance();
+		String tempStr = String.format("%04d%02d%02d%02d%02d%02d%03d", oCalendar.get(Calendar.YEAR),
+				(oCalendar.get(Calendar.MONTH) + 1), oCalendar.get(Calendar.DAY_OF_MONTH),
+				oCalendar.get(Calendar.HOUR_OF_DAY), oCalendar.get(Calendar.MINUTE), oCalendar.get(Calendar.SECOND),
+				oCalendar.get(Calendar.MILLISECOND));    
+		
+		Map<String,Object> extraData = new HashMap<String,Object>();
+		extraData.put("payExpiryYmdt", tempStr);					//[선택]해당 주문예약건 만료 처리 일시 (해당 일시 이후에는 결제 불가)
+		extraData.put("cancelMobileUrl", domainName+"/cancel_btn.do");					//[선택]모바일 결제페이지에서 취소 버튼 클릭시 이동할 URL (결제창 이전 URL 등). 미입력시 메인 URL로 이동
+//		extraData.put("virtualAccountExpiryYmd", "20160512150000");					//[선택]가상계좌만료일시
+
+		
+		Map<String,Object> viewOptions = new HashMap<String,Object>();
+		viewOptions.put("showMobileTopGnbYn", "N");									//[선택]모바일 상단 GNB 노출여부
+		viewOptions.put("iframeYn", "Y");											//[선택]Iframe 호출(모바일에서 접근하는경우 iframe 사용시 이값을 "Y"로 보내주셔야 합니다.)
+		extraData.put("viewOptions", viewOptions);									//[선택]화면 UI 옵션
+		
+																					
+		orderInfo.put("extraData",  mapper.writeValueAsString(extraData).toString().replaceAll("\"", "\\\""));	//[선택]부가정보 - Json 형태의 String
+		
+
+		
+		// 주문예약 API 호출 함수 		// {"code":1002,"message":"인증 정보가 유효하지 않습니다."}
+		
+		logger.info("[reserve][request]" + new Gson().toJson(orderInfo));
+		String result = util.payco_reserve(orderInfo, CmmnCnst.PAYCO_LOGYN);
+		JsonElement root = new JsonParser().parse(result);
+		logger.info("[reserve][response]" + root.toString() );
+		
+		String value1 = root.getAsJsonObject().get("result").getAsJsonObject().get("orderSheetUrl").getAsString();
+
+		modelMap.put("value1", value1);
+		return new ModelAndView("redirect:"+value1);
+	}
+	
+	
+
+	
+	/**-----------------------------------------------------------------------
+	 * 상품상태변경처리 API(JSP)
+	 *------------------------------------------------------------------------
+	 * @Class payco_upstatus.jsp
+	 * @author PAYCO기술지원<dl_payco_ts@nhnent.com>
+	 * @since 
+	 * @version
+	 * @Description 
+	 * 가맹점에서 송신한 매개변수를 전달받아 페이코API와 통신하여 상품상태를 변경처리한다.
+	 */
+	@ResponseBody
+	@RequestMapping("/mobile/easypay/pay2/payco_upstatus.do")
+	public void paycoUpstat(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception	{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("upstat START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+
+		
+		ObjectMapper mapper = new ObjectMapper();   	 //jackson json object
+		PaycoUtil util 		= new PaycoUtil(this.PAYCO_SERVERTYPE); //CommonUtil
+		
+		String orderNo						  = (String)request.getParameter("orderNo");						//payco에서 발급받은 주문번호
+		String sellerOrderProductReferenceKey = (String)request.getParameter("sellerOrderProductReferenceKey");	//외부가맹점에서 관리하는 주문상품키
+		String orderProductStatus 			  = (String)request.getParameter("orderProductStatus");				//변경할 주문상태
+		String returnStr = "";
+		
+		try{
+			//json object 생성
+			Map<String, Object> jsonMap = new HashMap<String, Object>();
+			jsonMap.put("sellerKey", this.PAYCO_SELLERKEY);										   	//[필수]가맹점코드
+			jsonMap.put("orderNo", orderNo);												//[필수]payco에서 발급받은 주문번호
+			jsonMap.put("sellerOrderProductReferenceKey", sellerOrderProductReferenceKey);	//[필수]외부가맹점에서 관리하는 주문상품연동 키
+			jsonMap.put("orderProductStatus", orderProductStatus);							//[필수]변경할 주문상품 상태
+			
+			// 주문 상품 상태 변경 API 호출
+			returnStr = util.payco_upstatus(jsonMap, CmmnCnst.PAYCO_LOGYN);
+			
+		}catch(Exception e){
+			e.printStackTrace();
+			returnStr = "{\"code\":\"9999\", \"message\":\"상품상태변경중 알수없는 오류가 발생했습니다.\"}";
+		}
+		
+		try{
+			PrintWriter pw;
+			pw = response.getWriter();
+			response.setContentType("application/json; charset=utf-8");
+			pw.print(returnStr);
+			pw.flush();
+			pw.close();
+		}catch(IOException e){
+			e.printStackTrace();
+		}
+		
+	}
+	
+	
+	
+	
+	/**-----------------------------------------------------------------------
+	 * 마일리지 취소(JSP)
+	 *------------------------------------------------------------------------
+	 * @Class payco_mileage_cancel.jsp
+	 * @author PAYCO기술지원<dl_payco_ts@nhnent.com>
+	 * @since 
+	 * @version
+	 * @Description 
+	 * 가맹점과 페이코에서 50:50으로 지불하는 형태임. 가맹점에서 마일리지를 사용할 경우에만 적립취소처리를 한다.
+	 * param  : sellerOrderReferenceKey=TEST0234234, cancelPaymentAmount_mile=1000
+	 * return : JSON
+	 */
+	@ResponseBody
+	@RequestMapping("/mobile/easypay/pay2/payco_mileage_cancel.do")
+	public void paycoMileageCancel(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception	{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("paycoMileageCancel START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+
+		
+		
+		/* 마일리지 취소를 위한 값을 설정합니다 */
+		String orderNo 			   = request.getParameter("orderNo");  				   // 주문번호
+		String cancelPaymentAmount = request.getParameter("cancelPaymentAmount_mile"); // 마일리지 취소할 주문서의 원 금액
+		String outStr = "";
+		
+		ObjectMapper mapper = new ObjectMapper();   	 //jackson json object
+		PaycoUtil util 		= new PaycoUtil(this.PAYCO_SERVERTYPE); //CommonUtil
+		
+		try{
+			/* 설정한 주문정보 변수들로 Json String 을 작성합니다. */
+			Map<String, Object> jsonObject = new HashMap<String, Object>();
+			jsonObject.put("sellerKey", this.PAYCO_SELLERKEY);						//[필수]가맹점 코드	
+			jsonObject.put("orderNo", orderNo);							//[필수]주문번호
+			jsonObject.put("cancelPaymentAmount", cancelPaymentAmount); //[필수]마일리지 취소할 주문서의 원 금액
+			
+			/* 주문 상품 상태 변경 API 호출 */
+			outStr = util.payco_cancelmileage(jsonObject, CmmnCnst.PAYCO_LOGYN);
+			
+		}catch(Exception e){
+			outStr = "{ \"message\" : \"마일리지 취소중 에러가 발생했습니다.\", \"code\" : 9999 }";
+		}
+		
+		try{
+			/* 결과반환 */
+			PrintWriter pw;
+			pw = response.getWriter();
+			response.setContentType("application/json; charset=utf-8");
+			pw.print(outStr);
+			pw.flush();
+			pw.close();
+			
+		}catch(Exception e){
+			e.printStackTrace();
+		}
+		
+	}
+
+	
+	/**-----------------------------------------------------------------------
+	 * 주문취소가능 확인 API(JSP)
+	 *------------------------------------------------------------------------
+	 * @Class payco_cancel_check.jsp
+	 * @author PAYCO기술지원<dl_payco_ts@nhnent.com>
+	 * @since 
+	 * @version
+	 * @Description 취소 처리 API를 호출하기 이전에 취소 처리를 진행할 수 있는지 확인하기 위해 사용한다.
+	 */
+	@ResponseBody
+	@RequestMapping("/mobile/easypay/pay2/payco_cancel_check.do")
+	public void payco_cancel_check(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception	{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info(" START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+		
+
+			ObjectMapper mapper = new ObjectMapper(); 	//jackson json object
+			PaycoUtil util = new PaycoUtil(this.PAYCO_SERVERTYPE);	//CommonUtil
+			String strResult = "";				  	  	//반환값
+			
+			String cancelType 						= (String)request.getParameter("cancelType");						//취소 Type 받기 - ALL 또는 PART
+			String orderNo							= (String)request.getParameter("orderNo");							//[필수]PAYCO에서 발급받은 주문번호
+			String cancelTotalAmt 					= (String)request.getParameter("cancelTotalAmt");					//[필수]총 취소 금액
+			String sellerOrderProductReferenceKey 	= (String)request.getParameter("sellerOrderProductReferenceKey");	//[필수]가맹점 주문 상품 연동 키(PART 취소 시)
+			String cancelAmt 						= (String)request.getParameter("productAmt");						//[필수]취소 상품 금액(PART 취소 시)
+			
+			if(orderNo == null || orderNo.equals("")){
+				Map<String,Object> noKeyMap = new HashMap<String,Object>();
+				noKeyMap.put("result", "주문번호 값이 전달되지 않았습니다.");
+				noKeyMap.put("message", "orderNo is Nothing.");
+				noKeyMap.put("code", 9999);
+				
+				PrintWriter pw;
+				pw = response.getWriter();
+				response.setContentType("application/json; charset=utf-8");
+				pw.print(mapper.writeValueAsString(noKeyMap));
+				pw.flush();
+				pw.close();
+			}else if(cancelTotalAmt == null || cancelTotalAmt.equals("")){
+				Map<String,Object> noAmtMap = new HashMap<String,Object>();
+				noAmtMap.put("result", "총 취소금액이 전달되지 않았습니다.");
+				noAmtMap.put("message", "cancelTotalAmt is Nothing.");
+				noAmtMap.put("code", 9999);
+				
+				PrintWriter pw;
+				pw = response.getWriter();
+				response.setContentType("application/json; charset=utf-8");
+				pw.print(mapper.writeValueAsString(noAmtMap));
+				pw.flush();
+				pw.close();
+			}else{
+				if(cancelType.equals("ALL")){
+					Map<String, Object> cancelAllParam = new HashMap<String, Object>();
+					cancelAllParam.put("sellerKey", this.PAYCO_SELLERKEY);								//[필수]가맹점 코드
+					cancelAllParam.put("orderNo", orderNo);  								//[필수]PAYCO에서 발급받은 주문번호
+					cancelAllParam.put("cancelTotalAmt", Integer.parseInt(cancelTotalAmt)); //[필수]취소할 총 금액
+					
+					/* 주문 결제 취소 가능 여부 API 호출 */
+					strResult = util.payco_cancel_check(cancelAllParam,CmmnCnst.PAYCO_LOGYN);
+					
+				}else if(cancelType.equals("PART")){
+					
+					if(sellerOrderProductReferenceKey == null || sellerOrderProductReferenceKey.equals("")){
+						Map<String,Object> noProductReferenceKey = new HashMap<String,Object>();
+						noProductReferenceKey.put("result", "주문상품 연동키가 전달되지 않았습니다.");
+						noProductReferenceKey.put("message", "sellerOrderProductReferenceKey is Nothing.");
+						noProductReferenceKey.put("code", 9999);
+						
+						PrintWriter pw;
+						pw = response.getWriter();
+						response.setContentType("application/json; charset=utf-8");
+						pw.print(mapper.writeValueAsString(noProductReferenceKey));
+						pw.flush();
+						pw.close();
+					}else if(cancelAmt == null || cancelAmt.equals("")){
+						Map<String,Object> noCancelAmt = new HashMap<String,Object>();
+						noCancelAmt.put("result", "취소상품 금액이 전달되지 않았습니다.");
+						noCancelAmt.put("message", "cancelAmt is Nothing.");
+						noCancelAmt.put("code", 9999);
+						
+						PrintWriter pw;
+						pw = response.getWriter();
+						response.setContentType("application/json; charset=utf-8");
+						pw.print(mapper.writeValueAsString(noCancelAmt));
+						pw.flush();
+						pw.close();
+					}
+					
+					Map<String, Object> cancelPartParam = new HashMap<String, Object>();
+					cancelPartParam.put("sellerKey", this.PAYCO_SELLERKEY);						     //[필수]가맹점 코드
+					cancelPartParam.put("orderNo", orderNo);  								 //[필수]PAYCO에서 발급받은 주문번호
+					cancelPartParam.put("cancelTotalAmt", Integer.parseInt(cancelTotalAmt)); //[필수]취소할 총 금액
+					
+					Map<String, Object> orderProducts = new HashMap<String, Object>();
+					orderProducts.put("sellerOrderProductReferenceKey", sellerOrderProductReferenceKey);	//[필수]취소상품 연동 키	
+					orderProducts.put("cpId", this.PAYCO_CPID);														//[필수]상점 ID(common_include.jsp 에 설정)
+					orderProducts.put("productId", this.PAYCO_PRODUCTID);												//[필수]상품 ID(common_include.jsp 에 설정)
+					orderProducts.put("productAmt", cancelAmt);												//[필수]취소상품 금액
+					
+					cancelPartParam.put("orderProducts", orderProducts);
+					
+					/* 주문 결제 취소 가능 여부 API 호출 */
+					strResult = util.payco_cancel_check(cancelPartParam,CmmnCnst.PAYCO_LOGYN);
+				}
+				
+				try{
+					
+					PrintWriter pw;
+					pw = response.getWriter();
+					response.setContentType("application/json; charset=utf-8");
+					pw.print(strResult);
+					pw.flush();
+					pw.close();
+				
+				}catch(Exception e){
+					e.printStackTrace();
+				}
+				
+			}
+
+	}
+
+	
+	/**-----------------------------------------------------------------------
+	 * 주문 취소 API(JSP)
+	 *------------------------------------------------------------------------
+	 * @Class payco_cancel.jsp
+	 * @author PAYCO기술지원<dl_payco_ts@nhnent.com>
+	 * @since
+	 * @version
+	 * @Description 
+	 */
+	@RequestMapping("/mobile/easypay/pay2/TradeCancel.do")
+	public ModelAndView payco_cancel(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception	{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("payco_cancel START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+			ObjectMapper mapper = new ObjectMapper(); 					//jackson json object
+			PaycoUtil util = new PaycoUtil(this.PAYCO_SERVERTYPE);	//CommonUtil
+			String strResult = "";				  	  					//반환값
+			
+			String cancelType 						= "ALL";						//취소 Type 받기 - ALL 또는 PART
+			String orderNo							= (String)inParam.get("ORD_NO");							//PAYCO에서 발급받은 주문번호
+			String orderCertifyKey					= (String)inParam.get("ORDER_CERTIFY_KEY");					//PAYCO에서 발급받은 주문인증 key
+			String cancelTotalAmt 					= (String)inParam.get("CANCEL_TOTAL_AMT");					//총 취소 금액
+//			String totalCancelTaxfreeAmt			= (String)request.getParameter("totalCancelTaxfreeAmt");			//주문 총 면세금액
+//			String totalCancelTaxableAmt			= (String)request.getParameter("totalCancelTaxableAmt");			//주문 총 과세 공급가액
+//			String totalCancelVatAmt				= (String)request.getParameter("totalCancelVatAmt");				//주문 총 과세 부가세액
+//			String totalCancelPossibleAmt			= (String)request.getParameter("totalCancelPossibleAmt");			//총 취소가능금액
+//			String sellerOrderProductReferenceKey 	= (String)request.getParameter("sellerOrderProductReferenceKey");	//가맹점 주문 상품 연동 키(PART 취소 시)
+//			String cancelDetailContent 				= (String)request.getParameter("cancelDetailContent");				//취소 상세 사유
+//			String cancelAmt 						= (String)request.getParameter("cancelAmt");						//취소 상품 금액(PART 취소 시)
+//			String requestMemo						= (String)request.getParameter("requestMemo");						//취소처리 요청메모
+			
+			/* orderNo 값이 없으면 로그를 기록한 뒤 JSON 형태로 오류를 돌려주고 API를 종료합니다. */
+			ModelMap modelMap = new ModelMap();
+			if(orderNo == null ||orderNo.equals("")){
+				
+				modelMap.put("result", "주문번호 값이 전달되지 않았습니다.");
+				modelMap.put("message", "orderNo is Nothing.");
+				modelMap.put("code", 9999);
+				
+				return new ModelAndView("jsonView",modelMap);
+				
+			/* cancelTotalAmt 값이 없으면 로그를 기록한 뒤 JSON 형태로 오류를 돌려주고 API를 종료합니다. */
+			}else if(cancelTotalAmt == null || cancelTotalAmt.equals("")){
+				
+				modelMap.put("result", "총 취소 금액이 전달되지 않았습니다.");
+				modelMap.put("message", "cancelTotalAmt is Nothing.");
+				modelMap.put("code", 9999);
+				
+				return new ModelAndView("jsonView",modelMap);
+
+			}else if(orderCertifyKey == null || orderCertifyKey.equals("")){
+				
+				modelMap.put("result", "주문인증 key가 전달되지 않았습니다.");
+				modelMap.put("message", "CertifyKey is Nothing.");
+				modelMap.put("code", 9999);
+				
+				return new ModelAndView("jsonView",modelMap);
+
+			}
+			
+			List<Map<String,Object>> orderProducts = new ArrayList<Map<String,Object>>();
+			
+			/* 전체 취소 = "ALL", 부분취소 = "PART" */
+			if(cancelType.equals("ALL")){
+				/* 
+				 * 주문상품 데이터 불러오기
+				 * 파라메터로 값을 받을 경우 받은 값으로만 작업을 하면 됩니다.
+				 * 주문 키값으로만 DB에서 취소 상품 데이터를 불러와야 한다면 이 부분에서 작업하세요.
+				 */
+				 
+			}else if(cancelType.equals("PART")){
+				/* 
+				 * 주문상품 데이터 불러오기
+				 * 파라메터로 값을 받을 경우 받은 값으로만 작업을 하면 됩니다.
+				 * 주문 키값으로만 DB에서 취소 상품 데이터를 불러와야 한다면 이 부분에서 작업하세요.
+				 */
+				
+				/*
+				if(sellerOrderProductReferenceKey == null || sellerOrderProductReferenceKey.equals("")){
+					Map<String,Object> noProductReferenceKey = new HashMap<String,Object>();
+					noProductReferenceKey.put("result", "주문상품 연동키가 전달되지 않았습니다.");
+					noProductReferenceKey.put("message", "sellerOrderProductReferenceKey is Nothing.");
+					noProductReferenceKey.put("code", 9999);
+					
+					PrintWriter pw;
+					pw = response.getWriter();
+					response.setContentType("application/json; charset=utf-8");
+					pw.print(mapper.writeValueAsString(noProductReferenceKey));
+					pw.flush();
+					pw.close();
+				}else if(cancelAmt == null || cancelAmt.equals("")){
+					Map<String,Object> noCancelAmt = new HashMap<String,Object>();
+					noCancelAmt.put("result", "취소상품 금액이 전달되지 않았습니다.");
+					noCancelAmt.put("message", "cancelAmt is Nothing.");
+					noCancelAmt.put("code", 9999);
+					
+					PrintWriter pw;
+					pw = response.getWriter();
+					response.setContentType("application/json; charset=utf-8");
+					pw.print(mapper.writeValueAsString(noCancelAmt));
+					pw.flush();
+					pw.close();
+				} 
+				 
+				Map<String,Object> orderProductsInfo = new HashMap<String,Object>();
+				orderProductsInfo.put("sellerOrderProductReferenceKey", sellerOrderProductReferenceKey);	//[필수]취소상품 연동 키(파라메터로 넘겨 받은 값 - 필요시 DB에서 불러와 대입)	
+				orderProductsInfo.put("cpId", CmmnCnst.PAYCO_CPID);														//[필수]상점 ID(common_include.jsp 에 설정)
+				orderProductsInfo.put("productId", this.PAYCO_PRODUCTID);												//[필수]상품 ID(common_include.jsp 에 설정)
+				orderProductsInfo.put("productAmt", cancelAmt);												//[필수]취소상품 금액( 파라메터로 넘겨 받은 금액 - 필요시 DB에서 불러와 대입)
+				orderProductsInfo.put("cancelDetailContent", cancelDetailContent);							//[선택]취소 상세 사유
+				orderProducts.add(orderProductsInfo);
+				*/
+				
+			/* 취소타입이 잘못되었음. ( ALL과 PART 가 아닐경우 ) */	
+			}else{
+				/*
+				Map<String,Object> noCancelTypeMap = new HashMap<String,Object>();
+				noCancelTypeMap.put("result", "CANCEL_TYPE_ERROR");
+				noCancelTypeMap.put("message", "취소 요청 타입이 잘못되었습니다.");
+				noCancelTypeMap.put("code", 9999);
+				
+				PrintWriter pw;
+				pw = response.getWriter();
+				response.setContentType("application/json; charset=utf-8");
+				pw.print(mapper.writeValueAsString(noCancelTypeMap));
+				pw.flush();
+				pw.close();
+				*/
+			}
+			
+			/* 설정한 주문취소 정보로 Json String 을 작성합니다. */
+			Map<String, Object> param = new HashMap<String, Object>();
+			param.put("sellerKey", this.PAYCO_SELLERKEY);								//[필수]가맹점 코드
+			param.put("orderNo", orderNo);									//[필수]주문번호
+			param.put("orderCertifyKey", orderCertifyKey);					//[필수]주문인증 key
+			param.put("cancelTotalAmt", Integer.parseInt(cancelTotalAmt));  //[필수]취소할 총 금액(전체취소, 부분취소 전부다)
+			
+			if(orderProducts.size() != 0){
+				param.put("orderProducts", orderProducts);					//[선택]취소할 상품 List(부분취소인 경우 사용, 입력하지 않는 경우 전체 취소)	
+			}
+			
+//			param.put("totalCancelTaxfreeAmt", "");		//[선택]총 취소할 면세금액
+//			param.put("totalCancelTaxableAmt", "");		//[선택]총 취소할 과세금액
+//			param.put("totalCancelVatAmt", "");			//[선택]총 취소할 부가세
+//			param.put("totalCancelPossibleAmt", "");	//[선택]총 취소가능금액(현재기준) : 취소가능금액 검증
+//			param.put("requestMemo", "");							//[선택]취소처리 요청메모
+			
+			/* 주문 결제 취소 API 호출 */
+			logger.info("[payco_cancel][request]" + new Gson().toJson(param));
+			strResult = util.payco_cancel(param,CmmnCnst.PAYCO_LOGYN);
+			logger.info("[payco_cancel][request]" + strResult);
+			
+			Map<String, Object> jObject  = mapper.readValue(strResult, new TypeReference<HashMap<String, Object>>(){});
+			Integer code = (Integer) jObject.get("code");
+			String message = (String) jObject.get("message");
+			String cancelTradeSeq = (String) jObject.get("cancelTradeSeq");
+			
+			Map<String,String> RES_DATA = new HashMap<String,String>();
+			
+			String RETURNCODE =  code==0? "0000" : String.valueOf(code);  
+			RES_DATA.put("RETURNCODE", RETURNCODE);
+			RES_DATA.put("RETURNMSG", message);
+			RES_DATA.put("TID", cancelTradeSeq);
+			
+			
+			
+			return new ModelAndView("jsonView",RES_DATA);			
+	}
+	
+	
+	/**-----------------------------------------------------------------------
+	 * 가맹점별 연동키 유효성 체크 페이지(JSP)
+	 *------------------------------------------------------------------------
+	 * @Class payco_key_check.jsp
+	 * @author PAYCO기술지원<dl_payco_ts@nhnent.com>
+	 * @since 
+	 * @version
+	 * @Description 
+	 * 해당 상품 정보가 사용이 가능한 코드인지 PAYCO에 조회한다.(usabilityYn = Y/N)
+	 * param : sellerKey=판매자키(페이코발급), codes=코드 값 리스트
+	 * return : {"result":[{"codeKind":"CP_ID","codeValue":"PARTNERTEST","usabilityYn":"Y"},{"codeKind":"PRODUCT_ID","codeValue":"PROD_CHK","usabilityYn":"Y"}],"code":0,"message":"success"}    
+	 */
+	@ResponseBody
+	@RequestMapping("/mobile/easypay/pay2/payco_key_check.do")
+	public void payco_key_check(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception	{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info(" START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+			String result = "OK"; // 리턴값 초기설정 "OK", 유효성 체크결과 등록되어있지 않은 키일때 리턴값 : "ERROR"
+			ObjectMapper mapper = new ObjectMapper();   	 //jackson json object
+			PaycoUtil util 		= new PaycoUtil(this.PAYCO_SERVERTYPE); //CommonUtil
+			
+			/*======== 가맹점별 연동키유효성체크 API start ========
+			* 해당 예제는 common_include.jsp 파일에 설정된 
+			* 상점ID(CP_ID)와 상품ID(PRODUCT_ID)를 사용함. 
+			*/
+			List<Map<String, Object>> array = new ArrayList<Map<String, Object>>();
+			
+			for(int i = 0; i < 2; i++){
+				Map<String, Object> map = new HashMap<String, Object>();
+				if(i == 0){
+					map.put("codeKind", "CP_ID");			
+					map.put("codeValue", CmmnCnst.PAYCO_CPID); // 사용가능
+					//map.put("codeValue", 2);  // 사용불가
+				}
+				if(i == 1){
+					map.put("codeKind", "PRODUCT_ID");
+					map.put("codeValue", 
+							this.PAYCO_PRODUCTID);
+					map.put("upperCodeValue", CmmnCnst.PAYCO_CPID);
+				}
+				array.add(map);
+			}
+			
+			Map<String, Object> keyCheck = new HashMap<String, Object>();
+			keyCheck.put("sellerKey", this.PAYCO_SELLERKEY);
+			keyCheck.put("codes", array);
+			
+			//연동키 유효성체크 API 호출(include file httpConnection.jsp)
+			String keyCheckStr = util.payco_keycheck(keyCheck,CmmnCnst.PAYCO_LOGYN);
+			
+			/* 리턴 받은 결과를 분석.  
+			* CP_ID, PRODUCT_ID 사용 가능 여부 분석
+			* 리턴 받은 값(response)을 JSON 형태로 변경
+			* 데이터 확인에 필요한 값을 변수에 담아 처리합니다.
+			*/ 	  
+				  
+			try {
+				//연동키 유효성체크 리턴값을 제이슨맵으로 변환
+				Map<String, Object> jObject  = mapper.readValue(keyCheckStr, new TypeReference<HashMap<String, Object>>(){});
+				
+				List<Map<String, Object>> jarray = (List<Map<String, Object>>)jObject.get("result");
+				
+				for(int k=0; k< jarray.size(); k++){
+					Map<String, Object> retKey = (HashMap<String, Object>)jarray.get(k);
+					//해당 상품 정보가 PAYCO에 등록되지 않은 상품이라면 사용할 수 없으므로 오류를 리턴
+					if( retKey.get("usabilityYn").equals("N") ){
+						//out.print("{\"code\":\"9999\",\"message\":\"가맹점 코드값 사용여부에서 에러가 발생했습니다.("+retKey.get("useImpossibleReason")+")\"}");
+						result = "ERROR";
+					}
+				}
+				
+				 	PrintWriter pw;
+				    pw = response.getWriter();
+				    response.setContentType("text/html; charset=utf-8");
+				    pw.print(result);
+				    pw.flush();
+				    pw.close();
+					
+			}catch(Exception e){
+//				out.print("{\"code\":\"9999\",\"message\":\"가맹점별 연동키유효성체크에서 에러가 발생했습니다.\"}");
+				logger.error("");
+				return;
+			}
+			/*======== 가맹점별 연동키유효성체크 API end ========*/
+	}
+	
+	
+	/**-----------------------------------------------------------------------
+	 * 재고수량 및 금액 정합성 검사(ver. Pay2)
+	 *------------------------------------------------------------------------
+	 * @Class payco_return.jsp
+	 * @author PAYCO기술지원<dl_payco_ts@nhnent.com>
+	 * @since 
+	 * @version
+	 * @Description 
+	 * - 구매예약페이지에서 재고수량 및 금액 정합성 검사를 하기위해 통신하는 API
+	 * - payco 결제 인증 후 호출되어 재고 및 금액 정합성 검사를 수행한다.
+	 * - 재고 및 금액에 이상이 없을 시 payco 결제승인 API 를 호출하여
+	 * - 응답에 따라 결제완료 여부를 판단한다.
+	 * param : response=JSON
+	 * return : 
+	 */
+	@RequestMapping("/mobile/easypay/pay2/payco_return.do")
+	public ModelAndView payco_return(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception	{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("payco_return START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+		
+		
+		
+		ModelMap modelMap = new ModelMap();
+		
+		
+		int totalPaymentAmt = 0;
+		/* 수신 데이터 */
+		String reserveOrderNo 	   	   = request.getParameter("reserveOrderNo");									//주문예약번호
+		String sellerOrderReferenceKey = request.getParameter("sellerOrderReferenceKey");							//가맹점주문연동키
+		String paymentCertifyToken 	   = request.getParameter("paymentCertifyToken");						 		//결제인증토큰(결제승인시필요)
+		
+		if(request.getParameter("totalPaymentAmt") == null){														//총 결제금액
+			totalPaymentAmt = 0;
+		}else{
+			totalPaymentAmt = (int)Float.parseFloat(String.valueOf(request.getParameter("totalPaymentAmt"))); 
+		}
+		
+		logger.debug("totalPaymentAmt : " + totalPaymentAmt);
+		
+		String cart_no				   = request.getParameter("cart_no");											//주문예약시 전달한 returnUrlParam ({"cart_no" : "A1234"}을 전송했었음.)
+		String code      	   	       = request.getParameter("code");												//결과코드(성공 : 0, 사용자에 의한 취소 : 2222)
+		
+		ObjectMapper mapper = new ObjectMapper();		 //jackson json object
+		PaycoUtil    util   = new PaycoUtil(this.PAYCO_SERVERTYPE); //CommonUtil
+		
+		Boolean existStock  = true; //재고 존재 여부 및 결제금액 일치 여부 flag
+		
+		/* 결제 인증 성공시 */
+		if(code.equals("0")){
+			
+			/* 수신된 데이터 중 필요한 정보를 추출하여
+			 * 총 결제금액과 요청금액이 일치하는지 확인하고,	
+			 * 결제요청 상품의 재고파악을 실행하여 
+			 * PAYCO 결제 승인 API 호출 여부를 판단한다.
+			 */
+			/*----------------------------------------------------------------
+			.. 가맹점 처리 부분
+			-----------------------------------------------------------------*/
+			
+			/* 요청금액이 일치하고 있다는 가정 */
+				Map<String,Object> sendMap = new HashMap<String,Object>();
+				sendMap.put("sellerKey", this.PAYCO_SELLERKEY);
+				sendMap.put("reserveOrderNo", reserveOrderNo);
+				sendMap.put("sellerOrderReferenceKey", sellerOrderReferenceKey);
+				sendMap.put("paymentCertifyToken", paymentCertifyToken);
+				sendMap.put("totalPaymentAmt", totalPaymentAmt);
+				
+				/* payco 결제승인 API 호출 */
+				
+				logger.info("[return][request]" + new Gson().toJson(sendMap));
+				String result = util.payco_approval(sendMap,CmmnCnst.PAYCO_LOGYN);
+				logger.info("[return][response]" + result);
+				
+				
+				//리턴값을 맵(제이슨)으로 변환
+				Map<String, Object> resultValue = mapper.readValue(result, new TypeReference<HashMap<String, Object>>(){});
+
+		
+				if(resultValue.get("code").toString().equals("0")){
+				/* 결제승인 후 리턴된 데이터 중 필요한 정보를 추출하여
+				 * 가맹점 에서 필요한 작업을 실시합니다.(예 주문서 작성 등..)
+				 * 결제연동시 리턴되는 PAYCO주문번호(orderNo)와 주문인증키(orderCertifyKey)에 대해 
+				 * 가맹점 DB 저장이 필요합니다.
+				 */
+				/*----------------------------------------------------------------
+				 .. 가맹점 처리 부분
+				 ..
+				 -----------------------------------------------------------------*/
+				 // 예시(orderNo, orderCertifyKey) 데이터 뽑기 (DB저장 필요)
+				 Map<String, Object> resultMap = (HashMap<String, Object>)resultValue.get("result");
+				 
+				
+				 
+				 
+				 /*---------------------------------------------------------------
+				  * 	[전문 수신 로그]
+				  *---------------------------------------------------------------*/
+//				 PaymentUtil.logging(SVC_NM.PAYCO, TRANS_TYPE.RES, resultMap.toString());
+
+				 
+				 
+ 				 String orderNo = String.valueOf(resultMap.get("orderNo"));					// 	다른 pg 사의 orderNo와 다른 개념임.	이것은 주문번호임.			
+				 String orderCertifyKey = String.valueOf(resultMap.get("orderCertifyKey"));	//	
+				 // String totalPaymentAmt <-- 상단에 선언되어 있음.
+				 
+				 logger.debug("orderCertifyKey : " + orderCertifyKey);
+
+				 
+				 String ORD_CD 		= sellerOrderReferenceKey;			//  주문코드  ( cp사 주문번호 )
+				 String TRD_NO		= "";								//  거래번호  
+				 
+				 int TRD_AMT		= totalPaymentAmt;					//  거래금액  
+				 String APPR_DT 	=  null ;							//  승인일시  
+				 
+				 
+				 String FREE_INT_YN = "N";								//  무이자여부 
+				 int EASY_TERM 		= 0;								//  할부개월수 
+				 String RLT_CD 		= String.valueOf( resultValue.get("code") ); 				//  결과코드
+				 if("0".equals(RLT_CD)){
+					 RLT_CD = "0000";
+				 }
+				 
+				 String RLT_MSG = null;
+				 String SETL_NM	= null;  
+				 
+				 
+				 
+				 String CARD_COMP_NM = null;		//  결제카드명  
+				 String CARD_NO = null;				//  결제카드번호  
+				 String APPR_NO	= null ;			//  신용카드 승인번호
+				 
+				 
+				 String PAY_APPLY_DAY = null ; 			//  결제일  
+				 String REGIST_DT = "";					//  등록일시  
+				 String UPDT_DT	= "";					
+				 //  수정일시  
+			 
+				 String BANK_NM = "";
+				 String BANK_CD = "";
+				 
+				 
+				 
+				 
+				 /**
+				  * 	payment detail 은 다 다르다.
+				  */
+				 
+				 List<Map <String,Object>> paymentDetailsList =  (List<Map <String,Object>>) resultMap.get("paymentDetails"); //.get(0).get("cardSettleInfo");
+	 			Map<String,Object> paymentDetails =   paymentDetailsList.get(0);
+	 			
+	 			logger.debug("paymentDetails : " + paymentDetails);
+	 			
+	 			//paymentDetails.get("paymentAmt");	// 각 결제방법별 결제금액
+	 			PAY_APPLY_DAY 	= String.valueOf(paymentDetails.get("tradeYmdt"));			// 결제일
+	 			RLT_MSG 		= String.valueOf( resultValue.get("message") );				// 결과메시지  
+	 			SETL_NM 		= String.valueOf( resultMap.get("memberName") ) ;			// 결제자
+	 			
+	 			if (paymentDetails.get("cardSettleInfo") != null){
+	 				// 신용카드
+	 				/*
+						Column	Type	Max
+						Length	Description	Example
+						1	cardCompanyName	String	15				카드사명	하나SK
+						2	cardCompanyCode	String	50				카드사코드	CCSK
+						3	cardNo	String	300						카드번호	**********1809
+						4	cardInstallmentMonthNumber	String	2	할부개월(MM)	00
+						5	cardAdmissionNo	String	20				카드사 승인번호	31213333
+						6	cardInterestFreeYn	String	1			무이자여부(Y/N)	Y
+						7	corporateCardYn	String	1				법인카드여부 	(개인 N ,법인 Y)	Y
+						8	partCancelPossibleYn	String	1		부분취소가능유무(Y/N)	Y
+	 				*/	 				
+	 				HashMap<String,String> obj = (HashMap<String,String>) paymentDetails.get("cardSettleInfo");
+	 				CARD_COMP_NM 	= obj.get("cardCompanyName");						
+//	 				CARD_COMP_NM 	= obj.get("cardCompanyCode");	// 안씀										
+	 				CARD_NO 		= obj.get("cardNo");												
+	 				EASY_TERM 		= Integer.parseInt(obj.get("cardInstallmentMonthNumber"));		
+	 				APPR_NO 		= obj.get("cardAdmissionNo");
+		 			APPR_DT 		= String.valueOf( paymentDetails.get("tradeYmdt") ) ;		// 승인일시
+	 				FREE_INT_YN 	= obj.get("cardInterestFreeYn");				
+//	 				obj.get("corporateCardYn");			// 안씀
+//	 				obj.get("partCancelPossibleYn");	// 안씀
+	 				
+	 				Object payment = paymentDetails.get("paymentAmt");
+	 				String strPayment = payment.toString();
+	 				strPayment = strPayment.substring(0,strPayment.indexOf("."));		// 소수점 단위 제거
+	 				
+	 				
+	 			} else if (paymentDetails.get("cellphoneSettleInfo") != null){
+	 				// 핸드폰 결제 (list)
+	 				/*
+	 				 * 	Column	Type	Max
+						Length	Description	Example
+						1	companyName	String	3	통신사명(코드)	SKT
+						2	cellphoneNo	String	32	휴대폰번호	010-1111-2222
+	 				 */
+	 				HashMap<String,Object> obj = (HashMap<String,Object>) paymentDetails.get("cellphoneSettleInfo");
+	 				LoggerUtil.writeMap(obj);
+	 				
+	 				obj.get("companyName");
+	 				obj.get("cellphoneNo");
+	 				
+	 			} else if (paymentDetails.get("realtimeAccountTransferSettleInfo") != null){
+	 				// 실시간계좌이체 (list)
+	 				/*
+						Column	Type	Max
+						Length	Description	Example
+						1	bankName	String	15	은행명	신한
+						2	bankCode	String	50	은행코드	88
+	 				 */
+	 				HashMap<String,String> obj = (HashMap<String,String>) paymentDetails.get("realtimeAccountTransferSettleInfo");
+	 				
+	 				BANK_NM = obj.get("bankName");
+	 				BANK_CD = obj.get("bankCode");
+	 				
+	 				
+	 			} else if (paymentDetails.get("nonBankbookSettleInfo") != null){
+	 				// 무통장입금 (list)
+	 				/*
+						Column	Type	Max
+						Length	Description	Example
+						1	bankName	String	15	은행명	신한
+						2	bankCode	String	50	은행코드	88
+						3	accountNo	String	200	계좌번호	1901801980225
+						4	paymentExpirationYmd	String	8	입금만료일	20141208
+	 				 */
+	 				HashMap<String,String> obj = (HashMap<String,String>) paymentDetails.get("nonBankbookSettleInfo");
+	 				
+	 				String.valueOf(obj.get("bankName"));
+	 				String.valueOf(obj.get("bankCode"));
+	 				String.valueOf(obj.get("accountNo"));
+	 				String.valueOf(obj.get("paymentExpirationYmd"));
+	 				
+	 				
+	 				
+	 			}
+	 			 
+	 			
+	 			/*
+	 			 * 	필수
+	 			 */
+				 modelMap.put("ORD_NO", orderNo);
+				 modelMap.put("ORD_CERTIFY_KEY", orderCertifyKey);
+				 modelMap.put("RESERVE_ORDER_NO", reserveOrderNo);
+				 
+				 
+				 modelMap.put("ORD_CD", ORD_CD);
+//				 modelMap.put("TRD_GB_CD", TRD_GB_CD);
+				 modelMap.put("TRD_NO", TRD_NO);
+				 modelMap.put("TRD_AMT", TRD_AMT);
+				 modelMap.put("APPR_DT", APPR_DT);
+				 modelMap.put("APPR_NO", APPR_NO);
+				 modelMap.put("FREE_INT_YN", FREE_INT_YN);
+				 modelMap.put("EASY_TERM", EASY_TERM);
+				 modelMap.put("RLT_MSG", RLT_MSG);
+				 modelMap.put("RLT_CD", RLT_CD);
+				 modelMap.put("SETL_NM", SETL_NM);
+				 modelMap.put("CARD_COMP_NM", CARD_COMP_NM);
+				 modelMap.put("CARD_COMP_NM", CARD_COMP_NM);
+				 modelMap.put("CARD_NO", CARD_NO);
+				 modelMap.put("PAY_APPLY_DAY", PAY_APPLY_DAY);
+				 modelMap.put("REGIST_DT", REGIST_DT);
+				 modelMap.put("UPDT_DT", UPDT_DT);
+				 modelMap.put("BANK_CD", BANK_CD);
+				 
+				}else{
+					
+					// 결제 승인 실패
+					String message = String.valueOf( resultValue.get("message") );
+					modelMap.put("RLT_CD",code);
+					modelMap.put("RLT_MSG",message);
+					
+					ModelAndView mw = new ModelAndView("web/easypay/pay2/payco_return",modelMap);
+					mw.addObject(inParam);
+					
+					logger.info("[payco_return][modelmap]" + new Gson().toJson(modelMap));
+					return mw;
+					
+				}
+		/* 결제 인증 실패 */
+		}else{
+			
+			logger.info("[payco_return][modelmap]" + new Gson().toJson(modelMap));
+			ModelAndView mw = new ModelAndView("web/easypay/pay2/payco_return",modelMap);
+			mw.addObject(inParam);
+			
+			modelMap.put("message","사용자에 의해 취소된 주문 입니다.");
+			return mw;
+		}
+
+		
+		
+		
+		
+		ModelAndView mw = new ModelAndView("web/easypay/pay2/payco_return",modelMap);
+
+		
+		
+		logger.info("[payco_return][modelmap]" + new Gson().toJson(modelMap));
+		mw.addObject(inParam);
+		return mw;
+	}
+	
+	@RequestMapping("/mobile/easypay/pay2/cancel_btn.do")
+	public ModelAndView  payco_cancel_btn(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception	{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("cancel_btn START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+		
+		
+		response.setHeader("Content-Type", "text/html");
+		
+		ModelMap modelMap = new ModelMap();
+		
+		
+		
+		ModelAndView mw = new ModelAndView("web/easypay/pay2/payco_cancel_btn",modelMap);
+		mw.addObject(inParam);
+		return mw;
+	}
+
+
+	
+	@ResponseBody
+	@RequestMapping("/mobile/easypay/pay2/payco_without_bankbook.do")
+	public void payco_without_bankbook(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception	{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info(" START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+		
+		/**-----------------------------------------------------------------------
+		 * 무통장입금 완료통보수신 API(JSP)
+		 *------------------------------------------------------------------------
+		 * @Class payco_without_bankbook.jsp
+		 * @author PAYCO기술지원<dl_payco_ts@nhnent.com>
+		 * @since
+		 * @version
+		 * @Description 
+		 * 무통장입금일 경우 입금완료 통보 URL을 설정하여 수신 받는다.
+		 * param : response=JSON
+		 * return : "OK","ERROR"
+		 */
+			
+			ObjectMapper mapper = new ObjectMapper(); //jackson json object
+			String strResult 	= "";				  //반환값
+			
+			//페이코에서 송신하는 주문정보 JSON object
+			String strResponse = request.getParameter("response") == null ? "" :(String)request.getParameter("response");
+			
+			//POST 값 중 response 값이 없으면 에러를 표시하고 API를 종료합니다.
+			if("".equals(strResponse)){
+				strResult = "ERROR";
+				PrintWriter pw;
+				pw = response.getWriter();
+				response.setContentType("text/html; charset=utf-8");
+				pw.print(strResult);
+				pw.flush();
+				pw.close();
+				
+				return;
+			}
+			
+			StringBuffer sb = new StringBuffer();
+			
+			String sellerOrderReferenceKey 	  	= "";
+			String reserveOrderNo 		   	  	= "";
+			String orderNo 				   	  	= "";
+			String memberName 			   	  	= "";
+			int totalOrderAmt 			   	  	= 0;
+			int totalDeliveryFeeAmt 	   	  	= 0;
+			int totalRemoteAreaDeliveryFeeAmt	= 0;
+			
+			try{
+			    
+				strResponse = URLDecoder.decode(strResponse, "UTF-8");
+				
+				Map<String, Object> jObject = mapper.readValue(strResponse, new TypeReference<HashMap<String, Object>>(){});
+			   	
+				/*========== 수신 데이터를 사용하여 주문서를 조회합니다.(가맹점 처리) ==========*/
+				sellerOrderReferenceKey = (String)jObject.get("sellerOrderReferenceKey"); //가맹점에서 발급하는 주문 연동 Key
+				reserveOrderNo 			= (String)jObject.get("reserveOrderNo");		  //주문예약번호
+				orderNo 				= (String)jObject.get("orderNo");				  //주문번호
+				memberName 				= (String)jObject.get("memberName");			  //주문자명
+				
+				
+				/*========== 지급이 완료 되었다고 받았으면 지급 완료 처리.(가맹점 처리) ==========*/
+				String paymentCompletionYn = (String)jObject.get("paymentCompletionYn"); //지급완료 값 ( Y/N )
+				if("Y".equals(paymentCompletionYn)){
+					// 무통장 입금 확인 필드 업데이트(가맹점)
+					// .....
+					
+					strResult = "OK";
+				} else {
+					/*
+					*지급이 완료 되지 않았다고 받았으면 지급 되지 않았다고 처리
+					*단, 지급되지 않은경우 이 API 가 호출되지 않으므로 필요는 없음.
+					*혹시 모를 경우를 대비하여 처리
+					*/
+					strResult = "ERROR";
+				}
+			   	
+			}catch(Exception e){
+				e.printStackTrace();
+				strResult = "ERROR";
+				StackTraceElement[] elem = e.getStackTrace();
+				for ( int i = 0; i < elem.length; i++ ){
+					elem[i].toString();
+					sb.append(elem[i].toString() + "\n");
+				}
+			}
+			
+			/* 상단 처리결과를 payco로 리턴한다.(성공:'OK', 실패:'ERROR') */
+			PrintWriter pw;
+			pw = response.getWriter();
+			response.setContentType("text/html; charset=utf-8");
+			pw.print(strResult);
+			pw.flush();
+			pw.close();
+			
+	}
+
+	
+	
+	
+}

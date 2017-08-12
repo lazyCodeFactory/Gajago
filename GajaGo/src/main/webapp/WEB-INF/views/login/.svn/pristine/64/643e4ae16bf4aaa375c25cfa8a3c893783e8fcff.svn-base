@@ -1,0 +1,409 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="adminPolicyMapper">
+	<!-- 검색조건 -->
+	<sql id="condition">
+	    <!-- 시작일자-->
+	    <if test="S_START_DATE != null and S_START_DATE != ''">
+			<if test="dateFlag == '10'">
+		      AND REGIST_DT <![CDATA[>=]]> TO_DATE(#{S_START_DATE},'YYYYMMDDHH')
+		    </if>
+			<if test="dateFlag == '20'">
+		      AND BAN_DT <![CDATA[>=]]> TO_DATE(#{S_START_DATE},'YYYYMMDDHH')
+		    </if>
+	    </if>
+	    <!-- 끝일자-->
+	    <if test="S_END_DATE != null and S_END_DATE != ''">
+	    	<if test="dateFlag == '10'">
+	      		AND REGIST_DT <![CDATA[<]]> TO_DATE(#{S_END_DATE},'YYYYMMDDHH') + 0.99999
+	      	</if>
+	      	<if test="dateFlag == '20'">
+	      		AND BAN_DT <![CDATA[<]]> TO_DATE(#{S_END_DATE},'YYYYMMDDHH') + 0.99999
+	      	</if>
+	    </if>
+	    <!-- 게시판 구분-->
+	    <if test="chkType != null and chkType != ''" >
+	        AND BOARD_TYPE_CD IN
+	    	<foreach item="item" index="index" collection="chkType" open="(" separator="," close=")">
+	           #{item}
+			</foreach>
+	    </if>
+	    <!-- 구분 -->
+	    <if test="textVal != null and textVal != ''">
+		    <if test="textFlag == '10'"><!-- 상품명 -->
+		      AND PROD_NM LIKE '%' || #{textVal} || '%'
+		    </if>
+		    <if test="textFlag == '20'"><!-- 판매자ID -->
+		      AND MBER_EMAIL LIKE '%' || #{textVal} || '%'
+		    </if>
+		    <if test="textFlag == '30'"><!-- 판매자이름 -->
+		      AND MBER_NICK LIKE '%' || #{textVal} || '%'
+		    </if>
+		    <if test="textFlag == '40'"><!-- 게시글번호 -->
+		      AND BOARD_SEQ LIKE '%' || #{textVal} || '%'
+		    </if>
+		    <if test="textFlag == '50'"><!-- 작성자ID -->
+		      AND WRITE_ID LIKE '%' || #{textVal} || '%'
+		    </if>
+		    <if test="textFlag == '60'"><!-- 작성자이름 -->
+		      AND WRITE_NM LIKE '%' || #{textVal} || '%'
+		    </if>
+		    <if test="textFlag == '70'"><!-- 처리담당자 -->
+		      AND BAN_ADM_NM LIKE '%' || #{textVal} || '%'
+		    </if>
+	    </if>
+	    <!-- 차단여부-->
+	    <if test="P_BAN_YN != null and P_BAN_YN != ''">
+		    <choose>
+	        	<when test="P_BAN_YN == 'N'.toString()">
+	                 AND (BAN_YN = #{P_BAN_YN} OR BAN_YN is null)
+	            </when>
+	            <when test="P_BAN_YN == 'Y'.toString()">
+	                 AND BAN_YN = #{P_BAN_YN}
+	            </when>
+	        </choose>
+        </if>
+	    <!-- 차단구분-->
+	    <if test="P_BAN_GB_CD != null and P_BAN_GB_CD != ''" >
+	    	AND BAN_GB_CD = #{P_BAN_GB_CD}
+	    </if>
+	</sql>
+
+	<!-- 게시글관리 리스트 조회 -->
+	<select id="selectListPolicy" parameterType="HashMap" resultType="HashMap">
+	<include refid="adminCommonMapper.pagingHeader" />
+		/*adminPolicyMapper.selectListPolicy*/
+			   SELECT BOARD_SEQ,
+		       		  BOARD_TYPE_CD,
+		              BOARD_TYPE_NM,
+		              MBER_EMAIL,
+		              MBER_NICK,
+		              PROD_CODE,
+		              IMG_URL,
+		              PROD_NM,
+		              TITLE,
+		              CONTENTS,
+		              WRITE_ID,
+		              WRITE_NM,
+		              BAN_YN,
+		              BAN_GB_CD,
+		              BAN_GB_NM,
+		              TO_CHAR(BAN_DT, 'YYYY-MM-DD HH24:MI') AS BAN_DT ,
+		              TO_CHAR(REGIST_DT, 'YYYY-MM-DD HH24:MI') AS REGIST_DT ,
+		              BAN_ADM_NM,
+		              ROW_NUMBER() OVER(ORDER BY REGIST_DT DESC ) AS NO
+		         FROM (
+				SELECT
+					 A.BOARD_SEQ									AS BOARD_SEQ		<!-- 일련번호 -->
+				   , A.BOARD_TYPE_CD    							AS BOARD_TYPE_CD	<!-- 게시판유형구분코드 -->
+			       , (
+	                 SELECT COM_CD_NM
+	                   FROM CODE
+	                  WHERE GRP_CD = 'BOARD_TYPE_CD'
+	                    AND COM_CD = A.BOARD_TYPE_CD
+	                )												AS BOARD_TYPE_NM	<!-- 게시판유형구분명 -->
+	               , D.MBER_EMAIL									AS MBER_EMAIL		<!-- 판매자이메일 -->
+	               , D.MBER_NICK									AS MBER_NICK		<!-- 판매자닉네임 -->
+				   , A.PROD_CODE									AS PROD_CODE		<!-- 상품코드 -->
+				   , (SELECT PROD_IMG_URL FROM PROD_IMG WHERE PROD_CODE = B.PROD_CODE AND PROD_IMG_GB_CD ='11') AS IMG_URL
+				   , B.PROD_NM										AS PROD_NM			<!-- 상품명 -->
+		           , A.TITLE										AS TITLE			<!-- 제목 -->
+				   , A.CONTENTS										AS CONTENTS			<!-- 내용 -->
+			        , (SELECT MBER_EMAIL FROM MBER_INFO WHERE MBER_SEQ = A.MBER_SEQ) AS WRITE_ID
+                   , (SELECT MBER_NM FROM MBER_INFO WHERE MBER_SEQ = A.MBER_SEQ) AS WRITE_NM
+<!-- 		           , A.WRITE_ID          							AS WRITE_ID			작성자ID -->
+<!-- 		           , A.WRITE_NM          							AS WRITE_NM			작성자명 -->
+		           , A.REGIST_DT 	AS REGIST_DT      	<!-- 등록일시 -->
+		           , G.BAN_YN										AS BAN_YN			<!-- 차단유무 -->
+		           , G.BAN_GB_CD									AS BAN_GB_CD		<!-- 차단구분코드 -->
+		           , (
+	                 SELECT COM_CD_NM
+	                   FROM CODE
+	                  WHERE GRP_CD = 'BAN_GB_CD'
+	                    AND COM_CD = G.BAN_GB_CD
+	                )												AS BAN_GB_NM		<!-- 차단구분명 -->
+		           , G.BAN_DT								     		<!-- 차단일시 -->
+		           , G.BAN_ADM_NM									AS BAN_ADM_NM		<!-- 차단담당자 -->
+			FROM
+				 BOARD_INFO A
+			   INNER JOIN PROD B ON A.PROD_CODE 		= B.PROD_CODE
+			   INNER JOIN MBER_INFO D ON B.MBER_SEQ		= D.MBER_SEQ
+	       	  LEFT OUTER JOIN (
+				    SELECT    BBI.BOARD_CUT_SEQ
+							, BBI.BOARD_TYPE_CD
+							, BBI.BOARD_SEQ
+							, BBI.BAN_YN
+							, BBI.BAN_GB_CD
+							, BBI.DENY_REASON
+							, BBI.BAN_DT
+							, BBI.CANCEL_GB_CD
+							, BBI.CANCEL_REASON
+							, BBI.CANCEL_DT
+							, BBI.CANCEL_ADMIN_ID
+							, BBI.CENCEL_ADMIN_NM
+							, BBI.BAN_ADM_ID
+							, BBI.BAN_ADM_NM
+							, BBI.REGIST_DT
+							, BBI.UPDT_DT
+				    FROM 	BOARD_BAN_INFO BBI
+				    	  , (
+				    	  		SELECT MAX(BB.BOARD_CUT_SEQ)	BOARD_CUT_SEQ
+							    FROM BOARD_INFO BI
+							       , BOARD_BAN_INFO BB
+							    WHERE BI.BOARD_TYPE_CD (+) = BB.BOARD_TYPE_CD
+							    AND   BI.BOARD_SEQ     (+) = BB.BOARD_SEQ
+							    GROUP BY BB.BOARD_TYPE_CD , BB.BOARD_SEQ
+				    	    ) BBII
+				    WHERE BBI.BOARD_CUT_SEQ = BBII.BOARD_CUT_SEQ
+				    ) G ON (A.BOARD_TYPE_CD	= G.BOARD_TYPE_CD AND   A.BOARD_SEQ		= G.BOARD_SEQ  )
+				)    WHERE 1=1
+		<include refid="condition"/>
+		ORDER BY NO ASC
+	<include refid="adminCommonMapper.pagingFooter" />
+	</select>
+
+	<!-- 리스트 카운트 조회 -->
+	<select id="selectListPolicyCount" parameterType="HashMap" resultType="int">
+		/*adminPolicyMapper.selectListPolicyCount*/
+	 	SELECT COUNT(1) AS TOTAL_COUNT
+	     	FROM (
+	     	SELECT   A.BOARD_SEQ									AS BOARD_SEQ
+				   , A.BOARD_TYPE_CD    							AS BOARD_TYPE_CD
+			       , (
+	                 SELECT COM_CD_NM
+	                   FROM CODE
+	                  WHERE GRP_CD = 'BOARD_TYPE_CD'
+	                    AND COM_CD = A.BOARD_TYPE_CD
+	                )												AS BOARD_TYPE_NM
+	               , D.MBER_EMAIL									AS MBER_EMAIL
+	               , D.MBER_NICK									AS MBER_NICK
+				   , A.PROD_CODE									AS PROD_CODE
+				   , (SELECT PROD_IMG_URL FROM PROD_IMG WHERE PROD_CODE = B.PROD_CODE AND PROD_IMG_GB_CD ='11') AS IMG_URL
+				   , B.PROD_NM										AS PROD_NM
+		           , A.TITLE										AS TITLE
+				   , A.CONTENTS										AS CONTENTS
+		             , (SELECT MBER_EMAIL FROM MBER_INFO WHERE MBER_SEQ = A.MBER_SEQ) AS WRITE_ID
+                   , (SELECT MBER_NM FROM MBER_INFO WHERE MBER_SEQ = A.MBER_SEQ) AS WRITE_NM
+		           , A.REGIST_DT 	AS REGIST_DT
+		           , G.BAN_YN										AS BAN_YN
+		           , G.BAN_GB_CD									AS BAN_GB_CD
+		           , (
+	                 SELECT COM_CD_NM
+	                   FROM CODE
+	                  WHERE GRP_CD = 'BAN_GB_CD'
+	                    AND COM_CD = G.BAN_GB_CD
+	                )												AS BAN_GB_NM
+		           , G.BAN_DT
+		           , G.BAN_ADM_NM									AS BAN_ADM_NM
+		     FROM
+			 BOARD_INFO A
+		   INNER JOIN PROD B ON A.PROD_CODE 		= B.PROD_CODE
+		   INNER JOIN MBER_INFO D ON B.MBER_SEQ		= D.MBER_SEQ
+       LEFT OUTER JOIN (
+			    SELECT    BBI.BOARD_CUT_SEQ
+						, BBI.BOARD_TYPE_CD
+						, BBI.BOARD_SEQ
+						, BBI.BAN_YN
+						, BBI.BAN_GB_CD
+						, BBI.DENY_REASON
+						, BBI.BAN_DT
+						, BBI.CANCEL_GB_CD
+						, BBI.CANCEL_REASON
+						, BBI.CANCEL_DT
+						, BBI.CANCEL_ADMIN_ID
+						, BBI.CENCEL_ADMIN_NM
+						, BBI.BAN_ADM_ID
+						, BBI.BAN_ADM_NM
+						, BBI.REGIST_DT
+						, BBI.UPDT_DT
+			    FROM 	BOARD_BAN_INFO BBI
+			    	  , (
+			    	  		SELECT MAX(BB.BOARD_CUT_SEQ)	BOARD_CUT_SEQ
+						    FROM BOARD_INFO BI
+						       , BOARD_BAN_INFO BB
+						    WHERE BI.BOARD_TYPE_CD (+) = BB.BOARD_TYPE_CD
+						    AND   BI.BOARD_SEQ     (+) = BB.BOARD_SEQ
+						    GROUP BY BB.BOARD_TYPE_CD , BB.BOARD_SEQ
+			    	    ) BBII
+			    WHERE BBI.BOARD_CUT_SEQ = BBII.BOARD_CUT_SEQ
+			    ) G ON (A.BOARD_TYPE_CD	= G.BOARD_TYPE_CD AND   A.BOARD_SEQ		= G.BOARD_SEQ  )
+		) WHERE 1=1
+		<include refid="condition"/>
+	</select>
+
+	<!-- 게시글관리 상세 조회 -->
+	<select id="selectPolicy" parameterType="HashMap" resultType="HashMap">
+		/*adminPolicyMapper.selectPolicy*/
+		SELECT
+				 A.BOARD_SEQ									AS BOARD_SEQ		<!-- 일련번호 -->
+			   , A.BOARD_TYPE_CD    							AS BOARD_TYPE_CD	<!-- 게시판유형구분코드 -->
+		       , (
+                 SELECT COM_CD_NM
+                   FROM CODE
+                  WHERE GRP_CD = 'BOARD_TYPE_CD'
+                    AND COM_CD = A.BOARD_TYPE_CD
+                )												AS BOARD_TYPE_NM	<!-- 게시판유형구분명 -->
+               , D.MBER_EMAIL									AS MBER_EMAIL		<!-- 판매자이메일 -->
+               , NVL(D.MBER_NM, D.MBER_NICK)					AS MBER_NICK		<!-- 판매자닉네임 -->
+			   , A.PROD_CODE									AS PROD_CODE		<!-- 상품코드 -->
+			   , B.PROD_NM										AS PROD_NM			<!-- 상품명 -->
+	           , A.TITLE										AS TITLE			<!-- 제목 -->
+			   , A.CONTENTS										AS CONTENTS			<!-- 내용 -->
+			   <!--
+	           , A.WRITE_ID          							AS WRITE_ID
+	           , A.WRITE_NM          							AS WRITE_NM -->
+			   , (SELECT MBER_EMAIL FROM MBER_INFO BB WHERE A.MBER_SEQ = BB.MBER_SEQ) AS WRITE_ID
+			   , (SELECT MBER_NM FROM MBER_INFO BB WHERE A.MBER_SEQ = BB.MBER_SEQ) AS WRITE_NM
+	           , TO_CHAR(A.REGIST_DT, 'YYYY-MM-DD HH24:MI') 	AS REGIST_DT      	<!-- 등록일시 -->
+			FROM
+			 BOARD_INFO A
+		   INNER JOIN PROD B ON A.PROD_CODE 		= B.PROD_CODE
+		   INNER JOIN MBER_INFO D ON B.MBER_SEQ		= D.MBER_SEQ
+       LEFT OUTER JOIN (
+			    SELECT    BBI.BOARD_CUT_SEQ
+						, BBI.BOARD_TYPE_CD
+						, BBI.BOARD_SEQ
+						, BBI.BAN_YN
+						, BBI.BAN_GB_CD
+						, BBI.DENY_REASON
+						, BBI.BAN_DT
+						, BBI.CANCEL_GB_CD
+						, BBI.CANCEL_REASON
+						, BBI.CANCEL_DT
+						, BBI.CANCEL_ADMIN_ID
+						, BBI.CENCEL_ADMIN_NM
+						, BBI.BAN_ADM_ID
+						, BBI.BAN_ADM_NM
+						, BBI.REGIST_DT
+						, BBI.UPDT_DT
+			    FROM 	BOARD_BAN_INFO BBI
+			    	  , (
+			    	  		SELECT MAX(BB.BOARD_CUT_SEQ)	BOARD_CUT_SEQ
+						    FROM BOARD_INFO BI
+						       , BOARD_BAN_INFO BB
+						    WHERE BI.BOARD_TYPE_CD (+) = BB.BOARD_TYPE_CD
+						    AND   BI.BOARD_SEQ     (+) = BB.BOARD_SEQ
+						    GROUP BY BB.BOARD_TYPE_CD , BB.BOARD_SEQ
+			    	    ) BBII
+			    WHERE BBI.BOARD_CUT_SEQ = BBII.BOARD_CUT_SEQ
+			    ) G ON (A.BOARD_TYPE_CD	= G.BOARD_TYPE_CD AND   A.BOARD_SEQ		= G.BOARD_SEQ  )
+		WHERE A.BOARD_SEQ		= #{BOARD_SEQ}
+	</select>
+
+	<!-- 게시글관리 상태 상세 조회 -->
+	<select id="selectPolicyStat" parameterType="HashMap" resultType="HashMap">
+		/*adminPolicyMapper.selectPolicyStat*/
+		SELECT * FROM (
+		SELECT
+				 BOARD_CUT_SEQ		<!-- 차단일련번호 -->
+				, BOARD_TYPE_CD		<!-- 게시판유형코드 -->
+				, BOARD_SEQ         <!-- 게시글일련번호 -->
+				, BAN_YN            <!-- 차단유무 -->
+				, BAN_GB_CD         <!-- 차단구분코드 -->
+				, (
+                 SELECT COM_CD_NM
+                   FROM CODE
+                  WHERE GRP_CD = 'BAN_GB_CD'
+                    AND COM_CD = BAN_GB_CD
+                )												AS BAN_GB_NM		<!-- 차단구분명 -->
+				, DENY_REASON       <!-- 차단사유 -->
+				, BAN_DT            <!-- 차단일 -->
+				, CANCEL_GB_CD      <!-- 해지구분 -->
+				, CANCEL_REASON     <!-- 해지사유 -->
+				, CANCEL_DT         <!-- 해지일 -->
+				, BAN_ADM_ID        <!-- 차단관리자아이디 -->
+				, BAN_ADM_NM        <!-- 차단관리자이름 -->
+				, CANCEL_ADMIN_ID   <!-- 해지관리자아이디 -->
+				, CENCEL_ADMIN_NM   <!-- 해지관리자이름 -->
+				, TO_CHAR(REGIST_DT, 'YYYY-MM-DD HH24:MI') 	AS REGIST_DT      	<!-- 등록일시 -->
+				, TO_CHAR(UPDT_DT, 'YYYY-MM-DD HH24:MI') 	AS UPDT_DT      	<!-- 수정일시 -->
+				, ROW_NUMBER() OVER(ORDER BY REGIST_DT DESC) NO
+		FROM
+			 BOARD_BAN_INFO
+		WHERE BOARD_SEQ		= #{BOARD_SEQ}
+		AND	  BOARD_TYPE_CD	= #{BOARD_TYPE_CD}
+		ORDER BY REGIST_DT DESC
+		) WHERE 1=1
+			<if test="rowNum != null and rowNum != ''" >
+			AND   NO      <![CDATA[<=]]> 1
+			</if>
+
+	</select>
+
+	<!-- 게시글관리 등록 -->
+	<insert id="insertPolicyReg" parameterType="hashmap">
+		/*adminPolicyMapper.insertPolicyReg*/
+		INSERT INTO BOARD_BAN_INFO (
+			      BOARD_CUT_SEQ			<!-- 차단일련번호 -->
+				, BOARD_TYPE_CD			<!-- 게시판유형코드 -->
+				, BOARD_SEQ             <!-- 게시글일련번호 -->
+				, BAN_YN                <!-- 차단유무 -->
+				, BAN_GB_CD             <!-- 차단구분코드 -->
+				, DENY_REASON           <!-- 차단사유 -->
+				, BAN_DT                <!-- 차단일 -->
+				<if test="CANCEL_GB_CD != null and CANCEL_GB_CD != ''">
+				, CANCEL_GB_CD          <!-- 해지구분 -->
+				, CANCEL_REASON         <!-- 해지사유 -->
+				, CANCEL_DT             <!-- 해지일 -->
+				, CANCEL_ADMIN_ID       <!-- 해지관리자아이디 -->
+				, CENCEL_ADMIN_NM       <!-- 해지관리자이름 -->
+				</if>
+				, BAN_ADM_ID            <!-- 차단관리자아이디 -->
+				, BAN_ADM_NM            <!-- 차단관리자이름 -->
+				, REGIST_DT             <!-- 등록일시 -->
+				, UPDT_DT               <!-- 수정일시 -->
+			 )VALUES(
+			 (SELECT NVL(MAX(BOARD_CUT_SEQ), 0) + 1 FROM BOARD_BAN_INFO)
+			, #{BOARD_TYPE_CD}
+			, #{BOARD_SEQ}
+			, #{BAN_YN}
+			, #{BAN_GB_CD}
+			, #{DENY_REASON}
+			, SYSDATE
+			<if test="CANCEL_GB_CD != null and CANCEL_GB_CD != ''">
+			, #{CANCEL_GB_CD}
+			, #{CANCEL_REASON}
+			, #{CANCEL_DT}
+			, #{ADM_ID}
+			, #{ADM_NM}
+			</if>
+			, #{ADM_ID}
+			, #{ADM_NM}
+			, SYSDATE
+			, SYSDATE
+			 )
+	</insert>
+	<update id="updateBanPolicyReg">
+		UPDATE BOARD_INFO
+		  SET BAN_YN =  #{BAN_YN}
+		  WHERE BOARD_SEQ = #{BOARD_SEQ}
+	</update>
+
+	<!-- 게시글관리 수정 -->
+	<update id="updatePolicyReg" parameterType="hashmap">
+		/*adminPolicyMapper.updatePolicyReg*/
+		 UPDATE BOARD_INFO
+		 SET 	 WRITE_ID     	= #{WRITE_ID}   				<!-- 작성자ID -->
+	           , WRITE_NM     	= #{WRITE_NM}   				<!-- 작성자명 -->
+	           , TITLE			= #{TITLE}						<!-- 제목 -->
+	           , CONTENTS		= #{CONTENTS}					<!-- 내용 -->
+	           , VIEW_YN		= #{VIEW_YN}					<!-- 노출여부 -->
+	           , NOTI_GB_CD		= #{NOTI_GB_CD}					<!-- 공지구분코드 -->
+	           , IMPT_NOTI_YN	= #{IMPT_NOTI_YN}				<!-- 주요공지여부 -->
+	           , MAIN_NOTI_YN	= #{MAIN_NOTI_YN}				<!-- 메인공지여부 -->
+	           , POP_YN			= #{POP_YN}						<!-- 팝업노출여부 -->
+	           , UPDT_DT 		= SYSDATE						<!-- 수정일시 -->
+	           , VIEW_START_DATE	= TO_DATE(#{VIEW_START_DATE})	<!-- 메인공지 시작 일자 -->
+	           , VIEW_END_DATE  	= TO_DATE(#{VIEW_END_DATE})		<!-- 메인공지 종료 일자 -->
+		 WHERE
+			  BOARD_SEQ = #{BOARD_SEQ}	<!-- 고유번호 -->
+	</update>
+
+  <!-- 게시글관리 삭제 -->
+  <delete id="deletePolicy" parameterType="hashmap">
+  	/*adminPolicyMapper.updatePolicyReg*/
+	DELETE FROM BOARD_INFO WHERE BOARD_SEQ = #{BOARD_SEQ }
+  </delete>
+
+
+</mapper>

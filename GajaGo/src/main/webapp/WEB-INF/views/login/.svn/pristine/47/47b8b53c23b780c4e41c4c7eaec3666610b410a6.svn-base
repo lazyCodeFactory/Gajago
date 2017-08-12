@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="MobileMyRecentProductMapper">
+	<!-- 최근본상품 삭제 -->
+	<delete id="deleteMyLately30" parameterType="HashMap">
+      DELETE FROM LATE_PROD
+       WHERE MBER_SEQ = <![CDATA[#{MBER_SEQ}]]>
+		 AND TO_DATE(TO_CHAR(SYSDATE-30, 'YYYYMMDDHH24MISS'),'YYYYMMDDHH24MISS') <![CDATA[>]]> TO_DATE(TO_CHAR(REGIST_DT, 'YYYYMMDDHH24MISS'),'YYYYMMDDHH24MISS')
+  	</delete>
+	<!-- 최근본상품 화면으로 이동 -->
+	<select id="getMyLatelyGoodsInfo" parameterType="HashMap" resultType="HashMap">
+		SELECT RN,	
+			   PROD_CODE,  		DECODE(NRM_PRCE,NULL,0,NRM_PRCE) AS NRM_PRCE , DECODE(SELL_PRCE,NULL,0,SELL_PRCE) AS SELL_PRCE,
+           	   PROD_TYPE_CD, 	PROD_NM, 	   	PROD_IMG_URL, 
+           	   FILE_URL,  
+           	   DLV_PAY_GB_CD,
+               DECODE(SALE,NULL,0,SALE) AS SALE,
+               CPON_APPLY_PSBL_YN,
+               SHARING_START_DT,
+		       SHARING_END_DT,
+		       SHARING_UNIT,
+		       DECODE(SHARING_PRICE,NULL,0,SHARING_PRICE) AS SHARING_PRICE,
+		       SHARING_MAX_TERM,
+		       SHARING_MIN_TERM,
+		       DEPOSIT,
+		       DECODE(SP_SHARING_PRICE,NULL,0,SP_SHARING_PRICE) AS SP_SHARING_PRICE
+		  FROM(               		               	
+				SELECT ROWNUM RN,	
+					   MM.PROD_CODE,  	MM.NRM_PRCE,		MM.SELL_PRCE,
+		           	   MM.PROD_TYPE_CD, MM.PROD_NM, 	   	MM.PROD_IMG_URL,
+		           	   MM.FILE_URL,
+		           	   MM.DLV_PAY_GB_CD,
+		               MM.SALE,
+		               MM.CPON_APPLY_PSBL_YN,
+				       MM.SHARING_START_DT,
+				       MM.SHARING_END_DT,
+				       MM.SHARING_UNIT,
+				       MM.SHARING_PRICE,
+				       MM.SHARING_MAX_TERM,
+				       MM.SHARING_MIN_TERM,
+				       MM.DEPOSIT,
+				       MM.SP_SHARING_PRICE
+		          FROM(       
+						SELECT P.PROD_CODE,  	P.NRM_PRCE,		P.SELL_PRCE,
+				           	   P.PROD_TYPE_CD,  P.PROD_NM, IMG.PROD_IMG_URL,
+				           	    F.FILE_URL, 
+				           	    P.DLV_PAY_GB_CD,
+				               ( CASE WHEN P.NRM_PRCE!=0 THEN ROUND((P.NRM_PRCE - P.SELL_PRCE) / P.NRM_PRCE * 100) ELSE P.NRM_PRCE END  ) SALE,
+				               P.CPON_APPLY_PSBL_YN,
+				               S.SHARING_START_DT,
+						       S.SHARING_END_DT,
+						       S.SHARING_UNIT,
+						       S.SHARING_PRICE,
+						       S.SHARING_MAX_TERM,
+						       S.SHARING_MIN_TERM,
+						       S.DEPOSIT,
+						       SP.SHARING_PRICE AS SP_SHARING_PRICE
+						  FROM 	LATE_PROD 					M 
+						  JOIN		PROD 							P
+						  ON      M.PROD_CODE 				= P.PROD_CODE
+						  LEFT OUTER JOIN PROD_IMG 		IMG
+						  ON 		P.PROD_CODE 				= IMG.PROD_CODE
+                          AND 	IMG.PROD_IMG_GB_CD 	= '11'
+						  LEFT OUTER JOIN PROD_SHARING S
+						  ON 		P.PROD_CODE 				= S.PROD_CODE
+						  LEFT OUTER JOIN (SELECT PROD_CODE, MIN(SHARING_PRICE) AS SHARING_PRICE  FROM SP_PROD_DTL GROUP BY PROD_CODE) SP
+						  ON 		P.PROD_CODE 				= SP.PROD_CODE
+						  LEFT OUTER JOIN SP_IMAGE 		SI
+						  ON 		P.PROD_CODE 				= SI.PROD_CODE
+                          AND 	SI.SP_IMG_GB_CD 			= '11'
+						  LEFT OUTER JOIN FILE_INFO 		F
+						  ON 		SI.FILE_NO 					= F.FILE_SEQ
+				         WHERE M.MBER_SEQ = <![CDATA[#{MBER_SEQ}]]>
+				         ORDER BY M.REGIST_DT DESC, P.PROD_CODE
+				  ) MM  
+		)
+	WHERE RN <![CDATA[>]]> <![CDATA[#{FIRST_SEQ}]]>
+	  AND RN <![CDATA[<=]]> <![CDATA[#{LAST_SEQ}]]>				           
+	</select>
+	<!-- 최근본상품 삭제 -->
+	<delete id="deleteMyLately" parameterType="HashMap">
+      DELETE FROM LATE_PROD
+       WHERE MBER_SEQ = <![CDATA[#{MBER_SEQ}]]>
+		 AND PROD_CODE = <![CDATA[#{PROD_CODE}]]>		
+  	</delete>
+  	<!-- 최근본상품 전체삭제 -->
+	<delete id="allDeleteMyLately" parameterType="HashMap">
+      DELETE FROM LATE_PROD
+       WHERE MBER_SEQ = <![CDATA[#{MBER_SEQ}]]>		 		
+  	</delete>
+</mapper>

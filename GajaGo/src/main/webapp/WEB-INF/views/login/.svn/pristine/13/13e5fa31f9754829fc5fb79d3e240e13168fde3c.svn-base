@@ -1,0 +1,395 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+
+
+
+
+<!--  BOARD_SEQ는 유니크한 값임. 조건절에 이거만 있음 됨.. 김윤경 -->
+
+
+
+
+<mapper namespace="MobileMyActMapper">
+	<!-- 승인여부 정보조회 -->
+	<select id="getMyAuthYnInfo" parameterType="HashMap" resultType="HashMap">
+	    SELECT MBER_SEQ,
+	    	   MBER_PHONE,
+	    	   DECODE(MBER_NM,NULL,'',MBER_NM) AS MBER_NM,	
+	    	   MBER_EMAIL
+		  FROM MBER_INFO
+	   	 WHERE MBER_SEQ  = #{MBER_SEQ}
+	</select>
+    <resultMap type="hashmap" id="updateQnaInfo">
+		<result property="BOARD_TYPE_CD" column="BOARD_TYPE_CD" javaType="String" />
+		<result property="BOARD_SEQ" column="BOARD_SEQ" javaType="String" />
+		<result property="WRITE_ID" column="WRITE_ID" javaType="String" />
+		<result property="FAQ_TYPE_CD" column="FAQ_TYPE_CD" />
+		<result property="WRITE_NM" column="WRITE_NM" />
+		<result property="EMAIL" column="EMAIL" />
+		<result property="TEL" column="TEL"  />
+		<result property="TITLE" column="TITLE"  />
+		<result property="CONTENTS" column="CONTENTS" javaType="String" jdbcType="CLOB" />
+		<result property="QNA_TYPE_CD" column="QNA_TYPE_CD" javaType="String" />
+		<result property="SMS_YN" column="SMS_YN" javaType="String" />
+		<result property="EMAIL_YN" column="EMAIL_YN" javaType="String" />
+		<result property="MBER_PHONE" column="MBER_PHONE" />
+		<result property="MBER_NM" column="MBER_NM" />
+    </resultMap>
+    
+    
+    
+	<!-- 1.상품후기 (조회) -->
+	<select id="getMyActAfterList" parameterType="HashMap" resultType="HashMap">
+		SELECT M.ADD_FILE_NO,  
+		       ( SELECT S.FILE_URL FROM FILE_INFO S WHERE S.FILE_SEQ = M.ADD_FILE_NO ) AS AFTER_IMG_URL,
+		       M.PROD_CODE,    
+		       P.PROD_NM, 
+		       IMG.PROD_IMG_URL, 
+		       TO_CHAR(TO_DATE(CONF.CONF_DATE,'YYYYMMDD'),'YYYY-MM-DD HH24:MI') AS CONF_DATE, 
+		       M.AVG_SCORE,
+		       TO_CHAR(M.REGIST_DT,'YYYY-MM-DD') AS WRITE_DATE,
+		       TRUNC( SYSDATE - M.REGIST_DT) AS DAY ,
+			   TRUNC( MOD( (SYSDATE - M.REGIST_DT	),1)*24*60) AS MINUTE ,      
+		       M.TITLE,
+		       M.ANS_GB_CD,
+		       ( SELECT S.COM_CD_NM FROM CODE S WHERE S.GRP_CD = 'ANS_GB_CD' AND S.COM_CD = M.ANS_GB_CD ) AS ANS_GB_CD_NM,
+		       M.BOARD_TYPE_CD,
+		       M.BOARD_SEQ,
+		       M.CONTENTS AS CONTENTS,
+		       DECODE(M.EMAIL,NULL,' ',M.EMAIL) AS EMAIL
+		  FROM BOARD_INFO M , 
+          	   PROD P , ( SELECT PROD_IMG_URL,PROD_CODE FROM PROD_IMG WHERE PROD_IMG_GB_CD = '11' ) IMG,
+          	   PROD_BUY_CONF_INFO CONF
+		 WHERE M.PROD_CODE = P.PROD_CODE
+     	   AND M.PROD_CODE = IMG.PROD_CODE(+)
+     	   AND M.PROD_CODE = CONF.PROD_CODE(+)
+     	   AND M.BOARD_TYPE_CD = '70' 
+		   AND M.MBER_SEQ = <![CDATA[#{MBER_SEQ}]]> 
+	  	 ORDER BY M.REGIST_DT ASC
+	</select>
+	<!-- 2.이벤트참여 (조회) -->
+	<select id="getMyActEventList" parameterType="HashMap" resultType="HashMap">
+		 SELECT	S.EVT_NM,
+		 		S.EVT_GRP_CD,
+		  	   	S.EVT_GB_CD,
+		  	   	(	SELECT SS.COM_CD_NM
+		  			  FROM code SS
+		  			 WHERE SS.GRP_CD = 'EVT_GB_CD'
+		  			   AND SS.COM_CD   = S.EVT_GB_CD
+		  		) AS EVT_GB_CD_NM,
+		  		(	SELECT F.FILE_URL FROM FILE_INFO F WHERE FILE_SEQ IN (	
+									  			SELECT MAX(SS.EVT_IMG_URL_MOBILE)
+									  			  FROM EVT_IMG SS
+									  			 WHERE SS.EVT_GRP_CD = S.EVT_GRP_CD	)
+		  		) AS IMG_URL ,
+		  		(	SELECT MAX(SS.EVT_IMG_URL_MOBILE)
+		  			  FROM EVT_IMG SS
+		  			 WHERE SS.EVT_GRP_CD = S.EVT_GRP_CD
+		  		) AS IMG_SEQ ,
+		  		TO_CHAR(TO_DATE(S.UPDT_DT),'YYYY.MM.DD') AS UPDT_DT,
+		  		TO_CHAR(S.REGIST_DT, 'YYYY.MM.DD HH24:MI') AS MY_REGIST_DT, 
+		  		TO_CHAR(S.EVT_START_DT, 'YYYY.MM.DD') AS EVT_START_DT, 
+		  		TO_CHAR(S.EVT_END_DT, 'YYYY.MM.DD') AS EVT_END_DT, 
+		  		S.EXPOSURE_YN,
+		  		DECODE(S.EVT_STATE_YN , 'Y' , '40' ,
+			  		CASE
+				        WHEN TO_CHAR(SYSDATE, 'YYYYMMDD') <![CDATA[<]]> TO_CHAR(S.EVT_START_DT, 'YYYYMMDD')
+				        THEN '10'
+				        WHEN TO_CHAR(SYSDATE, 'YYYYMMDD') <![CDATA[>]]> TO_CHAR(S.EVT_END_DT, 'YYYYMMDD')
+				        THEN '30'
+				        ELSE '20'
+					END 
+				) AS EVT_STATE_YN,
+		  		S.MOBILE_COMMENT AS MOBILE_COMMENT,
+		  		TO_CHAR(TO_DATE(S.REGIST_DT),'YYYY.MM.DD') AS REGIST_DT,
+		  		M.PRIZE_YN,
+		  		TO_CHAR(M.REGIST_DT, 'YYYY.MM.DD') AS MBER_REGIST_DT, 
+		  		( 	DECODE(
+				      	M.REGIST_DT,       NULL, 
+				      	'',
+				      	( CASE WHEN (
+				          	SYSDATE
+				          	<![CDATA[>]]> M.REGIST_DT
+				        	) 
+				        	THEN 'Y' 
+				        	ELSE 'N' 
+				        	END
+				      	)
+					)
+				) AS REGIST_YN,
+				( 	SELECT COUNT(SS.PRIZE_YN) 
+				      FROM EVT_MBER_INFO SS 
+				     WHERE SS.EVT_GRP_CD = S.EVT_GRP_CD 
+				       AND SS.PRIZE_YN = 'Y'
+				) AS PRIZE_CNT,
+				( 	DECODE(
+				      	S.EVT_START_DT,       NULL, 
+				      	'',
+				      	( CASE WHEN (
+				          	SYSDATE
+				          	<![CDATA[>]]> TO_DATE(TO_CHAR(S.EVT_START_DT, 'YYYYMMDDHH24MISS'),'YYYYMMDDHH24MISS')
+				        	) 
+				        	THEN 'IN' 
+				        	ELSE 'OUT' 
+				        	END
+				      	)
+				    )
+				) AS EVT_START_ST,
+				( 	DECODE(
+				      	S.EVT_END_DT,       NULL, 
+				      	'',
+				      	( CASE WHEN (
+				          	SYSDATE
+				          	<![CDATA[<]]> TO_DATE(TO_CHAR(S.EVT_END_DT, 'YYYYMMDDHH24MISS'),'YYYYMMDDHH24MISS')
+				        	) 
+				        	THEN 'IN' 
+				        	ELSE 'OUT' 
+				        	END
+				      	)
+				    )
+				) AS EVT_END_ST
+		   FROM EVT_MBER_INFO M ,
+		  		EVT_INFO S
+		  WHERE M.EVT_GRP_CD(+) = S.EVT_GRP_CD
+			AND M.MBER_SEQ = <![CDATA[#{MBER_SEQ}]]>   
+	</select>
+	<!-- 3.상품문의 (조회) 72 -->
+	<select id="getMyActQuesList" parameterType="HashMap" resultType="HashMap">
+		SELECT 
+		    M.ADD_FILE_NO,  
+		    ( SELECT S.FILE_URL FROM FILE_INFO S WHERE S.FILE_SEQ = M.ADD_FILE_NO ) AS AFTER_IMG_URL ,
+		    M.PROD_CODE,    
+		    ( SELECT DECODE(S.PROD_NM,NULL,' ',S.PROD_NM) AS PROD_NM FROM PROD S WHERE S.PROD_CODE = M.PROD_CODE ) AS PROD_NM,
+		    ( SELECT S.PROD_IMG_URL FROM PROD_IMG S WHERE S.PROD_CODE = M.PROD_CODE AND S.PROD_IMG_GB_CD = '11') AS PROD_IMG_URL,
+		    ( SELECT TO_CHAR(TO_DATE(S.CONF_DATE),'YYYY-MM-DD HH24:MI') FROM PROD_BUY_CONF_INFO S WHERE S.PROD_SEQ = M.PROD_CODE) AS CONF_DATE,
+		    M.AVG_SCORE,
+		    M.WRITE_DATE,
+		    TRUNC(
+			    SYSDATE
+			      - M.REGIST_DT
+			) AS DAY ,
+			TRUNC(
+			    MOD(
+			      (
+			        SYSDATE
+			          - M.REGIST_DT
+			),1)*24) AS HOUR ,   
+			TRUNC(
+				MOD(
+					(SYSDATE 
+						- M.REGIST_DT) * 24, 1) * 60
+			) AS MIN,
+
+
+			   
+		    M.TITLE,
+		    M.ANS_GB_CD,
+		    ( SELECT S.COM_CD_NM FROM CODE S WHERE S.GRP_CD = 'ANS_GB_CD' AND S.COM_CD = M.ANS_GB_CD ) AS ANS_GB_CD_NM,
+		    M.QNA_TYPE_CD,
+  			( SELECT DECODE(S.COM_CD_NM,NULL,' ',S.COM_CD_NM) AS COM_CD_NM FROM CODE S WHERE S.GRP_CD = 'QNA_TYPE_CD'  AND S.COM_CD   = M.QNA_TYPE_CD  ) AS QNA_TYPE_CD_NM,
+		    M.BOARD_TYPE_CD,
+		    M.BOARD_SEQ,
+		    M.ANS_CONTENTS AS ANS_CONTENTS ,
+		    TO_CHAR(M.REGIST_DT, 'YYYY-MM-DD') AS REGIST_DT
+		FROM BOARD_INFO M
+		WHERE M.BOARD_TYPE_CD = '72' 
+		AND M.MBER_SEQ = <![CDATA[#{MBER_SEQ}]]> 
+	ORDER BY M.REGIST_DT ASC
+	</select>
+	
+	<!-- 나의활동 > 3.상품문의 > 상세조회 -->
+	<select id="getProdAnsView" parameterType="HashMap" resultType="HashMap">
+		SELECT 
+			M.WRITE_NM,
+		  	M.TEL,
+		  	M.SMS_YN,
+		  	M.EMAIL,
+		  	M.SMS_YN,
+		    M.ADD_FILE_NO,  
+		    M.PROD_CODE,    
+		    ( SELECT S.PROD_NM FROM PROD S WHERE S.PROD_CODE = M.PROD_CODE ) AS PROD_NM,
+		    ( SELECT TO_CHAR(TO_DATE(S.CONF_DATE),'YYYY-MM-DD HH24:MI') FROM PROD_BUY_CONF_INFO S WHERE S.PROD_SEQ = M.PROD_CODE) AS CONF_DATE,		    
+		    M.AVG_SCORE,
+		    M.WRITE_DATE,
+		    M.TITLE,     
+		    M.CONTENTS,
+		    M.QNA_TYPE_CD,
+		    ( SELECT S.COM_CD_NM from CODE S WHERE S.GRP_CD = 'QNA_TYPE_CD' AND S.COM_CD = M.QNA_TYPE_CD ) AS QNA_TYPE_CD_NM,
+		    M.ANS_CONTENTS,
+		    M.VIEW_CNT
+		FROM BOARD_INFO M
+		WHERE M.BOARD_SEQ 	= <![CDATA[#{BOARD_SEQ}]]> 
+	</select>
+	<!-- 상품문의 수정 / 저장 -->
+	<update id="updateProdAnsProcess" parameterType="HashMap">
+      UPDATE BOARD_INFO
+      	 SET TITLE		= #{TITLE,jdbcType=VARCHAR},
+      	  	 CONTENTS 	= #{CONTENTS,jdbcType=VARCHAR},   
+      	  	 <if test="QNA_TYPE_CD neq null and QNA_TYPE_CD neq ''.toString()">
+      	  	 QNA_TYPE_CD = #{QNA_TYPE_CD},
+      	  	 </if>
+      	  	 UPDT_DT 	= SYSDATE       	
+       WHERE BOARD_SEQ 	   = <![CDATA[#{BOARD_SEQ}]]> 
+  	</update>
+	<!-- 4.1:1문의 (조회) / Q&A -->
+	<select id="getMyActOneList" parameterType="HashMap" resultType="HashMap">
+		SELECT 
+			TO_CHAR(M.REGIST_DT,'YYYY.MM.DD') as REGIST_DT,
+			DECODE(M.TITLE,NULL,' ',M.TITLE) AS TITLE,
+			M.ANS_GB_CD,
+		    ( SELECT S.COM_CD_NM FROM CODE S WHERE S.GRP_CD = 'ANS_GB_CD' AND S.COM_CD = M.ANS_GB_CD ) AS ANS_GB_CD_NM,
+		    M.QNA_TYPE_CD,
+		    ( SELECT S.COM_CD_NM from CODE S WHERE S.GRP_CD = 'QNA_TYPE_CD' AND S.COM_CD = M.QNA_TYPE_CD ) AS QNA_TYPE_CD_NM,
+		    M.BOARD_TYPE_CD,
+		    M.BOARD_SEQ ,
+		    M.ADD_FILE_NO,  
+		    ( SELECT S.FILE_URL FROM FILE_INFO S WHERE S.FILE_SEQ = M.ADD_FILE_NO ) AS AFTER_IMG_URL ,
+		    M.PROD_CODE,    
+		    ( SELECT S.PROD_NM FROM PROD S WHERE S.PROD_CODE = M.PROD_CODE ) AS PROD_NM,
+		    ( SELECT S.PROD_IMG_URL FROM PROD_IMG S WHERE S.PROD_CODE = M.PROD_CODE AND S.PROD_IMG_GB_CD = '11') AS PROD_IMG_URL,
+		    ( SELECT S.CONF_DATE FROM PROD_BUY_CONF_INFO S WHERE S.PROD_SEQ = M.PROD_CODE) AS CONF_DATE,		    
+		    M.AVG_SCORE		       
+		FROM BOARD_INFO M
+		WHERE M.BOARD_TYPE_CD = '40' 
+		AND M.MBER_SEQ = <![CDATA[#{MBER_SEQ}]]> 
+	    AND (M.DEL_YN <![CDATA[<>]]> 'Y' OR M.DEL_YN IS NULL)
+	ORDER BY M.REGIST_DT ASC
+	</select>
+	<!-- 나의활동 > 1. 1:1문의 > 상세조회 -->
+	<select id="getProdQnaView" parameterType="HashMap" resultType="HashMap">
+		SELECT M.WRITE_NM,
+			   M.TEL,
+			   M.SMS_YN,
+			   M.EMAIL,
+			   M.EMAIL_YN,
+			   ( SELECT S.COM_CD_NM  FROM CODE S  WHERE S.GRP_CD = 'QNA_TYPE_CD'  AND S.COM_CD   = M.QNA_TYPE_CD  ) AS QNA_TYPE_CD_NM,
+			   M.TITLE,
+			   M.CONTENTS,  
+			   M.ANS_CONTENTS,
+			   M.BOARD_TYPE_CD,
+			   M.BOARD_SEQ,
+			   M.VIEW_CNT
+		  FROM BOARD_INFO M
+		 WHERE  M.BOARD_SEQ 	= <![CDATA[#{BOARD_SEQ}]]> 
+	</select>
+	<select id="selectChkdel" resultType="int">
+		SELECT COUNT(1) FROM BOARD_INFO WHERE BOARD_SEQ = <![CDATA[#{BOARD_SEQ}]]> AND DEL_YN = 'Y'
+	</select>
+	
+	<select id="selectChkConf" resultType="int">
+		SELECT COUNT(1) FROM BOARD_INFO WHERE BOARD_SEQ = <![CDATA[#{BOARD_SEQ}]]> AND ANS_CONTENTS IS NOT NULL
+	</select>
+	
+	<select id="updateQnaInfo" resultMap="updateQnaInfo">
+	    SELECT 	BI.BOARD_TYPE_CD
+			  , BI.BOARD_SEQ
+			  , BI.WRITE_ID
+			  , BI.FAQ_TYPE_CD
+			  , BI.WRITE_NM
+			  , BI.EMAIL
+			  , BI.TEL
+			  , BI.TITLE
+			  , BI.CONTENTS
+			  , BI.QNA_TYPE_CD
+			  , BI.SMS_YN
+			  , BI.EMAIL_YN
+			  , MI.MBER_PHONE
+			  , MI.MBER_NM
+		FROM BOARD_INFO BI , MBER_INFO MI
+	   WHERE BI.MBER_SEQ = MI.MBER_SEQ
+	     AND BI.MBER_SEQ  = #{MBER_SEQ}
+	     AND BI.BOARD_SEQ 	= <![CDATA[#{BOARD_SEQ}]]> 
+	</select>
+	
+	<update id="updateQnaInfoReg">
+	    UPDATE BOARD_INFO 
+	    SET  WRITE_ID = #{USER_EMAIL}
+			  , WRITE_NM = #{WRITE_NM}
+			  , EMAIL = #{USER_EMAIL}
+			  , TEL = #{TEL}
+			  , TITLE = #{QNA_TITLE}
+			  , CONTENTS =  #{QNA_CONTENTS}
+			  , QNA_TYPE_CD =  #{QNA_TYPE_CD}
+			  , SMS_YN = #{SMS_YN}
+			  , EMAIL_YN = #{EMAIL_YN}
+			  , UPDT_DT = SYSDATE
+		  WHERE  BOARD_SEQ 	= <![CDATA[#{BOARD_SEQ}]]> 
+	</update>
+
+	<!-- 상세보기(1:1문의) 건수을 업데이트 한다. -->
+	<update id="updateBoardViewCnt">
+		UPDATE BOARD_INFO
+		   SET VIEW_CNT = <![CDATA[#{VIEW_CNT}]]> 
+		 WHERE  BOARD_SEQ 	= <![CDATA[#{BOARD_SEQ}]]> 
+	</update>
+	
+	<select id="selectMyEvtDtl" resultType="hashmap">
+	 SELECT	S.EVT_NM,
+		 		S.EVT_GRP_CD,
+		  	   	S.EVT_GB_CD,
+		  	   	(	SELECT SS.COM_CD_NM
+		  			  FROM code SS
+		  			 WHERE SS.GRP_CD = 'EVT_GB_CD'
+		  			   AND SS.COM_CD   = S.EVT_GB_CD
+		  		) AS EVT_GB_CD_NM,
+		  		(	SELECT F.FILE_URL FROM FILE_INFO F WHERE FILE_SEQ IN (	
+									  			SELECT MAX(SS.EVT_IMG_URL_MOBILE)
+									  			  FROM EVT_IMG SS
+									  			 WHERE SS.EVT_GRP_CD = S.EVT_GRP_CD	)
+		  		) AS IMG_URL ,
+		  		(	SELECT MAX(SS.EVT_IMG_URL_MOBILE)
+		  			  FROM EVT_IMG SS
+		  			 WHERE SS.EVT_GRP_CD = S.EVT_GRP_CD
+		  		) AS IMG_SEQ ,
+		  		TO_CHAR(TO_DATE(S.UPDT_DT),'YYYY.MM.DD') AS UPDT_DT,
+		  		TO_CHAR(S.REGIST_DT, 'YYYY.MM.DD HH24:MI') AS MY_REGIST_DT, 
+		  		TO_CHAR(S.EVT_START_DT, 'YYYY.MM.DD') AS EVT_START_DT, 
+		  		TO_CHAR(S.EVT_END_DT, 'YYYY.MM.DD') AS EVT_END_DT, 
+		  		S.EXPOSURE_YN,
+		  		DECODE(S.EVT_STATE_YN , 'Y' , '40' ,
+			  		CASE
+				        WHEN TO_CHAR(SYSDATE, 'YYYYMMDD') <![CDATA[<]]> TO_CHAR(S.EVT_START_DT, 'YYYYMMDD')
+				        THEN '10'
+				        WHEN TO_CHAR(SYSDATE, 'YYYYMMDD') <![CDATA[>]]> TO_CHAR(S.EVT_END_DT, 'YYYYMMDD')
+				        THEN '30'
+				        ELSE '20'
+					END 
+				) AS EVT_STATE_YN,
+		  		S.MOBILE_COMMENT AS MOBILE_COMMENT,
+		  		TO_CHAR(TO_DATE(S.REGIST_DT),'YYYY.MM.DD') AS REGIST_DT,
+		  		M.PRIZE_YN,
+		  		TO_CHAR(M.REGIST_DT, 'YYYY.MM.DD') AS MBER_REGIST_DT, 
+		  		( 	DECODE(
+				      	M.REGIST_DT,       NULL, 
+				      	'',
+				      	( CASE WHEN (
+				          	SYSDATE
+				          	<![CDATA[>]]> M.REGIST_DT
+				        	) 
+				        	THEN 'Y' 
+				        	ELSE 'N' 
+				        	END
+				      	)
+					)
+				) AS REGIST_YN,
+				( 	SELECT COUNT(SS.PRIZE_YN) 
+				      FROM EVT_MBER_INFO SS 
+				     WHERE SS.EVT_GRP_CD = S.EVT_GRP_CD 
+				       AND SS.PRIZE_YN = 'Y'
+				) AS PRIZE_CNT
+		   FROM EVT_MBER_INFO M ,
+		  		EVT_INFO S
+		  WHERE M.EVT_GRP_CD(+) = S.EVT_GRP_CD
+			AND M.MBER_SEQ = <![CDATA[#{MBER_SEQ}]]>   
+			AND M.EVT_GRP_CD = #{EVT_GRP_CD}
+	</select>
+	<delete id="deleteprodQna">
+	UPDATE BOARD_INFO SET DEL_YN ='Y' WHERE BOARD_SEQ = #{BOARD_SEQ}
+	</delete>
+	
+	<select id="prodQnaCheck" resultType="Integer">
+	SELECT COUNT(1) FROM BOARD_INFO WHERE BOARD_SEQ = #{BOARD_SEQ }
+	</select>
+	
+</mapper>

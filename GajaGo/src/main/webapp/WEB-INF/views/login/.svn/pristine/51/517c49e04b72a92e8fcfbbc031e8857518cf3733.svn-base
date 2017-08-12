@@ -1,0 +1,440 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="WebApiMapper">
+    <insert id="insertNoticeReg">
+        
+        
+    </insert>
+    
+    
+    <select id="selectFaqList" resultType="hashmap">
+     SELECT BOARD_TYPE_CD
+     	  , BOARD_SEQ
+     	  , TITLE
+     	  , ROW_NUMBER() OVER(ORDER BY BOARD_SEQ DESC ) AS NO
+     	  , CONTENTS 
+      FROM BOARD_INFO
+       WHERE BOARD_TYPE_CD = '20'
+    </select>
+    
+    
+    <select id="selectNotiDeafultinfo" resultType="hashmap">
+        SELECT MBER_EMAIL,MBER_NICK,MBER_PHONE 
+          FROM MBER_INFO 
+          WHERE MBER_SEQ = #{MBER_SEQ}
+    </select>
+    
+    
+  <!-- 카테고리 리스트 -->
+  <select id="getCrtyList" resultType="hashmap">
+	SELECT *
+	  FROM ctry where lvl_seq != 0
+  </select>
+  
+  <select id="getAllPordList" resultType="hashmap" >
+      <![CDATA[ 
+      select * from prod where rownum <= 20
+      ]]>
+  </select>
+  
+  <select id="selectNoticeLlist" resultType="hashmap">
+      SELECT BOARD_TYPE_CD, BOARD_SEQ, TITLE,ROW_NUMBER() OVER(ORDER BY BOARD_SEQ DESC ) AS NO, CONTENTS 
+      FROM BOARD_INFO
+       WHERE BOARD_TYPE_CD = '10'
+  </select>
+  
+  <select id="selectNoticeDtl" resultType="hashmap">
+            <![CDATA[ 
+	SELECT TITLE,BOARD_SEQ, 'NEXT' AS VALID_STR , BOARD_TYPE_CD
+	  FROM BOARD_INFO 
+	 WHERE BOARD_SEQ =(
+	  SELECT min(BOARD_SEQ) FROM BOARD_INFO where  BOARD_SEQ > #{NOTICE_SEQ}  and BOARD_TYPE_CD = #{BOARD_TYPE_CD} 
+	  )
+	UNION ALL 
+	SELECT TITLE,BOARD_SEQ, 'PREV' AS VALID_STR , BOARD_TYPE_CD
+	  FROM BOARD_INFO 
+     WHERE BOARD_SEQ = ( SELECT max(BOARD_SEQ) FROM BOARD_INFO where  BOARD_SEQ < #{NOTICE_SEQ}   and BOARD_TYPE_CD = #{BOARD_TYPE_CD} ) 
+   	UNION ALL 
+   	SELECT TITLE,BOARD_SEQ, 'NOW' AS VALID_STR , BOARD_TYPE_CD 
+	  FROM BOARD_INFO 
+	 WHERE BOARD_SEQ = #{NOTICE_SEQ} and BOARD_TYPE_CD = #{BOARD_TYPE_CD}
+      ]]>
+  </select>
+  
+  
+  <select id="getCateGoryfirstCD" resultType="hashmap">
+      
+      select substr(ctry_cd, 0,4) as ctry_cd,ctry_nm from ctry where lvl_seq = 1
+  </select>
+  
+  <select id="getSelectCategoryProd" resultType="hashmap">
+          <![CDATA[ 
+      SELECT A.prod_code, PROD_NM,A.prod_Type_cd,A.CTRY_CD,pa.alrm_kind,
+     			(case when a.STOCK_QTY > a.EXP_QTY THEN 'N' else 'Y' end ) as sold_out_alert
+		FROM prod A LEFT OUTER JOIN ctry_map B  ON B.PROD_CODE = A.PROD_CODE
+                     INNER JOIN ctry ct ON ct.CTRY_CD = B.CTRY_CD
+                     left join prod_alert pa on pa.prod_code = A.prod_code
+                     left join mber_info d on d.mber_seq = pa.mber_seq
+     	  WHERE  A.ctry_cd like   #{ctry_cd} || '%' 
+			        
+			      and rownum <=20 and d.mber_seq = #{mber_seq}
+			        ]]>
+  </select>
+  
+  <select id="getRecomProdlist" resultType="hashmap">
+         <![CDATA[
+      SELECT a.prod_nm,
+      		a.prod_type_cd,
+      		a.prod_code,
+      		pa.alrm_kind,
+      		a.ctry_cd,
+      		(case when a.STOCK_QTY > a.EXP_QTY THEN 'N' else 'Y' end ) as sold_out_alert
+		FROM prod a inner join recom_prod b on b.PROD_CODE = a.prod_code
+      		 left join prod_alert pa on pa.prod_code = A.prod_code
+     		 left join mber_info d on d.mber_seq = pa.mber_seq
+      WHERE rownum <= 5
+          ]]> AND  d.mber_seq = #{mber_seq}
+  </select>
+  
+  <select id="selectAlarmCnt" resultType="Integer">
+        SELECT count(*) as Cnt
+         FROM prod_alert
+         WHERE prod_code = #{prod_code} and mber_seq = #{mber_seq}
+  </select> 
+  
+  <update id="updateAlarmReliReg">
+      UPDATE prod_alert 
+      	 SET alrm_kind = #{sales_alert}
+       WHERE prod_code = #{prod_code} AND mber_seq = #{mber_seq}
+  </update>
+  
+  <insert id="insertAlarmReliReg">
+      INSERT INTO PROD_ALERT (prod_code,mber_seq,alrm_kind) values(#{prod_code},#{mber_seq},#{sales_alert})
+      
+  </insert>
+  
+  <select id="selectUserInfo" resultType="hashmap">
+	SELECT (select count(*) from push where mber_seq =#{mber_seq} and push_ready_yn != 'Y') as PUSH_CNT,
+           (select count(*) from cart where mber_seq =#{mber_seq}) as BAG_CNT,
+           (select count(*) from mber_cpn_info where mber_seq = #{mber_seq}and use_date is not null and exp_end_date > SYSDATE),
+            point,
+            mber_email 
+	FROM mber_info
+      
+  </select>
+  
+  
+  <select id="selectTalentProd"  resultType="hashmap">
+          <![CDATA[ 
+      SELECT  a.prod_nm,
+    	      a.prod_type_cd,
+   		      a.PROD_CODE, 
+        	  (case when a.STOCK_QTY > a.EXP_QTY THEN 'N' else 'Y' end ) as sold_out_alert,
+        	  pa.alrm_kind
+        	     ]]>
+  		FROM prod a 
+  			left join prod_alert pa on pa.prod_code = A.prod_code  
+  		WHERE
+        <![CDATA[ 
+           AND	rownum > #{minrow}
+           AND rownum <= #{maxrow}
+           ]]>
+         <if test="SEARCH_CTRY != null">
+             
+           AND ctry_cd  like   #{subCategory} || '%' 
+         </if>  
+         <if test="TRADE_TYPE != null">
+            AND prod_type_cd = #{TRADE_TYPE}
+         </if>  	
+         ORDER BY 
+           <choose>
+                <when test="SORT_TYPE.equals('LOW_SELL_PRCE')">
+                    SELL_PRCE ASC
+                </when>
+                <when test="SORT_TYPE != 'LOW_SELL_PRCE'">
+                   #{SORT_TYPE} DESC
+                </when>
+                <otherwise>
+                      EXP_QTY DESC
+                </otherwise>
+                
+            </choose>
+  </select>
+
+  <select id="selectwishProd" resultType="hashmap">
+      SELECT b.prod_code,b.prod_nm,
+        	 b.prod_type_cd,
+        	 b.PROD_CODE  
+        FROM
+			(
+			select prod_code,count(*) as cnt 
+			from prod_wish 
+			group by prod_code
+			) a
+	INNER JOIN prod b ON b.prod_code = a.prod_code
+		WHERE
+  		  <![CDATA[ 
+              rownum > #{minrow} and rownum <= #{maxrow}
+         ]]>
+         <if test="SEARCH_CTRY != null">
+           AND ctry_cd  like   #{subCategory} || '%' 
+         </if>  
+         <if test="TRADE_TYPE != null">
+            AND prod_type_cd = #{TRADE_TYPE}
+         </if>  
+		ORDER BY a.cnt desc
+  </select>
+  
+    <select id="selectAlertProd" resultType="hashmap">
+      SELECT b.prod_code,b.prod_nm,
+        	 b.prod_type_cd,
+        	 b.PROD_CODE  
+        FROM
+			(
+			SELECT prod_code,count(*) as cnt 
+			  FROM prod_alert 
+			 WHERE alrm_kind != 'N'
+	  	  GROUP BY prod_code
+			) a
+	INNER JOIN prod b on b.prod_code = a.prod_code
+		WHERE
+  		  <![CDATA[ 
+              rownum > #{minrow} and rownum <= #{maxrow}
+         ]]>
+         <if test="SEARCH_CTRY != null">
+           AND ctry_cd  like   #{subCategory} || '%' 
+         </if>  
+         <if test="TRADE_TYPE != null">
+            AND prod_type_cd = #{TRADE_TYPE}
+         </if>  
+		ORDER BY a.cnt desc
+      
+  </select>
+  
+    <select id="selectSharProdList" resultType="hashmap">
+        SELECT a.prod_img,a.prod_nm,telcom_nm
+		  FROM sp_prod a
+		   INNER JOIN sp_telcom b on b.telcom_code = a.telcom_code
+         WHERE a.prod_show_yn = 'Y'
+    </select>
+    
+    <select id="selectRecomProdList" resultType="hashmap">
+        SELECT  a.PROD_NM,
+      		    pi.PROD_IMG_URL,
+   			    a.prod_type_cd,
+      			a.prod_code,
+      			alrm_kind,
+      			(case when a.STOCK_QTY > a.EXP_QTY THEN 'N' else 'Y' end ) AS sold_out_alert
+  		   FROM prod a inner join recom_prod b ON b.prod_code = a.prod_code
+      LEFT JOIN prod_img pi ON pi.prod_code = a.prod_code
+      INNER JOIN prod_alert c ON c.prod_code = b.prod_code 
+  	       WHERE c.mber_seq = #{mber_seq} AND 
+  			 <![CDATA[ 
+              rownum > #{minrow} AND rownum <= #{maxrow}
+               ]]>
+   			<if test="prod_type_cd != '0'">
+            AND prod_type_cd = #{prod_type_cd}
+         </if> 
+        
+    </select>
+
+    
+ <select id="selectPlanList" resultType="hashmap">
+     
+     SELECT plan_nm,
+     		plan_cd
+<!--      		 (SELECT file_url  -->
+<!--      		   FROM file_info  -->
+<!--      		   WHERE file_seq = a.mb_list_img_no -->
+<!--      		 ) as img_url -->
+     FROM plan_info a
+     WHERE view_yn != 'N' 
+     <![CDATA[ 
+    	   AND  rownum > #{minrow} 
+    	   AND  rownum <= #{maxrow}
+      ]]>
+ </select>   
+ 
+ 
+ <select id="selectPlanProdList" resultType="hashmap">
+	  SELECT c.prod_nm, (case when c.STOCK_QTY > c.EXP_QTY THEN 'N' else 'Y' end ) as sold_out_alert, 
+	  			c.prod_type_cd,
+	  			pi.PROD_IMG_URL, 
+	  			b.prod_code, 
+	  			d.alrm_kind
+		FROM plan_info a INNER JOIN plan_prod_info b on b.plan_cd = a.plan_cd
+		  INNER JOIN prod c on c.prod_code = b. prod_code
+		   LEFT JOIN prod_img pi on pi.prod_code = c.prod_code 
+		  INNER JOIN prod_alert d on d.prod_code = b.prod_code  
+	   WHERE a.plan_cd = #{plan_cd} 
+	     AND d.mber_seq = #{mber_seq}
+ </select>
+ 
+ <select id="selectMainBannerImg" resultType="hashmap">
+     SELECT  (SELECT file_url 
+     		   FROM file_info 
+     		   WHERE file_seq = a.mb_dtl_img_no
+     		 ) as img_url
+     FROM plan_info a
+     WHERE plan_cd = #{plan_cd}
+     
+ </select>
+ 
+ <select id="selectFavoProdList" resultType="hashmap">
+    SELECT  b.PROD_NM,
+            pi.PROD_IMG_URL,
+            b.prod_type_cd,
+            b.prod_code,
+            alrm_kind,
+            (case when b.STOCK_QTY > b.EXP_QTY THEN 'N' else 'Y' end ) as sold_out_alert 
+      FROM prod_favo a
+        INNER JOIN prod b on b.prod_code = a.prod_code
+         LEFT JOIN prod_img pi on pi.prod_code = a.prod_code
+                    JOIN prod_alert c on c.prod_code = a.prod_code 
+    WHERE a.mber_seq = #{mber_seq}
+ </select>
+ 
+ 
+ <select id="selectFavoCtryList" resultType="hashmap">
+	select g.c_CTRY_CD, g.c_c_CTRY_nm , g.c_ctry_cd,
+		   g.c_ctry_nm , f.ctry_cd, f.ctry_nm
+		FROM(
+			  SELECT e.CTRY_CD as c_c_CTRY_CD,
+			  		 e.ctry_nm as c_c_CTRY_nm, 
+			  		 f.ctry_cd as c_ctry_cd, 
+			  		 f.ctry_nm as c_ctry_nm, 
+			  		 f.parent_ctry_cd
+			  FROM(
+			  SELECT d.CTRY_CD, d.ctry_nm , d.parent_ctry_cd
+			     FROM prod_favo a
+			        inner join prod b on b.prod_code = a.prod_code
+			        inner join ctry_map c on c.prod_code = b.prod_code
+			        inner join ctry d on d.ctry_cd = c.ctry_cd
+			     WHERE a.mber_seq = #{mber_seq}
+			        ) e INNER JOIN ctry f ON  f.ctry_cd = e.parent_ctry_cd 
+			) g INNER JOIN ctry f ON  f.ctry_cd = g.parent_ctry_cd 
+ </select>
+ 
+ <select id="selectLateProdList" resultType="hashmap">
+         SELECT a.PROD_NM,
+      		    pi.PROD_IMG_URL,
+   			    a.prod_type_cd,
+      			a.prod_code,
+      			alrm_kind,
+      			(case when a.STOCK_QTY > a.EXP_QTY THEN 'N' else 'Y' end ) AS sold_out_alert
+  		   FROM prod a inner join late_prod b ON b.prod_code = a.prod_code
+      LEFT JOIN prod_img pi ON pi.prod_code = b.prod_code
+      INNER JOIN prod_alert c ON c.prod_code = b.prod_code 
+  	       WHERE c.mber_seq = #{mber_seq} AND 
+  			 <![CDATA[ 
+              rownum > #{minrow} AND rownum <= #{maxrow}
+               ]]>
+     
+ </select>
+ 
+ <delete id="deleteLateProd" >
+     DELETE FROM late_prod WHERE mber_seq = #{mber_seq} and prod_code = #{prod_code}
+ </delete>
+ 
+ 
+ <select id="selectCardSellProdList" resultType="hashmap">
+     SELECT  b.prod_nm,d.prod_img_url,b.prod_code,
+      		  a.prod_code,c.opt_nm,c.opt_prce,
+       		 a.opt_qty
+		FROM cart a inner join prod b on b.prod_code = a.prod_code
+          inner join prod_opt c on c.prod_code = b.prod_code
+          left  join prod_img d on d.prod_code = a.prod_code
+          inner join prod_inven_info e on e.opt_cd = c.opt_cd
+   		 WHERE b.prod_type_cd = #{prod_type_cd}   and a.mber_seq = #{mber_seq}
+         <![CDATA[ 
+    	   AND  rownum > #{minrow} 
+    	   AND  rownum <= #{maxrow}
+     	 ]]>
+    </select>
+
+  <select id="selectCardSharingProdList" resultType="hashmap">
+      
+   SELECT  b.prod_nm,d.prod_img_url,b.prod_cd,a.prod_code,c.opt_nm,a.opt_qty,c.opt_prce
+	FROM cart a inner join prod b on b.prod_code = a.prod_code
+       inner join prod_opt c on c.prod_code = b.prod_code
+       left  join prod_img d on d.prod_code = a.prod_code
+       inner join prod_inven_info e on e.opt_cd = c.opt_cd
+       inner join prod_sharing f on f.prod_code = a.prod_code
+   WHERE b.prod_type_cd = #{prod_type_cd}  
+   	 AND a.mber_seq = #{mber_seq}
+      <![CDATA[ 
+   	   AND  rownum > #{minrow} 
+   	   AND  rownum <= #{maxrow}
+      ]]>
+    </select>
+    
+  <select id="SelectMiniShoplist" resultType="hashmap">
+      SELECT a.PROD_NM,
+      		    pi.PROD_IMG_URL,
+   			    a.prod_type_cd,
+      			a.prod_code,
+      			alrm_kind,
+      			(case when a.STOCK_QTY > a.EXP_QTY THEN 'N' else 'Y' end ) AS sold_out_alert,
+      			a.ctry_cd
+         FROM
+				prod a inner join seller_info_cfg b on a.seller_cd = b.seller_cd
+          INNER JOIN prod_alert c ON c.prod_code = a.prod_code 
+          LEFT  JOIN prod_img pi ON pi.prod_code = a.prod_code
+          LEFT  JOIN prod_img d on d.prod_code = a.prod_code
+ 	    WHERE b.mber_seq = #{mber_seq}
+		      <![CDATA[ 
+		    	   AND  rownum > #{minrow} 
+		    	   AND  rownum <= #{maxrow}
+		      ]]>
+  </select>
+ 
+ 
+ <select id="SelectMiniShopUser" resultType="hashmap">
+     SELECT a.mber_phone,a.mber_email,a.mber_nick,
+     		b.mini_shop_nm, 
+     		( select file_url from file_info where file_seq = #{mber_seq}) as img_url
+ 	   FROM mber_info a inner join mber_mini_shop_info b on b.mber_seq = a.mber_seq 
+   LEFT JOIN file_info pi ON pi.file_seq = a.mber_img
+       WHERE a.mber_seq = #{mber_seq}
+ </select>
+ 
+ <select id="SelectCategoryList" resultType="hashmap">
+     
+     SELECT ctry_nm,ctry_cd
+     FROM ctry
+     WHERE ctry_cd in
+     <foreach  item="item" index="index" open="(" separator=","  close=")"  collection="list">
+			#{item}
+	</foreach>
+</select>
+
+ 
+ <select id="SelectMiniShopPodlist" resultType="hashmap">
+     select a.prod_cd, 
+      	    pi.PROD_IMG_URL,
+		    a.prod_type_cd,
+ 			a.prod_code,
+ 			alrm_kind,
+     		a.prod_nm,
+ 			(case when a.STOCK_QTY > a.EXP_QTY THEN 'N' else 'Y' end ) AS sold_out_alert
+	FROM PROD a 
+	INNER JOIN seller_info_cfg b ON b.seller_cd = a.seller_cd
+	   INNER JOIN prod_alert c ON c.prod_code = a.prod_code 
+	    LEFT JOIN prod_img pi ON pi.prod_code = a.prod_code
+	WHERE b.mber_seq = #{MBER_SEQ} 
+	<if test="CTRY_CD != null">
+	    and a.ctry_cd = #{CTRY_CD} 
+	</if>
+	<if test="KEYWORD != null">
+		and a.prod_nm like '%'||  #{KEYWORD} || '%' 
+	</if>
+	<![CDATA[ 
+    	   AND  rownum > #{MINROW} 
+    	   AND  rownum <= #{MAXROW}
+      ]]>
+ </select>
+ 
+ 
+ 
+</mapper>

@@ -1,0 +1,164 @@
+/**<pre>
+ * 1. Project Name : Gapping1.0
+ * 2. Package Name : com.adrra.gapping.platform.cmmn.security
+ * 3. File Name    : AES256Cipher.java
+ * 4. Date         : 2014. 7. 8. 오후 12:20:35
+ * 5. Author       : adrra
+ * 6. Note         : 
+ * </pre>
+ */
+
+package com.ssocio.sharing.cmmn.security;
+
+import javax.crypto.Cipher;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.IvParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
+
+import org.apache.commons.codec.binary.Base64;
+
+import com.ssocio.sharing.cmmn.util.StringUtil;
+
+
+/**
+ * <pre>
+ * AES256암호화(양방향)
+ *   - commons-codec.jar 필요
+ *   - jre/lib/security/US_export_ploicy.jar 교체 필요
+ *   - jre/lib/security/local_ploicy.jar 교체 필요
+ * @author adrra
+ * @version 
+ * @since 2014. 7. 8. 오후 12:41:32
+ * @see 
+ * @History 
+ *  Date         |    author    | 변경내용  
+ *	2014. 7. 8.  |    adrra     | 신규 
+ * @Todo
+ * </pre>
+ */
+public class AES256Cipher {
+
+	private static volatile AES256Cipher INSTANCE;
+	// TODO  DB로 관리 및 변경 적용되는 플로어 구상 및 구성 필요
+	//final static String secretKey   = "12345678901234567890123456789012"; //32bit
+	//final static String secretKey   = "wndtnfmrla|skawn"; //16bit
+	private static String secretKey   = "wndtnfmrla|skawn"; //16bit
+	static String IV                = ""; //16bit
+
+	// 기본키사용
+	public static AES256Cipher getInstance(){
+		secretKey   = "wndtnfmrla|skawn";
+		if(INSTANCE == null){
+			synchronized(AES256Cipher.class){
+				if(INSTANCE == null) INSTANCE = new AES256Cipher();
+			}
+		}
+		return INSTANCE;
+	}
+
+	// 인증키사용(서버에서 할당)
+	public static AES256Cipher getInstance(String inKey){
+		if (StringUtil.isEmpty(inKey)) {
+			secretKey   = "wndtnfmrla|skawn";
+		} else {
+			secretKey = inKey;
+		}
+
+		if(INSTANCE == null){
+			synchronized(AES256Cipher.class){
+				if(INSTANCE==null) INSTANCE = new AES256Cipher();
+			}
+		} else {
+			IV = secretKey.substring(0,16);
+		}
+		return INSTANCE;
+	}
+
+	private AES256Cipher(){
+		IV = secretKey.substring(0,16);
+	}
+
+	/**
+	 * <pre>
+	 * 암호화
+	 * 
+	 * @param str
+	 * @return
+	 * @throws Exception 
+	 * @exception 
+	 * @date 2014. 8. 15. 오후 7:24:04
+	 * @author adrra
+	 * @비고
+	 * 
+	 * </pre>
+	 */
+	public static String AES_Encode(String str) throws  Exception {
+
+		// ------------------------------------------------------------------------
+		// # 시작로그
+		// ------------------------------------------------------------------------
+
+		// ------------------------------------------------------------------------
+		// # 객체/변수 선언
+		// ------------------------------------------------------------------------
+		byte[] encrypted = null;
+		String enStr = "";
+
+		// ------------------------------------------------------------------------
+		// # Biz Start
+		// ------------------------------------------------------------------------
+		try {
+			byte[] keyData = secretKey.getBytes();
+			SecretKey secureKey = new SecretKeySpec(keyData, "AES");
+			Cipher c = Cipher.getInstance("AES/CBC/PKCS5Padding");
+			c.init(Cipher.ENCRYPT_MODE, secureKey, new IvParameterSpec(IV.getBytes()));
+			encrypted = c.doFinal(str.getBytes("UTF-8"));
+			enStr = new String(Base64.encodeBase64(encrypted));
+		} catch (Exception e) {
+			System.out.println("[AES암호화오류] : " + e.toString());
+			throw new Exception();
+		}
+		return enStr;
+	}
+
+	/**
+	 * <pre>
+	 * 복호화
+	 * 
+	 * @param str
+	 * @return
+	 * @throws Exception 
+	 * @exception 
+	 * @date 2014. 8. 15. 오후 7:23:46
+	 * @author adrra
+	 * @비고
+	 * 
+	 * </pre>
+	 */
+	public static String AES_Decode(String str) throws  Exception {
+		// ------------------------------------------------------------------------
+		// # 시작로그
+		// ------------------------------------------------------------------------
+
+		// ------------------------------------------------------------------------
+		// # 객체/변수 선언
+		// ------------------------------------------------------------------------
+		Cipher c        = null;
+		byte[] byteStr  = null;
+
+		// ------------------------------------------------------------------------
+		// # Biz Start
+		// ------------------------------------------------------------------------
+		try {
+			byte[] keyData = secretKey.getBytes();
+			SecretKey secureKey = new SecretKeySpec(keyData, "AES");
+			c = Cipher.getInstance("AES/CBC/PKCS5Padding");
+			c.init(Cipher.DECRYPT_MODE, secureKey, new IvParameterSpec(IV.getBytes("UTF-8")));
+			byteStr = Base64.decodeBase64(str.getBytes());
+		} catch (Exception e) {
+			System.out.println("[AES복호화오류] Exception : " + e.toString());
+			throw new Exception();
+		}
+		return new String(c.doFinal(byteStr),"UTF-8");
+	}
+}

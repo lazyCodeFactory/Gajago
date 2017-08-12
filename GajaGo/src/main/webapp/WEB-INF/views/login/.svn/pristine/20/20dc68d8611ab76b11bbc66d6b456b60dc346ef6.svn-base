@@ -1,0 +1,443 @@
+<%@ page language="java" contentType="text/html; charset=utf-8"
+    pageEncoding="utf-8"%>
+<!-- 태그는 cmmnHead.jsp 에 선언함 -->
+<%@ include file="/WEB-INF/views/seller/common/cmmnHead.jsp"%>
+<script type="text/javascript" src="http://static.ssocio.net/seller/js/layer_pop.js"></script>
+<script type="text/javascript">
+
+	$(document).ready(function(){
+		
+		$('.calendar').datepicker({
+			showOn: "button",
+			buttonImage: "http://static.ssocio.net/seller/images/ico_calendar.gif",
+			buttonImageOnly: true
+		});
+		
+		// 2015-07-13 수정
+		fixed_tbl_height();
+		prod_padding();
+	
+		/* enter event */
+		$('input[type=text]').keypress( function (evt) {
+			if (evt.keyCode == 13) {
+				searchPage();
+			}
+		});
+		
+		
+		$("#allChk").click(function(){
+			if($(this).is(":checked")){
+				$("tbody input[name=checkProdCode]").attr("checked",true);
+			}else{
+				$("tbody input[name=checkProdCode]").attr("checked",false);
+			}
+		});
+		
+		layer_close('#layBtn');
+		fixed_tbl_height();
+	    prod_padding();
+	});
+	
+	// 날짜
+	function setDate(interval) {
+		getDateInterval(interval);
+	}
+	
+	/* ======================================================================
+	Function : 다른페이지 이동
+	Return   : 없음
+	========================================================================= */
+	function GoPage(pageNo) {
+		$("#PAGE_NO").val(pageNo);
+	
+		$("#S_START_DATE").val($("#S_START_DATE").val().replace(/\-/ig, ''));
+		$("#S_END_DATE").val($("#S_END_DATE").val().replace(/\-/ig, ''));
+		$("#form").attr("action","/seller/order/selectListOrderRental.do").attr("target", "").submit();
+	}
+	
+	function searchPage() {
+			
+		$("#PAGE_NO").val("");
+		$("#S_START_DATE").val($("#S_START_DATE").val().replace(/\-/ig, ''));
+		$("#S_END_DATE").val($("#S_END_DATE").val().replace(/\-/ig, ''));
+		$("#form").attr("action","/seller/order/selectListOrderRental.do").attr("target", "").submit();
+		
+	}
+
+	
+	// 상품상세 페이지로 이동
+	function goProdDtl(prodCode) {
+		
+		$("#prodCode").val(prodCode);
+		$("#form").attr("action","/seller/prodMgr/prodReg.do").attr("target", "").submit();
+		
+	}
+	
+	// 엑셀다운로드
+	function excelDown() {
+		$("#S_START_DATE").val($("#S_START_DATE").val().replace(/\-/ig, ''));
+		$("#S_END_DATE").val($("#S_END_DATE").val().replace(/\-/ig, ''));
+		$("#form").attr("action","/seller/order/selectRentalOrdListExcelDownload.do").attr("target", "").submit();
+		
+	}
+	
+	function rentalCanlPopup() {
+		
+		  var cnt = $("input[name=checkProdCode]:checkbox:checked").length;
+		  
+		  if(cnt < 1){
+		         alert('한 개 이상을 선택하셔야 합니다.');
+
+		  }else{
+			  popup('/seller/order/rentalOrdCanlPopup.do','주문취소','1020','285');return false;
+		  }
+
+	}
+	
+	function updateOrdCncl( key, val) {
+		
+		
+		var inputProdCode = new Array();
+		var inputProdSeq = new Array();
+		
+		$("#chkProd tr input[name=checkProdCode]").each(function(i){
+			var str = "";
+			var check = $(this).is(":checked");
+			if(check){
+				inputProdCode[i] = $(this).parents().find('input[name=checkProdCode]').val();
+				inputProdSeq[i] = $(this).parents().find('input[name=reqSeq]').val();
+
+			}
+		});
+
+		$("#P_PROD_CODE").val(inputProdCode);
+		$("#P_PROD_SEQ").val(inputProdSeq);
+		$("#SCANC_REASON_CD").val(key);
+		$("#SCANC_REASON").val(val);
+		
+	$.ajax({
+		type: 'post'
+		, async: true
+		, url: "/seller/order/updateRentalOrdCncl.do"
+		, dataType:'json'
+		, data:  $("#form").serialize()
+		, success: function(data) {
+				if (data.CNT == 0) {
+					alert("상품 신청 취소에 실패하였습니다.")
+				} else {
+					alert('신청취소가 완료 되었습니다.');
+					location.reload();
+				}
+		}
+		, error: function(data, status, err) {
+			alert('서버와의 통신이 실패했습니다.');
+		}
+	});
+	}
+	
+	function agrPopup(prodCode) {
+		
+	var data = {inputProdCode:prodCode};
+		$.ajax({
+			type: 'post',
+			async: true, 
+		    data :data,
+			url: '/seller/order/selectRentalAgr.do',
+			dataType:'json', 
+		    success: function(response) {
+
+			    		$("#agrDiv").html(response.resultAgr);
+		    	
+			}, 
+			error : function(request, status, error) {
+				console.log("통신오류.["+status+"]["+error+"]");
+			}
+		});
+		
+		
+	layer_popup(".lay_pop");
+	}
+	
+</script>
+
+<!-- content -->
+<div id="content">
+	<form name="form" id="form" method="post">	    
+		<input type="hidden" name="PAGE_NO" id="PAGE_NO" value="${list.params.PAGE_NO }" />
+		<input type="hidden" name="prodCode" id="prodCode" value="" />
+		<input type="hidden" name="P_PROD_CODE" id="P_PROD_CODE" value="" />
+		<input type="hidden" name="P_PROD_SEQ" id="P_PROD_SEQ" value="" />
+		<input type="hidden" name="SCANC_REASON_CD" id="SCANC_REASON_CD" value="" />
+		<input type="hidden" name="SCANC_REASON" id="SCANC_REASON" value="" />
+		<!-- top_content -->
+		<div class="top_content">
+			<!-- location -->
+			<div class="location">
+				<ul class="clear">
+					<li class="first-child"><a href="/seller/main.do">Home</a></li>
+					<li><a href="#">주문관리</a></li>
+					<li><a href="#" class="current">렌탈 주문 관리</a></li>
+				</ul>
+			</div>
+			<!-- //location -->
+		</div>
+		<!-- //top_content -->
+		
+		<!-- inner -->
+		<div class="inner">
+			<!-- tab -->
+			<ul class="lst_tab">
+				<li class="on"><a href="#">렌탈 주문 조회</a></li>
+			</ul>
+			<!-- //tab -->
+			
+			<!-- tbl -->
+			<div class="tbl">
+				<table class="search type">
+					<colgroup>
+						<col style="width:8%" />
+						<col style="width:50%" />
+						<col style="width:8%" />
+						<col style="width:34%" />
+					</colgroup>
+					<tbody>
+						<tr>
+							<th scope="row">신청일</th>
+							<td colspan="4">
+								<fmt:parseDate value="${list.params.S_START_DATE }" var="S_START_DATE" pattern="yyyymmdd" scope="page" />
+    							<fmt:parseDate value="${list.params.S_END_DATE }" var="S_END_DATE" pattern="yyyymmdd" scope="page" />
+								<input type="text" id="S_START_DATE" name="S_START_DATE" class="calendar" style="width:100px" value='<fmt:formatDate value="${S_START_DATE }" pattern="yyyy-mm-dd" />' readonly /> - 
+								<input type="text" id="S_END_DATE" name="S_END_DATE" class="calendar" style="width:100px" value='<fmt:formatDate value="${S_END_DATE }" pattern="yyyy-mm-dd" />' readonly/>
+								<span class="ml5">
+									<a href="javascript:setDate('1D');" class="btn_w" >오늘</a>
+									<a href="javascript:setDate('3D');" class="btn_w">3일</a>
+									<a href="javascript:setDate('7D');" class="btn_w">7일</a>
+									<a href="javascript:setDate('1M');" class="btn_w">1개월</a>
+									<a href="javascript:setDate('3M');" class="btn_w">3개월</a>
+									<a href="javascript:setDate('6M');" class="btn_w">6개월</a>
+								</span> 
+							</td>
+						</tr>
+						<tr>
+							<td colspan="2">
+								<span class="select" style="width:100px;">
+									<span class="sel_txt"></span>
+									<select id="searchGb" name="SEARCH_GB">
+										<option value="1" <c:if test="${list.params.SEARCH_GB eq '1' }">selected</c:if>>판매자ID</option>
+										<option value="2" <c:if test="${list.params.SEARCH_GB eq '2' }">selected</c:if>>판매자명</option>
+										<option value="3" <c:if test="${list.params.SEARCH_GB eq '3' }">selected</c:if>>주문자ID</option>
+										<option value="4" <c:if test="${list.params.SEARCH_GB eq '4' }">selected</c:if>>주문자명</option>
+									</select>
+								</span>
+								<input type="text" id="searchNm" name="SEARCH_NM" style="width:200px" value="${list.params.SEARCH_NM }"  />
+							</td>
+							<th scope="row">상품명</th>
+							<td>
+								<input type="text" id="prodNm" name="PROD_NM" style="width:180px;" value="${list.params.PROD_NM }" />
+							</td>
+						</tr>
+						<tr>
+							<th scope="row">신청상태</th>
+							<td>
+								<custom:codeList var="procStatCd" groupCode="PROC_STAT_CD" />
+								<c:forEach var="procCdList" items="${procStatCd }" >
+									<c:if test="${procCdList.key eq '94' || procCdList.key eq '93'  }">
+										<span>
+											<input type="checkbox" id="procOverlap${procCdList.key }" name="PROC_STAT_CD[]" value="${procCdList.key }"
+												<c:forEach var="procList" items="${list.params.PROC_STAT_CD }">
+													<c:if test="${procList == procCdList.key }">checked</c:if>
+												</c:forEach>
+										 	/>
+										 	<label for="procOverlap${procCdList.key }">${procCdList.value }</label>
+										 </span>
+									</c:if>
+								</c:forEach>
+							</td>
+							<th scope="row">판매자 구분</th>
+							<td>
+								<input type="radio" id="mberOverlap" name="MBER_GB_CD" value="" 
+									<c:if test="${list.params.MBER_GB_CD == '' or list.params.MBER_GB_CD == null}">checked</c:if> 
+								/>
+								<label for="mberOverlap">전체</label>
+								<custom:codeList var="mberGbCd" groupCode="MBER_GB_CD" />
+								<c:forEach var="mberGbList" items="${mberGbCd }" >
+									<input type="radio" id="mberOverlap${mberGbList.key }" name="MBER_GB_CD" value="${mberGbList.key }" 
+										<c:if test="${list.params.MBER_GB_CD == mberGbList.key }">checked</c:if>
+									/>
+									<label for="mberOverlap${mberGbList.key }">${mberGbList.value }</label>
+								</c:forEach>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+				<p class="btn_area type"><a href="javascript:searchPage();" class="btn_chk btn_r">조회</a></p>
+			</div>
+			<!-- //tbl -->
+			
+			<!-- top_tbl -->
+			<div class="top_tbl mt20 clear">
+				<div class="right">
+					<span class="select" style="width:130px;">
+						<span class="sel_txt"></span>
+						<select id="rowCnt" name="S_ROW_CNT">
+							<custom:codeList var="DISPLAY_CNT" groupCode="DISPLAY_CNT" />
+							<c:forEach var="code" items="${DISPLAY_CNT}" varStatus="status">
+								<option value="${code.key }" <c:if test="${list.params.S_ROW_CNT == code.key }">selected</c:if>>${code.value }</option>
+							</c:forEach>
+						</select>
+					</span>
+					<a href="javascript:excelDown();" class="btn_excel ml5 mr0"><span>엑셀 다운로드</span></a>
+					<a href="#" class="btn_r tbl_btn ml5" onclick="rentalCanlPopup();">선택 주문취소</a>
+				</div> 
+			</div>
+			<!-- //top_tbl -->
+			
+			<!-- fixed_tbl_list -->
+			<div class="fixed_tbl_list mt10">
+				<!-- thead -->
+				<div class="tbl thead" style="height:43px;width:1900px;">
+					<table class="list">
+						<colgroup>
+							<col style="width:2%" />
+							<col style="width:7%" />
+							<col style="width:8%" />
+							<col style="width:8%" />
+							<col style="width:*" />
+							<col style="width:5%" />
+							<col style="width:5%" />
+							<col style="width:10%" />
+							<col style="width:6%" />
+							<col style="width:5%" />
+							<col style="width:8%" />
+							<col style="width:4%" />
+						</colgroup>
+						<thead>	
+							<tr>
+								<th scope="col" class="first"><input type="checkbox" id="allChk"/></th>
+								<th scope="col">신청일시</th>
+								<th scope="col">주문자명(ID)</th>
+								<th scope="col">판매자명(ID)</th>
+								<th scope="col">상품명</th>
+								<th scope="col">신청상태</th>
+								<th scope="col">신청자명</th>
+								<th scope="col">주소</th>
+								<th scope="col">연락처</th>
+								<th scope="col">연락가능시간</th>
+								<th scope="col">이메일</th>
+								<th scope="col">주문동의서</th>
+							</tr>
+						</thead>
+					</table>
+				</div>
+				<!-- //thead -->
+				<!-- tbody -->
+				<div class="tbl tbody" style="top:46px;width:1900px;">
+					<table class="list">
+						<colgroup>
+							<col style="width:2%" />
+							<col style="width:7%" />
+							<col style="width:8%" />
+							<col style="width:8%" />
+							<col style="width:*" />
+							<col style="width:5%" />
+							<col style="width:5%" />
+							<col style="width:10%" />
+							<col style="width:6%" />
+							<col style="width:5%" />
+							<col style="width:8%" />
+							<col style="width:4%" />
+						</colgroup>
+						<tbody id="chkProd">
+							<c:choose>
+								<c:when test="${fn:length(list.selectListOrderRental)>0}">	
+									<c:forEach var="list" items="${list.selectListOrderRental }" varStatus="status">
+												<tr>
+													<td class="first"><input type="checkbox" name="checkProdCode" id="checkProdCode" value="${list.PROD_CODE }" />
+															<input type="hidden" id="reqSeq" name="reqSeq" value="${list.REQ_SEQ }"/> </td>
+													<td>
+														<fmt:parseDate var="REGIST_DT" value="${list.REGIST_DT }" pattern="yyyy-MM-dd HH:mm:ss.S" />
+														<fmt:formatDate var="registDt" value="${REGIST_DT }" pattern="yyyy-MM-dd HH:mm"/>
+														${registDt }
+													</td>
+													<td>
+														${list.ORD_MBER_NM }<br/>[${list.ORD_MBER_EMAIL }]
+													</td>
+													<td>
+														[${list.SELL_MBER_GB_CD_NM }]<br/>${list.SELL_MBER_NM }<br/>[${list.SELL_MBER_EMAIL }]
+													</td>
+													<td>
+														<div class="thumbnail_bx">
+															<img src="${list.PROD_IMG_URL }" alt="">
+															<a href="javascript:goProdDtl(${list.PROD_CODE });" class="prod_name alink" >
+																<span class="ellipsis" style="width:200px;">${list.PROD_NM }</span>
+															</a>
+														</div>
+													</td>
+													<td>
+														${list.PROC_STAT_CD_NM }
+													</td>												
+													<td>${list.RCV_NM }</td>
+													<td>${list.JUSO_DORO } ${list.JUSO_DTL }</td>
+													<td>${list.TEL }</td>
+													<td>${list.CALLTIME }</td>
+													<td>${list.EMAIL }</td>
+													<td>
+													<c:choose>
+													<c:when test="${list.AGR_YN eq 'Y' }">
+														<a href="javascript:agrPopup('${list.PROD_CODE }');" class="btn_w">보기</a>
+													</c:when>
+													<c:otherwise>
+														-
+													</c:otherwise>
+													</c:choose>
+													</td>
+												</tr>
+									</c:forEach>
+								</c:when>
+								<c:otherwise>
+									<tr>
+										<td class="nolineL" colspan="15">조회된 결과가 없습니다.</td>
+									</tr>
+								</c:otherwise>
+							</c:choose>
+						</tbody>
+					</table>
+				</div>
+				<!-- //tbody -->
+			</div>
+			<!-- //fixed_tbl_list -->
+			
+			<!-- bot_tbl -->
+			<div class="bot_tbl">
+				<!-- paging -->
+				<c:if test="${fn:length(list.selectListOrderRental)>0}">		
+					<%@ include file="/WEB-INF/views/seller/common/PageView.jsp" %>
+				</c:if>
+				<!-- //paging -->
+			</div>
+			<!-- //bot_tbl -->
+		</div>
+		<!-- //inner -->
+	</form>
+</div>
+
+<div class="lay_pop"> 
+		<!-- pop_header -->
+		<div class="pop_header">
+			<h2>렌탈 주문동의서</h2>
+			<a href="#" class="btn_close"><img src="http://static.ssocio.net/seller/images/btn_layer_close.gif" alt="close"></a>
+		</div>
+		<!-- //pop_header -->
+		
+		<!-- pop_con -->
+		<div class="pop_con mt20">
+			<div class="cont_bx4" id="agrDiv">
+				
+			</div>
+			<div class="btn_area">
+				<a href="#"  id="layBtn" class="btn_r">확인</a>
+			</div>
+		</div>
+		<!-- //pop_con -->
+	</div>
+<!-- //content -->

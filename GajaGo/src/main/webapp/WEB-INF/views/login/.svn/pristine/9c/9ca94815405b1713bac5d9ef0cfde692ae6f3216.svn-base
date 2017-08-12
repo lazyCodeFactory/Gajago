@@ -1,0 +1,451 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/web/common/cmmnHead.jsp"%>
+<script type="text/javascript" src="/js/web/cart.js" ></script> <!-- 장바구니용 js -->
+<script type="text/javascript">
+
+	var regData = '${regData}';
+	var mainYn = '${params.mainYn }';
+	var ctryCd = '${ctryCd}'; 
+	
+	//ready
+	$(document).ready(function(){
+		
+		$("#regData").val(regData);
+		
+		// title 및 back 버튼 url set		
+		document.title = "상품 등록";
+// 		header.type	= 6;
+		header.type	= 4;
+		header.title = "상품 등록";
+		header.method = "POST";
+		if (mainYn == "Y") {
+			header.backUrl = "/mobile/main/main.do";
+		}
+		else {
+			header.backUrl = "/mobile/salemanage/main.do";
+		}
+		header.callback = headerCallback; // 장바구니용 callback
+		header.form = $("#form");
+		initHeader();
+		
+		// 뒤로가기 를 공통 제어를 쓰지 않고 재정의함
+		var data = JSON.parse(regData);
+		$("#id_btn_back").unbind('click');
+		$(".btn_back").click(function(event){
+			event.preventDefault();
+			location.href=data.refUrl;
+		});
+		
+		
+		displayFooter(false);
+		
+		// 정상가 keyup
+		$("#nrmPrceView").bind('keyup input', function() {
+			proc.numberWithCommas(this);
+			proc.sellPer();
+		});
+		// 판매가 keyup
+		$("#sellPrceView").bind('keyup input', function() {
+			proc.numberWithCommas(this);
+			proc.sellPer();
+		});
+		// 재고수량 keyup
+		$("#stockQtyView").bind('keyup input', function() {
+			proc.numberWithCommas(this);
+			proc.procNextBtn();
+		});
+
+		// 정상가와 동일 checkbox
+		$("#chkPrce").click( function () {
+			proc.chkPrce();
+		});
+		
+		// 카테고리 수수료 조회
+		proc.getCtryTax();
+		// 결제수수료 조회
+// 		proc.getSetlTax();
+		
+	});
+
+	// page 이동
+	var page = {
+			
+		// 다음 페이지 이동
+		goNextPage : function () {
+			//alert문구 추가 
+			if(!$("#btnNext").hasClass("btn_r")) {
+				if($("#nrmPrceView").val() == ''){
+					alert("정상가를 입력해 주세요.");
+					$("#nrmPrceView").focus();
+					return;
+				}
+				if($("#sellPrceView").val() == ''){
+					alert("판매가를 입력해 주세요.");
+					$("#sellPrceView").focus();
+					return;
+				}
+				if($("#stockQtyView").val() == ''){
+					alert("재고수량을 입력해 주세요.");
+					$("#stockQtyView").focus();
+					return;
+				}
+				return;
+			}
+			// 유효성
+			if (!validation.nextValidation()) {
+				return;
+			}
+			
+			// 금액
+			$("#nrmPrce").val(Number($("#nrmPrceView").val().replace(/,/g, "")));
+			$("#sellPrce").val($("#sellPrceView").val().replace(/,/g, ""));
+			$("#stockQty").val($("#stockQtyView").val().replace(/,/g, ""));
+			
+			var url = "/mobile/salemanage/procInsertProdSell.do";
+			form.action = url;
+			form.submit();
+			
+		},
+		
+		// 이전 페이지 이동
+		goPrePage : function () {
+			
+			$("#movePage").val("9");
+			$("#moveBack").val("Y");
+			var url = "/mobile/salemanage/procInsertProdComm.do";
+			form.action = url;
+			form.submit();
+			
+		}
+			
+	};
+	
+	// validation
+	var validation = {
+			
+		// 다음페이지 이동 유효성 검사
+		nextValidation : function () {
+			
+			var nrmPrce = Number($("#nrmPrceView").val().replace(/,/g, ""));
+			var sellPrce = Number($("#sellPrceView").val().replace(/,/g, ""));
+			var stockQty = Number($("#stockQtyView").val().replace(/,/g, ""));
+			
+			// 정상가 check
+			if (nrmPrce == null || nrmPrce == "" || nrmPrce <= 0) {
+				alert("정상가를 최소 1원이상 입력하세요.");
+				$("#nrmPrce").focus();
+				return false;
+			}
+			// 판매가 check
+			if (sellPrce == null || sellPrce == "" || sellPrce <= 0) {
+				alert("판매가를 최소 1원이상 입력하세요.");
+				$("#sellPrce").focus();
+				return false;
+			}
+			// 재고수량 check
+			if (stockQty == null || stockQty == "" || stockQty <= 0) {
+				alert("재고수량을 한개이상 입력하세요.");
+				$("#stockQty").focus();
+				return false;
+			}
+			
+			return true;
+		}
+			
+	};
+	
+	// script 처리 모음
+	var proc = {
+			
+		// 금액 keyup
+		numberWithCommas : function (obj) {
+			var len = $(obj).val().length;
+			var maxLen = $(obj).attr("maxLength");
+			// 글자수 제한
+			if (len > maxLen) {
+				$(obj).val($(obj).val().slice(0,maxLen));
+			}
+			
+			numberOnly(obj);
+			var val = $(obj).val();
+			$(obj).val(numberWithCommas(val));
+		},
+		
+		// 할인율
+		sellPer : function () {
+			
+			var nrmPrce = Number($("#nrmPrceView").val().replace(/,/g, ""));
+			var sellPrce = Number($("#sellPrceView").val().replace(/,/g, ""));
+			
+			if (nrmPrce < sellPrce) {
+				alert("판매가는 정상가보다 높은 금액으로 입력할 수 없습니다.");
+				$("#sellPrceView").val("");
+				return;
+			}
+
+			// 할인율 계산
+			var sellPer = Math.floor(100 - ((sellPrce/nrmPrce)*100));
+			$("#sellPer").text(sellPer);
+			
+			// 최종정산예정금액 계산
+			var ctryTax = $("#ctryTax").val();
+			var cardTax = $("#cardTax").val();
+			
+			if (sellPrce == null || sellPrce == '' || sellPrce <= 0) {
+				$("#taxPrce").text("0");
+			}
+			else {
+				var taxPrce = 0;
+				var ctryTaxMinus = parseInt(sellPrce * (ctryTax * 0.01) );
+				taxPrce = parseInt(sellPrce - ctryTaxMinus);
+// 				var cardTaxMinus = parseInt(sellPrce * cardTax);
+// 				taxPrce = parseInt(taxPrce - cardTaxMinus);
+				$("#taxPrce").text(numberWithCommas(taxPrce));
+			}
+			
+			proc.procNextBtn();
+			
+		},
+		
+		// 정상가와 동일
+		chkPrce : function () {
+			var chk = $("#chkPrce").is(":checked");
+			if (chk) {
+				$("#sellPrceView").val($("#nrmPrceView").val());
+				$("#sellPrceView").attr("readOnly", true);
+			}
+			else {
+				$("#sellPrceView").val("");
+				$("#sellPrceView").attr("readOnly", false);
+			}
+			// 할인율 계산
+			proc.sellPer();
+		},
+		
+		// 다음 버튼 
+		procNextBtn : function () {
+			
+			var nrmPrce = $("#nrmPrceView").val();
+			var sellPrce = $("#sellPrceView").val();
+			var stockQty = $("#stockQtyView").val();
+			
+			if ((nrmPrce != null && nrmPrce != "") && (sellPrce != null && sellPrce != "") && (stockQty != null && stockQty != "")) {
+				// 버튼 활성화
+				//$("#btnNext").attr("disabled",false);
+				$("#btnNext").removeClass("btn_b");
+				$("#btnNext").addClass("btn_r");
+			}
+			else {
+				// 버튼 비활성화
+				//$("#btnNext").attr("disabled",true);
+				$("#btnNext").removeClass("btn_r");
+				$("#btnNext").addClass("btn_b");
+			}
+			
+		},
+		
+		// 카테고리 수수료 조회
+		getCtryTax : function () {
+			
+			$.ajax({
+				type: "post",
+				async: true,
+				url: "/mobile/salemanage/selectCtryTax.do",
+				dataType:"json",
+				data:  {
+						ctryCd : ctryCd
+				},
+				success: function(data) {
+					if (data.ctryTax != null) {
+						$("#spanCtryTax").text(data.ctryTax.TAX_SALE_CHAR);
+						$("#ctryTax").val(data.ctryTax.TAX_SALE_CHAR);
+					}
+					else {
+						$("#spanCtryTax").text("0");
+						$("#ctryTax").val("");
+					}
+				},
+				error: function(data, status, err) {
+					alert("통신에 실패하였습니다. 다시 시도해 주세요.");
+					btnFlag = true;
+				}
+			});
+			
+		},
+		
+		// 결제 수수료 조회
+		getSetlTax : function () {
+			
+			$.ajax({
+				type: "post",
+				async: true,
+				url: "/mobile/salemanage/selectSetlTax.do",
+				dataType:"json",
+				data:  {
+						grpCd : 'TAX_INFO'
+				},
+				success: function(data) {
+					if (data.setlTax != null) {
+						$("#spanCardTax").text(data.setlTax.CARD_TAX_TEXT);
+						$("#spanHpTax").text(data.setlTax.HP_TAX_TEXT);
+						$("#spanAccTax").text(data.setlTax.ACC_TAX_TEXT);
+						$("#cardTax").val(data.setlTax.CARD_TAX_VAL);
+					}
+					else {
+						$("#spanCardTax").text("0");
+						$("#spanHpTax").text("0");
+						$("#spanAccTax").text("0");
+						$("#cardTax").val("");
+					}
+				},
+				error: function(data, status, err) {
+					alert("통신에 실패하였습니다. 다시 시도해 주세요.");
+					btnFlag = true;
+				}
+			});
+			
+		}
+			
+	};
+
+</script>
+
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+		<div class="roc">
+			<ul class="inner">
+				<li><img src="http://static.ssocio.net/pc/img/common/section/roc_home.png" alt="홈"></li>
+				<li>판매관리</li>
+			</ul>
+		</div>
+		<jsp:include page="../common/sale_top.jsp" flush="false" />
+		<div class="mype_s_tit">
+			<p>상품 등록</p>
+		</div>
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+		<!-- container -->
+		<div id="container">
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>
+
+<form id="form" name="form" method="post" action="">
+	<input type="hidden" id="movePage" name="movePage" value="2" />
+	<input type="hidden" id="regData" name="regData" value="" />
+	<input type="hidden" id="moveBack" name="moveBack" value="" />
+	<input type="hidden" id="mainYn" name="mainYn" value="${params.mainYn }" />
+	<input type="hidden" id="nrmPrce" name="nrmPrce" value="" />
+	<input type="hidden" id="sellPrce" name="sellPrce" value="" />
+	<input type="hidden" id="stockQty" name="stockQty" value="" />
+
+		<div class="completed">
+        	<p class="percent"><strong>70% Completed</strong></p>
+            <div class="bar"><p style="width:70%"></p></div>
+        </div>
+		<div class="contents pic_reg">
+			<p class="purc-title"><strong>정상가와 판매가</strong>를 입력해주세요.</p>
+			<div class="tbl type4">
+				<table class="tbl-data">
+					<colgroup>
+						<col width="90px">
+						<col width="*">
+						<col width="20px">
+					</colgroup>
+					<tbody>
+						<tr>
+							<th>정상가<br/><span>(최소 1원)</span></th>
+							<td class="pd5">
+								<input type="text" id="nrmPrceView" name="" value="" maxlength="10" pattern="[0-9]*" class="numType" style="text-align:right !important;" autocomplete="off" />
+							</td>
+							<td class="tr">원</td>
+						</tr>
+						<tr>
+							<th>판매가<br/><span>(최소 1원)</span></th>
+							<td class="pd5">
+								<input type="text" id="sellPrceView" name="" value="" maxlength="10" pattern="[0-9]*" class="numType" style="text-align:right !important;" autocomplete="off" />
+							</td>
+							<td class="tr">원</td>
+						</tr>
+						<tr>
+							<th></th>
+							<td colspan="2">
+								<div class="tbl_inner_bx">
+									<span class="fl"><input type="checkbox" id="chkPrce" name="chkPrce" /><label>정상가와 동일</label></span>
+									<span class="fr discount">할인율 <span id="sellPer">0</span>%</span>
+								</div>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+				<div class="mt10 sbox06">
+					<p>
+						<strong>[수수료]</strong>
+					</p>
+					<ul>
+						<li>
+							<p>카테고리 수수료 : <span id="spanCtryTax"></span>%</p>
+							<input type="hidden" id="ctryTax" name="" value="" />
+							<p class="ml5">- ${ctryNm }</p>
+						</li>
+					</ul>
+					<p>
+						<strong>[최종 정산 예정금액] <span style="color:#fa1c0f;">약 <span id="taxPrce">0</span>원</span></strong>
+					</p>
+					<ul>
+	                	<li>
+	                    	<p>※ 정산 금액 = 판매가 - 카테고리 수수료 - 기타비용</p>
+	                    	<p>※ 판매금액은 거래완료가 확인 된 후 고객님이 등록하신 은행계좌로 판매대금이 지급 되면, 판매대금 지급 시 수수료가 공제 된 후 입금됩니다.</p>
+	                    </li>
+	                </ul>
+				</div>
+				<table class="tbl-data">
+					<colgroup>
+						<col width="90px">
+						<col width="*">
+						<col width="20px">
+					</colgroup>
+					<tbody>
+						<tr>
+							<th>재고 수량</th>
+							<td class="pd5">
+								<input type="text" id="stockQtyView" name="" value="" maxlength="6" pattern="[0-9]*" class="numType" style="text-align:right !important;" autocomplete="off" />
+							</td>
+							<td class="tr">개</td>
+						</tr>
+						<tr>
+                            <td colspan="3">* 재고수량은 숫자만 입력 가능합니다.</td>
+                        </tr>
+				</table>
+			</div>
+			<div class="btn_enter">
+				<ul>
+					<li>
+						<input type="button" class="btn_b-line" onClick="javascript:page.goPrePage();" value="이전" title="이전" alt="이전" />
+					</li>
+					<li>
+						<input type="button" class="btn_b" id="btnNext"  onClick="javascript:page.goNextPage();" value="다음" title="다음" alt="다음" />
+					</li>
+				</ul>
+			</div>
+		</div>
+
+</form>
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+		<jsp:include page="../common/sale_bottom.jsp" flush="false" />
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+		    </div>
+		    <!-- //container -->
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>

@@ -1,0 +1,1704 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="adminAdjustMapper">
+
+	<!-- 검색조건 -->
+	<sql id="SearchCpltAdjust">
+		WHERE   AH.ADJ_STAT = 'F'
+		<if test="S_START_DATE != null and S_START_DATE != ''">
+   		AND AH.CHG_YMD BETWEEN #{S_START_DATE} AND #{S_END_DATE} 
+		</if>
+		<!-- 판매자ID-->
+	    <if test="MBER_EMAIL != null and MBER_EMAIL != ''" >
+	      AND MI.MBER_EMAIL LIKE '%' || #{MBER_EMAIL} || '%'
+	    </if>
+	    <if test="PROD_TYPE_CD != null and PROD_TYPE_CD != ''.toString()" >
+	      AND AH.PROD_TYPE_CD = #{PROD_TYPE_CD}
+	    </if>
+	</sql>
+	
+	<sql id="SearchAdjust">
+		WHERE   (AH.ADJ_STAT IS NULL OR AH.ADJ_STAT = 'W' OR AH.ADJ_STAT = 'R')
+		<if test="S_START_DATE != null and S_START_DATE != ''">
+   		AND AH.CNF_YMD BETWEEN #{S_START_DATE} AND #{S_END_DATE}
+<!--    		AND ( AH.PROD_TYPE_CD = '1' AND AH.CNF_YMD BETWEEN #{S_START_DATE} AND #{S_END_DATE} -->
+<!--    		OR		AH.PROD_TYPE_CD = '2' AND AH.REG_YMD BETWEEN #{S_START_DATE} AND #{S_END_DATE}) -->
+		</if>
+		<!-- 판매자ID-->
+	    <if test="MBER_EMAIL != null and MBER_EMAIL != ''" >
+	      AND MI.MBER_EMAIL LIKE '%' || #{MBER_EMAIL} || '%'
+	    </if>
+		<!-- 판매자ID-->
+	    <if test="SEARCH_STAT != null and SEARCH_STAT == 'W'.toString()" >
+	      AND AH.ADJ_STAT = #{SEARCH_STAT}
+	    </if>
+	    <if test="SEARCH_STAT != null and SEARCH_STAT == 'R'.toString()" >
+	      AND AH.ADJ_STAT = #{SEARCH_STAT}
+	    </if>
+	    <if test="SEARCH_STAT != null and SEARCH_STAT == 'S'.toString()" >
+	      AND AH.ADJ_STAT IS NULL
+	    </if>
+	    <if test="PROD_TYPE_CD != null and PROD_TYPE_CD != ''.toString()" >
+	      AND AH.PROD_TYPE_CD = #{PROD_TYPE_CD}
+	    </if>
+	</sql>
+	<sql id="SearchAdjustByTr">
+		<if test="S_START_DATE != null and S_START_DATE != ''">
+   		WHERE ATI.TR_DT BETWEEN #{S_START_DATE}||'0000' AND #{S_END_DATE}||'0000'
+		</if>
+	</sql>
+	
+	<!-- 정산완료 전체정산 리스트 조회 -->
+	<select id="selectCpltListAdjust" parameterType="HashMap" resultType="HashMap">
+		/*AdminAdjustMapper.selectCpltListAdjust*/
+		
+		<include refid="adminCommonMapper.pagingHeader" />
+		
+		SELECT  ROW_NUMBER() OVER(ORDER BY MAX(MBER_EMAIL))        AS NO                    /* 페이징 필수 */
+        ,	MBER_SEQ
+        ,   MAX(MBER_EMAIL)            		MBER_EMAIL        
+        ,   SUM(A_ORD_AMT)            		A_ORD_AMT        
+        ,   SUM(A_DSCNT_TOT_AMT)            A_DSCNT_TOT_AMT        
+        ,   SUM(A_ADJ_AMT)            		A_ADJ_AMT
+        ,	SUM(A_CNT)						A_CNT        
+        ,   SUM(B_ORD_AMT)            		B_ORD_AMT        
+        ,   SUM(B_DSCNT_TOT_AMT)            B_DSCNT_TOT_AMT        
+        ,   SUM(B_ADJ_AMT)            		B_ADJ_AMT       
+        ,	SUM(B_CNT)						B_CNT        
+        ,   SUM(A_ADJ_AMT + B_ADJ_AMT) 		TOT_ADJ
+        ,   SUM(A_CNT + B_CNT) 				TOT_CNT
+        FROM
+          (SELECT    AH.MBER_SEQ                										MBER_SEQ           
+            ,        MAX(MI.MBER_EMAIL)            										MBER_EMAIL 
+            ,   	DECODE(PROD_TYPE_CD , 1 , SUM(AH.SELL_PRCE_SUM + ABS(DLV_PRCE)),0)           		A_ORD_AMT
+            ,   	DECODE(PROD_TYPE_CD , 1 , SUM(AH.DSCNT_TOT_AMT+AH.DNL_CMTN),0)     	A_DSCNT_TOT_AMT
+            ,   	DECODE(PROD_TYPE_CD , 1 , SUM(AH.ADJ_AMT),0)           				A_ADJ_AMT
+            ,		DECODE(PROD_TYPE_CD , 1 , COUNT(AH.ADJ_AMT),0)						A_CNT
+            ,   	DECODE(PROD_TYPE_CD , 2 , SUM(AH.SELL_PRCE_SUM + ABS(DLV_PRCE)),0)           		B_ORD_AMT
+            ,   	DECODE(PROD_TYPE_CD , 2 , SUM(AH.DSCNT_TOT_AMT + AH.DNL_CMTN),0)    B_DSCNT_TOT_AMT
+            ,   	DECODE(PROD_TYPE_CD , 2 , SUM(AH.ADJ_AMT),0)           				B_ADJ_AMT
+            ,		DECODE(PROD_TYPE_CD , 2 , COUNT(AH.MBER_SEQ),0)						B_CNT
+            FROM        		ADJUST_HIST AH
+            LEFT OUTER JOIN 	MBER_INFO 	MI
+            ON AH.MBER_SEQ = MI.MBER_SEQ
+            <include refid="SearchCpltAdjust"/>
+        GROUP BY AH.MBER_SEQ,AH.PROD_TYPE_CD ) Z
+        GROUP BY MBER_SEQ
+    
+		<include refid="adminCommonMapper.pagingFooter" />
+		
+	</select>
+	
+	<!-- 정산완료리스트 전체정산 정산금액, 판매자수 조회  -->
+	<select id="selectCpltAmtCnt" parameterType="HashMap" resultType="HashMap">
+		/*adminAdjustMapper.selectCpltAmtCnt*/
+		
+         SELECT NVL(DECODE(ADJ_STAT,'F',SUM(ADJ_AMT)),0)     F_ADJ_AMT
+         ,      NVL(DECODE(ADJ_STAT,'F',SUM(ADJ_CNT)),0)     F_ADJ_CNT
+         ,      MAX(MBER_CNT)                       		 MBER_CNT
+         FROM 
+         (  SELECT   SUM(AH.ADJ_AMT)              ADJ_AMT              
+            ,        COUNT(AH.ADJ_AMT)            ADJ_CNT
+            ,        AH.ADJ_STAT                  ADJ_STAT
+            ,		(SELECT COUNT(COUNT(*)) FROM ADJUST_HIST AH <include refid="SearchCpltAdjust"/> GROUP BY MBER_SEQ) MBER_CNT
+            FROM    ADJUST_HIST AH
+            JOIN	MBER_INFO 	MI
+            ON		AH.MBER_SEQ = MI.MBER_SEQ
+             <include refid="SearchCpltAdjust"/>
+            GROUP BY AH.MBER_SEQ, AH.ADJ_STAT ) Z
+          	GROUP BY ADJ_STAT
+	        
+	</select>
+	<!-- 정산완료리스트 판매정산 정산금액, 판매자수 조회  -->
+	<select id="selectCpltSellAmtCnt" parameterType="HashMap" resultType="HashMap">
+		/*adminAdjustMapper.selectCpltSellAmtCnt*/
+         SELECT NVL(DECODE(ADJ_STAT,'F',SUM(ADJ_AMT)),0)     F_ADJ_AMT
+         ,      NVL(DECODE(ADJ_STAT,'F',SUM(ADJ_CNT)),0)     F_ADJ_CNT
+         ,      MAX(MBER_CNT)                       		 MBER_CNT
+         FROM 
+         (  SELECT   SUM(AH.ADJ_AMT)              ADJ_AMT              
+            ,        COUNT(AH.ADJ_AMT)            ADJ_CNT
+            ,        AH.ADJ_STAT                  ADJ_STAT
+            ,		(SELECT COUNT(COUNT(*)) FROM ADJUST_HIST AH <include refid="SearchCpltAdjust"/> GROUP BY MBER_SEQ) MBER_CNT
+            FROM        ADJUST_HIST AH
+            JOIN		MBER_INFO MI
+            ON			AH.MBER_SEQ = MI.MBER_SEQ
+            <include refid="SearchCpltAdjust"/>
+			AND		AH.PROD_TYPE_CD = '1'
+            GROUP BY AH.MBER_SEQ, AH.ADJ_STAT ) Z
+          	GROUP BY ADJ_STAT
+		
+	</select>
+	<!-- 정산완료리스트 셰어링정산 정산금액, 판매자수 조회  -->
+	<select id="selectCpltShareAmtCnt" parameterType="HashMap" resultType="HashMap">
+		/*adminAdjustMapper.selectCpltShareAmtCnt*/
+         SELECT NVL(DECODE(ADJ_STAT,'F',SUM(ADJ_AMT)),0)     F_ADJ_AMT
+         ,      NVL(DECODE(ADJ_STAT,'F',SUM(ADJ_CNT)),0)     F_ADJ_CNT
+         ,      MAX(MBER_CNT)                       		 MBER_CNT
+         FROM 
+         (  SELECT   SUM(AH.ADJ_AMT)              ADJ_AMT              
+            ,        COUNT(AH.ADJ_AMT)            ADJ_CNT
+            ,        AH.ADJ_STAT                  ADJ_STAT
+            ,		(SELECT COUNT(COUNT(*)) FROM ADJUST_HIST AH <include refid="SearchCpltAdjust"/> GROUP BY MBER_SEQ) 	MBER_CNT
+            FROM        ADJUST_HIST AH
+            JOIN		MBER_INFO MI
+            ON			AH.MBER_SEQ = MI.MBER_SEQ
+            <include refid="SearchCpltAdjust"/>
+			AND		AH.PROD_TYPE_CD = '2'
+            GROUP BY AH.MBER_SEQ, AH.ADJ_STAT ) Z
+          GROUP BY ADJ_STAT
+		
+	</select>
+	
+	<!-- 정산완료 판매정산 리스트 조회 -->
+	<select id="selectCpltListSellAdjust" parameterType="HashMap" resultType="HashMap">
+		/*AdminAdjustMapper.selectCpltListSellAdjust*/
+		
+		<include refid="adminCommonMapper.pagingHeader" />
+		
+		SELECT  ROW_NUMBER() OVER(ORDER BY MAX(MI.MBER_EMAIL) ) AS NO
+		,		AH.MBER_SEQ                  
+        ,       MAX(MI.MBER_EMAIL)                              AS MBER_EMAIL  
+        ,       SUM(AH.SELL_PRCE_SUM + AH.DLV_PRCE)             AS TOT_SELL                  /* 판매금액 소계*/
+        ,       SUM(AH.SELL_PRCE_SUM)                           AS SELL_PRCE                       /* 상품금액 */
+        ,       SUM(ABS(AH.DLV_PRCE))                           AS DLV_PRCE                             /* 배송비 */
+        ,       SUM(AH.DNL_CMTN + AH.DSCNT_SEL_AMT + CASE WHEN AH.DLV_PRCE &lt; 0 THEN AH.DLV_PRCE * -1 ELSE 0 END) AS TOT_DSCT        /* 공제금액 소계*/
+        ,       SUM(AH.DNL_CMTN)                                AS DNL_CMTN                                /* 통신판매 수수료 */
+        ,       SUM(AH.DSCNT_SEL_AMT)                           AS DSCNT_SEL_AMT                              /* 할인쿠폰분담금*/
+        ,       SUM(CASE WHEN AH.DLV_PRCE &lt; 0 THEN AH.DLV_PRCE * -1 ELSE 0 END)                                  AS CO_DLV_PRCE
+        ,       SUM(AH.DSCNT_CON_AMT - AH.DSCNT_CON_DNL_AMT)    AS DSCNT_CON_SEL_AMT
+        ,       SUM(AH.ADJ_AMT)                                 AS ADJ_AMT  /*정산금액*/
+        ,		COUNT(AH.MBER_SEQ)								AS ADJ_CNT        
+        FROM    ADJUST_HIST     AH
+        JOIN    MBER_INFO       MI
+        ON      AH.MBER_SEQ     = MI.MBER_SEQ
+         <include refid="SearchCpltAdjust"/>
+        AND     AH.PROD_TYPE_CD = '1'
+        GROUP BY AH.MBER_SEQ
+    
+		<include refid="adminCommonMapper.pagingFooter" />
+		
+	</select>
+	
+	<!-- 정산완료 셰어링정산 리스트 조회 -->
+	<select id="selectCpltListShareAdjust" parameterType="HashMap" resultType="HashMap">
+		/*AdminAdjustMapper.selectCpltListShareAdjust*/
+		
+		<include refid="adminCommonMapper.pagingHeader" />
+		
+		SELECT  ROW_NUMBER() OVER(ORDER BY MAX(MI.MBER_EMAIL) DESC )                     AS NO         /* 페이징 필수 */
+<!--         ,		TO_CHAR(TO_DATE(#{S_START_DATE},'YYYYMMDD'), 'YYYY.MM.DD')       AS S_START_DATE            -->
+<!--         ,    	TO_CHAR(TO_DATE(#{S_END_DATE},'YYYYMMDD'), 'YYYY.MM.DD')        AS S_END_DATE  -->
+        ,       AH.MBER_SEQ                  
+        ,       MAX(MI.MBER_EMAIL)                                                     AS MBER_EMAIL  
+        ,       SUM(AH.SELL_PRCE_SUM + ABS(AH.DLV_PRCE))                               AS TOT_SELL              /* 판매금액 소계*/
+        ,       SUM(AH.DEPOSIT * AH.ORD_QTY)                                           AS DEPOSIT               /* 보증금 */
+        ,       SUM(AH.SELL_PRCE * AH.SHARE_TERM * AH.ORD_QTY)                         AS SHARE_AMT             /* 셰어링료 */
+        ,       SUM(ABS(AH.DLV_PRCE))        AS DLV_PRCE           /* 배송료*/ 
+        ,       SUM(AH.DNL_CMTN + AH.DSCNT_SEL_AMT + AH.RTN_TO_SEL_DPST + CASE WHEN AH.DLV_PRCE &lt; 0 THEN AH.DLV_PRCE * -1 ELSE 0 END )         AS TOT_DSCT        /* 공제금액 소계*/
+        ,       SUM(AH.DNL_CMTN)                                                       AS DNL_CMTN              /* 셰어링수수료 */
+        ,       SUM(AH.DSCNT_SEL_AMT)                                                  AS DSCNT_SEL_AMT         /* 할인쿠폰분담금*/
+        ,       SUM(CASE WHEN AH.DLV_PRCE &lt; 0 THEN AH.DLV_PRCE * -1 ELSE 0 END)        AS CO_DLV_PRCE           /* 제휴택배 배송비*/ 
+        ,       SUM(AH.RTN_TO_SEL_DPST)                                                AS RTN_TO_SEL_DPST       /* 반납회수보증금*/
+        ,       SUM(AH.DSCNT_CON_AMT - AH.DSCNT_CON_DNL_AMT)                           AS DSCNT_CON_SEL_AMT     /* 유입경로할인 */
+        ,       SUM(AH.ADJ_AMT)                                                           AS ADJ_AMT            /*정산금액*/
+        ,		COUNT(AH.MBER_SEQ)													   AS ADJ_CNT        
+        FROM    ADJUST_HIST AH
+        JOIN    MBER_INFO MI
+        ON      AH.MBER_SEQ = MI.MBER_SEQ
+        <include refid="SearchCpltAdjust"/>
+        AND         AH.PROD_TYPE_CD = '2' 
+        GROUP BY AH.MBER_SEQ
+    
+		<include refid="adminCommonMapper.pagingFooter" />
+		
+	</select>
+	
+	<!-- 정산완료 전체정산 리스트 카운트 조회 -->
+	<select id="selectCpltListAdjustCount" parameterType="HashMap" resultType="int">
+		/*AdminAdjustMapper.selectCpltListAdjustCount*/
+	    SELECT 	COUNT(*) AS TOTAL_COUNT
+	    FROM ( 
+		    	SELECT 	AI.MBER_SEQ
+				FROM    	ADJUST_INFO AI
+				JOIN        ADJUST_HIST AH
+        		ON          AI.MBER_SEQ = AH.MBER_SEQ
+				<include refid="SearchCpltAdjust"/>
+				GROUP BY AI.MBER_SEQ
+	    )
+	    
+	</select>
+	<!-- 정산완료 판매정산 리스트 카운트 조회 -->
+	<select id="selectCpltListSellAdjustCount" parameterType="HashMap" resultType="int">
+		/*AdminAdjustMapper.selectCpltListSellAdjustCount*/
+	    SELECT 	COUNT(*) AS TOTAL_COUNT
+	    FROM ( 
+		    	SELECT 	AI.MBER_SEQ
+				FROM    	ADJUST_INFO AI
+				JOIN        ADJUST_HIST AH
+        		ON          AI.MBER_SEQ = AH.MBER_SEQ
+				<include refid="SearchCpltAdjust"/>
+				AND         AH.PROD_TYPE_CD = '1'
+				GROUP BY AI.MBER_SEQ
+	    )
+	</select>
+	<!-- 정산완료 셰어링정산 리스트 카운트 조회 -->
+	<select id="selectCpltListShareAdjustCount" parameterType="HashMap" resultType="int">
+		SELECT 	COUNT(*) AS TOTAL_COUNT
+	    FROM ( 
+		    	SELECT 	AI.MBER_SEQ
+				FROM    	ADJUST_INFO AI
+				JOIN        ADJUST_HIST AH
+        		ON          AI.MBER_SEQ = AH.MBER_SEQ
+				<include refid="SearchCpltAdjust"/>
+				AND         AH.PROD_TYPE_CD = '2'
+				GROUP BY AI.MBER_SEQ
+	    )
+	</select>
+	
+	
+	<!-- 정산완료 리스트 엑셀 -->
+	<select id="selectCpltListAdjustToExcel"  resultType="HashMap">
+		SELECT   ATI.SELT_GB_CD_NM                                                  	SELT_GB_CD_NM
+            ,  ATI.TR_ID                                              					TR_ID
+            ,  ATI.CPID                                                       			CPID
+            ,  NVL(ATI.AMT,0)                                              				AMT
+            ,  ATI.TR_DT                                             					TR_DT
+            ,  ATI.ORD_CD                                             					ORD_CD_DANAL
+            ,  AH.CNF_YMD                                                               CNF_YMD
+            ,  AH.ORD_CD                                               					ORD_CD_SSOCIO
+            ,  AH.MBER_SEQ                                             					MBER_SEQ   
+            ,  DECODE(MI.MBER_GB_CD, '1', SIC.CMPNY_NM ,MI.MBER_NM)   					NAME
+            ,   '주정산'                                                       			ADJ_GUBUN 
+            ,  AH.PROD_CD                                              					PROD_CD
+            ,  AH.PROD_NM                                              					PROD_NM
+<!--             ,  TO_CHAR(P.REGIST_DT, 'YYYYMMDD') || '~' || TO_CHAR(SYSDATE, 'YYYYMMDD') 	SELL_PERIOD -->
+            ,  '자동'                                                        				EXP_GUBUN
+            ,  '판매액'                                                       			GUBUN
+            ,   AH.SELL_PRCE_SUM + ABS(AH.DLV_PRCE)                                                           	ORD_AMT1
+            ,   '-'                                                                                            	THIS_RFND
+            ,   '-'                                                                                            	LAST_RFND
+            ,	(AH.SELL_PRCE_SUM + ABS(AH.DLV_PRCE) - AH.CPN_USE_AMT - AH.POINT_USE_AMT) RL_AMT
+            ,	AH.CPN_USE_AMT
+            ,	AH.POINT_USE_AMT
+            ,   AH.SELL_PRCE_SUM + ABS(AH.DLV_PRCE)                                                            	ORD_AMT2
+            ,   AH.SELL_PRCE_SUM + ABS(AH.DLV_PRCE)                                                            	ORD_AMT3  
+            ,   AH.DNL_CMTN_RATE || '%'                                                                         DNL_CMTN_RATE
+            ,   AH.DNL_CMTN                                                                                   	DNL_CMTN1
+            ,   '-'                                                                                             DNL_CMTN_THIS_RFND
+            ,   '-'                                                                                             DNL_CMTN_LAST_RFND
+            ,   AH.DNL_CMTN                                                                                    	DNL_CMTN2
+            ,   AH.DNL_CMTN                                                                                    	DNL_CMTN3
+            ,   AH.ADJ_AMT                                                                                    	ADJ_AMT2
+            ,   CASE WHEN AH.DLV_PRCE &lt; 0 THEN AH.DLV_PRCE * -1 ELSE 0 END                                   DLV_PRCE  
+            ,   '-'                                                                                             SERVER_CMTN
+            ,   '-'                                                                                             PENALTY
+<!--             ,   AH.DSCNT_TOT_AMT+AH.DNL_CMTN + CASE WHEN AH.DLV_PRCE &lt; 0 THEN AH.DLV_PRCE * -1 ELSE 0 END    DSCNT_TOT_AMT -->
+            ,   '-'    																							DSCNT_TOT_AMT
+            ,   AH.ADJ_AMT                                                                                   	ADJ_AMT3
+            ,   DECODE(MI.MBER_GB_CD, '1', '사업자' ,'개인')                                         				CMPNY_GUBUN
+            ,   SIC.CMPNY_NO                                                                                  	CMPNY_NO
+            ,   SIC.CEO_NM                                                                                     	CEO_NM
+            ,   SIC.CS_PER_TEL                                                                                 	CS_PER_TEL
+            ,   SIC.CMPNY_JUSO_DORO                                                                            	CMPNY_JUSO_DORO
+            ,   SIC.BANK_NM                                                                                   	BANK_NM
+            ,   SIC.BANK_ACNT_NO                                                                               	BANK_ACNT_NO
+            ,   SIC.ACNT_NM                                                                                    	ACNT_NM
+            ,   CASE WHEN AH.ADJ_STAT IS NULL THEN '정산대기'
+                     WHEN AH.ADJ_STAT = 'W'  THEN '정산보류'
+                     WHEN AH.ADJ_STAT = 'R'  THEN '정산예정'
+                     WHEN AH.ADJ_STAT = 'F'  THEN '정산완료'
+                     END 																						ADJ_STAT
+                     
+            FROM ADJUST_HIST AH   
+            LEFT OUTER JOIN MBER_INFO MI
+            ON AH.MBER_SEQ = MI.MBER_SEQ
+            LEFT OUTER JOIN SELLER_INFO_CFG SIC
+            ON AH.MBER_SEQ = SIC.MBER_SEQ
+            LEFT OUTER JOIN PROD P
+            ON AH.PROD_CD = P.PROD_CODE
+            LEFT OUTER JOIN ADJUST_TR_INFO ATI
+            ON AH.ORD_CD = ATI.ORD_CD
+       		<include refid="SearchCpltAdjust"/>
+<!--         WHERE  AH.ADJ_STAT = 'F'   -->
+<!--         <if test="S_START_DATE != null and S_START_DATE != ''"> -->
+<!--    		AND AH.REG_YMD BETWEEN TO_CHAR(TO_DATE(#{S_START_DATE},'YYYY-MM-DD'),'YYYYMMDD') AND TO_CHAR(TO_DATE(#{S_END_DATE},'YYYY-MM-DD'),'YYYYMMDD')  -->
+<!-- 		</if> -->
+        ORDER BY AH.CNF_YMD, AH.ORD_CD, AH.PROD_CD, AH.PROD_SEQ    
+		
+	</select>
+	
+	<!-- 정산완료 판매정산 상세 리스트 조회 -->
+	<select id="selectCpltDtlListSellAdjust" parameterType="HashMap" resultType="HashMap">
+		/*adminAdjustMapper.selectCpltDtlListSellAdjust*/
+		
+		<include refid="adminCommonMapper.pagingHeader" />
+		SELECT Z.*
+	    ,       ROW_NUMBER() OVER(ORDER BY ODR_YMD DESC )     	AS NO 
+	    ,       SELL_PRCE_SUM + DLV_PRCE                		TOT_SELL
+	    ,       DNL_CMTN + DSCNT_SEL_AMT + CO_DLV_PRCE          TOT_DSCT
+	    FROM (
+	        
+	        SELECT       TO_CHAR(TO_DATE(AH.ODR_YMD||AH.ODR_TMS  , 'YYYYMMDDHH24MISS' )  , 'YYYY-MM-DD hh24:mi')      AS ODR_YMD        /* 주문일시 */     
+	        ,           AH.ORD_CD                               AS        ORD_CD         				/*주문번호 */
+	        ,           OI.ORD_NM                               AS         ORD_NM        				/*구매자명*/
+	        ,           OI.ORD_EMAIL                            AS      ORD_EMAIL        				/*구매자ID*/ 
+	        ,           NVL(TO_CHAR(TO_DATE(AH.CNF_YMD, 'YYYYMMDD')  , 'YYYY-MM-DD'),'-')      AS CNF_YMD        /* 구매확정일 */ 
+	        ,           TO_CHAR(TO_DATE(AH.CHG_YMD, 'YYYYMMDD')  , 'YYYY-MM-DD')      AS CHG_YMD        /* 정산완료일 */ 
+	        ,           AH.PROD_CD                     AS     PROD_CD               					/* 상품코드 */
+	        ,           AH.PROD_NM                     AS     PROD_NM                					/* 상품명 */
+	        ,           AH.ORD_QTY                     AS     ORD_QTY              						/* 주문수량 */
+	        ,    		AH.ADJ_AMT         ADJ_AMT  /*정산금액*/
+	        ,    		AH.SELL_PRCE_SUM                      SELL_PRCE_SUM               				/* 상품금액 */
+	        ,    		ABS(AH.DLV_PRCE)                                   DLV_PRCE               		/* 선결제 배송비 */        
+	        ,    		AH.DNL_CMTN                   DNL_CMTN                                			/* 통신판매 수수료 */
+	        ,    		CASE 	WHEN  AH.DNL_CMTN_RATE_NM = 'TAX_PLAN'   THEN    '기획전수수료'
+		                  		WHEN  AH.DNL_CMTN_RATE_NM = 'TAX_PROD'   THEN    '상품수수료'                
+		                  		WHEN  AH.DNL_CMTN_RATE_NM = 'TAX_SELLER' THEN    '판매자수수료'                
+		                  		WHEN  AH.DNL_CMTN_RATE_NM = 'TAX_SELL'   THEN    '카테고리판매수수료'               
+		                  		WHEN  AH.DNL_CMTN_RATE_NM = 'TAX_SHARE'  THEN    '카테고리쉐어링수수료'     
+		                  		ELSE '-'         
+             			END     DNL_CMTN_RATE_NM                        								/*통신판매수수료정책*/
+	        ,    AH.DNL_CMTN_RATE               DNL_CMTN_RATE                          					/*통신판매수수료율*/
+	        ,    AH.DSCNT_SEL_AMT              DSCNT_SEL_AMT                           					/* 할인쿠폰분담금*/
+	        ,    CASE WHEN AH.DLV_PRCE &lt; 0 THEN AH.DLV_PRCE * -1 ELSE 0 END  CO_DLV_PRCE             /* 제휴택배배송비 */
+	        ,    AH.ADJ_STAT                   ADJ_STAT                        							/* 정산상태 */
+	        ,	 AH.DSCNT_CON_AMT - AH.DSCNT_DLV_DNL_AMT	   DSCNT_CON_SEL_AMT 						/* 유입경로판매자부담금 */ 
+	        FROM    ADJUST_HIST AH        
+	        JOIN    ORD_INFO OI
+	        ON      AH.ORD_CD = OI.ORD_CD
+			<include refid="SearchCpltAdjust"/>
+	        AND         AH.MBER_SEQ          = #{MBER_SEQ}
+	        AND         AH.PROD_TYPE_CD      = '1'    
+	        ) Z
+		<include refid="adminCommonMapper.pagingFooter" />
+		
+	</select>
+	
+	<!-- 정산완료 판매정산 상세 리스트 카운트 조회 -->
+	<select id="selectCpltDtlListSellAdjustCount" parameterType="HashMap" resultType="int">
+		/*adminAdjustMapper.selectCpltDtlListSellAdjustCount*/
+	    SELECT COUNT(*) 					AS TOTAL_COUNT
+	    FROM   (
+			    SELECT  AH.ORD_CD     AS   ORD_CD            
+                FROM    ADJUST_HIST AH        
+                JOIN    ORD_INFO OI
+                ON      AH.ORD_CD = OI.ORD_CD
+                <include refid="SearchCpltAdjust"/>
+                AND         AH.MBER_SEQ          = #{MBER_SEQ}
+                AND         AH.PROD_TYPE_CD      = '1' 
+		)
+	</select>
+	
+	<!-- 정산완료 판매정산 상세 조회 -->
+	<select id="selectCpltSellAdjust" parameterType="HashMap" resultType="HashMap">
+		/*adminAdjustMapper.selectCpltSellAdjust*/
+		SELECT AH.MBER_SEQ                  
+        ,    MAX(MI.MBER_EMAIL)            											MBER_EMAIL  
+        ,    SUM(AH.SELL_PRCE_SUM + AH.DLV_PRCE)   									TOT_SELL                  				/* 판매금액 소계*/
+        ,    SUM(AH.SELL_PRCE_SUM)                  								SELL_PRCE                       		/* 상품금액 */
+        ,    SUM(ABS(AH.DLV_PRCE))                  								DLV_PRCE                             	/* 배송비 */
+        ,    SUM(AH.DNL_CMTN + AH.DSCNT_SEL_AMT + CASE WHEN AH.DLV_PRCE &lt; 0 THEN AH.DLV_PRCE * -1 ELSE 0 END)  TOT_DSCT  /* 공제금액 소계*/
+        ,    SUM(AH.DNL_CMTN)                   									DNL_CMTN                                /* 통신판매 수수료 */
+        ,    SUM(AH.DSCNT_SEL_AMT)              									DSCNT_SEL_AMT                           /* 할인쿠폰분담금*/
+        ,	 SUM(CASE WHEN AH.DLV_PRCE &lt; 0 THEN AH.DLV_PRCE * -1 ELSE 0 END)  	CO_DLV_PRCE
+        ,	 SUM(AH.DSCNT_CON_AMT - AH.DSCNT_CON_DNL_AMT) 							DSCNT_CON_SEL_AMT
+        ,    SUM(AH.ADJ_AMT)         												ADJ_AMT  								/*정산금액*/    
+        ,	 COUNT(AH.MBER_SEQ) 													ADJ_CNT    
+        FROM        ADJUST_HIST AH
+        JOIN         MBER_INFO MI
+        ON AH.MBER_SEQ = MI.MBER_SEQ
+         <include refid="SearchCpltAdjust"/>
+        AND AH.MBER_SEQ = #{MBER_SEQ}
+        AND         AH.PROD_TYPE_CD = '1'
+        GROUP BY AH.MBER_SEQ
+	</select>
+	
+	<!-- 정산완료 셰어링정산 상세 조회 -->
+	<select id="selectCpltShareAdjust" parameterType="HashMap" resultType="HashMap">
+		/*adminAdjustMapper.selectCpltShareAdjust*/
+		SELECT  AH.MBER_SEQ                  
+<!--         ,       TO_CHAR(TO_DATE(#{S_START_DATE},'YYYYMMDD'), 'YYYY.MM.DD')       AS S_START_DATE            -->
+<!--         ,    	TO_CHAR(TO_DATE(#{S_END_DATE},'YYYYMMDD'), 'YYYY.MM.DD')        AS S_END_DATE  -->
+        ,       MAX(MI.MBER_EMAIL)                                                     AS MBER_EMAIL  
+        ,       SUM(AH.SELL_PRCE_SUM + ABS(AH.DLV_PRCE))                               AS TOT_SELL              /* 판매금액 소계*/
+        ,       SUM(AH.DEPOSIT * AH.ORD_QTY)                                           AS DEPOSIT               /* 보증금 */
+        ,       SUM(AH.SELL_PRCE * AH.SHARE_TERM * AH.ORD_QTY)                         AS SHARE_AMT             /* 셰어링료 */
+        ,		SUM(ABS(AH.DLV_PRCE))												   AS DLV_PRCE				/* 배송료 */
+        ,       SUM(AH.DNL_CMTN + AH.DSCNT_SEL_AMT + AH.RTN_TO_SEL_DPST + CASE WHEN AH.DLV_PRCE &lt; 0 THEN AH.DLV_PRCE * -1 ELSE 0 END )         AS TOT_DSCT        /* 공제금액 소계*/
+        ,       SUM(AH.DNL_CMTN)                                                       AS DNL_CMTN              /* 셰어링수수료 */
+        ,       SUM(AH.DSCNT_SEL_AMT)                                                  AS DSCNT_SEL_AMT         /* 할인쿠폰분담금*/
+        ,       SUM(CASE WHEN AH.DLV_PRCE &lt; 0 THEN AH.DLV_PRCE * -1 ELSE 0 END)     AS CO_DLV_PRCE           /* 제휴택배 배송비*/ 
+        ,       SUM(AH.RTN_TO_SEL_DPST)                                                AS RTN_TO_SEL_DPST       /* 반납회수보증금*/
+        ,       SUM(AH.DSCNT_CON_AMT - AH.DSCNT_CON_DNL_AMT)                           AS DSCNT_CON_SEL_AMT     /* 유입경로할인 */
+        ,       SUM(AH.ADJ_AMT)                                                        AS ADJ_AMT               /*정산금액*/
+        ,		SUM(AH.MBER_SEQ) 													   AS ADJ_CNT        
+        ,       MAX(MI.MBER_GB_CD) 													   AS MBER_GB_CD
+        FROM    ADJUST_HIST AH
+        JOIN    MBER_INFO MI
+        ON      AH.MBER_SEQ = MI.MBER_SEQ
+        <include refid="SearchCpltAdjust"/>
+        AND 	AH.MBER_SEQ = #{MBER_SEQ}
+        AND         AH.PROD_TYPE_CD = '2' 
+        GROUP BY AH.MBER_SEQ
+           
+	</select>
+	
+	<!-- 정산완료 셰어링정산 상세 리스트 조회 -->
+	<select id="selectCpltDtlListShareAdjust" parameterType="HashMap" resultType="HashMap">
+		/*adminAdjustMapper.selectCpltDtlListShareAdjust*/
+		<include refid="adminCommonMapper.pagingHeader" />
+		SELECT  Z.*
+        ,       DEPOSIT + SHARE_AMT + DLV_PRCE   TOT_SELL               /* 판매금액 소계*/
+        ,       DNL_CMTN + DSCNT_SEL_AMT + CO_DLV_PRCE + RTN_TO_SEL_DPST + DSCNT_CON_SEL_AMT     TOT_DSCT/* 공제금액 소계*/       
+        FROM(
+            SELECT  ROW_NUMBER() OVER(ORDER BY AH.ODR_YMD DESC )     							NO   
+            ,       TO_CHAR(TO_DATE(AH.ODR_YMD||AH.ODR_TMS  , 'YYYYMMDDHH24MISS' )  , 'YYYY-MM-DD hh24:mi')     ODR_YMD        	/* 주문일시 */     
+            ,       AH.ORD_CD                                       							ORD_CD                			/*주문번호 */
+            ,       OI.ORD_NM                                       							ORD_NM               			/*구매자명*/
+            ,       OI.ORD_EMAIL                                 								ORD_EMAIL           			/*구매자ID*/ 
+            ,       NVL(TO_CHAR(TO_DATE(AH.RTN_YMD, 'YYYYMMDD')  , 'YYYY-MM-DD'),'-')      				RTN_YMD        					/* 반납완료일 */ 
+            ,       TO_CHAR(TO_DATE(AH.CMP_SHARE_YMD, 'YYYYMMDD')  , 'YYYY-MM-DD')      		CMP_SHARE_YMD        			/* 셰어링종료일 */ 
+            ,       TO_CHAR(TO_DATE(AH.CHG_YMD, 'YYYYMMDD')  , 'YYYY-MM-DD')      				CHG_YMD       					/* 정산완료일 */ 
+            ,       AH.PROD_CD                     												PROD_CD               			/* 상품코드 */
+            ,       AH.PROD_NM                     												PROD_NM                			/* 상품명 */        
+            ,       AH.ORD_QTY                     												ORD_QTY              			/* 주문수량 */ 
+            ,       AH.ADJ_AMT         															ADJ_AMT  						/*정산금액*/
+            ,    	AH.DEPOSIT                             										DEPOSIT                         /* 보증금 */
+            ,    	AH.SELL_PRCE * AH.SHARE_TERM           										SHARE_AMT                       /* 셰어링료 */
+            ,		ABS(AH.DLV_PRCE)															DLV_PRCE						/* 쉐어링배송료 */
+            ,    	AH.DNL_CMTN                   												DNL_CMTN                        /* 셰어링수수료 */
+            ,    	CASE 	WHEN  AH.DNL_CMTN_RATE_NM = 'TAX_PLAN'   THEN    '기획전수수료'
+                  			WHEN  AH.DNL_CMTN_RATE_NM = 'TAX_PROD'   THEN    '상품수수료'                
+                  			WHEN  AH.DNL_CMTN_RATE_NM = 'TAX_SELLER' THEN    '판매자수수료'                
+                  			WHEN  AH.DNL_CMTN_RATE_NM = 'TAX_SELL'   THEN    '카테고리판매수수료'               
+                  			WHEN  AH.DNL_CMTN_RATE_NM = 'TAX_SHARE'  THEN    '카테고리쉐어링수수료'   
+                  			ELSE '-'           
+             		END                            												DNL_CMTN_RATE_NM                /*통신판매수수료정책*/
+            ,    	AH.DNL_CMTN_RATE               												DNL_CMTN_RATE                   /*통신판매수수료율*/
+            ,    	AH.DSCNT_SEL_AMT              												DSCNT_SEL_AMT                   /* 할인쿠폰분담금*/
+            ,    	CASE WHEN AH.DLV_PRCE &lt; 0 THEN AH.DLV_PRCE * -1 ELSE 0 END     			CO_DLV_PRCE
+            ,    	AH.RTN_TO_SEL_DPST               											RTN_TO_SEL_DPST                 /* 반납회수보증금*/
+            ,    	AH.DSCNT_CON_AMT - AH.DSCNT_CON_DNL_AMT                        				DSCNT_CON_SEL_AMT 				/* 유입경로할인분담금 */
+            ,    	AH.ADJ_STAT                   												ADJ_STAT                        /* 정산상태 */      
+                        
+            FROM        ADJUST_HIST AH        
+            JOIN    ORD_INFO OI
+            ON      AH.ORD_CD = OI.ORD_CD        
+            <include refid="SearchCpltAdjust"/>
+            AND         AH.MBER_SEQ          = #{MBER_SEQ}
+            AND         AH.PROD_TYPE_CD      = '2'    
+        ) Z
+		<include refid="adminCommonMapper.pagingFooter" />
+		
+	</select>
+	
+	<!-- 정산대기 셰어링정산 상세 리스트 카운트 조회 -->
+	<select id="selectCpltDtlListShareAdjustCount" parameterType="HashMap" resultType="int">
+		/*adminAdjustMapper.selectCpltDtlListShareAdjustCount*/
+	    SELECT COUNT(*) 						AS TOTAL_COUNT
+	    FROM(
+			SELECT  ROW_NUMBER() OVER(ORDER BY AH.ODR_YMD DESC )     AS NO   
+            FROM    ADJUST_HIST AH        
+            JOIN    ORD_INFO OI
+            ON      AH.ORD_CD = OI.ORD_CD        
+            <include refid="SearchCpltAdjust"/>
+            AND     AH.MBER_SEQ          = #{MBER_SEQ}
+            AND     AH.PROD_TYPE_CD      = '2'    
+		)
+	</select>
+	
+	
+	<!-- 정산대기 전체정산 리스트 조회 -->
+	<select id="selectListAdjust" parameterType="HashMap" resultType="HashMap">
+		/*AdminAdjustMapper.selectListAdjust*/
+		
+		<include refid="adminCommonMapper.pagingHeader" />
+		
+		SELECT  ROW_NUMBER() OVER(ORDER BY MAX(MBER_EMAIL))        AS NO                   
+        ,	MBER_SEQ
+        ,   MAX(MBER_EMAIL)            	MBER_EMAIL        
+        ,   SUM(A_ORD_AMT)            	A_ORD_AMT        
+        ,   SUM(A_DSCNT_TOT_AMT)        A_DSCNT_TOT_AMT        
+        ,   SUM(A_ADJ_AMT)            	A_ADJ_AMT
+        ,	SUM(A_CNT)					A_CNT        
+        ,   SUM(B_ORD_AMT)            	B_ORD_AMT        
+        ,   SUM(B_DSCNT_TOT_AMT)        B_DSCNT_TOT_AMT        
+        ,   SUM(B_ADJ_AMT)            	B_ADJ_AMT       
+        ,	SUM(B_CNT)					B_CNT        
+        ,   SUM(A_ADJ_AMT + B_ADJ_AMT)  TOT_ADJ
+        ,   SUM(A_CNT + B_CNT) 			TOT_CNT
+        FROM
+          (SELECT   AH.MBER_SEQ                											MBER_SEQ           
+            ,       MAX(MI.MBER_EMAIL)            										MBER_EMAIL 
+            ,   	DECODE(PROD_TYPE_CD , 1 , SUM(AH.SELL_PRCE_SUM + ABS(AH.DLV_PRCE)),0)      			A_ORD_AMT
+            ,   	DECODE(PROD_TYPE_CD , 1 , SUM(AH.DSCNT_TOT_AMT+AH.DNL_CMTN + CASE WHEN AH.DLV_PRCE &lt; 0 THEN AH.DLV_PRCE * -1 ELSE 0 END),0)     	A_DSCNT_TOT_AMT
+            ,   	DECODE(PROD_TYPE_CD , 1 , SUM(AH.ADJ_AMT),0)           				A_ADJ_AMT
+            ,		DECODE(PROD_TYPE_CD , 1 , COUNT(AH.ADJ_AMT),0)						A_CNT
+            ,   	DECODE(PROD_TYPE_CD , 2 , SUM(AH.SELL_PRCE_SUM + ABS(AH.DLV_PRCE)),0)           		B_ORD_AMT
+            ,   	DECODE(PROD_TYPE_CD , 2 , SUM(AH.DSCNT_TOT_AMT + AH.DNL_CMTN + CASE WHEN AH.DLV_PRCE &lt; 0 THEN AH.DLV_PRCE * -1 ELSE 0 END),0)    B_DSCNT_TOT_AMT
+            ,   	DECODE(PROD_TYPE_CD , 2 , SUM(AH.ADJ_AMT),0)           				B_ADJ_AMT
+            ,		DECODE(PROD_TYPE_CD , 2 , COUNT(AH.MBER_SEQ),0)						B_CNT
+            FROM        ADJUST_HIST AH
+            LEFT OUTER JOIN MBER_INFO MI
+            ON AH.MBER_SEQ = MI.MBER_SEQ
+            <include refid="SearchAdjust"/>
+        GROUP BY AH.MBER_SEQ,AH.PROD_TYPE_CD ) Z
+        GROUP BY MBER_SEQ
+		<include refid="adminCommonMapper.pagingFooter" />
+		
+	</select>
+	
+	<!-- 정산대기리스트 전체정산 정산금액, 판매자수 조회  -->
+	<select id="selectAmtCnt" parameterType="HashMap" resultType="HashMap">
+		/*adminAdjustMapper.selectAmtCnt*/
+		
+		SELECT SUM(N_ADJ_AMT + W_ADJ_AMT + R_ADJ_AMT)         T_ADJ_AMT
+		 ,      SUM(N_ADJ_CNT + W_ADJ_CNT + R_ADJ_CNT)         T_ADJ_CNT
+		 ,      SUM(N_ADJ_AMT)                      N_ADJ_AMT
+		 ,      SUM(N_ADJ_CNT)                    N_ADJ_CNT
+		 ,      SUM(W_ADJ_AMT)                    W_ADJ_AMT
+		 ,      SUM(W_ADJ_CNT)                    W_ADJ_CNT
+		 ,      SUM(R_ADJ_AMT)                    R_ADJ_AMT
+		 ,      SUM(R_ADJ_CNT)                    R_ADJ_CNT
+		 ,      MAX(MBER_CNT)                       MBER_CNT
+		 FROM (
+				SELECT 	NVL(DECODE(ADJ_STAT,NULL,ADJ_AMT),0)     N_ADJ_AMT
+				,      		NVL(DECODE(ADJ_STAT,NULL,ADJ_CNT),0)     N_ADJ_CNT
+				,      		NVL(DECODE(ADJ_STAT,'W',ADJ_AMT),0)      W_ADJ_AMT
+				,      		NVL(DECODE(ADJ_STAT,'W',ADJ_CNT),0)      W_ADJ_CNT
+				,      		NVL(DECODE(ADJ_STAT,'R',ADJ_AMT),0)      R_ADJ_AMT
+				,      		NVL(DECODE(ADJ_STAT,'R',ADJ_CNT),0)      R_ADJ_CNT
+				,			(SELECT COUNT(COUNT(*)) FROM ADJUST_HIST AH <include refid="SearchAdjust"/> GROUP BY MBER_SEQ) MBER_CNT
+				FROM (
+					SELECT   	SUM(AH.ADJ_AMT)              ADJ_AMT              
+					,        	COUNT(AH.ADJ_AMT)            ADJ_CNT
+					,        	AH.ADJ_STAT                  ADJ_STAT
+					FROM    	ADJUST_HIST AH
+					JOIN    	MBER_INFO MI
+					ON        AH.MBER_SEQ = MI.MBER_SEQ
+					<include refid="SearchAdjust"/>
+					GROUP BY AH.ADJ_STAT 
+				) Z
+		) Y
+	</select>
+	
+	<!-- 정산대기 판매정산 리스트 조회 -->
+	<select id="selectListSellAdjust" parameterType="HashMap" resultType="HashMap">
+		/*AdminAdjustMapper.selectListSellAdjust*/
+		
+		<include refid="adminCommonMapper.pagingHeader" />
+		
+		SELECT  ROW_NUMBER() OVER(ORDER BY MAX(MI.MBER_EMAIL) ) AS NO
+		,		AH.MBER_SEQ                  
+        ,       MAX(MI.MBER_EMAIL)                              			MBER_EMAIL  
+        ,       SUM(AH.SELL_PRCE_SUM + ABS(AH.DLV_PRCE))             			TOT_SELL                  									/* 판매금액 소계*/
+        ,       SUM(AH.SELL_PRCE_SUM)                           			SELL_PRCE                       							/* 상품금액 */
+        ,       SUM(ABS(AH.DLV_PRCE))                           			DLV_PRCE                        							/* 배송비 */
+        ,       SUM(AH.DNL_CMTN + AH.DSCNT_SEL_AMT + CASE WHEN AH.DLV_PRCE &lt; 0 THEN AH.DLV_PRCE * -1 ELSE 0 END) 	TOT_DSCT        /* 공제금액 소계*/
+        ,       SUM(AH.DNL_CMTN)                                			DNL_CMTN                        							/* 통신판매 수수료 */
+        ,       SUM(AH.DSCNT_SEL_AMT)                           			DSCNT_SEL_AMT                   							/* 할인쿠폰분담금*/
+        ,       SUM(CASE WHEN AH.DLV_PRCE &lt; 0 THEN AH.DLV_PRCE * -1 ELSE 0 END)                 						CO_DLV_PRCE
+        ,       SUM(AH.DSCNT_CON_AMT - AH.DSCNT_CON_DNL_AMT)    			DSCNT_CON_SEL_AMT
+        ,       SUM(AH.ADJ_AMT)                                    			ADJ_AMT  													/*정산금액*/
+        ,		COUNT(AH.MBER_SEQ)											ADJ_CNT        
+        FROM    ADJUST_HIST     AH
+        JOIN    MBER_INFO       MI
+        ON      AH.MBER_SEQ     = MI.MBER_SEQ
+         <include refid="SearchAdjust"/>
+        AND     AH.PROD_TYPE_CD = '1'
+        GROUP BY AH.MBER_SEQ
+    
+		<include refid="adminCommonMapper.pagingFooter" />
+		
+	</select>
+	
+	<!-- 정산대기리스트 판매정산 정산금액, 판매자수 조회  -->
+	<select id="selectSellAmtCnt" parameterType="HashMap" resultType="HashMap">
+		/*adminAdjustMapper.selectSellAmtCnt*/
+		
+     SELECT SUM(N_ADJ_AMT + W_ADJ_AMT + R_ADJ_AMT)       T_ADJ_AMT
+     ,      SUM(N_ADJ_CNT + W_ADJ_CNT + R_ADJ_CNT)       T_ADJ_CNT
+     ,      SUM(N_ADJ_AMT)	  N_ADJ_AMT
+     ,      SUM(N_ADJ_CNT)    N_ADJ_CNT
+     ,      SUM(W_ADJ_AMT)    W_ADJ_AMT
+     ,      SUM(W_ADJ_CNT)    W_ADJ_CNT
+     ,      SUM(R_ADJ_AMT)    R_ADJ_AMT
+     ,      SUM(R_ADJ_CNT)    R_ADJ_CNT
+     ,      MAX(MBER_CNT)     MBER_CNT
+     FROM (
+         SELECT NVL(DECODE(ADJ_STAT,NULL,SUM(ADJ_AMT)),0)     N_ADJ_AMT
+         ,      NVL(DECODE(ADJ_STAT,NULL,SUM(ADJ_CNT)),0)     N_ADJ_CNT
+         ,      NVL(DECODE(ADJ_STAT,'W',SUM(ADJ_AMT)),0)      W_ADJ_AMT
+         ,      NVL(DECODE(ADJ_STAT,'W',SUM(ADJ_CNT)),0)      W_ADJ_CNT
+         ,      NVL(DECODE(ADJ_STAT,'R',SUM(ADJ_AMT)),0)      R_ADJ_AMT
+         ,      NVL(DECODE(ADJ_STAT,'R',SUM(ADJ_CNT)),0)      R_ADJ_CNT
+         ,		(SELECT COUNT(COUNT(*)) FROM ADJUST_HIST AH <include refid="SearchAdjust"/> GROUP BY MBER_SEQ) 	MBER_CNT
+         FROM 
+         (  SELECT   SUM(AH.ADJ_AMT)              ADJ_AMT              
+            ,        COUNT(AH.ADJ_AMT)            ADJ_CNT
+            ,        AH.ADJ_STAT                  ADJ_STAT
+            ,        AH.MBER_SEQ                  MBER_SEQ
+            FROM    ADJUST_HIST AH
+            JOIN	MBER_INFO MI
+            ON		AH.MBER_SEQ = MI.MBER_SEQ
+            <include refid="SearchAdjust"/>
+			AND		AH.PROD_TYPE_CD = '1'
+            GROUP BY AH.MBER_SEQ, AH.ADJ_STAT ) Z
+          GROUP BY ADJ_STAT
+        ) Y
+	</select>
+	
+	<!-- 정산대기 셰어링정산 리스트 조회 -->
+	<select id="selectListShareAdjust" parameterType="HashMap" resultType="HashMap">
+		/*AdminAdjustMapper.selectListShareAdjust*/
+		
+		<include refid="adminCommonMapper.pagingHeader" />
+		
+		
+       	SELECT  ROW_NUMBER() OVER(ORDER BY MAX(MI.MBER_EMAIL) DESC )                   NO         /* 페이징 필수 */
+<!--        	,		TO_CHAR(TO_DATE(#{S_START_DATE},'YYYYMMDD'), 'YYYY.MM.DD')       AS S_START_DATE            -->
+<!--         ,    	TO_CHAR(TO_DATE(#{S_END_DATE},'YYYYMMDD'), 'YYYY.MM.DD')        AS S_END_DATE  -->
+        ,       AH.MBER_SEQ                  
+        ,       MAX(MI.MBER_EMAIL)                                                     MBER_EMAIL  
+        ,       SUM(AH.SELL_PRCE_SUM + ABS(AH.DLV_PRCE))                               TOT_SELL              /* 판매금액 소계*/
+        ,       SUM(AH.DEPOSIT * AH.ORD_QTY)                                           DEPOSIT               /* 보증금 */
+        ,       SUM(AH.SELL_PRCE * AH.SHARE_TERM * AH.ORD_QTY)                         SHARE_AMT             /* 셰어링료 */
+        ,       SUM(ABS(AH.DLV_PRCE))     DLV_PRCE              /* 배송료*/ 
+        ,       SUM(AH.DNL_CMTN + AH.DSCNT_SEL_AMT + AH.RTN_TO_SEL_DPST + CASE WHEN AH.DLV_PRCE &lt; 0 THEN AH.DLV_PRCE * -1 ELSE 0 END )         AS TOT_DSCT        /* 공제금액 소계*/
+        ,       SUM(AH.DNL_CMTN)                                                       DNL_CMTN              /* 셰어링수수료 */
+        ,       SUM(AH.DSCNT_SEL_AMT)                                                  DSCNT_SEL_AMT         /* 할인쿠폰분담금*/
+        ,       SUM(CASE WHEN AH.DLV_PRCE &lt; 0 THEN AH.DLV_PRCE * -1 ELSE 0 END)     CO_DLV_PRCE              /* 제휴택배 배송비*/ 
+        ,       SUM(AH.RTN_TO_SEL_DPST)                                                RTN_TO_SEL_DPST       /* 반납회수보증금*/
+        ,       SUM(AH.DSCNT_CON_AMT - AH.DSCNT_CON_DNL_AMT)                           DSCNT_CON_SEL_AMT     /* 유입경로할인 */
+        ,       SUM(AH.ADJ_AMT)                                                        ADJ_AMT               /*정산금액*/
+        ,		COUNT(AH.MBER_SEQ)													   ADJ_CNT				/* 정산건수 */
+        FROM    ADJUST_HIST AH
+        JOIN    MBER_INFO MI
+        ON      AH.MBER_SEQ = MI.MBER_SEQ
+        <include refid="SearchAdjust"/>
+        AND         AH.PROD_TYPE_CD = '2' 
+        GROUP BY AH.MBER_SEQ
+    
+		<include refid="adminCommonMapper.pagingFooter" />
+		
+	</select>
+	
+	<!-- 정산대기리스트 셰어링정산 정산금액, 판매자수 조회  -->
+	<select id="selectShareAmtCnt" parameterType="HashMap" resultType="HashMap">
+		/*adminAdjustMapper.selectShareAmtCnt*/
+		
+     SELECT SUM(N_ADJ_AMT + W_ADJ_AMT + R_ADJ_AMT)       T_ADJ_AMT
+     ,      SUM(N_ADJ_CNT + W_ADJ_CNT + R_ADJ_CNT)       T_ADJ_CNT
+     ,      SUM(N_ADJ_AMT)	  N_ADJ_AMT
+     ,      SUM(N_ADJ_CNT)    N_ADJ_CNT
+     ,      SUM(W_ADJ_AMT)    W_ADJ_AMT
+     ,      SUM(W_ADJ_CNT)    W_ADJ_CNT
+     ,      SUM(R_ADJ_AMT)    R_ADJ_AMT
+     ,      SUM(R_ADJ_CNT)    R_ADJ_CNT
+     ,      MAX(MBER_CNT)     MBER_CNT
+     FROM (
+         SELECT NVL(DECODE(ADJ_STAT,NULL,SUM(ADJ_AMT)),0)     N_ADJ_AMT
+         ,      NVL(DECODE(ADJ_STAT,NULL,SUM(ADJ_CNT)),0)     N_ADJ_CNT
+         ,      NVL(DECODE(ADJ_STAT,'W',SUM(ADJ_AMT)),0)      W_ADJ_AMT
+         ,      NVL(DECODE(ADJ_STAT,'W',SUM(ADJ_CNT)),0)      W_ADJ_CNT
+         ,      NVL(DECODE(ADJ_STAT,'R',SUM(ADJ_AMT)),0)      R_ADJ_AMT
+         ,      NVL(DECODE(ADJ_STAT,'R',SUM(ADJ_CNT)),0)      R_ADJ_CNT
+         ,		(SELECT COUNT(COUNT(*)) FROM ADJUST_HIST AH <include refid="SearchAdjust"/> GROUP BY MBER_SEQ) 	MBER_CNT
+         FROM 
+         (  SELECT   SUM(AH.ADJ_AMT)              ADJ_AMT              
+            ,        COUNT(AH.ADJ_AMT)            ADJ_CNT
+            ,        AH.ADJ_STAT                  ADJ_STAT
+            ,        AH.MBER_SEQ                  MBER_SEQ
+            FROM        ADJUST_HIST AH
+            JOIN	MBER_INFO MI
+            ON		AH.MBER_SEQ = MI.MBER_SEQ
+            <include refid="SearchAdjust"/>
+			AND		AH.PROD_TYPE_CD = '2'
+            GROUP BY AH.MBER_SEQ, AH.ADJ_STAT ) Z
+          GROUP BY ADJ_STAT
+        ) Y
+	</select>
+	
+	<!-- 정산대기 전체정산 리스트 카운트 조회 -->
+	<select id="selectListAdjustCount" parameterType="HashMap" resultType="int">
+		/*AdminAdjustMapper.selectListAdjustCount*/
+	    SELECT 	COUNT(*) AS TOTAL_COUNT
+	    FROM ( 
+		    	SELECT 		AH.MBER_SEQ
+				FROM    	ADJUST_HIST AH
+				JOIN        MBER_INFO MI
+        		ON          AH.MBER_SEQ = MI.MBER_SEQ
+				<include refid="SearchAdjust"/>
+				GROUP BY AH.MBER_SEQ
+	    )
+	</select>
+	<!-- 정산대기 판매정산 리스트 카운트 조회 -->
+	<select id="selectListSellAdjustCount" parameterType="HashMap" resultType="int">
+		/*AdminAdjustMapper.selectListSellAdjustCount*/
+	    SELECT 	COUNT(*) AS TOTAL_COUNT
+	    FROM ( 
+		    	SELECT 		AH.MBER_SEQ
+				FROM    	ADJUST_HIST AH
+				JOIN        MBER_INFO MI
+        		ON          AH.MBER_SEQ = MI.MBER_SEQ
+				<include refid="SearchAdjust"/>
+				AND         AH.PROD_TYPE_CD = '1'
+				GROUP BY AH.MBER_SEQ
+	    )
+	</select>
+	<!-- 정산대기 셰어링정산 리스트 카운트 조회 -->
+	<select id="selectListShareAdjustCount" parameterType="HashMap" resultType="int">
+		/*AdminAdjustMapper.selectListShareAdjustCount*/
+		SELECT 	COUNT(*) AS TOTAL_COUNT
+	    FROM ( 
+		    	SELECT 		AH.MBER_SEQ
+				FROM    	ADJUST_HIST AH
+				JOIN        MBER_INFO MI
+        		ON          AH.MBER_SEQ = MI.MBER_SEQ
+				<include refid="SearchAdjust"/>
+				AND         AH.PROD_TYPE_CD = '2'
+				GROUP BY AH.MBER_SEQ
+	    )
+	</select>
+	
+	
+	<!-- 정산대기 리스트 엑셀 -->
+	<select id="selectListAdjustToExcel"  resultType="HashMap">
+		SELECT   ATI.SELT_GB_CD_NM                                                  	SELT_GB_CD_NM
+            ,  ATI.TR_ID                                              					TR_ID
+            ,  ATI.CPID                                                       			CPID
+            ,  AL.AMT                                                 					REMAIN_AMT
+            ,  ATI.TR_DT                                             					TR_DT
+            ,  ATI.ORD_CD                                             					ORD_CD_DANAL
+            ,  AH.CNF_YMD                                                               CNF_YMD
+            ,  AH.ORD_CD                                               					ORD_CD_SSOCIO
+            ,  AH.MBER_SEQ                                             					MBER_SEQ   
+            ,  DECODE(MI.MBER_GB_CD, '1', SIC.CMPNY_NM ,MI.MBER_NM)   					NAME
+            ,   '주정산'                                                       			ADJ_GUBUN 
+            ,  AH.PROD_CD                                              					PROD_CD
+            ,  AH.PROD_NM                                              					PROD_NM
+            ,  '자동'                                                        				EXP_GUBUN
+            ,  '판매액'                                                       			GUBUN
+            ,   AH.SELL_PRCE_SUM + ABS(AH.DLV_PRCE)                                                           	ORD_AMT1
+            ,   '-'                                                                                            	THIS_RFND
+            ,   '-'                                                                                            	LAST_RFND
+            ,	(AH.SELL_PRCE_SUM + ABS(AH.DLV_PRCE) - AH.CPN_USE_AMT - AH.POINT_USE_AMT) RL_AMT
+            ,	AH.CPN_USE_AMT
+            ,	AH.POINT_USE_AMT
+            ,   AH.SELL_PRCE_SUM + ABS(AH.DLV_PRCE)                                                            	ORD_AMT2
+            ,   AH.SELL_PRCE_SUM + ABS(AH.DLV_PRCE)                                                            	ORD_AMT3  
+            ,   AH.DNL_CMTN_RATE || '%'                                                                         DNL_CMTN_RATE
+            ,   AH.DNL_CMTN                                                                                   	DNL_CMTN1
+            ,   '-'                                                                                             DNL_CMTN_THIS_RFND
+            ,   '-'                                                                                             DNL_CMTN_LAST_RFND
+            ,   AH.DNL_CMTN                                                                                    	DNL_CMTN2
+            ,   AH.DNL_CMTN                                                                                    	DNL_CMTN3
+            ,   AH.ADJ_AMT                                                                                    	ADJ_AMT2
+            ,   CASE WHEN AH.DLV_PRCE &lt; 0 THEN AH.DLV_PRCE * -1 ELSE 0 END                                   DLV_PRCE  
+            ,   '-'                                                                                             SERVER_CMTN
+            ,   '-'                                                                                             PENALTY
+            ,  '-'    																							DSCNT_TOT_AMT
+            ,   AH.ADJ_AMT                                                                                   	ADJ_AMT3
+            ,   DECODE(MI.MBER_GB_CD, '1', '사업자' ,'개인')                                         				CMPNY_GUBUN
+            ,   SIC.CMPNY_NO                                                                                  	CMPNY_NO
+            ,   SIC.CEO_NM                                                                                     	CEO_NM
+            ,   SIC.CS_PER_TEL                                                                                 	CS_PER_TEL
+            ,   SIC.CMPNY_JUSO_DORO                                                                            	CMPNY_JUSO_DORO
+            ,   SIC.BANK_NM                                                                                   	BANK_NM
+            ,   SIC.BANK_ACNT_NO                                                                               	BANK_ACNT_NO
+            ,   SIC.ACNT_NM                                                                                    	ACNT_NM
+            ,   CASE WHEN AH.ADJ_STAT IS NULL THEN '정산대기'
+                     WHEN AH.ADJ_STAT = 'W'  THEN '정산보류'
+                     WHEN AH.ADJ_STAT = 'R'  THEN '정산예정'
+                     END 																						ADJ_STAT
+                     
+            FROM 	ADJUST_HIST AH   
+            JOIN 		MBER_INFO MI
+            ON 		AH.MBER_SEQ = MI.MBER_SEQ
+            LEFT OUTER JOIN SELLER_INFO_CFG SIC
+            ON 		AH.MBER_SEQ = SIC.MBER_SEQ
+            JOIN PROD P
+            ON 		AH.PROD_CD = P.PROD_CODE
+       /*     LEFT OUTER JOIN ORD_SETL_INFO OSI
+            ON		OSI.ORD_CD = AH.ORD_CD */
+            LEFT OUTER JOIN ADJUST_LOG AL
+            ON   		AL.ORD_CD = AH.ORD_CD
+            LEFT OUTER JOIN ADJUST_TR_INFO ATI
+            ON  		ATI.ORD_CD = AL.ORD_CD
+            AND		ATI.TR_ID = AL.TR_ID
+       		<include refid="SearchAdjust"/>
+        ORDER BY AH.CNF_YMD, AH.ORD_CD, AH.PROD_CD, AH.PROD_SEQ    
+		
+	</select>
+	
+	<!--  다날 결제 데이터 기준 엑셀 -->
+	<select id="selectListAdjustByTrToExcel"  resultType="HashMap">
+		SELECT   SELT_GB_CD_NM
+            ,  TR_ID
+            ,  CPID
+            ,  REMAIN_AMT
+            ,  TR_DT
+            ,  ORD_CD_DANAL
+            ,  CNF_YMD
+            ,  ORD_CD_SSOCIO
+            ,  MBER_SEQ   
+            ,  NAME
+            ,  ADJ_GUBUN 
+            ,  PROD_CD
+            ,  PROD_NM
+            ,  EXP_GUBUN
+            ,  GUBUN
+            ,   ORD_AMT1
+            ,   THIS_RFND
+            ,   LAST_RFND
+            ,	RL_AMT
+            ,	CPN_USE_AMT
+            ,	POINT_USE_AMT
+            ,   ORD_AMT2
+            ,   ORD_AMT3  
+            , 	DNL_CMTN_RATE
+            , 	DNL_CMTN				DNL_CMTN1
+            ,   DNL_CMTN_THIS_RFND
+            ,   DNL_CMTN_LAST_RFND
+            ,   DNL_CMTN				DNL_CMTN2
+            ,   DNL_CMTN				DNL_CMTN3
+            ,   PROD_ORD_AMT + DLV_PRCE - DNL_CMTN - CPN_USE_AMT +  ADJ_DLV_PRCE   	ADJ_AMT2
+            ,   ADJ_DLV_PRCE 			DLV_PRCE  
+            ,   SERVER_CMTN
+            ,   PENALTY
+            ,   DSCNT_TOT_AMT
+            ,   PROD_ORD_AMT + DLV_PRCE - DNL_CMTN - CPN_USE_AMT +  ADJ_DLV_PRCE   	ADJ_AMT3
+            ,   	CMPNY_GUBUN
+            ,   CMPNY_NO
+            ,   CEO_NM
+            ,   CS_PER_TEL
+            ,   	CMPNY_JUSO_DORO
+            ,  BANK_NM
+            ,   BANK_ACNT_NO
+            ,   ACNT_NM
+            ,   ADJ_STAT
+            ,	PROC_STAT_CD_NM
+         FROM(
+		SELECT   ATI.SELT_GB_CD_NM                                                  	SELT_GB_CD_NM
+            ,  ATI.TR_ID                                              					TR_ID
+            ,  ATI.CPID                                                       			CPID
+            ,  ATI.AMT                                                 					REMAIN_AMT
+            ,  ATI.TR_DT                                             					TR_DT
+            ,  ATI.ORD_CD                                             					ORD_CD_DANAL
+            ,  '-'                                                               CNF_YMD
+            ,  ATI.ORD_CD                                               					ORD_CD_SSOCIO
+            ,  P.MBER_SEQ                                             					MBER_SEQ   
+            ,  DECODE(MI.MBER_GB_CD, '1', SIC.CMPNY_NM ,MI.MBER_NM)   					NAME
+            ,   '주정산'                                                       			ADJ_GUBUN 
+            ,  OPI.PROD_CODE                                              					PROD_CD
+            ,	OPI.PROD_SEQ
+            ,  P.PROD_NM                                              					PROD_NM
+            ,  '자동'                                                        				EXP_GUBUN
+            ,  '판매액'                                                       			GUBUN
+            ,   OPI.PROD_ORD_AMT + OPI.DLV_PRCE                                                           	ORD_AMT1
+            ,   '-'                                                                                            	THIS_RFND
+            ,   '-'                                                                                            	LAST_RFND
+            ,	OPI.PROD_ORD_AMT + OPI.DLV_PRCE  - NVL(OPI.CPN_USE_AMT,0) - NVL(OI.POINT_USE_AMT,0)	 RL_AMT
+            ,	NVL(OPI.CPN_USE_AMT,0)    CPN_USE_AMT
+            ,	NVL(OI.POINT_USE_AMT,0)	POINT_USE_AMT
+            ,	OPI.PROD_ORD_AMT
+            ,	OPI.DLV_PRCE
+            ,	CASE WHEN OPI.DLV_PAY_F_CD = '10' AND BDY.BNDL_DLY_CNT IS NOT NULL AND BDY.NO IS NOT NULL AND BDY.BNDL_DLY_CNT = BDY.NO 	/* 택배비선결재 AND 묶음 배송 마지막 상품 */
+					 THEN CASE 	WHEN P.DLV_WAY_CD = '1'  									                /* 제휴택배 이용시 */
+							    THEN BDY.DLV_PRCE  										                /* 판매자에게 정산안함 */
+							    ELSE 0      										                /* 판매자에게 정산 */
+						  END
+				     WHEN OPI.DLV_PAY_F_CD = '10' AND (BDY.BNDL_DLY_CNT IS NULL OR BDY.NO IS NULL)
+					 THEN (	CASE 	WHEN P.DLV_WAY_CD = '1'  									            /* 제휴택배 이용시 */
+								    THEN OPI.DLV_PRCE 										            /* 판매자에게 정산안함 */
+								    ELSE 0      										            /* 판매자에게 정산 */
+						    END )
+				    ELSE 0
+		 	    END										ADJ_DLV_PRCE
+            ,   OPI.PROD_ORD_AMT + OPI.DLV_PRCE                                                            	ORD_AMT2
+            ,   OPI.PROD_ORD_AMT + OPI.DLV_PRCE                                                           	ORD_AMT3  
+            , 	CASE WHEN P.PROD_TYPE_CD = 6 AND CT.TAX_SPEC IS NOT NULL                                    /* 기획전확인조건(임시) */
+				     THEN CASE WHEN CT.TAX_SPEC &lt; 1 THEN (CT.TAX_SPEC * 100) || '%' ELSE CT.TAX_SPEC || '%' END /* CT.TAX_SPEC  0.01 */
+				     ELSE CASE WHEN P.PROD_TAX IS NOT NULL AND P.PROD_TAX &gt; 0						    /* 상품수수료 */
+					           THEN CASE WHEN P.PROD_TAX &lt; 1 THEN (P.PROD_TAX * 100) || '%' ELSE P.PROD_TAX  || '%' END /* P.PROD_TAX * 100 */
+						       WHEN SIC.RATE IS NOT NULL AND SIC.RATE &gt; 0       							/* 판매자수수료 */
+						       THEN CASE WHEN SIC.RATE &lt; 1 THEN (SIC.RATE * 100) || '%' ELSE SIC.RATE || '%' END /* SIC.RATE * 100 */
+						       ELSE ( CASE WHEN OPI.PROD_TYPE_CD = 1 AND CT.TAX_SALE IS NOT NULL AND CT.TAX_SALE &gt; 0     /* 카테고리수수료 */
+						                   THEN CASE WHEN CT.TAX_SALE &lt; 1 THEN (CT.TAX_SALE * 100) || '%' ELSE CT.TAX_SALE || '%' END /* CT.TAX_SALE */  /** 0.01 */
+						                   ELSE 0 || '%'
+						              END )
+						  END
+			    END																						 	DNL_CMTN_RATE
+            , 	CASE WHEN P.PROD_TYPE_CD = 6 AND CT.TAX_SPEC IS NOT NULL                                    /* 기획전확인조건(임시) */
+				     THEN CASE WHEN CT.TAX_SPEC &lt; 1 THEN (OPI.PROD_ORD_AMT - NVL(OPI.CPN_USE_AMT,0) )  * CT.TAX_SPEC  ELSE (OPI.PROD_ORD_AMT - NVL(OPI.CPN_USE_AMT,0) )  * CT.TAX_SPEC * 0.01 END /* CT.TAX_SPEC  0.01 */
+				     ELSE CASE WHEN P.PROD_TAX IS NOT NULL AND P.PROD_TAX &gt; 0						    /* 상품수수료 */
+					           THEN CASE WHEN P.PROD_TAX &lt; 1 THEN (OPI.PROD_ORD_AMT - NVL(OPI.CPN_USE_AMT,0) )  * P.PROD_TAX ELSE (OPI.PROD_ORD_AMT - NVL(OPI.CPN_USE_AMT,0) )  * P.PROD_TAX  * 0.01 END /* P.PROD_TAX * 100 */
+						       WHEN SIC.RATE IS NOT NULL AND SIC.RATE &gt; 0       							/* 판매자수수료 */
+						       THEN CASE WHEN SIC.RATE &lt; 1 THEN (OPI.PROD_ORD_AMT - NVL(OPI.CPN_USE_AMT,0) )  * SIC.RATE ELSE (OPI.PROD_ORD_AMT - NVL(OPI.CPN_USE_AMT,0) )  * SIC.RATE * 0.01 END /* SIC.RATE * 100 */
+						       ELSE ( CASE WHEN OPI.PROD_TYPE_CD = 1 AND CT.TAX_SALE IS NOT NULL AND CT.TAX_SALE &gt; 0     /* 카테고리수수료 */
+						                   THEN CASE WHEN CT.TAX_SALE &lt; 1 THEN (OPI.PROD_ORD_AMT - NVL(OPI.CPN_USE_AMT,0) )  * CT.TAX_SALE ELSE (OPI.PROD_ORD_AMT - NVL(OPI.CPN_USE_AMT,0) )  * CT.TAX_SALE * 0.01 END /* CT.TAX_SALE */  /** 0.01 */
+						                   ELSE 0
+						              END )
+						  END
+			    END																						 	DNL_CMTN
+            ,   '-'                                                                                             DNL_CMTN_THIS_RFND
+            ,   '-'                                                                                             DNL_CMTN_LAST_RFND
+            ,   '-'                                                                                             SERVER_CMTN
+            ,   '-'                                                                                             PENALTY
+            ,  '-'    																							DSCNT_TOT_AMT
+            ,   DECODE(MI.MBER_GB_CD, '1', '사업자' ,'개인')                                         				CMPNY_GUBUN
+            ,   SIC.CMPNY_NO                                                                                  	CMPNY_NO
+            ,   SIC.CEO_NM                                                                                     	CEO_NM
+            ,   SIC.CS_PER_TEL                                                                                 	CS_PER_TEL
+            ,   SIC.CMPNY_JUSO_DORO                                                                            	CMPNY_JUSO_DORO
+            ,   DECODE(SIC.BANK_NM,NULL,'-',SIC.BANK_NM)                                               	BANK_NM
+            ,   NVL(SIC.BANK_ACNT_NO,'-')                                                                      	BANK_ACNT_NO
+            ,   SIC.ACNT_NM                                                                                    	ACNT_NM
+            ,   CASE WHEN OPI.ADJ_COMP_YN = 'Y' THEN '정산반영'
+                       ELSE '정산미반영'
+                 END 																						ADJ_STAT
+            ,	PSC.COM_CD_NM																		PROC_STAT_CD_NM
+            ,	OI.REGIST_DT
+            FROM 	ADJUST_TR_INFO ATI
+            LEFT OUTER JOIN ORD_SETL_INFO OSI
+            ON		ATI.ORD_CD = OSI.ORD_CD
+            AND		ATI.TR_ID = OSI.TRD_NO
+            LEFT OUTER JOIN ORD_INFO OI
+            ON		ATI.ORD_CD = OI.ORD_CD
+            LEFT OUTER JOIN ORD_PROD_INFO OPI
+            ON		ATI.ORD_CD = OPI.ORD_CD
+            LEFT OUTER JOIN PROD P
+            ON		OPI.PROD_CODE = P.PROD_CODE   
+            LEFT OUTER JOIN MBER_INFO MI
+            ON 		P.MBER_SEQ = MI.MBER_SEQ
+            LEFT OUTER JOIN CTRY     	    CT
+			ON     	CT.CTRY_CD 				= P.CTRY_CD
+			LEFT OUTER JOIN CODE			PSC
+			ON		PSC.GRP_CD = 'PROC_STAT_CD'
+			AND		PSC.COM_CD = OPI.PROC_STAT_CD
+			LEFT OUTER JOIN    SELLER_INFO_CFG 	SIC
+			ON     	SIC.MBER_SEQ     	    = P.MBER_SEQ
+			LEFT OUTER JOIN (										        /* 묶음 배송 마지막 상품에 배송비 적용 */
+						SELECT	OPI.ORD_CD
+						,	    OPI.PROD_CODE
+						,       OPI.PROD_SEQ
+						,	    C.DLV_PRCE
+						,     	C.BNDL_DLY_CNT
+						,	    P.PROD_TYPE_CD
+						,      	CASE WHEN C.BNDL_DLY_CNT &gt; 1 THEN P.BNDL_DLV_YN ELSE 'N' END     AS BNDL_DLV_YN
+						,	    OI.MBER_SEQ 
+						,	    (ROW_NUMBER() OVER(PARTITION BY OI.ORD_CD, C.SELLER_SEQ, C.GRP_PROD_SEQ  ORDER BY OI.ORD_CD ))	AS NO  
+						FROM  	ORD_INFO      	OI
+						JOIN    ORD_PROD_INFO   OPI
+						ON	    OI.ORD_CD 	    = OPI.ORD_CD
+						JOIN   	PROD            P
+						ON     	OPI.PROD_CODE   = P.PROD_CODE
+						JOIN  	GRP_PROD_MAP    GRM
+						ON     	P.PROD_CODE     = GRM.PROD_CODE
+						AND   	P.MBER_SEQ     	= GRM.MBER_SEQ
+						JOIN    (
+									SELECT	OI.MBER_SEQ
+									,	    OI.ORD_CD
+									,     	GPM.GRP_PROD_SEQ
+									,      	GPM.MBER_SEQ            AS SELLER_SEQ
+									,	    MIN(OPI.DLV_PRCE)	    AS DLV_PRCE
+									,     	COUNT(GPM.PROD_CODE)    AS BNDL_DLY_CNT  
+									FROM   	ORD_INFO      	OI
+									JOIN    ORD_PROD_INFO   OPI
+									ON	    OI.ORD_CD 	    = OPI.ORD_CD
+									JOIN   	PROD           	P
+									ON    	OPI.PROD_CODE  	= P.PROD_CODE
+									JOIN   	GRP_PROD_MAP    GPM
+									ON     	GPM.PROD_CODE  	= P.PROD_CODE
+									AND    	P.MBER_SEQ    	= GPM.MBER_SEQ
+									WHERE  	P.BNDL_DLV_YN 	= 'Y'
+						--		    AND     P.PROD_TYPE_CD	= '1'
+									AND		OPI.CANC_CD	IS NULL
+									GROUP BY  OI.MBER_SEQ, OI.ORD_CD, GPM.MBER_SEQ,  GPM.GRP_PROD_SEQ
+						        )    		    C
+						ON	    C.GRP_PROD_SEQ	= GRM.GRP_PROD_SEQ
+						AND    	C.SELLER_SEQ   	= GRM.MBER_SEQ
+						AND   	C.MBER_SEQ     	= OI.MBER_SEQ
+						AND	    C.ORD_CD	    = OI.ORD_CD
+						WHERE  	P.BNDL_DLV_YN  	= 'Y'
+		--			    AND     	P.PROD_TYPE_CD	= '1'
+						    ) 	            BDY                             /** BUNDLE_DELIVERY_CNT */ 
+			ON	    BDY.MBER_SEQ 	        = OPI.MBER_SEQ
+			AND	    BDY.ORD_CD 		        = OPI.ORD_CD
+			AND	    BDY.PROD_CODE 		    = OPI.PROD_CODE
+			AND	    BDY.PROD_SEQ			= OPI.PROD_SEQ  
+			AND	    BDY.PROD_TYPE_CD        = P.PROD_TYPE_CD  
+       		<include refid="SearchAdjustByTr"/>
+       		) Z
+        ORDER BY REGIST_DT, ORD_CD_DANAL, PROD_CD, PROD_SEQ
+	</select>
+	
+	<!-- 정산대기 판매정산 상세 조회 -->
+	<select id="selectSellAdjust" parameterType="HashMap" resultType="HashMap">
+		/*adminAdjustMapper.selectSellAdjust*/
+		SELECT AH.MBER_SEQ                  
+        ,    MAX(MI.MBER_EMAIL)            					MBER_EMAIL  
+        ,    SUM(AH.SELL_PRCE_SUM + AH.DLV_PRCE)   			TOT_SELL                  				/* 판매금액 소계*/
+        ,    SUM(AH.SELL_PRCE_SUM)                  		SELL_PRCE                       		/* 상품금액 */
+        ,    SUM(ABS(AH.DLV_PRCE))                      	DLV_PRCE                             	/* 배송비 */
+        ,    SUM(AH.DNL_CMTN + AH.DSCNT_SEL_AMT + CASE WHEN AH.DLV_PRCE &lt; 0 THEN AH.DLV_PRCE * -1 ELSE 0 END)  TOT_DSCT        /* 공제금액 소계*/
+        ,    SUM(AH.DNL_CMTN)                   			DNL_CMTN                                /* 통신판매 수수료 */
+        ,    SUM(AH.DSCNT_SEL_AMT)              			DSCNT_SEL_AMT                           /* 할인쿠폰분담금*/
+        ,	 SUM(CASE WHEN AH.DLV_PRCE &lt; 0 THEN AH.DLV_PRCE * -1 ELSE 0 END)  	CO_DLV_PRCE
+        ,	 SUM(AH.DSCNT_CON_AMT - AH.DSCNT_CON_DNL_AMT) 	DSCNT_CON_SEL_AMT
+        ,    SUM(AH.ADJ_AMT)         						ADJ_AMT  								/*정산금액*/
+        ,	 COUNT(AH.MBER_SEQ) 							ADJ_CNT        
+        FROM        ADJUST_HIST AH
+        JOIN         MBER_INFO MI
+        ON AH.MBER_SEQ = MI.MBER_SEQ
+         <include refid="SearchAdjust"/>
+        AND AH.MBER_SEQ = #{MBER_SEQ}
+        AND         AH.PROD_TYPE_CD = '1'
+        GROUP BY AH.MBER_SEQ
+	</select>
+	
+	<!-- 정산대기 셰어링정산 상세 조회 -->
+	<select id="selectShareAdjust" parameterType="HashMap" resultType="HashMap">
+		/*adminAdjustMapper.selectShareAdjust*/
+		SELECT  AH.MBER_SEQ                  											AS MBER_SEQ
+<!--         ,       TO_CHAR(TO_DATE(#{S_START_DATE},'YYYYMMDD'), 'YYYY.MM.DD')       		AS S_START_DATE            -->
+<!--         ,    	TO_CHAR(TO_DATE(#{S_END_DATE},'YYYYMMDD'), 'YYYY.MM.DD')        		AS S_END_DATE  -->
+        ,       MAX(MI.MBER_EMAIL)                                                     	AS MBER_EMAIL  
+        ,       SUM(AH.SELL_PRCE_SUM + ABS(AH.DLV_PRCE))                               	AS TOT_SELL              /* 판매금액 소계*/
+        ,       SUM(AH.DEPOSIT * AH.ORD_QTY)                                           	AS DEPOSIT               /* 보증금 */
+        ,       SUM(AH.SELL_PRCE * AH.SHARE_TERM * AH.ORD_QTY)                         	AS SHARE_AMT             /* 셰어링료 */
+        ,		SUM(ABS(AH.DLV_PRCE))													AS DLV_PRCE				 /* 배송료 */
+        ,       SUM(AH.DNL_CMTN + AH.DSCNT_SEL_AMT + AH.RTN_TO_SEL_DPST + CASE WHEN AH.DLV_PRCE &lt; 0 THEN AH.DLV_PRCE * -1 ELSE 0 END )         AS TOT_DSCT        /* 공제금액 소계*/
+        ,       SUM(AH.DNL_CMTN)                                                       	AS DNL_CMTN              /* 셰어링수수료 */
+        ,       SUM(AH.DSCNT_SEL_AMT)                                                  	AS DSCNT_SEL_AMT         /* 할인쿠폰분담금 */
+        ,       SUM(CASE WHEN AH.DLV_PRCE &lt; 0 THEN AH.DLV_PRCE * -1 ELSE 0 END)     	AS CO_DLV_PRCE           /* 제휴택배 배송비 */ 
+        ,       SUM(AH.RTN_TO_SEL_DPST)                                                	AS RTN_TO_SEL_DPST       /* 반납회수보증금 */
+        ,       SUM(AH.DSCNT_CON_AMT - AH.DSCNT_CON_DNL_AMT)                           	AS DSCNT_CON_SEL_AMT     /* 유입경로할인  */
+        ,       SUM(AH.ADJ_AMT)                                                        	AS ADJ_AMT               /* 정산금액 */
+        ,		COUNT(AH.MBER_SEQ)													   	AS ADJ_CNT
+        ,       MAX(MI.MBER_GB_CD) 													   AS MBER_GB_CD
+        FROM    ADJUST_HIST AH
+        JOIN    MBER_INFO MI
+        ON      AH.MBER_SEQ = MI.MBER_SEQ
+        <include refid="SearchAdjust"/>
+        AND 	AH.MBER_SEQ = #{MBER_SEQ}
+        AND         AH.PROD_TYPE_CD = '2' 
+        GROUP BY AH.MBER_SEQ
+           
+	</select>
+	
+	<!-- 정산대기 판매정산 상세 리스트 조회 -->
+	<select id="selectDtlListSellAdjust" parameterType="HashMap" resultType="HashMap">
+		/*adminAdjustMapper.selectDtlListSellAdjust*/
+		
+		<include refid="adminCommonMapper.pagingHeader" />
+
+    SELECT Z.*
+    ,       ROW_NUMBER() OVER(ORDER BY ODR_YMD DESC )     AS NO 
+    ,       SELL_PRCE_SUM + DLV_PRCE                TOT_SELL
+    ,       DNL_CMTN + DSCNT_SEL_AMT + CO_DLV_PRCE                  TOT_DSCT
+    FROM (
+        
+        SELECT  TO_CHAR(TO_DATE(AH.ODR_YMD||AH.ODR_TMS  , 'YYYYMMDDHH24MISS' )  , 'YYYY-MM-DD hh24:mi')     AS ODR_YMD        		/* 주문일시 */     
+        ,		AH.ORD_CD                               													ORD_CD                	/*주문번호 */
+        ,       OI.ORD_NM                               													ORD_NM               	/*구매자명*/
+        ,       OI.ORD_EMAIL                            													ORD_EMAIL           	/*구매자ID*/ 
+        ,       NVL(TO_CHAR(TO_DATE(AH.CNF_YMD, 'YYYYMMDD')  , 'YYYY-MM-DD'),'-')      								CNF_YMD        			/* 구매확정일 */ 
+        ,       AH.PROD_CD                     																PROD_CD               	/* 상품코드 */
+        ,       AH.PROD_NM                     																PROD_NM                	/* 상품명 */
+        ,       AH.ORD_QTY                     																ORD_QTY              	/* 주문수량 */
+        ,    	AH.ADJ_AMT         																			ADJ_AMT  				/*정산금액*/
+        ,    	AH.SELL_PRCE_SUM                      														SELL_PRCE_SUM           /* 상품금액 */
+        ,    	ABS(AH.DLV_PRCE)                                   											DLV_PRCE                /* 선결제 배송비 */        
+        ,    	AH.DNL_CMTN                   																DNL_CMTN                /* 통신판매 수수료 */
+        ,    	CASE 	WHEN  AH.DNL_CMTN_RATE_NM = 'TAX_PLAN'   THEN    '기획전수수료'
+                  		WHEN  AH.DNL_CMTN_RATE_NM = 'TAX_PROD'   THEN    '상품수수료'                
+                  		WHEN  AH.DNL_CMTN_RATE_NM = 'TAX_SELLER' THEN    '판매자수수료'                
+                  		WHEN  AH.DNL_CMTN_RATE_NM = 'TAX_SELL'   THEN    '카테고리판매수수료'               
+                  		WHEN  AH.DNL_CMTN_RATE_NM = 'TAX_SHARE'  THEN    '카테고리쉐어링수수료'       
+                  		ELSE '-'       
+             	END                            																DNL_CMTN_RATE_NM        /*통신판매수수료정책*/
+        ,    	AH.DNL_CMTN_RATE               																DNL_CMTN_RATE           /*통신판매수수료율*/
+        ,    	AH.DSCNT_SEL_AMT              																DSCNT_SEL_AMT           /* 할인쿠폰분담금*/
+        ,    	CASE WHEN AH.DLV_PRCE &lt; 0 THEN AH.DLV_PRCE * -1 ELSE 0 END  								CO_DLV_PRCE            	/* 제휴택배배송비 */
+        ,    	AH.ADJ_STAT                   																ADJ_STAT                /* 정산상태 */
+        ,	 	AH.DSCNT_CON_AMT - AH.DSCNT_DLV_DNL_AMT	   													DSCNT_CON_SEL_AMT 		/* 유입경로판매자부담금 */ 
+        ,	 	AH.MEMO																						MEMO
+        FROM    ADJUST_HIST AH        
+        JOIN    ORD_INFO OI
+        ON      AH.ORD_CD = OI.ORD_CD
+        <include refid="SearchAdjust"/>
+        AND         AH.MBER_SEQ          = #{MBER_SEQ}
+        AND         AH.PROD_TYPE_CD      = '1'    
+        ) Z
+		
+		<include refid="adminCommonMapper.pagingFooter" />
+	</select>
+	
+	<!-- 정산대기 셰어링정산 상세 리스트 조회 -->
+	<select id="selectDtlListShareAdjust" parameterType="HashMap" resultType="HashMap">
+		/*adminAdjustMapper.selectDtlListShareAdjust*/
+		<include refid="adminCommonMapper.pagingHeader" />
+		SELECT  Z.*
+        ,       DEPOSIT + SHARE_AMT + DLV_PRCE   																TOT_SELL            /* 판매금액 소계*/
+        ,       DNL_CMTN + DSCNT_SEL_AMT + CO_DLV_PRCE + RTN_TO_SEL_DPST + DSCNT_CON_SEL_AMT    				TOT_DSCT			/* 공제금액 소계*/       
+        FROM(
+            SELECT  ROW_NUMBER() OVER(ORDER BY AH.ODR_YMD DESC )     											NO   
+            ,       TO_CHAR(TO_DATE(AH.ODR_YMD||AH.ODR_TMS  , 'YYYYMMDDHH24MISS' )  , 'YYYY-MM-DD hh24:mi')     ODR_YMD        		/* 주문일시 */  
+        ,       NVL(TO_CHAR(TO_DATE(AH.CNF_YMD, 'YYYYMMDD')  , 'YYYY-MM-DD'),'-')      								CNF_YMD        			/* 구매확정일 */    
+            ,       AH.ORD_CD                               													ORD_CD              /*주문번호 */
+            ,       OI.ORD_NM                               													ORD_NM              /*구매자명*/
+            ,       OI.ORD_EMAIL                            													ORD_EMAIL           /*구매자ID*/ 
+            ,       NVL(TO_CHAR(TO_DATE(AH.RTN_YMD, 'YYYYMMDD')  , 'YYYY-MM-DD'),'-')      								RTN_YMD        		/* 반납완료일 */ 
+            ,       TO_CHAR(TO_DATE(AH.CMP_SHARE_YMD, 'YYYYMMDD')  , 'YYYY-MM-DD')      						CMP_SHARE_YMD       /* 셰어링종료일 */ 
+            ,       AH.PROD_CD                     																PROD_CD             /* 상품코드 */
+            ,       AH.PROD_NM                     																PROD_NM             /* 상품명 */        
+            ,       AH.ORD_QTY                     																ORD_QTY             /* 주문수량 */ 
+            ,       AH.ADJ_AMT         																			ADJ_AMT  			/*정산금액*/
+            ,    	AH.DEPOSIT                             														DEPOSIT             /* 보증금 */
+            ,    	AH.SELL_PRCE * AH.SHARE_TERM           														SHARE_AMT           /* 셰어링료 */
+            ,		ABS(AH.DLV_PRCE)																			DLV_PRCE			/* 쉐어링배송료 */
+            ,    	AH.DNL_CMTN                   																DNL_CMTN            /* 셰어링수수료 */
+            ,    	CASE 	WHEN  AH.DNL_CMTN_RATE_NM = 'TAX_PLAN'   THEN    '기획전수수료'
+                  			WHEN  AH.DNL_CMTN_RATE_NM = 'TAX_PROD'   THEN    '상품수수료'                
+                  			WHEN  AH.DNL_CMTN_RATE_NM = 'TAX_SELLER' THEN    '판매자수수료'                
+                  			WHEN  AH.DNL_CMTN_RATE_NM = 'TAX_SELL'   THEN    '카테고리판매수수료'               
+                  			WHEN  AH.DNL_CMTN_RATE_NM = 'TAX_SHARE'  THEN    '카테고리쉐어링수수료' 
+							ELSE '-'            
+             		END                            																DNL_CMTN_RATE_NM    /*통신판매수수료정책*/
+            ,    	AH.DNL_CMTN_RATE               																DNL_CMTN_RATE       /*통신판매수수료율*/
+            ,    	AH.DSCNT_SEL_AMT              																DSCNT_SEL_AMT       /* 할인쿠폰분담금*/
+            ,    	CASE WHEN AH.DLV_PRCE &lt; 0 THEN AH.DLV_PRCE * -1 ELSE 0 END     							CO_DLV_PRCE
+            ,    	AH.RTN_TO_SEL_DPST               															RTN_TO_SEL_DPST     /* 반납회수보증금*/
+            ,    	AH.DSCNT_CON_AMT - AH.DSCNT_CON_DNL_AMT                        								DSCNT_CON_SEL_AMT   /* 유입경로할인분담금 */
+            ,    	AH.ADJ_STAT                   																ADJ_STAT            /* 정산상태 */      
+        	,	 	AH.MEMO																						MEMO            
+            FROM        ADJUST_HIST AH        
+            JOIN    ORD_INFO OI
+            ON      AH.ORD_CD = OI.ORD_CD        
+            <include refid="SearchAdjust"/>
+            AND         AH.MBER_SEQ          = #{MBER_SEQ}
+            AND         AH.PROD_TYPE_CD      = '2'    
+        ) Z
+		<include refid="adminCommonMapper.pagingFooter" />
+		
+	</select>
+	
+	<!-- 정산대기 판매정산 상세 리스트 카운트 조회 -->
+	<select id="selectDtlListSellAdjustCount" parameterType="HashMap" resultType="int">
+		/*adminAdjustMapper.selectDtlListSellAdjustCount*/
+	    SELECT COUNT(*) 				AS TOTAL_COUNT
+	    FROM   (
+			    SELECT  AH.ORD_CD       AS ORD_CD            
+               
+                FROM    ADJUST_HIST AH        
+                JOIN    ORD_INFO OI
+                ON      AH.ORD_CD = OI.ORD_CD
+                <include refid="SearchAdjust"/>
+                AND     AH.MBER_SEQ       = #{MBER_SEQ}
+                AND     AH.PROD_TYPE_CD   = '1' 
+		)
+	</select>
+	
+	<!-- 정산대기 셰어링정산 상세 리스트 카운트 조회 -->
+	<select id="selectDtlListShareAdjustCount" parameterType="HashMap" resultType="int">
+		/*adminAdjustMapper.selectDtlListShareAdjustCount*/
+	    SELECT COUNT(*) 						AS TOTAL_COUNT
+	    FROM(
+			SELECT  ROW_NUMBER() OVER(ORDER BY AH.ODR_YMD DESC )     AS NO   
+            FROM    ADJUST_HIST AH        
+            JOIN    ORD_INFO OI
+            ON      AH.ORD_CD = OI.ORD_CD        
+            <include refid="SearchAdjust"/>
+            AND     AH.MBER_SEQ      = #{MBER_SEQ}
+            AND     AH.PROD_TYPE_CD  = '2'    
+		)
+	</select>
+	
+	
+	<!-- 정산대기 상세 선택정산완료 -->
+	<update id="goCpltAdjust" parameterType="hashmap">
+		/*adminAdjustMapper.goCpltAdjust*/
+		 UPDATE 	ADJUST_HIST
+		 SET 		ADJ_STAT = 'F'         
+		 ,			CHG_YMD = TO_CHAR(SYSDATE,'YYYYMMDD')
+		 ,			CHG_TMS = TO_CHAR(SYSDATE,'HH24MISS')
+		 ,			SUB_IDX =  #{SUB_IDX}         
+		 WHERE   	MBER_SEQ   = #{MBER_SEQ}     
+		 		AND         PROD_TYPE_CD      = #{PROD_TYPE_CD} 
+<!-- 		 AND		ADJ_STAT IS NULL                     -->
+<!-- 		 AND	 	ORD_CD 	= #{ORD_CD} -->
+<!-- 		 AND	 	PROD_CD	= #{PROD_CD} -->
+		 <if test="ord_cd_arr != null and ord_cd_arr != ''">
+		   AND			ORD_CD IN
+			<foreach collection="ord_cd_arr" item="ord_cd" open="(" close=")" separator=",">
+	  			#{ord_cd}
+			</foreach>
+		</if>
+		<if test="prod_cd_arr != null and prod_cd_arr != ''">
+		   AND			PROD_CD IN
+			<foreach collection="prod_cd_arr" item="prod_cd" open="(" close=")" separator=",">
+	  			#{prod_cd}
+			</foreach>
+		</if>
+	</update>
+	
+	<insert id="insertAdjustInfo" parameterType="hashmap">
+		INSERT INTO ADJUST_INFO (
+				IDX
+		,		MBER_SEQ
+		,		MBER_EMAIL
+		,		SELL_PRCE
+		,		DNL_CMTN
+		,		ORD_AMT
+		,		DLV_SETL_AMT
+		,		DSCNT_AMT
+		,		DSCNT_DNL_AMT
+		,		DSCNT_SEL_AMT
+		,		DLV_RE_AMT
+		,		RFND_AMT
+		,		RFND_DNL_AMT
+		,		RFND_SEL_AMT
+		,		DNL_AMT
+		,		ADJ_AMT
+		,		ADJ_STAT
+		,		CHG_YMD
+		,		CHG_TMS
+		,		REG_YMD
+		,		REG_TMS
+		) 
+		SELECT 		SEQ_ADJUST_INFO.NEXTVAL
+		,			MBER_SEQ
+		,			MBER_EMAIL
+		,			SELL_PRCE
+		,			DNL_CMTN
+		,			ORD_AMT
+		,			DLV_SETL_AMT
+		,			DSCNT_AMT
+		,			DSCNT_DNL_AMT
+		,			DSCNT_SEL_AMT
+		,			DLV_RE_AMT
+		,			RFND_AMT
+		,			RFND_DNL_AMT
+		,			RFND_SEL_AMT
+		,			DNL_AMT
+		,			ADJ_AMT
+		,			'F'
+		,			TO_CHAR(SYSDATE,'YYYYMMDD')
+		,			TO_CHAR(SYSDATE,'HH24MISS')
+		,			TO_CHAR(SYSDATE,'YYYYMMDD')
+		,			TO_CHAR(SYSDATE,'HH24MISS')
+		FROM (	
+			SELECT  	MAX(AH.MBER_SEQ)    				AS 	MBER_SEQ
+			,			MAX(MI.MBER_EMAIL) 					AS 	MBER_EMAIL
+			,           SUM(AH.SELL_PRCE_SUM)               AS 	SELL_PRCE               /* 상품금액*/
+			,           SUM(AH.DNL_CMTN)                    AS 	DNL_CMTN                /* 통신판매 수수료*/
+			,           SUM(AH.ORD_AMT)                     AS 	ORD_AMT                 /* 판매금액*/ 
+			,           SUM(AH.DLV_PRCE)                    AS  DLV_SETL_AMT            /* 배송비*/   
+			,			SUM(AH.DSCNT_TOT_AMT)				AS  DSCNT_AMT
+			,           SUM(AH.DSCNT_DNL_AMT)               AS  DSCNT_DNL_AMT           /* 다날공제*/ 
+			,           SUM(AH.DSCNT_SEL_AMT)               AS  DSCNT_SEL_AMT           /* 판매자공제*/ 
+			,			SUM(AH.DLV_RE_AMT)					AS  DLV_RE_AMT
+			,           SUM(AH.RFND_AMT)                    AS  RFND_AMT                /* 환불*/ 
+			,           SUM(AH.RFND_DNL_AMT)                AS  RFND_DNL_AMT            /* 다날환불*/  
+			,           SUM(AH.RFND_SEL_AMT)                AS  RFND_SEL_AMT            /* 판매자환불*/ 
+			,           SUM(AH.DNL_AMT)                		AS  DNL_AMT                 /* 다날매출*/ 
+			,           SUM(AH.ADJ_AMT)                     AS  ADJ_AMT                 /* 정산금액*/       
+			
+			FROM        ADJUST_HIST AH
+			JOIN		MBER_INFO MI
+			ON			AH.MBER_SEQ = MI.MBER_SEQ
+			WHERE  		AH.MBER_SEQ          = #{MBER_SEQ}
+			AND         AH.PROD_TYPE_CD      = #{PROD_TYPE_CD}    /* 상품타입코드 */
+<!-- 			AND			AH.ADJ_STAT IS NULL -->
+			<if test="ord_cd_arr != null and ord_cd_arr != ''">
+			   AND			AH.ORD_CD IN
+				<foreach collection="ord_cd_arr" item="ord_cd" open="(" close=")" separator=",">
+		  			#{ord_cd}
+				</foreach>
+			</if>
+			<if test="prod_cd_arr != null and prod_cd_arr != ''">
+			   AND			AH.PROD_CD IN
+				<foreach collection="prod_cd_arr" item="prod_cd" open="(" close=")" separator=",">
+		  			#{prod_cd}
+				</foreach>
+			</if>
+			GROUP BY  AH.MBER_SEQ
+		)
+		<selectKey keyProperty="SUB_IDX" resultType="String" order="AFTER">
+			SELECT SEQ_ADJUST_INFO.CURRVAL FROM DUAL
+		</selectKey>
+	</insert>
+	
+	<update id="chgAdjStatW" parameterType="hashmap">
+		/* adminAdjustMapper.chgAdjStatW */
+		 UPDATE 	ADJUST_HIST
+		 SET 		ADJ_STAT = 'W'   
+		 ,			CHG_YMD = TO_CHAR(SYSDATE,'YYYMMDD')
+		 ,			CHG_TMS = TO_CHAR(SYSDATE,'HH24MISS')
+		 <if test="MEMO neq null and MEMO neq ''.toString()">
+		 ,			MEMO = #{MEMO}
+		 </if>      
+		 WHERE   	ORD_CD 	= #{ORD_CD}
+		 AND	 	PROD_CD	= #{PROD_CD}
+	</update>
+	
+	<update id="chgAdjStatN" parameterType="hashmap">
+		/* adminAdjustMapper.chgAdjStatW */
+		 UPDATE 	ADJUST_HIST
+		 SET 		ADJ_STAT = ''    
+		 ,			CHG_YMD = TO_CHAR(SYSDATE,'YYYMMDD')
+		 ,			CHG_TMS = TO_CHAR(SYSDATE,'HH24MISS')     
+		 WHERE   	ORD_CD 	= #{ORD_CD}
+		 AND	 	PROD_CD	= #{PROD_CD}
+	</update>
+	
+	<update id="chgAdjStatR" parameterType="hashmap">
+		/* adminAdjustMapper.chgAdjStatR */
+		 UPDATE 	ADJUST_HIST
+		 SET 		ADJ_STAT = 'R'    
+		 ,			CHG_YMD = TO_CHAR(SYSDATE,'YYYMMDD')
+		 ,			CHG_TMS = TO_CHAR(SYSDATE,'HH24MISS')     
+		 WHERE   	ORD_CD 	= #{ORD_CD}
+		 AND	 	PROD_CD	= #{PROD_CD}
+	</update>
+	
+	<insert id="insertAdjInfo" parameterType="hashmap">
+		/* adminAdjustMapper.insertAdjInfo */
+		INSERT INTO ADJUST_INFO (
+				IDX
+		,		MBER_SEQ
+		,		MBER_EMAIL
+		,		SELL_PRCE
+		,		DNL_CMTN
+		,		ORD_AMT
+		,		DLV_SETL_AMT
+		,		DSCNT_AMT
+		,		DSCNT_DNL_AMT
+		,		DSCNT_SEL_AMT
+		,		DLV_RE_AMT
+		,		RFND_AMT
+		,		RFND_DNL_AMT
+		,		RFND_SEL_AMT
+		,		DNL_AMT
+		,		ADJ_AMT
+		,		ADJ_STAT
+		,		CHG_YMD
+		,		CHG_TMS
+		,		REG_YMD
+		,		REG_TMS
+		) 
+		SELECT  	SEQ_ADJUST_INFO.NEXTVAL
+		,			AH.MBER_SEQ    				MBER_SEQ
+		,			MI.MBER_EMAIL 				MBER_EMAIL
+		,			AH.SELL_PRCE_SUM            SELL_PRCE                /* 상품금액*/
+		,			AH.DNL_CMTN                 DNL_CMTN                 /* 통신판매 수수료*/
+		,			AH.ORD_AMT                  ORD_AMT                  /* 판매금액*/ 
+		,			AH.DLV_PRCE                 DLV_SETL_AMT             /* 배송비*/   
+		,			AH.DSCNT_TOT_AMT			DSCNT_AMT
+		,			AH.DSCNT_DNL_AMT            DSCNT_DNL_AMT            /* 다날공제*/ 
+		,			AH.DSCNT_SEL_AMT            DSCNT_SEL_AMT            /* 판매자공제*/ 
+		,			AH.DLV_RE_AMT				DLV_RE_AMT
+		,			AH.RFND_AMT                 RFND_AMT                 /* 환불*/ 
+		,			AH.RFND_DNL_AMT             RFND_DNL_AMT             /* 다날환불*/  
+		,			AH.RFND_SEL_AMT             RFND_SEL_AMT             /* 판매자환불*/ 
+		,			AH.DNL_AMT                	DNL_AMT                  /* 다날매출*/ 
+		,			AH.ADJ_AMT                  ADJ_AMT  
+		,			'F'
+		,			TO_CHAR(SYSDATE,'YYYYMMDD')
+		,			TO_CHAR(SYSDATE,'HH24MISS')
+		,			TO_CHAR(SYSDATE,'YYYYMMDD')
+		,			TO_CHAR(SYSDATE,'HH24MISS')             
+		FROM        ADJUST_HIST AH
+		JOIN		MBER_INFO MI
+		ON			AH.MBER_SEQ = MI.MBER_SEQ
+		WHERE       AH.ORD_CD      			=     	#{ORD_CD}
+		AND 		AH.PROD_CD      		=     	#{PROD_CD}
+<!-- 	 	AND			AH.ADJ_STAT IS NULL -->
+		<selectKey keyProperty="SUB_IDX" resultType="String" order="AFTER">
+			SELECT SEQ_ADJUST_INFO.CURRVAL FROM DUAL
+		</selectKey>
+	</insert>
+	
+	<update id="chgAdjStatF" parameterType="hashmap">
+		/* adminAdjustMapper.chgAdjStatF */
+		 UPDATE 	ADJUST_HIST
+		 SET 		ADJ_STAT = 'F' 
+		 ,			CHG_YMD = TO_CHAR(SYSDATE,'YYYYMMDD')
+		 ,			CHG_TMS = TO_CHAR(SYSDATE,'HH24MISS')
+		 ,			SUB_IDX =  #{SUB_IDX}         
+		 WHERE   	ORD_CD 	= #{ORD_CD}
+		 AND	 	PROD_CD	= #{PROD_CD}
+<!-- 		 AND		ADJ_STAT IS NULL -->
+	</update>
+	
+	<update id="updateAdjHistStatA" parameterType="hashmap">
+		UPDATE ADJUST_HIST SET 
+			ADJ_STAT = 'A'
+		WHERE ORD_CD = #{ORD_CD}
+		AND PROD_CD = #{PROD_CD}
+		AND PROD_SEQ = #{PROD_SEQ}
+		AND ADJ_STAT IS NULL 
+	</update>
+	
+	<!-- 정산처리 -->
+	<!-- 정산결제 결과 upload -->
+	<insert id="insertAdjustTrInfo" parameterType="hashMap">
+		INSERT INTO ADJUST_TR_INFO (
+					TR_ID
+		,			CPID
+		,			AMT
+		,			TR_DT
+		,			SELT_GB_CD_NM
+		,			ORD_CD
+		,			REG_DTTI
+		) VALUES (
+					#{TR_ID}
+		,			#{CPID}
+		,			#{AMT}
+		,			#{TR_DT}
+		,			#{SELT_GB_CD_NM}
+		,			#{ORD_CD}
+		,			SYSDATE
+		)
+	</insert>
+	
+	<insert id="insertAdjustLogForTr" parameterType="hashMap">
+		INSERT INTO ADJUST_LOG (
+					TR_ID
+		,			AMT
+		,			ORD_CD
+		,			REG_DTTI
+		) VALUES (
+					#{TR_ID}
+		,			#{AMT}
+		,			#{ORD_CD}
+		,			SYSDATE
+		)
+	</insert>
+
+	<!-- SFTP UPLOAD -->
+	<select id="getAdjustFilePath" resultType="String">
+		SELECT	NVL(COM_CD_NM,'')
+		FROM		CODE
+		WHERE	GRP_CD = 'ADJUST_FILE_PATH'
+	</select>
+	
+	<select id="getAdjustHistCnt" parameterType="hashmap" resultType="int">
+		SELECT	COUNT(*)
+		FROM		ADJUST_HIST AH
+		JOIN		PROD P
+		ON		AH.PROD_CD = P.PROD_CODE
+		JOIN		SELLER_INFO_CFG SIC
+		ON		P.MBER_SEQ = SIC.MBER_SEQ
+		JOIN		CODE C
+		ON		C.COM_CD_NM = SIC.BANK_NM
+		AND 		C.GRP_CD = 'BANK_GB_CD'
+		WHERE	AH.ADJ_STAT = 'R' /* 정산 예정 */	
+	</select>
+	
+	<select id="listAdjustHist" parameterType="hashmap" resultType="hashMap">
+		SELECT	AH.ORD_CD
+		,			AH.PROD_CD				AS PROD_CODE
+		,			C.COM_CD_VAL			AS BANK_CD
+		,			SIC.BANK_ACNT_NO
+		,			SIC.ACNT_NM
+		,			'KRW' 						AS CRNCY	
+		,			AH.ADJ_AMT				AS AMT
+		FROM		ADJUST_HIST AH
+		JOIN		PROD P
+		ON		AH.PROD_CD = P.PROD_CODE
+		JOIN		SELLER_INFO_CFG SIC
+		ON		P.MBER_SEQ = SIC.MBER_SEQ
+		JOIN		CODE C
+		ON		C.COM_CD_NM = SIC.BANK_NM
+		AND 		C.GRP_CD = 'BANK_GB_CD'
+		WHERE	AH.ADJ_STAT = 'R' /* 정산 예정 */		
+	</select>
+	
+	<!-- 다날 정산 정보 저장 -->
+	<insert id="insertAdjustPaymntInfo" parameterType="hashMap">
+		INSERT INTO ADJUST_PAYMNT_INFO (
+					IDX
+		,			BANK_CD
+		,			BANK_ACNT_NO
+		,			CRNCY
+		,			AMT
+		,			ACNT_NM
+		,			ORD_CD
+		,			PROD_CODE
+		,			STAT
+		,			RET_CD
+		,			RET_MSG
+		,			REG_DTTI
+		) VALUES (
+					SEQ_ADJUST_PAYMNT_INFO.NEXTVAL
+		,			#{BANK_CD, jdbcType=VARCHAR}
+		,			#{BANK_ACNT_NO, jdbcType=VARCHAR}
+		,			#{CRNCY, jdbcType=VARCHAR}
+		,			#{AMT}
+		,			#{ACNT_NM, jdbcType=VARCHAR}
+		,			#{ORD_CD, jdbcType=VARCHAR}
+		,			#{PROD_CODE, jdbcType=VARCHAR}
+		,			#{STAT, jdbcType=VARCHAR}
+		,			#{RET_CD, jdbcType=VARCHAR}
+		,			#{RET_MSG, jdbcType=VARCHAR}
+		,			SYSDATE
+		)
+		<selectKey keyProperty="IDX" order="AFTER" resultType="String">
+			SELECT SEQ_ADJUST_PAYMNT_INFO.CURRVAL FROM DUAL
+		</selectKey>
+	</insert>
+	
+	<insert id="insertAdjustLog" parameterType="hashmap" >
+		INSERT INTO ADJUST_LOG (
+					SUB_IDX
+		,			BANK_CD
+		,			BANK_ACNT_NO
+		,			AMT
+		,			ACNT_NM
+		,			ORD_CD
+		,			PROD_CODE
+		,			REG_DTTI
+		) VALUES (
+					#{IDX}
+		,			#{BANK_CD}
+		,			#{BANK_ACNT_NO}
+		,			#{AMT} * -1
+		,			#{ACNT_NM}
+		,			#{ORD_CD}
+		,			#{PROD_CODE}
+		,			SYSDATE
+		)
+	</insert>
+	
+	<select id="getAdjustInfoByTxtCnt" parameterType="hashmap" resultType="int">
+		SELECT  	COUNT(*)   
+		FROM    	ADJUST_HIST AH
+		LEFT OUTER JOIN	MBER_INFO MI
+		ON		AH.MBER_SEQ = MI.MBER_SEQ
+		WHERE  	AH.ADJ_STAT = 'R'
+	   	AND		AH.ORD_CD  = #{ORD_CD}
+		AND		AH.PROD_CD = #{PROD_CODE}
+	</select>
+	
+	<insert id="insertAdjustInfoByTxt" parameterType="hashmap">
+		INSERT INTO ADJUST_INFO (
+				IDX
+		,		MBER_SEQ
+		,		MBER_EMAIL
+		,		SELL_PRCE
+		,		DNL_CMTN
+		,		ORD_AMT
+		,		DLV_SETL_AMT
+		,		DSCNT_AMT
+		,		DSCNT_DNL_AMT
+		,		DSCNT_SEL_AMT
+		,		DLV_RE_AMT
+		,		RFND_AMT
+		,		RFND_DNL_AMT
+		,		RFND_SEL_AMT
+		,		DNL_AMT
+		,		ADJ_AMT
+		,		ADJ_STAT
+		,		CHG_YMD
+		,		CHG_TMS
+		,		REG_YMD
+		,		REG_TMS
+		) 
+		SELECT 	SEQ_ADJUST_INFO.NEXTVAL
+		,			MBER_SEQ
+		,			MBER_EMAIL
+		,			SELL_PRCE
+		,			DNL_CMTN
+		,			ORD_AMT
+		,			DLV_SETL_AMT
+		,			DSCNT_AMT
+		,			DSCNT_DNL_AMT
+		,			DSCNT_SEL_AMT
+		,			DLV_RE_AMT
+		,			RFND_AMT
+		,			RFND_DNL_AMT
+		,			RFND_SEL_AMT
+		,			DNL_AMT
+		,			ADJ_AMT
+		,			'F'
+		,			TO_CHAR(SYSDATE,'YYYYMMDD')
+		,			TO_CHAR(SYSDATE,'HH24MISS')
+		,			TO_CHAR(SYSDATE,'YYYYMMDD')
+		,			TO_CHAR(SYSDATE,'HH24MISS')
+		FROM (	
+			SELECT  	MAX(AH.MBER_SEQ)    				AS 	MBER_SEQ
+			,			MAX(MI.MBER_EMAIL) 					AS 	MBER_EMAIL
+			,           SUM(AH.SELL_PRCE_SUM)               AS 	SELL_PRCE               /* 상품금액*/
+			,           SUM(AH.DNL_CMTN)                    AS 	DNL_CMTN                /* 통신판매 수수료*/
+			,           SUM(AH.ORD_AMT)                     AS 	ORD_AMT                 /* 판매금액*/ 
+			,           SUM(AH.DLV_PRCE)                    AS  DLV_SETL_AMT            /* 배송비*/   
+			,			SUM(AH.DSCNT_TOT_AMT)				AS  DSCNT_AMT
+			,           SUM(AH.DSCNT_DNL_AMT)               AS  DSCNT_DNL_AMT           /* 다날공제*/ 
+			,           SUM(AH.DSCNT_SEL_AMT)               AS  DSCNT_SEL_AMT           /* 판매자공제*/ 
+			,			SUM(AH.DLV_RE_AMT)					AS  DLV_RE_AMT
+			,           SUM(AH.RFND_AMT)                    AS  RFND_AMT                /* 환불*/ 
+			,           SUM(AH.RFND_DNL_AMT)                AS  RFND_DNL_AMT            /* 다날환불*/  
+			,           SUM(AH.RFND_SEL_AMT)                AS  RFND_SEL_AMT            /* 판매자환불*/ 
+			,           SUM(AH.DNL_AMT)                		AS  DNL_AMT                 /* 다날매출*/ 
+			,           SUM(AH.ADJ_AMT)                     AS  ADJ_AMT                 /* 정산금액*/      
+			FROM    	ADJUST_HIST AH
+			LEFT OUTER JOIN	MBER_INFO MI
+			ON		AH.MBER_SEQ = MI.MBER_SEQ
+			WHERE  	AH.ADJ_STAT = 'R'
+		   	AND		AH.ORD_CD  = #{ORD_CD}
+			AND		AH.PROD_CD = #{PROD_CODE}
+		)
+		<selectKey keyProperty="SUB_IDX" resultType="String" order="AFTER">
+			SELECT SEQ_ADJUST_INFO.CURRVAL FROM DUAL
+		</selectKey>
+	</insert>
+	
+	<!-- 정산데이터 업데이트 -->
+	<update id="updateAdjustHistCplt" parameterType="hashMap">
+		UPDATE 	ADJUST_HIST
+		SET		CHG_YMD 	= TO_CHAR(SYSDATE,'YYYYMMDD')
+		,			CHG_TMS 	= TO_CHAR(SYSDATE,'HH24MISS')
+		<if test="STAT neq null and STAT eq 'T'.toString()">
+		,			ADJ_STAT 	= 'F'
+		,			SUB_IDX 		= #{SUB_IDX}
+		</if>
+		<if test="STAT neq null and STAT eq 'F'.toString()">
+		,			ADJ_STAT 	= 'W'
+		,			MEMO 		= MEMO || ', [ PAYMNT.IDX : ' || #{IDX} ||  ' : ADJ_RET : FALSE] ' 
+		</if>
+		WHERE	ORD_CD 		= #{ORD_CD}
+		AND		PROD_CD 	= #{PROD_CODE}
+		AND		ADJ_AMT 	= #{AMT}
+		AND		ADJ_STAT 	= 'R'		
+	</update>
+	
+	<update id="updateAdjustPaymntInfo" parameterType="hashMap">
+		UPDATE	ADJUST_PAYMNT_INFO
+		SET		RET_CD 		= #{RET_CD}
+		WHERE	ORD_CD 		= #{ORD_CD}
+		AND		PROD_CODE	= #{PROD_CODE}
+		AND		IDX			= #{IDX}
+	</update>	
+	
+	<select id="selectPayRequestToExcel"  resultType="HashMap">
+		SELECT    AH.ORD_CD
+        ,            AH.PROD_CD                AS PROD_CODE
+        ,            C.COM_CD_VAL            AS BANK_CD
+        ,            SIC.BANK_ACNT_NO
+        ,            'KRW'                         AS CRNCY 
+        ,            AH.ADJ_AMT                AS AMT
+        ,            SIC.ACNT_NM            
+        FROM        ADJUST_HIST AH
+        JOIN        PROD P
+        ON        AH.PROD_CD = P.PROD_CODE
+        JOIN        SELLER_INFO_CFG SIC
+        ON        P.MBER_SEQ = SIC.MBER_SEQ
+        LEFT OUTER JOIN        CODE C
+        ON        C.COM_CD_NM = SIC.BANK_NM
+        AND         C.GRP_CD = 'BANK_GB_CD'
+        WHERE    AH.ADJ_STAT = 'R' /* 정산 예정 */	
+	</select>
+</mapper>

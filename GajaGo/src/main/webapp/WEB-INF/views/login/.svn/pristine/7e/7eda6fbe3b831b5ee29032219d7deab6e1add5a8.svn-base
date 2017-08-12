@@ -1,0 +1,372 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="MobileInterestMapper">
+	
+	<!-- 관심상품 조회 -->
+	<select id="selectInterest" parameterType="java.util.List" resultType="hashmap">
+	/*MobileInterestMapper.selectInterest*/
+	 	 
+	 	 SELECT Z.* FROM (	   
+		         SELECT 
+		         		ROWNUM RN,
+				         
+		         
+		         		P1.PROD_NM,	   P1.NRM_PRCE,	   P1.SELL_PRCE,	   P1.CPON_APPLY_PSBL_YN,   P1.PROD_TYPE_CD,	P1.PROD_CODE,
+		  			   	SHR.SHARING_PRICE,
+		  			   	SHR.DEPOSIT, 
+		  			   	( CASE WHEN P1.NRM_PRCE!=0 THEN TRUNC((P1.NRM_PRCE - P1.SELL_PRCE)* 100 / P1.NRM_PRCE) ELSE P1.NRM_PRCE END  ) PERCENT,
+		  			   	( CASE WHEN P1.NRM_PRCE!=0 THEN TRUNC((P1.NRM_PRCE - P1.SELL_PRCE)* 100 / P1.NRM_PRCE) ELSE P1.NRM_PRCE END  ) PER_PRCE,
+		  			   	IMG.PROD_IMG_URL,
+		  			   	P1.DLV_PAY_GB_CD,
+		  			   	SP.SHARING_PRICE AS SP_SHARING_PRICE
+		                  
+			    FROM 
+					    PROD P1, 
+					    (SELECT PROD_CODE ,SHARING_PRICE,DEPOSIT FROM PROD_SHARING ) SHR,
+					    ( SELECT PROD_CODE, MIN(SHARING_PRICE) AS SHARING_PRICE  FROM SP_PROD_DTL GROUP BY PROD_CODE ) SP,
+					    ( SELECT PROD_IMG_URL,PROD_CODE FROM PROD_IMG WHERE PROD_IMG_GB_CD = '11') IMG
+			    WHERE 
+			    		P1.PROD_CODE = IMG.PROD_CODE(+)
+			    AND		P1.PROD_CODE = SHR.PROD_CODE(+)
+				AND		P1.PROD_CODE = SP.PROD_CODE(+)
+				AND        P1.PROD_STAT_CD = '0'
+                AND        (NVL(P1.STOCK_QTY, 0) - NVL(P1.EXP_QTY, 0))  >  0
+				AND		regexp_like(P1.KEYWORD, replace(trim(<foreach collection="list" item="item" index="index" open="'" close="'" separator="|" >${item.TAG}</foreach>),' ',''))
+	 	)Z
+	 	WHERE RN <![CDATA[<=]]> 20
+	      
+	  <!-- SELECT RN,	
+			   PROD_CODE ,  		
+         DECODE(NRM_PRCE,NULL,0,NRM_PRCE) AS NRM_PRCE , 
+         DECODE(SELL_PRCE,NULL,0,SELL_PRCE) AS SELL_PRCE,
+         PROD_TYPE_CD, 	
+         PROD_NM, 	   	
+         PROD_IMG_URL,   
+         DLV_PAY_GB_CD,
+         
+         DECODE(SALE,NULL,0,SALE) AS SALE,
+         CPON_APPLY_PSBL_YN,
+         SHARING_START_DT,
+		     SHARING_END_DT,
+		     SHARING_UNIT,
+		     DECODE(SHARING_PRICE,NULL,0,SHARING_PRICE) AS SHARING_PRICE,
+		     SHARING_MAX_TERM,
+		     SHARING_MIN_TERM,
+		     DEPOSIT,
+		     DECODE(SP_SHARING_PRICE,NULL,0,SP_SHARING_PRICE) AS SP_SHARING_PRICE
+         ,KEYWORD
+         ,MBER_SEQ
+		  FROM(               		               	
+				SELECT ROWNUM RN,	
+					   MM.PROD_CODE,  	
+             MM.NRM_PRCE,		
+             MM.SELL_PRCE,
+             MM.PROD_TYPE_CD, 
+             MM.PROD_NM, 	   	
+             MM.PROD_IMG_URL,   
+             MM.DLV_PAY_GB_CD,
+		         MM.SALE,
+		         MM.CPON_APPLY_PSBL_YN,
+				     MM.SHARING_START_DT,
+				     MM.SHARING_END_DT,
+				     MM.SHARING_UNIT,
+				     MM.SHARING_PRICE,
+				     MM.SHARING_MAX_TERM,
+				     MM.SHARING_MIN_TERM,
+				     MM.DEPOSIT,
+				     MM.SP_SHARING_PRICE
+             ,MM.KEYWORD
+             ,MBER_SEQ
+		          FROM(       
+						SELECT P.PROD_CODE,  	
+                   P.NRM_PRCE,		
+                   P.SELL_PRCE,
+              	   P.PROD_TYPE_CD,  P.PROD_NM, 	   	F.PROD_IMG_URL,   P.DLV_PAY_GB_CD,
+				           ( CASE WHEN P.NRM_PRCE!=0 THEN ROUND((P.NRM_PRCE - P.SELL_PRCE) / P.NRM_PRCE * 100) ELSE P.NRM_PRCE END  ) SALE,
+				           P.CPON_APPLY_PSBL_YN,
+				           S.SHARING_START_DT,
+                   S.SHARING_END_DT,
+                   S.SHARING_UNIT,
+                   S.SHARING_PRICE,
+                   S.SHARING_MAX_TERM,
+                   S.SHARING_MIN_TERM,
+                   S.DEPOSIT,
+                   SP.SHARING_PRICE AS SP_SHARING_PRICE      
+                   ,P.KEYWORD AS KEYWORD
+                   ,P.MBER_SEQ
+				          FROM PROD P, PROD_IMG F, PROD_SHARING S, SP_PROD_DTL SP
+				         
+                 WHERE 		   P.PROD_CODE = F.PROD_CODE
+				           AND P.PROD_CODE = S.PROD_CODE(+)
+				           AND P.PROD_CODE = SP.PROD_CODE(+)
+                   AND F.PROD_IMG_GB_CD = 11
+                   AND REGEXP_LIKE(P.KEYWORD, replace(trim(<foreach collection="list" item="item" index="index" open="'" close="'" separator="|" >#{item.TAG}</foreach>),' ',''))
+                   ORDER BY P.PROD_CODE   
+				  ) MM  
+		)
+			WHERE RN <![CDATA[>]]> <![CDATA[#{FIRST_SEQ}]]>
+	 		  AND RN <![CDATA[<=]]> <![CDATA[#{LAST_SEQ}]]>	 -->
+	      
+	</select>       
+	
+	<select id="selectInterestList" parameterType="java.util.List" resultType="HashMap">
+	/*MobileInterestMapper.selectInterestList*/
+	 	 
+	 	 SELECT Z.* FROM (	   
+		         SELECT 
+		         		ROWNUM RN,
+				         
+		         
+		         		P1.PROD_NM,	   P1.NRM_PRCE,	   P1.SELL_PRCE,	   P1.CPON_APPLY_PSBL_YN,   P1.PROD_TYPE_CD,	P1.PROD_CODE, P1.DLV_WAY_CD,
+		  			   	SHR.SHARING_PRICE,
+		  			   	SHR.DEPOSIT, 
+		  			   	( CASE WHEN P1.NRM_PRCE!=0 THEN TRUNC((P1.NRM_PRCE - P1.SELL_PRCE)* 100 / P1.NRM_PRCE) ELSE P1.NRM_PRCE END  ) PERCENT,
+		  			   	( CASE WHEN P1.NRM_PRCE!=0 THEN TRUNC((P1.NRM_PRCE - P1.SELL_PRCE)* 100 / P1.NRM_PRCE) ELSE P1.NRM_PRCE END  ) PER_PRCE,
+		  			   	IMG.PROD_IMG_URL,
+		  			   	P1.DLV_PAY_GB_CD,
+		  			   	SP.SHARING_PRICE AS SP_SHARING_PRICE,
+		  			   	F.FILE_URL
+		                  
+			    FROM 
+					    PROD P1, 
+					    (SELECT PROD_CODE ,SHARING_PRICE,DEPOSIT FROM PROD_SHARING ) SHR,
+					    ( SELECT PROD_CODE, MIN(SHARING_PRICE) AS SHARING_PRICE  FROM SP_PROD_DTL GROUP BY PROD_CODE ) SP,
+					    ( SELECT PROD_IMG_URL,PROD_CODE FROM PROD_IMG WHERE PROD_IMG_GB_CD = '11') IMG,
+					    ( SELECT FILE_NO, PROD_CODE FROM SP_IMAGE WHERE SP_IMG_GB_CD = '01') SPIMG,
+                        ( SELECT FILE_SEQ, FILE_URL FROM FILE_INFO) F
+			    WHERE 
+			    		P1.PROD_CODE = IMG.PROD_CODE(+)
+			    AND		P1.PROD_CODE = SHR.PROD_CODE(+)
+				AND		P1.PROD_CODE = SP.PROD_CODE(+)
+				AND        P1.PROD_CODE = SPIMG.PROD_CODE(+)
+                AND        SPIMG.FILE_NO = F.FILE_SEQ(+) 
+                AND        P1.PROD_STAT_CD = '0'
+                AND        (NVL(P1.STOCK_QTY, 0) - NVL(P1.EXP_QTY, 0))  >  0
+				AND		regexp_like(P1.KEYWORD, replace(trim(<foreach collection="list" item="item" index="index" open="'" close="'" separator="|" >${item.TAG}</foreach>),' ',''))
+	 	)Z
+
+	 	WHERE RN <![CDATA[>]]> <![CDATA[#{FIRST_SEQ}]]>
+	  AND RN <![CDATA[<=]]> <![CDATA[#{LAST_SEQ}]]>	
+
+	</select>      
+	
+	<select id="selectInterestListCount" parameterType="hashmap" resultType="int">
+		SELECT COUNT(Z.RN) AS CNT FROM (	   
+		         SELECT 
+		         		ROWNUM RN,
+				         
+		         
+		         		P1.PROD_NM,	   P1.NRM_PRCE,	   P1.SELL_PRCE,	   P1.CPON_APPLY_PSBL_YN,   P1.PROD_TYPE_CD,	P1.PROD_CODE, P1.DLV_WAY_CD
+		  			   	SHR.SHARING_PRICE,
+		  			   	SHR.DEPOSIT, 
+		  			   	( CASE WHEN P1.NRM_PRCE!=0 THEN TRUNC((P1.NRM_PRCE - P1.SELL_PRCE)* 100 / P1.NRM_PRCE) ELSE P1.NRM_PRCE END  ) PERCENT,
+		  			   	( CASE WHEN P1.NRM_PRCE!=0 THEN TRUNC((P1.NRM_PRCE - P1.SELL_PRCE)* 100 / P1.NRM_PRCE) ELSE P1.NRM_PRCE END  ) PER_PRCE,
+		  			   	IMG.PROD_IMG_URL,
+		  			   	P1.DLV_PAY_GB_CD,
+		  			   	SP.SHARING_PRICE AS SP_SHARING_PRICE,
+		  			   	F.FILE_URL
+		                  
+			    FROM 
+					    PROD P1, 
+					    (SELECT PROD_CODE ,SHARING_PRICE,DEPOSIT FROM PROD_SHARING ) SHR,
+					    ( SELECT PROD_CODE, MIN(SHARING_PRICE) AS SHARING_PRICE  FROM SP_PROD_DTL GROUP BY PROD_CODE ) SP,
+					    ( SELECT PROD_IMG_URL,PROD_CODE FROM PROD_IMG WHERE PROD_IMG_GB_CD = '11') IMG,
+					    ( SELECT FILE_NO, PROD_CODE FROM SP_IMAGE WHERE SP_IMG_GB_CD = '01') SPIMG,
+                        ( SELECT FILE_SEQ, FILE_URL FROM FILE_INFO) F
+			    WHERE 
+			    		P1.PROD_CODE = IMG.PROD_CODE(+)
+			    AND		P1.PROD_CODE = SHR.PROD_CODE(+)
+				AND		P1.PROD_CODE = SP.PROD_CODE(+)
+				AND        P1.PROD_CODE = SPIMG.PROD_CODE(+)
+                AND        SPIMG.FILE_NO = F.FILE_SEQ(+) 
+                AND        P1.PROD_STAT_CD = '0'
+                AND        (NVL(P1.STOCK_QTY, 0) - NVL(P1.EXP_QTY, 0))  >  0
+				AND		regexp_like(P1.KEYWORD, replace(trim(<foreach collection="list" item="item" index="index" open="'" close="'" separator="|" >${item.TAG}</foreach>),' ',''))
+	 	)Z
+	</select> 
+	
+	<!-- 관심태그 조회 -->
+	<select id="wishList" resultType="hashmap" parameterType="String">
+	/*MobileInterestMapper.wishList*/
+		SELECT 	TAG
+			   ,MBER_SEQ 
+		FROM 	PROD_FAVO
+		WHERE MBER_SEQ = #{mberSeq}
+		<!-- ORDER BY REGIST_DT DESC --> 
+		ORDER BY REGIST_DT DESC
+	</select>
+
+	<!-- 관심태그 등록 -->  
+	<insert id="insertWishTag" parameterType="java.util.Map">
+	/*MobileInterestMapper.insertWishTag*/
+		INSERT INTO PROD_FAVO(MBER_SEQ, TAG, REGIST_DT)
+		VALUES(#{mberSeq}, #{tagVal}, SYSDATE)
+	</insert>
+	
+	<select id="wishTags" resultType="hashmap" parameterType="String">
+	SELECT MBER_SEQ
+         , SUBSTR(MAX(SYS_CONNECT_BY_PATH(TAG,' ')), 2) SERIALIZE_TAG
+    FROM (  SELECT ROW_NUMBER() OVER(PARTITION BY MBER_SEQ ORDER BY MBER_SEQ) RNUM
+                  , TAG
+                  , MBER_SEQ
+             FROM PROD_FAVO
+            WHERE MBER_SEQ = #{mberSeq}
+         )
+         START WITH RNUM       =1
+         CONNECT BY PRIOR RNUM = RNUM -1
+     AND PRIOR MBER_SEQ        = MBER_SEQ
+GROUP BY MBER_SEQ
+	</select>
+	
+	<!-- 관심태그로 상품조회 -->
+	<select id="tagSelectProd" parameterType="String" resultType="hashmap">
+	/*MobileInterestMapper.tagSelectProd*/
+		 <!-- 
+		 SELECT    P1.PROD_NM, 
+		           P1.NRM_PRCE,
+		           P1.SELL_PRCE,
+		           P1.PROD_CODE,
+		           P1.CPON_APPLY_PSBL_YN,
+		           P2.PROD_IMG_URL,  
+		           P1.PROD_TYPE_CD,
+		           
+            	( CASE WHEN  P1.NRM_PRCE = 0 THEN  0
+	                   WHEN  P1.NRM_PRCE IS NULL THEN  0
+	         	   ELSE ROUND(((P1.NRM_PRCE - P1.SELL_PRCE ) / P1.NRM_PRCE) * 100, 0)
+	               END
+	             ) PERCENT
+	            
+	             ,(
+                	SELECT 
+                			P3.SHARING_PRICE 
+                	FROM    PROD_SHARING P3 
+                	WHERE P1.PROD_CODE = P3.PROD_CODE
+              	  ) SHARING_PRICE
+              	 
+              	 ,(
+               	    SELECT 
+               	    		P3.DEPOSIT 
+               	    FROM 	PROD_SHARING P3 
+               	    
+               	    WHERE 
+               	    	 	P1.PROD_CODE = P3.PROD_CODE
+                ) DEPOSIT
+                ,(
+                    SELECT 
+                    		P3.SHARING_PRICE 
+                    FROM 	SP_PROD_DTL P3 
+                    
+                    WHERE 
+                    	 	P1.PROD_CODE = P3.PROD_CODE
+                  ) SP_SHARING_PRICE
+                  
+	    FROM PROD P1, PROD_IMG P2
+	    WHERE P1.PROD_CODE = P2.PROD_CODE
+	    AND P2.PROD_IMG_GB_CD = 11
+		AND	P1.KEYWORD LIKE '%' || #{TAG} || '%' 
+		 -->
+		
+		
+		SELECT Z.* FROM (	   
+		         SELECT 
+		         		ROWNUM RN,
+				         
+		         
+		         		P1.PROD_NM,	   P1.NRM_PRCE,	   P1.SELL_PRCE,	   P1.CPON_APPLY_PSBL_YN,   P1.PROD_TYPE_CD,	P1.PROD_CODE, P1.DLV_WAY_CD
+		  			   	SHR.SHARING_PRICE,
+		  			   	SHR.DEPOSIT, 
+		  			   	( CASE WHEN P1.NRM_PRCE!=0 THEN TRUNC((P1.NRM_PRCE - P1.SELL_PRCE)* 100 / P1.NRM_PRCE ) ELSE P1.NRM_PRCE END  ) PERCENT,
+		  			   	( CASE WHEN P1.NRM_PRCE!=0 THEN TRUNC((P1.NRM_PRCE - P1.SELL_PRCE)* 100 / P1.NRM_PRCE ) ELSE P1.NRM_PRCE END  ) PER_PRCE,
+		  			   	IMG.PROD_IMG_URL,
+		  			   	P1.DLV_PAY_GB_CD,
+		  			   	SP.SHARING_PRICE AS SP_SHARING_PRICE
+		                  
+			    FROM 
+					    PROD P1, 
+					    (SELECT PROD_CODE ,SHARING_PRICE,DEPOSIT FROM PROD_SHARING ) SHR,
+					    ( SELECT PROD_CODE, MIN(SHARING_PRICE) AS SHARING_PRICE  FROM SP_PROD_DTL GROUP BY PROD_CODE ) SP,
+					    ( SELECT PROD_IMG_URL,PROD_CODE FROM PROD_IMG WHERE PROD_IMG_GB_CD = '11') IMG
+			    WHERE 
+			    		P1.PROD_CODE = IMG.PROD_CODE(+)
+			    AND		P1.PROD_CODE = SHR.PROD_CODE(+)
+				AND		P1.PROD_CODE = SP.PROD_CODE(+)
+			    AND     P1.PROD_STAT_CD = '0'
+                AND     (NVL(P1.STOCK_QTY, 0) - NVL(P1.EXP_QTY, 0))  >  0
+				AND	P1.KEYWORD LIKE '%' || #{TAG} || '%'
+	 	)Z
+	 	WHERE RN <![CDATA[<=]]> 20
+	</select>
+	
+	<!-- 관심태그로 상품조회 -->
+	<select id="tagSelectProdList" parameterType="Hashmap" resultType="Hashmap">
+	/*MobileInterestMapper.tagSelectProd*/
+		
+		SELECT Z.* FROM (	   
+		         SELECT 
+		         		ROWNUM RN,
+				         
+		         
+		         		P1.PROD_NM,	   P1.NRM_PRCE,	   P1.SELL_PRCE,	   P1.CPON_APPLY_PSBL_YN,   P1.PROD_TYPE_CD,	P1.PROD_CODE, P1.DLV_WAY_CD
+		  			   	SHR.SHARING_PRICE,
+		  			   	SHR.DEPOSIT, 
+		  			   	( CASE WHEN P1.NRM_PRCE!=0 THEN TRUNC((P1.NRM_PRCE - P1.SELL_PRCE)* 100 / P1.NRM_PRCE ) ELSE P1.NRM_PRCE END  ) PERCENT,
+		  			   	( CASE WHEN P1.NRM_PRCE!=0 THEN TRUNC((P1.NRM_PRCE - P1.SELL_PRCE)* 100 / P1.NRM_PRCE ) ELSE P1.NRM_PRCE END  ) PER_PRCE,
+		  			   	IMG.PROD_IMG_URL,
+		  			   	P1.DLV_PAY_GB_CD,
+		  			   	SP.SHARING_PRICE AS SP_SHARING_PRICE,
+		  			   	F.FILE_URL
+		                  
+			    FROM 
+					    PROD P1, 
+					    (SELECT PROD_CODE ,SHARING_PRICE,DEPOSIT FROM PROD_SHARING ) SHR,
+					    ( SELECT PROD_CODE, MIN(SHARING_PRICE) AS SHARING_PRICE  FROM SP_PROD_DTL GROUP BY PROD_CODE ) SP,
+					    ( SELECT PROD_IMG_URL,PROD_CODE FROM PROD_IMG WHERE PROD_IMG_GB_CD = '11') IMG,
+					    ( SELECT FILE_NO, PROD_CODE FROM SP_IMAGE WHERE SP_IMG_GB_CD = '01') SPIMG,
+                        ( SELECT FILE_SEQ, FILE_URL FROM FILE_INFO) F
+			    WHERE 
+			    		P1.PROD_CODE = IMG.PROD_CODE(+)
+			    AND		P1.PROD_CODE = SHR.PROD_CODE(+)
+				AND		P1.PROD_CODE = SP.PROD_CODE(+)
+				AND     P1.PROD_CODE = SPIMG.PROD_CODE(+)
+                AND     SPIMG.FILE_NO = F.FILE_SEQ(+) 
+                AND     P1.PROD_STAT_CD = '0'
+                AND     (NVL(P1.STOCK_QTY, 0) - NVL(P1.EXP_QTY, 0))  >  0
+				AND	P1.KEYWORD LIKE '%' || #{TAG} || '%'
+	 	)Z
+	 	WHERE RN <![CDATA[>]]> <![CDATA[#{FIRST_SEQ}]]>
+	  	AND RN <![CDATA[<=]]> <![CDATA[#{LAST_SEQ}]]>	
+	</select>
+	
+	
+	<!-- 태그삭제 -->
+	<delete id="tagDelete" parameterType="java.util.Map">
+	/*MobileInterestMapper.tagDelete*/
+		DELETE FROM PROD_FAVO WHERE MBER_SEQ = #{MBER_SEQ} AND TAG = #{TAG}
+	</delete>
+</mapper>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

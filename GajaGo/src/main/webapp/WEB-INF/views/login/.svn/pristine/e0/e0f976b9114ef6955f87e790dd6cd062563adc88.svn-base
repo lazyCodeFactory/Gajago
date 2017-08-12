@@ -1,0 +1,1794 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/web/common/cmmnHead.jsp"%>
+<script type="text/javascript" src="/js/web/cart.js" ></script>
+<script type="text/javascript">
+
+	var limit = 1000;
+	var cur = 0;
+	var ctryCd = '${prodDtl.CTRY_CD}';
+	var prodTypeCd = '${prodDtl.PROD_TYPE_CD}';
+	var dlvWayCd = '${prodDtl.DLV_WAY_CD}';
+	var dlvPayGbCd = '${prodDtl.DLV_PAY_GB_CD}';
+	var rtnMsg = '${rtnMsg}';
+	
+	
+	var APP_TNF = false;
+	
+	//ready
+	$(document).ready(function(){
+
+		
+		if('${sessionScope.APP}' == 'SSOCIO'){
+			APP_TNF = true;
+		}else{
+			APP_TNF = false;
+		}
+		
+	
+		/**************************** [2015-11-08] 등록부분 복사해옴  ****************************/
+		if(APP_TNF){
+			$("#mainImg").click(function () {
+				proc.callApp(this.id);
+			});
+			$("#subImg1").click(function () {
+				proc.callApp(this.id);
+			});
+			$("#subImg2").click(function () {
+				proc.callApp(this.id);
+			});
+			$("#subImg3").click(function () {
+				proc.callApp(this.id);
+			});
+			$("#subImg4").click(function () {
+				proc.callApp(this.id);
+			});
+		}
+		else {
+			// 이미지 변경 이벤트
+			$("#fileMainImg").change(function () {
+				preView(this, 'mainImg', '');
+			});
+			$("#fileSubImg1").change(function () {
+				preView(this, 'subImg1', '');
+			});
+			$("#fileSubImg2").change(function () {
+				preView(this, 'subImg2', '');
+				proc.delImgShow($(this).attr("id"));
+			});
+			$("#fileSubImg3").change(function () {
+				preView(this, 'subImg3', '');
+				proc.delImgShow($(this).attr("id"));
+			});
+			$("#fileSubImg4").change(function () {
+				preView(this, 'subImg4', '');
+				proc.delImgShow($(this).attr("id"));
+			});
+		}
+		/**************************** [2015-11-08] 등록부분 복사해옴  ****************************/
+		
+		
+		// title 및 back 버튼 url set
+		document.title = "상품수정";
+// 		header.type	= 6;
+		header.type	= 4;
+		header.title = "상품수정";
+		header.method = "POST";
+		header.backUrl = "/mobile/salemanage/selectListProd.do";
+		header.callback = headerCallback;
+		header.form = $("#form");
+		initHeader();
+		
+		displayFooter(false);
+		
+		//카테고리 초기화
+		initCtry('reg', ctryCd);
+		
+		// 배송방식 변경
+		$("#dlvWayCd").change(function () {
+			proc.procDlvWayChng();
+		});
+		
+		// 배송비부담 변경
+		$("#dlvPayGbCd").change(function () {
+			proc.procDlvPayGbChng();
+		});
+		
+		// 상품설명 keyup event
+		$("#prodDtl").bind('keyup input', function() {
+			proc.procProdDtlLen();
+		});
+		
+		// 거래희망지역, 배송가능지역
+		$("#tradLoc").bind('keyup input', function() {
+			proc.tradLocLen();
+		});
+		
+		// 상풍명
+		$("#prodNm").bind('keyup input', function() {
+			proc.prodNmLen();
+		});
+		
+		// 카테고리 변경
+		$("#regCtryCd3").change(function () {
+			proc.selectBrandList();
+		});
+		
+		// 정상가 keyup
+		$("#nrmPrceView").bind('keyup input', function() {
+			proc.numberWithCommas(this);
+			proc.sellPer();
+		});
+		// 판매가 keyup
+		$("#sellPrceView").bind('keyup input', function() {
+			proc.numberWithCommas(this);
+			proc.sellPer();
+		});
+		// 재고수량 keyup
+		$("#stockQtyView").bind('keyup input', function() {
+			proc.numberWithCommas(this);
+		});
+		
+		// 배송비 keyup
+		$("#dlvPrceView").bind('keyup input', function() {
+			proc.numberWithCommas(this);
+		});
+
+		// 정상가와 동일 checkbox
+		$("#chkPrce").click( function () {
+			proc.chkPrce();
+		});
+		
+		// 보증금 keyup
+		$("#depositView").bind('keyup input', function() {
+			proc.numberWithCommas(this);
+		});
+		// 셰어링 keyup
+		$("#sharingPriceView").bind('keyup input', function() {
+			proc.numberWithCommas(this);
+		});
+		
+		// 나눔신청마감일 년도 변경
+		$("#freeEndYear").change(function () {
+			proc.setMonth();
+		});
+		// 나눔신청마감일 월 변경
+		$("#freeEndMonth").change(function () {
+			proc.setDay();
+		});
+		
+		init.initShow();
+		proc.procProdDtlLen();
+		if (prodTypeCd == "3") {
+			proc.setFreeShareEndDt();
+		}
+		
+		// 상품정보 수정 후 return msg
+		if (rtnMsg != null && rtnMsg != "") {
+			alert(rtnMsg);
+		}
+		
+	});
+	
+	// init
+	var init = {
+			
+		// prodTypeCd 에 따른 show
+		initShow : function () {
+			
+			// 판매
+			if (prodTypeCd == "1") {
+				// 판매 공통
+				$("#pNProdGb").show();
+				$("#divNProdGb").show();
+				$("#pProdPrce").show();
+				$("#divProdPrce").show();
+				$("#pDlvWayCd").show();
+				$("#divDlvWayCd").show();
+				
+				// 직거래
+				if (dlvWayCd == "5") {
+					$("#pTradLoc").text("거래 희망 지역");
+					$("#pTradLoc").show();
+					$("#divTradLoc").show();
+				}
+				// 퀵서비스
+				else if (dlvWayCd == "4") {
+					$("#pTradLoc").text("배송 가능 지역");
+					$("#pTradLoc").show();
+					$("#divTradLoc").show();
+					$("#pDlvPayGb").show();
+					$("#divDlvPayGb").show();
+					$("#pBndlDlv").show();
+					$("#divBndlDlv").show();
+				}
+				// 제휴택배, 일반택배
+				else if (dlvWayCd == "1" || dlvWayCd == "2") {
+					$("#pDlvCmp").show();
+					$("#divDlvCmp").show();
+					if (dlvWayCd == "1") {
+						$("#liDlvCmpCd1").show();
+					}
+					else {
+						$("#liDlvCmpCd2").show();
+					}
+					$("#pDlvPayGb").show();
+					$("#divDlvPayGb").show();
+					if (dlvPayGbCd == "2") {
+						$("#pDlvPrce").show();
+						$("#divDlvPrce").show();
+					}
+					$("#pBndlDlv").show();
+					$("#divBndlDlv").show();
+				}
+				
+			}
+			// 셰어링
+			else if (prodTypeCd == "2") {
+				$("#pSharePrice").show();
+				$("#divSharePrice").show();
+				$("#pDlvCmp").show();
+				$("#divDlvCmp").show();
+				$("#liDlvCmpCd1").show();
+				$("#pDlvPayGb").show();
+				$("#divDlvPayGb").show();
+				$("#pBndlDlv").show();
+				$("#divBndlDlv").show();
+			}
+			// 나눔
+			else if (prodTypeCd == "3") {
+				
+				// 나눔신청마감일
+				$("#pFreeEndDt").show();
+				$("#divFreeEndDt").show();
+				
+				// 배송방식
+				$("#pDlvWayCd").show();
+				$("#divDlvWayCd").show();
+				
+				// 직거래, 퀵서비스
+				if (dlvWayCd == "4" || dlvWayCd == "5") {
+					if (dlvWayCd == "4") {
+						$("#pTradLoc").text("배송 가능 지역");
+					}
+					else if (dlvWayCd == "5") {
+						$("#pTradLoc").text("거래 희망 지역");
+					}
+					$("#pTradLoc").show();
+					$("#divTradLoc").show();
+				}
+				// 제휴택배, 일반택배
+				else if (dlvWayCd == "1" || dlvWayCd == "2") {
+					$("#pDlvCmp").show();
+					$("#divDlvCmp").show();
+					if (dlvWayCd == "1" ) {
+						$("#liDlvCmpCd1").show();
+					}
+					else if (dlvWayCd == "2") {
+						$("#liDlvCmpCd2").show();
+					}
+				}
+			}
+			
+		}
+			
+	};
+	
+	// 페이지 (모바일)
+	var page = {
+		
+		deleteProdInfo : function () {
+			
+			if (!confirm("상품을 삭제하시겠습니까?")) {
+				return;
+			}
+			
+			var url = "/mobile/salemanage/deleteProdInfo.do";
+			
+			form.action = url;
+			form.submit();
+			
+		},
+			
+		// 저장 (모바일)
+		saveProdInfo : function () {
+			
+			// confirm
+			if (!confirm("상품정보를 수정하시겠습니까?")) {
+				return;
+			}
+			
+			// 나눔신청 마감일
+			if (prodTypeCd == "3") {
+				var year = $("#freeEndYear option:selected").val();
+				var month = $("#freeEndMonth option:selected").val();
+				var day = $("#freeEndDay option:selected").val();
+				var freeShareEndDt = year+""+month+""+day+"235959";
+				$("#freeShareEndDt").val(freeShareEndDt);
+			}
+			
+			// valiation
+			if (!validation.saveValidation()) {
+				return;
+			}
+			
+			// 택배사코드
+			if (prodTypeCd == "2") {
+				$("#dlvCmpCd").val($("#dlvCmpCd2 option:selected").val());
+			}
+			else {
+				var dlvWayCd = $("#dlvWayCd option:selected").val();
+				if (dlvWayCd == "1") {
+					$("#dlvCmpCd").val($("#dlvCmpCd1 option:selected").val());
+				}
+				else if (dlvWayCd == "2") {
+					$("#dlvCmpCd").val($("#dlvCmpCd2 option:selected").val());
+				}
+			}
+			
+			// 금액
+			if (prodTypeCd == "1") {
+				$("#nrmPrce").val($("#nrmPrceView").val().replace(/,/g, ""));
+				$("#sellPrce").val($("#sellPrceView").val().replace(/,/g, ""));
+				$("#stockQty").val($("#stockQtyView").val().replace(/,/g, ""));
+				
+				var cd = $("#dlvPayGbCd option:selected").val();
+				var wayCd = $("#dlvWayCd option:selected").val();
+				if (cd == "2" && (wayCd == "1" || wayCd == "2")) {
+					$("#dlvPrce").val($("#dlvPrceView").val().replace(/,/g, ""));
+				}
+			}
+			else if (prodTypeCd == "2") {
+				$("#deposit").val(Number($("#depositView").val().replace(/,/g, "")));
+				$("#sharingPrice").val($("#sharingPriceView").val().replace(/,/g, ""));
+			}
+			
+			
+			// 이미지 seq 처리
+			// proc.procImgSeqReplace();
+			
+
+			
+			var url = "/mobile/salemanage/updateProdInfo.do";
+			
+
+			
+			form.action = url;
+			form.submit();
+			
+		},
+			
+	};
+	
+	// 처리 (앱)
+	var proc = {
+
+			
+			/************************	[2015-11-10] 앱처리 추가	**************************/
+			/************************	[2015-11-10] 앱처리 추가	**************************/
+			/************************	[2015-11-10] 앱처리 추가	**************************/
+			
+			// 이미지 파일 선택 (앱)
+			callApp : function (id) {
+				imgId = id;		// mainImg
+				
+				var imgSeq = $("#"+id+"Seq").val().split(',')[0];
+				
+				var data = '{"callback":"proc.chooseImg","SEQ":""}';	// 삭제하지 않도록
+				document.location.replace('SSOCIO://web/camera?'+encodeURIComponent(data));
+			},
+			
+			// 이미지 선택 후 (앱)
+			chooseImg : function (str) {
+				
+				// str ==> URL임.
+
+				var data = JSON.parse(str);
+
+				// 이미지
+				$("#"+imgId).attr("alt", data.FILE_URL);
+				
+				// flag
+				// 아무것도 등록되어있지 않았음
+				var flg = "U";
+				if($("#"+imgId+"Seq").val()==",S"){
+					flg = "I";
+				}else{
+					flg = "U";
+				}
+				$("#"+imgId+"Flag").val(flg);
+				
+				// seq
+				$("#"+imgId+"Seq").val(data.FILE_SEQ+","+flg);
+				// url
+				$("#"+imgId+"Url").val(data.FILE_URL);
+				
+				// 삭제버튼 보여주기
+				if (imgId == "subImg2" || imgId == "subImg3" || imgId == "subImg4") {
+					proc.delImgShow(imgId);	
+				}
+
+				cdnreload();
+				
+			},
+			
+			// app 용 이미지 flag 처리 (앱)
+			procImgFlagApp : function (id) {
+
+				
+				// 기존에 있던것은 U... 
+				var seq = $("#"+id+"Seq");
+				var flg = $("#"+id+"Flag");
+				if(seq.val() != ",S"){
+					flg.val("U");
+				}else{
+					flg.val("I");
+				}
+			
+			proc.procNextBtnApp();
+			
+		},
+		
+		
+			
+			// app용 버튼 처리 (앱)
+			procNextBtnApp : function () {			
+				var mainImgFlag = $("#mainImgFlag").val();
+				var fileMainImg = $("#mainImgUrl").val();
+				var subImg1Flag = $("#subImg1Flag").val();
+				var fileSubImg1 = $("#subImg1Url").val();
+				var mainBtnFlag = true;
+				var subBtnFlag = true;
+				
+				// 메인
+				if ((mainImgFlag == "" && mainImgFlag != "S") && fileMainImg == "") {
+					mainBtnFlag = false;
+				}
+				// 리스트
+				if ((subImg1Flag == "" && subImg1Flag != "S") && subImg1Flag == "") {
+					subBtnFlag = false;
+				}
+				if (mainBtnFlag == true && subBtnFlag == true) {
+					// 버튼 활성화
+					$("#btnNext").attr("disabled",false).removeClass("btn_b").addClass("btn_r");
+				}
+				else {
+					// 버튼 비활성화
+					$("#btnNext").attr("disabled",true).addClass("btn_b").removeClass("btn_r");
+				}
+				
+			},
+		/************************	[2015-11-10] 앱처리 추가	**************************/		
+		/************************	[2015-11-10] 앱처리 추가	**************************/		
+		/************************	[2015-11-10] 앱처리 추가	**************************/		
+				
+		
+		
+			
+		// 금액 keyup
+		numberWithCommas : function (obj) {
+			var len = $(obj).val().length;
+			var maxLen = $(obj).attr("maxLength");
+			// 글자수 제한
+			if (len > maxLen) {
+				$(obj).val($(obj).val().slice(0,maxLen));
+			}
+			
+			numberOnly(obj);
+			var val = $(obj).val();
+			$(obj).val(numberWithCommas(val));
+						
+		},
+			
+		// 삭제 이미지 버튼 보여주기
+		delImgShow : function (id) {
+			
+			
+			if( '${sessionScope.APP}' == 'SSOCIO'){
+				if ($("#"+id+"Url") != null && $("#"+id+"Url") != "") {
+					$("#"+id).parent().find("a").show();
+				}
+				else {
+					$("#"+id).parent().find("a").hide();
+				}
+			}
+			else {
+				if ($("#"+id).val() != null && $("#"+id).val() != "") {
+					$("#"+id).parent().find("a").show();
+				}
+				else {
+					$("#"+id).parent().find("a").hide();
+				}
+			}
+			
+		},
+		
+		// 이미지 삭제...  (앱이 아닌경우의 input file ID, seq, 이미지 태그 ID)
+		procDelImg : function (id, seq, org_id) {
+			
+			if (!confirm("선택하신 이미지를 삭제하시겠습니까?")) {
+				return;
+			}
+			
+			if( '${sessionScope.APP}' == 'SSOCIO'){
+				
+				var inputId = $("#"+org_id).attr("name");
+				
+				
+				
+				$("#"+org_id+"Url").val("");
+				$("#"+org_id+"Seq").val(seq+",D");
+				$("#"+org_id+"Flag").val("D");
+				
+				$("#"+org_id).attr("src", "http://static.ssocio.net/web/images/bg_pic_add.png");
+				$("#"+org_id).parent().find("a").hide();
+				
+// 				proc.procImgFlagApp(id);
+			}
+			else{
+				$("#"+id).val("");
+				$("#"+id).parent().find(" > img").attr("src", "http://static.ssocio.net/web/images/bg_pic_add.png");
+				$("#"+id).parent().find("a").hide();
+				
+				$("#"+org_id+"Seq").val(seq + ",D");
+				
+			}
+			
+		},
+		
+		// 이미지 변경 시 SEQ 받아놓기
+		procImgSeq : function (seq, gubun) {
+			
+			
+			// 기존에 seq 가 있다면 (이미지가 원래 등록 되어 있었던 슬롯이라면) , 플래그를 seq+U로
+			if (seq != null && seq != "") {
+				$("#"+gubun+"Seq").val(seq+",U");
+			}
+			
+			// 그렇지 않다면 NEWIMG,I 로... 
+			else {
+				$("#"+gubun+"Seq").val("NEWIMG,I");
+			}
+			
+		},
+		
+		// 이미지 seq 처리
+		procImgSeqReplace : function () {
+			
+			
+			// 서브 이미지
+			var subImg2Seq = $("#subImg2Seq").val();
+			var subImg3Seq = $("#subImg3Seq").val();
+			var subImg4Seq = $("#subImg4Seq").val();
+
+			
+			if ((subImg2Seq != null && subImg2Seq != "") && subImg2Seq == ",S") {
+				$("#subImg2Seq").val("");
+			}
+			
+			if ((subImg3Seq != null && subImg3Seq != "") && subImg3Seq == ",S") {
+				$("#subImg3Seq").val("");
+			}
+			else {
+				// 서브이미지1이 없을 경우 서브이미지2를 서브이미지1로 등록하기 위한 flag
+				var subImg2Splt = subImg2Seq.split(/,/g);
+				var subImg3Splt = subImg3Seq.split(/,/g);
+				if ((subImg2Seq == ",S" || subImg2Splt[1] == "D") && subImg3Splt[1] != "D" ) {
+					$("#subImg3Seq").val(subImg3Splt[0]+",P");
+				}
+			}
+			
+			if ((subImg4Seq != null && subImg4Seq != "") && subImg4Seq == ",S") {
+				$("#subImg4Seq").val("");
+			}
+			else {
+				var subImg2Splt = subImg2Seq.split(/,/g);
+				var subImg3Splt = subImg3Seq.split(/,/g);
+				var subImg4Splt = subImg4Seq.split(/,/g);
+
+				// [KANG 추가] (서브이미지2가 없거나, 서브이미지2가 D ) 이고, (서브이미지3이 없거나, 서브이미지3의 플래그가 D) 이고, (서브이미지4가 D가 아닌경우)
+				// 서브이미지1과 서브이미지2가 없을 경우 서브이미지3을 서브이미지1로 등록하기 위한 flag
+				if ( (subImg2Seq == ",S" || subImg2Splt[1] == "D") && (subImg3Seq == ",S" || subImg3Splt[1] == "D") && subImg4Splt[1] != "D" ) {
+					$("#subImg4Seq").val(subImg4Splt[0]+",T");
+				}
+				// 서브이미지1이 없고 서브이미지2가 있을 경우 서브이미지3을 서브이미지2로 등록하기 위한 flag
+				else if ( (subImg2Seq == ",S" || subImg2Splt[1] == "D") && (subImg3Seq != ",S" && subImg3Splt[1] != "D") && subImg4Splt[1] != "D" ) {
+					$("#subImg4Seq").val(subImg4Splt[0]+",P");
+				}
+				// 서브이미지2가 없고 서브이미지1이 있을 경우 서브이미지3을 서브이미지2로 등록하기 위한 flag
+				else if ( (subImg2Seq != ",S" && subImg2Splt[1] != "D") && (subImg3Seq == ",S" || subImg3Splt[1] == "D") && subImg4Splt[1] != "D" ) {
+					$("#subImg4Seq").val(subImg4Splt[0]+",P");
+				}
+				
+			}
+			
+		},
+
+		// 배송방식 변경
+		procDlvWayChng : function () {
+			
+			var cd = $("#dlvWayCd option:selected").val();
+			
+			// 판매
+			if (prodTypeCd == "1") {
+				
+				// 판매상품에 해당하는 component 전체 hide
+				$("#pTradLoc").hide();
+				$("#divTradLoc").hide();
+				$("#pDlvPayGb").hide();
+				$("#divDlvPayGb").hide();
+				$("#pBndlDlv").hide();
+				$("#divBndlDlv").hide();
+				$("#pDlvCmp").hide();
+				$("#divDlvCmp").hide();
+				$("#liDlvCmpCd1").hide();
+				$("#liDlvCmpCd2").hide();
+				$("#pDlvPrce").hide();
+				$("#divDlvPrce").hide();
+				
+				// 직거래
+				if (cd == "5") {
+					$("#pTradLoc").text("거래 희망 지역");
+					$("#pTradLoc").show();
+					$("#divTradLoc").show();
+				}
+				// 퀵서비스
+				else if (cd == "4") {
+					$("#pTradLoc").text("배송 가능 지역");
+					$("#pTradLoc").show();
+					$("#divTradLoc").show();
+					$("#pDlvPayGb").show();
+					$("#divDlvPayGb").show();
+					$("#pBndlDlv").show();
+					$("#divBndlDlv").show();
+				}
+				// 제휴택배, 일반택배
+				else if (cd == "1" || cd == "2") {
+					$("#pDlvCmp").show();
+					$("#divDlvCmp").show();
+					if (cd == "1") {
+						$("#liDlvCmpCd1").show();
+					}
+					else if (cd == "2") {
+						$("#liDlvCmpCd2").show();
+					}
+					$("#pDlvPayGb").show();
+					$("#divDlvPayGb").show();
+					var gbCd = $("#dlvPayGbCd option:selected").val();
+					if (gbCd == "2") {
+						$("#pDlvPrce").show();
+						$("#divDlvPrce").show();
+					}
+					$("#pBndlDlv").show();
+					$("#divBndlDlv").show();
+				}
+				
+			}
+			// 나눔
+			else if (prodTypeCd == "3") {
+				
+				// 나눔상품에 해당하는 component 전체 hide
+				$("#pDlvCmp").hide();
+				$("#divDlvCmp").hide();
+				$("#liDlvCmpCd1").hide();
+				$("#liDlvCmpCd2").hide();
+				$("#pTradLoc").hide();
+				$("#divTradLoc").hide();
+				
+				// 일반택배, 제휴택배
+				if (cd == "1" || cd == "2") {
+					$("#pDlvCmp").show();
+					$("#divDlvCmp").show();
+					if (cd == "1") {
+						$("#liDlvCmpCd1").show();
+					}
+					else if (cd == "2") {
+						$("#liDlvCmpCd2").show();	
+					}
+				}
+				// 퀵서비스
+				else if (cd == "4" || cd == "5") {
+					if (cd == "4") {
+						$("#pTradLoc").text("배송 가능 지역");
+					}
+					else if (cd == "5") {
+						$("#pTradLoc").text("거래 희망 지역");
+					}
+					$("#pTradLoc").show();
+					$("#divTradLoc").show();
+				}
+			}
+			
+		},
+		
+		// 배송비부담 변경
+		procDlvPayGbChng : function () {
+			
+			var cd = $("#dlvPayGbCd option:selected").val();
+			var wayCd = $("#dlvWayCd option:selected").val();
+			
+			if (prodTypeCd == "1") {
+				if (cd == "2" && (wayCd == "1" || wayCd == "2")) {
+					$("#pDlvPrce").show();
+					$("#divDlvPrce").show();
+				}
+				else {
+					$("#pDlvPrce").hide();
+					$("#divDlvPrce").hide();
+				}
+			}
+			
+		},
+		
+		// 상품명 글자수 spanLen
+		procProdDtlLen : function () {
+			cur = getBytesLength($("#prodDtl").val());
+			
+			if( cur <= limit ){
+				$("#spanLen").text(cur + '/' + limit);
+			}
+			else{
+				alert("글자수가 " + limit + "Byte를 넘었습니다.");
+				var dtl = assertMsg(limit, $("#prodDtl").val());
+				$("#prodDtl").val(dtl);
+			}
+		},
+		
+		tradLocLen : function () {
+			
+			var len = $("#tradLoc").val().length;
+			var maxLen = $("#tradLoc").attr("maxLength");
+			// 글자수 제한
+			if (len > maxLen) {
+				$("#tradLoc").val($("#tradLoc").val().slice(0,maxLen));
+			}
+			
+		},
+		
+		prodNmLen : function () {
+			
+			var len = $("#prodNm").val().length;
+			var maxLen = $("#prodNm").attr("maxLength");
+			// 글자수 제한
+			if (len > maxLen) {
+				$("#prodNm").val($("#prodNm").val().slice(0,maxLen));
+			}
+			
+		},
+		
+		// 브랜드 목록 조회
+		selectBrandList : function () {
+			
+			var ctry = $("#regCtryCd3 option:selected").val();
+			
+			$.ajax({
+			    type: 'post'
+			    , async: true
+			    , url: '/mobile/salemanage/selectBrandList.do'
+			    , data: {"ctryCd":ctry}
+			    , success: function(data) {
+			    	var brandList = data.brandList;
+			    	if(brandList.length > 0){
+			    		
+			    		var innerHtml = "";
+			    		// 초기화
+			    		$("#brandCd").empty();
+			    		innerHtml += "<option value=''>없음</option>";
+						for(var i = 0 ; i < brandList.length ; i++){
+							innerHtml += "<option value='";
+							innerHtml += brandList[i].BRAND_CD;
+							innerHtml += "'>";
+							innerHtml += brandList[i].BRAND_NM;
+							innerHtml += "</option>";
+						}
+						$("#brandCd").html(innerHtml);						
+					}
+			    }
+			    , error: function(data, status, err) {
+			      alert('서버와의 통신이 실패했습니다.');
+			    }
+			});
+			
+		},
+		
+		// 할인율
+		sellPer : function () {
+			
+			var nrmPrce = Number($("#nrmPrceView").val().replace(/,/g, ""));
+			var sellPrce = Number($("#sellPrceView").val().replace(/,/g, ""));
+			if (nrmPrce < sellPrce) {
+				alert("판매가는 정상가보다 높은 금액으로 입력할 수 없습니다.");
+				$("#sellPrceView").val("");
+				return;
+			}
+
+			// 할인율 계산
+			var sellPer = Math.floor(100 - ((sellPrce/nrmPrce)*100));
+			$("#spanSellPer").text(sellPer);
+			
+		},
+		
+		// 정상가와 동일
+		chkPrce : function () {
+			var chk = $("#chkPrce").is(":checked");
+			if (chk) {
+				$("#sellPrceView").val($("#nrmPrceView").val());
+				$("#sellPrceView").attr("readOnly", true);
+			}
+			else {
+				var val = numberWithCommas($("#sellPrceOld").val());
+				$("#sellPrceView").val(val);
+				$("#sellPrceView").attr("readOnly", false);
+			}
+			// 할인율 계산
+			proc.sellPer();
+		},
+		
+		// 나눔신청 마감일 set
+		setFreeShareEndDt : function () {
+			
+			var freeEndDt = '${prodDtl.FREESHARE_END_DT}';
+			proc.setYear();
+			proc.setMonth();
+			$("#freeEndYear").val(freeEndDt.substr(0,4));
+			$("#freeEndMonth").val(freeEndDt.substr(4,2));
+			
+			proc.setDay();
+			$("#freeEndDay").val(freeEndDt.substr(6,2));
+			
+		},
+		
+		// 나눔신청마감일 년도
+		setYear : function () {
+			
+			var date = new Date();
+			var curYear = date.getFullYear();
+			var nextYear = date.getFullYear()+5;
+			var yearHtml = "";
+			for (var i = curYear ; i < nextYear ; i++) {
+				yearHtml += "<option value='";
+				yearHtml += i;
+				yearHtml += "'>";
+				yearHtml += i+"년";
+				yearHtml += "</option>";
+			}
+			$("#freeEndYear").append(yearHtml);
+			
+		},
+		
+		// 나눔신청마감일 월
+		setMonth : function () {
+			
+			var date = new Date();
+			var curMon = date.getMonth()+1;
+			
+			if (curMon < 10) {
+				curMon = "0"+curMon;
+			}
+			else {
+				curMon = curMon;
+			}
+			
+			$("#freeEndMonth option[value="+curMon+"]").attr("selected", true);	
+			
+			proc.setDay();
+		},
+		
+		// 나눔신청마감일 일
+		setDay : function () {
+			
+			var year = $("#freeEndYear option:selected").val();
+			var month = $("#freeEndMonth option:selected").val();
+			var dayArr = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+			var maxDay = dayArr[month-1];  
+			var dayHtml = "";
+			
+			// 윤년 체크
+			if( month==2 &&	( year%4==0 && year%100!=0 || year%400==0 ) ) {
+				maxDay = 29;
+			}
+			
+			// 일 set
+			$("#freeEndDay").empty();
+			dayHtml += "<option value=''>일</option>";
+			for (var i = 1 ; i <= maxDay ; i++) {
+				dayHtml += "<option value='";
+				if (i < 10) {
+					dayHtml += "0"+i;
+				}
+				else {
+					dayHtml += i;
+				}
+				dayHtml += "'>";
+				dayHtml += i+"일";
+				dayHtml += "</option>";
+			}
+			$("#freeEndDay").append(dayHtml);
+		}
+			
+	};
+	
+	
+	
+	// 하위 카테고리가 없는 카테고리
+	var lastCtry = [
+		                   "1015000000000000"	// 셰어링
+		                   ];
+	
+	// 유효성 
+	var validation = {
+			
+		// 유효성체크
+		saveValidation : function () {
+			
+			// 공통 validation - start
+			
+			// 카테고리
+			var ctryIdx1 = $("#regCtryCd1 option").index($("#regCtryCd1 option:selected"));
+			var ctryIdx2 = $("#regCtryCd2 option").index($("#regCtryCd2 option:selected"));
+			var ctryIdx3 = $("#regCtryCd3 option").index($("#regCtryCd3 option:selected"));
+			
+			var val1 = $("#regCtryCd1").val();
+			var val2 = $("#regCtryCd2").val();
+			var val3 = $("#regCtryCd3").val();
+			
+			
+			if (ctryIdx1 == null || ctryIdx1 <= 0) {
+				alert("대분류를 선택해주세요");
+				$("#regCtryCd1").focus();
+				return false;
+			}
+			// [2015-11-08] 하위 카테고리가 없는 카테고리는 pass
+			if (lastCtry.indexOf(val1) >= 0){
+				$("#regCtryCd3 option").val(val1);
+				return true;
+			}
+			
+			if (ctryIdx2 == null || ctryIdx2 <= 0) {
+				alert("중분류를 선택해주세요");
+				$("#regCtryCd2").focus();
+				return false;
+			}
+			// [2015-11-08] 하위 카테고리가 없는 카테고리는 pass
+			if (lastCtry.indexOf(val2) >= 0){
+				$("#regCtryCd3 option").val(val2);
+				return true;
+			}
+			
+			if (ctryIdx3 == null || ctryIdx3 <= 0) {
+				alert("소분류를 선택해주세요");
+				$("#regCtryCd3").focus();
+				return false;
+			}
+			
+			// 브랜드
+			var brandIdx = $("#brandCd option").index($("#brandCd option:selected"));
+			if (brandIdx == null || brandIdx < 0) {
+				alert("브랜드 정보를 선택해주세요.");
+				$("#brandCd").focus();
+				return false;
+			}
+			
+			// 상품명
+			var prodNm = $("#prodNm").val();
+			if (prodNm == null || prodNm == "") {
+				alert("상품명을 입력해주세요");
+				$("#prodNm").focus();
+				return false;
+			}
+			
+			// 상품설명
+			var prodDtl = $("#prodDtl").val();
+			if (prodDtl == null || prodDtl == "") {
+				alert("상품설명을 입력해주세요.");
+				$("#prodDtl").focus();
+				return false;
+			}
+			
+			// 키워드
+			var keyword = $("#keyword").val();
+			if (keyword == null || keyword == "") {
+				alert("키워드를 입력해주세요.");
+				$("#keyword").focus();
+				return false;
+			}
+			// 공통 validation - end
+			
+			// PROD TYPE 별
+			if (prodTypeCd == "1") {
+				// 상품상태
+				var nProdgbIdx = $("#nProdGbCd option").index($("#nProdGbCd option:selected"));
+				if (nProdgbIdx == null || nProdgbIdx < 0) {
+					alert("상품상태를 선택해주세요.");
+					$("#nProdGbCd").focus();
+					return false;
+				}
+				
+				// 판매금액
+				var nrmPrce = Number($("#nrmPrceView").val().replace(/,/g, ""));
+				var sellPrce = Number($("#sellPrceView").val().replace(/,/g, ""));
+				var stockQty = Number($("#stockQtyView").val().replace(/,/g, ""));
+				// 정상가 check
+				if (nrmPrce == null || nrmPrce == "" || nrmPrce <= 0) {
+					alert("정상가를 최소 1원이상 입력하세요.");
+					$("#nrmPrce").focus();
+					return false;
+				}
+				// 판매가 check
+				if (sellPrce == null || sellPrce == "" || sellPrce <= 0) {
+					alert("판매가를 최소 1원이상 입력하세요.");
+					$("#sellPrce").focus();
+					return false;
+				}
+				if (nrmPrce < sellPrce) {
+					alert("판매가는 정상가보다 높은 금액으로 입력할 수 없습니다.");
+					$("#sellPrce").val("");
+					$("#sellPrce").focus();
+					return false;
+				}
+				// 재고수량 check
+				if (stockQty == null || stockQty == "" || stockQty <= 0) {
+					alert("재고수량을 한개이상 입력하세요.");
+					$("#stockQty").focus();
+					return false;
+				}	
+				
+			}
+			
+			if (prodTypeCd == "2") {
+				
+				// 셰어링 금액
+				var deposit = Number($("#depositView").val().replace(/,/g, ""));
+				var sharingPrice = Number($("#sharingPriceView").val().replace(/,/g, ""));
+				if (deposit == null || deposit <= 0 || deposit == "") {
+					alert("보증금을 입력해주세요.");
+					$("#depositView").focus();
+					return false;
+				}
+				if (sharingPrice == null || sharingPrice <= 0 || sharingPrice == "") {
+					alert("일 사용료를 입력해주세요.");
+					$("#sharingPriceView").focus();
+					return false;
+				}
+				if (deposit < sharingPrice) {
+					alert("셰어링금액은 보증금보다 높은 금액으로 입력할 수 없습니다.");
+					$("#sharingPriceView").val("");
+					$("#sharingPriceView").focus();
+					return false;
+				}
+				
+				// 택배사
+				var dlvCmpIdx = $("#dlvCmpCd1 option").index($("#dlvCmpCd1 option:selected"));
+				if (dlvCmpIdx == null || dlvCmpIdx < 0) {
+					alert("택배사를 선택해주세요.");
+					$("#dlvCmpCd1").focus();
+					return false;
+				}
+				
+			}
+			
+			// 나눔신청마감일
+			if (prodTypeCd == "3") {
+				var yearIdx = $("#freeEndYear option").index($("#freeEndYear option:selected"));
+				var monthIdx = $("#freeEndMonth option").index($("#freeEndMonth option:selected"));
+				var dayIdx = $("#freeEndDay option").index($("#freeEndDay option:selected"));
+				var freeShareEndDt = $("#freeShareEndDt").val().substr(0,8);
+				var date = new Date();
+				var year = date.getFullYear();
+				var month = date.getMonth() + 1;
+				var day = date.getDate();
+				
+				if (month < 10) {
+					month = "0"+month;
+				}
+				
+				if (day < 10) {
+					day = "0"+day;
+				}
+				var today = year+""+month+""+day;
+				
+				// 날짜 선택
+				if (yearIdx == null || yearIdx <= 0) {
+					alert("마감년도를 선택해 주세요.");
+					$("#freeEndYear").focus();
+					return false;
+				}
+				if (monthIdx == null || monthIdx <= 0) {
+					alert("마감월을 선택해 주세요.");
+					$("#freeEndMonth").focus();
+					return false;
+				}
+				if (dayIdx == null || dayIdx <= 0) {
+					alert("마감일을 선택해 주세요.");
+					$("#freeEndDay").focus();
+					return false;
+				}
+				// 날짜크기
+				if (freeShareEndDt < today) {
+					alert("마감일은 오늘날짜보다 작을 수 없습니다.");
+					return false;
+				}
+			}
+			
+			if (prodTypeCd == "1" || prodTypeCd == "3") {
+				
+				// 배송방식
+				var dlvWayIdx = $("#dlvWayCd option").index($("#dlvWayCd option:selected"));
+				var dlvWayVal = $("#dlvWayCd option:selected").val();
+				if (dlvWayIdx == null || dlvWayIdx < 0) {
+					alert("배송방식을 선택해주세요.");
+					$("#dlvWayCd").focus();
+					return false;
+				}
+				
+				// 직거래 시, 퀵서비스시에
+				if (dlvWayVal == "4" || dlvWayVal == "5") {
+					// 지역
+					var tradLoc = $("#tradLoc").val();
+					if (tradLoc == null || tradLoc == "") {
+						if (dlvWayVal == "5") {
+							alert("거래희망지역을 입력해주세요.");
+						}
+						else if (dlvWayVal == "4") {
+							alert("배송가능지역을 입력해주세요.");
+						}
+						$("#tradLoc").focus();
+						return false;
+					}
+				}
+				
+				// 택배
+				if (dlvWayVal == "1" || dlvWayVal == "2") {
+					// 택배사
+					var dlvCmpIdx;
+					if (dlvWayVal == "2") {
+						dlvCmpIdx = $("#dlvCmpCd2 option").index($("#dlvCmpCd2 option:selected"));
+					}
+					else if (dlvWayVal == "1") {
+						dlvCmpIdx = $("#dlvCmpCd1 option").index($("#dlvCmpCd1 option:selected"));
+					}
+					
+					if (dlvCmpIdx == null || dlvCmpIdx < 0) {
+						alert("택배사를 선택해주세요.");
+						if (dlvWayVal == "2") {
+							$("dlvCmpCd2").focus();
+						}
+						else if (dlvWayVal == "1") {
+							$("dlvCmpCd1").focus();
+						}
+						return false;
+					}
+				}
+				
+			}
+			
+			if (prodTypeCd == "1" || prodTypeCd == "2") {
+				var dlvWayVal = $("#dlvWayCd option:selected").val();
+				if (prodTypeCd == "1") {
+					if (dlvWayVal == "1" || dlvWayVal == "2" || dlvWayVal == "4") {
+						// 배송비부담
+						var dlvPayGbIdx = $("#dlvPayGbCd option").index($("#dlvPayGbCd option:selected"));
+						if (dlvPayGbIdx == null || dlvPayGbIdx < 0) {
+							alert("배송비부담 여부를 선택해주세요.");
+							$("#dlvPayGbCd").focus();
+							return false;
+						}
+						// 배송금액
+						var dlvPrce = $("#dlvPrceView").val();
+						if (dlvWayVal == "1" || dlvWayVal == "2") {
+							if (dlvPayGbIdx == "1" && (dlvPrce == null || dlvPrce == "" || dlvPrce == 0)) {
+								alert("배송금액을 입력해주세요.");
+								$("#dlvPrceView").focus();
+								return false;
+							}
+						}
+					}
+				}
+				else if (prodTypeCd == "2") {
+					// 배송비부담
+					var dlvPayGbIdx = $("#dlvPayGbCd option").index($("#dlvPayGbCd option:selected"));
+					if (dlvPayGbIdx == null || dlvPayGbIdx < 0) {
+						alert("배송비부담 여부를 선택해주세요.");
+						$("#dlvPayGbCd").focus();
+						return false;
+					}
+				}
+				
+				// 묶음배송
+				var bndlDlvIdx = $("#bndlDlvYn option").index($("#bndlDlvYn option:selected"));
+				if (bndlDlvIdx == null || bndlDlvIdx < 0) {
+					alert("묶음배송 여부를 선택해주세요.");
+					$("#bndlDlvYn").focus();
+					return false;
+				}
+				
+			}
+			
+			if (prodTypeCd == "2") {
+				// 최대이용일 계산
+				var maxTerm = Math.ceil(deposit / sharingPrice);
+				$("#sharingMaxTerm").val(maxTerm);
+			}
+			
+			return true;
+			
+		}
+	
+	};
+
+</script>
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+		<div class="roc">
+			<ul class="inner">
+				<li><img src="http://static.ssocio.net/pc/img/common/section/roc_home.png" alt="홈"></li>
+				<li>판매관리</li>
+			</ul>
+		</div>
+		<jsp:include page="../common/sale_top.jsp" flush="false" />
+		<div class="mype_s_tit">
+			<p>배송신청</p>
+		</div>
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+		<!-- container -->
+		<div id="container">
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>
+
+
+<form id="form" name="form" method="post" action="/mobile/salemanage/updateProdInfo.do" enctype="multipart/form-data">
+
+
+	<input type="hidden" id="prodCode" name="prodCode" value="${prodDtl.PROD_CODE }" />
+	<input type="hidden" id="prodTypeCd" name="prodTypeCd" value="${prodDtl.PROD_TYPE_CD}" />
+	<input type="hidden" id="dlvCmpCd" name="dlvCmpCd" value="" />
+	<input type="hidden" id="freeShareEndDt" name="freeShareEndDt" value="" />
+
+		<p class="title">상품구분</p>
+		<p class="txt_gubun">${prodDtl.PROD_TYPE_CD_NM }</p>
+		
+		
+		
+
+		
+		<p class="title">상품사진</p>
+		<div class="contents pic_reg">
+	        <div class="pic_reg_area">
+	        	<div class="essential pic_bx" style="height:330px !important;">
+	        	
+	        		<!-- 이미지 URL -->
+	        		<img alt="${imgList.MAIN_FILE_URL }" src="<custom:codeTag code="DEFAULT_IMG_URL" groupCode="SITE_DEFAULT" />" id="mainImg" />
+	        		
+	        		<!-- APP 이 아닌경우의 로직 -->
+	        		<c:if test="${sessionScope.APP != 'SSOCIO'}">
+	        			<input type="file" id="fileMainImg" style="height:330px;" name="mainImg" accept="image" capture="camera" class="camera_none" onchange="preView(this, 'mainImg', '');proc.procImgSeq('${imgList.MAIN_FILE_SEQ }','mainImg');" />
+	        		</c:if>
+	        		
+	        		<!-- file 저장용 hidden -->
+<%-- 					<input type="hidden" id="mainImgSeq" name="mainImgSeq" value="${imgList.MAIN_FILE_SEQ },S" /> --%>
+
+<!-- [2015-11-10 추가] 항시 따라 붙는 값 -->
+<input type="hidden" id="mainImgFlag" name="mainImgFlag" value="${mainImgFlag }" />
+<input type="hidden" id="mainImgSeq" name="mainImgSeq" value="${imgList.MAIN_FILE_SEQ },S" />
+<input type="hidden" id="mainImgUrl" name="mainImgUrl" value="${mainImgUrl }" />
+
+	        	</div>
+	        </div>
+	        <ul class="lst_other_pic">
+	        	<li>
+	        		<div class="pic_bx">
+	        		
+	        			<!-- 이미지 URL -->
+	        			<img alt="${imgList.subProdImage[0].SUB_FILE_URL }" src="<custom:codeTag code="DEFAULT_IMG_URL" groupCode="SITE_DEFAULT" />" id="subImg1" />
+	        			
+	        			<!-- APP 이 아닌경우의 로직 -->
+	        			<c:if test="${sessionScope.APP != 'SSOCIO'}">
+	        				<input type="file" id="fileSubImg1" name="subImg1" accept="image" style="height:89px;" capture="camera" class="camera_none" onchange="javascript:preView(this, 'subImg1', '');proc.procImgSeq('${imgList.subProdImage[0].SUB_FILE_SEQ }','subImg1');" />
+	        			</c:if>
+	        			
+	        			<!-- file 저장용 hidden -->
+<%-- 						<input type="hidden" id="subImg1Seq" name="subImg1Seq" value="${imgList.subProdImage[0].SUB_FILE_SEQ },S" /> --%>
+
+
+<!-- [2015-11-10 추가] 항시 따라 붙는 값 -->
+<input type="hidden" id="subImg1Flag" name="subImg1Flag" value="${subImg1Flag }" />
+<input type="hidden" id="subImg1Seq" name="subImg1Seq" value="${imgList.subProdImage[0].SUB_FILE_SEQ },S" />
+<input type="hidden" id="subImg1Url" name="subImg1Url" value="${subImg1Url }" />						
+
+	        		</div>
+	        	</li>
+	        	
+	        	<!--  서브이미지 2 -->
+	        	<li>
+	        		<div class="pic_bx">
+
+       					<!-- (서브이미지2 부터는 선택이 옵셔널 하다. ) -->
+        				<c:choose>
+        					<c:when test="${imgList.subProdImage[1].SUB_FILE_URL ne null and imgList.subProdImage[1].SUB_FILE_URL ne '' }">
+        						<!-- 이미지 URL -->
+        						<img alt="${imgList.subProdImage[1].SUB_FILE_URL }" src="<custom:codeTag code="DEFAULT_IMG_URL" groupCode="SITE_DEFAULT" />" id="subImg2" />
+        					</c:when>
+        					<c:otherwise>
+        						<!-- 이미지 URL -->
+<%--         						<img alt="http://static.ssocio.net/web/images/bg_pic_add.png" src="<custom:codeTag code="DEFAULT_IMG_URL" groupCode="SITE_DEFAULT" />" id="subImg2" /> --%>
+        						<img src="http://static.ssocio.net/web/images/bg_pic_add.png" id="subImg2" />
+        					</c:otherwise>
+        				</c:choose>
+        				
+        				<!-- APP 이 아닌경우의 로직 -->
+        				<c:if test="${sessionScope.APP != 'SSOCIO'}">
+	        				<input type="file" id="fileSubImg2" name="subImg2" accept="image" style="height:89px;" capture="camera" class="camera_none" onchange="preView(this, 'subImg2', '');proc.procImgSeq('${imgList.subProdImage[1].SUB_FILE_SEQ }','subImg2');" />
+						</c:if>
+						
+							<!-- 삭제 버튼 -->		
+		        			<a href="javascript:proc.procDelImg('fileSubImg2','${imgList.subProdImage[1].SUB_FILE_SEQ }','subImg2');" class="pic_del" style="display:
+		        				<c:if test="${imgList.subProdImage[1].SUB_FILE_URL eq null or imgList.subProdImage[1].SUB_FILE_URL eq '' }">
+	        						none
+	        					</c:if>
+		        			;"><img src="http://static.ssocio.net/web/images/btn_pic_del.png" alt="" />
+		        			</a>
+						
+						
+	        			<!-- file 저장용 hidden -->
+<%-- 						<input type="hidden" id="subImg2Seq" name="subImg2Seq" value="${ },S" /> --%>
+						
+
+<!-- 항시 따라 붙는 값 -->
+<input type="hidden" id="subImg2Flag" name="subImg2Flag" value="${subImg2Flag }" />
+<input type="hidden" id="subImg2Seq" name="subImg2Seq" value="${imgList.subProdImage[1].SUB_FILE_SEQ },S" />
+<input type="hidden" id="subImg2Url" name="subImg2Url" value="${subImg2Url }" />
+						
+						
+	        		</div>
+	        	</li>
+	        	
+	        	<!-- 서브이미지 3 -->
+	        	<li>
+	        		<div class="pic_bx">
+	        		
+	        			<!-- (서브이미지2 부터는 선택이 옵셔널 하다. ) -->
+						<c:choose>
+        					<c:when test="${imgList.subProdImage[2].SUB_FILE_URL ne null and imgList.subProdImage[2].SUB_FILE_URL ne '' }">
+        						<!-- 이미지 URL -->
+        						<img alt="${imgList.subProdImage[2].SUB_FILE_URL }" src="<custom:codeTag code="DEFAULT_IMG_URL" groupCode="SITE_DEFAULT" />" id="subImg3" />
+        					</c:when>
+        					<c:otherwise>
+        						<!-- 이미지 URL -->
+								<img src="http://static.ssocio.net/web/images/bg_pic_add.png" id="subImg3" />
+        					</c:otherwise>
+        				</c:choose>
+        				
+        				<!-- APP 이 아닌경우의 로직 -->
+        				<c:if test="${sessionScope.APP != 'SSOCIO'}">
+	        				<input type="file" id="fileSubImg3" name="subImg3" accept="image" style="height:89px;" capture="camera" class="camera_none" onchange="preView(this, 'subImg3', '');proc.procImgSeq('${imgList.subProdImage[2].SUB_FILE_SEQ }','subImg3');" />
+	        			</c:if>
+		        			<a href="javascript:proc.procDelImg('fileSubImg3','${imgList.subProdImage[2].SUB_FILE_SEQ }','subImg3');" class="pic_del" style="display:
+		        				<c:if test="${imgList.subProdImage[2].SUB_FILE_URL eq null or imgList.subProdImage[2].SUB_FILE_URL eq '' }">
+	        						none
+	        					</c:if>
+		        			;"><img src="http://static.ssocio.net/web/images/btn_pic_del.png" alt="" /></a>
+	        			
+	        			
+	        			<!-- file 저장용 hidden -->
+<%-- 						<input type="hidden" id="subImg3Seq" name="subImg3Seq" value="${imgList.subProdImage[2].SUB_FILE_SEQ },S" /> --%>
+
+
+<!-- 항시 따라 붙는 값 -->
+<input type="hidden" id="subImg3Flag" name="subImg3Flag" value="${subImg3Flag }" />
+<input type="hidden" id="subImg3Seq" name="subImg3Seq" value="${imgList.subProdImage[2].SUB_FILE_SEQ },S" />
+<input type="hidden" id="subImg3Url" name="subImg3Url" value="${subImg3Url }" />
+
+						
+	        			
+	        		</div>
+	        	</li>
+	        	
+	        	<!-- 서브이미지 4 -->
+	        	<li>
+	        		<div class="pic_bx">
+	        		
+	        		
+	        			<!-- (서브이미지2 부터는 선택이 옵셔널 하다. ) -->
+        				<c:choose>
+        					<c:when test="${imgList.subProdImage[3].SUB_FILE_URL ne null and imgList.subProdImage[3].SUB_FILE_URL ne '' }">
+        						<!-- 이미지 URL -->
+        						<img alt="${imgList.subProdImage[3].SUB_FILE_URL }" src="<custom:codeTag code="DEFAULT_IMG_URL" groupCode="SITE_DEFAULT" />" id="subImg4" />
+        					</c:when>
+        					<c:otherwise>
+        						<!-- 이미지 URL -->
+<%--         						<img alt="http://static.ssocio.net/web/images/bg_pic_add.png" src="<custom:codeTag code="DEFAULT_IMG_URL" groupCode="SITE_DEFAULT" />" id="subImg4" /> --%>
+								<img src="http://static.ssocio.net/web/images/bg_pic_add.png" id="subImg4" />
+        					</c:otherwise>
+        				</c:choose>
+        				
+        				<!-- APP 이 아닌경우의 로직 -->
+        				<c:if test="${sessionScope.APP != 'SSOCIO'}">
+<%-- 		        			<input type="file" id="fileSubImg4" name="subImg4" accept="image" style="height:89px;" capture="camera" class="camera_none" onchange="preView(this, 'subImg4', '');proc.delImgShow(this);proc.procImgSeq('${imgList.subProdImage[3].SUB_FILE_SEQ }','subImg4');" /> --%>
+	        			<input type="file" id="fileSubImg4" name="subImg4" accept="image" style="height:89px;" capture="camera" class="camera_none" onchange="preView(this, 'subImg4', '');proc.procImgSeq('${imgList.subProdImage[3].SUB_FILE_SEQ }','subImg4');" />
+	        			
+	        			</c:if>
+	        			
+	        			<a href="javascript:proc.procDelImg('fileSubImg4','${imgList.subProdImage[3].SUB_FILE_SEQ }','subImg4');" class="pic_del" style="display:
+	        				<c:if test="${imgList.subProdImage[3].SUB_FILE_URL eq null or imgList.subProdImage[3].SUB_FILE_URL eq '' }">
+        						none
+        					</c:if>
+	        			;"><img src="http://static.ssocio.net/web/images/btn_pic_del.png" alt="" /></a>
+	        			<!-- file 저장용 hidden -->
+<%-- 					<input type="hidden" id="subImg4Seq" name="subImg4Seq" value="${imgList.subProdImage[3].SUB_FILE_SEQ },S" /> --%>
+
+<!-- 항시 따라 붙는 값 -->
+<input type="hidden" id="subImg4Flag" name="subImg4Flag" value="${subImg4Flag }" />
+<input type="hidden" id="subImg4Seq" name="subImg4Seq" value="${imgList.subProdImage[3].SUB_FILE_SEQ },S" />
+<input type="hidden" id="subImg4Url" name="subImg4Url" value="${subImg4Url }" />      
+        
+						
+
+	        		</div>
+	        	</li>
+	        </ul>
+        </div>
+  
+
+
+		
+		<p class="title">카테고리</p>
+		<div class="content">
+			<ul class="sbox01">
+				<li>
+					<select id="regCtryCd1" name="" onchange="chgCtryCd1Box('reg');">
+						<option value="">대분류를 선택해 주세요</option>
+					</select>
+				</li>
+				<li>
+					<p class="fl">
+						<select id="regCtryCd2" name="" onchange="chgCtryCd2Box('reg');">
+							<option value="">중분류를 선택해 주세요</option>
+						</select>
+					</p>
+					<p class="fr">
+						<select id="regCtryCd3" name="ctryCd">
+							<option value="">소분류를 선택해 주세요</option>
+						</select>
+					</p>
+				</li>
+			</ul>
+		</div>
+		
+		<p class="title">브랜드</p>
+		<div class="content">
+			<ul class="sbox01">
+				<li>
+					<select id="brandCd" name="brandCd">
+						<option value="">없음</option>
+						<c:forEach var="brand" items="${brandList }" varStatus="status">
+							<option value="${brand.BRAND_CD }"
+								<c:if test="${brand.BRAND_CD eq prodDtl.BRAND_CD }">selected</c:if>
+							>${brand.BRAND_NM }</option>
+						</c:forEach>
+					</select>
+				</li>
+			</ul>
+		</div>
+		
+		<p class="title">상품명</p>
+		<div class="content">
+			<ul class="sbox01">
+				<li>
+					<input type="text" id="prodNm" name="prodNm" value="${prodDtl.PROD_NM }" maxLength="50" />
+				</li>
+			</ul>
+		</div>
+		
+		<p class="title">상품설명</p>
+		<div class="content">
+			<ul class="sbox01">
+				<li>
+					<div class="text_box">
+						<textarea id="prodDtl" name="prodDtl" maxLength="500">${prodDtl.PROD_MB_DTL }</textarea>
+						<span class="byte" id="spanLen"></span>
+					</div>
+				</li>
+			</ul>
+		</div>
+		
+		<p class="title">상품검색 키워드</p>
+		<div class="content">
+			<ul class="sbox01">
+				<li>
+					<input type="text" id="keyword" name="keyword" value="${prodDtl.KEYWORD }" />
+				</li>
+			</ul>
+			<p class="txt_info v2">* 키워드는 (,)로 구분됩니다.반드시 입력해주세요.</p>
+		</div>
+		
+		<p class="title" id="pNProdGb" style="display:none;">상품상태</p>
+		<div class="content" id="divNProdGb" style="display:none;">
+			<ul class="sbox01">
+				<li>
+					<select id="nProdGbCd" name="nProdGbCd">
+						<custom:codeList var="nProdGbCd" groupCode="NPROD_GB_CD" />
+						<c:forEach var="list" items="${nProdGbCd}" varStatus="status">
+							<option value="${list.key }"
+								<c:if test="${prodDtl.NPROD_GB_CD == list.key }">selected</c:if>
+							>${list.value }</option>
+		                </c:forEach>
+					</select>
+				</li>
+			</ul>
+		</div>
+		
+		<p class="title" id="pProdPrce" style="display:none;">판매금액</p>
+        <div class="content" id="divProdPrce" style="display:none;">
+        	<input type="hidden" id="nrmPrce" name="nrmPrce" value="" />
+        	<input type="hidden" id="sellPrce" name="sellPrce" value="" />
+        	<input type="hidden" id="stockQty" name="stockQty" value="" />
+        	<div class="tbl tbl_nobot">
+            	<table class="tbl-data">
+                	<colgroup>
+                    	<col width="90px">
+                    	<col width="*">
+                    	<col width="20px">
+                    </colgroup>
+                    <tbody>
+                    	<tr>
+                        	<th>정상가</th>
+                            <td class="pd5">
+                            	<input type="text" id="nrmPrceView" value='<fmt:formatNumber value="${prodDtl.NRM_PRCE }" type="number" />' maxlength="13" pattern="[0-9]*" class="numType" style="text-align:right !important;" />
+                            </td>
+                            <td class="tr">원</td>
+                        </tr>
+                    	<tr>
+                        	<th>판매가</th>
+                            <td class="pd5">
+                            	<input type="text" id="sellPrceView" value='<fmt:formatNumber value="${prodDtl.SELL_PRCE }" type="number" />' maxlength="13" pattern="[0-9]*" class="numType" style="text-align:right !important;" />
+                            	<input type="hidden" id="sellPrceOld" name="sellPrceOld" value="${prodDtl.SELL_PRCE }" />
+                            </td>
+                            <td class="tr">원</td>
+                        </tr>
+                    	<tr>
+                        	<th></th>
+                            <td colspan="2">
+                            	<input type="checkbox" id="chkPrce" name="chkPrce" 
+                            		<c:if test="${prodDtl.NRM_PRCE == prodDtl.SELL_PRCE }">
+                            			checked
+                            		</c:if>
+                            	/>
+                            	<label>정상가와 동일</label>
+                            </td>
+                        </tr>
+                    	<tr>
+                        	<th>할인율</th>
+                            <td colspan="2"><span id="spanSellPer">${prodDtl.SELLL_PER }</span>%</td>
+                        </tr>
+                        <tr>
+                        	<th>재고수량</th>
+                            <td class="pd5">
+                            	<input type="text" id="stockQtyView" name="" value='<fmt:formatNumber value="${prodDtl.STOCK_QTY }" type="number" />' maxlength="13" pattern="[0-9]*" class="numType" style="text-align:right !important;" />
+                            </td>
+                            <td class="tr">개</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>    
+		
+		<p class="title" id="pSharePrice" style="display:none;">셰어링금액</p>
+		<div class="tbl" id="divSharePrice" style="display:none;">
+			<input type="hidden" id="deposit" name="deposit" value="" />
+			<input type="hidden" id="sharingPrice" name="sharingPrice" value="" />
+			<table class="tbl-data">
+				<colgroup>
+					<col width="90px">
+					<col width="*">
+					<col width="20px">
+				</colgroup>
+				<tbody>
+					<tr>
+						<th>보증금</th>
+						<td class="pd5">
+							<input type="text" id="depositView" name="" value='<fmt:formatNumber value="${shareDtl.DEPOSIT }" type="number" />' maxlength="13" pattern="[0-9]*" class="numType" style="text-align:right !important;" />
+						</td>
+						<td class="tr">원</td>
+					</tr>
+					<tr>
+						<th>일 사용료</th>
+						<td class="pd5">
+							<input type="text" id="sharingPriceView" name="" value='<fmt:formatNumber value="${shareDtl.SHARING_PRICE }" type="number" />' maxlength="13" pattern="[0-9]*" class="numType" style="text-align:right !important;" />
+						</td>
+						<td class="tr">원</td>
+					</tr>
+				</tbody>
+			</table>
+			<input type="hidden" id="sharingMaxTerm" name="sharingMaxTerm" value="${shareDtl.SHARING_MAX_TERM }" />
+		</div>
+		
+		<p class="title" id="pFreeEndDt" style="display:none;">신청마감일</p>
+		<div class="content" id="divFreeEndDt" style="display:none;">
+			<ul class="sbox01">
+                <li class="data">
+                	<p>
+                		<select id="freeEndYear" name="freeEndYear">
+	                    	<option value="">년도</option>
+	                    </select>
+                	</p>
+                	<p>
+                		<select id="freeEndMonth" name="freeEndMonth">
+	                    	<option value="">월</option>
+	                    	<option value="01">1월</option>
+	                    	<option value="02">2월</option>
+	                    	<option value="03">3월</option>
+	                    	<option value="04">4월</option>
+	                    	<option value="05">5월</option>
+	                    	<option value="06">6월</option>
+	                    	<option value="07">7월</option>
+	                    	<option value="08">8월</option>
+	                    	<option value="09">9월</option>
+	                    	<option value="10">10월</option>
+	                    	<option value="11">11월</option>
+	                    	<option value="12">12월</option>
+	                    </select>
+                	</p>
+                	<p>
+                		<select id="freeEndDay" name="freeEndDay">
+	                    	<option value="">일</option>
+	                    </select>
+                	</p>
+                </li>
+            </ul>
+		</div>
+		
+		<p class="title" id="pDlvWayCd" style="display:none;">배송방식</p>
+		<div class="content" id="divDlvWayCd" style="display:none;">
+			<ul class="sbox01">
+				<li>
+					<select id="dlvWayCd" name="dlvWayCd">
+						<custom:codeList var="dlvWayCd" groupCode="DLV_WAY_CD" />
+						<c:forEach var="list" items="${dlvWayCd}" varStatus="status">
+							<c:if test="${list.key != '6' }">
+								<option value="${list.key }"
+									<c:if test="${prodDtl.DLV_WAY_CD == list.key }">selected</c:if>
+								>${list.value }</option>
+							</c:if>
+		                </c:forEach>
+					</select>
+				</li>
+			</ul>
+		</div>
+		
+		<p class="title" id="pTradLoc" style="display:none;">거래 희망 지역</p>
+		<div class="content" id="divTradLoc" style="display:none;">
+			<ul class="sbox01">
+				<li>
+					<input type="text" id="tradLoc" name="tradLoc" value="${prodDtl.TRAD_LOC }" maxLength="100" />
+				</li>
+			</ul>
+		</div>
+		
+		<p class="title" id="pDlvCmp" style="display:none;">택배사</p>
+		<div class="content" id="divDlvCmp" style="display:none;">
+			<ul class="sbox01">
+				<li style="display:none;" id="liDlvCmpCd1">
+					<!-- 제휴택배 -->
+					<select id="dlvCmpCd1" name="dlvCmpCd1">
+						<custom:codeList var="dlvCmpCd" groupCode="DLV_CMP_CD" />
+						<c:forEach var="list" items="${dlvCmpCd}" varStatus="status">
+							<c:if test="${list.key eq '10' or list.key eq '20' }">
+								<option value="${list.key}"
+									<c:if test="${prodDtl.DLV_CMP_CD ==  list.key}">selected</c:if>
+								>${list.value}</option>
+							</c:if>
+		                </c:forEach>
+					</select>
+				</li>
+				<li style="display:none;" id="liDlvCmpCd2">
+					<!-- 일반택배 -->
+					<select id="dlvCmpCd2" name="dlvCmpCd2">
+						<custom:codeList var="dlvCmpCd" groupCode="DLV_CMP_CD" />
+						<c:forEach var="list" items="${dlvCmpCd}" varStatus="status">
+							<option value="${list.key}"
+								<c:if test="${prodDtl.DLV_CMP_CD ==  list.key}">selected</c:if>
+							>${list.value}</option>
+		                </c:forEach>
+					</select>
+				</li>
+			</ul>
+		</div>
+		
+		<p class="title" id="pDlvPayGb" style="display:none;">배송비부담</p>
+        <div class="content" id="divDlvPayGb" style="display:none;">
+            <ul class="sbox01">
+                <li>
+                	<select id="dlvPayGbCd" name="dlvPayGbCd">
+                    	<custom:codeList var="dlvPayGbCd" groupCode="DLV_PAY_GB_CD" />
+						<c:forEach var="list" items="${dlvPayGbCd}" varStatus="status">
+							<option value="${list.key }"
+								<c:if test="${prodDtl.DLV_PAY_GB_CD == list.key }">selected</c:if>
+							>${list.value }</option>
+		                </c:forEach>
+                    </select>
+                </li>
+            </ul>
+        </div>
+        
+		<p class="title" id="pDlvPrce" style="display:none;">배송금액</p>
+		<div class="content" id="divDlvPrce" style="display:none;">
+			<input type="hidden" id="dlvPrce" name="dlvPrce" value="" />
+			<div class="tbl tbl_nobot">
+				<table class="tbl-data">
+					<colgroup>
+						<col width="90px">
+						<col width="*">
+						<col width="20px">
+					</colgroup>
+					<tbody>
+						<tr>
+							<th>배송비</th>
+							<td class="pd5">
+								<input type="text" id="dlvPrceView" name="" value='<fmt:formatNumber value="${prodDtl.DLV_PRCE }" type="number" />' maxlength="13" pattern="[0-9]*" class="numType" style="text-align:right !important;" />
+							</td>
+							<td class="tr">원</td>
+						</tr>
+						<custom:codeList var="extLandCd" groupCode="EXT_LAND_CD" />
+						<c:forEach var="list" items="${extLandCd}" varStatus="status">
+							<tr>
+								<th>${list.value}</th>
+								<td class="pd5">
+									<c:set var="extPrce" value="" />
+									<c:forEach var="extList" items="${extDlvPrceList}">
+										<c:if test="${extList.EXT_LAND_CD == list.key }">
+											<c:set var="extPrce" value="${extList.ADD_DLV_PRICE }" />
+										</c:if>
+									</c:forEach>
+									<input type="text" id="extLandCd_${list.key }" name="extLandCd_${list.key }" value='<fmt:formatNumber value="${extPrce }" type="number" />' maxlength="13" pattern="[0-9]*" class="numType" style="text-align:right !important;" oninput="javascript:proc.numberWithCommas(this);" />
+								</td>
+								<td class="tr">원</td>
+							</tr>
+		                </c:forEach>
+					</tbody>
+				</table>
+			</div>
+		</div>
+		
+		<p class="title" id="pBndlDlv" style="display:none;">묶음배송여부</p>
+		<div class="content" id="divBndlDlv" style="display:none;">
+			<ul class="sbox01">
+				<li>
+					<select id="bndlDlvYn" name="bndlDlvYn">
+						<option value="Y"
+							<c:if test="${prodDtl.BNDL_DLV_YN == 'Y'}">selected</c:if>
+						>가능</option>
+						<option value="N"
+							<c:if test="${prodDtl.BNDL_DLV_YN == 'N'}">selected</c:if>
+						>불가능</option>
+					</select>
+				</li>
+			</ul>
+		</div>
+		
+		<div class="btn_enter">
+			<ul>
+				<li><a href="javascript:page.saveProdInfo();" class="btn_r">수정</a></li>
+				<li><a href="javascript:page.deleteProdInfo();" class="btn_b-line">삭제</a></li>
+			</ul>
+		</div>
+
+</form>
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+		<jsp:include page="../common/sale_bottom.jsp" flush="false" />
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+		    </div>
+		    <!-- //container -->
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>

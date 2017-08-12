@@ -1,0 +1,318 @@
+package com.ssocio.sharing.controller.mobile;
+
+
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.HashMap;
+import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.ModelMap;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.servlet.ModelAndView;
+
+import com.google.gson.Gson;
+import com.ssocio.sharing.cmmn.util.CmmnCnst;
+import com.ssocio.sharing.cmmn.util.LoggerUtil;
+import com.ssocio.sharing.service.web.MobilePaymentService;
+import com.ssocio.sharing.vo.web.NoAuthIssueBill;
+
+
+
+@Controller
+public class MobileNoAuthBillController extends MobileReferController {
+	
+	// --------------------------------------------------------------------------
+	// # Log 설정
+	// --------------------------------------------------------------------------
+	private static final Logger logger = LoggerFactory.getLogger(MobileNoAuthBillController.class);
+	
+	// --------------------------------------------------------------------------
+	// # Service 설정
+	// --------------------------------------------------------------------------
+	@Autowired
+	private MobilePaymentService mobilePaymentService;
+	
+	@RequestMapping("/mobile/Bill/Order.do")
+	public ModelAndView NoAuthBillOrder(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception	{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("Order START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		
+		
+//		ModelAndView mw = new ModelAndView("web/noAuth/ISSUEBILLKEY/Error");
+
+		LoggerUtil.writeMap(inParam);
+		ModelMap modelMap = new ModelMap();
+		return new ModelAndView("web/noAuth/BILL/Order",modelMap);
+	}
+
+	@RequestMapping("/mobile/Bill/Bill.do")
+	public ModelAndView NoAuthBillBill(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception	{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("Bill START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		
+		LoggerUtil.writeMap(inParam);
+
+		NoAuthIssueBill issueBill = new NoAuthIssueBill();
+
+
+		String paramOrderId  = (String) inParam.get("ORDERID");
+		String paramAmount = (String) inParam.get("AMOUNT");
+		String paramItemName = (String) inParam.get("ITEMNAME");
+		String cardNo = (String) inParam.get("BILLKEY");
+		String paramUsername = (String) inParam.get("USERNAME");
+		String paramUserId = (String) inParam.get("USERID");
+		String paramUserPhone = (String) inParam.get("USERPHONE");
+		String paramUserEmail = (String) inParam.get("USEREMAIL");
+
+		
+//		String paramQuota = (String) inParam.get("QUOTA");	// 할부 개월
+
+		
+		
+		String initUrl = (String)request.getAttribute("INIT_URL");
+
+
+
+		
+		
+		Map REQ_DATA = new HashMap();
+		Map RES_DATA = new HashMap();
+
+		/**************************************************
+		 * CP 정보
+		 **************************************************/
+		REQ_DATA.put("CPID", CmmnCnst.NOAUTH_ID_MERCHANT);
+		REQ_DATA.put("CPPWD", CmmnCnst.NOAUTH_PW_MERCHANT);
+		
+		/**************************************************
+		 * 결제 정보
+		 **************************************************/
+		REQ_DATA.put("ORDERID", paramOrderId);
+		REQ_DATA.put("AMOUNT", paramAmount);
+		REQ_DATA.put("ITEMNAME", paramItemName);
+		REQ_DATA.put("BYPASSVALUE", "Field1=abc;Field2=def");
+		
+		
+		
+		/**************************************************
+		 * 고객 정보
+		 **************************************************/
+		REQ_DATA.put("USERNAME", paramUsername);
+		REQ_DATA.put("USERID", paramUserId);
+		REQ_DATA.put("USERIP", request.getRemoteAddr()); // IPv4 사용
+		REQ_DATA.put("USERPHONE", paramUserPhone);
+		REQ_DATA.put("USEREMAIL", paramUserEmail);
+		
+		/**************************************************
+		 * 카드 정보 
+		 **************************************************/
+//		REQ_DATA.put("CARDNO", "15101911370550AC"); // BILLKEY
+		REQ_DATA.put("CARDNO", cardNo); // BILLKEY
+		REQ_DATA.put("QUOTA", "00");
+		REQ_DATA.put("ISREBILL", "Y");
+		
+		/**************************************************
+		 * 기본 정보
+		 **************************************************/
+		REQ_DATA.put("TXTYPE", "BILL");
+		REQ_DATA.put("CHARSET", "euc-kr");		// euc-kr 로 해야 된다 .... 뭐지??
+		REQ_DATA.put("ISNOTI", "Y");
+		REQ_DATA.put("NOTIURL", initUrl+"/mobile/Bill/Noti.do");
+		
+		
+		
+		//	req 정보 (json) insert
+		Gson gson = new Gson();
+		String reqData = gson.toJson(REQ_DATA);
+		inParam.put("reqData", reqData);
+//		mobilePaymentService.insertPaymentInfo(inParam);		// 로그 작성하기 위한 서비스... (현재 미사용)
+		
+		
+		// http connect
+		RES_DATA = issueBill.CallCredit(REQ_DATA, true);
+		logger.debug("resData : " + RES_DATA);
+		
+		
+		return new ModelAndView("jsonView",RES_DATA);
+		
+//		return resData;
+		
+		
+		
+//		if( RES_DATA.get("RETURNCODE").equals("0000")){
+//			// 결제 성공 시 작업 진행
+////			out.print( data2str(RES_DATA) );
+//			String inputStr1 = issueBill.data2str(RES_DATA);
+//			logger.debug("inputStr 결제 성공 : " + inputStr1);
+//		} else {
+//			// 결제 실패 시 작업 진행
+////			out.print( data2str(RES_DATA) );
+//			String inputStr1 = issueBill.data2str(RES_DATA);
+//			logger.debug("inputStr 결제 실패 : " + inputStr1);
+//		}
+	}
+	
+	
+	
+	/**
+	 *	결제 취소 처리 
+	 */
+	@RequestMapping(value="/mobile/Bill/TradeCancel.do")
+	public ModelAndView NoAuthBillCancel(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam,HttpSession session
+			) throws Exception	{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("Ready START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+
+		ModelMap modelMap = new ModelMap();
+		Map REQ_DATA = new HashMap();
+		Map RES_DATA = new HashMap();
+		
+		NoAuthIssueBill issueBill = new NoAuthIssueBill();
+		
+		if(inParam.get("O_TID") == null){
+			RES_DATA.put("RETURNCODE", "XXXX");
+			RES_DATA.put("RETURNMSG","required parameter is [O_TID]");
+//			return new Gson().toJson(REQ_DATA);
+			return new ModelAndView("jsonView", RES_DATA);
+
+		}
+		String o_tid = (String) inParam.get("O_TID");
+		
+
+		String AMOUNT = "";		// 정기결제는 전체취소만 가능하기 때문에 금액을 넣지 않는다
+
+
+		
+		
+		
+		
+
+		/**************************************************
+		 * CP 정보
+		 **************************************************/
+		REQ_DATA.put("CPID", CmmnCnst.NOAUTH_ID_MERCHANT);
+		REQ_DATA.put("CPPWD", CmmnCnst.NOAUTH_PW_MERCHANT);
+		
+		/**************************************************
+		 * 결제 정보
+		 **************************************************/
+		REQ_DATA.put("O_TID", o_tid);
+		
+		/**************************************************
+		 * 기본 정보
+		 **************************************************/
+		REQ_DATA.put("CANCELTYPE", "C");
+		REQ_DATA.put("AMOUNT", AMOUNT);
+		REQ_DATA.put("CHARSET", "euc-kr");
+		REQ_DATA.put("TXTYPE", "CANCEL");
+		
+		RES_DATA = issueBill.CallCredit(REQ_DATA, false);
+		
+		String msg = (String) RES_DATA.get("RETURNMSG");
+		
+		logger.debug("msg : " + msg);
+		logger.debug("RES_DATA : " + RES_DATA);
+		
+//		if( RES_DATA.get("RETURNCODE").equals("0000")){
+//			// 결제 성공 시 작업 진행
+//			out.print( data2str(RES_DATA) );
+//		} else {
+//			// 결제 실패 시 작업 진행
+//			out.print( data2str(RES_DATA) );
+//		}
+		
+		return new ModelAndView("jsonView", RES_DATA);
+	}
+	
+	
+
+
+	/****************************************************************************
+	 * 신용카드 결과 통보. 
+	 *  - Noti.jsp
+	 *     
+	 * 결제시스템 연동에 대한 문의사항 있으시면 기술지원팀으로 연락 주십시오.
+	 * DANAL Commerce Division Technique supporting Team 
+	 * EMAIL : tech@danal.co.kr
+	 *****************************************************************************/
+	@ResponseBody
+	@RequestMapping(value="/mobile/Bill/Noti.do")
+	public String NoAuthBillNoti(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam,HttpSession session
+			) throws Exception	{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("Noti START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+
+		ModelMap modelMap = new ModelMap();
+		
+		
+		
+		NoAuthIssueBill issueBill = new NoAuthIssueBill();
+		
+		try {
+			Calendar cal = Calendar.getInstance();
+			String ndt = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(cal.getTime());
+			String dt = new SimpleDateFormat("yyMMdd").format(cal.getTime());
+
+//			String Logs = LogDir + "/noti_" + dt + ".log";
+
+			String QueryString = issueBill.Map2Str( request.getParameterMap() );
+			
+			String Out = "["+ndt+"]" + QueryString + "\n";
+
+			
+			/****************************************************
+			 * 	Out 변수를 통해 로그 작성 로직 추가 필요함.
+			 ****************************************************/
+			logger.debug("Out : " + Out);
+			
+			
+			
+		
+			
+			
+			/***************************************************
+			 * Noti 성공 시 결제 완료에 대한 작업
+			 * - Noti의 결과에 따라 DB작업등의 코딩을 삽입하여 주십시오.
+			 * - ORDERID, AMOUNT 등 결제 거래내용에 대한 검증을 반드시 하시기 바랍니다.
+			 ****************************************************/		
+			String paramReturnCode = (String) inParam.get("RETURNCODE");
+			String paramReturnMsg = (String) inParam.get("RETURNMSG");
+			String paramTid = (String) inParam.get("TID");
+			String paramAmount = (String) inParam.get("AMOUNT");
+			String paramOrderId = (String) inParam.get("ORDERID");
+			
+			// request로 받은 amount 값과, DB에 처리된 금액을 비교 하여야 한다.
+			
+			
+			return "OK";
+
+			
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+			logger.error(e.toString());
+//			out.print("Fail-"+e.getMessage());
+		}
+		
+		
+		
+		LoggerUtil.writeMap(modelMap);
+		return "OK";
+	}
+			
+		
+}

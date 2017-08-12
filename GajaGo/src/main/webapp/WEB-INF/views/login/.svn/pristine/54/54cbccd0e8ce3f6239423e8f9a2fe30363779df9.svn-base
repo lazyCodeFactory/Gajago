@@ -1,0 +1,271 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="batchOraStatisMapper">
+	
+	<select id="selectBatchStatisSgnDateLastDate" resultType="String">
+		SELECT	CASE WHEN YM||S_DATE &lt;  TO_CHAR(SYSDATE -1,'YYYYMMDD')
+                            THEN YM||S_DATE
+                            ELSE 'LATEDATA'
+                    END
+		FROM		(SELECT * FROM STATIS_SGN_DATE ORDER BY YM DESC, S_DATE DESC) Z
+		WHERE ROWNUM = 1
+	</select>
+	
+	<!-- 접속통계일계테이블 -->
+	<insert id="insertBatchStatisSgnDate" parameterType="hashmap" >
+		/*batchMyStatisMapper.insertBatchStatisSgnDate*/
+		INSERT INTO STATIS_SGN_DATE (                    
+					S_YEAR
+		,			S_MONTH
+		,			S_DATE
+		,           S_WEEK
+        ,           YM
+		,			MW_SGN_O_CNT		
+		,			MW_SGN_S_P_CNT	
+		,			MW_SGN_S_C_CNT	
+		,			MAA_SGN_O_CNT		
+		,			MAI_SGN_O_CNT		
+		,			MAA_SGN_S_P_CNT	
+		,			MAA_SGN_S_C_CNT	
+		,			MAI_SGN_S_P_CNT	
+		,			MAI_SGN_S_C_CNT	
+		,			PW_SGN_O_CNT		
+		,			PW_SGN_S_P_CNT	
+		,			PW_SGN_S_C_CNT	
+        ,        	REG_DTTI	
+		)
+		SELECT	S_YEAR
+        ,			S_MONTH
+        ,			S_DATE
+        ,			S_WEEK
+        ,			S_YEAR||S_MONTH
+        ,			COUNT(MB) 		AS MW_SGN_O_CNT
+        ,			COUNT(MSP) 	AS MW_SGN_S_P_CNT
+        ,			COUNT(MSC) 	AS MW_SGN_S_C_CNT
+        ,			COUNT(AAB) 	AS MAA_SGN_O_CNT
+        ,			COUNT(AIB) 		AS MAI_SGN_O_CNT
+        ,			COUNT(AASP) 	AS MAA_SGN_S_P_CNT
+        ,			COUNT(AASC) 	AS MAA_SGN_S_C_CNT
+        ,			COUNT(AISP) 	AS MAI_SGN_S_P_CNT
+        ,			COUNT(AISC) 	AS MAI_SGN_S_C_CNT
+        ,			COUNT(WB) 		AS PW_SGN_O_CNT
+        ,			COUNT(WSP) 	AS PW_SGN_S_P_CNT
+        ,			COUNT(WSC) 	AS PW_SGN_S_C_CNT
+        ,			SYSDATE
+        FROM (
+        SELECT	CASE WHEN MI.JOIN_CHAN_CD = 10 AND (MH.MBER_HIST_CD IS NULL OR MH.MBER_HIST_CD = 10)
+        					THEN 'AAB'
+        			END AS AAB
+        ,			CASE WHEN MI.JOIN_CHAN_CD = 20 AND (MH.MBER_HIST_CD IS NULL OR MH.MBER_HIST_CD = 10)
+        					THEN 'AIB'
+        			END AS AIB
+        ,			CASE WHEN MI.JOIN_CHAN_CD = 30 AND (MH.MBER_HIST_CD IS NULL OR MH.MBER_HIST_CD = 10)
+        					THEN 'MB'
+        			END	AS MB
+        ,			CASE WHEN MI.JOIN_CHAN_CD = 40 AND (MH.MBER_HIST_CD IS NULL OR MH.MBER_HIST_CD = 10)
+        					THEN 'WB'
+        			END	AS WB
+        ,			CASE WHEN MI.JOIN_CHAN_CD = 10 AND MH.MBER_HIST_CD = 12 AND MI.MBER_GB_CD = 0
+        					THEN 'AASP'
+        			END AS AASP
+        ,			CASE WHEN MI.JOIN_CHAN_CD = 20 AND MH.MBER_HIST_CD = 12 AND MI.MBER_GB_CD = 0
+        					THEN 'AISP'
+        			END AS AISP
+        ,			CASE WHEN MI.JOIN_CHAN_CD = 30 AND MH.MBER_HIST_CD = 12 AND MI.MBER_GB_CD = 0
+        					THEN 'MSP'
+        			END	AS MSP
+        ,			CASE WHEN MI.JOIN_CHAN_CD = 40 AND MH.MBER_HIST_CD = 12 AND MI.MBER_GB_CD = 0
+        					THEN 'WSP'
+        			END	AS WSP
+        ,			CASE WHEN MI.JOIN_CHAN_CD = 10 AND MH.MBER_HIST_CD = 12 AND MI.MBER_GB_CD = 1
+        					THEN 'AASC'
+        			END AS AASC
+        ,			CASE WHEN MI.JOIN_CHAN_CD = 20 AND MH.MBER_HIST_CD = 12 AND MI.MBER_GB_CD = 1
+        					THEN 'AISC'
+        			END AS AISC
+        ,			CASE WHEN MI.JOIN_CHAN_CD = 30 AND MH.MBER_HIST_CD = 12 AND MI.MBER_GB_CD = 1
+        					THEN 'MSC'
+        			END	AS MSC
+        ,			CASE WHEN MI.JOIN_CHAN_CD = 40 AND MH.MBER_HIST_CD = 12 AND MI.MBER_GB_CD = 1
+        					THEN 'WSC'
+        			END	AS WSC
+        ,			CASE WHEN MH.MBER_HIST_CD IS NULL OR MH.MBER_HIST_CD = 10 /* 구매회원 가입 */
+        					THEN TO_CHAR(MI.REGIST_DT,'YYYY') 
+        					WHEN MH.MBER_HIST_CD = 12  /* 판매회원 가입 */
+        					THEN TO_CHAR(SIC.REGIST_DT,'YYYY')
+        		     END S_YEAR
+        ,			CASE WHEN MH.MBER_HIST_CD IS NULL OR MH.MBER_HIST_CD = 10
+        					THEN TO_CHAR(MI.REGIST_DT,'MM') 
+        					WHEN MH.MBER_HIST_CD = 12
+        					THEN TO_CHAR(SIC.REGIST_DT,'MM')
+        		     END S_MONTH
+        ,			CASE WHEN MH.MBER_HIST_CD IS NULL OR MH.MBER_HIST_CD = 10
+        					THEN TO_CHAR(MI.REGIST_DT,'DD') 
+        					WHEN MH.MBER_HIST_CD = 12
+        					THEN TO_CHAR(SIC.REGIST_DT,'DD')
+        		     END S_DATE
+        ,			CASE WHEN MH.MBER_HIST_CD IS NULL OR MH.MBER_HIST_CD = 10
+        					THEN TO_CHAR(MI.REGIST_DT,'HH24') 
+        					WHEN MH.MBER_HIST_CD = 12
+        					THEN TO_CHAR(SIC.REGIST_DT,'HH24')
+        		     END S_TIME
+        ,			CASE WHEN MH.MBER_HIST_CD IS NULL OR MH.MBER_HIST_CD = 10
+        					THEN CEIL(TO_CHAR(MI.REGIST_DT + (7 - TO_CHAR(MI.REGIST_DT , 'D')),'DD')/7)
+        					WHEN MH.MBER_HIST_CD = 12
+        					THEN CEIL(TO_CHAR(SIC.REGIST_DT + (7 - TO_CHAR(SIC.REGIST_DT , 'D')),'DD')/7)
+        		     END S_WEEK
+        ,			CASE WHEN MH.MBER_HIST_CD IS NULL OR MH.MBER_HIST_CD = 10
+        					THEN MI.REGIST_DT
+        					WHEN MH.MBER_HIST_CD = 12
+        					THEN SIC.REGIST_DT
+        		     END REGIST_DT
+        FROM		MBER_INFO MI
+        LEFT OUTER JOIN SELLER_INFO_CFG SIC
+        ON		MI.MBER_SEQ = SIC.MBER_SEQ
+        LEFT OUTER JOIN		MBER_HIST 		MH
+        ON		MI.MBER_SEQ = MH.MBER_SEQ
+        AND		MH.MBER_HIST_CD IN ('10','12')
+        ) Z
+        WHERE 	REGIST_DT IS NOT NULL
+        AND		REGIST_DT 		&lt;= SYSDATE -1
+		<if test="sdate neq null and sdate neq ''.toString()">
+        AND		REGIST_DT 		&gt; TO_DATE(#{sdate}||'235959','YYYYMMDDHH24MISS')
+		</if>
+        GROUP BY S_YEAR, S_MONTH, S_DATE, S_WEEK
+		ORDER BY S_YEAR, S_MONTH, S_DATE
+	</insert>
+    
+	<select id="selectBatchStatisSgnTimeLastDate" resultType="String">
+		SELECT	CASE WHEN YMD &lt;  TO_CHAR(SYSDATE -1,'YYYYMMDD')
+                            THEN YMD
+                            ELSE 'LATEDATA'
+                    END
+		FROM		(SELECT * FROM STATIS_SGN_TIME ORDER BY YMD DESC) Z
+		WHERE ROWNUM = 1
+	</select>
+	
+	<!-- 가입통계일계테이블 -->
+	<insert id="insertBatchStatisSgnTime" parameterType="hashmap" >
+		/*batchMyStatisMapper.insertBatchStatisSgnTime*/
+		INSERT INTO STATIS_SGN_TIME (                    
+					S_YEAR
+		,			S_MONTH
+		,			S_DATE
+		,           S_TIME
+        ,           YMD
+		,			MW_SGN_O_CNT		
+		,			MW_SGN_S_P_CNT	
+		,			MW_SGN_S_C_CNT	
+		,			MAA_SGN_O_CNT		
+		,			MAI_SGN_O_CNT		
+		,			MAA_SGN_S_P_CNT	
+		,			MAA_SGN_S_C_CNT	
+		,			MAI_SGN_S_P_CNT	
+		,			MAI_SGN_S_C_CNT	
+		,			PW_SGN_O_CNT		
+		,			PW_SGN_S_P_CNT	
+		,			PW_SGN_S_C_CNT	
+        ,        	REG_DTTI	
+		)
+		SELECT	S_YEAR
+        ,			S_MONTH
+        ,			S_DATE
+        ,			S_TIME
+        ,			S_YEAR||S_MONTH||S_DATE
+        ,			COUNT(MB) 		AS MW_SGN_O_CNT
+        ,			COUNT(MSP) 	AS MW_SGN_S_P_CNT
+        ,			COUNT(MSC) 	AS MW_SGN_S_C_CNT
+        ,			COUNT(AAB) 	AS MAA_SGN_O_CNT
+        ,			COUNT(AIB) 		AS MAI_SGN_O_CNT
+        ,			COUNT(AASP) 	AS MAA_SGN_S_P_CNT
+        ,			COUNT(AASC) 	AS MAA_SGN_S_C_CNT
+        ,			COUNT(AISP) 	AS MAI_SGN_S_P_CNT
+        ,			COUNT(AISC) 	AS MAI_SGN_S_C_CNT
+        ,			COUNT(WB) 		AS PW_SGN_O_CNT
+        ,			COUNT(WSP) 	AS PW_SGN_S_P_CNT
+        ,			COUNT(WSC) 	AS PW_SGN_S_C_CNT
+        ,			SYSDATE
+        FROM (
+        SELECT	CASE WHEN MI.JOIN_CHAN_CD = 10 AND (MH.MBER_HIST_CD IS NULL OR MH.MBER_HIST_CD = 10)
+        					THEN 'AAB'
+        			END AS AAB
+        ,			CASE WHEN MI.JOIN_CHAN_CD = 20 AND (MH.MBER_HIST_CD IS NULL OR MH.MBER_HIST_CD = 10)
+        					THEN 'AIB'
+        			END AS AIB
+        ,			CASE WHEN MI.JOIN_CHAN_CD = 30 AND(MH.MBER_HIST_CD IS NULL OR MH.MBER_HIST_CD = 10)
+        					THEN 'MB'
+        			END	AS MB
+        ,			CASE WHEN MI.JOIN_CHAN_CD = 40 AND (MH.MBER_HIST_CD IS NULL OR MH.MBER_HIST_CD = 10)
+        					THEN 'WB'
+        			END	AS WB
+        ,			CASE WHEN MI.JOIN_CHAN_CD = 10 AND MH.MBER_HIST_CD = 12 AND MI.MBER_GB_CD = 0
+        					THEN 'AASP'
+        			END AS AASP
+        ,			CASE WHEN MI.JOIN_CHAN_CD = 20 AND MH.MBER_HIST_CD = 12 AND MI.MBER_GB_CD = 0
+        					THEN 'AISP'
+        			END AS AISP
+        ,			CASE WHEN MI.JOIN_CHAN_CD = 30 AND MH.MBER_HIST_CD = 12 AND MI.MBER_GB_CD = 0
+        					THEN 'MSP'
+        			END	AS MSP
+        ,			CASE WHEN MI.JOIN_CHAN_CD = 40 AND MH.MBER_HIST_CD = 12 AND MI.MBER_GB_CD = 0
+        					THEN 'WSP'
+        			END	AS WSP
+        ,			CASE WHEN MI.JOIN_CHAN_CD = 10 AND MH.MBER_HIST_CD = 12 AND MI.MBER_GB_CD = 1
+        					THEN 'AASC'
+        			END AS AASC
+        ,			CASE WHEN MI.JOIN_CHAN_CD = 20 AND MH.MBER_HIST_CD = 12 AND MI.MBER_GB_CD = 1
+        					THEN 'AISC'
+        			END AS AISC
+        ,			CASE WHEN MI.JOIN_CHAN_CD = 30 AND MH.MBER_HIST_CD = 12 AND MI.MBER_GB_CD = 1
+        					THEN 'MSC'
+        			END	AS MSC
+        ,			CASE WHEN MI.JOIN_CHAN_CD = 40 AND MH.MBER_HIST_CD = 12 AND MI.MBER_GB_CD = 1
+        					THEN 'WSC'
+        			END	AS WSC
+        ,			CASE WHEN MH.MBER_HIST_CD IS NULL OR MH.MBER_HIST_CD = 10
+        					THEN TO_CHAR(MI.REGIST_DT,'YYYY') 
+        					WHEN MH.MBER_HIST_CD = 12
+        					THEN TO_CHAR(SIC.REGIST_DT,'YYYY')
+        		     END S_YEAR
+        ,			CASE WHEN MH.MBER_HIST_CD IS NULL OR MH.MBER_HIST_CD = 10
+        					THEN TO_CHAR(MI.REGIST_DT,'MM') 
+        					WHEN MH.MBER_HIST_CD = 12
+        					THEN TO_CHAR(SIC.REGIST_DT,'MM')
+        		     END S_MONTH
+        ,			CASE WHEN MH.MBER_HIST_CD IS NULL OR MH.MBER_HIST_CD = 10
+        					THEN TO_CHAR(MI.REGIST_DT,'DD') 
+        					WHEN MH.MBER_HIST_CD = 12
+        					THEN TO_CHAR(SIC.REGIST_DT,'DD')
+        		     END S_DATE
+        ,			CASE WHEN MH.MBER_HIST_CD IS NULL OR MH.MBER_HIST_CD = 10
+        					THEN TO_CHAR(MI.REGIST_DT,'HH24') 
+        					WHEN MH.MBER_HIST_CD = 12
+        					THEN TO_CHAR(SIC.REGIST_DT,'HH24')
+        		     END S_TIME
+        ,			CASE WHEN MH.MBER_HIST_CD IS NULL OR MH.MBER_HIST_CD = 10
+        					THEN CEIL(TO_CHAR(MI.REGIST_DT + (7 - TO_CHAR(MI.REGIST_DT , 'D')),'DD')/7)
+        					WHEN MH.MBER_HIST_CD = 12
+        					THEN CEIL(TO_CHAR(SIC.REGIST_DT + (7 - TO_CHAR(SIC.REGIST_DT , 'D')),'DD')/7)
+        		     END S_WEEK
+        ,			CASE WHEN MH.MBER_HIST_CD IS NULL OR MH.MBER_HIST_CD = 10
+        					THEN MI.REGIST_DT
+        					WHEN MH.MBER_HIST_CD = 12
+        					THEN SIC.REGIST_DT
+        		     END REGIST_DT
+        FROM		MBER_INFO MI
+        LEFT OUTER JOIN SELLER_INFO_CFG SIC
+        ON		MI.MBER_SEQ = SIC.MBER_SEQ
+        LEFT OUTER JOIN		MBER_HIST MH
+        ON		MI.MBER_SEQ = MH.MBER_SEQ
+        AND		MH.MBER_HIST_CD IN ('10','12')
+        ) Z
+        WHERE REGIST_DT IS NOT NULL
+         AND		REGIST_DT 		&lt;= SYSDATE -1
+		<if test="sdate neq null and sdate neq ''.toString()">
+        AND		REGIST_DT 		&gt; TO_DATE(#{sdate}||'235959','YYYYMMDDHH24MISS')
+		</if>
+        GROUP BY S_YEAR, S_MONTH, S_DATE, S_TIME
+		ORDER BY S_YEAR, S_MONTH, S_DATE, S_TIME
+	</insert>
+	
+</mapper>

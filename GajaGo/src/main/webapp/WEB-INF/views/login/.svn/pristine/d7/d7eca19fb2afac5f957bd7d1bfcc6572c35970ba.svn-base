@@ -1,0 +1,721 @@
+/**<pre>
+ * 1. Project Name : LotteCardMall
+ * 2. Package Name : com.lottecard.mall.admin.service
+ * 3. File Name		: CommonServiceImpl.java
+ * 4. Date				 : 오후 2:14 2015-01-15
+ * 5. Author			 : N.J.Kim
+ * 6. Note				 :
+ * </pre>
+ */
+package com.ssocio.sharing.cmmn.service;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+import javax.servlet.http.HttpServletRequest;
+
+import org.apache.http.HttpResponse;
+import org.apache.http.NameValuePair;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.entity.UrlEncodedFormEntity;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.message.BasicNameValuePair;
+import org.apache.http.protocol.HTTP;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.web.servlet.ModelAndView;
+
+import com.ssocio.sharing.cmmn.dao.CommonDao;
+import com.ssocio.sharing.cmmn.instance.cmmncode.CmmnCodeDescriptor;
+import com.ssocio.sharing.cmmn.instance.cmmncode.CmmnCodeDto;
+import com.ssocio.sharing.cmmn.instance.cmmncode.CmmnCodeSortingHelper;
+import com.ssocio.sharing.cmmn.instance.cmmncode.CmmnCodeTable;
+import com.ssocio.sharing.cmmn.instance.cmmncode.CmmnCodeTableManager;
+import com.ssocio.sharing.cmmn.instance.config.AppConfigManager;
+import com.ssocio.sharing.cmmn.util.CmmnCnst;
+import com.ssocio.sharing.cmmn.util.StringUtil;
+import com.ssocio.sharing.vo.web.WebSession;
+
+/**
+ * <pre>
+ * 공통 서비스
+ * 공통 처리를 위한 서비스
+ * @author N.J.Kim
+ * @version
+ * @since 오후 2:14 2015-01-15
+ * @see
+ * @History
+ *  Date         |    author    | 변경내용
+ *  2015. 1. 16.         |    N.J.Kim       | 신규
+ * @Todo
+ * </pre>
+ */ 
+@Service
+public class CommonServiceImpl implements CommonService {
+
+	// --------------------------------------------------------------------------
+	// # Log 설정
+	// --------------------------------------------------------------------------
+	private static final Logger logger = LoggerFactory.getLogger(CommonServiceImpl.class);
+
+	// --------------------------------------------------------------------------
+	// # DAO 설정
+	// --------------------------------------------------------------------------
+	@Resource(name="commonDao")
+	private CommonDao commonDao;
+
+	/**
+	 * <pre>
+	 * 전체 Code 리스트 조회
+	 * 전체 Code 리스트를 조회 합니다.
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 2. 12. 오후 5:29:43
+	 * @author D.G
+	 * @비고
+	 *
+	 * </pre>
+	 */
+	@Override
+	public void setComCdInstanceInfo() throws Exception {
+
+		logger.info("setComCdInstanceInfo Start");
+
+		List<CmmnCodeDto>   rsltList  = null;
+		Map<String, Object>       codeMap   = null;
+		List<CmmnCodeDto>         codeList  = null;
+		String groupCode    = "";
+		String groupNm      = "";
+
+		// ------------------------------------------------------------------------
+		// # Biz Start
+		// ------------------------------------------------------------------------
+		try {
+
+			if (commonDao != null) {
+				// 서버 로딩 시 Dao가 제대로 올라오기 전에 실행이 되므로 commonDao가 null인 경우 skip
+				logger.error("commonDao is not null");
+
+				// 공통코드전체리스트조회
+				//CmmnCodeDto inVo = new CmmnCodeDto();
+				//inVo.setUseYn("Y");
+				Map<String, Object> inParamDto = new HashMap<String, Object>();
+				inParamDto.put("useYn", "Y");
+				//rsltList = commonDao.getComCdAllList(inVo);
+				rsltList = commonDao.getComCdAllList(inParamDto);
+
+				if (rsltList != null && rsltList.size() > 0) {
+
+					// Map<그룹코드, 그룹코드의코드리스트> 반환
+					CmmnCodeSortingHelper sorting = new CmmnCodeSortingHelper(rsltList);
+					codeMap = sorting.getCodeMap();
+
+					logger.info("########################################");
+					logger.info("##### 공통코드 Instance Load Start");
+					for (Iterator<String> itr = codeMap.keySet().iterator(); itr.hasNext();) {
+
+						groupCode = (String) itr.next();
+						codeList = (List<CmmnCodeDto>)codeMap.get(groupCode);  // 각 그룹에 포함된 코드리스트
+
+						if (codeList == null) {
+							// 그룹코드는 존재하지만 하위 코드들이 없는 경우
+							logger.info("setCodeIntanceInfo list is null");
+							continue;
+						}
+
+						CmmnCodeDescriptor[] codeDescriptor = new CmmnCodeDescriptor[codeList.size()];
+						//logger.info("["+groupCode+"]'s code count : " + codeList.size());
+
+						for (int j = 0, size = codeList.size(); j < size; j++) {
+
+							CmmnCodeDto codeDto = (CmmnCodeDto) codeList.get(j);
+
+							if (j == 0) {
+								groupNm = codeDto.getGrpCdNm();
+							}
+
+							codeDescriptor[j] = new CmmnCodeDescriptor(codeDto.getComCd(), codeDto.getComCdNm());
+						} // End of for (int j = 0, size = list.size(); j < size; j++)
+
+						// 그룹별 Instance Add
+						CmmnCodeTableManager.getInstance();
+						CmmnCodeTableManager.getInstance().addCodeTable(new CmmnCodeTable(groupCode, groupNm, codeDescriptor));
+						//logger.info("[" + groupCode + "(" + groupNm + ")] 공통코드 Instance 생성");
+						logger.info("공통코드 Instance Loaded [" + groupCode + "][" + groupNm + "] (" + codeList.size() + " codes)");
+
+						if (CmmnCodeTableManager.getInstance() == null) {
+							logger.error("공톧코드 getInstance is null... ");
+						}
+					} // End of for (Iterator i = codeMap.keySet().iterator(); i.hasNext();)
+					logger.info("##### 공통코드 Instance Loaded End");
+					logger.info("########################################");
+				} // End of if (rsltList != null && rsltList.size() > 0)
+				else {
+					logger.error("공통코드전체리스트조회 오류");
+				}
+			} // End of if (commonDao != null)
+			else {
+				logger.error("commonDao is null and CmmonCode Load skip");
+				CmmnCodeTableManager.getInstance().reset();
+			}
+		} catch (Exception e) {
+			logger.error("setCmmnCodeIntanceInfo.Exception : " + e);
+			e.printStackTrace();
+		}
+	}
+	@Override
+	public WebSession reSetUerinfo(int mberSeq) throws Exception {
+		return commonDao.reSetUerinfo(mberSeq);
+	}
+	
+	  /**
+	   * <pre>
+	   * 공통코드 Instance 동기화
+	   *  - 화면에서 호출한 컨트롤러용에서 호출
+	   * @param request
+	   * @param response
+	   * @param paramDto
+	   * @return 
+	   * @exception 
+	   * @date 2015. 3. 6. 오후 4:34:58
+	   * @author Administrator
+	   * @비고
+	   * 
+	   * </pre>
+	   */
+	  @SuppressWarnings ({ "unused", "static-access" })
+	  public void cmmnCodeReloadSync(HttpServletRequest request) throws Exception
+	  {
+	    // ------------------------------------------------------------------------
+	    // # 시작로그
+	    // ------------------------------------------------------------------------
+	    logger.info("##### ##############################");
+	    logger.info("cmmnCodeReloadSync Start");
+	    logger.info("##### ##############################");
+	    
+	    ModelAndView mav = new ModelAndView();
+
+	    // ------------------------------------------------------------------------
+	    // # 객체/변수 선언
+	    // ------------------------------------------------------------------------
+	    String    thisSystemSe  = "";   // 자신의 시스템구분(REAL/DEV/LOCAL)
+	    String    thisIp        = "";   // 자신의 Was IP
+	    String    registIps     = "";   // application-config.xml.wasIp에 등록된 IP문자열(n개)
+	    String[]  registIpArr   = null;
+	    int       registIpCnt   = 0;
+	    String    registPorts   = "";
+	    String[]  registPortArr = null;
+	    int       registPortCnt = 0;
+	    String    exeIp         = "";   // 실행할 IP
+	    String    exePort       = "";   // 실행할 IP
+	    String    wasAdminPort  = "";   // Was Admin Port
+	    String    uri           = StringUtil.nvl(AppConfigManager.getInstance(request).getConfig(AppConfigManager.AppConfigKeyUriCmmnCodeSync), "");
+
+	    try {
+
+	      // ----------------------------------------------------------------------
+	      // 1. 자신의 시스템정보 조회
+	      // ----------------------------------------------------------------------
+	      thisSystemSe  = AppConfigManager.getInstance(request).getSystemSe();
+	      logger.debug("thisSystemSe : " + thisSystemSe);
+	      thisIp        =  StringUtil.nvl(AppConfigManager.getInstance(request).getSystemIp(), "");
+	      logger.debug("thisIp    : " + thisIp);
+
+	      // ----------------------------------------------------------------------
+	      // 2. confifg에 등록된 wasIp 정보
+	      // ----------------------------------------------------------------------
+	      if (CmmnCnst.SystemReal.equals(thisSystemSe)) {
+	        registIps   = StringUtil.nvl(AppConfigManager.getInstance(request).getConfig(AppConfigManager.AppConfigKeyWasIp), "");
+	        registPorts = StringUtil.nvl(AppConfigManager.getInstance(request).getConfig(AppConfigManager.AppConfigKeyWasPort), "");
+	      }
+	      else if (CmmnCnst.SystemDev.equals(thisSystemSe)) {
+	        registIps   = StringUtil.nvl(AppConfigManager.getInstance(request).getConfig(AppConfigManager.AppConfigKeyWasIpDev), "");
+	        registPorts = StringUtil.nvl(AppConfigManager.getInstance(request).getConfig(AppConfigManager.AppConfigKeyWasPortDev), "");
+	      }
+	      else if (CmmnCnst.SystemLocal.equals(thisSystemSe)) {
+	        registIps   = StringUtil.nvl(AppConfigManager.getInstance(request).getConfig(AppConfigManager.AppConfigKeyWasIpLocal), "");
+	        registPorts = StringUtil.nvl(AppConfigManager.getInstance(request).getConfig(AppConfigManager.AppConfigKeyWasPortLocal), "");
+	      }
+	      else {
+	        logger.error("SystemSe Info is Invalid => DEV");
+	        registIps   = StringUtil.nvl(AppConfigManager.getInstance(request).getConfig(AppConfigManager.AppConfigKeyWasIpTest), "");
+	        registPorts = StringUtil.nvl(AppConfigManager.getInstance(request).getConfig(AppConfigManager.AppConfigKeyWasPortTest), "");
+	      }
+
+	      registIpArr = registIps.split(";");
+	      registIpCnt = registIpArr.length;
+	      logger.debug("registIp Info : [" + registIps + "][" + registIpCnt + "]");
+
+	      registPortArr = registPorts.split(";");
+	      registPortCnt = registPortArr.length;
+	      logger.debug("registPort Info : [" + registPorts + "][" + registPortCnt + "]");
+
+	      // ----------------------------------------------------------------------
+	      // 4. 자기자신의 Instance 초기화 및 로드
+	      // ----------------------------------------------------------------------
+	      // 공통코드 Instance 초기화
+	      if (CmmnCodeTableManager.getInstance() != null) {
+	        CmmnCodeTableManager.getInstance().reset();
+	      }
+	      // 공통코드 Instance 로드
+	      this.setComCdInstanceInfo();
+
+	      // ----------------------------------------------------------------------
+	      //  5. 공통코드동기화 호출
+	      //   1) application-config.xml에 동기화대상 ip, port 등록
+	      //      - ip : wasIp, wasIpDev, wasIpLocal
+	      //      - port : wasPort, wasPortDev, wasPortLocal
+	      //   2) AppConfigManager.java 에 위 항목에 해당하는 변수 추가
+	      //   3) 어드민에서 호출되므로 자신의IP의 어드민port는 제외(로직에서 이미 실행됨)
+	      //   4)  구동되지 않는 Batch : 고려하지 않아도 됨
+	      // ----------------------------------------------------------------------
+	      wasAdminPort = StringUtil.nvl(AppConfigManager.getInstance(request).getConfig(AppConfigManager.AppConfigKeyWasAdminPort), "");
+	      logger.info("[WasAdminPort] : " + wasAdminPort);
+	      
+	      boolean callYn = false;
+
+	      for (String registIp : registIpArr) {
+	        // 등록된 IP만큼 roop
+
+	        for (String registPort : registPortArr) {
+	          // 등록된 Port만큼 roop
+	          exeIp = registIp;
+	          exePort = registPort;
+	          callYn = true; 
+
+	          if (exeIp.equals(thisIp)) {
+	            if (exePort.equals(wasAdminPort)) {
+	              callYn = false;
+	              logger.debug("[자신 동기화호출 Skip] ["+exeIp+"]["+exePort+"]");
+	            }
+	          }
+
+	          logger.debug("[동기화호출] ["+exeIp+"]["+exePort+"]");
+	          this.callHttpClient (thisIp, exeIp, exePort, uri);
+	        } // End of for (String registPort : registPortArr)
+	        
+	        
+	        //if (thisIp.equals(registIp)) {
+	        //  // 자기자신인 경우
+	        //  logger.debug("Already Exe : " + registIp);
+	        //}
+	        //else {
+	        //  exeIp = registIp;
+	        //  logger.debug("Exe Target : " + registIp);
+	        //  this.callHttpClient (thisIp, exeIp, exePort, uri);
+	        //}
+	      } // End of for (String registIp : registIpArr)
+	    }
+	    catch (Exception e) {
+	      e.printStackTrace();
+	    }
+	    
+	    //return mav;
+	  }
+	  
+	  
+	  /**
+	   * <pre>
+	   * HttpClient Call 
+	   * 
+	   * @param callIp
+	   * @param exeIp
+	   * @param exePort 
+	   * @exception 
+	   * @date 2015. 3. 6. 오후 4:28:11
+	   * @author Administrator
+	   * @비고
+	   * 
+	   * </pre>
+	   */
+	  @SuppressWarnings ({ "unused", "deprecation", "resource" })
+	  public void callHttpClient (String callIp, String exeIp, String exePort, String uri) {
+	    
+	    // ------------------------------------------------------------------------
+	    // # 시작로그
+	    // ------------------------------------------------------------------------
+	    logger.info("cmmnCodeReload Start");
+	    
+	    // ------------------------------------------------------------------------
+	    // # 객체/변수 선언
+	    // ------------------------------------------------------------------------
+	    String    postUrl       = "";   // 실행할 전체 URL주소
+	    
+	    try {
+
+	      postUrl = "http://" + exeIp + ":" + exePort + uri;
+	      logger.debug("postUrl : " + postUrl);
+	      
+	      // ----------------------------------------------------------------------
+	      // HTTPClient-HttpPost
+	      // ----------------------------------------------------------------------
+	      if (!StringUtil.isEmpty(callIp)) {
+	        
+	        List<NameValuePair> params = new ArrayList<NameValuePair>();
+	        
+	        params.add(new BasicNameValuePair("CALL_IP"   , callIp));
+	        
+	        UrlEncodedFormEntity ent = new UrlEncodedFormEntity(params, HTTP.UTF_8);
+	        HttpPost post = new HttpPost(postUrl);
+	        HttpClient client = new DefaultHttpClient(); 
+	        post.setEntity(ent);
+	        HttpResponse responsePost = client.execute(post);
+	        //org.apache.http.HttpEntity resEntity = ((HttpResponse) response).getEntity();
+
+	      }
+	      else {
+	        logger.debug("실행할 IP정보 없음");
+	      }
+	    }
+	    catch (Exception e) {
+	      e.printStackTrace();
+	    }
+	  }
+	  
+
+	/**
+	 * <pre>
+	 * 회원조회
+	 *
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 9. 1. 오전 11:02:01
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.cmmn.service
+	 * </pre>
+	 */
+	@Override
+	public int getMberInfo(Map<String, Object> inParam) throws Exception {
+		int outParam = 0;
+		try {
+			outParam = commonDao.getMberInfo(inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return outParam;
+	}
+
+
+	public int getCartCnt(String MBER_SEQ) throws Exception {
+		int outParam = 0;
+		try {
+			outParam = commonDao.getCartCnt(MBER_SEQ);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return outParam;
+	}
+
+
+	@Override
+	public String getCartViewYn(int inParam) throws Exception {
+		String outParam = "N";
+		try {
+			outParam = commonDao.getCartViewYn(inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return outParam;
+	}
+
+	@Override
+	public String bankErrMsg(String resultCode) throws Exception {
+
+		String msg = "";
+
+		if (("0000").equals(resultCode) ) {
+			msg = "정상 실명 확인";
+		} else if (("DB01").equals(resultCode) ) {
+			msg = "해당 데이터가 존재하지 않음. 계좌인증이 되지 않을 경우 Nice평가정보 고객센터 1588-2486, 1600-1522로 연락 주시기 바랍니다.";
+		} else if (("DB02").equals(resultCode) ) {
+			msg = "실명 조회 DB 에러. 계좌인증이 되지 않을 경우 Nice평가정보 고객센터 1588-2486, 1600-1522로 연락 주시기 바랍니다.";
+		} else if (("D100").equals(resultCode) ) {
+			msg = "ID에 할당된 사업자번호 오류. 계좌인증이 되지 않을 경우 Nice평가정보 고객센터 1588-2486, 1600-1522로 연락 주시기 바랍니다.";
+		} else if (("D200").equals(resultCode) ) {
+			msg = "주민번호오류. 계좌인증이 되지 않을 경우 Nice평가정보 고객센터 1588-2486, 1600-1522로 연락 주시기 바랍니다.";
+		} else if (("D300").equals(resultCode) ) {
+			msg = "사업자번호오류. 계좌인증이 되지 않을 경우 Nice평가정보 고객센터 1588-2486, 1600-1522로 연락 주시기 바랍니다.";
+		} else if (("D400").equals(resultCode) ) {
+			msg = "주민번호, 사업자번호 구분 오류. 계좌인증이 되지 않을 경우 Nice평가정보 고객센터 1588-2486, 1600-1522로 연락 주시기 바랍니다.";
+		} else if (("D500").equals(resultCode) ) {
+			msg = "서비스 구분 오류. 계좌인증이 되지 않을 경우 Nice평가정보 고객센터 1588-2486, 1600-1522로 연락 주시기 바랍니다.";
+		} else if (("D600").equals(resultCode) ) {
+			msg = "Key 오류. 계좌인증이 되지 않을 경우 Nice평가정보 고객센터 1588-2486, 1600-1522로 연락 주시기 바랍니다.";
+		} else if (("D700").equals(resultCode) ) {
+			msg = "거래일자오류. 계좌인증이 되지 않을 경우 Nice평가정보 고객센터 1588-2486, 1600-1522로 연락 주시기 바랍니다.";
+		} else if (("D800").equals(resultCode) ) {
+			msg = "거래시간오류. 계좌인증이 되지 않을 경우 Nice평가정보 고객센터 1588-2486, 1600-1522로 연락 주시기 바랍니다.";
+		} else if (("D900").equals(resultCode) ) {
+			msg = "조회은행코드오류. 계좌인증이 되지 않을 경우 Nice평가정보 고객센터 1588-2486, 1600-1522로 연락 주시기 바랍니다.";
+		} else if (("D101").equals(resultCode) ) {
+			msg = "조회 주민등록번호 오류. 계좌인증이 되지 않을 경우 Nice평가정보 고객센터 1588-2486, 1600-1522로 연락 주시기 바랍니다.";
+		} else if (("D102").equals(resultCode) ) {
+			msg = "조회 사업자번호 오류. 계좌인증이 되지 않을 경우 Nice평가정보 고객센터 1588-2486, 1600-1522로 연락 주시기 바랍니다.";
+		} else if (("D103").equals(resultCode) ) {
+			msg = "조회 계좌번호 오류. 계좌인증이 되지 않을 경우 Nice평가정보 고객센터 1588-2486, 1600-1522로 연락 주시기 바랍니다.";
+		} else if (("D104").equals(resultCode) ) {
+			msg = "Flag오류. 계좌인증이 되지 않을 경우 Nice평가정보 고객센터 1588-2486, 1600-1522로 연락 주시기 바랍니다.";
+		} else if (("D105").equals(resultCode) ) {
+			msg = "구분오류. 계좌인증이 되지 않을 경우 Nice평가정보 고객센터 1588-2486, 1600-1522로 연락 주시기 바랍니다.";
+		} else if (("TIME").equals(resultCode) ) {
+			msg = "TIMEOUT(응답지연). 계좌인증이 되지 않을 경우 Nice평가정보 고객센터 1588-2486, 1600-1522로 연락 주시기 바랍니다.";
+		} else if (("DSYS").equals(resultCode) ) {
+			msg = "시스템장애. 계좌인증이 되지 않을 경우 Nice평가정보 고객센터 1588-2486, 1600-1522로 연락 주시기 바랍니다.";
+		} else if (("OVER").equals(resultCode) ) {
+			msg = "동시 접속자수 초과. 계좌인증이 되지 않을 경우 Nice평가정보 고객센터 1588-2486, 1600-1522로 연락 주시기 바랍니다.";
+		} else if (("D888").equals(resultCode) ) {
+			msg = "당행서비스가 불가능함. 계좌인증이 되지 않을 경우 Nice평가정보 고객센터 1588-2486, 1600-1522로 연락 주시기 바랍니다.";
+		} else if (("D999").equals(resultCode) ) {
+			msg = "서비스 시간 아님. 계좌인증이 되지 않을 경우 Nice평가정보 고객센터 1588-2486, 1600-1522로 연락 주시기 바랍니다.";
+		} else if (("B001").equals(resultCode) ) {
+			msg = "주민번호-계좌일치, 계좌성명-계좌불일치. 계좌인증이 되지 않을 경우 Nice평가정보 고객센터 1588-2486, 1600-1522로 연락 주시기 바랍니다.";
+		} else if (("B002").equals(resultCode) ) {
+			msg = "주민번호-계좌불일치, 계좌성명-계좌일치. 계좌인증이 되지 않을 경우 Nice평가정보 고객센터 1588-2486, 1600-1522로 연락 주시기 바랍니다.";
+		} else if (("B003").equals(resultCode) ) {
+			msg = "주민번호-계좌불일치, 계좌성명-계좌불일치. 계좌인증이 되지 않을 경우 Nice평가정보 고객센터 1588-2486, 1600-1522로 연락 주시기 바랍니다.";
+		} else if (("B004").equals(resultCode) ) {
+			msg = "계좌성명-계좌불일치. 계좌인증이 되지 않을 경우 Nice평가정보 고객센터 1588-2486, 1600-1522로 연락 주시기 바랍니다.";
+		} else if (("B005").equals(resultCode) ) {
+			msg = "미등록코드(응답메시지확인필요). 계좌인증이 되지 않을 경우 Nice평가정보 고객센터 1588-2486, 1600-1522로 연락 주시기 바랍니다.";
+		} else if (("B101").equals(resultCode) ) {
+			msg = "타행(공동망) or 은행시스템 오류. 계좌인증이 되지 않을 경우 Nice평가정보 고객센터 1588-2486, 1600-1522로 연락 주시기 바랍니다.";
+		} else if (("B102").equals(resultCode) ) {
+			msg = "계좌오류. 계좌인증이 되지 않을 경우 Nice평가정보 고객센터 1588-2486, 1600-1522로 연락 주시기 바랍니다.";
+		} else if (("B103").equals(resultCode) ) {
+			msg = "주민번호또는사업자번호상이. 계좌인증이 되지 않을 경우 Nice평가정보 고객센터 1588-2486, 1600-1522로 연락 주시기 바랍니다.";
+		} else if (("B104").equals(resultCode) ) {
+			msg = "입력성명과 계좌성명이 다름. 계좌인증이 되지 않을 경우 Nice평가정보 고객센터 1588-2486, 1600-1522로 연락 주시기 바랍니다.";
+		} else if (("B199").equals(resultCode) ) {
+			msg = "은행 기타 오류. 계좌인증이 되지 않을 경우 Nice평가정보 고객센터 1588-2486, 1600-1522로 연락 주시기 바랍니다.";
+		} else if (("C001").equals(resultCode) ) {
+			msg = "Connection Fail. 계좌인증이 되지 않을 경우 Nice평가정보 고객센터 1588-2486, 1600-1522로 연락 주시기 바랍니다.";
+		} else if (("C002").equals(resultCode) ) {
+			msg = "Data Write Fail. 계좌인증이 되지 않을 경우 Nice평가정보 고객센터 1588-2486, 1600-1522로 연락 주시기 바랍니다.";
+		} else if (("C003").equals(resultCode) ) {
+			msg = "Data Read Fail. 계좌인증이 되지 않을 경우 Nice평가정보 고객센터 1588-2486, 1600-1522로 연락 주시기 바랍니다.";
+		} else if (("C606").equals(resultCode) ) {
+			msg = "계좌소유주명 오류. 계좌인증이 되지 않을 경우 Nice평가정보 고객센터 1588-2486, 1600-1522로 연락 주시기 바랍니다.";
+		} else if (("C999").equals(resultCode) ) {
+			msg = "내부 전문 통신 오류. 계좌인증이 되지 않을 경우 Nice평가정보 고객센터 1588-2486, 1600-1522로 연락 주시기 바랍니다.";
+		}
+		return msg;
+	}
+
+	
+
+	/**
+	 * <pre>
+	 * 푸시발송
+	 * 회원별 푸시 발송
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 11. 5.
+	 * @author obiwan
+	 * @see @see com.ssocio.sharing.service.web.WebCommonService#sendPush(java.util.Map, String, String, String)
+	 * </pre>
+	 */
+//
+//	@Override 푸시 중복 개발로 인하여 주석처리 추후 삭제 예정
+//	public String sendPush(Map<String, Object> paramDto, String boardTypeCd, String ansGbCd, String msg) throws Exception {
+//
+//		int result=0;
+//		String strRet = null;
+//		Map<String, Object> userInfo = null;
+//		List<Map<String, Object>> list = null;
+//		Map<String, Object>  inParam =  null;
+//		String sound = "default"; // 안드로이드 기본
+//		String pushType = null;
+//
+//		try {
+//			  if("72".equals(boardTypeCd)){ // 상품문의 [질문]
+//				  if(StringUtil.isEmpty(ansGbCd) == false){
+//					if("20".equals(ansGbCd)){
+//						pushType = CmmnCnst.SND_KIND_CD_34; // 질문
+//						paramDto.put("GUBUN", "1");
+//					}else if("30".equals(ansGbCd)){
+//						pushType = CmmnCnst.SND_KIND_CD_33; // 답변
+//						paramDto.put("GUBUN", "2");
+//					}else{
+//						logger.debug("답변 코드 오류-->" + ansGbCd);
+//						new Exception();
+//					}
+//
+//				  }
+//			  }else if("10".equals(boardTypeCd)){ // 공지사항
+//				  pushType = CmmnCnst.SND_KIND_CD_10;
+//				  paramDto.put("MBER_SEQ", 0); // 전체
+//				  paramDto.put("RCV_MBER_SEQ", 0); // 전체
+//				  paramDto.put("GUBUN", "3"); // 전체
+//			  }else if("30".equals(boardTypeCd)){ // 1:1 질문
+//				  // 답변이 등록될때에만
+//				  if("30".equals(ansGbCd)){
+//						pushType = CmmnCnst.SND_KIND_CD_32; // 답변
+//						paramDto.put("GUBUN", "1");
+//					}else{
+//						logger.debug("답변 코드 오류-->" + ansGbCd);
+//						new Exception();
+//					}
+//
+//			  }else{
+//				  /*
+//				  if(CmmnCnst.SND_KIND_CD_37.equals(boardTypeCd)){ // 구매관리
+//					  pushType = CmmnCnst.SND_KIND_CD_37;
+//				  }else if(CmmnCnst.SND_KIND_CD_36.equals(boardTypeCd)){ // 관심상품
+//					  pushType = CmmnCnst.SND_KIND_CD_36;
+//					  //
+//				  }else if(CmmnCnst.SND_KIND_CD_35.equals(boardTypeCd)){ // 셰어링상품
+//					  pushType = CmmnCnst.SND_KIND_CD_35;
+//					  //
+//				  }else if(CmmnCnst.SND_KIND_CD_31.equals(boardTypeCd)){ // 주문조회
+//					  pushType = CmmnCnst.SND_KIND_CD_31;
+//					  //
+//				  }*/
+//				  pushType = boardTypeCd;
+//
+//				  paramDto.put("GUBUN", boardTypeCd);
+//			  }
+//
+//			  logger.info("======================================================");
+//			  logger.info("=발송 대상 정보 추출");
+//			  logger.info("======================================================");
+//
+//			  // 공지사항 파라메터 값 때문에 널처리 비슷하게 해주야함.
+//
+////			  <!-- mybatis 방식 -->
+////			  <insert id="insertQuery">
+////			      INSERT INTO table (id , name, title) VALUES (#{id, jdbcType=VARCHAR}, #{name, jdbcType=VARCHAR}, #{title, jdbcType=VARCHAR})
+////			  </insert>
+//
+//			  list = commonDao.selectListUserInfo(paramDto);
+//
+//			  logger.info("======================================================");
+//			  logger.info("=푸시 타입--" + pushType);
+//			  logger.info("======================================================");
+//
+//			  for (int i = 0; i < list.size(); i++) {
+//
+////				  if(StringUtil.isEmpty((String)paramDto.get("CONTENTS")) == true){
+////					  continue;
+////				  }
+//
+//				  inParam =  new HashMap<String, Object>();
+//				  inParam.put("sound", sound);
+//				  String  OS_GB_CD = StringUtil.nvl((String) list.get(i).get("OS_GB_CD"),"");
+//				  inParam.put("token",StringUtil.nvl((String) list.get(i).get("PUSH_ID"),""));
+//				  inParam.put("message", StringUtil.nvl((String)paramDto.get("CONTENTS"), "")); // 없어두됨.
+//				  inParam.put("pushtype", pushType );					  // 구분
+//				  inParam.put("title",  msg);	  // 제목
+//				  inParam.put("badge", CmmnCnst.cmmn1); // ? 뭐지??????
+//																			  // os 구분
+//				  if(CmmnCnst.OS_GB_CD_20.equals(OS_GB_CD)){ // 공통코드 조회하는 로직이 필요하겠지만 상수로 박음 귀차늠
+//			    	  inParam.put("sound", "jingle.caf");
+//			  	  }
+//
+//				  logger.info("======================================================");
+//				  logger.info("=token-->" + inParam.get("token"));
+//				  logger.info("=message-->" + inParam.get("message"));
+//				  logger.info("=pushtype-->" + inParam.get("pushtype"));
+//				  logger.info("=title-->" + inParam.get("title"));
+//				  logger.info("=badge-->" + inParam.get("badge"));
+//				  logger.info("=sound-->" + inParam.get("sound"));
+//				  logger.info("=sendUrl-->" + CmmnCnst.pushUrl);
+//				  logger.info("======================================================");
+//
+//				  strRet = HttpUrlConnectionUtil.callHttpURLConnectionPush(CmmnCnst.pushUrl, "POST", inParam);
+//
+//				  logger.info("======================================================");
+//				  logger.info("=결과-->" + strRet);
+//				  logger.info("======================================================");
+//
+//				  /* MSG_INFO
+//			         MSG_CD                    --메세지일련번호
+//			        ,MSG_GB_CD                 --메세지구분코드
+//			        ,TITLE                     --제목
+//			        ,CONENTS                   --내용
+//			        ,SND_DT                    --발송일시
+//			        ,SND_MBER_SEQ              --수신자MBER_SEQ
+//			        ,RCV_MBER_SEQ              --발신자MBER_SEQ
+//			        ,CHK_DT                    --확인일시 */
+//				  paramDto.put("MSG_GB_CD", CmmnCnst.MSG_GB_CD_10); // 푸시
+//				  paramDto.put("TITLE", inParam.get("title"));
+//				  paramDto.put("CONENTS", "");
+//				  paramDto.put("SND_MBER_SEQ", paramDto.get("MBER_SEQ")); 		  // 수신자
+//				  paramDto.put("RCV_MBER_SEQ", list.get(i).get("RCV_MBER_SEQ"));	  // 발신자
+//
+//				  logger.info("======================================================");
+//				  logger.info("=발송정보 회원 이력 정보 셋팅");
+//				  logger.info("======================================================");
+//				  result= commonDao.insertMsgInfo(paramDto);
+//			 }
+//
+//			  if(list.size()>0){ // 발송대상건이 존재할때만 이력을 쌓는다.
+//				   /* PUSH_SND_GRP			      푸시발송그룹        */
+//				   /* PUSH_GRP_SEQ				발송그룹일련번호    */
+//			       /* SND_KIND_CD               발송대상구분        */
+//			       /* SND_GB_CD                 발송푸시구분        */
+//			       /* SND_CNT                   발송건수            */
+//			       /* CPNM_NM                   캠페인명            */
+//			       /* CONTENTS                  내용                */
+//			       /* TITLE                     타이틀              */
+//			       /* RESRV_YN                  예약발송YN      */
+//			       /* SND_STAT                  발송상태            */
+//			       /* SND_DT                    발송일시            */
+//			       /* REGIST_DT                 등록일시		  */
+//
+//				  paramDto.put("SND_KIND_CD", pushType);
+//				  paramDto.put("SND_GB_CD", CmmnCnst.SND_GB_CD_01); // 회원
+//				  paramDto.put("SND_CNT", list.size()); // 발송건수
+//				  paramDto.put("TITLE", inParam.get("title"));
+//				  paramDto.put("RESRV_YN", CmmnCnst.cmmnN); // 예약발송구분
+//				  paramDto.put("SND_STAT", CmmnCnst.SND_STAT_00); // 발송상태
+//
+//				  logger.info("======================================================");
+//				  logger.info("=발송정보 그룹 저장");
+//				  logger.info("======================================================");
+//				  result = commonDao.insertPushSndGrp(paramDto); // push grp setting
+//
+//			  }
+//
+//			  logger.info("PUSH CNT : " + result);
+//		} catch (Exception e) {
+//			e.printStackTrace();
+//		}
+//		return strRet;
+//
+//	}
+	
+	
+	/**
+	 * <pre>
+	 * 상태코드 가져오기
+	 *
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 12. 05. 오후 9:12:00
+	 * @author M.C.Jung
+	 * @see com.ssocio.sharing.cmmn.service
+	 * </pre>
+	 */
+	
+	@Override
+	public String getSelectProcStatCd(Map<String, Object> inParam) throws Exception {
+		String outParam = "";
+		try {
+			outParam = commonDao.getSelectProcStatCd(inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return outParam;
+	}
+}

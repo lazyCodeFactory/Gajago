@@ -1,0 +1,207 @@
+<%@ page language="java" contentType="text/html; charset=utf-8"
+    pageEncoding="utf-8"%>
+<!-- 태그는 cmmnHead.jsp 에 선언함 -->
+<%@ include file="/WEB-INF/views/admin/common/cmmnHead.jsp"%>
+
+<script type="text/javascript">
+
+	$(document).ready(function(){
+
+		// 선택
+		$(document).on("click", "li", function () {
+			if (!$(this).hasClass('on')) {
+				$(this).addClass('on');
+			}
+			else {
+				$(this).removeClass('on');
+			}
+		});
+		
+		init();
+		
+		/* enter event */
+		$("#CMPNY_NM").keypress( function (evt) {
+			if (evt.keyCode == 13) {
+				searchMarket();
+			}
+		});
+		
+		// 할인금액 부담율
+		$("#marketBurden").keyup( function () {
+			var marketBurden = $(this).val();
+			if (marketBurden > 100) {
+				marketBurden = 100;
+			}
+			$("#marketBurden").val(marketBurden);
+		});
+		
+	});
+	
+	// init
+	function init() {
+		
+		// 부모창에서 마켓정보 가져오기
+		var receive1 = window.opener.document.form.marketSender1.value;
+		var receive2 = window.opener.document.form.marketSender2.value;
+		var marketBurden = window.opener.document.form.sendMarketBurden.value;
+		var splitReceive1 = receive1.split(/,/g);
+		var splitReceive2 = receive2.split(/,/g);
+		var rightHtml = "";
+		for (var i = 0 ; i < splitReceive1.length ; i++) {
+			rightHtml += "<li>";
+			rightHtml += "<a class='";
+			rightHtml += splitReceive2[i];
+			rightHtml += "' id='";
+			rightHtml += splitReceive1[i];
+			rightHtml += "'>";
+			rightHtml += splitReceive2[i];
+			rightHtml += "</a>";
+			rightHtml += "</li>";
+		}
+		
+		$("#rightUl").html(rightHtml);
+		$("#marketBurden").val(marketBurden);
+		
+	}
+	
+	// 판매자 조회
+	function searchMarket() {
+		
+		$.ajax({
+			
+			type : "POST",
+			data : {
+				CMPNY_NM : $("input[name=CMPNY_NM]").val()
+			},
+			url  : "/admin/cpn/selectMarketList.do",
+			success : function (data) {
+				// 조회 후 판매자 리스트
+				$("#leftUl").html(data);
+			}
+			
+		});
+		
+	}
+	
+	// 좌우 이동
+	function moveList(str) {
+		
+		var seller;
+		// 왼쪽에서 오른쪽
+		if (str == "right") {
+			seller = $('#leftUl').find('li');
+		}
+		// 오른쪽에서 왼쪽
+		else {
+			seller = $('#rightUl').find('li');
+		}
+		
+		// li tag 루프 돌면서 좌우로 이동
+		seller.each(function(index){
+			var moveFlag = true;
+			if($(this).hasClass('on')){
+				var obj = $(this);
+				var liTag = $(this).html();
+				var aId = $(this).find("a").attr("id");
+				liTag = "<li>" + liTag + "</li>";
+				
+				// 좌우 값이 있는지 비교
+				if (str == "right") {
+					$('#rightUl').find('li').each(function () {
+						var tempId = $(this).find("a").attr("id");
+						if (aId == tempId) {
+							moveFlag = false;
+						}
+					});
+				}
+				else {
+					$('#leftUl').find('li').each(function () {
+						var tempId = $(this).find("a").attr("id");
+						if (aId == tempId) {
+							moveFlag = false;
+						}
+					});
+				}
+				
+				// 이동
+				if (str == "right") {
+					if (moveFlag) {
+						$("#rightUl").append(liTag);
+						obj.remove();
+					}
+				}
+				else {
+					if (moveFlag) {
+						$("#leftUl").append(liTag);
+					}
+					obj.remove();
+				}
+			}
+		});
+		
+	}
+	
+	// 부모창으로 넘기기
+	function setParent() {
+		
+		// 오른쪽에 있는 리스트 넘기기
+		$('#rightUl').find('li').each(function (idx) {
+			
+			var obj = $(this).find("a");
+			var id = obj.attr("id");
+			var cls = obj.attr("class");
+			var txt = obj.text();
+
+			if (idx == 0) {
+				window.opener.setMarketList(id, txt, true);
+			}
+			else {
+				window.opener.setMarketList(id, txt, false);
+			}
+			
+		});
+		
+		// 할인금액 부담율
+		window.opener.setBurden($("#marketBurden").val());
+		
+		window.close();
+		
+	}
+	
+</script>
+<div class="pop_inner">
+	<form id="form" name="form" method="post" action="">
+		<div class="pop_coupon_seller_dx">
+			<p class="tbl_tit"><img src="http://static.ssocio.net/admin/images/ico_admin.gif" alt="" />쿠폰 할인금액 부담율</p>
+			<div class="left_sect">
+				<div class="srch_bx">
+					<input type="text" id="CMPNY_NM" name="CMPNY_NM" style="width:385px" />
+					<a href="javascript:searchMarket();" class="btn_w"><span>검색</span></a>
+				</div>
+				<div class="lst_seller_bx">
+					<ul id="leftUl">
+					</ul>
+				</div>
+			</div>
+			<div class="seller_select_area">
+				<a href="javascript:moveList('left');" class="btn_left"><img src="http://static.ssocio.net/admin/images/ico_num_left.png" alt="왼쪽으로 이동" /></a>
+				<a href="javascript:moveList('right');" class="btn_right"><img src="http://static.ssocio.net/admin/images/ico_num_right.png" alt="오른쪽으로 이동" /></a>
+			</div>
+			<div class="right_sect">
+				<div class="srch_bx">
+					할인금액 부담율 <input type="text" id="marketBurden" name="marketBurden" style="width:50px" maxLength="5" value="" /> % (0~100 사이 입력, 소수점 2자리까지 가능)
+				</div>
+				<div class="lst_seller_bx">
+					<ul id="rightUl">
+					</ul>
+				</div>
+			</div>
+		</div>
+		<!-- bot_btn -->
+		<div class="bot_btn tc mt20">
+			<a href="javascript:setParent();" class="btn_r">확인</a>
+			<a href="javascript:window.close();" class="btn_g2 ml10">취소</a>
+		</div>
+		<!-- //bot_btn -->
+	</form>
+</div>

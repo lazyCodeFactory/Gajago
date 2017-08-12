@@ -1,0 +1,317 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/web/common/cmmnHead.jsp"%>
+<%@ include file="/WEB-INF/views/web/common/webJSTL.jsp"%>
+<script type="text/javascript" src="/js/web/board/selectListboard.js"></script>
+<script type="text/javascript" src="/js/web/function.js"></script>
+<script type="text/javascript">
+var swiper2;
+var temp_idx;
+var last_idx;
+$(function(){
+	
+	header.type	= 10;
+	header.title = "고객센터";
+	header.method = "GET";
+	header.backUrl = "/mobile/board/selectListNotice.do";
+	header.callback = headerCallback;
+	initHeader();
+	
+	//APP TITLE
+	document.title = "고객센터";
+	
+	temp_idx = 0;
+	last_idx = $(".swiper-slide").length;
+	$("#faqlist").hide();
+	$("#boardlist").show();
+});
+function initSwiper(idx){
+	if((last_idx - temp_idx > 1 || (temp_idx -idx) > 1) && idx < temp_idx){
+		swiper2.slidePrev(null,500);
+	}else if((temp_idx > 1 || (idx - temp_idx) > 1) && idx > temp_idx){
+		swiper2.slideNext(null,500);
+	}
+	console.log(last_idx+"   "+temp_idx+"   "+idx+"   "+swiper2.isEnd);
+	temp_idx = idx;
+}
+
+function changeBoard(idx){
+	var planCount = parseInt('${fn:length(result.plans)}');
+	for(var i=0 ; i<planCount ; i++){
+		if( idx == i){
+			$("#PLAN_" + i).show();
+		}
+		else{
+			$("#PLAN_" + i).hide();
+		}
+	}
+	initSwiper(idx);
+}
+
+
+function headerCallback(rtn){
+	if( 'help-h' == rtn ){
+		if("" != '${sessionScope.user}'){
+			$("#sndfrm").attr("action","/mobile/board/insertOne.do").submit();
+		}else{
+			setLogin();
+		}
+	}
+}
+
+function AppCallBack(){
+	
+	if("" != '${sessionScope.user}'){
+		$("#sndfrm").attr("action","/mobile/board/insertOne.do").submit();
+	}else{
+		setLogin();
+	}
+}
+
+function setLogin(){
+	location.href="/mobile/main/login.do?ret="+encodeURIComponent("/mobile/board/insertOne.do");
+}
+function go_boardlist(){
+	$.ajax({
+    type: 'get'
+	    , async: true
+	    , dataType:'json'
+	    , url: '/mobile/board/selectListNotice.do'
+		, data: $("#sndfrm").serialize()
+	    , success: function(data) {
+	    	$("#board_ol").html("");
+	    	$("#faq_li").removeClass("on");
+	    	$("#notice_li").addClass("on");
+	    	var list_leng = data.notice_list.length;
+	    	$.each(data.notice_list, function(key,val) {
+	    		var str = "";
+	    		if(0 == key){
+	    			str +="<li><a href=\"javascript:goViewPage('"+val.BOARD_SEQ+"','"+val.BOARD_TYPE_CD+"')\"><span class=\"notice\">공지</span>"+val.TITLE+"</a></li>";
+	    		}else{
+	    			str +="<li><a href=\"javascript:goViewPage('"+val.BOARD_SEQ+"','"+val.BOARD_TYPE_CD+"')\">"+val.TITLE+"</a></li>";
+	    			
+	    		}
+			$("#board_ol").append(str);    		
+			});
+			$("#faqlist").hide();
+			$("#boardlist").show();
+	    }
+	    , error: function(data, status, err) {
+	    	console.log(err)
+	      alert('서버와의 통신이 실패했습니다.');
+	    }
+	});	
+}
+
+function go_faqlist(result,status){
+	
+	
+	if("0" == result){
+		status = 0;
+		$("#FAQ_GUBUN").val("");
+	}else{
+		$("#FAQ_GUBUN").val(result);
+	}
+	$.ajax({
+	    type: 'post'
+	    , async: false
+	    , dataType:'json'
+	    , url: '/mobile/board/selectListFaq.do'
+		, data: $("#sndfrm").serialize()
+	    , success: function(data) {
+	    	
+	    	$("#faq_ul").html("");
+	    	$("#notice_li").removeClass("on");
+	    	$("#faq_li").addClass("on");
+	    	$.each(data.faq_list, function(key,val) {
+	    		var str = "";
+	    	       str +="<li class=\"article\">";
+	    	       str +="<p class=\"q\"><a href=\"#a1\" class=\"trigger\">"+val.TITLE+"</a></p>";
+	    	       str +="<div class=\"a\">"+val.CONTENTS+"</div>";
+               	   str +=" </li>";
+			$("#faq_ul").append(str);    		
+			});
+	    	
+	    	console.log("status : " + status);
+	    	faq_list();
+	    	
+			$("#boardlist").hide();
+		
+		
+			initSwiper(status);
+			
+	
+	    }
+	    , error: function(data, status, err) {
+	      alert('서버와의 통신이 실패했습니다.');
+	    }
+	});
+	
+	
+}
+
+function initfaqlist(result,status){
+	$("#faqlist").show();
+	swiper2 = new Swiper('.swiper-container', {
+		scrollbarHide: true,
+		slidesPerView: 'auto',   
+		spaceBetween: 0,
+		freeMode: true,
+		grabCursor: true,
+		initialSlide : 0,
+		nextButton: '.btn.next',
+		prevButton: '.btn.prev',
+	});
+	go_faqlist(result,status)
+}
+
+function gofaqselList(result,idx){
+	$(".faq-tab li").removeClass("on");
+	$("#faq_tb_li_"+result).addClass("on");
+	
+	go_faqlist(result,idx)
+// 	$(".faq-tab li").each(function(index) {
+// 	    alert(index + ': ' + $(this).text());
+// 	  });
+	
+}
+
+function callPhone(){
+
+	//20 : 아이폰 , 10: 안드로이드
+	 var gubun = 	getRemoteChannel(true);
+	if(20 == gubun){
+		var number = '18770101';
+		var data = '{"number":"'+number+'"}';
+		document.location.replace('ssocio://web/tel?'+encodeURIComponent(data));
+	}else if(10 == gubun){
+		var number = '18770101';
+		var data = '{"number":"'+number+'"}';
+		document.location.replace('ssocio://web/boardtel?'+encodeURIComponent(data));
+	}
+		
+	
+}
+$("#callPhone").click(function(){
+	if( '${sessionScope.APP}' == 'SSOCIO'){
+		//ssocio://web/tel?{"number":"01011112222"}
+		var number = '18770101';
+		var data = '{"number":"'+number+'"}';
+		document.location.replace('ssocio://web/boardtel?'+encodeURIComponent(data));
+	}else{
+		
+	}
+});
+</script>
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+
+        <div class="roc">
+        	<ul class="inner">
+            	<li><img src="http://static.ssocio.net/pc/img/common/section/roc_home.png" alt="홈"></li>
+                <li>고객센터</li>
+            </ul>
+        </div>
+        
+        <!-- inner -->
+		<div class="inner">
+			<h3 class="tit_cont"><img src="http://static.ssocio.net/pc/img/common/tit/help1000.png" alt="고객센터" /></h3>
+	    	<ul class="tab tab1 mt-30">
+
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+	 <!-- container -->
+		<div id="container">
+    	<ul class="tab" id="notice_tab">
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>
+
+        	<li id="notice_li" class="on"><a href="#" onclick="go_boardlist()">공지사항</a></li>
+        	<li id="faq_li"><a href="#" onclick="initfaqlist('0','0')">자주 묻는 질문</a></li>
+        </ul>
+<form id="sndfrm" name="sndfrm" method="get">
+	<input type="hidden" id="BOARD_SEQ" name="BOARD_SEQ">
+	<input type="hidden" id="BOARD_TYPE_CD" name="BOARD_TYPE_CD">
+	<input type="hidden" id="NOTICE_TITLE" name="NOTICE_TITLE">
+	<input type="hidden" id="NOTICE_CONTENTS" name="NOTICE_CONTENTS">
+	<input type="hidden" id="NOTICE_VIEW" name="NOTICE_VIEW" value="FIRST">
+	<input type="hidden" id="FAQ_GUBUN" name="FAQ_GUBUN" value="">
+</form>
+
+
+        <div class="content cust-area">
+        <div class="info-box">
+                <h3>SSOCIO 고객센터</h3>
+   				<c:choose>
+					<c:when test="${sessionScope.APP eq 'SSOCIO' }">
+					<p><strong class="point_p"><a href="#" onclick="callPhone()" >1877-0101</a></strong></p>
+					</c:when>
+					<c:otherwise>
+						<p><strong class="point_p"><a href="tel:1877-0101" >1877-0101</a></strong></p>
+					</c:otherwise>
+				</c:choose>
+                <p>운영시간 : 평일 오전 09:00~오후 06:00</p>
+                <p>점심시간 12:00~13:00</p>
+                <p><span>(토.일.공휴일 휴무)</span></p>
+            </div>
+            
+            <div class="board" id="boardlist">
+                <!-- LIST -->
+                <ol class="list" id="board_ol">
+             		<c:forEach var="list" items="${notice_list}" varStatus="status">
+<%--              		<c:if test="${status.first}"> --%>
+<%--                     	<li><a href="javascript:goViewPage('${list.BOARD_SEQ}','${list.BOARD_TYPE_CD}')"><span class="notice">공지</span>${list.TITLE}</a></li> --%>
+<%--              		</c:if> --%>
+<%--              		<c:if test="${not status.first}"> --%>
+<%--                    	<li><a href="javascript:goViewPage('${list.BOARD_SEQ}','${list.BOARD_TYPE_CD}')">${list.TITLE}</a></li> --%>
+<%--              		</c:if> --%>
+						<c:if test="${list.IMPT_NOTI_YN eq 'Y'}">
+	                    	<li><a href="javascript:goViewPage('${list.BOARD_SEQ}','${list.BOARD_TYPE_CD}')"><span class="notice">공지</span>${list.TITLE}</a></li>
+	             		</c:if>
+	             		<c:if test="${list.IMPT_NOTI_YN ne 'Y'}">
+	                   		<li><a href="javascript:goViewPage('${list.BOARD_SEQ}','${list.BOARD_TYPE_CD}')">${list.TITLE}</a></li>
+	             		</c:if>
+					</c:forEach>
+                </ol>
+                <!-- //LIST -->
+            </div>
+            <div class="board" id="faqlist">
+                <custom:codeList groupCode="FAQ_TYPE_CD" var="FAQ_TYPE_CD" />
+               <div class="swiper-container faq-tab">
+                    <a class="btn prev"><img src="http://static.ssocio.net/web/images/btn_prev2.png" alt="이전"></a>
+                    <ul class="swiper-wrapper">
+                   	    <li class="swiper-slide active" ><a href="#" onclick="gofaqselList('0','0')" >전체</a></li>
+                    <c:forEach var="faqListArr" items="${FAQ_TYPE_CD}"  varStatus="status">
+						<li class="swiper-slide" ><a href="#" onclick="gofaqselList('${faqListArr.key}','${status.count}')"  >${faqListArr.value}</a></li>
+                    </c:forEach>
+                    </ul>
+                    <a class="btn next"><img src="http://static.ssocio.net/web/images/btn_next2.png" alt="다음"></a>
+                </div>
+                
+				<div class="faq-list">
+					<ul id="faq_ul">
+	                     
+					</ul>
+	             </div>
+         	 </div>
+	                <!-- //LIST -->
+	            
+        </div>
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+        </div>
+        <!-- //inner -->
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+	    </div>
+	    <!-- //container -->
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>

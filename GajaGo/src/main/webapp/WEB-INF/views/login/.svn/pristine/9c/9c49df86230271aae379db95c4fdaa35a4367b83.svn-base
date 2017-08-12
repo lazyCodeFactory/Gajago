@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="webEventMapper">
+
+	<select id="selectListEvent" parameterType="hashmap" resultType="hashmap">
+		SELECT 
+		        A.EVT_GRP_CD,
+		        A.EVT_GB_CD,
+		        A.EVT_NM,
+		        TO_CHAR(A.EVT_START_DT, 'YYYYMMDD') AS EVT_START_DT,
+		        TO_CHAR(A.EVT_END_DT, 'YYYYMMDD') AS EVT_END_DT,
+		        <!-- A.EXPOSURE_YN, -->
+		        DECODE(EVT_STATE_YN , 'Y' , '40' ,
+		              CASE
+		                WHEN TO_CHAR(SYSDATE, 'YYYYMMDD') <![CDATA[<]]> TO_CHAR(EVT_START_DT, 'YYYYMMDD') THEN '10'
+		                WHEN TO_CHAR(SYSDATE, 'YYYYMMDD') <![CDATA[>]]> TO_CHAR(EVT_END_DT, 'YYYYMMDD') THEN '30'
+		                ELSE    '20'
+		                END 
+		           ) AS EVT_STATE_YN ,   
+		        A.DISPLAY_START_DT,
+		        A.DISPLAY_END_DT,
+		        A.MOBILE_COMMENT,
+		        (SELECT FILE_URL FROM FILE_INFO WHERE FILE_SEQ = B.EVT_IMG_URL_MOBILE) AS EVT_IMG_PATH
+		FROM EVT_INFO A, EVT_IMG B
+		WHERE A.EVT_GRP_CD = B.EVT_GRP_CD
+		AND		SYSDATE BETWEEN A.DISPLAY_START_DT AND A.DISPLAY_END_DT
+		AND 	A.EXPOSURE_YN = 'Y'
+		<if test="S_EVT_STATE_YN != null and S_EVT_STATE_YN eq 'N'.toString() " ><!-- 종료 혹은 마감 -->
+		  AND (A.EVT_STATE_YN = 'Y' OR A.EVT_END_DT &lt; SYSDATE )
+		</if>
+		<if test="S_EVT_STATE_YN != null and S_EVT_STATE_YN eq 'Y'.toString() " ><!--  진행중 -->
+		  AND A.EVT_STATE_YN = 'N' 
+		  AND SYSDATE BETWEEN EVT_START_DT AND EVT_END_DT
+		</if>
+		<if test="S_EVT_GRP_CD != null and S_EVT_GRP_CD != ''">
+		  AND A.EVT_GRP_CD = #{S_EVT_GRP_CD}
+		</if>
+		ORDER BY A.EVT_START_DT DESC
+	</select>
+	
+	<select id="selectEventMberInfo" parameterType="hashmap" resultType="hashmap">
+		SELECT 
+		        A.MBER_SEQ,
+				A.EVT_GRP_CD,
+				A.PRIZE_YN
+		FROM EVT_MBER_INFO A
+		WHERE A.MBER_SEQ = #{S_MBER_SEQ}
+		AND A.EVT_GRP_CD = #{I_EVT_GRP_CD}
+	</select>
+	
+	<insert id="insertEventMberInfo" parameterType="hashmap" useGeneratedKeys="true" keyProperty="MBER_SEQ" keyColumn="MBER_SEQ">
+		INSERT INTO EVT_MBER_INFO (
+			 MBER_SEQ,
+			 EVT_GRP_CD,
+			 PRIZE_YN,
+			 REGIST_DT,
+			 UPDT_DT
+		) VALUES (
+			 #{S_MBER_SEQ},
+			 #{I_EVT_GRP_CD},
+			 'N',
+			 SYSDATE,
+			 SYSDATE
+		)
+	</insert>
+	
+</mapper>

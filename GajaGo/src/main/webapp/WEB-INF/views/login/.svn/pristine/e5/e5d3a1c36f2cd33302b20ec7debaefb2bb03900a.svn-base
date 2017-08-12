@@ -1,0 +1,253 @@
+
+var CPN_STAT_NONE = 0
+var CPN_STAT_MIN_PRCE = 1
+/**
+ ** 
+ * <pre>
+ * 설명 쿠폰 객체
+ * 설명
+ * @date 2015. 9. 6. 오후 03:44:07
+ * @author WOOK.KIM
+ * @see resources/web/js/ctry
+ * </pre>
+ */
+Coupon = Class({
+	cpnGrpCd : '',					//	그룹 코드
+	cpnNo : '',						//	번호
+	cpnNm : '',						//	이름 
+	cpnGbCd : '',					//	쿠폰 종류 (10:상품할인, 20:배송비, 30:신규가입, 40:첫구매, 50:인쇄배포)
+	cpnIssueTgtGbCd : '',			//	쿠폰 사용가능 종류 (A:전체상품, B:특정상품, C:특정카테고리, D:특정기획전)
+	cpnUseCd : '',					//	쿠폰 사용 채널 종류 (A:전체, B:특정채널)
+	bnfitDscntPrce : 0,				//	혜택할인가격
+	prodPrce : 0,					//	최소 상품 금액
+	bnfitDscntRate : 0,				//	혜택할인률
+	bnfitMaxDscntPrce : 0,			//	최대 할인률 금액
+	dupDscntYn : false,				//	중복할인여부
+	dlvCpnYn : false,				//	무료배송 쿠폰
+	inflowRouteCpnYn : false,		//	유입경로쿠폰 구분
+	bnfitChk : '',					//	혜택 종류(금액A, 할인률B)
+	prodCode : '',					//	상품할인 쿠폰일 경우 상품코드
+	planCd : '',					//	기획전 쿠폰일 경우 기획전코드
+	ctryCd : '',					//	카테고리 쿠폰일 경우 카테고리코드
+	pciCpnCd : '',					//	인쇄배포용 쿠폰일 경우 쿠폰코드
+	channels : null,				//	상품할인 쿠폰일 경우 채널코드
+	selected : false,
+	isApp : false,
+	useYn : true,
+	initialize : function(isApp){
+		this.channels = new Array();
+		this.selected = false;
+		this.isApp = isApp;
+		this.useYn = true;
+	},
+	setChannelUseYn : function(){
+		var channel =  getRemoteChannel(this.isApp);
+		if(this.cpnUseCd != 'A'){
+			var exist = false;
+			for(var i=0 ; i<this.channels.length ; i++){
+				if(channel == this.channels[i]){
+					exist = true;
+					break;
+				}
+			}
+			this.useYn = false;
+		}
+	}
+});
+
+/**
+ * 
+ * <pre>
+ * 설명 쿠폰 그룹 객체
+ * 설명
+ * @date 2015. 9. 6. 오후 03:44:07
+ * @author WOOK.KIM
+ * @see resources/web/js/ctry
+ * </pre>
+ */
+CouponGroup = Class({
+	cpnGbCd : '',					//	그룹 코드
+	name : '',						//	그룹 이름
+	ordAmt : 0,						//	주문 금액
+	dupDscntYn : true,				//	중복사용여부
+	status : 1000,						//	그룹 상태 값( 1000:정상, 1001:최소사용금액 위배, 1002:중복불가 선택)
+	coupons : null,			//	쿠폰 목록
+	initialize : function(cpnGbCd, name){
+		this.cpnGbCd = cpnGbCd;
+		this.name = name;
+		this.coupons = new Array();
+	},
+	/**
+	 * 
+	 * <pre>
+	 * 설명 coupons 배열 객체에 추가한다.
+	 * 설명 추가 전에 각 값들의 초기화를 실시한다.
+	 * @param coupon : Coupon 객체
+	 * @returns
+	 * @date 2015. 9. 6. 오후 03:44:07
+	 * @author WOOK.KIM
+	 * @see resources/web/js/ctry
+	 * </pre>
+	 */
+	add : function(coupon){
+		coupon.setChannelUseYn();
+		this.coupons.push(coupon);
+	},
+	/**
+	 * 
+	 * <pre>
+	 * 설명 팝업 레이어에서 선택한 쿠폰을 상품과 매칭 시킨다.
+	 * 설명 추가 전에 각 값들의 초기화를 실시한다.
+	 * @param seq : 주문서 상의 상품 순번
+	 * @param couponNo : 쿠폰 번호
+	 * @returns 해당 쿠폰이 존재하면 true, 존재하지 않으면 false
+	 * @date 2015. 9. 6. 오후 03:44:07
+	 * @author WOOK.KIM
+	 * @see resources/web/js/ctry
+	 * </pre>
+	 */
+	getCoupon : function(couponNo){
+		var coupon = null;
+		for(var i=0 ; i<this.coupons.length ; i++){
+			if( this.coupons[i].cpnNo == couponNo){
+				coupon = this.coupons[i];
+				break;
+			}
+		}
+		
+		return coupon;
+	},
+	getCouponCount : function(){
+		var count = 0;
+		for( var i=0 ; i<this.coupons.length ; i++){
+			if(this.coupons[i].useYn == true){
+				count++;
+			}
+		}
+		
+		return count;
+	},
+	/**
+	 * 
+	 * <pre>
+	 * 설명 팝업 레이어에서 선택한 쿠폰을 선택해지하거나 팝업 레이어에서 취소 버튼 클릭시 호출됨.
+	 * 설명 이 함수는 팝업 레이어에서만 동작해야 함
+	 * @param seq : 주문서 상의 상품 순번
+	 * @returns
+	 * @date 2015. 9. 6. 오후 03:44:07
+	 * @author WOOK.KIM
+	 * @see resources/web/js/ctry
+	 * </pre>
+	 */	
+	disSelect : function(seq){
+		for( var i=0 ; i<this.coupons.length ; i++){
+			if( this.coupons[i].selected == true && this.coupons[i].seq == seq){
+				this.coupons[i].selected = false;
+			}
+		}
+		this.discount = 0;
+		this.status = 1000;
+	},
+	/**
+	 * 
+	 * <pre>
+	 * 설명 다른 상품에서 선택한 쿠폰이 있을 시 현재 상품에서 사용할 수 있는 쿠폰의 개수를 리턴한다.
+	 * 설명 
+	 * @returns cnt
+	 * @date 2015. 9. 6. 오후 03:44:07
+	 * @author WOOK.KIM
+	 * @see resources/web/js/ctry
+	 * </pre>
+	 */	
+	countLiveCoupon : function(cpnNo){
+		var cnt = 0;
+		for( var i=0 ; i<this.coupons.length ; i++){
+			if( this.coupons[i].selected == false){
+				cnt++;
+			}
+			else{
+				if( this.coupons[i].cpnNo == cpnNo){
+					cnt++;
+				}
+			}
+		}
+		return cnt;
+	},
+	contain : function(cpnNo){
+		var isContain = false;
+		for(var i=0 ; i<this.coupons.length ; i++){
+			if( this.coupons[i].cpnNo == cpnNo){
+				isContain = true;
+				break;
+			}
+		}
+		return isContain;
+	}
+});
+
+/**
+ * 
+ * <pre>
+ * 설명 쿠폰 컨테이너
+ * @date 2015. 9. 6. 오후 03:44:07
+ * @author WOOK.KIM
+ * @see resources/web/js/ctry
+ * </pre>
+ */
+CouponContainer = Class({
+	select : {
+		prodCode : '',
+		cpnNo : '',
+		groupIdx : -1,
+		isChange : false
+	},
+	groups : null,
+	initialize : function(){
+		this.groups = new Array();
+	},
+	add : function(group){
+		this.groups.push(group);
+	},
+	/**
+	 * 
+	 * <pre>
+	 * 설명 팝업 레이어에서 선택한 쿠폰을 상품과 매칭 시킨다.
+	 * 설명 추가 전에 각 값들의 초기화를 실시한다.
+	 * @param seq : 주문서 상의 상품 순번
+	 * @param couponNo : 쿠폰 번호
+	 * @returns 해당 쿠폰이 존재하면 true, 존재하지 않으면 false
+	 * @date 2015. 9. 6. 오후 03:44:07
+	 * @author WOOK.KIM
+	 * @see resources/web/js/ctry
+	 * </pre>
+	 */
+	getCoupon : function(couponNo){
+		var coupon = null;
+		for(var i=0 ; i<this.groups.length ; i++){
+			//	선택 된 쿠폰이 해당 그룹에 존재하면 true, 아니면 false를 return한다.
+			coupon = this.groups[i].getCoupon(couponNo);
+			if( coupon != null ){
+				break;
+			}
+		}
+		return coupon;
+	},
+	/**
+	 * 
+	 * <pre>
+	 * 설명 DB에서 가져온 사용가능 쿠폰의 총 개수를 리턴한다.
+	 * 설명 쿠폰적용(사용가능 X장)에서 X를 표시하기 위함.
+	 * @date 2015. 9. 9. 오후 1:09:02
+	 * @author WOOK.KIM
+	 * @see resources/web/js/ctry
+	 * </pre>
+	 */	
+	getCouponCount : function(){
+		var count = 0;
+		for( var i=0 ; i<this.groups.length ; i++){
+			count += this.groups[i].getCouponCount();
+		}
+		
+		return count;
+	},
+});

@@ -1,0 +1,181 @@
+/**<pre>
+ * 1. Project Name : Gapping1.0
+ * 2. Package Name : com.lottecard.mall.web.cmmn.view
+ * 3. File Name    : FileDownloadView.java
+ * 4. Date         : 2014. 8. 20. 오후 9:40:22
+ * 5. Author       : adrra
+ * 6. Note         :
+ * </pre>
+ */
+
+package com.ssocio.sharing.cmmn.util.view;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.OutputStream;
+import java.net.SocketException;
+import java.net.URLEncoder;
+import java.text.DecimalFormat;
+import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.web.servlet.view.AbstractView;
+
+import com.ssocio.sharing.cmmn.util.StringUtil;
+
+/**
+ * <pre>
+ * SendContentView
+ *
+ * @author adrra
+ * @version
+ * @since 2014. 8. 20. 오후 9:48:34
+ * @see
+ * @History
+ *  Date          |    author    | 변경내용
+ *	2014. 8. 20.  |    adrra            | 신규
+ * @Todo
+ * </pre>
+ */
+public class FileDownloadView extends AbstractView {
+
+  // --------------------------------------------------------------------------
+  // # Log 설정
+  // --------------------------------------------------------------------------
+  private static final Logger logger = LoggerFactory.getLogger(FileDownloadView.class);
+
+  private static final DecimalFormat DCF = new DecimalFormat("##############");
+
+  private String                     fileNameCharSet;
+  private int                        order;
+
+  @Override
+  protected void renderMergedOutputModel(Map<String, Object> model, HttpServletRequest request, HttpServletResponse response) throws Exception {
+
+    // ------------------------------------------------------------------------
+    // # 시작로그
+    // ------------------------------------------------------------------------
+    logger.debug("renderMergedOutputModel Start");
+
+    // ------------------------------------------------------------------------
+    // # 객체/변수 선언
+    // ------------------------------------------------------------------------
+    File            file          = null;
+    FileInputStream inputStream   = null;
+    OutputStream    os            = null;
+
+    byte[]          buf;
+    String          orginlFileNm  = "";
+    String          saveAs        = null;
+    int             rsize         = 0;
+    String          contentType   = "";
+
+    // ------------------------------------------------------------------------
+    // # Biz Start
+    // ------------------------------------------------------------------------
+    try {
+
+      if (model.get("file") instanceof File) {
+        file  = (File) model.get("file");
+      }
+      else {
+        file  = new File((String) model.get("file"));
+      }
+
+      inputStream = new FileInputStream(file);
+      contentType  = getServletContext().getMimeType(file.getName());
+
+      if (StringUtils.isBlank(contentType)) {
+        contentType = "application/octet-stream";
+      }
+
+      saveAs   = (String)model.get("saveAs");
+      logger.debug("saveAs(1)    : " + saveAs);
+
+      orginlFileNm = (String)model.get("orginlFileNm");
+      logger.debug("orginlFileNm : " + orginlFileNm);
+
+      if (StringUtil.isEmpty(saveAs)) {
+
+        if (StringUtil.isEmpty(orginlFileNm)) {
+          saveAs  = file.getName();
+        }
+        else {
+          saveAs  = orginlFileNm;
+        }
+      }
+      logger.debug("saveAs(2)    : " + saveAs);
+
+//      if (StringUtil.isEmpty(fileNameCharSet)) {
+//        saveAs = URLEncoder.encode(saveAs, fileNameCharSet).replaceAll("\\+","%20");
+//      }
+      logger.debug("saveAs(3)    : " + saveAs);
+
+      buf = new byte[1024];
+      response.setHeader("Content-Length", DCF.format(file.length()));
+      response.setContentType(contentType);
+      response.setHeader("Content-Disposition", "attachment; filename=\"" + saveAs + "\"");
+
+      os  = response.getOutputStream();
+
+      try {
+
+        while ((rsize = inputStream.read(buf, 0, buf.length)) != -1) {
+          os.write(buf, 0, rsize);
+        }
+
+        os.flush();
+      }
+      catch (SocketException ignore) {
+        // 소켓 익셉션은 수신자의 브라우져 이상 혹은 강제 종료 이므로 무시
+      }
+    }
+    catch (Exception e) {
+      e.printStackTrace();
+    }
+    finally {
+
+      if (inputStream != null) {
+        inputStream.close();
+      }
+
+      if (os != null) {
+        os.close();
+      }
+    }
+  }
+
+  /**
+   * <pre>
+   * 파일명의 캐릭터 셋을 지정
+   *
+   * @param charSet
+   * @exception
+   * @date 2014. 8. 20. 오후 9:48:11
+   * @author adrra
+   * @비고
+   *
+   * </pre>
+   */
+  public void setFileNameCharSet (String charSet) {
+
+    this.fileNameCharSet = charSet;
+  }
+
+
+  public int getOrder () {
+
+    return order;
+  }
+
+
+  public void setOrder (int order) {
+
+    this.order = order;
+  }
+}

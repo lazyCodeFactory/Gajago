@@ -1,0 +1,57 @@
+package com.ssocio.sharing.service.web;
+
+import java.net.URLEncoder;
+import java.util.HashMap;
+import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
+
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.web.bind.annotation.RequestParam;
+
+@Service
+public class MobileSearchSnsServiceImpl implements MobileSearchSnsService {
+
+	private static final Logger logger = LoggerFactory.getLogger(MobileSearchSnsServiceImpl.class);
+	
+	@Override
+	public Map<String, Object> getContentsFromSns(HttpServletRequest request, @RequestParam Map<String, Object> inParam) throws Exception {
+		
+		// /mobile/sns/getContents.do?from=naver&type=blog&key=220537948433
+		String from 	= inParam.get("from") == null ? null : String.valueOf(inParam.get("from")).toLowerCase(); // ex) naver..
+		String type 	= inParam.get("type") == null ? null : String.valueOf(inParam.get("type")).toLowerCase(); // ex) blog..
+		String key 		= inParam.get("key") == null ? null : String.valueOf(inParam.get("key")).toLowerCase(); // ex) 게시글 번호
+
+		Map<String, Object> retMap = new HashMap<String, Object>();
+		Document doc = getNaverContents(type, key);
+		StringBuffer sb = new StringBuffer(doc.toString());
+		retMap.put("str", sb.toString());		
+		
+		return retMap;
+	}
+	
+	//blog 본문 내용만 보기
+	public Document getNaverContents(String type, String key) throws Exception {
+	
+		String naverUrl = "http://m.blog.naver.com/PostView.nhn?blogId=ssocio&logNo=";
+		String placesUrl =naverUrl + URLEncoder.encode(key,"utf-8");
+
+		logger.info("url : " + placesUrl);
+		
+		Document doc = Jsoup.connect(placesUrl).get();
+		
+		String[] ids = {".tablet_aside", ".post_tit_area", "#_view_header", ".post_tag", ".post_writer", ".section_t1", ".aside", "header[role=banner]", "#footer" }; //class : .class, id : #id
+		for(String id : ids){
+			doc.select(id).remove();
+		}
+		
+		doc.select("#body").removeClass("tablet_end");
+		
+		return doc;
+	}
+
+}

@@ -1,0 +1,132 @@
+package com.ssocio.sharing.controller.admin;
+
+import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.servlet.ModelAndView;
+
+import com.ssocio.sharing.cmmn.instance.cmmncode.CmmnCodeTableManager;
+import com.ssocio.sharing.cmmn.service.CommonService;
+import com.ssocio.sharing.cmmn.util.LoggerUtil;
+
+/**
+ * <pre>
+ * 공통코드동기화처리
+ * 
+ * @author N.J.Kim
+ * @version 
+ * @since 2015. 11. 22. 오후 5:19:09
+ * @see 
+ * @History 
+ *  Date          |    author    | 변경내용  
+ *	2015. 11. 22.  |    N.J.Kim       | 신규 
+ * @Todo
+ * </pre>
+ */
+@Controller
+public class CmmnController {
+
+  
+  // --------------------------------------------------------------------------
+  // # Log 설정
+  // --------------------------------------------------------------------------
+  private static final Logger logger = LoggerFactory.getLogger(CmmnController.class);
+  
+  // --------------------------------------------------------------------------
+  // # Service 설정
+  // --------------------------------------------------------------------------
+  @Autowired
+  private CommonService commonService;
+  
+  /**
+   * <pre>
+   * 공통코드동기화 리로더 호출
+   *  - 화면에서 한번 호출
+   * @param request
+   * @param response
+   * @param paramDto
+   * @return 
+   * @exception 
+   * @date 2015. 6. 13. 오후 1:41:47
+   * @author N.J.Kim
+   * @비고
+   * 
+   * </pre>
+   */
+  @RequestMapping("/admin/instance/cmmnCodeReload.do")
+  public ModelAndView cmmnCodeReload(HttpServletRequest request)
+  {
+  
+    ModelAndView mav = new ModelAndView("jsonView");
+    
+    try {
+      logger.debug("cmmnCodeReload [cmmnCodeReload]");
+      commonService.cmmnCodeReloadSync(request);
+    } catch (Exception e) {
+      mav.addObject("RSP_C", "1");
+      mav.addObject("MSG", "공통코드 동기화 처리 시 오류가 났습니다.");
+      e.printStackTrace();
+    }
+  
+    return mav;
+  }
+  
+  /**
+   * <pre>
+   * 공통코드동기화처리
+   *  commonService.cmmnCodeReloadSync 에서 loop로 호출
+   * @param request
+   * @param response
+   * @param paramDto 
+   * @exception 
+   * @date 2015. 11. 22. 오후 5:19:30
+   * @author N.J.Kim
+   * @비고
+   * 
+   * </pre> 
+   */
+  @RequestMapping("/admin/instance/cmmnCodeSyncReload.do")
+  public void cmmnCodeSyncReload(HttpServletRequest request, HttpServletResponse response, 
+                                  @RequestParam Map<String, Object> paramDto){
+
+    // ------------------------------------------------------------------------
+    // # 시작로그
+    // ------------------------------------------------------------------------
+    logger.info("##### ##############################");
+    logger.info("cmmnCodeSyncReload Start");
+    logger.info("##### ##############################");
+    LoggerUtil.writeMap(paramDto);
+    
+    ModelAndView mav = new ModelAndView();
+
+    // ------------------------------------------------------------------------
+    // # 객체/변수 선언
+    // ------------------------------------------------------------------------
+    try {
+
+      // ----------------------------------------------------------------------
+      // Instance 초기화 및 로드
+      // ----------------------------------------------------------------------
+      // 공통코드 Instance 초기화
+      if (CmmnCodeTableManager.getInstance() != null) {
+        CmmnCodeTableManager.getInstance().reset();
+      }
+      // 공통코드 Instance 로드
+      commonService.setComCdInstanceInfo();
+      logger.info("[공통코드 Sync Reload Complete]");
+    }
+    catch (Exception e) {
+      e.printStackTrace();
+    }
+
+    //return mav;
+  }
+}

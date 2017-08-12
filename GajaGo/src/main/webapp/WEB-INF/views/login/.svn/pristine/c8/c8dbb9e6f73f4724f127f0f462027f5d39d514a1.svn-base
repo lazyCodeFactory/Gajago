@@ -1,0 +1,4793 @@
+package com.ssocio.sharing.service.web;
+
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+
+import org.codehaus.jackson.map.ObjectMapper;
+import org.elasticsearch.common.util.concurrent.ExecutionError;
+import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.ui.ModelMap;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.multipart.MultipartHttpServletRequest;
+import org.springframework.web.servlet.ModelAndView;
+
+import com.ssocio.sharing.cmmn.admin.util.CommonUtil;
+import com.ssocio.sharing.cmmn.admin.util.FileUtil;
+import com.ssocio.sharing.cmmn.elasticsearch.Elasticsearch;
+import com.ssocio.sharing.cmmn.util.CmmnCnst;
+import com.ssocio.sharing.cmmn.util.HtmlUtil;
+import com.ssocio.sharing.cmmn.util.LoggerUtil;
+import com.ssocio.sharing.cmmn.util.StringUtil;
+import com.ssocio.sharing.cmmn.web.util.WebMobilePaging;
+import com.ssocio.sharing.dao.web.WebSaleManageDao;
+
+@Service
+public class WebSaleManageServiceImpl extends WebReferServiceImpl implements WebSaleManageService {
+
+	// --------------------------------------------------------------------------
+	// # Log 설정
+	// --------------------------------------------------------------------------
+	private static final Logger logger = LoggerFactory.getLogger(WebSaleManageServiceImpl.class);
+
+	// --------------------------------------------------------------------------
+	// # DAO 설정
+	// --------------------------------------------------------------------------
+	@Resource(name="webSaleManageDao")
+	private WebSaleManageDao webSaleManageDao;
+
+	@Autowired
+	private WebSaleProdRegService webSaleProdRegService;
+
+
+	/**
+	 * <pre>
+	 * selectSaleProdCnt
+	 * 사용자가 등록한 판매상품의 갯수를 조회한다.
+	 * &#64;param inParam
+	 * &#64;return
+	 * &#64;throws Exception
+	 * &#64;date 2015. 8. 19
+	 * &#64;author Kang.h.c
+	 * &#64;see com.ssocio.sharing.service.web
+	 * </pre>
+	 */
+	@Override
+	public void selectSaleProdCnt(ModelAndView mav, Map<String, Object> inParam) throws Exception {
+
+		// 상품 등록 에서 back 버튼으로 돌아올 경우 이미지가 있으면 삭제
+		String[] delImgKey = {"mainImgSeq", "subImg1Seq", "subImg2Seq", "subImg3Seq", "subImg4Seq"};
+
+		// 미리 저장되어 있던 파일삭제
+		for (int i = 0 ; i < delImgKey.length ; i++) {
+			String fileSeq = getJsonData(inParam, "regData", delImgKey[i]);
+			if (!StringUtil.isEmpty(fileSeq)) {
+				// 파일정보 삭제
+				Map<String, Object> delMap = new HashMap<String, Object>();
+				delMap.put("delYn", CmmnCnst.cmmnY);
+				delMap.put("fileSeq", fileSeq);
+				webSaleManageDao.deleteFile(delMap);
+			}
+		}
+
+		// 판매자 정보 조회
+		mav.addObject("sellerInfo", webSaleManageDao.selectSellerInfo(inParam));
+
+		// 판매 상품 등록 갯수 조회 기획자 협의로 삭제 예정
+		//mav.addObject("prodCnt", webSaleManageDao.selectSaleProdCnt(inParam));
+
+	}
+
+	/**
+	 * <pre>
+	 * JSON DATA
+	 * inParam의 data를 Json String 형식으로 만들어 리턴한다.
+	 * &#64;param inParam
+	 * &#64;return
+	 * &#64;throws Exception
+	 * &#64;date 2015. 8. 19
+	 * &#64;author Kang.h.c
+	 * &#64;see com.ssocio.sharing.service.web
+	 * </pre>
+	 */
+	public String getJsonStr(Map<String, Object> inParam, String dataKey) throws Exception {
+
+		logger.info("WebSaleManageService.setJsonData");
+		JSONObject obj = new JSONObject();
+		JSONParser parser = new JSONParser();
+
+		String data = (String)inParam.get(dataKey);
+		if (data != null && !"".equals(data)) {
+			Object temp = parser.parse(data);
+			obj = (JSONObject)temp;
+		}
+
+		return obj.toJSONString();
+
+	}
+
+	/**
+	 * <pre>
+	 * JSON DATA
+	 * inParam의 data를 Json 형식으로 만들어 리턴한다.
+	 * &#64;param inParam
+	 * &#64;return
+	 * &#64;throws Exception
+	 * &#64;date 2015. 8. 19
+	 * &#64;author Kang.h.c
+	 * &#64;see com.ssocio.sharing.service.web
+	 * </pre>
+	 */
+	@SuppressWarnings("unchecked")
+	public String setJsonData(Map<String, Object> inParam, String dataKey, String addKey) throws Exception {
+
+
+		/*
+		 * 1. inParam 으로 맵 받고 2. addKey를 찾아서 3. dataKey 에 붙여준다. (map 형식으로 붙여줌)
+		 * 4. tojson 해서 리턴
+		 */
+
+
+		logger.info("WebSaleManageService.setJsonData");
+		JSONObject obj = new JSONObject();
+		JSONParser parser = new JSONParser();
+
+		String data = (String)inParam.get(dataKey);
+		if (data != null && !"".equals(data)) {
+			Object temp = parser.parse(data);
+			obj = (JSONObject)temp;
+//			String str = (String)obj.get(addKey);
+//			if (str == null || "".equals(str)) {
+				obj.put(addKey, (String)inParam.get(addKey));
+//			}
+		}
+		else {
+			obj.put(addKey, (String)inParam.get(addKey));
+		}
+
+		return obj.toJSONString();
+
+	}
+
+	/**
+	 * <pre>
+	 * JSON DATA
+	 * inParam의 data를 Json 형식으로 만들어 리턴한다.
+	 * &#64;param inParam
+	 * &#64;return
+	 * &#64;throws Exception
+	 * &#64;date 2015. 8. 19
+	 * &#64;author Kang.h.c
+	 * &#64;see com.ssocio.sharing.service.web
+	 * </pre>
+	 */
+	@SuppressWarnings("unchecked")
+	public String setJsonData(Map<String, Object> inParam, String dataKey, String[] addKey) throws Exception {
+
+		logger.info("WebSaleManageService.setJsonData");
+		JSONObject obj = new JSONObject();
+		JSONParser parser = new JSONParser();
+
+		String data = (String)inParam.get(dataKey);
+		if (data != null && !"".equals(data)) {
+			Object temp = parser.parse(data);
+			obj = (JSONObject)temp;
+
+			// 배열만큼 for
+			for (int i = 0 ; i < addKey.length ; i ++) {
+				obj.put(addKey[i], (String)inParam.get(addKey[i]));
+			}
+
+		}
+		else {
+			// 배열만큼 for
+			for (int i = 0 ; i < addKey.length ; i ++) {
+				obj.put(addKey[i], (String)inParam.get(addKey[i]));
+			}
+		}
+
+		return obj.toJSONString();
+
+	}
+
+	/**
+	 * <pre>
+	 * JSON DATA
+	 * inParam의 data를 Json 형식으로 만들어 리턴한다.
+	 * &#64;param inParam
+	 * &#64;return
+	 * &#64;throws Exception
+	 * &#64;date 2015. 8. 19
+	 * &#64;author Kang.h.c
+	 * &#64;see com.ssocio.sharing.service.web
+	 * </pre>
+	 */
+	public String getJsonData(Map<String, Object> inParam, String dataKey, String getKey) throws Exception {
+
+		logger.info("WebSaleManageService.getJsonData");
+		JSONObject obj = new JSONObject();
+		JSONParser parser = new JSONParser();
+		String rtnStr = "";
+
+		String data = (String)inParam.get(dataKey);
+		if (data != null && !"".equals(data)) {
+			Object temp = parser.parse(data);
+			obj = (JSONObject)temp;
+			rtnStr = (String)obj.get(getKey);
+		}
+		return rtnStr;
+	}
+
+	/**
+	 * <pre>
+	 * JSON DATA
+	 * inParam의 data를 Json 형식으로 만들어 리턴한다.
+	 * &#64;param inParam
+	 * &#64;return
+	 * &#64;throws Exception
+	 * &#64;date 2015. 8. 19
+	 * &#64;author Kang.h.c
+	 * &#64;see com.ssocio.sharing.service.web
+	 * </pre>
+	 */
+	public String delJsonData(Map<String, Object> inParam, String dataKey, String delKey) throws Exception {
+
+		logger.info("WebSaleManageService.delJsonData");
+		JSONObject obj = new JSONObject();
+		JSONParser parser = new JSONParser();
+
+		String data = (String)inParam.get(dataKey);
+		if (data != null && !"".equals(data)) {
+			Object temp = parser.parse(data);
+			obj = (JSONObject)temp;
+
+			if (!StringUtil.isEmpty((String)obj.get(delKey))) {
+				obj.remove(delKey);
+			}
+		}
+
+		return obj.toJSONString();
+
+	}
+
+	/**
+	 * <pre>
+	 * JSON DATA
+	 * inParam의 data를 Json 형식으로 만들어 리턴한다.
+	 * &#64;param inParam
+	 * &#64;return
+	 * &#64;throws Exception
+	 * &#64;date 2015. 8. 19
+	 * &#64;author Kang.h.c
+	 * &#64;see com.ssocio.sharing.service.web
+	 * </pre>
+	 */
+	public String delJsonData(Map<String, Object> inParam, String dataKey, String[] delKey) throws Exception {
+
+		logger.info("WebSaleManageService.setJsonData");
+		JSONObject obj = new JSONObject();
+		JSONParser parser = new JSONParser();
+
+		String data = (String)inParam.get(dataKey);
+		if (data != null && !"".equals(data)) {
+			Object temp = parser.parse(data);
+			obj = (JSONObject)temp;
+
+			// 배열만큼 for
+			for (int i = 0 ; i < delKey.length ; i ++) {
+				if (!StringUtil.isEmpty((String)obj.get(delKey[i]))) {
+					obj.remove(delKey[i]);
+				}
+			}
+
+		}
+
+		return obj.toJSONString();
+
+	}
+
+	/**
+	 * <pre>
+	 * JSON DATA
+	 * jsonData 를 map으로 리턴한다
+	 * &#64;param inParam
+	 * &#64;return
+	 * &#64;throws Exception
+	 * &#64;date 2015. 8. 19
+	 * &#64;author Kang.h.c
+	 * &#64;see com.ssocio.sharing.service.web
+	 * </pre>
+	 */
+	@SuppressWarnings("unchecked")
+	public Map<String, Object> jsonToMap(String jsonStr) throws Exception {
+
+		Map<String, Object> map = null;
+
+		map = new ObjectMapper().readValue(jsonStr, HashMap.class);
+
+		return map;
+	}
+
+	/**
+	 * <pre>
+	 * 조회시작일자
+	 * 조회시작일자 get
+	 * &#64;param inParam
+	 * &#64;return
+	 * &#64;throws Exception
+	 * &#64;date 2015. 9. 08
+	 * &#64;author Kang.h.c
+	 * &#64;see com.ssocio.sharing.service.web
+	 * </pre>
+	 */
+	public String getStartDate(String dateGap) {
+		String startDate = "";
+		if (CmmnCnst.cmmn1.equals(dateGap)) {
+			// 3개월
+			startDate = StringUtil.getDatewithGapCurrent("MONTH", -3);
+		}
+		else if (CmmnCnst.cmmn2.equals(dateGap)) {
+			// 6개월
+			startDate = StringUtil.getDatewithGapCurrent("MONTH", -6);
+		}
+		else if (CmmnCnst.cmmn3.equals(dateGap)) {
+			// 1년
+			startDate = StringUtil.getDatewithGapCurrent("YEAR", -1);
+		}
+		/*
+		else if (CmmnCnst.cmmn4.equals(dateGap)) {
+			// 1년이상
+			startDate = StringUtil.getDatewithGapCurrent("YEAR", -10);
+		}*/
+		return startDate;
+	}
+
+	/**
+	 * <pre>
+	 * insertProdImgFile
+	 * 상품관리 - 상품등록 이미지 임시저장
+	 * &#64;param inParam
+	 * &#64;return
+	 * &#64;throws Exception
+	 * &#64;date 2015. 8. 20
+	 * &#64;author Kang.h.c
+	 * &#64;see com.ssocio.sharing.service.web
+	 * </pre>
+	 */
+	@Override
+	public Map<String, Object> insertProdImgFile(Map<String, Object> inParam, MultipartHttpServletRequest req) throws Exception {
+
+		MultipartFile mainImg = req.getFile("mainImg"); // 메인 이미지
+		MultipartFile subImg1 = req.getFile("subImg1"); // 서브 이미지1
+		MultipartFile subImg2 = req.getFile("subImg2"); // 서브 이미지2
+		MultipartFile subImg3 = req.getFile("subImg3"); // 서브 이미지3
+		MultipartFile subImg4 = req.getFile("subImg4"); // 서브 이미지4
+		MultipartFile subImg5 = req.getFile("subImg5"); // 서브 이미지4
+		String mainImgFlag = StringUtil.nvl((String)inParam.get("mainImgFlag"), "");
+		String subImg1Flag = StringUtil.nvl((String)inParam.get("subImg1Flag"), "");
+		String subImg2Flag = StringUtil.nvl((String)inParam.get("subImg2Flag"), "");
+		String subImg3Flag = StringUtil.nvl((String)inParam.get("subImg3Flag"), "");
+		String subImg4Flag = StringUtil.nvl((String)inParam.get("subImg4Flag"), "");
+		String subImg5Flag = StringUtil.nvl((String)inParam.get("subImg5Flag"), "");
+		String fileSeq = ""; // 저장 파일 seq
+
+		// 파일정보 삭제
+		Map<String, Object> delMap = new HashMap<String, Object>();
+		delMap.put("delYn", CmmnCnst.cmmnY);
+
+		// app여부 판단
+		String app = (String)inParam.get("sessionScope");
+
+		// 리스트 이미지
+		if(mainImg != null && mainImg.getSize() > 0){
+			Map<String, Object> fileInfo = FileUtil.saveMultipartFile(mainImg);// 파일
+																				// 저장
+			if (CmmnCnst.cmmnI.equalsIgnoreCase(mainImgFlag)) {
+				// 이미지 등록
+				fileSeq = webSaleManageDao.insertFile(fileInfo);
+				inParam.put("mainImgSeq", fileSeq);
+				inParam.put("mainImgUrl", fileInfo.get("I_FILE_URL"));
+				inParam.put("mainImgGbCd", CmmnCnst.cmmn11);
+			}
+			else if (CmmnCnst.cmmnU.equalsIgnoreCase(mainImgFlag)) {
+				// 이미지 삭제 후 이미지 등록
+				delMap.put("fileSeq", inParam.get("mainImgSeq"));
+				webSaleManageDao.deleteFile(delMap);
+
+				fileSeq = webSaleManageDao.insertFile(fileInfo);
+				inParam.put("mainImgSeq", fileSeq);
+				inParam.put("mainImgUrl", fileInfo.get("I_FILE_URL"));
+				inParam.put("mainImgGbCd", CmmnCnst.cmmn11);
+			}
+			else if (CmmnCnst.cmmnS.equalsIgnoreCase(mainImgFlag)) {
+				inParam.put("mainImgSeq", inParam.get("mainImgSeq"));
+				inParam.put("mainImgUrl", inParam.get("mainImgUrl"));
+				inParam.put("mainImgGbCd", CmmnCnst.cmmn11);
+			}
+		}
+		else {
+			if (null != app && CmmnCnst.SSOCIO.equals(app)) {
+				inParam.put("mainImgSeq", inParam.get("mainImgSeq"));
+				inParam.put("mainImgUrl", inParam.get("mainImgUrl"));
+				inParam.put("mainImgGbCd", CmmnCnst.cmmn11);
+			}
+			else {
+				if (CmmnCnst.cmmnS.equalsIgnoreCase(mainImgFlag)) {
+					inParam.put("mainImgSeq", inParam.get("mainImgSeq"));
+					inParam.put("mainImgUrl", inParam.get("mainImgUrl"));
+					inParam.put("mainImgGbCd", CmmnCnst.cmmn11);
+				}
+			}
+		}
+
+		// 상세이미지1
+		if(subImg1 != null && subImg1.getSize() > 0){
+			Map<String, Object> fileInfo = FileUtil.saveMultipartFile(subImg1);// 파일
+																				// 저장
+			if (CmmnCnst.cmmnI.equalsIgnoreCase(subImg1Flag)) {
+				// 이미지 등록
+				fileSeq = webSaleManageDao.insertFile(fileInfo);
+				inParam.put("subImg1Seq", fileSeq);
+				inParam.put("subImg1Url", fileInfo.get("I_FILE_URL"));
+				inParam.put("subImg1GbCd", CmmnCnst.cmmn12);
+			}
+			else if (CmmnCnst.cmmnU.equalsIgnoreCase(subImg1Flag)) {
+				// 이미지 삭제 후 이미지 등록
+				delMap.put("fileSeq", inParam.get("subImg1Seq"));
+				webSaleManageDao.deleteFile(delMap);
+
+				fileSeq = webSaleManageDao.insertFile(fileInfo);
+				inParam.put("subImg1Seq", fileSeq);
+				inParam.put("subImg1Url", fileInfo.get("I_FILE_URL"));
+				inParam.put("subImg1GbCd", CmmnCnst.cmmn12);
+			}
+			else if (CmmnCnst.cmmnS.equalsIgnoreCase(subImg1Flag)) {
+				inParam.put("subImg1Seq", inParam.get("subImg1Seq"));
+				inParam.put("subImg1Url", inParam.get("subImg1Url"));
+				inParam.put("subImg1GbCd", CmmnCnst.cmmn12);
+			}
+		}
+		else {
+			if (null != app && CmmnCnst.SSOCIO.equals(app)) {
+				inParam.put("subImg1Seq", inParam.get("subImg1Seq"));
+				inParam.put("subImg1Url", inParam.get("subImg1Url"));
+				inParam.put("subImg1GbCd", CmmnCnst.cmmn12);
+			}
+			else {
+				if (CmmnCnst.cmmnS.equalsIgnoreCase(subImg1Flag)) {
+					inParam.put("subImg1Seq", inParam.get("subImg1Seq"));
+					inParam.put("subImg1Url", inParam.get("subImg1Url"));
+					inParam.put("subImg1GbCd", CmmnCnst.cmmn12);
+				}
+			}
+		}
+
+		// 상세이미지2
+		if(subImg2 != null && subImg2.getSize() > 0){
+			Map<String, Object> fileInfo = FileUtil.saveMultipartFile(subImg2);// 파일
+																				// 저장
+			if (CmmnCnst.cmmnI.equalsIgnoreCase(subImg2Flag)) {
+				// 이미지 등록
+				fileSeq = webSaleManageDao.insertFile(fileInfo);
+				inParam.put("subImg2Seq", fileSeq);
+				inParam.put("subImg2Url", fileInfo.get("I_FILE_URL"));
+				inParam.put("subImg2GbCd", CmmnCnst.cmmn13);
+			}
+			else if (CmmnCnst.cmmnU.equalsIgnoreCase(subImg2Flag)) {
+				// 이미지 삭제 후 이미지 등록
+				delMap.put("fileSeq", inParam.get("subImg2Seq"));
+				webSaleManageDao.deleteFile(delMap);
+
+				fileSeq = webSaleManageDao.insertFile(fileInfo);
+				inParam.put("subImg2Seq", fileSeq);
+				inParam.put("subImg2Url", fileInfo.get("I_FILE_URL"));
+				inParam.put("subImg2GbCd", CmmnCnst.cmmn13);
+			}
+			else if (CmmnCnst.cmmnS.equalsIgnoreCase(subImg2Flag)) {
+				inParam.put("subImg2Seq", inParam.get("subImg2Seq"));
+				inParam.put("subImg2Url", inParam.get("subImg2Url"));
+				inParam.put("subImg2GbCd", CmmnCnst.cmmn13);
+			}
+		}
+		else {
+			if (null != app && CmmnCnst.SSOCIO.equals(app)) {
+				if (CmmnCnst.cmmnD.equalsIgnoreCase(subImg2Flag)) {
+					// 이미지 삭제
+					delMap.put("fileSeq", inParam.get("subImg2Seq"));
+					webSaleManageDao.deleteFile(delMap);
+					inParam.put("subImg2GbCd", CmmnCnst.cmmn13);
+				}
+				else {
+					inParam.put("subImg2Seq", inParam.get("subImg2Seq"));
+					inParam.put("subImg2Url", inParam.get("subImg2Url"));
+					inParam.put("subImg2GbCd", CmmnCnst.cmmn13);
+				}
+			}
+			else {
+				if (CmmnCnst.cmmnD.equalsIgnoreCase(subImg2Flag)) {
+					// 이미지 삭제
+					delMap.put("fileSeq", inParam.get("subImg2Seq"));
+					webSaleManageDao.deleteFile(delMap);
+					inParam.put("subImg2GbCd", CmmnCnst.cmmn13);
+				}
+				else if (CmmnCnst.cmmnS.equalsIgnoreCase(subImg2Flag)) {
+					inParam.put("subImg2Seq", inParam.get("subImg2Seq"));
+					inParam.put("subImg2Url", inParam.get("subImg2Url"));
+					inParam.put("subImg2GbCd", CmmnCnst.cmmn13);
+				}
+			}
+		}
+
+		// 상세이미지3
+		if(subImg3 != null && subImg3.getSize() > 0){
+			Map<String, Object> fileInfo = FileUtil.saveMultipartFile(subImg3);// 파일
+																				// 저장
+			if (CmmnCnst.cmmnI.equalsIgnoreCase(subImg3Flag)) {
+				// 이미지 등록
+				fileSeq = webSaleManageDao.insertFile(fileInfo);
+				inParam.put("subImg3Seq", fileSeq);
+				inParam.put("subImg3Url", fileInfo.get("I_FILE_URL"));
+				if("".equalsIgnoreCase(subImg2Flag) || CmmnCnst.cmmnD.equalsIgnoreCase(subImg2Flag)){
+					inParam.put("subImg3GbCd", CmmnCnst.cmmn13);
+				}
+				else {
+					inParam.put("subImg3GbCd", CmmnCnst.cmmn14);
+				}
+			}
+			else if (CmmnCnst.cmmnU.equalsIgnoreCase(subImg3Flag)) {
+				// 이미지 삭제 후 이미지 등록
+				delMap.put("fileSeq", inParam.get("subImg3Seq"));
+				webSaleManageDao.deleteFile(delMap);
+
+				fileSeq = webSaleManageDao.insertFile(fileInfo);
+				inParam.put("subImg3Seq", fileSeq);
+				inParam.put("subImg3Url", fileInfo.get("I_FILE_URL"));
+				if("".equalsIgnoreCase(subImg2Flag) || CmmnCnst.cmmnD.equalsIgnoreCase(subImg2Flag)){
+					inParam.put("subImg3GbCd", CmmnCnst.cmmn13);
+				}
+				else {
+					inParam.put("subImg3GbCd", CmmnCnst.cmmn14);
+				}
+			}
+			else if (CmmnCnst.cmmnS.equalsIgnoreCase(subImg3Flag)) {
+				inParam.put("subImg3Seq", inParam.get("subImg3Seq"));
+				inParam.put("subImg3Url", inParam.get("subImg3Url"));
+				if("".equalsIgnoreCase(subImg2Flag) || CmmnCnst.cmmnD.equalsIgnoreCase(subImg2Flag)){
+					inParam.put("subImg3GbCd", CmmnCnst.cmmn13);
+				}
+				else {
+					inParam.put("subImg3GbCd", CmmnCnst.cmmn14);
+				}
+			}
+		}
+		else {
+			if (null != app && CmmnCnst.SSOCIO.equals(app)) {
+				if (CmmnCnst.cmmnD.equalsIgnoreCase(subImg3Flag)) {
+					// 이미지 삭제
+					delMap.put("fileSeq", inParam.get("subImg3Seq"));
+					webSaleManageDao.deleteFile(delMap);
+					inParam.put("subImg3GbCd", CmmnCnst.cmmn14);
+				}
+				else {
+					inParam.put("subImg3Seq", inParam.get("subImg3Seq"));
+					inParam.put("subImg3Url", inParam.get("subImg3Url"));
+					if("".equalsIgnoreCase(subImg2Flag) || CmmnCnst.cmmnD.equalsIgnoreCase(subImg2Flag)){
+						inParam.put("subImg3GbCd", CmmnCnst.cmmn13);
+					}
+					else {
+						inParam.put("subImg3GbCd", CmmnCnst.cmmn14);
+					}
+				}
+			}
+			else {
+				if (CmmnCnst.cmmnD.equalsIgnoreCase(subImg3Flag)) {
+					// 이미지 삭제
+					delMap.put("fileSeq", inParam.get("subImg3Seq"));
+					webSaleManageDao.deleteFile(delMap);
+					inParam.put("subImg3GbCd", CmmnCnst.cmmn14);
+				}
+				else if (CmmnCnst.cmmnS.equalsIgnoreCase(subImg3Flag)) {
+					inParam.put("subImg3Seq", inParam.get("subImg3Seq"));
+					inParam.put("subImg3Url", inParam.get("subImg3Url"));
+					if("".equalsIgnoreCase(subImg2Flag) || CmmnCnst.cmmnD.equalsIgnoreCase(subImg2Flag)){
+						inParam.put("subImg3GbCd", CmmnCnst.cmmn13);
+					}
+					else {
+						inParam.put("subImg3GbCd", CmmnCnst.cmmn14);
+					}
+				}
+			}
+		}
+
+		// 상세이미지4
+		if(subImg4 != null && subImg4.getSize() > 0){
+			Map<String, Object> fileInfo = FileUtil.saveMultipartFile(subImg4);// 파일
+																				// 저장
+			if (CmmnCnst.cmmnI.equalsIgnoreCase(subImg4Flag)) {
+				// 이미지 등록
+				fileSeq = webSaleManageDao.insertFile(fileInfo);
+				inParam.put("subImg4Seq", fileSeq);
+				inParam.put("subImg4Url", fileInfo.get("I_FILE_URL"));
+
+				if ( ("".equalsIgnoreCase(subImg2Flag) || CmmnCnst.cmmnD.equalsIgnoreCase(subImg2Flag))
+						&& ("".equalsIgnoreCase(subImg3Flag) || CmmnCnst.cmmnD.equalsIgnoreCase(subImg3Flag)) ) {
+					inParam.put("subImg4GbCd", CmmnCnst.cmmn13);
+				}
+				else if ( ("".equalsIgnoreCase(subImg2Flag) || CmmnCnst.cmmnD.equalsIgnoreCase(subImg2Flag))
+						&& (!"".equalsIgnoreCase(subImg2Flag) && !CmmnCnst.cmmnD.equalsIgnoreCase(subImg2Flag)) ) {
+					inParam.put("subImg4GbCd", CmmnCnst.cmmn14);
+				}
+				else if ( (!"".equalsIgnoreCase(subImg2Flag) && !CmmnCnst.cmmnD.equalsIgnoreCase(subImg2Flag))
+						&& ("".equalsIgnoreCase(subImg3Flag) || CmmnCnst.cmmnD.equalsIgnoreCase(subImg3Flag)) ) {
+					inParam.put("subImg4GbCd", CmmnCnst.cmmn14);
+				}
+				else {
+					inParam.put("subImg4GbCd", CmmnCnst.cmmn15);
+				}
+			}
+			else if (CmmnCnst.cmmnU.equalsIgnoreCase(subImg4Flag)) {
+				// 이미지 삭제 후 이미지 등록
+				delMap.put("fileSeq", inParam.get("subImg4Seq"));
+				webSaleManageDao.deleteFile(delMap);
+
+				fileSeq = webSaleManageDao.insertFile(fileInfo);
+				inParam.put("subImg4Seq", fileSeq);
+				inParam.put("subImg4Url", fileInfo.get("I_FILE_URL"));
+				if ( (subImg2 == null || subImg2.getSize() <= 0) && (subImg3 == null || subImg3.getSize() <= 0) ) {
+					inParam.put("subImg4GbCd", CmmnCnst.cmmn13);
+				}
+				else if ( (subImg2 == null || subImg2.getSize() <= 0) && (subImg3 != null && subImg3.getSize() > 0) ) {
+					inParam.put("subImg4GbCd", CmmnCnst.cmmn14);
+				}
+				else if ( (subImg2 != null && subImg2.getSize() > 0) && (subImg3 == null || subImg3.getSize() <= 0) ) {
+					inParam.put("subImg4GbCd", CmmnCnst.cmmn14);
+				}
+				else {
+					inParam.put("subImg4GbCd", CmmnCnst.cmmn15);
+				}
+			}
+			else if (CmmnCnst.cmmnS.equalsIgnoreCase(subImg4Flag)) {
+				inParam.put("subImg4Seq", inParam.get("subImg4Seq"));
+				inParam.put("subImg4Url", inParam.get("subImg4Url"));
+				if ( (subImg2 == null || subImg2.getSize() <= 0) && (subImg3 == null || subImg3.getSize() <= 0) ) {
+					inParam.put("subImg4GbCd", CmmnCnst.cmmn13);
+				}
+				else if ( (subImg2 == null || subImg2.getSize() <= 0) && (subImg3 != null && subImg3.getSize() > 0) ) {
+					inParam.put("subImg4GbCd", CmmnCnst.cmmn14);
+				}
+				else if ( (subImg2 != null && subImg2.getSize() > 0) && (subImg3 == null || subImg3.getSize() <= 0) ) {
+					inParam.put("subImg4GbCd", CmmnCnst.cmmn14);
+				}
+				else {
+					inParam.put("subImg4GbCd", CmmnCnst.cmmn15);
+				}
+			}
+		}
+		else {
+			if (null != app && CmmnCnst.SSOCIO.equals(app)) {
+				if (CmmnCnst.cmmnD.equalsIgnoreCase(subImg4Flag)) {
+					// 이미지 삭제
+					delMap.put("fileSeq", inParam.get("subImg4Seq"));
+					webSaleManageDao.deleteFile(delMap);
+					inParam.put("subImg4GbCd", CmmnCnst.cmmn13);
+				}
+				else {
+					inParam.put("subImg4Seq", inParam.get("subImg4Seq"));
+					inParam.put("subImg4Url", inParam.get("subImg4Url"));
+					if ( (subImg2 == null || subImg2.getSize() <= 0) && (subImg3 == null || subImg3.getSize() <= 0) ) {
+						inParam.put("subImg4GbCd", CmmnCnst.cmmn13);
+					}
+					else if ( (subImg2 == null || subImg2.getSize() <= 0) && (subImg3 != null && subImg3.getSize() > 0) ) {
+						inParam.put("subImg4GbCd", CmmnCnst.cmmn14);
+					}
+					else if ( (subImg2 != null && subImg2.getSize() > 0) && (subImg3 == null || subImg3.getSize() <= 0) ) {
+						inParam.put("subImg4GbCd", CmmnCnst.cmmn14);
+					}
+					else {
+						inParam.put("subImg4GbCd", CmmnCnst.cmmn15);
+					}
+				}
+			}
+			else {
+				if (CmmnCnst.cmmnD.equalsIgnoreCase(subImg4Flag)) {
+					// 이미지 삭제
+					delMap.put("fileSeq", inParam.get("subImg4Seq"));
+					webSaleManageDao.deleteFile(delMap);
+					inParam.put("subImg4GbCd", CmmnCnst.cmmn13);
+				}
+				else if (CmmnCnst.cmmnS.equalsIgnoreCase(subImg4Flag)) {
+					inParam.put("subImg4Seq", inParam.get("subImg4Seq"));
+					inParam.put("subImg4Url", inParam.get("subImg4Url"));
+					if ( (subImg2 == null || subImg2.getSize() <= 0) && (subImg3 == null || subImg3.getSize() <= 0) ) {
+						inParam.put("subImg4GbCd", CmmnCnst.cmmn13);
+					}
+					else if ( (subImg2 == null || subImg2.getSize() <= 0) && (subImg3 != null && subImg3.getSize() > 0) ) {
+						inParam.put("subImg4GbCd", CmmnCnst.cmmn14);
+					}
+					else if ( (subImg2 != null && subImg2.getSize() > 0) && (subImg3 == null || subImg3.getSize() <= 0) ) {
+						inParam.put("subImg4GbCd", CmmnCnst.cmmn14);
+					}
+					else {
+						inParam.put("subImg4GbCd", CmmnCnst.cmmn15);
+					}
+				}
+			}
+
+		}
+		// 상세이미지5
+		if(subImg5 != null && subImg5.getSize() > 0){
+			Map<String, Object> fileInfo = FileUtil.saveMultipartFile(subImg5);// 파일
+																				// 저장
+			if (CmmnCnst.cmmnI.equalsIgnoreCase(subImg5Flag)) {
+				// 이미지 등록
+				fileSeq = webSaleManageDao.insertFile(fileInfo);
+				inParam.put("subImg5Seq", fileSeq);
+				inParam.put("subImg5Url", fileInfo.get("I_FILE_URL"));
+
+				if ( ("".equalsIgnoreCase(subImg2Flag) || CmmnCnst.cmmnD.equalsIgnoreCase(subImg2Flag))
+						&& ("".equalsIgnoreCase(subImg3Flag) || CmmnCnst.cmmnD.equalsIgnoreCase(subImg3Flag)) ) {
+					inParam.put("subImg5GbCd", CmmnCnst.cmmn13);
+				}
+				else if ( ("".equalsIgnoreCase(subImg2Flag) || CmmnCnst.cmmnD.equalsIgnoreCase(subImg2Flag))
+						&& (!"".equalsIgnoreCase(subImg2Flag) && !CmmnCnst.cmmnD.equalsIgnoreCase(subImg2Flag)) ) {
+					inParam.put("subImg5GbCd", CmmnCnst.cmmn14);
+				}
+				else if ( (!"".equalsIgnoreCase(subImg2Flag) && !CmmnCnst.cmmnD.equalsIgnoreCase(subImg2Flag))
+						&& ("".equalsIgnoreCase(subImg3Flag) || CmmnCnst.cmmnD.equalsIgnoreCase(subImg3Flag)) ) {
+					inParam.put("subImg5GbCd", CmmnCnst.cmmn14);
+				}
+				else {
+					inParam.put("subImg5GbCd", CmmnCnst.cmmn16);
+				}
+			}
+			else if (CmmnCnst.cmmnU.equalsIgnoreCase(subImg5Flag)) {
+				// 이미지 삭제 후 이미지 등록
+				delMap.put("fileSeq", inParam.get("subImg5Seq"));
+				webSaleManageDao.deleteFile(delMap);
+
+				fileSeq = webSaleManageDao.insertFile(fileInfo);
+				inParam.put("subImg5Seq", fileSeq);
+				inParam.put("subImg5Url", fileInfo.get("I_FILE_URL"));
+				if ( (subImg2 == null || subImg2.getSize() <= 0) && (subImg3 == null || subImg3.getSize() <= 0) ) {
+					inParam.put("subImg5GbCd", CmmnCnst.cmmn13);
+				}
+				else if ( (subImg2 == null || subImg2.getSize() <= 0) && (subImg3 != null && subImg3.getSize() > 0) ) {
+					inParam.put("subImg5GbCd", CmmnCnst.cmmn14);
+				}
+				else if ( (subImg2 != null && subImg2.getSize() > 0) && (subImg3 == null || subImg3.getSize() <= 0) ) {
+					inParam.put("subImg5GbCd", CmmnCnst.cmmn14);
+				}
+				else {
+					inParam.put("subImg5GbCd", CmmnCnst.cmmn16);
+				}
+			}
+			else if (CmmnCnst.cmmnS.equalsIgnoreCase(subImg5Flag)) {
+				inParam.put("subImg5Seq", inParam.get("subImg5Seq"));
+				inParam.put("subImg5Url", inParam.get("subImg5Url"));
+				if ( (subImg2 == null || subImg2.getSize() <= 0) && (subImg3 == null || subImg3.getSize() <= 0) ) {
+					inParam.put("subImg5GbCd", CmmnCnst.cmmn13);
+				}
+				else if ( (subImg2 == null || subImg2.getSize() <= 0) && (subImg3 != null && subImg3.getSize() > 0) ) {
+					inParam.put("subImg5GbCd", CmmnCnst.cmmn14);
+				}
+				else if ( (subImg2 != null && subImg2.getSize() > 0) && (subImg3 == null || subImg3.getSize() <= 0) ) {
+					inParam.put("subImg5GbCd", CmmnCnst.cmmn14);
+				}
+				else {
+					inParam.put("subImg5GbCd", CmmnCnst.cmmn16);
+				}
+			}
+		}
+		else {
+			if (null != app && CmmnCnst.SSOCIO.equals(app)) {
+				if (CmmnCnst.cmmnD.equalsIgnoreCase(subImg5Flag)) {
+					// 이미지 삭제
+					delMap.put("fileSeq", inParam.get("subImg5Seq"));
+					webSaleManageDao.deleteFile(delMap);
+					inParam.put("subImg5GbCd", CmmnCnst.cmmn13);
+				}
+				else {
+					inParam.put("subImg5Seq", inParam.get("subImg5Seq"));
+					inParam.put("subImg5Url", inParam.get("subImg5Url"));
+					if ( (subImg2 == null || subImg2.getSize() <= 0) && (subImg3 == null || subImg3.getSize() <= 0) ) {
+						inParam.put("subImg5GbCd", CmmnCnst.cmmn13);
+					}
+					else if ( (subImg2 == null || subImg2.getSize() <= 0) && (subImg3 != null && subImg3.getSize() > 0) ) {
+						inParam.put("subImg5GbCd", CmmnCnst.cmmn14);
+					}
+					else if ( (subImg2 != null && subImg2.getSize() > 0) && (subImg3 == null || subImg3.getSize() <= 0) ) {
+						inParam.put("subImg5GbCd", CmmnCnst.cmmn14);
+					}
+					else {
+						inParam.put("subImg5GbCd", CmmnCnst.cmmn16);
+					}
+				}
+			}
+			else {
+				if (CmmnCnst.cmmnD.equalsIgnoreCase(subImg5Flag)) {
+					// 이미지 삭제
+					delMap.put("fileSeq", inParam.get("subImg5Seq"));
+					webSaleManageDao.deleteFile(delMap);
+					inParam.put("subImg5GbCd", CmmnCnst.cmmn13);
+				}
+				else if (CmmnCnst.cmmnS.equalsIgnoreCase(subImg5Flag)) {
+					inParam.put("subImg5Seq", inParam.get("subImg5Seq"));
+					inParam.put("subImg5Url", inParam.get("subImg5Url"));
+
+					// 서브이미지2가 없고, 서브임
+					if ( (subImg2 == null || subImg2.getSize() <= 0) && (subImg3 == null || subImg3.getSize() <= 0) ) {
+						inParam.put("subImg5GbCd", CmmnCnst.cmmn13);
+					}
+					else if ( (subImg2 == null || subImg2.getSize() <= 0) && (subImg3 != null && subImg3.getSize() > 0) ) {
+						inParam.put("subImg5GbCd", CmmnCnst.cmmn14);
+					}
+					else if ( (subImg2 != null && subImg2.getSize() > 0) && (subImg3 == null || subImg3.getSize() <= 0) ) {
+						inParam.put("subImg5GbCd", CmmnCnst.cmmn14);
+					}
+					else {
+						inParam.put("subImg5GbCd", CmmnCnst.cmmn16);
+					}
+				}
+			}
+		}
+
+		logger.debug("inParam5555 : " + inParam.toString());
+
+		return inParam;
+
+	}
+
+
+
+	/**
+	 * <pre>
+	 * insertProdImgFile
+	 * 상품관리 - 상품등록 이미지 임시저장
+	 * &#64;param inParam
+	 * &#64;return
+	 * &#64;throws Exception
+	 * &#64;date 2015. 8. 20
+	 * &#64;author Kang.h.c
+	 * &#64;see com.ssocio.sharing.service.web
+	 * </pre>
+	 */
+	@Override
+	public Map<String, Object> insertProdImgFileV2(Map<String, Object> inParam, MultipartHttpServletRequest req) throws Exception {
+
+		MultipartFile mainImg = req.getFile("mainImg"); // 메인 이미지
+		MultipartFile subImg1 = req.getFile("subImg1"); // 서브 이미지1
+		MultipartFile subImg2 = req.getFile("subImg2"); // 서브 이미지2
+		MultipartFile subImg3 = req.getFile("subImg3"); // 서브 이미지3
+		MultipartFile subImg4 = req.getFile("subImg4"); // 서브 이미지4
+		MultipartFile subImg5 = req.getFile("subImg5"); // 서브 이미지4
+		String mainImgFlag = StringUtil.nvl((String)inParam.get("mainImgFlag"), "");
+		String subImg1Flag = StringUtil.nvl((String)inParam.get("subImg1Flag"), "");
+		String subImg2Flag = StringUtil.nvl((String)inParam.get("subImg2Flag"), "");
+		String subImg3Flag = StringUtil.nvl((String)inParam.get("subImg3Flag"), "");
+		String subImg4Flag = StringUtil.nvl((String)inParam.get("subImg4Flag"), "");
+		String subImg5Flag = StringUtil.nvl((String)inParam.get("subImg5Flag"), "");
+		String fileSeq = ""; // 저장 파일 seq
+
+		// 파일정보 삭제
+		Map<String, Object> delMap = new HashMap<String, Object>();
+		delMap.put("delYn", CmmnCnst.cmmnY);
+
+		// app여부 판단
+		String app = (String)inParam.get("sessionScope");
+
+		// 리스트 이미지
+		if(mainImg != null && mainImg.getSize() > 0){
+			Map<String, Object> fileInfo = FileUtil.saveMultipartFile(mainImg, req);// 파일
+																				// 저장
+			if (CmmnCnst.cmmnI.equalsIgnoreCase(mainImgFlag)) {
+				// 이미지 등록
+				fileSeq = webSaleManageDao.insertFile(fileInfo);
+				inParam.put("mainImgSeq", fileSeq);
+				inParam.put("mainImgUrl", fileInfo.get("I_FILE_URL"));
+				inParam.put("mainImgGbCd", CmmnCnst.cmmn11);
+			}
+			else if (CmmnCnst.cmmnU.equalsIgnoreCase(mainImgFlag)) {
+				// 이미지 삭제 후 이미지 등록
+				delMap.put("fileSeq", inParam.get("mainImgSeq"));
+				webSaleManageDao.deleteFile(delMap);
+
+				fileSeq = webSaleManageDao.insertFile(fileInfo);
+				inParam.put("mainImgSeq", fileSeq);
+				inParam.put("mainImgUrl", fileInfo.get("I_FILE_URL"));
+				inParam.put("mainImgGbCd", CmmnCnst.cmmn11);
+			}
+			else if (CmmnCnst.cmmnS.equalsIgnoreCase(mainImgFlag)) {
+				inParam.put("mainImgSeq", inParam.get("mainImgSeq"));
+				inParam.put("mainImgUrl", inParam.get("mainImgUrl"));
+				inParam.put("mainImgGbCd", CmmnCnst.cmmn11);
+			}
+		}
+		else {
+				inParam.put("mainImgSeq", inParam.get("mainImgSeq"));
+				inParam.put("mainImgUrl", inParam.get("mainImgUrl"));
+				inParam.put("mainImgGbCd", CmmnCnst.cmmn11);
+		}
+
+		// 상세이미지1
+		if(subImg1 != null && subImg1.getSize() > 0){
+			Map<String, Object> fileInfo = FileUtil.saveMultipartFile(subImg1);// 파일
+																				// 저장
+			if (CmmnCnst.cmmnI.equalsIgnoreCase(subImg1Flag)) {
+				// 이미지 등록
+				fileSeq = webSaleManageDao.insertFile(fileInfo);
+				inParam.put("subImg1Seq", fileSeq);
+				inParam.put("subImg1Url", fileInfo.get("I_FILE_URL"));
+				inParam.put("subImg1GbCd", CmmnCnst.cmmn12);
+			}
+			else if (CmmnCnst.cmmnU.equalsIgnoreCase(subImg1Flag)) {
+				// 이미지 삭제 후 이미지 등록
+				delMap.put("fileSeq", inParam.get("subImg1Seq"));
+				webSaleManageDao.deleteFile(delMap);
+
+				fileSeq = webSaleManageDao.insertFile(fileInfo);
+				inParam.put("subImg1Seq", fileSeq);
+				inParam.put("subImg1Url", fileInfo.get("I_FILE_URL"));
+				inParam.put("subImg1GbCd", CmmnCnst.cmmn12);
+			}
+			else if (CmmnCnst.cmmnS.equalsIgnoreCase(subImg1Flag)) {
+				inParam.put("subImg1Seq", inParam.get("subImg1Seq"));
+				inParam.put("subImg1Url", inParam.get("subImg1Url"));
+				inParam.put("subImg1GbCd", CmmnCnst.cmmn12);
+			}
+		}
+		else {
+				inParam.put("subImg1Seq", inParam.get("subImg1Seq"));
+				inParam.put("subImg1Url", inParam.get("subImg1Url"));
+				inParam.put("subImg1GbCd", CmmnCnst.cmmn12);
+		}
+
+		// 상세이미지2
+		if(subImg2 != null && subImg2.getSize() > 0){
+			Map<String, Object> fileInfo = FileUtil.saveMultipartFile(subImg2);// 파일
+																				// 저장
+			if (CmmnCnst.cmmnI.equalsIgnoreCase(subImg2Flag)) {
+				// 이미지 등록
+				fileSeq = webSaleManageDao.insertFile(fileInfo);
+				inParam.put("subImg2Seq", fileSeq);
+				inParam.put("subImg2Url", fileInfo.get("I_FILE_URL"));
+				inParam.put("subImg2GbCd", CmmnCnst.cmmn13);
+			}
+			else if (CmmnCnst.cmmnU.equalsIgnoreCase(subImg2Flag)) {
+				// 이미지 삭제 후 이미지 등록
+				delMap.put("fileSeq", inParam.get("subImg2Seq"));
+				webSaleManageDao.deleteFile(delMap);
+
+				fileSeq = webSaleManageDao.insertFile(fileInfo);
+				inParam.put("subImg2Seq", fileSeq);
+				inParam.put("subImg2Url", fileInfo.get("I_FILE_URL"));
+				inParam.put("subImg2GbCd", CmmnCnst.cmmn13);
+			}
+			else if (CmmnCnst.cmmnS.equalsIgnoreCase(subImg2Flag)) {
+				inParam.put("subImg2Seq", inParam.get("subImg2Seq"));
+				inParam.put("subImg2Url", inParam.get("subImg2Url"));
+				inParam.put("subImg2GbCd", CmmnCnst.cmmn13);
+			}
+		}
+		else {
+				if (CmmnCnst.cmmnD.equalsIgnoreCase(subImg2Flag)) {
+					// 이미지 삭제
+					delMap.put("fileSeq", inParam.get("subImg2Seq"));
+					webSaleManageDao.deleteFile(delMap);
+					inParam.put("subImg2GbCd", CmmnCnst.cmmn13);
+				}
+				else {
+					inParam.put("subImg2Seq", inParam.get("subImg2Seq"));
+					inParam.put("subImg2Url", inParam.get("subImg2Url"));
+					inParam.put("subImg2GbCd", CmmnCnst.cmmn13);
+				}
+		}
+
+		// 상세이미지3
+		if(subImg3 != null && subImg3.getSize() > 0){
+			Map<String, Object> fileInfo = FileUtil.saveMultipartFile(subImg3);// 파일
+																				// 저장
+			if (CmmnCnst.cmmnI.equalsIgnoreCase(subImg3Flag)) {
+				// 이미지 등록
+				fileSeq = webSaleManageDao.insertFile(fileInfo);
+				inParam.put("subImg3Seq", fileSeq);
+				inParam.put("subImg3Url", fileInfo.get("I_FILE_URL"));
+				inParam.put("subImg3GbCd", CmmnCnst.cmmn14);
+			}
+			else if (CmmnCnst.cmmnU.equalsIgnoreCase(subImg3Flag)) {
+				// 이미지 삭제 후 이미지 등록
+				delMap.put("fileSeq", inParam.get("subImg3Seq"));
+				webSaleManageDao.deleteFile(delMap);
+
+				fileSeq = webSaleManageDao.insertFile(fileInfo);
+				inParam.put("subImg3Seq", fileSeq);
+				inParam.put("subImg3Url", fileInfo.get("I_FILE_URL"));
+				inParam.put("subImg3GbCd", CmmnCnst.cmmn14);
+			}
+			else if (CmmnCnst.cmmnS.equalsIgnoreCase(subImg3Flag)) {
+				inParam.put("subImg3Seq", inParam.get("subImg3Seq"));
+				inParam.put("subImg3Url", inParam.get("subImg3Url"));
+				inParam.put("subImg3GbCd", CmmnCnst.cmmn14);
+			}
+		}
+		else {
+				if (CmmnCnst.cmmnD.equalsIgnoreCase(subImg3Flag)) {
+					// 이미지 삭제
+					delMap.put("fileSeq", inParam.get("subImg3Seq"));
+					webSaleManageDao.deleteFile(delMap);
+					inParam.put("subImg3GbCd", CmmnCnst.cmmn14);
+				}
+				else {
+					inParam.put("subImg3Seq", inParam.get("subImg3Seq"));
+					inParam.put("subImg3Url", inParam.get("subImg3Url"));
+					inParam.put("subImg3GbCd", CmmnCnst.cmmn14);
+				}
+		}
+
+		// 상세이미지4
+		if(subImg4 != null && subImg4.getSize() > 0){
+			Map<String, Object> fileInfo = FileUtil.saveMultipartFile(subImg4);// 파일
+																				// 저장
+			if (CmmnCnst.cmmnI.equalsIgnoreCase(subImg4Flag)) {
+				// 이미지 등록
+				fileSeq = webSaleManageDao.insertFile(fileInfo);
+				inParam.put("subImg4Seq", fileSeq);
+				inParam.put("subImg4Url", fileInfo.get("I_FILE_URL"));
+				inParam.put("subImg4GbCd", CmmnCnst.cmmn15);
+			}
+			else if (CmmnCnst.cmmnU.equalsIgnoreCase(subImg4Flag)) {
+				// 이미지 삭제 후 이미지 등록
+				delMap.put("fileSeq", inParam.get("subImg4Seq"));
+				webSaleManageDao.deleteFile(delMap);
+
+				fileSeq = webSaleManageDao.insertFile(fileInfo);
+				inParam.put("subImg4Seq", fileSeq);
+				inParam.put("subImg4Url", fileInfo.get("I_FILE_URL"));
+				inParam.put("subImg4GbCd", CmmnCnst.cmmn15);
+			}
+			else if (CmmnCnst.cmmnS.equalsIgnoreCase(subImg4Flag)) {
+				inParam.put("subImg4Seq", inParam.get("subImg4Seq"));
+				inParam.put("subImg4Url", inParam.get("subImg4Url"));
+				inParam.put("subImg4GbCd", CmmnCnst.cmmn15);
+			}
+		}
+		else {
+				if (CmmnCnst.cmmnD.equalsIgnoreCase(subImg4Flag)) {
+					// 이미지 삭제
+					delMap.put("fileSeq", inParam.get("subImg4Seq"));
+					webSaleManageDao.deleteFile(delMap);
+					inParam.put("subImg4GbCd", CmmnCnst.cmmn15);
+				}
+				else {
+					inParam.put("subImg4Seq", inParam.get("subImg4Seq"));
+					inParam.put("subImg4Url", inParam.get("subImg4Url"));
+					inParam.put("subImg4GbCd", CmmnCnst.cmmn15);
+				}
+
+		}
+		// 상세이미지5
+		if(subImg5 != null && subImg5.getSize() > 0){
+			Map<String, Object> fileInfo = FileUtil.saveMultipartFile(subImg5);	// 파일
+																				// 저장
+			if (CmmnCnst.cmmnI.equalsIgnoreCase(subImg5Flag)) {
+				// 이미지 등록
+				fileSeq = webSaleManageDao.insertFile(fileInfo);
+				inParam.put("subImg5Seq", fileSeq);
+				inParam.put("subImg5Url", fileInfo.get("I_FILE_URL"));
+				inParam.put("subImg5GbCd", CmmnCnst.cmmn16);
+			}
+			else if (CmmnCnst.cmmnU.equalsIgnoreCase(subImg5Flag)) {
+				// 이미지 삭제 후 이미지 등록
+				delMap.put("fileSeq", inParam.get("subImg5Seq"));
+				webSaleManageDao.deleteFile(delMap);
+
+				fileSeq = webSaleManageDao.insertFile(fileInfo);
+				inParam.put("subImg5Seq", fileSeq);
+				inParam.put("subImg5Url", fileInfo.get("I_FILE_URL"));
+				inParam.put("subImg5GbCd", CmmnCnst.cmmn16);
+			}
+			else if (CmmnCnst.cmmnS.equalsIgnoreCase(subImg5Flag)) {
+				inParam.put("subImg5Seq", inParam.get("subImg5Seq"));
+				inParam.put("subImg5Url", inParam.get("subImg5Url"));
+				inParam.put("subImg5GbCd", CmmnCnst.cmmn16);
+			}
+		}
+		else {
+				if (CmmnCnst.cmmnD.equalsIgnoreCase(subImg5Flag)) {
+					// 이미지 삭제
+					delMap.put("fileSeq", inParam.get("subImg5Seq"));
+					webSaleManageDao.deleteFile(delMap);
+					inParam.put("subImg5GbCd", CmmnCnst.cmmn13);
+				}
+				else {
+					inParam.put("subImg5Seq", inParam.get("subImg5Seq"));
+					inParam.put("subImg5Url", inParam.get("subImg5Url"));
+					inParam.put("subImg5GbCd", CmmnCnst.cmmn16);
+				}
+		}
+
+		logger.debug("inParam5555 : " + inParam.toString());
+
+		return inParam;
+
+	}
+
+	/**
+	 * <pre>
+	 * insertProdImgFile
+	 * 상품관리 - 상품 이미지 수정 및 등록
+	 * &#64;param inParam
+	 * &#64;return
+	 * &#64;throws Exception
+	 * &#64;date 2015. 8. 29
+	 * &#64;author Kang.h.c
+	 * &#64;see com.ssocio.sharing.service.web
+	 * </pre>
+	 */
+	public void procProdImg(Map<String, Object> inParam, MultipartHttpServletRequest req) throws Exception {
+
+
+		logger.debug("inParam : " + inParam.toString());
+
+		LoggerUtil.writeMap(inParam);
+
+		String fileSeq = "";
+
+
+		String mainImgSeq = StringUtil.nvl((String) inParam.get("mainImgSeq"), ""); // 리스트이미지
+																					// 시퀀스
+																					// 및
+																					// 플래그
+		String[] mainSplt = mainImgSeq.split(",");
+		String mainImgFlag = null;
+		if(inParam.get("mainImgFlag") != null && !inParam.get("mainImgFlag").equals("")){
+			mainImgFlag = (String) inParam.get("mainImgFlag") ;
+		}else{
+			mainImgFlag = mainSplt.length < 2 ? "": mainSplt[1];
+		}
+
+
+		String subImg1Seq = StringUtil.nvl((String) inParam.get("subImg1Seq"), ""); // 상세이미지1
+																					// 시퀀스
+																					// 및
+																					// 플래그
+		String[] sub1Splt = subImg1Seq.split(",");
+		String subImg1Flag = null;
+		if(inParam.get("subImg1Flag") != null && !inParam.get("subImg1Flag").equals("")){
+			subImg1Flag = (String) inParam.get("subImg1Flag") ;
+		}else{
+			subImg1Flag = sub1Splt.length < 2 ? "": sub1Splt[1];
+		}
+
+
+		String subImg2Seq = StringUtil.nvl((String) inParam.get("subImg2Seq"), ""); // 상세이미지2
+																					// 시퀀스
+																					// 및
+																					// 플래그
+		String[] sub2Splt = subImg2Seq.split(",");
+		String subImg2Flag = null;
+		if(inParam.get("subImg2Flag") != null && !inParam.get("subImg2Flag").equals("")){
+			subImg2Flag = (String) inParam.get("subImg2Flag") ;
+		}else{
+			logger.debug(sub2Splt.length+"");
+			subImg2Flag = sub2Splt.length < 2 ? "": sub2Splt[1];
+		}
+
+		String subImg3Seq = StringUtil.nvl((String) inParam.get("subImg3Seq"), ""); // 상세이미지3
+																					// 시퀀스
+																					// 및
+																					// 플래그
+		String[] sub3Splt = subImg3Seq.split(",");
+		String subImg3Flag = null;
+		if(inParam.get("subImg3Flag") != null && !inParam.get("subImg3Flag").equals("")){
+			subImg3Flag = (String) inParam.get("subImg3Flag") ;
+		}else{
+			logger.debug(sub3Splt.length+"");
+			subImg3Flag = sub3Splt.length < 2 ? "": sub3Splt[1];
+
+		}
+
+		String subImg4Seq = StringUtil.nvl((String) inParam.get("subImg4Seq"), ""); // 상세이미지4
+																					// 시퀀스
+																					// 및
+																					// 플래그
+		String[] sub4Splt = subImg4Seq.split(",");
+		String subImg4Flag = null;
+		if(inParam.get("subImg4Flag") != null && !inParam.get("subImg4Flag").equals("")){
+			subImg4Flag = (String) inParam.get("subImg4Flag") ;
+		}else{
+			subImg4Flag = sub4Splt.length < 2 ? "": sub4Splt[1];
+		}
+
+
+
+		String subImg5Seq = StringUtil.nvl((String) inParam.get("subImg5Seq"), ""); // 상세이미지4
+																					// 시퀀스
+																					// 및
+																					// 플래그
+		String[] sub5Splt = subImg5Seq.split(",");
+		String subImg5Flag = null;
+		if(inParam.get("subImg5Flag") != null && !inParam.get("subImg5Flag").equals("")){
+		subImg5Flag = (String) inParam.get("subImg5Flag") ;
+		}else{
+		subImg5Flag = sub5Splt.length < 2 ? "": sub5Splt[1];
+		}
+
+
+		logger.debug("mainImgFlag : "+ mainImgFlag);
+		logger.debug("subImg1Flag : "+ subImg1Flag);
+		logger.debug("subImg2Flag : "+ subImg2Flag);
+		logger.debug("subImg3Flag : "+ subImg3Flag);
+		logger.debug("subImg4Flag : "+ subImg4Flag);
+		logger.debug("subImg5Flag : "+ subImg5Flag);
+
+
+		// 리스트이미지
+		if (CmmnCnst.cmmnU.equals(mainImgFlag)) {
+
+
+			MultipartFile mainImg = req.getFile("mainImg"); // 리스트 이미지
+			if(mainImg != null && mainImg.getSize() > 0){
+				Map<String, Object> fileInfo = FileUtil.saveMultipartFile(mainImg);// 파일
+																					// 저장
+				fileSeq = webSaleManageDao.insertFile(fileInfo);
+				inParam.put("fileSeq", fileSeq);
+				inParam.put("prodImgUrl", fileInfo.get("I_FILE_URL"));
+				inParam.put("prodImgGbCd", CmmnCnst.cmmn11);
+				webSaleManageDao.updateProdImg(inParam);
+			}
+			// 앱 일땐 멀티파트가 없어도, 아래의 파라미터로 seq 값이 들어온다.
+			else if (mainSplt[0] != null){
+				String url = (String) inParam.get("mainImgUrl");
+				inParam.put("fileSeq", mainSplt[0]);
+				inParam.put("prodImgUrl", url);
+				inParam.put("prodImgGbCd", CmmnCnst.cmmn11);
+				webSaleManageDao.updateProdImg(inParam);
+
+			}
+		}
+		// 앱인경우는 Insert가 발생 할 수 있다.
+		else if (CmmnCnst.cmmnI.equals(mainImgFlag)) {
+			String url = (String) inParam.get("mainImgUrl");
+			inParam.put("fileSeq", mainSplt[0]);
+			inParam.put("prodImgUrl", url);
+			inParam.put("prodImgGbCd", CmmnCnst.cmmn11);
+			inParam.put("prodImgTypeCd", '1');
+			webSaleManageDao.insertProdImg(inParam);
+		}
+
+
+
+		// 상세이미지1
+		if (CmmnCnst.cmmnU.equals(subImg1Flag)) {
+			MultipartFile subImg1 = req.getFile("subImg1"); // 상세이미지1
+			if(subImg1 != null && subImg1.getSize() > 0){
+				Map<String, Object> fileInfo = FileUtil.saveMultipartFile(subImg1);// 파일
+																					// 저장
+				fileSeq = webSaleManageDao.insertFile(fileInfo);
+				inParam.put("fileSeq", fileSeq);
+				inParam.put("prodImgUrl", fileInfo.get("I_FILE_URL"));
+				inParam.put("prodImgGbCd", CmmnCnst.cmmn12);
+				webSaleManageDao.updateProdImg(inParam);
+			}
+			// 앱 일땐 멀티파트가 없어도, 아래의 파라미터로 seq 값이 들어온다.
+			else if (sub1Splt[0] != null){
+				inParam.put("fileSeq", sub1Splt[0]);
+				inParam.put("prodImgUrl", inParam.get("subImg1Url"));
+				inParam.put("prodImgGbCd", CmmnCnst.cmmn12);
+				webSaleManageDao.updateProdImg(inParam);
+			}
+		}
+		// 앱인경우는 Insert가 발생 할 수 있다.
+		else if (CmmnCnst.cmmnI.equals(mainImgFlag)) {
+			inParam.put("fileSeq", sub1Splt[0]);
+			inParam.put("prodImgUrl", inParam.get("subImg1Url"));
+			inParam.put("prodImgGbCd", CmmnCnst.cmmn12);
+			inParam.put("prodImgTypeCd", '1');
+			webSaleManageDao.insertProdImg(inParam);
+		}
+
+
+		// 상세이미지2
+		if (!StringUtil.isEmpty(subImg2Seq)) {
+			MultipartFile subImg2 = req.getFile("subImg2"); // 상세이미지2
+			if (CmmnCnst.cmmnI.equals(subImg2Flag)) {
+				if(subImg2 != null && subImg2.getSize() > 0){
+					Map<String, Object> fileInfo = FileUtil.saveMultipartFile(subImg2);// 파일
+																						// 저장
+					fileSeq = webSaleManageDao.insertFile(fileInfo);
+					inParam.put("fileSeq", fileSeq);
+					inParam.put("fileUrl", fileInfo.get("I_FILE_URL"));
+					inParam.put("prodImgGbCd", CmmnCnst.cmmn13);
+					inParam.put("prodImgTypeCd", '1');
+					webSaleManageDao.insertProdImg(inParam);
+				}
+				// 앱 일땐 멀티파트가 없어도, 아래의 파라미터로 seq 값이 들어온다.
+				else if (sub2Splt[0] != null){
+					inParam.put("fileSeq", sub2Splt[0]);
+					inParam.put("prodImgUrl", inParam.get("subImg2Url"));
+					inParam.put("prodImgGbCd", CmmnCnst.cmmn13);
+					inParam.put("prodImgTypeCd", '1');
+					webSaleManageDao.insertProdImg(inParam);
+				}
+
+			}
+			else if (CmmnCnst.cmmnU.equals(subImg2Flag)) {
+				if(subImg2 != null && subImg2.getSize() > 0){
+					Map<String, Object> fileInfo = FileUtil.saveMultipartFile(subImg2);// 파일
+																						// 저장
+					fileSeq = webSaleManageDao.insertFile(fileInfo);
+					inParam.put("fileSeq", fileSeq);
+					inParam.put("prodImgUrl", fileInfo.get("I_FILE_URL"));
+					inParam.put("prodImgGbCd", CmmnCnst.cmmn13);
+					webSaleManageDao.updateProdImg(inParam);
+				}
+				// 앱 일땐 멀티파트가 없어도, 아래의 파라미터로 seq 값이 들어온다.
+				else if (sub2Splt[0] != null){
+					inParam.put("fileSeq", sub2Splt[0]);
+					inParam.put("prodImgUrl", inParam.get("subImg2Url"));
+					inParam.put("prodImgGbCd", CmmnCnst.cmmn13);
+					webSaleManageDao.updateProdImg(inParam);
+				}
+			}
+			else if (CmmnCnst.cmmnD.equals(subImg2Flag)) {
+				logger.debug("DELETE IMG2 : Flag : " + subImg2Flag);
+				inParam.put("prodImgGbCd", CmmnCnst.cmmn13);
+				webSaleManageDao.deleteProdImg(inParam);
+			}
+		}
+
+		// 상세이미지3
+		if (!StringUtil.isEmpty(subImg3Seq)) {
+			MultipartFile subImg3 = req.getFile("subImg3"); // 상세이미지3
+
+			// 인서트
+			if (CmmnCnst.cmmnI.equals(subImg3Flag)) {
+				if(subImg3 != null && subImg3.getSize() > 0){
+					Map<String, Object> fileInfo = FileUtil.saveMultipartFile(subImg3);// 파일
+																						// 저장
+					fileSeq = webSaleManageDao.insertFile(fileInfo);
+					inParam.put("fileSeq", fileSeq);
+					inParam.put("fileUrl", fileInfo.get("I_FILE_URL"));
+					inParam.put("prodImgGbCd", CmmnCnst.cmmn14);
+					inParam.put("prodImgTypeCd", '1');
+					webSaleManageDao.insertProdImg(inParam);
+				}
+				// 앱 일땐 멀티파트가 없어도, 아래의 파라미터로 seq 값이 들어온다.
+				else if (sub3Splt[0] != null){
+					inParam.put("fileSeq", sub3Splt[0]);
+					inParam.put("prodImgUrl", inParam.get("subImg3Url"));
+					inParam.put("prodImgGbCd", CmmnCnst.cmmn14);
+					inParam.put("prodImgTypeCd", '1');
+					webSaleManageDao.insertProdImg(inParam);
+				}
+			}
+			// 업데이트
+			else if (CmmnCnst.cmmnU.equals(subImg3Flag)) {
+				if(subImg3 != null && subImg3.getSize() > 0){
+					Map<String, Object> fileInfo = FileUtil.saveMultipartFile(subImg3);// 파일
+																						// 저장
+					fileSeq = webSaleManageDao.insertFile(fileInfo);
+					inParam.put("fileSeq", fileSeq);
+					inParam.put("prodImgUrl", fileInfo.get("I_FILE_URL"));
+					inParam.put("prodImgGbCd", CmmnCnst.cmmn14);
+					webSaleManageDao.updateProdImg(inParam);
+				}
+				// 앱 일땐 멀티파트가 없어도, 아래의 파라미터로 seq 값이 들어온다.
+				else if (sub3Splt[0] != null){
+					inParam.put("fileSeq", sub3Splt[0]);
+					inParam.put("prodImgUrl", inParam.get("subImg3Url"));
+					inParam.put("prodImgGbCd", CmmnCnst.cmmn14);
+					webSaleManageDao.updateProdImg(inParam);
+				}
+			}
+			// 3번째 이미지의 플래그가 D인경우
+			else if (CmmnCnst.cmmnD.equals(subImg3Flag)) {
+				inParam.put("prodImgGbCd", CmmnCnst.cmmn14);
+				webSaleManageDao.deleteProdImg(inParam);
+			}
+			// 3번째 이미지의 플래그가 P인경우.
+			else if (CmmnCnst.cmmnP.equals(subImg3Flag)) {
+
+				if(subImg3 != null && subImg3.getSize() > 0){
+					// 신규이미지가 아닐경우 기존이미지 삭제
+					if (!CmmnCnst.cmmnNewImg.equals(sub3Splt[0])) {
+						inParam.put("prodImgGbCd", CmmnCnst.cmmn14);
+						webSaleManageDao.deleteProdImg(inParam);
+					}
+
+					// 앞 서브이미지가 없을 경우
+					Map<String, Object> fileInfo = FileUtil.saveMultipartFile(subImg3);// 파일
+																						// 저장
+					fileSeq = webSaleManageDao.insertFile(fileInfo);
+					inParam.put("fileSeq", fileSeq);
+					inParam.put("fileUrl", fileInfo.get("I_FILE_URL"));
+					inParam.put("prodImgGbCd", CmmnCnst.cmmn13);
+					inParam.put("prodImgTypeCd", '1');
+					webSaleManageDao.insertProdImg(inParam);
+				}
+
+			}
+		}
+
+		// 상세이미지4
+		if (!StringUtil.isEmpty(subImg4Seq)) {
+			MultipartFile subImg4 = req.getFile("subImg4"); // 상세이미지4
+
+			// 플래그가 I
+			if (CmmnCnst.cmmnI.equals(subImg4Flag)) {
+				if(subImg4 != null && subImg4.getSize() > 0){
+					Map<String, Object> fileInfo = FileUtil.saveMultipartFile(subImg4);// 파일
+																						// 저장
+					fileSeq = webSaleManageDao.insertFile(fileInfo);
+					inParam.put("fileSeq", fileSeq);
+					inParam.put("fileUrl", fileInfo.get("I_FILE_URL"));
+					inParam.put("prodImgGbCd", CmmnCnst.cmmn15);
+					inParam.put("prodImgTypeCd", '1');
+					webSaleManageDao.insertProdImg(inParam);
+				}
+				// 앱 일땐 멀티파트가 없어도, 아래의 파라미터로 seq 값이 들어온다.
+				else if (sub4Splt[0] != null){
+					inParam.put("fileSeq", sub4Splt[0]);
+					inParam.put("prodImgUrl", inParam.get("subImg4Url"));
+					inParam.put("prodImgGbCd", CmmnCnst.cmmn15);
+					inParam.put("prodImgTypeCd", '1');
+					webSaleManageDao.insertProdImg(inParam);
+				}
+			}
+
+
+
+			// 플래그가 U
+			else if (CmmnCnst.cmmnU.equals(subImg4Flag)) {
+				if(subImg4 != null && subImg4.getSize() > 0){
+					Map<String, Object> fileInfo = FileUtil.saveMultipartFile(subImg4);// 파일
+																						// 저장
+					fileSeq = webSaleManageDao.insertFile(fileInfo);
+					inParam.put("fileSeq", fileSeq);
+					inParam.put("prodImgUrl", fileInfo.get("I_FILE_URL"));
+					inParam.put("prodImgGbCd", CmmnCnst.cmmn15);
+					webSaleManageDao.updateProdImg(inParam);
+				}
+				// 앱 일땐 멀티파트가 없어도, 아래의 파라미터로 seq 값이 들어온다.
+				else if (sub4Splt[0] != null){
+					inParam.put("fileSeq", sub4Splt[0]);
+					inParam.put("prodImgUrl", inParam.get("subImg4Url"));
+					inParam.put("prodImgGbCd", CmmnCnst.cmmn15);
+					webSaleManageDao.updateProdImg(inParam);
+				}
+			}
+
+			// 플래그 D
+			else if (CmmnCnst.cmmnD.equals(subImg4Flag)) {
+				inParam.put("prodImgGbCd", CmmnCnst.cmmn15);
+				webSaleManageDao.deleteProdImg(inParam);
+			}
+
+			// 플래그 T
+			else if (CmmnCnst.cmmnT.equals(subImg4Flag)) {
+				if(subImg4 != null && subImg4.getSize() > 0){
+					// 신규이미지가 아닐경우 기존이미지 매핑 삭제
+					if (!CmmnCnst.cmmnNewImg.equals(sub4Splt[0])) {
+						inParam.put("prodImgGbCd", CmmnCnst.cmmn15);
+						webSaleManageDao.deleteProdImg(inParam);
+					}
+
+					Map<String, Object> fileInfo = FileUtil.saveMultipartFile(subImg4);// 파일
+																						// 저장
+					fileSeq = webSaleManageDao.insertFile(fileInfo);
+					inParam.put("fileSeq", fileSeq);
+					inParam.put("fileUrl", fileInfo.get("I_FILE_URL"));
+					inParam.put("prodImgGbCd", CmmnCnst.cmmn13);
+					inParam.put("prodImgTypeCd", '1');
+					webSaleManageDao.insertProdImg(inParam);
+				}
+			}
+
+			// 플래그 P
+			else if (CmmnCnst.cmmnP.equals(subImg4Flag)) {
+				if(subImg4 != null && subImg4.getSize() > 0){
+					// 신규이미지가 아닐경우 기존이미지 매핑 삭제
+					if (!CmmnCnst.cmmnNewImg.equals(sub4Splt[0])) {
+						inParam.put("prodImgGbCd", CmmnCnst.cmmn15);
+						webSaleManageDao.deleteProdImg(inParam);
+					}
+
+					Map<String, Object> fileInfo = FileUtil.saveMultipartFile(subImg4);// 파일
+																						// 저장
+					fileSeq = webSaleManageDao.insertFile(fileInfo);
+					inParam.put("fileSeq", fileSeq);
+					inParam.put("fileUrl", fileInfo.get("I_FILE_URL"));
+					inParam.put("prodImgGbCd", CmmnCnst.cmmn14);
+					inParam.put("prodImgTypeCd", '1');
+					webSaleManageDao.insertProdImg(inParam);
+				}
+			}
+		}
+
+
+		// 상세이미지5
+		if (!StringUtil.isEmpty(subImg5Seq)) {
+			MultipartFile subImg5 = req.getFile("subImg5"); // 상세이미지4
+
+			// 플래그가 I
+			if (CmmnCnst.cmmnI.equals(subImg5Flag)) {
+				if(subImg5 != null && subImg5.getSize() > 0){
+					Map<String, Object> fileInfo = FileUtil.saveMultipartFile(subImg5);// 파일
+																						// 저장
+					fileSeq = webSaleManageDao.insertFile(fileInfo);
+					inParam.put("fileSeq", fileSeq);
+					inParam.put("fileUrl", fileInfo.get("I_FILE_URL"));
+					inParam.put("prodImgGbCd", CmmnCnst.cmmn16);
+					inParam.put("prodImgTypeCd", '1');
+					webSaleManageDao.insertProdImg(inParam);
+				}
+				// 앱 일땐 멀티파트가 없어도, 아래의 파라미터로 seq 값이 들어온다.
+				else if (sub5Splt[0] != null){
+					inParam.put("fileSeq", sub5Splt[0]);
+					inParam.put("prodImgUrl", inParam.get("subImg5Url"));
+					inParam.put("prodImgGbCd", CmmnCnst.cmmn16);
+					inParam.put("prodImgTypeCd", '1');
+					webSaleManageDao.insertProdImg(inParam);
+				}
+			}
+
+
+
+			// 플래그가 U
+			else if (CmmnCnst.cmmnU.equals(subImg5Flag)) {
+				if(subImg5 != null && subImg5.getSize() > 0){
+					Map<String, Object> fileInfo = FileUtil.saveMultipartFile(subImg5);// 파일
+																						// 저장
+					fileSeq = webSaleManageDao.insertFile(fileInfo);
+					inParam.put("fileSeq", fileSeq);
+					inParam.put("prodImgUrl", fileInfo.get("I_FILE_URL"));
+					inParam.put("prodImgGbCd", CmmnCnst.cmmn16);
+					webSaleManageDao.updateProdImg(inParam);
+				}
+				// 앱 일땐 멀티파트가 없어도, 아래의 파라미터로 seq 값이 들어온다.
+				else if (sub4Splt[0] != null){
+					inParam.put("fileSeq", sub4Splt[0]);
+					inParam.put("prodImgUrl", inParam.get("subImg5Url"));
+					inParam.put("prodImgGbCd", CmmnCnst.cmmn16);
+					webSaleManageDao.updateProdImg(inParam);
+				}
+			}
+
+			// 플래그 D
+			else if (CmmnCnst.cmmnD.equals(subImg5Flag)) {
+				inParam.put("prodImgGbCd", CmmnCnst.cmmn16);
+				webSaleManageDao.deleteProdImg(inParam);
+			}
+
+			// 플래그 T
+			else if (CmmnCnst.cmmnT.equals(subImg5Flag)) {
+				if(subImg5 != null && subImg5.getSize() > 0){
+					// 신규이미지가 아닐경우 기존이미지 매핑 삭제
+					if (!CmmnCnst.cmmnNewImg.equals(sub4Splt[0])) {
+						inParam.put("prodImgGbCd", CmmnCnst.cmmn16);
+						webSaleManageDao.deleteProdImg(inParam);
+					}
+
+					Map<String, Object> fileInfo = FileUtil.saveMultipartFile(subImg5);// 파일
+																						// 저장
+					fileSeq = webSaleManageDao.insertFile(fileInfo);
+					inParam.put("fileSeq", fileSeq);
+					inParam.put("fileUrl", fileInfo.get("I_FILE_URL"));
+					inParam.put("prodImgGbCd", CmmnCnst.cmmn13);
+					inParam.put("prodImgTypeCd", '1');
+					webSaleManageDao.insertProdImg(inParam);
+				}
+			}
+
+			// 플래그 P
+			else if (CmmnCnst.cmmnP.equals(subImg5Flag)) {
+				if(subImg5 != null && subImg5.getSize() > 0){
+					// 신규이미지가 아닐경우 기존이미지 매핑 삭제
+					if (!CmmnCnst.cmmnNewImg.equals(sub4Splt[0])) {
+						inParam.put("prodImgGbCd", CmmnCnst.cmmn16);
+						webSaleManageDao.deleteProdImg(inParam);
+					}
+
+					Map<String, Object> fileInfo = FileUtil.saveMultipartFile(subImg5);// 파일
+																						// 저장
+					fileSeq = webSaleManageDao.insertFile(fileInfo);
+					inParam.put("fileSeq", fileSeq);
+					inParam.put("fileUrl", fileInfo.get("I_FILE_URL"));
+					inParam.put("prodImgGbCd", CmmnCnst.cmmn14);
+					inParam.put("prodImgTypeCd", '1');
+					webSaleManageDao.insertProdImg(inParam);
+				}
+			}
+		}
+
+	}
+
+
+
+	public void procProdImgV2(Map<String, Object> inParam, MultipartHttpServletRequest req) throws Exception {
+
+		String mainImgSeq =  (String) inParam.get("mainImgSeq"); // 리스트이미지
+		String subImg1Seq =  (String) inParam.get("subImg1Seq"); // 상세이미지1
+		String subImg2Seq =  (String) inParam.get("subImg2Seq"); // 상세이미지2
+		String subImg3Seq =  (String) inParam.get("subImg3Seq"); // 상세이미지3
+		String subImg4Seq =  (String) inParam.get("subImg4Seq"); // 상세이미지3
+		String subImg5Seq =  (String) inParam.get("subImg5Seq"); // 상세이미지3
+		String prodCode = (String) inParam.get("prodCode");
+
+		// 1. 모두 11,12,13,14,15,16 번 모두 지움.
+		webSaleManageDao.deleteProdInfoV2(prodCode);
+
+		// 2. 들어온 순서대로 insert
+		mainImgSeq = mainImgSeq.split(",")[0];
+		subImg1Seq = subImg1Seq.split(",")[0];
+		subImg2Seq = subImg2Seq.split(",")[0];
+		subImg3Seq = subImg3Seq.split(",")[0];
+		subImg4Seq = subImg4Seq.split(",")[0];
+		subImg5Seq = subImg5Seq.split(",")[0];
+
+
+		logger.debug("mainImgSeq : " + mainImgSeq);
+		logger.debug("subImg1Seq : " + subImg1Seq);
+		logger.debug("subImg2Seq : " + subImg2Seq);
+		logger.debug("subImg3Seq : " + subImg3Seq);
+		logger.debug("subImg4Seq : " + subImg4Seq);
+		logger.debug("subImg5Seq : " + subImg5Seq);
+
+		if(!mainImgSeq.equals("")){
+			HashMap<String,Object> map = new HashMap<String,Object>();
+			map.put("prodCode", prodCode);
+			map.put("fileSeq", mainImgSeq);
+			map.put("prodImgGbCd", CmmnCnst.cmmn11);
+			map.put("prodImgTypeCd", CmmnCnst.cmmn1);
+			map.put("prodCode", prodCode);
+			webSaleManageDao.insertProdImg(map);
+		}
+		if(!subImg1Seq.equals("")){
+			HashMap<String,Object> map = new HashMap<String,Object>();
+			map.put("prodCode", prodCode);
+			map.put("fileSeq", subImg1Seq);
+			map.put("prodImgGbCd", CmmnCnst.cmmn12);
+			map.put("prodImgTypeCd", CmmnCnst.cmmn1);
+			map.put("prodCode", prodCode);
+			webSaleManageDao.insertProdImg(map);
+
+		}
+		if(!subImg2Seq.equals("")){
+			HashMap<String,Object> map = new HashMap<String,Object>();
+			map.put("prodCode", prodCode);
+			map.put("fileSeq", subImg2Seq);
+			map.put("prodImgGbCd", CmmnCnst.cmmn13);
+			map.put("prodImgTypeCd", CmmnCnst.cmmn1);
+			map.put("prodCode", prodCode);
+			webSaleManageDao.insertProdImg(map);
+		}
+		if(!subImg3Seq.equals("")){
+			HashMap<String,Object> map = new HashMap<String,Object>();
+			map.put("prodCode", prodCode);
+			map.put("fileSeq", subImg3Seq);
+			map.put("prodImgGbCd", CmmnCnst.cmmn14);
+			map.put("prodImgTypeCd", CmmnCnst.cmmn1);
+			map.put("prodCode", prodCode);
+			webSaleManageDao.insertProdImg(map);
+		}
+		if(!subImg4Seq.equals("")){
+			HashMap<String,Object> map = new HashMap<String,Object>();
+			map.put("prodCode", prodCode);
+			map.put("fileSeq", subImg4Seq);
+			map.put("prodImgGbCd", CmmnCnst.cmmn15);
+			map.put("prodImgTypeCd", CmmnCnst.cmmn1);
+			map.put("prodCode", prodCode);
+			webSaleManageDao.insertProdImg(map);
+		}
+		if(!subImg5Seq.equals("")){
+			HashMap<String,Object> map = new HashMap<String,Object>();
+			map.put("prodCode", prodCode);
+			map.put("fileSeq", subImg5Seq);
+			map.put("prodImgGbCd", CmmnCnst.cmmn16);
+			map.put("prodImgTypeCd", CmmnCnst.cmmn1);
+			map.put("prodCode", prodCode);
+			webSaleManageDao.insertProdImg(map);
+		}
+
+
+	}
+
+
+
+	@Override
+	public void procInsertProdCommV2(ModelAndView mav, Map<String, Object> inParam) throws Exception {
+
+
+
+		if (  "Y".equals(((String) inParam.get("appYn")))  ){
+
+			logger.debug("앱에서 호출하였음.");
+
+			// 앱에서 호출함.
+
+			Map<String,Object> map = jsonToMap((String)inParam.get("img"));
+
+			List<Map<String,Object>> list = (List<Map<String,Object>>) map.get("list");
+			int i=0;
+			for (Map<String, Object> map2 : list) {
+				if(i==0){
+					inParam.put("mainImgSeq", map2.get("FILE_SEQ"));
+					inParam.put("mainImgUrl", map2.get("FILE_URL"));
+					inParam.put("mainImgGbCd", CmmnCnst.cmmn11);
+				}else{
+					inParam.put("subImg"+i+"Seq", map2.get("FILE_SEQ"));
+					inParam.put("subImg"+i+"Url", map2.get("FILE_URL"));
+					inParam.put("subImg"+i+"GbCd", String.valueOf(Integer.parseInt(CmmnCnst.cmmn11) + i));
+				}
+
+
+				i++;
+			}
+			inParam.put("movePage","2");	// 이미지등록
+		}
+
+		logger.debug("이미지 등록 전 파라미터 확인");
+		LoggerUtil.writeMap(inParam);
+
+		String movePage = StringUtil.nvl((String)inParam.get("movePage"), CmmnCnst.cmmn1);
+		String mainYn = StringUtil.nvl((String)inParam.get("mainYn"), CmmnCnst.cmmnN);
+		inParam.put("mainYn", mainYn);
+		logger.info("===== movePage ===============>" + movePage);
+
+		if (CmmnCnst.cmmn1.equals(movePage)) {
+			// 상품등록 사진등록으로 이동
+			// 상품 등록 시 필요한 data를 json 형식으로 만들어 가지고 다님
+			if (!StringUtil.isEmpty((String)inParam.get("moveBack")) && CmmnCnst.cmmnY.equals((String)inParam.get("moveBack"))) {
+				mav.addObject("regData", inParam.get("regData"));
+			}
+			else {
+				logger.debug("최초 진입");
+				mav.addObject("refUrl", inParam.get("REFERER"));
+				mav.addObject("regData", setJsonData(inParam, "regData", new String[]{"refUrl"}  ));
+			}
+
+			// 미리보기
+			if (!StringUtil.isEmpty(getJsonData(inParam, "regData", "mainImgSeq"))) {
+				mav.addObject("mainImgSeq", getJsonData(inParam, "regData", "mainImgSeq"));
+				mav.addObject("mainImgFlag", CmmnCnst.cmmnS);
+			}
+			if (!StringUtil.isEmpty(getJsonData(inParam, "regData", "subImg1Seq"))) {
+				mav.addObject("subImg1Seq", getJsonData(inParam, "regData", "subImg1Seq"));
+				mav.addObject("subImg1Flag", CmmnCnst.cmmnS);
+			}
+			if (!StringUtil.isEmpty(getJsonData(inParam, "regData", "subImg2Seq"))) {
+				mav.addObject("subImg2Seq", getJsonData(inParam, "regData", "subImg2Seq"));
+				mav.addObject("subImg2Flag", CmmnCnst.cmmnS);
+			}
+			if (!StringUtil.isEmpty(getJsonData(inParam, "regData", "subImg3Seq"))) {
+				mav.addObject("subImg3Seq", getJsonData(inParam, "regData", "subImg3Seq"));
+				mav.addObject("subImg3Flag", CmmnCnst.cmmnS);
+			}
+			if (!StringUtil.isEmpty(getJsonData(inParam, "regData", "subImg4Seq"))) {
+				mav.addObject("subImg4Seq", getJsonData(inParam, "regData", "subImg4Seq"));
+				mav.addObject("subImg4Flag", CmmnCnst.cmmnS);
+			}
+			if (!StringUtil.isEmpty(getJsonData(inParam, "regData", "subImg5Seq"))) {
+				mav.addObject("subImg5Seq", getJsonData(inParam, "regData", "subImg5Seq"));
+				mav.addObject("subImg5Flag", CmmnCnst.cmmnS);
+			}
+
+			mav.addObject("mainImgUrl", StringUtil.nvl(getJsonData(inParam, "regData", "mainImgUrl"), CmmnCnst.MAIN_IMG_DEFAULT_URL_V2));
+			mav.addObject("subImg1Url", StringUtil.nvl(getJsonData(inParam, "regData", "subImg1Url"), CmmnCnst.SUB1_IMG_DEFAULT_URL_V2));
+			mav.addObject("subImg2Url", StringUtil.nvl(getJsonData(inParam, "regData", "subImg2Url"), CmmnCnst.SUB2_IMG_DEFAULT_URL_V2));
+			mav.addObject("subImg3Url", StringUtil.nvl(getJsonData(inParam, "regData", "subImg3Url"), CmmnCnst.SUB3_IMG_DEFAULT_URL_V2));
+			mav.addObject("subImg4Url", StringUtil.nvl(getJsonData(inParam, "regData", "subImg4Url"), CmmnCnst.SUB4_IMG_DEFAULT_URL_V2));
+			mav.addObject("subImg5Url", StringUtil.nvl(getJsonData(inParam, "regData", "subImg5Url"), CmmnCnst.SUB5_IMG_DEFAULT_URL_V2));
+
+			mav.setViewName("web/saleMngV2/procProdRegStep1");
+
+		}
+		else if (CmmnCnst.cmmn2.equals(movePage)) {
+
+			logger.debug("prodDtl : "+inParam.get("prodDtl"));
+
+
+			// 상품등록 카테고리로 이동
+			// 상품 등록 시 필요한 data를 json 형식으로 만들어 가지고 다님
+			if (!StringUtil.isEmpty((String)inParam.get("moveBack")) && CmmnCnst.cmmnY.equals((String)inParam.get("moveBack"))) {
+				mav.addObject("regData", inParam.get("regData"));
+			}
+			else {
+				// 파일 정보
+				List<String> tempKey = new ArrayList<String>();
+				String[] addKey = null;
+				String[] delKey = null;
+				String regData = "";
+
+				// regData 등록
+				if (!StringUtil.isEmpty((String)inParam.get("mainImgSeq"))) {
+					tempKey.add("mainImgSeq");
+					tempKey.add("mainImgUrl");
+					tempKey.add("mainImgGbCd");
+				}
+				if (!StringUtil.isEmpty((String)inParam.get("subImg1Seq"))) {
+					tempKey.add("subImg1Seq");
+					tempKey.add("subImg1Url");
+					tempKey.add("subImg1GbCd");
+				}
+				if (!StringUtil.isEmpty((String)inParam.get("subImg2Seq"))) {
+					tempKey.add("subImg2Seq");
+					tempKey.add("subImg2Url");
+					tempKey.add("subImg2GbCd");
+				}
+				if (!StringUtil.isEmpty((String)inParam.get("subImg3Seq"))) {
+					tempKey.add("subImg3Seq");
+					tempKey.add("subImg3Url");
+					tempKey.add("subImg3GbCd");
+				}
+				if (!StringUtil.isEmpty((String)inParam.get("subImg4Seq"))) {
+					tempKey.add("subImg4Seq");
+					tempKey.add("subImg4Url");
+					tempKey.add("subImg4GbCd");
+				}
+				if (!StringUtil.isEmpty((String)inParam.get("subImg5Seq"))) {
+					tempKey.add("subImg5Seq");
+					tempKey.add("subImg5Url");
+					tempKey.add("subImg5GbCd");
+				}
+				addKey = tempKey.toArray(new String[tempKey.size()]);
+				regData = setJsonData(inParam, "regData", addKey);				// 필수
+				inParam.put("regData", regData);								// 필수
+
+				// 파일정보 삭제
+				String subImg2Flag = StringUtil.nvl((String)inParam.get("subImg2Flag"), "");
+				String subImg3Flag = StringUtil.nvl((String)inParam.get("subImg3Flag"), "");
+				String subImg4Flag = StringUtil.nvl((String)inParam.get("subImg4Flag"), "");
+				String subImg5Flag = StringUtil.nvl((String)inParam.get("subImg5Flag"), "");
+				tempKey = new ArrayList<String>();
+				if (CmmnCnst.cmmnD.equalsIgnoreCase(subImg2Flag)) {
+					tempKey.add("subImg2Seq");
+					tempKey.add("subImg2Url");
+					tempKey.add("subImg2GbCd");
+				}
+				if (CmmnCnst.cmmnD.equalsIgnoreCase(subImg3Flag)) {
+					tempKey.add("subImg3Seq");
+					tempKey.add("subImg3Url");
+					tempKey.add("subImg3GbCd");
+				}
+				if (CmmnCnst.cmmnD.equalsIgnoreCase(subImg4Flag)) {
+					tempKey.add("subImg4Seq");
+					tempKey.add("subImg4Url");
+					tempKey.add("subImg4GbCd");
+				}
+				if (CmmnCnst.cmmnD.equalsIgnoreCase(subImg5Flag)) {
+					tempKey.add("subImg5Seq");
+					tempKey.add("subImg5Url");
+					tempKey.add("subImg5GbCd");
+				}
+				delKey = tempKey.toArray(new String[tempKey.size()]);
+				regData = delJsonData(inParam, "regData", delKey);
+				inParam.put("regData", regData);
+
+				mav.addObject("regData", inParam.get("regData"));
+			}
+			mav.setViewName("web/saleMngV2/procProdRegStep2");
+		}
+		else if (CmmnCnst.cmmn3.equals(movePage)) {
+
+			logger.debug("prodDtl : "+inParam.get("prodDtl"));
+
+			// 상품등록 상품설명으로 이동
+			// 상품 등록 시 필요한 data를 json 형식으로 만들어 가지고 다님
+			if (!StringUtil.isEmpty((String)inParam.get("moveBack")) && CmmnCnst.cmmnY.equals((String)inParam.get("moveBack"))) {
+				mav.addObject("regData", inParam.get("regData"));
+			}
+			else {
+
+
+				// 유저시퀀스로 출하지 정보 가져오기
+				mav.addObject("myDlvList", webSaleManageDao.selectDlvInfo(inParam));
+
+
+
+				// 제휴택배 코드 조회, 배송비 조회
+				logger.debug("제휴택배 코드, 배송비 조회");
+				mav.addObject("relDlvInfo", webSaleManageDao.selectListRelDlvInfo(inParam));
+
+
+				logger.debug("inParam : " + inParam.toString());
+
+				// 이전페이지에서 가져온 상품 제목, 내용 추가
+				mav.addObject("regData", setJsonData(inParam, "regData", new String[]{"prodNm","prodDtl"}));
+			}
+			mav.setViewName("web/saleMngV2/procProdRegStep3");
+		}
+
+
+
+
+		logger.debug("mav.toString() : " + mav.toString());
+
+		mav.addObject("params", inParam);
+
+	}
+
+
+
+
+	/**
+	 * <pre>
+	 * procInsertProdComm
+	 * 상품관리 - 상품등록 공통 페이지 호출
+	 * &#64;param inParam
+	 * &#64;return
+	 * &#64;throws Exception
+	 * &#64;date 2015. 8. 20
+	 * &#64;author Kang.h.c
+	 * &#64;see com.ssocio.sharing.service.web
+	 * </pre>
+	 */
+	@Override
+	public void procInsertProdComm(ModelAndView mav, Map<String, Object> inParam) throws Exception {
+
+		LoggerUtil.writeMap(inParam);
+
+		String movePage = StringUtil.nvl((String)inParam.get("movePage"), CmmnCnst.cmmn1);
+		String mainYn = StringUtil.nvl((String)inParam.get("mainYn"), CmmnCnst.cmmnN);
+		inParam.put("mainYn", mainYn);
+
+		logger.info("===== movePage ===============>" + movePage);
+
+		if (CmmnCnst.cmmn1.equals(movePage)) {
+
+
+
+			if (!StringUtil.isEmpty((String)inParam.get("moveBack")) && CmmnCnst.cmmnY.equals((String)inParam.get("moveBack"))) {
+				logger.debug("이전버튼으로 옴");
+			} else {
+				logger.debug("최초 진입");
+				mav.addObject("refUrl", inParam.get("REFERER"));
+			}
+
+			// 상품등록 거래방식으로 이동
+			mav.addObject("regData", inParam.get("regData"));
+			mav.setViewName("web/saleMng/procProdType");
+		}
+		else if (CmmnCnst.cmmn2.equals(movePage)) {
+			// 상품등록 사진등록으로 이동
+			// 상품 등록 시 필요한 data를 json 형식으로 만들어 가지고 다님
+			if (!StringUtil.isEmpty((String)inParam.get("moveBack")) && CmmnCnst.cmmnY.equals((String)inParam.get("moveBack"))) {
+				mav.addObject("regData", inParam.get("regData"));
+			}
+			else {
+				mav.addObject("regData", setJsonData(inParam, "regData", new String[]{"prodTypeCd","refUrl"}  ));
+			}
+
+			// 미리보기
+			if (!StringUtil.isEmpty(getJsonData(inParam, "regData", "mainImgSeq"))) {
+				mav.addObject("mainImgSeq", getJsonData(inParam, "regData", "mainImgSeq"));
+				mav.addObject("mainImgFlag", CmmnCnst.cmmnS);
+			}
+			if (!StringUtil.isEmpty(getJsonData(inParam, "regData", "subImg1Seq"))) {
+				mav.addObject("subImg1Seq", getJsonData(inParam, "regData", "subImg1Seq"));
+				mav.addObject("subImg1Flag", CmmnCnst.cmmnS);
+			}
+			if (!StringUtil.isEmpty(getJsonData(inParam, "regData", "subImg2Seq"))) {
+				mav.addObject("subImg2Seq", getJsonData(inParam, "regData", "subImg2Seq"));
+				mav.addObject("subImg2Flag", CmmnCnst.cmmnS);
+			}
+			if (!StringUtil.isEmpty(getJsonData(inParam, "regData", "subImg3Seq"))) {
+				mav.addObject("subImg3Seq", getJsonData(inParam, "regData", "subImg3Seq"));
+				mav.addObject("subImg3Flag", CmmnCnst.cmmnS);
+			}
+			if (!StringUtil.isEmpty(getJsonData(inParam, "regData", "subImg4Seq"))) {
+				mav.addObject("subImg4Seq", getJsonData(inParam, "regData", "subImg4Seq"));
+				mav.addObject("subImg4Flag", CmmnCnst.cmmnS);
+			}
+
+
+			mav.addObject("mainImgUrl", StringUtil.nvl(getJsonData(inParam, "regData", "mainImgUrl"), CmmnCnst.MAIN_IMG_DEFAULT_URL));
+			mav.addObject("subImg1Url", StringUtil.nvl(getJsonData(inParam, "regData", "subImg1Url"), CmmnCnst.SUB1_IMG_DEFAULT_URL));
+			mav.addObject("subImg2Url", StringUtil.nvl(getJsonData(inParam, "regData", "subImg2Url"), CmmnCnst.SUB_IMG_DEFAULT_URL));
+			mav.addObject("subImg3Url", StringUtil.nvl(getJsonData(inParam, "regData", "subImg3Url"), CmmnCnst.SUB_IMG_DEFAULT_URL));
+			mav.addObject("subImg4Url", StringUtil.nvl(getJsonData(inParam, "regData", "subImg4Url"), CmmnCnst.SUB_IMG_DEFAULT_URL));
+
+			mav.setViewName("web/saleMng/procProdImg");
+
+		}
+		else if (CmmnCnst.cmmn3.equals(movePage)) {
+			// 상품등록 카테고리로 이동
+			// 상품 등록 시 필요한 data를 json 형식으로 만들어 가지고 다님
+			if (!StringUtil.isEmpty((String)inParam.get("moveBack")) && CmmnCnst.cmmnY.equals((String)inParam.get("moveBack"))) {
+				mav.addObject("regData", inParam.get("regData"));
+			}
+			else {
+				// 파일 정보
+				List<String> tempKey = new ArrayList<String>();
+				String[] addKey = null;
+				String[] delKey = null;
+				String regData = "";
+
+				// regData 등록
+				if (!StringUtil.isEmpty((String)inParam.get("mainImgSeq"))) {
+					tempKey.add("mainImgSeq");
+					tempKey.add("mainImgUrl");
+					tempKey.add("mainImgGbCd");
+				}
+				if (!StringUtil.isEmpty((String)inParam.get("subImg1Seq"))) {
+					tempKey.add("subImg1Seq");
+					tempKey.add("subImg1Url");
+					tempKey.add("subImg1GbCd");
+				}
+				if (!StringUtil.isEmpty((String)inParam.get("subImg2Seq"))) {
+					tempKey.add("subImg2Seq");
+					tempKey.add("subImg2Url");
+					tempKey.add("subImg2GbCd");
+				}
+				if (!StringUtil.isEmpty((String)inParam.get("subImg3Seq"))) {
+					tempKey.add("subImg3Seq");
+					tempKey.add("subImg3Url");
+					tempKey.add("subImg3GbCd");
+				}
+				if (!StringUtil.isEmpty((String)inParam.get("subImg4Seq"))) {
+					tempKey.add("subImg4Seq");
+					tempKey.add("subImg4Url");
+					tempKey.add("subImg4GbCd");
+				}
+				addKey = tempKey.toArray(new String[tempKey.size()]);
+				regData = setJsonData(inParam, "regData", addKey);
+				inParam.put("regData", regData);
+
+				// 파일정보 삭제
+				String subImg2Flag = StringUtil.nvl((String)inParam.get("subImg2Flag"), "");
+				String subImg3Flag = StringUtil.nvl((String)inParam.get("subImg3Flag"), "");
+				String subImg4Flag = StringUtil.nvl((String)inParam.get("subImg4Flag"), "");
+				tempKey = new ArrayList<String>();
+				if (CmmnCnst.cmmnD.equalsIgnoreCase(subImg2Flag)) {
+					tempKey.add("subImg2Seq");
+					tempKey.add("subImg2Url");
+					tempKey.add("subImg2GbCd");
+				}
+				if (CmmnCnst.cmmnD.equalsIgnoreCase(subImg3Flag)) {
+					tempKey.add("subImg3Seq");
+					tempKey.add("subImg3Url");
+					tempKey.add("subImg3GbCd");
+				}
+				if (CmmnCnst.cmmnD.equalsIgnoreCase(subImg4Flag)) {
+					tempKey.add("subImg4Seq");
+					tempKey.add("subImg4Url");
+					tempKey.add("subImg4GbCd");
+				}
+				delKey = tempKey.toArray(new String[tempKey.size()]);
+				regData = delJsonData(inParam, "regData", delKey);
+				inParam.put("regData", regData);
+
+				mav.addObject("regData", inParam.get("regData"));
+			}
+
+			mav.setViewName("web/saleMng/procProdCtry");
+		}
+		else if (CmmnCnst.cmmn4.equals(movePage)) {
+			// 상품등록 브랜드로 이동
+			// 상품 등록 시 필요한 data를 json 형식으로 만들어 가지고 다님
+			if (!StringUtil.isEmpty((String)inParam.get("moveBack")) && CmmnCnst.cmmnY.equals((String)inParam.get("moveBack"))) {
+				mav.addObject("regData", inParam.get("regData"));
+			}
+			else {
+				String[] addKey = {"ctryCd", "ctryNm"};
+				mav.addObject("regData", setJsonData(inParam, "regData", addKey));
+			}
+			mav.addObject("brandList", webSaleManageDao.selectBrandList(inParam));
+			mav.addObject("params", inParam);
+			mav.setViewName("web/saleMng/procProdBrand");
+		}
+		else if (CmmnCnst.cmmn5.equals(movePage)) {
+			// 상품등록 상품명으로 이동
+			// 상품 등록 시 필요한 data를 json 형식으로 만들어 가지고 다님
+			if (!StringUtil.isEmpty((String)inParam.get("moveBack")) && CmmnCnst.cmmnY.equals((String)inParam.get("moveBack"))) {
+				mav.addObject("regData", inParam.get("regData"));
+			}
+			else {
+				mav.addObject("regData", setJsonData(inParam, "regData", "brandCd"));
+			}
+			mav.addObject("ctryCd", getJsonData(inParam, "regData", "ctryCd"));
+			mav.setViewName("web/saleMng/procProdNm");
+		}
+		else if (CmmnCnst.cmmn6.equals(movePage)) {
+			// 상품등록 상품설명으로 이동
+			// 상품 등록 시 필요한 data를 json 형식으로 만들어 가지고 다님
+			if (!StringUtil.isEmpty((String)inParam.get("moveBack")) && CmmnCnst.cmmnY.equals((String)inParam.get("moveBack"))) {
+				mav.addObject("regData", inParam.get("regData"));
+			}
+			else {
+				mav.addObject("regData", setJsonData(inParam, "regData", "prodNm"));
+			}
+			mav.setViewName("web/saleMng/procProdDtl");
+		}
+		else if (CmmnCnst.cmmn7.equals(movePage)) {
+//			webSaleManageDao.selectdlvinfoChk(inParam);
+			// 상품등록 상품키워드로 이동
+			// 상품 등록 시 필요한 data를 json 형식으로 만들어 가지고 다님
+			if (!StringUtil.isEmpty((String)inParam.get("moveBack")) && CmmnCnst.cmmnY.equals((String)inParam.get("moveBack"))) {
+				mav.addObject("regData", inParam.get("regData"));
+			}
+			else {
+				Map<String,Object> dlvInfoData = webSaleManageDao.selectCheckDlvInfo(inParam);
+				// 모바일인 경우 아래 정보를 세팅 해서 이동 한다.
+				if("Y".equals( inParam.get("MOBILE").toString()))
+				{
+					inParam.put("prodDtl", inParam.get("prodDtl").toString().replaceAll("\r\n", "<br/>"));
+				//	inParam.put("prodDtl", inParam.get("prodDtl").toString().replaceAll(" ", "&nbsp;"));
+				}
+				if(null != dlvInfoData){
+					String[] addKey = {"zipCode", "jusoDoro", "jusoJiben", "jusoDtl", "jusoPageFlag","prodDtl"};
+					inParam.put("zipCode", dlvInfoData.get("ZIP_CD"));
+					inParam.put("jusoDoro", dlvInfoData.get("JUSO_DORO"));
+					inParam.put("jusoJiben", dlvInfoData.get("JUSO_JIBEN"));
+					inParam.put("jusoDtl", dlvInfoData.get("JUSO_DTL"));
+					inParam.put("jusoPageFlag", "Y");
+					mav.addObject("regData", setJsonData(inParam, "regData", addKey));
+				}else{
+					String[] addKey = {"jusoPageFlag","prodDtl"};
+					inParam.put("jusoPageFlag", "N");
+					mav.addObject("regData", setJsonData(inParam, "regData", addKey));
+				}
+
+			}
+			mav.setViewName("web/saleMng/procProdKeyWord");
+		}
+		else if (CmmnCnst.cmmn8.equals(movePage)) {
+
+			logger.info("inParam chk ::::::::::::::::::::::: " + inParam.get("regData").toString());
+
+			// 상품등록 상품키워드로 이동
+			// 상품 등록 시 필요한 data를 json 형식으로 만들어 가지고 다님
+			if (!StringUtil.isEmpty((String)inParam.get("moveBack")) && CmmnCnst.cmmnY.equals((String)inParam.get("moveBack"))) {
+				mav.addObject("regData", inParam.get("regData"));
+			}
+			else {
+					mav.addObject("regData", setJsonData(inParam, "regData", "keyword"));
+			}
+
+			mav.setViewName("web/saleMng/procProdDlv");
+		}
+		else if (CmmnCnst.cmmn9.equals(movePage)) {
+			// 공통 끝 판매 방식의 따른 분류
+			// 상품 등록 시 필요한 data를 json 형식으로 만들어 가지고 다님
+
+			if (!StringUtil.isEmpty((String)inParam.get("moveBack")) && CmmnCnst.cmmnY.equals((String)inParam.get("moveBack"))) {
+				mav.addObject("regData", inParam.get("regData"));
+			}
+			else {
+				// 필요한 DATA JSON에서 찾기
+				String jusoPageFlag = getJsonData(inParam, "regData", "jusoPageFlag");
+				// 출하지 정보 입력안하고 넘어갈경우 .
+				if("Y".equals(jusoPageFlag)){
+					mav.addObject("regData", setJsonData(inParam, "regData", "keyword"));
+				}else{
+					String[] addKey = {"zipCode", "jusoDoro", "jusoJiben", "jusoDtl"};
+					mav.addObject("regData", setJsonData(inParam, "regData", addKey));
+				}
+			}
+
+			// 필요한 DATA JSON에서 찾기
+			String prodTypeCd = getJsonData(inParam, "regData", "prodTypeCd");
+
+			if (CmmnCnst.cmmn1.equals(prodTypeCd)) {
+				// 판매
+				mav.setViewName("web/saleMng/procNProdGb");
+			}
+			else if (CmmnCnst.cmmn2.equals(prodTypeCd)) {
+				// 셰어링
+				mav.addObject("ctryCd", getJsonData(inParam, "regData", "ctryCd"));
+				mav.addObject("ctryNm", getJsonData(inParam, "regData", "ctryNm"));
+				mav.setViewName("web/saleMng/procSharePrce");
+			}
+			else if (CmmnCnst.cmmn3.equals(prodTypeCd)) {
+				// 나눔
+				mav.setViewName("web/saleMng/procFreeEndDt");
+			}
+		}
+
+		logger.debug("mav.toString() : " + mav.toString());
+
+		mav.addObject("params", inParam);
+
+	}
+
+	/**
+	 * <pre>
+	 * procInsertProdSell
+	 * 상품관리 - 상품등록 판매 페이지 호출
+	 * &#64;param inParam
+	 * &#64;return
+	 * &#64;throws Exception
+	 * &#64;date 2015. 8. 24
+	 * &#64;author Kang.h.c
+	 * &#64;see com.ssocio.sharing.service.web
+	 * </pre>
+	 */
+	@Override
+	public void procInsertProdSell(ModelAndView mav, Map<String, Object> inParam) throws Exception {
+
+		LoggerUtil.writeMap(inParam);
+
+		String movePage = (String)inParam.get("movePage");
+
+
+		// 상품 등록 페이지
+		if (CmmnCnst.cmmn1.equals(movePage)) {
+			// 상품등록 상품상태 선택 후 상품금액으로 이동
+			// 상품 등록 시 필요한 data를 json 형식으로 만들어 가지고 다님
+			if (!StringUtil.isEmpty((String)inParam.get("moveBack")) && CmmnCnst.cmmnY.equals((String)inParam.get("moveBack"))) {
+				String prodTypeCd = getJsonData(inParam, "regData", "prodTypeCd");
+
+				// 셰어링
+				if (CmmnCnst.cmmn3.equals(prodTypeCd)) {
+					mav.addObject("regData", delJsonData(inParam, "regData", "freeShareEndDt"));
+					mav.setViewName("web/saleMng/procFreeEndDt");
+				}
+
+				// 판매, 나눔 등
+				else {
+					String[] delKey = {"nrmPrce", "sellPrce", "stockQty"};
+					mav.addObject("regData", delJsonData(inParam, "regData", delKey));
+					mav.addObject("ctryCd", getJsonData(inParam, "regData", "ctryCd"));
+					mav.addObject("ctryNm", getJsonData(inParam, "regData", "ctryNm"));
+					mav.setViewName("web/saleMng/procProdPrce");
+				}
+			}
+			else {
+				mav.addObject("regData", setJsonData(inParam, "regData", "nProdGbCd"));
+				mav.addObject("ctryCd", getJsonData(inParam, "regData", "ctryCd"));
+				mav.addObject("ctryNm", getJsonData(inParam, "regData", "ctryNm"));
+				mav.setViewName("web/saleMng/procProdPrce");
+			}
+
+		}
+		else if (CmmnCnst.cmmn2.equals(movePage)) {
+			// 상품등록 상품금액 입력 후 배송방식 선택으로 이동
+			// 상품 등록 시 필요한 data를 json 형식으로 만들어 가지고 다님
+			String prodTypeCd = getJsonData(inParam, "regData", "prodTypeCd");
+			if (!StringUtil.isEmpty((String)inParam.get("moveBack")) && CmmnCnst.cmmnY.equals((String)inParam.get("moveBack"))) {
+				// 셰어링
+				if (CmmnCnst.cmmn2.equals(prodTypeCd)) {
+					String[] delKey = {"dlvWayCd", "sharingPrice", "deposit", "shStatCd", "sharingMaxTerm"};
+					mav.addObject("regData", delJsonData(inParam, "regData", delKey));
+				}
+				// 판매 , 나눔
+				else {
+					mav.addObject("regData", delJsonData(inParam, "regData", "dlvWayCd"));
+				}
+			}
+			else {
+
+				if (CmmnCnst.cmmn3.equals(prodTypeCd)) {
+					mav.addObject("regData", setJsonData(inParam, "regData", "freeShareEndDt"));
+				}
+				else {
+					String[] addKey = {"nrmPrce", "sellPrce", "stockQty"};
+					mav.addObject("regData", setJsonData(inParam, "regData", addKey));
+				}
+			}
+			mav.addObject("prodTypeCd", prodTypeCd);
+			mav.setViewName("web/saleMng/procDlvWay");
+		}
+		else if (CmmnCnst.cmmn3.equals(movePage)) {
+			String dlvWayCd = StringUtil.nvl((String) inParam.get("dlvWayCd"),
+					getJsonData(inParam, "regData", "dlvWayCd")); // 배송방식
+			// 상품 등록 시 필요한 data를 json 형식으로 만들어 가지고 다님
+			String prodTypeCd = getJsonData(inParam, "regData", "prodTypeCd");
+			if (!StringUtil.isEmpty((String)inParam.get("moveBack")) && CmmnCnst.cmmnY.equals((String)inParam.get("moveBack"))) {
+				String[] delKey = {"dlvCmpCd", "tradLoc"};
+				mav.addObject("regData", delJsonData(inParam, "regData", delKey));
+			}
+			else {
+				// 셰어링
+				if (CmmnCnst.cmmn2.equals(prodTypeCd)) {
+					String[] addKey = {"dlvWayCd", "sharingPrice", "deposit", "shStatCd", "sharingMaxTerm", "stockQty"};
+					mav.addObject("regData", setJsonData(inParam, "regData", addKey));
+				}
+				// 판매 , 나눔
+				else {
+					mav.addObject("regData", setJsonData(inParam, "regData", "dlvWayCd"));
+				}
+			}
+
+			// 배송방식에 따른 return page 변경
+			if (!"".equals(dlvWayCd)) {
+				mav.addObject("prodTypeCd", prodTypeCd);
+				if (CmmnCnst.cmmn1.equals(dlvWayCd) || CmmnCnst.cmmn2.equals(dlvWayCd)) {
+					// 제휴택배 코드 조회
+					if (CmmnCnst.cmmn1.equals(dlvWayCd)) {
+						mav.addObject("relDlvInfo", webSaleManageDao.selectListRelDlvInfo(inParam));
+					}
+					// 제휴택배 or 일반택배
+					mav.addObject("dlvWayCd", dlvWayCd);
+					mav.setViewName("web/saleMng/procDlvCmp");
+				}
+				else if (CmmnCnst.cmmn4.equals(dlvWayCd)) {
+					// 퀵서비스
+					mav.setViewName("web/saleMng/procDlvLoc");
+				}
+				else if (CmmnCnst.cmmn5.equals(dlvWayCd)) {
+					// 직거래
+					mav.setViewName("web/saleMng/procTradLoc");
+				}
+			}
+
+		}
+		else if (CmmnCnst.cmmn4.equals(movePage)) {
+			// 상품등록 배송방식 선택 후 배송비 선택으로 이동
+			// 상품 등록 시 필요한 data를 json 형식으로 만들어 가지고 다님
+			String dlvWayCd = getJsonData(inParam, "regData", "dlvWayCd");
+			if (!StringUtil.isEmpty((String)inParam.get("moveBack")) && CmmnCnst.cmmnY.equals((String)inParam.get("moveBack"))) {
+				mav.addObject("regData", delJsonData(inParam, "regData", "dlvPayGbCd"));
+			}
+			else {
+				if (CmmnCnst.cmmn1.equals(dlvWayCd) || CmmnCnst.cmmn2.equals(dlvWayCd)) {
+					mav.addObject("regData", setJsonData(inParam, "regData", "dlvCmpCd"));
+				}
+				else {
+					mav.addObject("regData", setJsonData(inParam, "regData", "tradLoc"));
+				}
+			}
+			mav.addObject("dlvWayCd", dlvWayCd);
+			mav.setViewName("web/saleMng/procDlvPayGb");
+		}
+		else if (CmmnCnst.cmmn5.equals(movePage)) {
+			// 상품등록 배송비 방식 선택 후 페이지 이동
+			// 상품 등록 시 필요한 data를 json 형식으로 만들어 가지고 다님
+			String dlvPayGbCd = StringUtil.nvl((String)inParam.get("dlvPayGbCd"), getJsonData(inParam, "regData", "dlvPayGbCd"));
+			if (!StringUtil.isEmpty((String)inParam.get("moveBack")) && CmmnCnst.cmmnY.equals((String)inParam.get("moveBack"))) {
+				// 기타산간 추가 배송비
+				inParam.put("grpCd", CmmnCnst.extLandCd);
+				List<Map<String, Object>> codeList = webSaleManageDao.selectListCodeGroup(inParam);
+				List<String> tempKey = new ArrayList<String>();
+				String[] delKey = null;
+				if (codeList != null) {
+					for (int i = 0 ; i < codeList.size() ; i++) {
+						String etcDlvPrce = (String)inParam.get("extLandCd_"+codeList.get(i).get("COM_CD"));
+						if (etcDlvPrce != null && !"".equals(etcDlvPrce) && !CmmnCnst.cmmn0.equals(etcDlvPrce)) {
+							tempKey.add("extLandCd_"+codeList.get(i).get("COM_CD"));
+						}
+					}
+				}
+				tempKey.add("dlvPrce");
+				delKey = tempKey.toArray(new String[tempKey.size()]);
+				mav.addObject("regData", delJsonData(inParam, "regData", delKey));
+			}
+			else {
+				mav.addObject("regData", setJsonData(inParam, "regData", "dlvPayGbCd"));
+				mav.addObject("dlvPayGbCd", dlvPayGbCd);
+			}
+
+			// 판매방식에 따른 분류
+			String prodTypeCd = getJsonData(inParam, "regData", "prodTypeCd");
+			// 판매
+			if (CmmnCnst.cmmn1.equals(prodTypeCd)) {
+				// 판매 회원이 배송비 부담
+				if (CmmnCnst.cmmn1.equals(dlvPayGbCd)) {
+					mav.setViewName("web/saleMng/procBndlDlv");
+				}
+				// 구매 회원이 배송비 부담
+				else {
+					mav.addObject("dlvWayCd", getJsonData(inParam, "regData", "dlvWayCd"));
+					mav.addObject("dlvCmpCd", getJsonData(inParam, "regData", "dlvCmpCd"));
+					mav.setViewName("web/saleMng/procDlvPrce");
+				}
+			}
+			// 셰어링
+			else if (CmmnCnst.cmmn2.equals(prodTypeCd)) {
+				mav.setViewName("web/saleMng/procBndlDlv");
+			}
+
+		}
+		else if (CmmnCnst.cmmn6.equals(movePage)) {
+			// 상품등록 배송비 방식 선택 후 페이지 이동
+			// 상품 등록 시 필요한 data를 json 형식으로 만들어 가지고 다님
+			if (!StringUtil.isEmpty((String)inParam.get("moveBack")) && CmmnCnst.cmmnY.equals((String)inParam.get("moveBack"))) {
+				mav.addObject("regData", getJsonStr(inParam, "regData"));
+			}
+			else {
+				// 기타산간 추가 배송비
+				inParam.put("grpCd", CmmnCnst.extLandCd);
+				List<Map<String, Object>> codeList = webSaleManageDao.selectListCodeGroup(inParam);
+				List<String> tempKey = new ArrayList<String>();
+				String[] addKey = null;
+				if (codeList != null) {
+					for (int i = 0 ; i < codeList.size() ; i++) {
+						String etcDlvPrce = (String)inParam.get("extLandCd_"+codeList.get(i).get("COM_CD"));
+						if (etcDlvPrce != null && !"".equals(etcDlvPrce) && !CmmnCnst.cmmn0.equals(etcDlvPrce)) {
+							tempKey.add("extLandCd_"+codeList.get(i).get("COM_CD"));
+						}
+					}
+				}
+				tempKey.add("dlvPrce");
+				addKey = tempKey.toArray(new String[tempKey.size()]);
+				mav.addObject("regData", setJsonData(inParam, "regData", addKey));
+
+			}
+			mav.setViewName("web/saleMng/procBndlDlv");
+		}
+
+		mav.addObject("params", inParam);
+
+	}
+
+		/**
+		 * <pre>
+		 * insertSellProdInfo
+		 * 상품관리 - 상품등록
+		 * &#64;param inParam
+		 * &#64;return
+		 * &#64;throws Exception
+		 * &#64;date 2015. 8. 24
+		 * &#64;author Kang.h.c
+		 * &#64;see com.ssocio.sharing.service.web
+		 * </pre>
+		 */
+		@Override
+	public Map<String, Object> insertSellProdInfoV2(Map<String, Object> inParam) throws Exception {
+
+		// json to map
+		inParam.put("regData", getJsonStr(inParam, "regData"));
+		String regData = (String)inParam.get("regData");
+
+
+		Map<String, Object> regDataMap = jsonToMap(regData);
+
+		Map<String, Object> insertMap  = new HashMap<String,Object>();
+
+		String prodTypeCd = (String) inParam.get("prodTypeCd");
+
+		logger.debug("prodTypeCd : " + prodTypeCd);
+
+
+		String prodNm = (String) regDataMap.get("prodNm");
+		String prodDtl = (String) regDataMap.get("prodDtl");
+
+		logger.debug("prodDtl : " + prodDtl);
+		prodDtl = HtmlUtil.txtToHtml(prodDtl);
+		logger.debug("prodDtl : " + prodDtl);
+
+
+
+		inParam.put("prodNm", prodNm);
+		inParam.put("prodDtl", prodDtl);
+		inParam.put("brandCd", CmmnCnst.cmmn0);	// 브랜드 없음
+
+
+
+
+		// 판매
+		if(CmmnCnst.cmmn1.equals( prodTypeCd )){
+
+			if(   ((String)inParam.get("sellPrce")).equals("") || ((String)inParam.get("sellPrce")).equals("0")  ){
+				throw new Exception("판매금액 최소 입력 금액은 1,000원 입니다.");
+			}
+			else if(  Integer.parseInt( ((String)inParam.get("sellPrce")) ) < CmmnCnst.SELT_LIMIT_AMT ){
+				throw new Exception("판매금액 최소 입력 금액은 1,000원 입니다.");
+			}
+
+			logger.debug("판매상품 시작");
+			insertMap = webSaleProdRegService.regProdType1(inParam);
+		}
+		// 셰어링
+		else if(CmmnCnst.cmmn2.equals( prodTypeCd )){
+
+			if(   ((String)inParam.get("deposit")).equals("") ){
+				throw new Exception("보증금 최소 입력 금액은 1,000원 입니다.");
+			}
+			else if(   Integer.parseInt(  (String)inParam.get("deposit") )  <CmmnCnst.SELT_LIMIT_AMT  ){
+				throw new Exception("보증금 최소 입력 금액은 1,000원 입니다.");
+			}
+
+			if (  ((String)inParam.get("sharingPrice")).equals("") ){
+				throw new Exception("셰어링 금액을 입력 해주세요.");
+			}
+			else if(100 > Integer.parseInt((String)inParam.get("sharingPrice"))){
+				throw new Exception("1일 셰어링금액은 최소 100원입니다.");
+			}
+
+			double deposit = Integer.parseInt(  (String)inParam.get("deposit")  );
+			double sharingPrice = Integer.parseInt((String)inParam.get("sharingPrice"));
+			if(deposit < sharingPrice){
+				throw new Exception("셰어링금액은 보증금보다 클수 없습니다.");
+			}
+
+			double sharingMaxTerm = Math.ceil(deposit / sharingPrice);
+			if(sharingMaxTerm < 1 ){
+				throw new Exception("셰어링 기간을 확인해 주세요.");
+			}
+
+			inParam.put("sharingMaxTerm", sharingMaxTerm);
+
+			logger.debug("셰어링 시작");
+			insertMap = webSaleProdRegService.regProdType2(inParam);
+
+		}
+		// 나눔
+		else if(CmmnCnst.cmmn3.equals( prodTypeCd )){
+
+			if(  ((String)inParam.get("freeShareEndDt")).length() < 8 ){
+				throw new Exception("나눔 신청 종료일을 설정해 주세요.");
+			}
+
+			logger.debug("나눔 시작");
+			insertMap = webSaleProdRegService.regProdType3(inParam);
+
+		}
+
+
+		logger.debug("insertMap : " + insertMap);
+		if(insertMap.get("rtnMsgCd") != null){
+			throw new Exception((String)insertMap.get("rtnMsgCd"));
+		}
+
+
+		String prodCode = null;
+
+
+		if(insertMap.get("prodCode") != null){
+			prodCode = (String) insertMap.get("prodCode");
+			logger.debug("prodCode 생성! : " + prodCode);
+		} else {
+			logger.debug("prod insert 실패");
+			logger.debug("insertMap : " + insertMap.toString());
+			throw new Exception("prod insert 실패");
+		}
+
+		// 셰어링상품은 추가등록이 필요함.
+		if(CmmnCnst.cmmn2.equals( prodTypeCd )){
+			logger.debug("셰어링 상품 등록");
+			insertMap.put("sharingMaxTerm", inParam.get("sharingMaxTerm"));
+			insertMap.put("shStatCd", "01");
+			String prodCode2 = webSaleManageDao.insertProdShare(insertMap);
+			if(prodCode2==null){
+				throw new Exception("insertProdShare 실패");
+			}
+		}
+
+
+		// 상품코드
+		insertMap.put("rtnMsgCd", CmmnCnst.cmmnY);
+
+
+		logger.debug("inserMap : " + insertMap.toString());
+
+		// 출하지
+		if("NEW".equals( (String) inParam.get("grpRegTypeFlag")  )){
+
+			if(
+				((String)inParam.get("zipCode")).equals("")
+				||((String)inParam.get("jusoDtl")).equals("")
+			){
+//				insertMap.put("rtnMsgCd", "판매자 주소를 입력해 주세요."); return insertMap;
+				throw new Exception("판매자 주소를 입력해 주세요.");
+			}
+
+			insertMap.put("jusoDoro", inParam.get("jusoDoro"));
+			insertMap.put("jusoJiben", inParam.get("jusoJiben"));
+			insertMap.put("zipCode", inParam.get("zipCode"));
+			insertMap.put("jusoDtl", inParam.get("jusoDtl"));
+			logger.debug("새로 입력한 출하지로 등록합니다.");
+			int grpProdSeq = webSaleManageDao.insertGrpProdInfoRegV2(insertMap);
+			insertMap.put("grpProdSeq", grpProdSeq);
+		}
+		else{
+			logger.debug("선택된 출하지로 등록합니다.");
+			insertMap.put("grpProdSeq", inParam.get("grpProdSeq"));
+		}
+		//#{grpProdSeq}, #{prodCode}, #{mberSeq}
+		int grpProdInsertRet = webSaleManageDao.insertGrpProdMap(insertMap);			// GRP_PROD_MAP 등록 (pk : 출하지일련번호[grp_prod_seq], 상품코드, 회원일련번호)
+		if(grpProdInsertRet < 0){
+			throw new Exception("출하지 등록에 실패하였습니다.");
+		}
+
+
+
+
+		// 상품 이미지 저장
+		Map<String, Object> imgMap = new HashMap<String, Object>();
+
+		logger.debug("regDataMap : " + regDataMap.toString());
+
+		// 메인이미지
+		if (!StringUtil.isEmpty((String)regDataMap.get("mainImgSeq"))) {
+			imgMap.put("prodCode", prodCode);
+			imgMap.put("fileSeq", regDataMap.get("mainImgSeq"));
+			imgMap.put("fileUrl", regDataMap.get("mainImgUrl"));
+
+			imgMap.put("prodImgGbCd", regDataMap.get("mainImgGbCd"));
+			imgMap.put("prodImgTypeCd", '1');
+			int rtn1 = webSaleManageDao.insertProdImg(imgMap);
+			if(rtn1 < 0){
+				throw new Exception("메인이미지 등록 실패 하였습니다.");
+			}
+
+			imgMap.put("prodImgGbCd", Integer.parseInt((String) regDataMap.get("mainImgGbCd")) + 10);
+			imgMap.put("prodImgTypeCd", '0');
+			int rtn2 = webSaleManageDao.insertProdImg(imgMap);
+			if(rtn2 < 0){
+				throw new Exception("메인이미지 등록 실패 하였습니다.");
+			}
+
+		}
+		// 서브이미지
+		for (int j = 1 ; j <= 5 ; j++ ) {
+			if (!StringUtil.isEmpty((String)regDataMap.get("subImg"+j+"Seq"))) {
+				imgMap.put("prodCode", prodCode);
+				imgMap.put("fileSeq", regDataMap.get("subImg"+j+"Seq"));
+				imgMap.put("fileUrl", regDataMap.get("subImg"+j+"Url"));
+				imgMap.put("prodImgGbCd", regDataMap.get("subImg"+j+"GbCd"));
+				imgMap.put("prodImgTypeCd", '1');
+				int rtn1 = webSaleManageDao.insertProdImg(imgMap);
+				if(rtn1 < 0){
+					throw new Exception("이미지 등록 실패 하였습니다.");
+				}
+
+				imgMap.put("prodImgGbCd", Integer.parseInt((String) regDataMap.get("subImg"+j+"GbCd") ) + 10);
+				imgMap.put("prodImgTypeCd", '0');
+				int rtn2 = webSaleManageDao.insertProdImg(imgMap);
+				if(rtn2 < 0){
+					throw new Exception("이미지 등록 실패 하였습니다.");
+				}
+
+			}
+		}
+
+
+
+
+		// 검색엔진 적용
+		Map<String, Object> indexingMap = new HashMap<String, Object>();
+		indexingMap.put("PROD_CODE", prodCode);// 상품코드
+		indexingMap.put("PROD_TYPE_CD", (String) insertMap.get("prodTypeCd"));// 상품코드
+		indexingMap.put("PROD_NM", (String) insertMap.get("prodNm"));// 상품명
+		indexingMap.put("KEYWORD", "");// 키워드
+																		// 규칙
+																		// (카메라,사진)
+		indexingMap.put("VIEW_YN", CmmnCnst.cmmnY);// 노출여부
+		indexingMap.put("ORD_QTY", CmmnCnst.cmmn0);// 판매수
+
+
+		// [2015-11-11] 카테고리도 검색엔진에 insert 되도록 적용
+		indexingMap.put("CTRY", webSaleManageDao.selectUsrCtryCd().substring(0,4) ); // 카테고리 코드
+
+
+        if (CmmnCnst.cmmn1.equals(prodTypeCd)) {
+			// 판매
+			indexingMap.put("SELL_PRCE", ((String)inParam.get("sellPrce")).replaceAll(",", "")  );// 판매가격
+        }
+        else if (CmmnCnst.cmmn2.equals(prodTypeCd)) {
+			// 셰어링
+			indexingMap.put("SELL_PRCE", ((String)inParam.get("deposit")).replaceAll(",", "")  );// 판매가격
+        }
+        else if (CmmnCnst.cmmn3.equals(prodTypeCd)) {
+			// 나눔
+			indexingMap.put("SELL_PRCE", CmmnCnst.cmmn0);// 판매가격
+        }
+		indexingMap.put("REGIST_DT", StringUtil.getCurrentDate());// 등록일
+
+        try {
+        	Elasticsearch.putSearchIndexing(indexingMap);
+        } catch (Exception e) {
+        	e.printStackTrace();
+        }
+
+
+		return insertMap;
+
+	}
+
+
+	/**
+	 * <pre>
+	 * insertSellProdInfo
+	 * 상품관리 - 상품등록
+	 * &#64;param inParam
+	 * &#64;return
+	 * &#64;throws Exception
+	 * &#64;date 2015. 8. 24
+	 * &#64;author Kang.h.c
+	 * &#64;see com.ssocio.sharing.service.web
+	 * </pre>
+	 */
+	@Transactional
+	@Override
+	public Map<String, Object> insertSellProdInfo(Map<String, Object> inParam) throws Exception {
+
+		// json to map
+		inParam.put("regData", getJsonStr(inParam, "regData"));
+		String regData = (String)inParam.get("regData");
+		Map<String, Object> insertMap = jsonToMap(regData);
+		String prodTypeCd = (String)insertMap.get("prodTypeCd");
+		String dlvWayCd = (String)insertMap.get("dlvWayCd");
+
+
+		logger.debug("insertMap : " + insertMap.toString());
+
+		// 배송방식 - 우편/등기 시에 dlvWayCd를 inParam에서 가져옴
+		if (StringUtil.isEmpty((String)insertMap.get("dlvWayCd"))) {
+			insertMap.put("dlvWayCd", (String)inParam.get("dlvWayCd"));
+		}
+
+		// 나눔상품일시 택배사 코드
+		if (StringUtil.isEmpty((String)insertMap.get("dlvCmpCd"))) {
+			insertMap.put("dlvCmpCd", (String)inParam.get("dlvCmpCd"));
+		}
+
+		// 거래 희망지역 , 배송 가능지역
+		if (!StringUtil.isEmpty((String)inParam.get("tradLoc"))) {
+			insertMap.put("tradLoc", (String)inParam.get("tradLoc"));
+		}
+
+		// 배송비
+		if (!StringUtil.isEmpty((String)inParam.get("dlvPayGbCd"))) {
+			insertMap.put("dlvPayGbCd", (String)inParam.get("dlvPayGbCd"));
+		}
+
+		// 묶음상품
+		if (!StringUtil.isEmpty((String)inParam.get("bndlDlvYn"))) {
+			insertMap.put("bndlDlvYn", (String)inParam.get("bndlDlvYn"));
+		}
+
+		// 판매수량
+		if (StringUtil.isEmpty((String)insertMap.get("stockQty"))) {
+			insertMap.put("stockQty", CmmnCnst.cmmn1);
+		}
+
+		// 옵션여부
+		insertMap.put("optProdYn", CmmnCnst.cmmnN);
+
+		// 등록자
+		insertMap.put("mberSeq", inParam.get("mberSeq"));
+		// 판매자 ( 개인판매자 : 2 ) default
+		insertMap.put("sellerCd", '2');
+		// 과세 (개인판매자 : Y ) default
+		insertMap.put("TXN_ON_YN", 'Y');
+		// 정부고시항목코드 (개인판매자 : 0 ) default
+		insertMap.put("PROD_ITEM_CODE", '0');
+		// 상품상태 판매중
+		insertMap.put("prodStatCd", CmmnCnst.cmmn0);
+
+		// 제휴택배 배송비
+		if (CmmnCnst.cmmn1.equals(dlvWayCd)) {
+			Boolean flag = false;
+			String dlvPayGbCd = (String)insertMap.get("dlvPayGbCd");
+			if (CmmnCnst.cmmn1.equals(prodTypeCd)) {
+				if (CmmnCnst.cmmn2.equals(dlvPayGbCd)) {
+					flag = true;
+				}
+			}
+			else if (CmmnCnst.cmmn2.equals(prodTypeCd)) {
+				flag = true;
+			}
+
+			if (flag) {
+				Map<String, Object> dlvPrceMap = webSaleManageDao.selectRelDlvInfo(insertMap);
+				insertMap.put("dlvPrce", dlvPrceMap.get("DLV_AMT"));
+				insertMap.put("extLandCd_10", dlvPrceMap.get("DLV_AMT_JEJU"));
+				insertMap.put("extLandCd_20", dlvPrceMap.get("DLV_AMT_DOSE"));
+			}
+		}
+
+		// 저장 할때 br을 만들어 저장한다. 모바일만 적용 되는 것이다.
+		// insertMap.put("prodDtl", insertMap.get("prodDtl").toString().replaceAll("<br/>", "\r\n"));
+
+		LoggerUtil.writeMap(insertMap);
+		// 상품 저장 - return 상품 코드
+		String prodCode = webSaleManageDao.insertProd(insertMap);
+
+		if (!StringUtil.isEmpty(prodCode)) {
+			// 상품코드
+			insertMap.put("prodCode", prodCode);
+			insertMap.put("rtnMsgCd", CmmnCnst.cmmnY);
+
+			// 셰어링
+			if (CmmnCnst.cmmn2.equals(prodTypeCd)) {
+				webSaleManageDao.insertProdShare(insertMap);
+			}
+
+			LoggerUtil.writeMap(insertMap);
+
+			// 기타산간 추가 배송비
+//			if (!CmmnCnst.cmmn3.equals(prodTypeCd)) {
+			if (CmmnCnst.cmmn1.equals(dlvWayCd) || CmmnCnst.cmmn2.equals(dlvWayCd)) {
+				inParam.put("grpCd", CmmnCnst.extLandCd);
+				List<Map<String, Object>> codeList = webSaleManageDao.selectListCodeGroup(inParam);
+				if (codeList != null) {
+					for (int i = 0 ; i < codeList.size() ; i++) {
+						String etcDlvPrce = String.valueOf(insertMap.get("extLandCd_"+codeList.get(i).get("COM_CD")));
+						logger.info("etcDlvPrce : " + etcDlvPrce);
+						if (etcDlvPrce != null && !"null".equals(etcDlvPrce) && !"".equals(etcDlvPrce) && !CmmnCnst.cmmn0.equals(etcDlvPrce)) {
+							insertMap.put("extLandCd", codeList.get(i).get("COM_CD"));
+							insertMap.put("addDlvPrice", etcDlvPrce.replace(",", ""));
+							// 기타산간 배송비 table에 insert
+							webSaleManageDao.insertExtLandDlvPrice(insertMap);
+						}
+					}
+
+				}
+			}
+
+			// 상품 이미지 저장
+			Map<String, Object> imgMap = new HashMap<String, Object>();
+			// 메인이미지
+			if (!StringUtil.isEmpty((String)insertMap.get("mainImgSeq"))) {
+				imgMap.put("prodCode", insertMap.get("prodCode"));
+				imgMap.put("fileSeq", insertMap.get("mainImgSeq"));
+				imgMap.put("fileUrl", insertMap.get("mainImgUrl"));
+
+				imgMap.put("prodImgGbCd", insertMap.get("mainImgGbCd"));
+				imgMap.put("prodImgTypeCd", '1');
+				webSaleManageDao.insertProdImg(imgMap);
+
+				imgMap.put("prodImgGbCd", Integer.parseInt((String) insertMap.get("mainImgGbCd")) + 10);
+				imgMap.put("prodImgTypeCd", '0');
+				webSaleManageDao.insertProdImg(imgMap);
+
+			}
+			// 서브이미지
+			for (int j = 1 ; j <= 4 ; j++ ) {
+				if (!StringUtil.isEmpty((String)insertMap.get("subImg"+j+"Seq"))) {
+					imgMap.put("prodCode", insertMap.get("prodCode"));
+					imgMap.put("fileSeq", insertMap.get("subImg"+j+"Seq"));
+					imgMap.put("fileUrl", insertMap.get("subImg"+j+"Url"));
+					imgMap.put("prodImgGbCd", insertMap.get("subImg"+j+"GbCd"));
+					imgMap.put("prodImgTypeCd", '1');
+					webSaleManageDao.insertProdImg(imgMap);
+
+					imgMap.put("prodImgGbCd", Integer.parseInt((String) insertMap.get("subImg"+j+"GbCd") ) + 10);
+					imgMap.put("prodImgTypeCd", '0');
+					webSaleManageDao.insertProdImg(imgMap);
+
+				}
+			}
+
+
+			insertMap.put("baseYn", CmmnCnst.cmmnY);
+			if(!"Y".equals(insertMap.get("jusoPageFlag"))){
+				webSaleManageDao.insertGrpProdInfoReg(insertMap);;
+			}
+
+			// 출하지 매핑 INSERT
+			String grpProdSeq = webSaleManageDao.selectGrpProdInfo(insertMap);
+			logger.debug("grpProdSeq : " + grpProdSeq);
+			if (grpProdSeq != null) {
+				insertMap.put("grpProdSeq", grpProdSeq);
+				webSaleManageDao.insertGrpProdMap(insertMap);
+			}
+
+
+
+			// 검색엔진 적용
+			Map<String, Object> indexingMap = new HashMap<String, Object>();
+			indexingMap.put("PROD_CODE", prodCode);// 상품코드
+			indexingMap.put("PROD_TYPE_CD", (String) insertMap.get("prodTypeCd"));// 상품코드
+			indexingMap.put("PROD_NM", (String) insertMap.get("prodNm"));// 상품명
+			indexingMap.put("KEYWORD", (String) insertMap.get("keyword"));// 키워드
+																			// 규칙
+																			// (카메라,사진)
+			indexingMap.put("VIEW_YN", CmmnCnst.cmmnY);// 노출여부
+			indexingMap.put("ORD_QTY", CmmnCnst.cmmn0);// 판매수
+
+
+			// [2015-11-11] 카테고리도 검색엔진에 insert 되도록 적용
+			String ctryCd = (String) insertMap.get("ctryCd");
+			String ctryCd4Elastic = null;
+			if (ctryCd.length() >= 4){
+				// 카테고리
+				ctryCd4Elastic = ctryCd.substring(0,4);
+				indexingMap.put("CTRY", ctryCd4Elastic); // 카테고리 코드
+			}
+
+            if (CmmnCnst.cmmn1.equals(prodTypeCd)) {
+				// 판매
+				indexingMap.put("SELL_PRCE", (String) insertMap.get("sellPrce"));// 판매가격
+            }
+            else if (CmmnCnst.cmmn2.equals(prodTypeCd)) {
+				// 셰어링
+				indexingMap.put("SELL_PRCE", (String) insertMap.get("deposit"));// 판매가격
+            }
+            else if (CmmnCnst.cmmn3.equals(prodTypeCd)) {
+				// 나눔
+				indexingMap.put("SELL_PRCE", CmmnCnst.cmmn0);// 판매가격
+            }
+			indexingMap.put("REGIST_DT", StringUtil.getCurrentDate());// 등록일
+
+            try {
+            	Elasticsearch.putSearchIndexing(indexingMap);
+            } catch (Exception e) {
+            	e.printStackTrace();
+            }
+
+		}
+		else {
+			insertMap.put("rtnMsgCd", CmmnCnst.cmmnN);
+		}
+
+		return insertMap;
+
+	}
+
+	/**
+	 * <pre>
+	 * selectCtryTax
+	 * 제휴택배 배송비 조회
+	 * &#64;param inParam
+	 * &#64;return
+	 * &#64;throws Exception
+	 * &#64;date 2015. 10. 19
+	 * &#64;author Kang.h.c
+	 * &#64;see com.ssocio.sharing.service.web
+	 * </pre>
+	 */
+	@Override
+	public void selectRelDlvInfo(ModelAndView mav, Map<String, Object> inParam) throws Exception {
+
+		LoggerUtil.writeMap(inParam);
+
+		Map<String, Object> dlvMap = webSaleManageDao.selectRelDlvInfo(inParam);
+
+		mav.addObject("dlvMap", dlvMap);
+
+	}
+
+	/**
+	 * <pre>
+	 * selectCtryTax
+	 * 카테고리 수수료 조회
+	 * &#64;param inParam
+	 * &#64;return
+	 * &#64;throws Exception
+	 * &#64;date 2015. 10. 16
+	 * &#64;author Kang.h.c
+	 * &#64;see com.ssocio.sharing.service.web
+	 * </pre>
+	 */
+	@Override
+	public void selectCtryTax(ModelAndView mav, Map<String, Object> inParam) throws Exception {
+
+		LoggerUtil.writeMap(inParam);
+
+		Map<String, Object> taxMap = webSaleManageDao.selectCtryTax(inParam);
+
+		mav.addObject("ctryTax", taxMap);
+
+	}
+
+	/**
+	 * <pre>
+	 * selectCtryTax
+	 * 결제 수수료 조회
+	 * &#64;param inParam
+	 * &#64;return
+	 * &#64;throws Exception
+	 * &#64;date 2015. 10. 16
+	 * &#64;author Kang.h.c
+	 * &#64;see com.ssocio.sharing.service.web
+	 * </pre>
+	 */
+	@Override
+	public void selectSetlTax(ModelAndView mav, Map<String, Object> inParam) throws Exception {
+
+		LoggerUtil.writeMap(inParam);
+
+		Map<String, Object> taxMap = webSaleManageDao.selectSetlTax(inParam);
+
+		mav.addObject("setlTax", taxMap);
+
+	}
+
+	/**
+	 * <pre>
+	 * insertBrandReq
+	 * 상품관리 - 상품등록 브랜드 신청
+	 * &#64;param inParam
+	 * &#64;return
+	 * &#64;throws Exception
+	 * &#64;date 2015. 8. 25
+	 * &#64;author Kang.h.c
+	 * &#64;see com.ssocio.sharing.service.web
+	 * </pre>
+	 */
+	@Override
+	public Map<String, Object> insertBrandReq(Map<String, Object> inParam) throws Exception {
+
+		inParam.put("applyYn", CmmnCnst.cmmnN); // 승인여부
+		LoggerUtil.writeMap(inParam);
+
+		// 브랜드 신청 테이블에 insert
+		int rtn = webSaleManageDao.insertBrandReq(inParam);
+
+		if (rtn > 0) {
+			// 신청성공
+			inParam.put("rtnMsgCd", CmmnCnst.cmmnY);
+		}
+		else {
+			// 신청실패
+			inParam.put("rtnMsgCd", CmmnCnst.cmmnN);
+		}
+
+		return inParam;
+
+	}
+
+	/**
+	 * <pre>
+	 * selectListProd
+	 * 상품관리 - 상품목록 조회
+	 * &#64;param inParam
+	 * &#64;return
+	 * &#64;throws Exception
+	 * &#64;date 2015. 8. 26
+	 * &#64;author Kang.h.c
+	 * &#64;see com.ssocio.sharing.service.web
+	 * </pre>
+	 */
+	@Override
+	public void selectListProd(ModelAndView mav, Map<String, Object> inParam) throws Exception {
+
+		// 상품타입
+		String prodTypeCd = StringUtil.nvl((String)inParam.get("prodTypeCd"), CmmnCnst.cmmn1);
+		inParam.put("prodTypeCd", prodTypeCd);
+		// 정렬
+		String orderCd = StringUtil.nvl((String)inParam.get("orderCd"), CmmnCnst.cmmn0);
+		inParam.put("orderCd", orderCd);
+
+		// 이미지코드
+		inParam.put("prodImgGbCd", CmmnCnst.cmmn11);
+
+		// 상품 목록 조회
+		List<Map<String, Object>> prodList = null;
+
+		if (CmmnCnst.cmmn2.equals(prodTypeCd)) {
+			prodList = webSaleManageDao.selectListShareProd(inParam);
+		}
+		else {
+			prodList = webSaleManageDao.selectListProd(inParam);
+		}
+
+		mav.addObject("prodList", prodList);
+		mav.addObject("params", inParam);
+
+	}
+
+	/**
+	 * <pre>
+	 * 상품 조회
+	 * 상품 수정을 위한 상세조회
+	 * &#64;param inParam
+	 * &#64;return
+	 * &#64;throws Exception
+	 * &#64;date 2015. 8. 27
+	 * &#64;author Kang.h.c
+	 * &#64;see com.ssocio.sharing.service.web
+	 * </pre>
+	 */
+	@Override
+	public void selectProdDtl(ModelAndView mav, Map<String, Object> inParam) throws Exception {
+
+		LoggerUtil.writeMap(inParam);
+
+		Map<String, Object> prodDtl = null; // 상품상세
+		Map<String, Object> imgList = null; // 이미지리스트
+		List<Map<String, Object>> brandList = null; // 브랜드리스트
+		Map<String, Object> shareDtl = null; // 상품셰어링상세
+		List<Map<String, Object>> extDlvPrceList = null; // 추가배송비
+		List<Map<String, Object>> grpInfoList = null; // 추가배송비
+
+		// 상품 조회
+		prodDtl = webSaleManageDao.selectProdDtl(inParam);
+
+		// 처리
+		if (prodDtl != null) {
+			// CLOB > String
+			prodDtl = CommonUtil.clobToString(prodDtl, "PROD_MB_DTL");
+
+			String prodCode = (String)prodDtl.get("PROD_CODE");
+			String ctryCd = (String)prodDtl.get("CTRY_CD");
+			String prodTypeCd = (String)prodDtl.get("PROD_TYPE_CD");
+			String dlvWayCd = (String)prodDtl.get("DLV_WAY_CD");
+			String dlvPayGbCd = (String)prodDtl.get("DLV_PAY_GB_CD");
+
+			String[] subImg = {"12","13","14","15"};
+
+			// 이미지 조회
+			imgList = webSaleManageDao.selectProdImg(prodCode);
+
+			List<Map<String,Object>> list = (List<Map<String, Object>>) imgList.get("subProdImage");
+			for (String string : subImg) {
+
+				int chkCnt = 0;
+
+				for (Map<String, Object> map : list) {
+					if (map.get("SUB_FILE_GB_CD").equals(string)){
+						chkCnt += 1;
+					}
+				}
+
+				if (chkCnt == 0){
+					logger.debug("없는 subImg : " + string);
+					// 없는 서브이미지 이므로 가데이터 추가
+					Map<String,Object> map = new HashMap<String,Object>();
+					map.put("SUB_FILE_GB_CD", string);
+					map.put("SUB_FILE_SEQ", null);
+					map.put("SUB_FILE_URL", null);
+					list.add(map);
+				}
+
+			}
+
+
+			// 순서로 꺼내서 다시 put
+			List<Map<String,Object>> sortList = new ArrayList<Map<String,Object>>();
+			for (String string : subImg) {
+				for (Map<String, Object> map : list) {
+					if (map.get("SUB_FILE_GB_CD").equals(string)){
+						sortList.add(map);
+					}
+				}
+			}
+			imgList.remove("subProdImage");
+			imgList.put("subProdImage", sortList);
+
+
+
+
+
+			logger.debug("imgList : " + imgList.toString() );
+
+			// 브랜드 조회
+			inParam.put("ctryCd", ctryCd);
+			brandList = webSaleManageDao.selectBrandList(inParam);
+
+			// 셰어링 조회
+			if (CmmnCnst.cmmn2.equals(prodTypeCd)) {
+				shareDtl = webSaleManageDao.selectProdShareInfo(prodCode);
+			}
+
+			// 추가배송비 조회
+			if (CmmnCnst.cmmn1.equals(prodTypeCd) && (CmmnCnst.cmmn1.equals(dlvWayCd) || CmmnCnst.cmmn2.equals(dlvWayCd))
+					&& (!StringUtil.isEmpty(dlvPayGbCd) && CmmnCnst.cmmn2.equals(dlvPayGbCd)) ) {
+				extDlvPrceList = webSaleManageDao.selectExtLandDlvPrice(prodCode);
+			}
+
+			//출하지 리스트
+
+		}
+
+		mav.addObject("prodDtl", prodDtl);
+		mav.addObject("imgList", imgList);
+		mav.addObject("brandList", brandList);
+		mav.addObject("shareDtl", shareDtl);
+		mav.addObject("extDlvPrceList", extDlvPrceList);
+
+	}
+
+	/**
+	 * <pre>
+	 * 상품 삭제
+	 * 상품 PROD_STAT_CD > 3
+	 * &#64;param inParam
+	 * &#64;return
+	 * &#64;throws Exception
+	 * &#64;date 2015. 8. 28
+	 * &#64;author Kang.h.c
+	 * &#64;see com.ssocio.sharing.service.web
+	 * </pre>
+	 */
+	@Transactional
+	@Override
+	public void deleteProdInfo(ModelAndView mav, Map<String, Object> inParam) throws Exception {
+
+		LoggerUtil.writeMap(inParam);
+
+		// 상품삭제 코드
+		inParam.put("prodStatCd", CmmnCnst.cmmn3);
+
+
+		int rtn = 0;
+
+		if(inParam.get("prodCode") != null && !inParam.get("prodCode").equals("")){
+			// 삭제 서비스 호출
+			rtn = webSaleManageDao.deleteProdInfo(inParam);
+		}
+
+		// 검색엔진 적용
+		Map<String, Object> indexingMap = new HashMap<String, Object>();
+		indexingMap.put("PROD_CODE", inParam.get("prodCode"));// 상품코드
+		indexingMap.put("VIEW_YN", CmmnCnst.cmmnN);// 노출여부
+
+        try {
+        	Elasticsearch elasticsearch = new Elasticsearch();
+        	elasticsearch.upadteSearchIndexing(indexingMap);
+        } catch (Exception e) {
+        	e.printStackTrace();
+        }
+
+		if (rtn > 0) {
+			mav.addObject("rtnMsg", CmmnCnst.DEL_MSG_Y);
+		}
+		else {
+			mav.addObject("rtnMsg", CmmnCnst.DEL_MSG_N);
+		}
+
+	}
+
+	/**
+	 * <pre>
+	 * 카테고리별 브랜드 리스트 조회
+	 * 카테고리별 브랜드 리스트정보를 조회 합니다.
+	 * &#64;param inParam
+	 * &#64;return
+	 * &#64;throws Exception
+	 * &#64;date 2015. 8. 28
+	 * &#64;author Kang.h.c
+	 * &#64;see com.ssocio.sharing.service.web
+	 * </pre>
+	 */
+	@Override
+	public ModelMap selectBrandList(Map<String, Object> inParam) throws Exception {
+		ModelMap mm = new ModelMap();
+		try {
+			mm.put("brandList", webSaleManageDao.selectBrandList(inParam));
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+
+	/**
+	 * <pre>
+	 * 상품 수정
+	 * 상품정보를 수정한다.
+	 * &#64;param inParam
+	 * &#64;return
+	 * &#64;throws Exception
+	 * &#64;date 2015. 8. 29
+	 * &#64;author Kang.h.c
+	 * &#64;see com.ssocio.sharing.service.web
+	 * </pre>
+	 */
+	@Transactional
+	@Override
+	public void updateProdInfo(ModelAndView mav, Map<String, Object> inParam, MultipartHttpServletRequest req) throws Exception {
+
+		// PROD TABLE UPDATE
+		webSaleManageDao.updateProdInfo(inParam);
+
+		// 셰어링일 경우 PROD_SHARING 수정
+		if (CmmnCnst.cmmn2.equals(inParam.get("prodTypeCd"))) {
+			webSaleManageDao.updateProdShare(inParam);
+		}
+
+		// 추가배송비 있을 경우 EXT_LAND_DLV_PRICE 수정 및 등록
+		String dlvWayCd = (String)inParam.get("dlvWayCd");
+		String dlvPayGbCd = (String)inParam.get("dlvPayGbCd");
+		if (!StringUtil.isEmpty(dlvWayCd) && (CmmnCnst.cmmn1.equals(dlvWayCd) || CmmnCnst.cmmn2.equals(dlvWayCd))) {
+			if (!StringUtil.isEmpty(dlvPayGbCd) && CmmnCnst.cmmn2.equals(dlvPayGbCd)) {
+
+				// 추가배송비 코드 조회
+				inParam.put("grpCd", CmmnCnst.extLandCd);
+				List<Map<String, Object>> codeList = webSaleManageDao.selectListCodeGroup(inParam);
+				if (codeList != null) {
+					for (int i = 0 ; i < codeList.size() ; i++) {
+						String etcDlvPrce = (String)inParam.get("extLandCd_"+codeList.get(i).get("COM_CD"));
+						if (etcDlvPrce != null && !"".equals(etcDlvPrce) && !CmmnCnst.cmmn0.equals(etcDlvPrce)) {
+							inParam.put("extLandCd", codeList.get(i).get("COM_CD"));
+							inParam.put("addDlvPrice", etcDlvPrce.replace(",", ""));
+
+							// 기존에 있는지 체크 후 update or insert
+							int extDlvPriceCnt = webSaleManageDao.selectExtLandDlvPriceCnt(inParam);
+							if (extDlvPriceCnt <= 0) {
+								// 기타산간 배송비 table에 insert
+								webSaleManageDao.insertExtLandDlvPrice(inParam);
+							}
+							else {
+								// 기타산간 배송비 table에 update
+								webSaleManageDao.updateExtLandDlvPrice(inParam);
+							}
+						}
+					}
+				}
+			}
+		}
+
+		// FILE_INFO 삭제 및 등록 , PROD_IMG 수정
+		procProdImg(inParam, req);
+
+		// 검색엔진 적용
+		Elasticsearch elasticsearch = new Elasticsearch();
+		Map<String, Object> indexingMap = new HashMap<String, Object>();
+		indexingMap.put("PROD_CODE", inParam.get("prodCode"));// 상품코드
+		indexingMap.put("PROD_NM", inParam.get("prodNm"));// 상품명
+		indexingMap.put("KEYWORD", inParam.get("keyword"));// 키워드 규칙 (카메라,사진)
+		indexingMap.put("VIEW_YN", CmmnCnst.cmmnY);// 노출여부
+
+
+
+		// [2015-11-11] 카테고리도 검색엔진에 insert 되도록 적용
+		String ctryCd = (String) inParam.get("ctryCd");
+		String ctryCd4Elastic = null;
+		if (ctryCd.length() >= 4){
+			// 카테고리
+			ctryCd4Elastic = ctryCd.substring(0,4);
+			indexingMap.put("CTRY", ctryCd4Elastic); // 카테고리 코드
+		}
+
+
+        if (CmmnCnst.cmmn1.equals(inParam.get("prodTypeCd"))) {
+			// 판매
+			indexingMap.put("SELL_PRCE", (String) inParam.get("sellPrce"));// 판매가격
+        }
+        else if (CmmnCnst.cmmn2.equals(inParam.get("prodTypeCd"))) {
+			// 셰어링
+			indexingMap.put("SELL_PRCE", (String) inParam.get("deposit"));// 판매가격
+        }
+        else if (CmmnCnst.cmmn3.equals(inParam.get("prodTypeCd"))) {
+			// 나눔
+			indexingMap.put("SELL_PRCE", CmmnCnst.cmmn0);// 판매가격
+        }
+		indexingMap.put("SELL_PRCE", (String) inParam.get("sellPrce"));// 판매가격
+
+        try {
+
+        	logger.debug("indexingMap : " + indexingMap.toString());
+        	elasticsearch.upadteSearchIndexing(indexingMap);
+        } catch (Exception e) {
+        	e.printStackTrace();
+        }
+
+//		mav.addObject("rtnMsg", CmmnCnst.UPD_MSG_Y);
+
+	}
+
+
+
+
+
+	/**
+	 * <pre>
+	 * 상품 수정
+	 * 상품정보를 수정한다.
+	 * &#64;param inParam
+	 * &#64;return
+	 * &#64;throws Exception
+	 * &#64;date 2015. 8. 29
+	 * &#64;author Kang.h.c
+	 * &#64;see com.ssocio.sharing.service.web
+	 * </pre>
+	 * @return
+	 */
+	@Override
+	public Map<String, Object> updateProdInfoV2(ModelAndView mav, Map<String, Object> inParam, MultipartHttpServletRequest req) throws Exception {
+
+		logger.debug("inParam : " + inParam.toString());
+
+		if(inParam.get("prodCode") == null || ((String)inParam.get("prodCode")).equals("") ){
+			throw new Exception("존재하지 않는 상품 입니다.");
+		}
+
+		// 상품 수정 전, 이미 삭제된 상품인지 확인
+		String prodStatCd = webSaleManageDao.selectProdStat((String)inParam.get("prodCode"));
+		if(prodStatCd.equals("3")){
+			throw new Exception("이미 삭제된 상품 입니다.");
+		}
+
+
+
+		/* 기본 값 설정 */
+		Map<String, Object> insertMap  = new HashMap<String,Object>();
+		insertMap.put("mberSeq",inParam.get("mberSeq"));
+		insertMap.put("prodCode",inParam.get("prodCode"));
+
+
+
+		String prodTypeCd = (String)inParam.get("prodTypeCd");
+
+
+		String prodDtl = (String) inParam.get("prodDtl");
+		prodDtl = HtmlUtil.txtToHtml(prodDtl);
+		inParam.remove("prodDtl");
+		inParam.put("prodDtl",prodDtl);
+
+
+
+		// 판매
+		if(CmmnCnst.cmmn1.equals( prodTypeCd )){
+
+			if(   ((String)inParam.get("sellPrce")).equals("") || ((String)inParam.get("sellPrce")).equals("0")  ){
+				throw new Exception("판매금액 최소 입력 금액은 1,000원 입니다.");
+			}
+			else if(  Integer.parseInt( ((String)inParam.get("sellPrce")) ) < CmmnCnst.SELT_LIMIT_AMT ){
+				throw new Exception("판매금액 최소 입력 금액은 1,000원 입니다.");
+			}
+
+			logger.debug("판매상품 시작");
+			insertMap = webSaleProdRegService.updateProdType1(inParam);
+		}
+		// 셰어링
+		else if(CmmnCnst.cmmn2.equals( prodTypeCd )){
+
+			if(   ((String)inParam.get("deposit")).equals("") ){
+				throw new Exception("보증금 최소 입력 금액은 1,000원 입니다.");
+			}
+			else if(   Integer.parseInt(  (String)inParam.get("deposit") )  <CmmnCnst.SELT_LIMIT_AMT  ){
+				throw new Exception("보증금 최소 입력 금액은 1,000원 입니다.");
+			}
+
+			if (  ((String)inParam.get("sharingPrice")).equals("") ){
+				throw new Exception("셰어링 금액을 입력 해주세요.");
+			}
+			else if(100 > Integer.parseInt((String)inParam.get("sharingPrice"))){
+				throw new Exception("1일 셰어링금액은 최소 100원입니다.");
+			}
+
+			double deposit = Integer.parseInt(  (String)inParam.get("deposit")  );
+			double sharingPrice = Integer.parseInt((String)inParam.get("sharingPrice"));
+			if(deposit < sharingPrice){
+				throw new Exception("셰어링금액은 보증금보다 클수 없습니다.");
+			}
+
+			double sharingMaxTerm = Math.ceil(deposit / sharingPrice);
+			if(sharingMaxTerm < 1 ){
+				throw new Exception("셰어링 기간을 확인해 주세요.");
+			}
+
+			inParam.put("sharingMaxTerm", sharingMaxTerm);
+
+			logger.debug("셰어링 시작");
+			insertMap = webSaleProdRegService.updateProdType2(inParam);
+		}
+		// 나눔
+		else if(CmmnCnst.cmmn3.equals( prodTypeCd )){
+
+			if(  ((String)inParam.get("freeShareEndDt")).length() < 8 ){
+				throw new Exception("나눔 신청 종료일을 설정해 주세요.");
+			}
+
+			logger.debug("나눔 시작");
+			insertMap = webSaleProdRegService.updateProdType3(inParam);
+
+		}
+
+		logger.debug("insertMap : " + insertMap);
+		if(insertMap.get("rtnMsgCd") != null){
+			throw new Exception((String)insertMap.get("rtnMsgCd"));
+		}
+
+
+		// 셰어링일 경우 PROD_SHARING 수정
+		if (CmmnCnst.cmmn2.equals(inParam.get("prodTypeCd"))) {
+			int rtn = webSaleManageDao.updateProdShare(inParam);
+			if(rtn <0){
+				throw new Exception("상품 수정에 실패하였습니다.");
+			}
+		}
+
+
+		// 출하지
+		if("NEW".equals( (String) inParam.get("grpRegTypeFlag")  )){
+			if(
+				((String)inParam.get("zipCode")).equals("")
+				||((String)inParam.get("jusoDtl")).equals("")
+			){
+				throw new Exception("판매자 주소를 입력해 주세요.");
+			}
+
+
+			logger.debug("신규 출하지로 등록합니다.");
+
+			insertMap.put("zipCode",(String)inParam.get("zipCode"));
+			insertMap.put("jusoDoro",(String)inParam.get("jusoDoro"));
+			insertMap.put("jusoJiben",(String)inParam.get("jusoJiben"));
+			insertMap.put("jusoDtl",(String)inParam.get("jusoDtl"));
+			insertMap.put("baseYn","N");
+
+			int grpProdSeq = webSaleManageDao.insertGrpProdInfoRegV2(insertMap);
+			insertMap.put("grpProdSeq", grpProdSeq);
+		}
+		else{
+			logger.debug("선택된 출하지로 등록합니다.");
+			insertMap.put("grpProdSeq", inParam.get("grpProdSeq"));
+		}
+		//#{grpProdSeq}, #{prodCode}, #{mberSeq}
+		logger.debug("inserMap : " + insertMap.toString());
+		int grpProdInsertRet = webSaleManageDao.updateGrpProdMap(insertMap);			// GRP_PROD_MAP 등록 (pk : 출하지일련번호[grp_prod_seq], 상품코드, 회원일련번호)
+		if(grpProdInsertRet < 0){
+			throw new Exception("상품 수정에 실패하였습니다.");
+		}
+
+
+		// FILE_INFO 삭제 및 등록 , PROD_IMG 수정
+		if( ( (String) inParam.get("appYn")).equals("Y")){
+			procProdImgV2(inParam, req);
+		} else {
+			procProdImg(inParam, req);
+		}
+
+		// 검색엔진 적용
+		Elasticsearch elasticsearch = new Elasticsearch();
+		Map<String, Object> indexingMap = new HashMap<String, Object>();
+		indexingMap.put("PROD_CODE", inParam.get("prodCode"));// 상품코드
+		indexingMap.put("PROD_NM", inParam.get("prodNm"));// 상품명
+		indexingMap.put("KEYWORD", "");// 키워드 규칙 (카메라,사진)
+		indexingMap.put("VIEW_YN", CmmnCnst.cmmnY);// 노출여부
+
+        if (CmmnCnst.cmmn1.equals(inParam.get("prodTypeCd"))) {
+			// 판매
+			indexingMap.put("SELL_PRCE", (String) inParam.get("sellPrce"));// 판매가격
+        }
+        else if (CmmnCnst.cmmn2.equals(inParam.get("prodTypeCd"))) {
+			// 셰어링
+			indexingMap.put("SELL_PRCE", (String) inParam.get("deposit"));// 판매가격
+        }
+        else if (CmmnCnst.cmmn3.equals(inParam.get("prodTypeCd"))) {
+			// 나눔
+			indexingMap.put("SELL_PRCE", CmmnCnst.cmmn0);// 판매가격
+        }
+		indexingMap.put("SELL_PRCE", (String) inParam.get("sellPrce"));// 판매가격
+
+        try {
+
+        	logger.debug("indexingMap : " + indexingMap.toString());
+        	elasticsearch.upadteSearchIndexing(indexingMap);
+        } catch (Exception e) {
+        	e.printStackTrace();
+        }
+
+        insertMap.put("rtnMsgCd",CmmnCnst.cmmnY);
+
+        return insertMap;
+	}
+
+	/**
+	 * <pre>
+	 * selectListProdQna
+	 * 상품관리 - 상품문의 목록조회
+	 * &#64;param inParam
+	 * &#64;return
+	 * &#64;throws Exception
+	 * &#64;date 2015. 8. 31
+	 * &#64;author Kang.h.c
+	 * &#64;see com.ssocio.sharing.service.web
+	 * </pre>
+	 */
+	@Override
+	public void selectListProdQna(ModelAndView mav, Map<String, Object> inParam) throws Exception {
+
+		Map<String, Object> qnaCnt = null;
+		List<Map<String, Object>> qnaList = null;
+
+		// 이미지코드
+		inParam.put("prodImgGbCd", CmmnCnst.cmmn11);
+
+		// 페이징을 위한 갯수 조회
+		qnaCnt = webSaleManageDao.selectListProdQnaCnt(inParam);
+		int totCnt = (int)qnaCnt.get("TOT_CNT");
+
+		// 페이징 클래스 initialize
+		int curPage = StringUtil.nvlInt((String)inParam.get("CUR_PAGE"), 1);
+		inParam.put("CUR_PAGE", curPage);
+		WebMobilePaging paging = new WebMobilePaging(totCnt, curPage, CmmnCnst.MOBILE_LIST_SIZE);
+
+		inParam.put("S_NUM", paging.getStartContent());
+		inParam.put("E_NUM", paging.getEndContent());
+
+		// 상품문의 조회
+		qnaList = webSaleManageDao.selectListProdQna(inParam);
+
+		mav.addObject("paging", paging);
+		mav.addObject("qnaCnt", qnaCnt);
+		mav.addObject("qnaList", qnaList);
+		mav.addObject("params", inParam);
+
+	}
+
+	/**
+	 * <pre>
+	 * 상품문의 조회
+	 * 상품문의 상세조회
+	 * &#64;param inParam
+	 * &#64;return
+	 * &#64;throws Exception
+	 * &#64;date 2015. 8. 27
+	 * &#64;author Kang.h.c
+	 * &#64;see com.ssocio.sharing.service.web
+	 * </pre>
+	 */
+	@Override
+	public void selectProdQnaDtl(ModelAndView mav, Map<String, Object> inParam) throws Exception {
+
+		LoggerUtil.writeMap(inParam);
+
+		Map<String, Object> qnaDtl = null; // 문의 상세
+
+		// 문의 유형코드
+		inParam.put("grpCd", CmmnCnst.qnaTypeCd);
+
+		qnaDtl = webSaleManageDao.selectProdQnaDtl(inParam);
+
+		if (qnaDtl != null){
+
+			// 답변코드
+			String ansGbCd = (String)qnaDtl.get("ANS_GB_CD");
+			// CLOB > String
+			if (CmmnCnst.cmmn30.equals(ansGbCd)) {
+				String[] convet = {"CONTENTS", "ANS_CONTENTS"};
+				qnaDtl = CommonUtil.clobToString(qnaDtl, convet);
+			}
+			else {
+				qnaDtl = CommonUtil.clobToString(qnaDtl, "CONTENTS");
+			}
+		}
+
+		mav.addObject("params", inParam);
+		mav.addObject("qnaDtl", qnaDtl);
+
+	}
+
+	/**
+	 * <pre>
+	 * 답변등록
+	 * 상품문의의 답변을 등록한다
+	 * &#64;param inParam
+	 * &#64;return
+	 * &#64;throws Exception
+	 * &#64;date 2015. 8. 31
+	 * &#64;author Kang.h.c
+	 * &#64;see com.ssocio.sharing.service.web
+	 * </pre>
+	 */
+	@Override
+	public void updateProdQna(ModelAndView mav, Map<String, Object> inParam) throws Exception {
+
+		LoggerUtil.writeMap(inParam);
+
+		// 처리완료
+		inParam.put("ansGbCd", CmmnCnst.cmmn30);
+
+		int rtn = webSaleManageDao.updateProdQna(inParam);
+
+		if (rtn > 0) {
+			mav.addObject("rtnMsg", CmmnCnst.PROC_MSG_Y);
+		}
+		else {
+			mav.addObject("rtnMsg", CmmnCnst.PROC_MSG_N);
+		}
+
+	}
+
+	/**
+	 * <pre>
+	 * 셰어링 주문내역 리스트 조회
+	 * 주문내역의 셰어링 리스트를 조회한다.
+	 * &#64;param inParam
+	 * &#64;return
+	 * &#64;throws Exception
+	 * &#64;date 2015. 8. 31
+	 * &#64;author Kang.h.c
+	 * &#64;see com.ssocio.sharing.service.web
+	 * </pre>
+	 */
+	@Override
+	public void selectListOrderShare(ModelAndView mav, Map<String, Object> inParam) throws Exception {
+
+		LoggerUtil.writeMap(inParam);
+
+		// 조회기간
+		String dateGap = StringUtil.nvl((String)inParam.get("dateGap"), "1");
+		String startDate = getStartDate(dateGap);
+		String endDate = StringUtil.getCurrentDate();
+		inParam.put("startDate", startDate);
+		inParam.put("endDate", endDate);
+		inParam.put("dateGap", dateGap);
+
+		// 코드 그룹
+		inParam.put("grpCd", CmmnCnst.procStatCd);
+		// 이미지코드
+		inParam.put("prodImgGbCd", CmmnCnst.cmmn11);
+		// 상품구분코드
+		inParam.put("prodTypeCd", CmmnCnst.cmmn2);
+
+		List<Map<String, Object>> orderShareList = null;
+		WebMobilePaging paging = null;
+
+		int curPage = StringUtil.nvlInt((String)inParam.get("CUR_PAGE"), 1);
+		inParam.put("CUR_PAGE", curPage);
+
+		// 처리상태에 따른 조회조건 및 쿼리 변경
+		String ordGb = (String)inParam.get("ordGb");
+
+		// 주문내역 조회
+		if (CmmnCnst.cmmn1.equals(ordGb)) {
+			String[] procStatCdArr = {"10", "21", "22", "23", "85", "86", "87", "88", "89"};
+			inParam.put("procStatCdArr", procStatCdArr);
+		}
+		// 반품신청내역 조회
+		else if (CmmnCnst.cmmn2.equals(ordGb)) {
+			String[] procStatCdArr = {"31", "32", "33"};
+			inParam.put("procStatCdArr", procStatCdArr);
+		}
+		// 취소신청내역 조회
+		else if (CmmnCnst.cmmn3.equals(ordGb)) {
+			String[] procStatCdArr = {"50"};
+			inParam.put("procStatCdArr", procStatCdArr);
+		} // 교환신청내역 조회
+		else if (CmmnCnst.cmmn4.equals(ordGb)) {
+			String[] procStatCdArr = {"41", "42", "43"};
+			inParam.put("procStatCdArr", procStatCdArr);
+		}
+
+		// 총건수 조회
+		logger.info("totCnt : " + inParam.get("TOT_CNT"));
+		//int totCnt = StringUtil.nvlInt((String)inParam.get("TOT_CNT"), CmmnCnst.MOBILE_LIST_SIZE);
+		int totCnt = webSaleManageDao.selectListOrderShareCount(inParam);
+		logger.info("totCnt : " + totCnt);
+		// 페이징 클래스 initialize
+		paging = new WebMobilePaging(totCnt, curPage, CmmnCnst.MOBILE_LIST_SIZE);
+
+		inParam.put("S_NUM", paging.getStartContent());
+		inParam.put("E_NUM", paging.getEndContent());
+
+		orderShareList = webSaleManageDao.selectListOrderShare(inParam);
+		if (orderShareList != null && orderShareList.size() > 0) {
+			paging.setTotCnt(((BigDecimal)orderShareList.get(0).get("CNT")).intValue());
+		}
+
+		mav.addObject("params", inParam);
+		mav.addObject("orderShareList", orderShareList);
+		mav.addObject("paging", paging);
+
+	}
+
+	/**
+	 * <pre>
+	 * 셰어링 주문내역 상세 조회
+	 * 주문내역의 셰어링 상세내역을 조회한다.
+	 * &#64;param inParam
+	 * &#64;return
+	 * &#64;throws Exception
+	 * &#64;date 2015. 9. 02
+	 * &#64;author Kang.h.c
+	 * &#64;see com.ssocio.sharing.service.web
+	 * </pre>
+	 */
+	@Override
+	public void selectOrderShareDtl(ModelAndView mav, Map<String, Object> inParam) throws Exception {
+
+		LoggerUtil.writeMap(inParam);
+
+		Map<String, Object> orderShareDtl = null;
+
+		// 공통조회코드
+		inParam.put("prodTypeCd", CmmnCnst.cmmn2); // 상품타입 - 셰어링상품
+		inParam.put("prodImgGbCd", CmmnCnst.cmmn11); // 이미지구분코드 - 리스트이미지
+		inParam.put("grpCd", CmmnCnst.procStatCd); // 코드그룹
+
+		// 구분
+		String ordGb = (String)inParam.get("ordGb");
+
+		// 주문내역상세
+		if (CmmnCnst.cmmn1.equals(ordGb)) {
+			// 처리상태코드
+			String[] procStatCdArr = {"10", "21", "22", "23", "85", "86", "87", "88", "89"};
+			inParam.put("procStatCdArr", procStatCdArr);
+
+			// 상세조회
+			orderShareDtl = webSaleManageDao.selectOrderShareDtl(inParam);
+
+			// 주문내역 금액정보 조회
+			Map<String, Object> orderAmtMap = webSaleManageDao.selectOrderAmtInfo(inParam);
+			mav.addObject("orderAmtMap", orderAmtMap);
+
+			// 주문내역 쿠폰사용정보 조회
+			List<Map<String, Object>> orderCpnUseInfo = webSaleManageDao.selectOrderCpnUseInfo(inParam);
+			mav.addObject("orderCpnUseInfo", orderCpnUseInfo);
+
+			// 전체취소유무
+			String cacnYn = webSaleManageDao.selectOrdSellAllCancYn(inParam);
+			mav.addObject("cacnYn", cacnYn);
+
+		}
+		// 반품내역상세
+		else if (CmmnCnst.cmmn2.equals(ordGb)) {
+			String[] procStatCdArr = {"31", "32", "33"};
+			inParam.put("procStatCdArr", procStatCdArr);
+
+			orderShareDtl = webSaleManageDao.selectOrderShareDtl(inParam);
+		}
+		// 취소내역상세
+		else if (CmmnCnst.cmmn3.equals(ordGb)) {
+			inParam.put("procStatCd", CmmnCnst.cmmn50); // 처리상태코드-주문취소
+			orderShareDtl = webSaleManageDao.selectOrderShareCancDtl(inParam);
+			// 교환내역 상세
+		}else if(CmmnCnst.cmmn4.equals(ordGb)){
+			String[] procStatCdArr = {"41", "42", "43"};
+			inParam.put("procStatCdArr", procStatCdArr);
+
+			orderShareDtl = webSaleManageDao.selectOrderShareDtl(inParam);
+		}
+
+		mav.addObject("params", inParam);
+		mav.addObject("orderShareDtl", orderShareDtl);
+
+	}
+
+	/**
+	 * <pre>
+	 * 셰어링 주문내역 상태 변경
+	 * 셰어링 주문의 상태를 변경한다.
+	 * &#64;param inParam
+	 * &#64;return
+	 * &#64;throws Exception
+	 * &#64;date 2015. 9. 02
+	 * &#64;author Kang.h.c
+	 * &#64;see com.ssocio.sharing.service.web
+	 * </pre>
+	 */
+	@Transactional
+	@Override
+	public void updateOrderProcStat(ModelAndView mav, Map<String, Object> inParam) throws Exception {
+
+		LoggerUtil.writeMap(inParam);
+
+		// 상태변경값에 따른 분기
+		String upProcStatCd = (String)inParam.get("upProcStatCd");
+		int rtn = 0;
+
+		rtn = webSaleManageDao.updateOrderProcStat(inParam);
+
+
+		if ("21".equals(upProcStatCd)) {
+			logger.info("주문확인 처리");
+			if (rtn > 0) {
+				mav.addObject("rtnMsg", CmmnCnst.ORD_PROC_MSG_Y);
+			}
+			else {
+				mav.addObject("rtnMsg", CmmnCnst.PROC_MSG_N);
+			}
+		}
+		else if ("22".equals(upProcStatCd)) {
+			logger.info("배송신청 처리");
+			// 2015.11.18 택배정보 insert
+			// 정명철
+			inParam.put("dlvStatCd", CmmnCnst.cmmn10);
+
+
+			// 일반택배인경우
+			String dlvWayCd = StringUtil.nvl(webSaleManageDao.selectDlvWayCd(inParam), "99");
+
+			if (CmmnCnst.cmmn2.equals(dlvWayCd)) {
+				webSaleManageDao.insertInvcInfo(inParam);
+
+				// 상품준비중으로부터 배송준비일이 3일 이상할때 신용정보를 차감한다.
+				String flag = StringUtil.nvl(webSaleManageDao.selectInvcFlag(inParam), "N");
+				if(CmmnCnst.cmmnY.equals(flag)){
+					if("2".equals(inParam.get("prodTypeCd"))){ // 세어링
+						inParam.put("CPOINT_GB_CD", CmmnCnst.cmmn40);
+						inParam.put("CPOINT", CmmnCnst.cmmn2);
+						inParam.put("ADD_YN", CmmnCnst.cmmnN);
+						inParam.put("CPOINT_REASON_CD", "42");
+						webSaleManageDao.insertCredPoint(inParam); // 신용점수로직추가
+					}else if("1".equals(inParam.get("prodTypeCd"))){ // 판매
+						inParam.put("CPOINT_GB_CD", CmmnCnst.cmmn80);
+						inParam.put("CPOINT", CmmnCnst.cmmn2);
+						inParam.put("ADD_YN", CmmnCnst.cmmnN);
+						inParam.put("CPOINT_REASON_CD", "42");
+						webSaleManageDao.insertCredPoint(inParam); // 신용점수로직추가
+					}
+				}
+			}
+			// return msg
+			if (rtn > 0) {
+				mav.addObject("rtnMsg", CmmnCnst.ORD_DLV_MSG_Y);
+			}
+			else {
+				mav.addObject("rtnMsg", CmmnCnst.PROC_MSG_N);
+			}
+
+		}
+		else if ("23".equals(upProcStatCd)) {
+			logger.info("배송완료 처리");
+
+			// 운송장 정보 update
+			inParam.put("dlvStatCd", CmmnCnst.cmmn20); // 배송완료
+
+
+			webSaleManageDao.updateInvcInfo(inParam);
+
+			// return msg
+			if (rtn > 0) {
+				mav.addObject("rtnMsg", CmmnCnst.ORD_DLV_CMPT_Y);
+			}
+			else {
+				mav.addObject("rtnMsg", CmmnCnst.PROC_MSG_N);
+			}
+
+			if("selectListDivideReqHist".equals(inParam.get("S_SCR_ID"))){
+				inParam.put("CPOINT_GB_CD", CmmnCnst.cmmn80);
+				inParam.put("CPOINT", CmmnCnst.cmmn1);
+				inParam.put("ADD_YN", CmmnCnst.cmmnY);
+				inParam.put("CPOINT_REASON_CD", CmmnCnst.cmmn11);
+				webSaleManageDao.insertCredPoint(inParam); // 신용점수로직추가
+			}
+
+		}
+		else if ("32".equals(upProcStatCd)) {
+			logger.info("반품접수 처리");
+
+			// 수령방법
+			String dlvWayCd = (String)inParam.get("dlvWayCd");
+
+			// 제휴택배로 수령
+			if (CmmnCnst.cmmn1.equals(dlvWayCd)) {
+
+				String selGrpProd = (String)inParam.get("selGrpProd");
+				// 출하지 신규 등록이면 출하지 정보 insert
+				if (CmmnCnst.cmmnN.equals(selGrpProd)) {
+					inParam.put("baseYn", CmmnCnst.cmmnN);
+					// 등록
+					BigDecimal grpProdSeq = webSaleManageDao.insertGrpProdInfo(inParam);
+					BigDecimal zero =  new BigDecimal("0");
+
+					if (grpProdSeq.compareTo(zero) == 1 ) {
+						inParam.put("grpProdSeq", grpProdSeq);
+						// map table 등록
+						webSaleManageDao.insertGrpProdMap(inParam);
+					}
+				}
+				else {
+					// 기존출하지
+					inParam.put("grpProdSeq", inParam.get("selGrpProd"));
+					// map table 조회
+					int cnt = webSaleManageDao.selectGrpProdMapCnt(inParam);
+
+					if (cnt <= 0) {
+						// map table 등록
+						webSaleManageDao.insertGrpProdMap(inParam);
+					}
+				}
+
+				// 운송장 정보 생성
+				webSaleManageDao.insertChgInvcInfo(inParam);
+
+			}
+
+			// 반품상품정보 update
+			webSaleManageDao.updateOrderShareRtnProd(inParam);
+
+			// return msg
+			if (rtn > 0) {
+				mav.addObject("rtnMsg", CmmnCnst.ORD_BACK_REQ_MSG_Y);
+			}
+			else {
+				mav.addObject("rtnMsg", CmmnCnst.PROC_MSG_N);
+			}
+
+		}
+		else if ("50".equals(upProcStatCd)) {
+			logger.info("주문취소 처리");
+			// 취소 사유 기타
+
+			String cancCd = webSaleManageDao.insertOrdCancInfo(inParam);
+
+			if (!StringUtil.isEmpty(cancCd) ) {
+				logger.info("cancCd : " + cancCd);
+				inParam.put("cancCd", cancCd);
+				// map table 등록
+				webSaleManageDao.updateOrdProdInfoCanc(inParam);
+			}
+
+			// return msg
+			if (rtn > 0) {
+				mav.addObject("rtnMsg", CmmnCnst.ORD_CANC_Y);
+			}
+			else {
+				mav.addObject("rtnMsg", CmmnCnst.PROC_MSG_N);
+			}
+
+		}
+		else if ("89".equals(upProcStatCd) || "33".equals(upProcStatCd)) {
+			logger.info("반납완료 or 반품완료 처리");
+
+			// 반납상품정보 update
+			rtn = webSaleManageDao.updateOrderShareRtnProd(inParam);
+
+			if (rtn > 0) {
+				if ("89".equals(upProcStatCd)) {
+					mav.addObject("rtnMsg", CmmnCnst.ORD_RTN_MSG_Y);
+
+					if("2".equals(inParam.get("prodTypeCd"))){ // 세어링
+						inParam.put("CPOINT_GB_CD", CmmnCnst.cmmn40);
+						inParam.put("CPOINT", CmmnCnst.cmmn5);
+						inParam.put("ADD_YN", CmmnCnst.cmmnN);
+						inParam.put("CPOINT_REASON_CD", "82");
+						webSaleManageDao.insertCredPoint(inParam); // 신용점수로직추가
+					}
+				}
+				else if ("33".equals(upProcStatCd)) {
+					mav.addObject("rtnMsg", CmmnCnst.ORD_BACK_MSG_Y);
+
+					if("1".equals(inParam.get("prodTypeCd"))){ // 판매
+						inParam.put("CPOINT_GB_CD", CmmnCnst.cmmn80); //
+						inParam.put("CPOINT", CmmnCnst.cmmn5);
+						inParam.put("ADD_YN", CmmnCnst.cmmnN);
+						inParam.put("CPOINT_REASON_CD", "82");
+						webSaleManageDao.insertCredPoint(inParam); // 신용점수로직추가
+					}
+				}
+			}
+			else {
+				mav.addObject("rtnMsg", CmmnCnst.PROC_MSG_N);
+			}
+		}
+
+		mav.addObject("params", inParam);
+
+	}
+
+	/**
+	 * <pre>
+	 * 출하지 정보 조회
+	 * 사용자의 출하지 정보를 조회한다.
+	 * &#64;param inParam
+	 * &#64;return
+	 * &#64;throws Exception
+	 * &#64;date 2015. 9. 05
+	 * &#64;author Kang.h.c
+	 * &#64;see com.ssocio.sharing.service.web
+	 * </pre>
+	 */
+	@Override
+	public void selectListGrpProdInfo(ModelAndView mav, Map<String, Object> inParam) throws Exception {
+
+		LoggerUtil.writeMap(inParam);
+
+		Map<String, Object> grpProd = null;
+
+		// 출하지정보 조회
+		grpProd = webSaleManageDao.selectListGrpProdInfo(inParam);
+
+		if (grpProd != null) {
+			grpProd.put("HP", StringUtil.getMdnFmt((String)grpProd.get("HP")));
+		}
+
+		mav.addObject("grpProd", grpProd);
+		mav.addObject("params", inParam);
+
+	}
+
+	/**
+	 * <pre>
+	 * 반품신청정보 조회 및 출하지 정보 조회
+	 * 반품신청정보 조회 및 출하지 정보 조회
+	 * &#64;param inParam
+	 * &#64;return
+	 * &#64;throws Exception
+	 * &#64;date 2015. 9. 05
+	 * &#64;author Kang.h.c
+	 * &#64;see com.ssocio.sharing.service.web
+	 * </pre>
+	 */
+	@Override
+	public void selectBackReqInfo(ModelAndView mav, Map<String, Object> inParam) throws Exception {
+
+		LoggerUtil.writeMap(inParam);
+
+		Map<String, Object> orderShareBack = null;
+		List<Map<String, Object>> grpProdList = null;
+		List<Map<String, Object>> revDlvList = null;
+
+		// 공통조회코드
+		inParam.put("prodImgGbCd", CmmnCnst.cmmn11); // 이미지구분코드 - 리스트이미지
+		inParam.put("grpCd", CmmnCnst.procStatCd); // 코드그룹
+
+		String[] procStatCdArr = {"31", "32", "33"};
+		inParam.put("procStatCdArr", procStatCdArr);
+
+		// 반품신청정보 조회
+		if (CmmnCnst.cmmn1.equals((String)inParam.get("prodTypeCd"))) {
+			orderShareBack = webSaleManageDao.selectSellBackReqInfo(inParam);
+		}
+		else if (CmmnCnst.cmmn2.equals((String)inParam.get("prodTypeCd"))) {
+			orderShareBack = webSaleManageDao.selectBackReqInfo(inParam);
+		}
+
+		// 출하지정보 조회
+		grpProdList = webSaleManageDao.selectListGrpProdByProd(inParam);
+
+		// 제휴택배 정보
+		revDlvList = webSaleManageDao.selectRelDevInfo(inParam);
+
+
+		mav.addObject("grpProdList", grpProdList);
+		mav.addObject("revDlvList", revDlvList);
+		mav.addObject("params", inParam);
+		mav.addObject("orderShareBack", orderShareBack);
+
+	}
+
+	/**
+	 * <pre>
+	 * 판매 주문내역 리스트 조회
+	 * 주문내역의 판매 리스트를 조회한다.
+	 * &#64;param inParam
+	 * &#64;return
+	 * &#64;throws Exception
+	 * &#64;date 2015. 9. 07
+	 * &#64;author Kang.h.c
+	 * &#64;see com.ssocio.sharing.service.web
+	 * </pre>
+	 */
+	@Override
+	public void selectListOrderSell(ModelAndView mav, Map<String, Object> inParam) throws Exception {
+
+		LoggerUtil.writeMap(inParam);
+
+		// 조회기간
+		String dateGap = StringUtil.nvl((String)inParam.get("dateGap"), "1");
+		String startDate = getStartDate(dateGap);
+		String endDate = StringUtil.getCurrentDate();
+		inParam.put("startDate", startDate);
+		inParam.put("endDate", endDate);
+		inParam.put("dateGap", dateGap);
+
+		// 코드 그룹
+		inParam.put("grpCd", CmmnCnst.procStatCd);
+		// 이미지코드
+		inParam.put("prodImgGbCd", CmmnCnst.cmmn11);
+		// 상품구분코드
+		inParam.put("prodTypeCd", CmmnCnst.cmmn1);
+
+		List<Map<String, Object>> orderSellList = null;
+		WebMobilePaging paging = null;
+
+		int curPage = StringUtil.nvlInt((String)inParam.get("CUR_PAGE"), 1);
+		inParam.put("CUR_PAGE", curPage);
+
+		// 처리상태에 따른 조회조건 및 쿼리 변경
+		String ordGb = (String)inParam.get("ordGb");
+
+		// 주문내역 조회
+		if (CmmnCnst.cmmn1.equals(ordGb)) {
+			String[] procStatCdArr = {"10", "21", "22", "23", "99"};
+			inParam.put("procStatCdArr", procStatCdArr);
+		}
+		// 반품신청내역 조회
+		else if (CmmnCnst.cmmn2.equals(ordGb)) {
+			String[] procStatCdArr = {"31", "32", "33"};
+			inParam.put("procStatCdArr", procStatCdArr);
+		}
+		// 취소신청내역 조회
+		else if (CmmnCnst.cmmn3.equals(ordGb)) {
+			String[] procStatCdArr = {"50"};
+			inParam.put("procStatCdArr", procStatCdArr);
+		}
+		// 교환내역 조회
+		else if (CmmnCnst.cmmn4.equals(ordGb)) {
+			String[] procStatCdArr = {"41", "42", "43"};
+			inParam.put("procStatCdArr", procStatCdArr);
+		}
+
+		// 총건수 조회
+		logger.info("totCnt : " + inParam.get("TOT_CNT"));
+		//int totCnt = StringUtil.nvlInt((String)inParam.get("TOT_CNT"), CmmnCnst.MOBILE_LIST_SIZE);
+		int totCnt = webSaleManageDao.selectListOrderSellCount(inParam);
+		logger.info("totCnt : " + totCnt);
+		// 페이징 클래스 initialize
+		paging = new WebMobilePaging(totCnt, curPage, CmmnCnst.MOBILE_LIST_SIZE);
+
+		inParam.put("S_NUM", paging.getStartContent());
+		inParam.put("E_NUM", paging.getEndContent());
+
+		orderSellList = webSaleManageDao.selectListOrderSell(inParam);
+		if (orderSellList != null && orderSellList.size() > 0) {
+			//paging.setTotCnt(((BigDecimal)orderSellList.get(0).get("CNT")).intValue());
+			paging.setTotCnt(totCnt);
+		}
+
+		mav.addObject("params", inParam);
+		mav.addObject("orderSellList", orderSellList);
+		mav.addObject("paging", paging);
+
+	}
+
+	/**
+	 * <pre>
+	 * 판매 주문내역 상세 조회
+	 * 주문내역의 판매 상세내역을 조회한다.
+	 * &#64;param inParam
+	 * &#64;return
+	 * &#64;throws Exception
+	 * &#64;date 2015. 9. 08
+	 * &#64;author Kang.h.c
+	 * &#64;see com.ssocio.sharing.service.web
+	 * </pre>
+	 */
+	@Override
+	public void selectOrderSellDtl(ModelAndView mav, Map<String, Object> inParam) throws Exception {
+
+		LoggerUtil.writeMap(inParam);
+
+		Map<String, Object> orderSellDtl = null;
+
+		// 공통조회코드
+		inParam.put("prodTypeCd", CmmnCnst.cmmn1); // 상품타입 - 셰어링상품
+		inParam.put("prodImgGbCd", CmmnCnst.cmmn11); // 이미지구분코드 - 리스트이미지
+		inParam.put("grpCd", CmmnCnst.procStatCd); // 코드그룹
+
+		// 구분
+		String ordGb = (String)inParam.get("ordGb");
+
+		// 주문내역상세
+		if (CmmnCnst.cmmn1.equals(ordGb)) {
+			// 처리상태코드
+			String[] procStatCdArr = {"10", "21", "22", "23", "99"};
+			inParam.put("procStatCdArr", procStatCdArr);
+
+			// 상세내역
+			orderSellDtl = webSaleManageDao.selectOrderSellDtl(inParam);
+
+			// 주문내역 금액정보 조회
+			Map<String, Object> orderAmtMap = webSaleManageDao.selectOrderAmtInfo(inParam);
+			mav.addObject("orderAmtMap", orderAmtMap);
+
+			// 주문내역 쿠폰사용정보 조회
+			List<Map<String, Object>> orderCpnUseInfo = webSaleManageDao.selectOrderCpnUseInfo(inParam);
+			mav.addObject("orderCpnUseInfo", orderCpnUseInfo);
+
+			// 전체취소유무
+			String cacnYn = webSaleManageDao.selectOrdSellAllCancYn(inParam);
+			mav.addObject("cacnYn", cacnYn);
+
+		}
+		// 반품내역상세
+		else if (CmmnCnst.cmmn2.equals(ordGb)) {
+			String[] procStatCdArr = {"31", "32", "33"};
+			inParam.put("procStatCdArr", procStatCdArr);
+
+			orderSellDtl = webSaleManageDao.selectOrderSellDtl(inParam);
+		}
+		// 취소내역상세
+		else if (CmmnCnst.cmmn3.equals(ordGb)) {
+			inParam.put("procStatCd", CmmnCnst.cmmn50); // 처리상태코드-주문취소
+			orderSellDtl = webSaleManageDao.selectOrderSellCancDtl(inParam);
+		}
+		// 교환내역상세
+		else if (CmmnCnst.cmmn4.equals(ordGb)) {
+			String[] procStatCdArr = {"41", "42", "43"};
+			inParam.put("procStatCdArr", procStatCdArr);
+
+			orderSellDtl = webSaleManageDao.selectOrderSellDtl(inParam);
+		}
+
+		mav.addObject("params", inParam);
+		mav.addObject("orderSellDtl", orderSellDtl);
+
+	}
+
+	/**
+	 * <pre>
+	 * 일반택배 상품배송
+	 * 주문정보 및 배송지정보 조회
+	 * &#64;param inParam
+	 * &#64;return
+	 * &#64;throws Exception
+	 * &#64;date 2015. 9. 08
+	 * &#64;author Kang.h.c
+	 * &#64;see com.ssocio.sharing.service.web
+	 * </pre>
+	 */
+	@Override
+	public void selectOrdDlvInfo(ModelAndView mav, Map<String, Object> inParam) throws Exception {
+
+		LoggerUtil.writeMap(inParam);
+
+		Map<String, Object> orderSellDtl = null;
+
+		// 공통조회코드
+		String prodTypeCd = StringUtil.nvl((String)inParam.get("prodTypeCd"), CmmnCnst.cmmn1);
+		inParam.put("prodTypeCd", prodTypeCd); // 상품타입
+		inParam.put("prodImgGbCd", CmmnCnst.cmmn11); // 이미지구분코드 - 리스트이미지
+		inParam.put("grpCd", CmmnCnst.procStatCd); // 코드그룹
+
+		orderSellDtl = webSaleManageDao.selectOrderSellDtl(inParam);
+
+		mav.addObject("params", inParam);
+		mav.addObject("orderSellDtl", orderSellDtl);
+
+	}
+
+	/**
+	 * <pre>
+	 * 주문취소
+	 * 주문취소
+	 * &#64;param inParam
+	 * &#64;return
+	 * &#64;throws Exception
+	 * &#64;date 2015. 9. 08
+	 * &#64;author Kang.h.c
+	 * &#64;see com.ssocio.sharing.service.web
+	 * </pre>
+	 */
+	@Override
+	public void procOrderCanc(ModelAndView mav, Map<String, Object> inParam) throws Exception {
+
+		LoggerUtil.writeMap(inParam);
+
+		String prodTypeCd = (String)inParam.get("prodTypeCd");
+
+		Map<String, Object> orderDtl = null;
+
+		// 공통조회코드
+		inParam.put("prodImgGbCd", CmmnCnst.cmmn11); // 이미지구분코드 - 리스트이미지
+		inParam.put("grpCd", CmmnCnst.procStatCd); // 코드그룹
+
+		if (CmmnCnst.cmmn1.equals(prodTypeCd)) {
+			// 판매상품 조회
+			inParam.put("prodTypeCd", CmmnCnst.cmmn1); // 상품타입
+			orderDtl = webSaleManageDao.selectOrderSellDtl(inParam);
+		}
+		else {
+			// 셰어링상품 조회
+			inParam.put("prodTypeCd", CmmnCnst.cmmn2); // 상품타입
+			orderDtl = webSaleManageDao.selectOrderShareDtl(inParam);
+		}
+
+		mav.addObject("params", inParam);
+		mav.addObject("orderDtl", orderDtl);
+
+	}
+
+	/**
+	 * <pre>
+	 * 나눔 신청내역 리스트 조회
+	 * 나눔 신청내역 리스트를 조회한다.
+	 * &#64;param inParam
+	 * &#64;return
+	 * &#64;throws Exception
+	 * &#64;date 2015. 9. 08
+	 * &#64;author Kang.h.c
+	 * &#64;see com.ssocio.sharing.service.web
+	 * </pre>
+	 */
+	@Override
+	public void selectListOrderFree(ModelAndView mav, Map<String, Object> inParam) throws Exception {
+
+		LoggerUtil.writeMap(inParam);
+
+		// 조회기간
+		String dateGap = StringUtil.nvl((String)inParam.get("dateGap"), "1");
+		String startDate = getStartDate(dateGap);
+		String endDate = StringUtil.getCurrentDate();
+		inParam.put("startDate", startDate);
+		inParam.put("endDate", endDate);
+		inParam.put("dateGap", dateGap);
+
+		// 이미지코드
+		inParam.put("prodImgGbCd", CmmnCnst.cmmn11);
+		// 상품구분코드
+		inParam.put("prodTypeCd", CmmnCnst.cmmn3);
+
+		List<Map<String, Object>> orderFreeList = null;
+		WebMobilePaging paging = null;
+
+		int curPage = StringUtil.nvlInt((String)inParam.get("CUR_PAGE"), 1);
+		inParam.put("CUR_PAGE", curPage);
+
+		// 총건수 조회
+		int totCnt = webSaleManageDao.selectListOrderFreeCnt(inParam);
+		logger.info("totCnt : " + totCnt);
+
+		// 페이징 클래스 initialize
+		paging = new WebMobilePaging(totCnt, curPage, CmmnCnst.MOBILE_LIST_SIZE);
+
+		inParam.put("S_NUM", paging.getStartContent());
+		inParam.put("E_NUM", paging.getEndContent());
+
+		// 조회
+		orderFreeList = webSaleManageDao.selectListOrderFree(inParam);
+
+		mav.addObject("params", inParam);
+		mav.addObject("orderFreeList", orderFreeList);
+		mav.addObject("paging", paging);
+
+	}
+
+	/**
+	 * <pre>
+	 * 나눔 신청내역 상세 조회
+	 * 주문내역의 나눔 상세내역을 조회한다.
+	 * &#64;param inParam
+	 * &#64;return
+	 * &#64;throws Exception
+	 * &#64;date 2015. 9. 10
+	 * &#64;author Kang.h.c
+	 * &#64;see com.ssocio.sharing.service.web
+	 * </pre>
+	 */
+	@Override
+	public void selectOrderFreeDtl(ModelAndView mav, Map<String, Object> inParam) throws Exception {
+
+		LoggerUtil.writeMap(inParam);
+
+		// return
+		Map<String, Object> orderFreeDtl = null;
+
+		// 이미지코드
+		inParam.put("prodImgGbCd", CmmnCnst.cmmn11);
+		// 상품구분코드
+		inParam.put("prodTypeCd", CmmnCnst.cmmn3);
+
+		// 상태코드에 따른 조회쿼리 분기
+		String procStatCd = (String)inParam.get("procStatCd");
+
+		if ("97".equals(procStatCd)) {
+			orderFreeDtl = webSaleManageDao.selectOrderFreeReqDtl(inParam);
+		}
+		else {
+			inParam.put("procStatCd", "95");
+			orderFreeDtl = webSaleManageDao.selectOrderFreeConfDtl(inParam);
+		}
+
+		mav.addObject("orderFreeDtl", orderFreeDtl);
+		mav.addObject("params", inParam);
+
+	}
+
+	/**
+	 * <pre>
+	 * 나눔상품의 신청을 수락
+	 * 나눔상품의 신청을 수락
+	 * &#64;param inParam
+	 * &#64;return
+	 * &#64;throws Exception
+	 * &#64;date 2015. 9. 10
+	 * &#64;author Kang.h.c
+	 * &#64;see com.ssocio.sharing.service.web
+	 * </pre>
+	 */
+	@Transactional
+	@Override
+	public void updateFreeConfirm(ModelAndView mav, Map<String, Object> inParam) throws Exception {
+
+		LoggerUtil.writeMap(inParam);
+
+		// 수락할 회원일련번호
+		String mberSeq = (String)inParam.get("mberSeq");
+		inParam.remove("mberSeq");
+
+		// 나눔신청한 회원 나눔거절
+		inParam.put("procStatCd", "96");
+		int rejRtn = webSaleManageDao.updateOrderFreeReq(inParam);
+
+		if (rejRtn > 0) {
+			// 선택한 회원 나눔수락
+			inParam.put("procStatCd", "95");
+			inParam.put("mberSeq", mberSeq);
+			int confRtn = webSaleManageDao.updateOrderFreeReq(inParam);
+
+			if (confRtn > 0) {
+
+				// 상품상태 나눔완료
+				inParam.put("prodStatCd", CmmnCnst.cmmn1); // 나눔완료
+				webSaleManageDao.updateProdStatCd(inParam);
+
+				// 신청정보 조회
+				Map<String, Object> ordMap = new HashMap<String, Object>();
+				ordMap = webSaleManageDao.selectProdSubmitInfo(inParam);
+
+				// 주문정보 생성
+				String ordCd = webSaleManageDao.insertOrdInfo(ordMap);
+
+				if (!StringUtil.isEmpty(ordCd)) {
+					ordMap.put("ORD_CD", ordCd);
+
+					LoggerUtil.writeMap(ordMap);
+
+					// 주문 배송지정보 생성
+					int dlvCnt = webSaleManageDao.insertOrdDlvInfo(ordMap);
+
+					if (dlvCnt > 0) {
+
+						// 주문상품정보 생성
+						ordMap.put("PROC_STAT_CD", inParam.get("procStatCd"));
+						ordMap.put("PROD_SEQ", CmmnCnst.cmmn1);
+						ordMap.put("ORD_QTY", CmmnCnst.cmmn1);
+						int ordProdCnt = webSaleManageDao.insertOrdProdInfo(ordMap);
+
+						if (ordProdCnt > 0) {
+							mav.addObject("rtnMsg", CmmnCnst.FREE_REQ_OK);
+						}
+						else {
+							mav.addObject("rtnMsg", CmmnCnst.PROC_MSG_N);
+						}
+					}
+					else {
+						mav.addObject("rtnMsg", CmmnCnst.PROC_MSG_N);
+					}
+				}
+				else {
+					mav.addObject("rtnMsg", CmmnCnst.PROC_MSG_N);
+				}
+			}
+			else {
+				mav.addObject("rtnMsg", CmmnCnst.PROC_MSG_N);
+			}
+		}
+		else {
+			mav.addObject("rtnMsg", CmmnCnst.PROC_MSG_N);
+		}
+
+	}
+
+	/**
+	 * <pre>
+	 * selectSellAdjustHist
+	 * 판매 정산조회
+	 * &#64;param inParam
+	 * &#64;return
+	 * &#64;throws Exception
+	 * &#64;date 2015. 10. 20
+	 * &#64;author Kang.h.c
+	 * &#64;see com.ssocio.sharing.service.web
+	 * </pre>
+	 */
+	@Override
+	public void selectSellAdjustHist(ModelAndView mav, Map<String, Object> inParam) throws Exception {
+
+		LoggerUtil.writeMap(inParam);
+
+		Map<String, Object> adjMap = webSaleManageDao.selectSellAdjustHist(inParam);
+
+		mav.addObject("adjMap", adjMap);
+
+	}
+
+	/**
+	 * <pre>
+	 * selectShareAdjustHist
+	 * 셰어링 정산조회
+	 * &#64;param inParam
+	 * &#64;return
+	 * &#64;throws Exception
+	 * &#64;date 2015. 10. 21
+	 * &#64;author Kang.h.c
+	 * &#64;see com.ssocio.sharing.service.web
+	 * </pre>
+	 */
+	@Override
+	public void selectShareAdjustHist(ModelAndView mav, Map<String, Object> inParam) throws Exception {
+
+		LoggerUtil.writeMap(inParam);
+
+		Map<String, Object> adjMap = webSaleManageDao.selectShareAdjustHist(inParam);
+
+		mav.addObject("adjMap", adjMap);
+
+	}
+
+	/**
+	 * <pre>
+	 * selectShareAdjustHist
+	 * 셰어링 정산조회
+	 * &#64;param inParam
+	 * &#64;return
+	 * &#64;throws Exception
+	 * &#64;date 2015. 10. 21
+	 * &#64;author Kang.h.c
+	 * &#64;see com.ssocio.sharing.service.web
+	 * </pre>
+	 */
+	@Override
+	public Map<String, Object> selectProdQnaInfo(Map<String, Object> inParam) throws Exception {
+
+		LoggerUtil.writeMap(inParam);
+
+		return webSaleManageDao.selectProdQnaInfo(inParam);
+	}
+
+	/**
+	 * <pre>
+	 * 판매관리 주문상품 내역
+	 * 판매관리 주문상품 내역을 조회한다.
+	 * &#64;param inParam
+	 * &#64;return
+	 * &#64;throws Exception
+	 * &#64;date 2015. 11. 18
+	 * &#64;author obiwan
+	 * &#64;see com.ssocio.sharing.service.web
+	 * </pre>
+	 */
+	@Override
+	public void procOrderSearchMain(ModelAndView mav, Map<String, Object> inParam) throws Exception {
+
+		LoggerUtil.writeMap(inParam);
+
+		String today = StringUtil.getCurrentDate();
+
+		inParam.put("STRT_DATE", today);
+		inParam.put("END_DATE", today);
+		Map<String, Object> procOrderSearchMain = null;
+
+		procOrderSearchMain = webSaleManageDao.procOrderSearchMain(inParam);
+
+		mav.addObject("params", inParam);
+		mav.addObject("procOrderSearchMain", procOrderSearchMain);
+	}
+
+	/**
+	 * <pre>
+	 * 판매관리 나눔상풍 수락여부 체크
+	 * 판매관리 나눔상풍 수락여부 체크한다.
+	 * &#64;param inParam
+	 * &#64;return
+	 * &#64;throws Exception
+	 * &#64;date 2015. 11. 18
+	 * &#64;author obiwan
+	 * &#64;see com.ssocio.sharing.service.web
+	 * </pre>
+	 */
+	@Override
+	public int checkFreeConfirm(ModelAndView mav, Map<String, Object> inParam) throws Exception {
+		int rtn = webSaleManageDao.checkFreeConfirm(inParam);
+		return rtn;
+	}
+
+
+
+
+
+	/**
+	 * 	상품 수정 V2
+	 */
+	@Override
+	public void selectProdDtlV2(ModelAndView mav, Map<String, Object> inParam) throws Exception {
+		LoggerUtil.writeMap(inParam);
+
+		Map<String, Object> prodDtl = null; // 상품상세
+		Map<String, Object> imgList = null; // 이미지리스트
+		List<Map<String, Object>> brandList = null; // 브랜드리스트
+		Map<String, Object> shareDtl = null; // 상품셰어링상세
+		List<Map<String, Object>> extDlvPrceList = null; // 추가배송비
+
+		// 상품 조회
+		prodDtl = webSaleManageDao.selectProdDtlV2(inParam);
+
+		logger.debug("prodDtl : " +prodDtl.toString());
+
+		// 처리
+		if (prodDtl != null) {
+			// CLOB > String
+			prodDtl = CommonUtil.clobToString(prodDtl, "PROD_MB_DTL");
+
+			String PROD_MB_DTL = ((String)prodDtl.get("PROD_MB_DTL")).replace("<br>", "\n");
+			prodDtl.remove("PROD_MB_DTL");
+			prodDtl.put("PROD_MB_DTL",PROD_MB_DTL);
+
+			String prodCode = (String)prodDtl.get("PROD_CODE");
+			String ctryCd = (String)prodDtl.get("CTRY_CD");
+			String prodTypeCd = (String)prodDtl.get("PROD_TYPE_CD");
+			String dlvWayCd = (String)prodDtl.get("DLV_WAY_CD");
+			String dlvPayGbCd = (String)prodDtl.get("DLV_PAY_GB_CD");
+
+			String[] subImg = {"12","13","14","15","16"};
+
+			// 이미지 조회
+			imgList = webSaleManageDao.selectProdImg(prodCode);
+
+			List<Map<String,Object>> list = (List<Map<String, Object>>) imgList.get("subProdImage");
+			for (String string : subImg) {
+
+				int chkCnt = 0;
+
+				for (Map<String, Object> map : list) {
+					if (map.get("SUB_FILE_GB_CD").equals(string)){
+						chkCnt += 1;
+					}
+				}
+
+				if (chkCnt == 0){
+					logger.debug("없는 subImg : " + string);
+					// 없는 서브이미지 이므로 가데이터 추가
+					Map<String,Object> map = new HashMap<String,Object>();
+					map.put("SUB_FILE_GB_CD", string);
+					map.put("SUB_FILE_SEQ", null);
+					map.put("SUB_FILE_URL", null);
+					list.add(map);
+				}
+
+			}
+
+
+			// 순서로 꺼내서 다시 put
+			List<Map<String,Object>> sortList = new ArrayList<Map<String,Object>>();
+			for (String string : subImg) {
+				for (Map<String, Object> map : list) {
+					if (map.get("SUB_FILE_GB_CD").equals(string)){
+						sortList.add(map);
+					}
+				}
+			}
+			imgList.remove("subProdImage");
+			imgList.put("subProdImage", sortList);
+
+
+
+
+
+			logger.debug("imgList : " + imgList.toString() );
+
+			// 브랜드 조회
+//			inParam.put("ctryCd", ctryCd);
+//			brandList = webSaleManageDao.selectBrandList(inParam);
+
+			// 셰어링 조회
+			if (CmmnCnst.cmmn2.equals(prodTypeCd)) {
+				shareDtl = webSaleManageDao.selectProdShareInfo(prodCode);
+			}
+
+			// 추가배송비 조회
+			if (CmmnCnst.cmmn1.equals(prodTypeCd) && (CmmnCnst.cmmn1.equals(dlvWayCd) || CmmnCnst.cmmn2.equals(dlvWayCd))
+					&& (!StringUtil.isEmpty(dlvPayGbCd) && CmmnCnst.cmmn2.equals(dlvPayGbCd)) ) {
+				extDlvPrceList = webSaleManageDao.selectExtLandDlvPrice(prodCode);
+			}
+
+		}
+
+
+		// 제휴택배 코드 조회, 배송비 조회
+		logger.debug("제휴택배 코드, 배송비 조회");
+		mav.addObject("relDlvInfo", webSaleManageDao.selectListRelDlvInfo(inParam));
+
+		// 유저시퀀스로 출하지 정보 가져오기
+		mav.addObject("myDlvList", webSaleManageDao.selectDlvInfo(inParam));
+
+
+
+		mav.addObject("prodDtl", prodDtl);
+		mav.addObject("imgList", imgList);
+		mav.addObject("brandList", brandList);
+		mav.addObject("shareDtl", shareDtl);
+		mav.addObject("extDlvPrceList", extDlvPrceList);
+	}
+
+
+
+	/**
+	 *	상품 수정 또는 삭제 전, 상품의 상태값을 확인하기 위한 컨트롤러
+	 */
+	@Override
+	public void selectProdStat(ModelAndView mav, Map<String, Object> inParam) throws Exception {
+
+		if(inParam.get("prodCode") == null || ((String)inParam.get("prodCode")).equals("") ){
+			throw new Exception("존재하지 않는 상품 입니다.");
+		}
+
+		// 상품 수정 전, 이미 삭제된 상품인지 확인
+		String prodStatCd = webSaleManageDao.selectProdStat((String)inParam.get("prodCode"));
+		mav.addObject("prodStatCd",prodStatCd);
+	}
+
+
+	public static void main(String[] args) {
+		double a = 5000;
+		double b = 4500;
+
+		Double c = Math.ceil(a/b);
+
+		System.out.println(c.toString());
+
+	}
+
+
+}

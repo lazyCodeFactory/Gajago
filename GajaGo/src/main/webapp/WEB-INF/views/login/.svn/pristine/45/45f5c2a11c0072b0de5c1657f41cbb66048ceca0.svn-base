@@ -1,0 +1,278 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="adminSmsMapper">
+    
+    
+
+    
+   <select id="selectListSms"  parameterType="HashMap" resultType="HashMap">
+      <include refid="adminCommonMapper.pagingHeader" />
+     SELECT
+		SMS_GRP_SEQ
+		,CPNM_NM
+		,SND_CNT
+		,MSG_KIND
+		,TITLE
+		,SND_STAT
+		,REGIST_DT
+		,to_char(SND_DT, 'yyyy-MM-dd HH24:mm') AS STR_SND_DT
+		,to_char(REGIST_DT, 'yyyy-MM-dd HH24:mm') AS STR_REGIST_DT
+		 , ROW_NUMBER() OVER(ORDER BY REGIST_DT DESC ) AS NO
+	FROM SMS_SND_GRP
+			<where>
+		        SND_STAT IS NOT NULL
+		        <if test="param_title != null and param_title != ''">
+		          AND
+		            CPNM_NM LIKE '%' || <![CDATA[#{param_title }]]> || '%'
+		        </if>
+		        <if test="param_snd_stat != null and param_snd_stat != ''">
+		          AND
+		            SND_STAT = #{param_snd_stat }
+		        </if>
+		      AND
+		        TO_CHAR(REGIST_DT, 'YYYYMMDD') BETWEEN #{S_START_DATE} AND #{S_END_DATE}
+		     </where>
+         ORDER BY REGIST_DT DESC
+      <include refid="adminCommonMapper.pagingFooter" />
+  </select>  
+  
+    <select id="selectListSmsCount"  parameterType="HashMap" resultType="int">
+    	SELECT 
+    		COUNT(1) AS TOTAL_COUNT 
+    	FROM SMS_SND_GRP
+    				<where>
+		         SND_STAT IS NOT NULL
+		        <if test="param_title != null and param_title != ''">
+		          AND
+		            CPNM_NM LIKE '%' || <![CDATA[#{param_title }]]> || '%'
+		        </if>
+		        <if test="param_snd_stat != null and param_snd_stat != ''">
+		          AND
+		            SND_STAT = #{param_snd_stat }
+		        </if>
+		      AND
+		        TO_CHAR(REGIST_DT, 'YYYYMMDD') BETWEEN #{S_START_DATE} AND #{S_END_DATE}
+		     </where>
+    </select>
+    
+    
+   <select id="selectListSmsMberSearch"  parameterType="HashMap" resultType="HashMap">
+		    SELECT 
+		MBER_SEQ
+		,MBER_GB_CD
+		,MBER_REG_GB_CD
+		,MBER_EMAIL
+		,REGEXP_REPLACE(REGEXP_REPLACE(MBER_PHONE,'[^[:digit:]]'),'(^[[:digit:]]{3})([[:digit:]]{3,4})([[:digit:]]{4}$)', '\1-\2-\3') AS MBER_PHONE
+		FROM MBER_INFO 
+		WHERE MBER_EMAIL LIKE '%' || <![CDATA[#{MBER_EMAIL ,jdbcType=VARCHAR}]]> || '%'
+  </select>  
+  
+
+  
+  
+  <insert id="insertSmsMber" parameterType="hashmap" useGeneratedKeys="true" keyProperty="SMS_SEQ" keyColumn="SMS_SEQ">
+  INSERT INTO SMS_SND(
+  	SMS_GRP_SEQ	
+	,SMS_SEQ		
+	,RCV_PHONE	
+	,MBER_SEQ	
+	<if test='RESRV_YN == "Y" '>
+			,SND_DT	
+	</if>
+	<if test='RESRV_YN == "N" '>
+			,SND_DT	
+	</if>
+  )VALUES (
+  	#{SMS_GRP_SEQ}
+	,SEQ_SMS.NEXTVAL
+	, #{RCV_PHONE}
+	, #{MBER_SEQ}
+	<if test='RESRV_YN == "Y" '>
+		,#{SND_DT}
+	</if>
+	<if test='RESRV_YN == "N" '>
+		,sysdate
+	</if>
+	)
+  </insert>
+  
+   <insert id="insertSms" parameterType="hashmap" useGeneratedKeys="true" keyProperty="SMS_GRP_SEQ" keyColumn="SMS_GRP_SEQ">
+ 		INSERT INTO SMS_SND_GRP(
+			 SMS_GRP_SEQ	
+			,SMS_GB_CD	
+			,SND_PHONE	
+			,SND_CNT		
+			,MSG_KIND	
+			,TITLE		
+			,CONTENTS	
+			 <if test="FILE_SEQ != null and FILE_SEQ != ''">
+			,FILE_SEQ	
+			</if>
+			,SND_STAT	
+			,RESRV_YN	
+			,SND_DT		
+			,REGIST_DT	
+			,CPNM_NM
+		)VALUES (
+				SEQ_SMS_GRP.NEXTVAL
+				, #{SMS_GB_CD}
+				,  (SELECT COM_CD_NM FROM CODE WHERE GRP_CD='SND_PHONE' AND COM_CD ='00')
+				, #{SND_CNT}
+				, #{MSG_KIND}
+				, #{TITLE}
+				, #{CONTENTS}
+				 <if test="FILE_SEQ != null and FILE_SEQ != ''">
+				, #{FILE_SEQ}
+				</if>
+				, #{SND_STAT}
+				, #{RESRV_YN}
+				, #{SND_DT}
+				, sysdate 
+				, #{CPNM_NM }
+				)
+  </insert>
+  
+  
+   <insert id="insertSms1" parameterType="hashmap" useGeneratedKeys="true" keyProperty="SMS_GRP_SEQ" keyColumn="SMS_GRP_SEQ">
+ 		INSERT INTO SMS_SND_GRP(
+			 SMS_GRP_SEQ	
+			,SMS_GB_CD	
+			,SND_PHONE	
+			,SND_CNT		
+			,MSG_KIND	
+			,TITLE		
+			,CONTENTS	
+			 <if test="FILE_SEQ != null and FILE_SEQ != ''">
+			,FILE_SEQ	
+			</if>
+			,SND_STAT	
+			,RESRV_YN	
+			,SND_DT		
+			,REGIST_DT	
+			,CPNM_NM
+		)VALUES (
+				SEQ_SMS_GRP.NEXTVAL
+				, #{SMS_GB_CD}
+				, (SELECT COM_CD_NM FROM CODE WHERE GRP_CD='SND_PHONE' AND COM_CD ='00')
+				, #{SND_CNT}
+				, #{MSG_KIND}
+				, #{TITLE}
+				, #{CONTENTS}
+				 <if test="FILE_SEQ != null and FILE_SEQ != ''">
+				, #{FILE_SEQ}
+				</if>
+				, #{SND_STAT}
+				, #{RESRV_YN}
+				, sysdate
+				, sysdate
+				, #{CPNM_NM }
+				)
+  </insert>
+  
+  
+  <insert id="insertSmsNone" parameterType="hashmap" useGeneratedKeys="true" keyProperty="SMS_GRP_SEQ" keyColumn="SMS_GRP_SEQ">
+ 		INSERT INTO SMS_SND_GRP(
+			 SMS_GRP_SEQ	
+			,REGIST_DT	
+		)VALUES (
+				SEQ_SMS_GRP.NEXTVAL
+				, sysdate 
+				)
+  </insert>
+  
+  <insert id="insertSmsMber2" parameterType="hashmap" useGeneratedKeys="true" keyProperty="SMS_SEQ" keyColumn="SMS_SEQ">
+  INSERT INTO SMS_SND(
+  	SMS_GRP_SEQ	
+	,SMS_SEQ		
+	,RCV_PHONE	
+	,MBER_SEQ	
+  )VALUES (
+  	#{SMS_GRP_SEQ}
+	,SEQ_SMS.NEXTVAL
+	, (SELECT MBER_PHONE FROM MBER_INFO WHERE MBER_SEQ = #{MBER_SEQ })
+	, #{MBER_SEQ}
+	)
+  </insert>
+  
+   <select id="selectListSmsMberCnt"  parameterType="HashMap" resultType="int">
+		    SELECT 
+		COUNT(*) AS MBER_CNT
+		FROM MBER_INFO 
+  </select>  
+  
+      <select id="selectListSmsMber"  parameterType="HashMap" resultType="HashMap">
+	 SELECT 
+		 M.MBER_SEQ  AS MBER_SEQ
+		,M.MBER_GB_CD  AS MBER_GB_CD
+		,M.MBER_REG_GB_CD  AS MBER_REG_GB_CD
+		,M.MBER_EMAIL  AS MBER_EMAIL
+		,REGEXP_REPLACE(REGEXP_REPLACE(M.MBER_PHONE,'[^[:digit:]]'),'(^[[:digit:]]{3})([[:digit:]]{3,4})([[:digit:]]{4}$)', '\1-\2-\3') AS MBER_PHONE
+		FROM SMS_SND S
+    LEFT JOIN MBER_INFO M 
+    ON  S.MBER_SEQ = M.MBER_SEQ
+		WHERE  S.SMS_GRP_SEQ = #{SMS_GRP_SEQ }
+  </select>  
+  
+        <select id="selectListSmsMberCount"  parameterType="HashMap" resultType="int">
+	 SELECT 
+	  COUNT(*) CNT
+	 FROM SMS_SND S
+    LEFT JOIN MBER_INFO M 
+    ON  S.MBER_SEQ = M.MBER_SEQ
+		WHERE  S.SMS_GRP_SEQ = #{SMS_GRP_SEQ }
+  </select>  
+  
+  <select id="selectSms"  parameterType="HashMap" resultType="HashMap">
+  	SELECT
+		A.SMS_GRP_SEQ
+		,A.CPNM_NM
+		,A.SMS_GB_CD
+		,A.SND_PHONE
+		,A.SND_CNT
+		,A.MSG_KIND
+		,A.TITLE
+		,A.CONTENTS
+		,(SELECT B.FILE_URL FROM FILE_INFO B WHERE B.FILE_SEQ = NVL(A.FILE_SEQ,-1)) AS FILE_SEQ
+		,A.SND_STAT
+		,A.RESRV_YN
+		,to_char(A.SND_DT, 'yyyy-MM-dd HH24:mm') AS SND_DT
+		,to_char(A.REGIST_DT, 'yyyy-MM-dd HH24:mm') AS REGIST_DT
+	FROM SMS_SND_GRP A
+	WHERE SMS_GRP_SEQ = #{SMS_GRP_SEQ }
+  </select>
+  
+  
+   <update   id="updateSms"  parameterType="HashMap" >
+   		UPDATE SMS_SND_GRP SET SND_STAT = #{SND_STAT} WHERE SMS_GRP_SEQ = #{SMS_GRP_SEQ }
+   </update >
+   
+   
+   <update   id="updateSmsGrp"  parameterType="HashMap" >
+   		UPDATE SMS_SND_GRP 
+   			SET 
+   			SMS_GB_CD					 = #{SMS_GB_CD}                                                            
+			,SND_PHONE					 =  (SELECT COM_CD_NM FROM CODE WHERE GRP_CD='SND_PHONE' AND COM_CD ='00') 
+			,SND_CNT					 = #{SND_CNT}                                                              
+			,MSG_KIND					 = #{MSG_KIND}                                                             
+			,TITLE						 = #{TITLE}                                                                
+			,CONTENTS					 = #{CONTENTS}                                                             
+			 <if test="FILE_SEQ != null and FILE_SEQ != ''">                      
+			,FILE_SEQ					 = #{FILE_SEQ}                                                             
+			</if>						                                                                    
+			,SND_STAT					 = #{SND_STAT}                                                             
+			,RESRV_YN					 = #{RESRV_YN}  
+			<if test='RESRV_YN == "Y" '>                                                           
+			,SND_DT						 = #{SND_DT}         
+			</if>
+			<if test='RESRV_YN == "N" '>                                                           
+			,SND_DT						 = sysdate      
+			</if>                                                      
+			,REGIST_DT					 = sysdate                                                                 
+			,CPNM_NM					 = #{CPNM_NM }    
+   		WHERE SMS_GRP_SEQ = #{SMS_GRP_SEQ }
+   </update >
+   
+   
+   
+ </mapper>

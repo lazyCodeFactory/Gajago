@@ -1,0 +1,438 @@
+<%@ page language="java" contentType="text/html; charset=utf-8"
+    pageEncoding="utf-8"%>
+<!-- 태그는 cmmnHead.jsp 에 선언함 -->
+<%@ include file="/WEB-INF/views/admin/common/cmmnHead.jsp"%>
+<script type="text/javascript">
+$(document).ready(function() {
+	/* 탭 클릭 이벤트 Start */
+	$(".tabPoint1").click(function() {
+		f_goTab(1);
+	});
+
+	$(".tabPoint2").click(function() {
+		f_goTab(2);
+	});
+	/* 탭 클릭 이벤트 End */
+	
+	// 조회 클릭 이벤트
+	$("#btn_search").click(function() {
+		f_searchPointList("list");
+	});
+	
+	// 포인트 일괄처리 클릭 버튼
+	$("#btn_excelUp").click(function() {
+		uploadPointExcelPopup();
+	});
+	
+	// 확인 클릭 이벤트
+	$("#btn_cfm").click(function() {
+		f_savePointList();
+	});
+	
+	// 확인 레이아웃에서 확인 클릭 이벤트
+	/*$(".pt_submit").click(function() {
+		f_savePointList();
+	});*/
+	
+	// 확인 레이아웃에서 취소 클릭 이벤트
+	/*$(".pt_cancel").click(function() {
+		$("#pointCfmLay").hide();
+		$("#I_Y_POINT").attr("readOnly", false);
+		$("#I_N_POINT").attr("readOnly", false);
+		$("#I_CHG_REASON").attr("readOnly", false);
+	});*/
+	
+	// 포인트 지급 Key Up 이벤트
+	$("#I_Y_POINT").keyup(function() {
+		numberOnly(this);
+	});
+	
+	// 포인트 차감 Key Up 이벤트
+	$("#I_N_POINT").keyup(function() {
+		numberOnly(this);
+	});
+	
+	//$("#pointCfmLay").hide();
+	$(".tabPoint2").trigger("click");
+});
+
+/* ======================================================================
+Function : 조회
+Return   : 없음
+========================================================================= */
+function f_searchPointList(sAction) {
+
+	var sIdText = $.trim($("#S_ID_TEXT").val());
+	var url = "/admin/point/selectListMberPoint.do";
+	
+	if(gf_isNull(sIdText)) {
+    	alert("아이디는 필수 입력입니다.");
+    	$("#S_ID_TEXT").focus();
+		return;
+    }
+	
+	$("#ACTION").val(sAction);
+	$("#frm").attr("action", url).submit();
+}
+
+/* ======================================================================
+Function : 저장
+Return   : 없음
+========================================================================= */
+function f_savePointList() {
+	var sIdText = $.trim("${searchParam.S_ID_TEXT}");
+	var sYpoint = $.trim($("#I_Y_POINT").val());
+	var sNpoint = $.trim($("#I_N_POINT").val());
+	var sPointVal = "";
+	
+	if(gf_isNull(sIdText)) {
+    	alert("아이디가 검색되지 않았습니다. 검색 후에 진행하시기 바랍니다.");
+		return;
+    }
+	
+	if(gf_isNull(sYpoint) && gf_isNull(sNpoint)) {
+    	alert("포인트 지급 또는 차감을 입력하시기 바랍니다.");
+    	$("#I_Y_POINT").focus();
+		return;
+    }
+	
+	if(!gf_isNull(sYpoint) && !gf_isNull(sNpoint)) {
+    	alert("포인트 지급, 차감 중 1개만 선택하여 입력하시기 바랍니다.");
+    	$("#I_Y_POINT").focus();
+		return;
+    }
+	
+	if(!gf_isNull(sYpoint)) {
+		sPointVal = sYpoint+"포인트를 지급";
+		$("#I_POINT_CD").val("10"); // 포인트지급(관리자)
+		$("#I_POINT_TYPE").val("Y");
+		$("#I_POINT").val(sYpoint);
+	}
+	
+	if(!gf_isNull(sNpoint)) {
+		sPointVal = sNpoint+ "포인트를 차감";
+		$("#I_POINT_CD").val("15"); // 포인트차감(관리자)
+		$("#I_POINT_TYPE").val("N");
+		$("#I_POINT").val(sNpoint);
+	}
+	
+	if(confirm(sIdText+" 회원에게 "+sPointVal+" 하시겠습니까?") == false) { return; }
+	
+	$.ajax({
+	    type: "post",
+	    async: true,
+	    url: "/admin/point/saveMberPoint.do",
+	    data: {"S_ID_TEXT":"${searchParam.S_ID_TEXT}", "I_POINT":$("#I_POINT").val(), 
+	    	   "I_CHG_REASON":$("#I_CHG_REASON").val(), "I_POINT_CD":$("#I_POINT_CD").val(), "I_POINT_TYPE":$("#I_POINT_TYPE").val()},
+	    success: function(data) {
+	    	f_searchPointList("list");
+	    },
+	    error: function(data, status, err) {
+	      alert('서버와의 통신이 실패했습니다.');
+	    }
+	});
+}
+
+/* ======================================================================
+Function : 확인 레이아웃 Open
+Return   : 없음
+========================================================================= */
+/*function f_openPointLay() {
+	var sIdText = $.trim("${searchParam.S_ID_TEXT}");
+	var sYpoint = $.trim($("#I_Y_POINT").val());
+	var sNpoint = $.trim($("#I_N_POINT").val());
+	var sPointVal = "";
+	
+	if(gf_isNull(sIdText)) {
+    	alert("아이디가 검색되지 않았습니다. 검색 후에 진행하시기 바랍니다.");
+		return;
+    }
+	
+	if(gf_isNull(sYpoint) && gf_isNull(sNpoint)) {
+    	alert("포인트 지급 또는 차감을 입력하시기 바랍니다.");
+    	$("#I_Y_POINT").focus();
+		return;
+    }
+	
+	if(!gf_isNull(sYpoint) && !gf_isNull(sNpoint)) {
+    	alert("포인트 지급, 차감 중 1개만 선택하여 입력하시기 바랍니다.");
+    	$("#I_Y_POINT").focus();
+		return;
+    }
+	
+	if(!gf_isNull(sYpoint)) {
+		sPointVal = sYpoint+"포인트를 지급";
+		$("#I_POINT_CD").val("10"); // 포인트지급(관리자)
+		$("#I_POINT_TYPE").val("Y");
+		$("#I_POINT").val(sYpoint);
+	}
+	
+	if(!gf_isNull(sNpoint)) {
+		sPointVal = sNpoint+ "포인트를 차감";
+		$("#I_POINT_CD").val("15"); // 포인트차감(관리자)
+		$("#I_POINT_TYPE").val("N");
+		$("#I_POINT").val(sNpoint);
+	}
+	
+	$("#pointVal").html(sPointVal);
+	$("#pointCfmLay").show();
+	$("#I_Y_POINT").attr("readOnly", true);
+	$("#I_N_POINT").attr("readOnly", true);
+	$("#I_CHG_REASON").attr("readOnly", true);
+}*/
+
+/* ======================================================================
+Function : 탭이동
+Return   : 없음
+========================================================================= */
+function f_goTab(index) {
+	$("#TAB_INDEX").val(index);
+	
+	if(index == 1) {
+		$("#frm").attr("action", "/admin/point/selectListPeriPoint.do").submit();
+	}else if(index == 2) {
+		
+	}
+}
+
+/* ======================================================================
+Function : 다른페이지 이동
+Return   : 없음
+========================================================================= */
+function GoPage(pageNo) {
+	$("#PAGE_NO").val(pageNo);
+	f_searchPointList("list");
+}
+
+/* ======================================================================
+Function : 포인트 일괄 처리 엑셀 업로드
+Return   : 없음
+========================================================================= */
+function uploadPointExcelPopup(){
+ 	var width = 700;
+ 	var height = 600;
+ 	var left = (screen.width/2) - (width/2);
+ 	var top = (screen.height/2) - (height/2);
+    var url = "/admin/point/uploadPointExcelPopup.do";
+    
+	window.open("", "popupForm", "width=" + width + ", height=" + height + ", screenY=" + top + ", screenX=" + left + ",toolbar=no, menubar=no, scrollbars=yes, resizeable=no");
+	$("#popupForm").attr("action", url).attr("target", "popupForm").submit();
+	return false;
+}
+
+</script>
+	<!-- content -->
+	<div id="content">
+		<div class="inner">
+			<ul class="lst_tab type">
+				<li id="tabPoint1"><a href="#" class="tabPoint1">기간별</a></li>
+				<li id="tabPoint2" class="on"><a href="#" class="tabPoint2">회원별</a></li>
+			</ul>
+			<form name="frm" id="frm" method="post">
+			<input type="hidden" id="ACTION" name="ACTION">
+			<input type="hidden" id="TAB_INDEX" name="TAB_INDEX">
+			<input type="hidden" id="I_POINT_CD" name="I_POINT_CD">
+			<input type="hidden" id="I_POINT_TYPE" name="I_POINT_TYPE">
+			<input type="hidden" id="I_POINT" name="I_POINT">
+			<input type="hidden" id="PAGE_NO" name="PAGE_NO" value="${list.PAGE_NO}">
+			<!-- point_info_bx -->
+			<div class="point_info_bx clear">
+				<div class="inp_area">
+					<strong>아이디</strong>
+					<span class="ml10"><input type="text" id="S_ID_TEXT" name="S_ID_TEXT" value="${searchParam.S_ID_TEXT}" style="width:150px" /></span>
+				</div>
+				<div class="pt_btn_bx">
+					<a href="#" id="btn_search" class="btn_r btn_id_srch"><span>조회</span></a>
+				</div>
+				<a href="#" id="btn_excelUp" class="btn_r btn_point_pc"><span>포인트 일괄 처리</span></a>
+			</div>
+			<!-- //point_info_bx -->
+			<!-- tbl -->
+			<ul class="lst_type clear mt20">
+				<li>${searchParam.S_ID_TEXT} 포인트내역</li>
+				<c:forEach var="pointTotSum" items="${list.pointTotSum}">
+					<c:set var="A_POINT_SUM" value="${pointTotSum.A_POINT}" />
+					<c:set var="B_POINT_SUM" value="${pointTotSum.B_POINT}" />
+					<c:set var="Y_POINT_SUM" value="${pointTotSum.Y_POINT}" />
+					<c:set var="N_POINT_SUM" value="${pointTotSum.N_POINT}" />
+				</c:forEach>
+				<li>적립포인트 : 
+					<span class="text_r">
+						<c:choose>
+						  <c:when test="${A_POINT_SUM == null || A_POINT_SUM == ''}" >0</c:when>
+						  <c:otherwise><fmt:formatNumber value="${A_POINT_SUM}" pattern="#,###" /></c:otherwise>
+						</c:choose>P
+					</span>
+				</li>
+				<li>사용포인트 : 
+					<span class="text_r">
+						<c:choose>
+						  <c:when test="${B_POINT_SUM == null || B_POINT_SUM == ''}" >0</c:when>
+						  <c:otherwise><fmt:formatNumber value="${B_POINT_SUM}" pattern="#,###" /></c:otherwise>
+						</c:choose>P
+					</span>
+				</li>
+				<li>지급포인트 : 
+					<span class="text_r">
+						<c:choose>
+						  <c:when test="${Y_POINT_SUM == null || Y_POINT_SUM == ''}" >0</c:when>
+						  <c:otherwise><fmt:formatNumber value="${Y_POINT_SUM}" pattern="#,###" /></c:otherwise>
+						</c:choose>P
+					</span>
+				</li>
+				<li>차감포인트 : 
+					<span class="text_r">
+						<c:choose>
+						  <c:when test="${N_POINT_SUM == null || N_POINT_SUM == ''}" >0</c:when>
+						  <c:otherwise><fmt:formatNumber value="${N_POINT_SUM}" pattern="#,###" /></c:otherwise>
+						</c:choose>P
+					</span>
+				</li>
+			</ul>
+			
+			<div class="tbl mt10">
+				<p class="tbl_tit"><img src="http://static.ssocio.net/admin/images/ico_admin.gif" alt="" />포인트 지급/차감</p>
+				<!-- list -->
+				<table class="list type">
+					<colgroup>
+						<col style="width:30%" />
+						<col style="width:30%" />	
+						<col style="width:*" />
+						<col style="width:10%" />
+					</colgroup>
+					<thead>
+						<tr>
+							<th scope="col">포인트 지급</th>
+							<th scope="col">포인트 차감</th>
+							<th scope="col">변동사유</th>
+							<th scope="col">확인</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td class="nolineL"><input type="text" id="I_Y_POINT" name="I_Y_POINT" style="width:300px" maxlength="10" /></td>
+							<td><input type="text" id="I_N_POINT" name="I_N_POINT" style="width:300px" maxlength="10" /></td>
+							<td><input type="text" id="I_CHG_REASON" name="I_CHG_REASON" style="width:300px" value="${I_CHG_REASON}" maxlength="1000" /></td>
+							<td><a href="#" id="btn_cfm" class="btn_w"><span>확인</span></a></td>
+						</tr>
+					</tbody>
+				</table>
+				<!-- //list -->
+			</div>
+			<!-- //tbl -->
+			
+			<div class="top_tbl mt10 clear">
+				<div class="right">
+					<span class="select" style="width:130px;">
+						<span class="sel_txt"></span>
+						<select id="S_DISPLAY_CNT" name="S_DISPLAY_CNT" onChange = "javascript: f_searchPointList('list')">
+							<custom:codeList var="display" groupCode="DISPLAY_CNT" />
+							<c:forEach var="list" items="${display}" varStatus="status">
+								<option value="${list.key}" <c:if test="${list.key == searchParam.S_DISPLAY_CNT}">selected="selected"</c:if> >${list.value} </option>
+				            </c:forEach>
+						</select>
+					</span>
+				</div>
+			</div>
+			
+			<div class="tbl mt10">
+				<!-- list -->
+				<table class="list type">
+					<colgroup>
+						<col style="width:20%" />
+						<col style="width:10%" />	
+						<col style="width:*" />
+						<col style="width:10%" />
+						<col style="width:10%" />
+						<col style="width:10%" />
+						<col style="width:10%" />
+					</colgroup>
+					<thead>
+						<tr>
+							<th scope="col">적립/사용일시</th>
+							<th scope="col">구분</th>
+							<th scope="col">포인트내역</th>
+							<th scope="col">적립포인트</th>
+							<th scope="col">사용포인트</th>
+							<th scope="col">지급포인트</th>
+							<th scope="col">차감포인트</th>
+						</tr>
+					</thead>
+					<tbody>
+						<c:if test="${fn:length(list.pointList) > 0}">
+							<c:forEach var="pointList" items="${list.pointList}">
+								<tr>
+									<td class="nolineL">${pointList.REGIST_DT}</td>
+									<td>${pointList.POINT_NM}</td>
+									<td style="text-align:left;">${pointList.CHG_REASON}</td>
+									<td style="text-align:right;">
+										<c:choose>
+										   <c:when test="${pointList.A_POINT == null || pointList.A_POINT == ''}">-</c:when>
+										   <c:otherwise>
+										      <fmt:formatNumber value="${pointList.A_POINT}" pattern="#,###" />P
+										   </c:otherwise>
+										</c:choose>
+									</td>
+									<td style="text-align:right;">
+										<c:choose>
+										   <c:when test="${pointList.B_POINT == null || pointList.B_POINT == ''}">-</c:when>
+										   <c:otherwise>
+										      <fmt:formatNumber value="${pointList.B_POINT}" pattern="#,###" />P
+										   </c:otherwise>
+										</c:choose>
+									</td>
+									<td style="text-align:right;">
+										<c:choose>
+										   <c:when test="${pointList.Y_POINT == null || pointList.Y_POINT == '' || pointList.POINT_CD == '30'}">-</c:when>
+										   <c:otherwise>
+										      <fmt:formatNumber value="${pointList.Y_POINT}" pattern="#,###" />P
+										   </c:otherwise>
+										</c:choose>
+									</td>
+									<td style="text-align:right;">
+										<c:choose>
+										   <c:when test="${pointList.N_POINT == null || pointList.N_POINT == ''}">-</c:when>
+										   <c:otherwise>
+										      <fmt:formatNumber value="${pointList.N_POINT}" pattern="#,###" />P
+										   </c:otherwise>
+										</c:choose>
+									</td>
+								</tr>
+							</c:forEach>
+						</c:if>
+						<c:if test="${fn:length(list.pointList) <= 0}">
+							<tr><td class="nolineL" colspan="7">검색결과가 없습니다.</td></tr>
+						</c:if>
+					</tbody>
+				</table>
+				<!-- //list -->
+			</div>
+			<!-- //tbl -->
+			<!-- bot_tbl -->
+			<div class="bot_tbl">
+				<%@ include file="/WEB-INF/views/admin/common/PageView.jsp" %>
+			</div>
+			<!-- //bot_tbl -->
+			
+			<!-- 포인트 지급/차감 레이어팝업 -->
+			<!-- div id="pointCfmLay" class="lay_pop lay_point_bx on" style="width:300px; position:relative; left:450px; bottom:400px;">
+				<div class="pop_con">
+					<div class="pt_apply_info">
+						<p>
+							${searchParam.S_ID_TEXT} 회원에게<br/>
+							<span id="pointVal"></span><br/>
+							 하시겠습니까?
+						</p>
+						<div class="btn_pt_area">
+							<a href="#" class="pt_submit">확인</a>
+							<a href="#" class="pt_cancel">취소</a>
+						</div>
+					</div>
+				</div>
+			</div -->
+			<!-- //포인트 지급/차감 레이어팝업 -->
+			</form>
+		</div>
+	</div>
+	<form name="popupForm" id="popupForm" method="post"></form>
+	

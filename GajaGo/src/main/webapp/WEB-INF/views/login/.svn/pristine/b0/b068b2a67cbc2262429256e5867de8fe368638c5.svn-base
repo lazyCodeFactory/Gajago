@@ -1,0 +1,351 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/seller/common/cmmnHead.jsp"%>
+<script type="text/javascript" src="/js/smartEditor/js/HuskyEZCreator.js" charset="utf-8"></script>
+<script type="text/javascript">
+var oEditors = [];
+$(function(){
+	//달력이미지
+	$('.calendar').datepicker({
+	      showOn: "button",
+	      buttonImage: "http://static.ssocio.net/seller/images/ico_calendar.gif",
+	      buttonImageOnly: true
+	    });
+	//스마트에디터
+	/*
+	if($("#IU").val() != 'S' ){
+		nhn.husky.EZCreator.createInIFrame({
+			oAppRef: oEditors,
+			elPlaceHolder: "CONTENTS",
+			sSkinURI: "/js/smartEditor/SmartEditor2Skin.html",
+			fCreator: "createSEditor2"
+		});
+	}*/
+
+
+	//팝업노출 선택에 따른 날짜입력 textbox출력
+	$("#chkYn").change(function(){
+		chkShowTextBox();
+	});
+	function chkShowTextBox(){
+		if($("#chkYn").is(":checked") == true){
+			$("#dateSpan").show();
+		}else{
+			$("#VIEW_START_DATE").val('');
+			$("#VIEW_END_DATE").val('');
+			$("#dateSpan").hide();
+		}
+	}chkShowTextBox();
+	$("input[name='TITLE']").attr("disabled", "false");
+	//init();
+});
+
+function init(){
+
+	if($("#IU").val() == "S"){
+
+		$("input[name='NOTI_GB_CD']").attr("disabled", "true");
+		$("input[name='TITLE']").attr("disabled", "false");
+		$("input[name='IMPT_NOTI_YN']").attr("disabled", "false");
+		$("input[name='IMPT_NOTI_YN']").attr("disabled", "false");
+		$("input[name='chkYn']").attr("disabled", "false");
+		$("input[name='VIEW_YN']").attr("disabled", "false");
+		$("#VIEW_START_DATE").attr("disabled", "false");
+		$("#VIEW_END_DATE").attr("disabled", "false");
+
+	}
+}
+
+//공지사항 등록/수정
+function onUpdate(IU) {
+	if(!validate()) return;
+	var msg = "등록 하시겠습니까?";
+	var callUrl = "/seller/notice/insertNoticeReg.do";
+
+	if(IU == 'U'){
+		msg = "수정 하시겠습니까";
+		callUrl = "/seller/notice/updateNoticeReg.do";
+	}
+	if(confirm(msg))
+  	{
+		$.ajax({
+		      type: 'post'
+		      , async: true
+		      , url: callUrl
+		      , dataType:'json'
+		      , data: $("#frm").serialize()
+		      , before: function() {
+		        loadingForm.showDialog();
+		      }
+		      , success: function(data) {
+		    	  //alert("저장 되었습니다.");
+		    	  goList();
+		      }
+		      , complete: function() {
+		        loadingForm.hideDialog();
+		      }
+		      , error : function(request, status, error) {
+					alert("통신 오류가 발생 하였습니다. 잠시 후 다시 시도해 주세요");
+				}
+		    });
+  	}
+}
+//공지사항 삭제
+function onDelete() {
+  	if(confirm("삭제 하시겠습니까?"))
+  	{
+  		$.ajax({
+		      type: 'post'
+		      , async: true
+		      , url: "/seller/notice/deleteNotice.do"
+		      , dataType:'json'
+		      , data: $("#frm").serialize()
+		      , before: function() {
+		        loadingForm.showDialog();
+		      }
+		      , success: function(data) {
+		    	  //alert("삭제 되었습니다.");
+		    	  goList();
+		      }
+		      , complete: function() {
+		        loadingForm.hideDialog();
+		      }
+		      , error : function(request, status, error) {
+					alert("통신 오류가 발생 하였습니다. 잠시 후 다시 시도해 주세요");
+				}
+		    });
+  	}
+}
+//리스트 이동
+function goList() {
+	$("#frm").attr("action","/seller/notice/selectListNotice.do").submit();
+}
+
+function goMain() {
+	$("#frm").attr("action","/seller/main.do").submit();
+}
+//입력값 유효성 체크
+function validate(){
+	oEditors[0].exec("UPDATE_CONTENTS_FIELD", []);   // 에디터의 내용이 textarea에 적용된다.
+	if ($("input[name='NOTI_GB_CD']:checked").length < 1){
+		alert("구분을 선택하세요.");
+		$("#NOTI_GB_CD").focus();
+		return false;
+	}
+	if($("#TITLE").val() == ""){
+		alert("제목을 입력하세요.");
+		$("#TITLE").focus();
+		return false;
+	}
+	if ($("input[name='IMPT_NOTI_YN']:checked").length < 1){
+		alert("주요공지 여부를 선택하세요.");
+		$("#IMPT_NOTI_YN").focus();
+		return false;
+	}
+	if ($("input[name='VIEW_YN']:checked").length < 1){
+		alert("노출여부를 선택하세요.");
+		$("#VIEW_YN").focus();
+		return false;
+	}
+	var CONTENTS = $('#CONTENTS').val().replace(/<p>&nbsp;<\/p>/gi,'');
+	if(CONTENTS == ''){
+		alert("내용을 입력하세요.");
+		$("#CONTENTS").focus();
+		return false;
+	}
+	if($("input:checkbox[name='chkYn']").is(":checked") == true){
+		$("#POP_YN").val('Y');
+		if($("#VIEW_START_DATE").val() == ""){
+			alert("시작일자를 입력하세요.");
+			$("#VIEW_START_DATE").focus();
+			return false;
+		}
+		if($("#VIEW_END_DATE").val() == ""){
+			alert("종료일자를 입력하세요.");
+			$("#VIEW_END_DATE").focus();
+			return false;
+		}
+		var startDate = $("#VIEW_START_DATE").val().replace(/\-/ig, "");
+		var endDate = $("#VIEW_END_DATE").val().replace(/\-/ig, "");
+		if(startDate > endDate){
+	      alert("시작일이 종료일보다 크게 설정될 수 없습니다.");
+	      $("#VIEW_END_DATE").focus();
+	      return false;
+	    }
+	}else{
+		$("#POP_YN").val('N');
+	}
+	if($("#VIEW_START_DATE").val() != "") $("#MAIN_NOTI_YN").val('Y');	//메인공지 날짜가 있을경우 메인공지 Y
+
+	return true;
+}
+</script>
+
+<form id="frm" method="post" name="frm">
+<input type="hidden" id="BOARD_SEQ" name="BOARD_SEQ" value="${selectNotice.BOARD_SEQ }">
+<input type="hidden" id="BOARD_TYPE_CD" name="BOARD_TYPE_CD" value="${params.BOARD_TYPE_CD }">
+<input type="hidden" id="MAIN_NOTI_YN" name="MAIN_NOTI_YN" value="N">
+<input type="hidden" id="POP_YN" name="POP_YN" value="${selectNotice.POP_YN }">
+<!-- 검색조건 params -->
+<input type="hidden" id="S_START_DATE" name="S_START_DATE" value="${params.S_START_DATE }">
+<input type="hidden" id="S_END_DATE" name="S_END_DATE" value="${params.S_END_DATE }">
+<input type="hidden" id="P_TITLE" name="P_TITLE" value="${params.P_TITLE }">
+<input type="hidden" id="P_NOTI_GB_CD" name="P_NOTI_GB_CD" value="${params.P_NOTI_GB_CD }">
+<input type="hidden" id="P_IMPT_NOTI_YN" name="P_IMPT_NOTI_YN" value="${params.P_IMPT_NOTI_YN }">
+<input type="hidden" id="P_MAIN_NOTI_YN" name="P_MAIN_NOTI_YN" value="${params.P_MAIN_NOTI_YN }">
+<input type="hidden" id="P_VIEW_YN" name="P_VIEW_YN" value="${params.P_VIEW_YN }">
+<input type="hidden" id="IU" name="IU" value="${params.IU }">
+<!-- content -->
+<div id="content">
+	<!-- top_content -->
+	<div class="top_content">
+		<!-- location -->
+		<div class="location">
+			<ul class="clear">
+				<li class="first-child"><a href="#">Home</a></li>
+				<li><a href="#">서비스 관리</a></li>
+				<li><a href="#" class="current">
+					<c:if test="${IU == 'I' }">공지사항 등록</c:if>
+					<c:if test="${IU != 'I' }">공지사항 상세</c:if>
+				</a></li>
+			</ul>
+		</div>
+		<!-- //location -->
+	</div>
+	<!-- //top_content -->
+
+	<div class="inner">
+		<!-- tbl -->
+		<div class="tbl mt10 notice">
+			<p class="tbl_tit">
+			<!--
+				<img src="http://static.ssocio.net/seller/images/ico_admin.gif" alt=""> -->
+				<img src="http://static.ssocio.net/admin/images/ico_admin.gif" alt="">
+
+				<!--
+				<c:if test="${IU == 'I' }">공지사항 등록</c:if>
+				<c:if test="${IU != 'I' }">공지사항 상세 정보</c:if> -->
+				공지사항 상세 정보
+			</p>
+			<!--
+			<c:if test="${IU != 'I' }">
+			<table class="upd">
+				<colgroup>
+					<col style="width:15%">
+					<col style="width:35%">
+					<col style="width:15%">
+					<col style="width:35%">
+				</colgroup>
+				<tbody>
+					<tr>
+						<th scope="row">등록일시</th>
+						<td>
+							${selectNotice.REGIST_DT}
+						</td>
+						<th scope="row" class="bl">수정일시</th>
+						<td>
+							${selectNotice.UPDT_DT}
+						</td>
+					</tr>
+				</tbody>
+			</table>
+			</c:if>
+ -->
+			<table class="upd">
+				<colgroup>
+					<col style="width:15.1%">
+					<col style="width:*">
+				</colgroup>
+				<tbody>
+				<!--
+					<tr>
+						<th scope="row">구분</th>
+						<td>
+							<custom:codeList var="NOTI_GB_CD" groupCode="NOTI_GB_CD" />
+							<c:forEach var="list" items="${NOTI_GB_CD}">
+								<label><input type="radio" name="NOTI_GB_CD" value="${list.key}" <c:if test="${list.key == selectNotice.NOTI_GB_CD}">checked</c:if>/>${list.value}</label>
+							</c:forEach>
+						</td>
+					</tr>
+					 -->
+					<tr>
+						<th scope="row">제목</th>
+						<td>
+							<input type="text" id="TITLE" name="TITLE" value="${selectNotice.TITLE}" style="width:282px" maxlength="40" />
+						</td>
+					</tr>
+					<tr>
+						<th scope="row">내용</th>
+						<td>
+						<!--
+						<c:if test="${IU != 'S'}">
+							<textarea id="CONTENTS" name="CONTENTS" cols="30" rows="10"  class="textarea">${selectNotice.CONTENTS}</textarea>
+						</c:if>
+						<c:if test="${IU == 'S'}">
+							<div id="CONTENT" name="CONTENT" cols="30" rows="10"  class="textarea" style="overflow:auto;width: 820px; height: 205px;">${selectNotice.CONTENTS}</div>
+						</c:if> -->
+							<div id="CONTENT" name="CONTENT" cols="30" rows="10"  class="textarea" style="overflow:hidden;width: 820px; min-height:205px; height:100%;">${selectNotice.CONTENTS}</div>
+						</td>
+					</tr>
+					<!--
+					<tr>
+						<th scope="row">주요 공지</th>
+						<td>
+							<label><input type="radio" name="IMPT_NOTI_YN" value="Y" <c:if test="${selectNotice.IMPT_NOTI_YN == 'Y'}">checked</c:if>/>Y</label>
+							<label class="ml10"><input type="radio" name="IMPT_NOTI_YN" value="N" <c:if test="${selectNotice.IMPT_NOTI_YN == 'N'}">checked</c:if>/>N</label>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row">메인 공지</th>
+						<td>
+							<fmt:parseDate value="${selectNotice.VIEW_START_DATE }" var="VIEW_START_DATE" pattern="yyyymmdd" scope="page" />
+	    					<fmt:parseDate value="${selectNotice.VIEW_END_DATE }" var="VIEW_END_DATE" pattern="yyyymmdd" scope="page" />
+							<label><input type="checkbox" id="chkYn" name="chkYn" <c:if test="${selectNotice.POP_YN == 'Y' }">checked</c:if>/>팝업 노출</label>
+							<span id="dateSpan" >
+								<input type="text" id="VIEW_START_DATE" name="VIEW_START_DATE" class="calendar" style="width:100px" value='<fmt:formatDate value="${VIEW_START_DATE}" pattern="yyyy-mm-dd" />' readonly/> -
+								<input type="text" id="VIEW_END_DATE" name="VIEW_END_DATE" class="calendar" style="width:100px" value='<fmt:formatDate value="${VIEW_END_DATE}" pattern="yyyy-mm-dd" />' readonly/>
+							</span>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row">노출 여부</th>
+						<td>
+							<label><input type="radio" name="VIEW_YN" value="Y" <c:if test="${selectNotice.VIEW_YN == 'Y'}">checked</c:if>/>노출</label>
+							<label class="ml10"><input type="radio" name="VIEW_YN" value="N" <c:if test="${selectNotice.VIEW_YN == 'N'}">checked</c:if>/>미노출</label>
+						</td>
+					</tr>
+					 -->
+				</tbody>
+			</table>
+		</div>
+		<!-- //tbl -->
+
+		<div class="btn_area tc mt20">
+		<!--
+			<c:if test="${IU == 'I' }">
+				<a href="javascript:onUpdate('${IU }');" class="btn_r">등록</a>
+			</c:if>
+			<c:if test="${IU == 'U' }">
+				<a href="javascript:onUpdate('${IU }');" class="btn_r">수정</a>
+			</c:if>
+
+			<c:if test="${IU == 'U' }">
+				<a href="javascript:onDelete();" class="btn_r ml10">삭제</a>
+			</c:if>
+			<c:if test="${IU != 'S'}">
+				<a href="javascript:goList();" class="btn_b ml10">취소</a>
+			</c:if>
+			<c:if test="${IU == 'S'}">
+			<a href="javascript:goMain();" class="btn_b ml10">확인</a>
+			</c:if>
+			-->
+			<c:if test="${IU == 'S'}">
+			<a href="javascript:goMain();" class="btn_b ml10">확인</a>
+			</c:if>
+			<c:if test="${IU != 'S'}">
+				<a href="javascript:goList();" class="btn_b ml10">확인</a>
+			</c:if>
+		</div>
+	</div>
+</div>
+<!-- //content -->
+</form>

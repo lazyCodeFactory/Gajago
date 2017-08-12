@@ -1,0 +1,315 @@
+<%@ page language="java" contentType="text/html; charset=utf-8"
+    pageEncoding="utf-8"%>
+<script type="text/javascript" src="http://static.ssocio.net/admin/js/ctry/ctry.js"></script>
+<!-- 태그는 cmmnHead.jsp 에 선언함 -->
+<%@ include file="/WEB-INF/views/admin/common/cmmnHead.jsp"%>
+
+<script type="text/javascript">
+
+	// 카테고리
+	var step1 = '${list.params.STEP1_CD }';
+	var step2 = '${list.params.STEP2_CD }';
+	var step3 = '${list.params.STEP3_CD }';
+	var ctry;
+
+	$(document).ready(function(){
+
+		$('.calendar').datepicker({
+			showOn: "button",
+			buttonImage: "http://static.ssocio.net/admin/images/ico_calendar.gif",
+			buttonImageOnly: true
+	    });
+		
+		// 전체선택
+		$("#chkAll").click( function () {
+			allCheck();
+		});
+		
+		$("input[name^=PROD_CODE]").click( function (evt) {
+			chkEvent();
+		});
+		
+		/* enter event */
+		$("input[type=text]").keypress( function (evt) {
+			if (evt.keyCode == 13) {
+				getProd()
+			}
+		});
+	    
+		prod_padding();
+	    
+		//카테고리 초기화
+		if (step3 != null && step3 != "") {
+			ctry = step3;
+		}
+		else {
+			if (step2 != null && step2 != "") {
+				ctry = step2;
+			}
+			else {
+				ctry = step1;
+			}
+		}
+		initCtry('search', ctry);
+		
+	});
+	
+	// 전체 선택
+	function allCheck() {
+		var chk = $("#chkAll").is(":checked");
+		if (chk) {
+			$("input[name^=PROD_CODE]").each( function (idx) {
+				$(this).attr("checked", true);
+			});
+		}
+		else {
+			$("input[name^=PROD_CODE]").each( function (idx) {
+				$(this).attr("checked", false);
+			});
+		}
+	}
+	
+	// 전체 선택을 제외한 체크박스 선택
+	function chkEvent() {
+		var chkAllCnt = $("input[name^=PROD_CODE]").length; 
+		var chkCnt = $("input[name^=PROD_CODE]:checked").length;
+		
+		if (chkAllCnt == chkCnt) {
+			$("#chkAll").attr("checked", true);	
+		}
+		else {
+			$("#chkAll").attr("checked", false);
+		}
+	}
+	
+	// 조회
+	function getProd() {
+		
+		$("#PAGE_NO").val("1");
+		$("#form").attr("action","/admin/cpn/selectTotProdList.do").submit();
+		
+	}
+	
+	// 페이징
+	function GoPage(pageNo) {
+		$("#PAGE_NO").val(pageNo);
+		$("#form").attr("action","/admin/cpn/selectTotProdList.do").submit();
+	}
+	
+	// 상품 등록
+	function addProd() {
+		
+		var prodCode = "";
+		var prodImgUrl = "";
+		var prodNm = "";
+		var prodTypeCd = "";
+		var sellPrce = "";
+		var mberEmail = "";
+		var sendHtml = "";
+		var addCnt = 0;
+		var spltProd = new Array();
+		var prodOld = window.opener.document.form.prodCode.value;
+		var sendProdCode = prodOld;
+		
+		$("input[name^=PROD_CODE]:checked").each( function () {
+			var chkBool = true;
+			var splt = $(this).val().split(/,/g);
+			prodCode = splt[0]; prodImgUrl = splt[1]; prodNm = splt[2]; prodTypeCd = splt[3]; sellPrce = splt[4]; mberEmail = splt[5];
+			
+			if (prodOld != null && prodOld != "") {
+				spltProd = prodOld.split(/,/g);
+				for (var i = 0 ; i < spltProd.length ; i++) {
+					if (prodCode == spltProd[i]) {
+						chkBool = false;
+					}
+				}
+			}
+			
+			if (chkBool) {
+				sendHtml += '<tr id="';
+				sendHtml += prodCode;
+				sendHtml += '">';
+				sendHtml += '<td class="tl">';
+				sendHtml += '<div class="thumbnail_bx">';
+				sendHtml += '<img src="';
+				sendHtml += prodImgUrl;
+				sendHtml += '" alt="상품 이미지">';
+				sendHtml += '<span class="prod_name" style="width:250px">';
+				sendHtml += prodNm;
+				sendHtml += '</span>';
+				sendHtml += '</div>';
+				sendHtml += '</td>';
+				sendHtml += '<td>';
+				sendHtml += prodTypeCd;
+				sendHtml += '</td>';
+				sendHtml += '<td>';
+				sendHtml += numberWithCommas(sellPrce);
+				sendHtml += '원</td>';
+				sendHtml += '<td>';
+				sendHtml += mberEmail;
+				sendHtml += '</td>';
+				sendHtml += '<td><a href="javascript:delProd(';
+				sendHtml += prodCode;
+				sendHtml += ')" class="btn_r"><span>삭제</span></a></td>';
+				sendHtml += '</tr>';
+				
+				addCnt++;
+				
+				if (sendProdCode == "") {
+					sendProdCode = prodCode;
+				}
+				else {
+					sendProdCode = sendProdCode + "," + prodCode;
+				}
+				
+			}
+			
+		});
+		
+		var sendCnt = numberWithCommas(addCnt+spltProd.length);
+		window.opener.setProdList(sendHtml, sendCnt, sendProdCode);
+		
+	}
+	
+</script>
+<form id="form" name="form" method="post" action="">
+	<input type="hidden" name="PAGE_NO" id="PAGE_NO" value="${list.PAGE_NO }" />
+	<div class="pop_inner">
+		<div class="tbl mt10">
+			<table class="search">
+				<colgroup>
+					<col style="width:8%;" />
+					<col style="width:*;" />
+					<col style="width:8%;" />
+					<col style="width:*;" />
+				</colgroup>
+				<tbody>
+					<tr>
+						<th scope="row">상품명</th>
+						<td class="tl">
+							<input type="text" id="" name="PROD_NM" style="width:130px" value="${list.params.PROD_NM }" />
+						</td>
+						<th scope="row">판매구분</th>
+						<td class="tl">
+							<span>
+								<input type="radio" id="total" name="PROD_TYPE_CD" value="" <c:if test="${list.params.PROD_TYPE_CD == '' or list.params.PROD_TYPE_CD == null }">checked</c:if>/>
+								<label for="total">전체</label>
+							</span>
+							<c:forEach var="code" items="${list.prodTypeCd }" varStatus="codeStatus">
+								<span>
+									<input type="radio" id="${code.COM_CD_NM }" name="PROD_TYPE_CD" value="${code.COM_CD }" <c:if test="${list.params.PROD_TYPE_CD == code.COM_CD }">checked</c:if>/>
+									<label for="${code.COM_CD_NM }">${code.COM_CD_NM }</label>
+								</span>
+							</c:forEach>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row">판매자</th>
+						<td class="tl">
+							<input type="text" id="" name="MBER_EAMIL" style="width:130px" value="${list.params.MBER_EAMIL }" />
+						</td>
+						<th scope="row">카테고리</th>
+						<td class="tl">
+							<span class="select" style="width:120px">
+								<span id="searchCtryTxt1" class="sel_txt"></span>
+								<select id="searchCtryCd1" name="STEP1_CD" onchange="chgCtryCd1Box('search');">
+									<option value="">대분류</option>
+								</select>
+							</span> 
+							<span class="select ml5" style="width:120px">
+								<span id="searchCtryTxt2" class="sel_txt"></span>
+								<select id="searchCtryCd2" name="STEP2_CD" onchange="chgCtryCd2Box('search');">
+									<option value="">중분류</option>
+								</select>
+							</span>
+							<span class="select ml5" style="width:120px">
+								<span id="searchCtryTxt3" class="sel_txt"></span>
+								<select id="searchCtryCd3" name="STEP3_CD">
+									<option value="">소분류</option>
+								</select>
+							</span>
+						</td>
+					</tr>
+				</tbody>
+			</table>
+			<p class="btn_area type"><a href="javascript:getProd();" class="btn_chk btn_r">조회</a></p>
+		</div>
+		
+		<!-- 2015-07-27 수정작업 영역 -->
+		<div class="prod_info_area">
+			<p>총 <fmt:formatNumber value="${list.prodCnt }" type="number" /> 개</p>
+		</div>
+		<!-- //2015-07-27 수정작업 영역 -->
+		
+		<!-- tbl -->
+		<div class="tbl mt10">
+			<!-- list -->
+			<table class="list">
+				<colgroup>
+					<col style="width:5%" />
+					<col style="width:15%" />
+					<col style="width:*" />
+					<col style="width:16%" />
+					<col style="width:8%" />
+					<col style="width:8%" />
+				</colgroup>
+				<thead>	
+					<tr>
+						<th scope="col"><input type="checkbox" id="chkAll" name="chkAll" /></th>
+						<th scope="col">상품코드</th>
+						<th scope="col">상품명</th>
+						<th scope="col">판매자</th>
+						<th scope="col">판매구분</th>
+						<th scope="col">판매가</th>
+					</tr>
+				</thead>
+				<tbody>
+					<c:choose>
+						<c:when test="${fn:length(list.prodList)>0}">						
+							<c:forEach var="list" items="${list.prodList}" varStatus="status">
+						    	 <tr>
+						    	 	<td class="nolineL">
+						    	 		<input type="checkbox" id="prodCode" name="PROD_CODE[]" value="${list.PROD_CODE },${list.PROD_IMG_URL },${list.PROD_NM },${list.PROD_TYPE_CD_NM },${list.SELL_PRCE },${list.MBER_EMAIL }" />
+						    	 	</td>
+						    	 	<td>${list.PROD_CODE }</td>
+						    	 	<td>
+						    	 		<div class="thumbnail_bx">
+											<img src="${list.PROD_IMG_URL }" alt="상품 이미지">
+											<span class="prod_name tl" style="width:205px">${list.PROD_NM }</span>
+										</div>
+						    	 	</td>
+						    	 	<td>${list.MBER_EMAIL }</td>
+						    	 	<td>${list.COM_CD_NM }</td>
+						    	 	<td><fmt:formatNumber value="${list.SELL_PRCE }" type="number" /></td>
+						    	 </tr>		
+						    </c:forEach>								
+						</c:when>
+						<c:otherwise>
+							<tr>
+								<td class="nolineL" colspan="6">조회된 결과가 없습니다.</td>
+							</tr>
+						</c:otherwise>
+					</c:choose>
+				</tbody>
+			</table>
+			<!-- //list -->
+		</div>
+		<!-- //tbl -->
+		
+		<!-- bot_tbl -->
+		<div class="bot_tbl">
+			<a href="javascript:addProd();" class="btn_r btn_prod_del"><span>선택상품등록</span></a>
+			<!-- paging -->
+				<%@ include file="/WEB-INF/views/admin/common/PageView.jsp" %>
+			<!-- //paging -->
+		</div>
+		<!-- //bot_tbl -->
+		
+		<!-- bot_btn -->
+		<div class="bot_btn tc mt20">
+			<a href="javascript:window.close();" class="btn_g2 ml10">닫기</a>
+		</div>
+		<!-- //bot_btn -->
+	
+	</div>
+</form>

@@ -1,0 +1,102 @@
+$(document).ready(function(){
+	var adminId = getCookie('adminId');
+	if(adminId != null && adminId != ''){
+		$('#ADM_ID').val(adminId);
+		$('#saveId').attr('checked','checked');
+	}
+});
+
+
+/* ======================================================================
+Function : 로그인 처리
+Return   : 없음
+========================================================================= */
+function OnLogon() {
+	var id = $('#ADM_ID').val();
+	var pwd = $('#ADM_PSSWD').val();
+	if(id == ''){
+		alert('아이디를 입력해 주세요.');
+		return;
+	}
+	if(pwd == ''){
+		alert('패스워드를 입력해 주세요.');
+		return;
+	}
+	
+	$.ajax({
+	    type: 'post'
+	    , async: true
+	    , url: '/admin/setLogin.do'
+	    , data: $("#frmLogon").serialize()
+	    , success: function(data) {
+	    	var result = data.result;
+	    	var chg = data.chg;
+//	    	alert(chg);
+	    	if(result == 'OK'){
+	    		var saveIdYn = $("input:checkbox[id=saveId]").is(":checked");
+	    		if(saveIdYn){
+	    			setCookie('adminId', id, 365);
+	    		}else{
+	    			deleteCookie('adminId');
+	    		}
+	    		if(chg == 'N'){
+	    			$("#frmLogon").attr("action","/admin/user/updatePsswd.do").submit();
+	    		}else{
+	    			$("#frmLogon").attr("action","/admin/main.do").submit();
+	    		}
+	    	}else{
+	    		alert(data.msg);
+	    	}
+	    }
+	    , error: function(data, status, err) {
+	      alert('서버와의 통신이 실패했습니다.');
+	    }
+	  });
+  
+}
+
+/* ======================================================================
+Function : 쿠기저장
+Return   : 없음
+========================================================================= */
+function setCookie(cookieName, value, exdays){
+    var exdate = new Date();
+    exdate.setDate(exdate.getDate() + exdays);
+    var cookieValue = escape(value) + ((exdays==null) ? "" : "; expires=" + exdate.toGMTString());
+    document.cookie = cookieName + "=" + cookieValue;
+}
+/* ======================================================================
+Function : 쿠기삭제
+Return   : 없음
+========================================================================= */
+function deleteCookie(cookieName){
+    var expireDate = new Date();
+    expireDate.setDate(expireDate.getDate() - 1);
+    document.cookie = cookieName + "= " + "; expires=" + expireDate.toGMTString();
+}
+/* ======================================================================
+Function : 쿠기조회
+Return   : 없음
+========================================================================= */
+function getCookie(cookieName) {
+    cookieName = cookieName + '=';
+    var cookieData = document.cookie;
+    var start = cookieData.indexOf(cookieName);
+    var cookieValue = '';
+    if(start != -1){
+        start += cookieName.length;
+        var end = cookieData.indexOf(';', start);
+        if(end == -1)end = cookieData.length;
+        cookieValue = cookieData.substring(start, end);
+    }
+    return unescape(cookieValue);
+}
+
+/****************************************************************
+ * 엔터 검색
+ ****************************************************************/
+enterReturnKey = function(e) {
+	if(e.keyCode==13 && e.srcElement.type != 'textarea') {
+		OnLogon();
+	}
+};

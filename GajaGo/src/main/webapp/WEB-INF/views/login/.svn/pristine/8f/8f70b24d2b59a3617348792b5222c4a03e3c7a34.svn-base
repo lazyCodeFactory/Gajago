@@ -1,0 +1,473 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/web/common/cmmnHead.jsp"%>
+<script type="text/javascript" src="/js/web/cart.js" ></script> <!-- 장바구니용 js -->
+<script type="text/javascript">
+
+	var grpProd = new Array();
+	var prodTypeCd = '${params.prodTypeCd }';
+
+	//ready
+	$(document).ready(function(){
+		
+		// title 및 back 버튼 url set		
+		document.title = "주문취소";
+		var url = "";
+		if (prodTypeCd == "1") {
+			url = "/mobile/salemanage/selectOrderSellDtl.do";
+		}
+		else if (prodTypeCd == "2") {
+			url = "/mobile/salemanage/selectOrderShareDtl.do";
+		}
+// 		header.type	= 6;
+		header.type	= 4;
+		header.title = "주문취소";
+		header.method = "POST";
+		header.backUrl = url;
+		header.callback = headerCallback; // 장바구니용 callback
+		header.form = $("#form");
+		initHeader();
+		
+		displayFooter(false);
+		
+		// 주문취소 사유 keydown 이벤트
+		$("#I_CANC_REASON").keydown(function() {
+			var sCancReason = $("#I_CANC_REASON").val();
+			$("#inputByte").html(getByteLength(sCancReason));
+	    });
+		
+	});
+	
+	var page = {
+			
+		// 상태변경 및 배송신청
+		updateOrderShare : function () {
+			
+			if(gf_isNull($("#I_CANC_REASON_CD").val())) {
+		    	alert("주문취소 사유를 선택해주세요.");
+		    	$("#I_CANC_REASON_CD").focus();
+				return;
+		    }
+
+			var sPordPostText = $("#I_CANC_REASON").val();
+			var nLimit = 100;
+			if(getByteLength(sPordPostText) > nLimit){
+				alert(nLimit+"자 이내로 입력해 주세요.");
+				var sLimitMsg = assertMsg(nLimit, $("#I_CANC_REASON").val());
+				$("#I_CANC_REASON").val(sLimitMsg);
+				$("#inputByte").html(getByteLength(sLimitMsg));
+				return true;
+			}
+			
+			if(confirm("주문취소 하시겠습니까?") == false) { return; }
+			
+			$("#ordGb").val("3");
+			var url = "";
+			if (prodTypeCd == "1") {
+				url = "/mobile/salemanage/updateOrderSellProcStat.do";
+			}
+			else if (prodTypeCd == "2") {
+				url = "/mobile/salemanage/updateOrderShareProcStat.do";
+			}
+			
+			$.ajax({
+			    type: 'post'
+			    , async: true
+			    , dataType:'json'
+			    //, url: url
+			    ,url: "/mobile/buy/saveSaleOrderCancel.do"
+			    , data: $("#form").serialize()
+			    , success: function(data) {
+			    	
+			    	var prodTypeCd = $("#prodTypeCd").val();
+			    	//alert(data.rtnMsg);
+			    	if(data.result > 0) {
+						alert("주문이 취소 되었습니다.");
+						$("#ordGb").val("3");
+				    	var rtnUrl = "";
+				    	if (prodTypeCd == '1') {
+				    		rtnUrl = "/mobile/salemanage/selectListOrderSell.do";
+				    	}
+				    	else if (prodTypeCd == '2') {
+				    		rtnUrl = "/mobile/salemanage/selectListOrderShare.do";
+				    	}
+						form.action = rtnUrl;
+						form.submit();
+					}else if(data.result == -1){
+						alert("취소된 주문건 입니다.");
+						$("#ordGb").val("3");
+				    	var rtnUrl = "";
+				    	if (prodTypeCd == '1') {
+				    		rtnUrl = "/mobile/salemanage/selectListOrderSell.do";
+				    	}
+				    	else if (prodTypeCd == '2') {
+				    		rtnUrl = "/mobile/salemanage/selectListOrderShare.do";
+				    	}
+						form.action = rtnUrl;
+						form.submit();
+					}else {
+						if(data.msg == "PHONE_FAIL"){
+							alert("주문 취소신청이 완료되었습니다.");
+							$("#ordGb").val("3");
+					    	var rtnUrl = "";
+					    	if (prodTypeCd == '1') {
+					    		rtnUrl = "/mobile/salemanage/selectListOrderSell.do";
+					    	}
+					    	else if (prodTypeCd == '2') {
+					    		rtnUrl = "/mobile/salemanage/selectListOrderShare.do";
+					    	}
+							form.action = rtnUrl;
+							form.submit();
+						}else{
+							alert("주문 취소 실패되었습니다.");
+						}
+					}
+			    	
+			    	
+			    }
+			    , error: function(data, status, err) {
+			      alert('서버와의 통신이 실패했습니다.');
+			    }
+			
+			});
+			
+		}
+		
+	};
+	
+	// 유효성 검사
+	var validation = {
+			
+		saveValidation : function () {
+			
+			var cancReasonCdIdx = $("#cancReasonCd option").index($("#cancReasonCd option:selected"));
+			if (cancReasonCdIdx <= 0) {
+				alert("주문취소 사유를 선택해 주세요.");
+				return false;
+			}
+			
+			var sPordPostText = $("#cancReason").val();
+			var nLimit = 100;
+			if(getByteLength(sPordPostText) > nLimit){
+				alert(nLimit+"자 이내로 입력해 주세요.");
+				var sLimitMsg = assertMsg(nLimit, $("#cancReason").val());
+				$("#cancReason").val(sLimitMsg);
+				$("#inputByte").html(getByteLength(sLimitMsg));
+				return false;
+			}
+			
+			return true;
+			
+		}
+			
+	};
+
+</script>
+
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+		<div class="roc">
+			<ul class="inner">
+				<li><img src="http://static.ssocio.net/pc/img/common/section/roc_home.png" alt="홈"></li>
+				<li>판매관리</li>
+			</ul>
+		</div>
+		<jsp:include page="../common/sale_top.jsp" flush="false" />
+		<div class="mype_s_tit">
+			<p>주문취소</p>
+		</div>
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+		<!-- container -->
+		<div id="container">
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>
+
+
+<form id="form" name="form" method="post" action="">
+	<input type="hidden" id="ordGb" name="ordGb" value="${params.ordGb }" />
+	<input type="hidden" id="ordCd" name="ordCd" value="${params.ordCd }" />
+	<input type="hidden" id="prodSeq" name="prodSeq" value="${params.prodSeq }" />
+	<input type="hidden" id="chgCd" name="chgCd" value="${params.chgCd }" />
+	<input type="hidden" id="upProcStatCd" name="upProcStatCd" value="${params.upProcStatCd }" />
+	<input type="hidden" id="mberSeq" name="mberSeq" value="${params.mberSeq }" />
+	<input type="hidden" id="dlvWayCd" name="dlvWayCd" value="" />
+	 
+	<input type="hidden" id="prodTypeCd" name="prodTypeCd" value="${params.prodTypeCd }" />
+	
+	<input type="hidden" id="ACTION" name="ACTION">
+	<input type="hidden" id="S_SEARCH_PERI" name="S_SEARCH_PERI" value="${params.S_SEARCH_PERI}">
+	<input type="hidden" id="S_PROC_STAT_CD" name="S_PROC_STAT_CD" value="${params.S_PROC_STAT_CD}">
+	<input type="hidden" id="S_PROD_NM" name="S_PROD_NM" value="${params.S_PROD_NM}">
+	<input type="hidden" id="S_ORD_CD" name="S_ORD_CD" value="${params.ordCd}">
+	<input type="hidden" id="ORD_CD" name="ORD_CD" value="${params.ordCd}">
+	<input type="hidden" id="PROD_CD" name="PROD_CODE" value="${params.prodCode}">
+	<input type="hidden" id="PROD_SEQ" name="PROD_SEQ" value="${params.prodSeq}">
+	
+	<input type="hidden" id="PROD_CPN_CD" name="PROD_CPN_CD" value="${orderDtl.subOrder[0].PROD_CPN_CD}">
+	<input type="hidden" id="DLV_GRP_CODE" name="DLV_GRP_CODE" value="${orderDtl.subOrder[0].DLV_GRP_CODE}">
+	<input type="hidden" id="SELT_GB_CD" name="SELT_GB_CD" value="${orderDtl.subOrder[0].SELT_GB_CD}">
+	<input type="hidden" id="PHONE_CANCEL_YN" name="PHONE_CANCEL_YN" value="${orderDtl.subOrder[0].PHONE_CANCEL_YN}">
+	<input type="hidden" id="SELLER_CANC_YN" name="SELLER_CANC_YN" value="Y">
+
+		<p class="title">상품 정보</p>
+		<ul class="sha_oder">
+			<c:forEach var="list" items="${orderDtl.subOrder }" varStatus="status">
+				<li>
+					<ul class="mt10">
+						<li>
+							<img src="${list.PROD_IMG_URL }" alt="">
+						</li>
+						<li>
+							<strong>${list.PROD_NM }</strong>
+							<input type="hidden" id="prodCode${status.index }" name="prodCode[]" value="${list.PROD_CODE }" />
+						</li>
+						<c:choose>
+							<c:when test="${params.prodTypeCd == '1' }">
+								<li class="tr">
+			                		<span>
+			                			상품금액  <fmt:formatNumber value="${list.SELL_PRCE }" type="number" />원
+			                		</span>
+			                	</li>
+			                	
+							</c:when>
+							<c:otherwise>
+								<li class="tr">
+									<span>
+										보증금  <fmt:formatNumber value="${list.DEPOSIT }" type="number" />원
+										<br>
+										(셰어링 금액 1일 <fmt:formatNumber value="${list.SHARING_PRICE }" type="number" />원)
+									</span>
+								</li>
+								
+							</c:otherwise>
+							
+							
+						</c:choose>
+						<li>
+							<span>
+								<c:choose>
+								  <c:when test="${list.DLV_WAY_CD == '1' || list.DLV_WAY_CD == '2'}" >
+								  		<c:choose>
+								  		<c:when test="${list.DLV_PAY_GB_CD == '1' }" >
+								  			택배 | 무료배송
+								  			<c:if test="${list.DLV_GROUP_YN eq 'Y' ||  list.DLV_STAND_AMT > 0}">
+								  			(
+								  				<c:if test="${list.DLV_GROUP_YN eq 'Y' }">묶음배송</c:if>
+								  				<c:if test="${list.DLV_GROUP_YN eq 'Y' &&  list.DLV_STAND_AMT > 0}">,</c:if>
+								  				<c:if test="${list.DLV_STAND_AMT > 0 }"><fmt:formatNumber value="${list.DLV_STAND_AMT}" pattern="#,###" />원 이상 무료</c:if>
+								  			)
+								  			</c:if>
+								  		</c:when>
+
+								  		<c:when test="${list.DLV_PAY_GB_CD == '2' }" >
+								  			택배 | <fmt:formatNumber value="${list.DLV_PRCE}" pattern="#,###" />원/<c:if test="${list.DLV_PAY_F_CD eq '10'}">선불</c:if><c:if test="${list.DLV_PAY_F_CD eq '20'}">착불</c:if>
+								  			<c:if test="${list.DLV_GROUP_YN eq 'Y' ||  list.DLV_STAND_AMT > 0}">
+								  				(
+								  				<c:if test="${list.DLV_GROUP_YN eq 'Y' }">묶음배송</c:if>
+								  				<c:if test="${list.DLV_GROUP_YN eq 'Y' &&  list.DLV_STAND_AMT > 0}">,</c:if>
+								  				<c:if test="${list.DLV_STAND_AMT > 0 }"><fmt:formatNumber value="${list.DLV_STAND_AMT}" pattern="#,###" />원 이상 무료</c:if>
+								  				)
+								  			</c:if>
+								  		</c:when>
+								  		</c:choose>
+								  </c:when>
+								  <c:when test="${list.DLV_WAY_CD == '3' }" >
+								  	우편/등기 | 무료배송
+								  </c:when>
+
+								  <c:when test="${list.DLV_WAY_CD == '4' }" >
+								  	<c:choose>
+
+								  		<c:when test="${list.DLV_PAY_GB_CD == '1' }" >
+								  			퀵서비스 | 무료배송
+								  		</c:when>
+
+								  		<c:when test="${list.DLV_PAY_GB_CD == '2' }" >
+								  			퀵서비스 | <fmt:formatNumber value="${list.DLV_PRCE}" pattern="#,###" />원/착불
+								  		</c:when>
+								  	</c:choose>
+								  </c:when>
+								  <c:when test="${list.DLV_WAY_CD == '5' }" >
+								  	직거래
+								  </c:when>
+								</c:choose> |  구매수량 <fmt:formatNumber value="${list.ORD_QTY}" pattern="#,###" />개
+							</span>	
+						</li>
+					</ul>
+				
+				
+				<c:forEach var="optList" items="${list.subOrderOpt }">
+           	    	<div class="opt_area">
+	           	    	<c:choose>
+	           	    		<c:when test="${optList.OP_GB_CD == '10' }">
+	           	    			<p>${optList.OPT_INFO}(+<fmt:formatNumber value="${optList.OPT_PRCE}" pattern="#,###" />원) </p>
+	           			<span><fmt:formatNumber value="${optList.OPT_QTY}" pattern="#,###" />개</span>
+	           	    		</c:when>
+	           	    		<c:otherwise>
+	           	    			<p>[추가상품] ${optList.OPT_INFO}(<fmt:formatNumber value="${optList.OPT_PRCE}" pattern="#,###" />원) </p>
+	           			<span><fmt:formatNumber value="${optList.OPT_QTY}" pattern="#,###" />개</span>
+	           	    		</c:otherwise>
+	           	    	</c:choose> 
+          			</div>
+         		</c:forEach>
+			</li>
+			</c:forEach>
+			<c:set var ="SELT_GB_CD" value="${list.SELT_GB_CD}" />
+        	<c:set var ="RFND_AMT" value="${list.RFND_AMT}" /> 
+        	<c:set var ="RFND_YN" value="${list.RFND_YN}" /> 
+        	<c:set var ="TOT_ORD_PROD_CNT" value="${list.TOT_ORD_PROD_CNT}" /> 
+		</ul>
+		
+		
+		
+		<p class="title">구매자 정보</p>
+		<div class="user_info">
+	       	<span class="fl">
+	       		<img alt="${orderDtl.MBER_IMG_URL }" src="<custom:codeTag code="DEFAULT_IMG_URL" groupCode="SITE_DEFAULT" />" />
+	       	</span>
+	       	<p class="fl ml5">
+	       		<span><img src="${orderDtl.MBER_LEV }" class="img_level"/>${orderDtl.ORD_EMAIL }</span>
+	       	</p>
+	       	<c:choose>
+              		<c:when test="${orderDtl.SECU_NO_USE_YN != null and orderDtl.SECU_NO_USE_YN == 'Y' }">
+              			<a href="TEL:${orderDtl.SECU_NO }" class="user_phone">
+		        		<strong>전화걸기</strong>
+		        	</a>
+              		</c:when>
+              		<c:otherwise>
+              			<c:choose>
+                		<c:when test="${orderDtl.RCV_HP != null and orderDtl.RCV_HP != '' }">
+                			<a href="TEL:${orderDtl.ORD_HP }" class="user_phone">
+			        		<strong>전화걸기</strong>
+			        	</a>
+                		</c:when>
+                		<c:otherwise>
+                			<a href="TEL:${orderDtl.ORD_TEL }" class="user_phone">
+			        		<strong>전화걸기</strong>
+			        	</a>
+                		</c:otherwise>
+                	</c:choose>
+              		</c:otherwise>
+              	</c:choose>
+	       	
+	       	
+		</div>
+		
+		<p class="title">주문취소 사유</p>
+		<div class="content">
+            <ul class="sbox01">
+            	<li><p class="txt_type3">주문취소 사유를 선택해 주세요.<span class="text_r">(필수)</span></p></li>
+                <li>
+                	<select id="I_CANC_REASON_CD" name="I_CANC_REASON_CD">
+                    	<option value="">선택</option>
+                    	<custom:codeList var="cancReasonCd" groupCode="CANC_SELLER_REASON_CD" />
+						<c:forEach var="list" items="${cancReasonCd}" varStatus="status">
+							<option value="${list.key}">${list.value}</option>
+		                </c:forEach>
+                    </select>
+                </li>
+                <li><p class="txt_type3">상세 사유를 입력해 주세요. (선택)</p></li>
+                <li>
+                	
+                	
+                	<div class="text_box">
+                        <textarea id="I_CANC_REASON" name="I_CANC_REASON" maxlength="1000"></textarea>
+                        <span class="byte"><span id="inputByte">0</span>/100</span>
+                    </div>
+                </li>
+            </ul>
+        </div>
+        
+        <!-- 
+		조건 1. 휴대폰결재
+		조건 2. 
+			전체취소  > 달이 지난경우 >  환불
+			부분취소  > 달이 지난경우 >  환불
+			전체취소 > 달이 지나지않은경우 > 취소
+			부분취소 > 달이 지나지않은경우 > 환불
+		조건 3. 
+		 -->
+		
+		 <c:if test="${SELT_GB_CD eq '3'}" > <!-- 휴대폰 결재-->
+		 	<c:choose>
+			 	<c:when test="${TOT_ORD_PROD_CNT > 1}" >  <!-- 총주문상품건수  여러개인경우-->
+			 		<c:set var ="I_RFND_YN" value="Y" /> 
+			 	</c:when>
+			 	<c:otherwise>	  <!-- 총주문상품건수  하나인경우-->
+				 	<c:choose>
+				 		<c:when test="${RFND_YN eq 'N'}" > <!--  달이 같은경우 -->
+				 			<c:set var ="I_RFND_YN" value="" /> 
+				 		</c:when>
+				 		<c:otherwise>
+				 			<c:set var ="I_RFND_YN" value="Y" />
+				 		</c:otherwise>
+				 	</c:choose>
+			 	</c:otherwise>
+			 </c:choose>
+			 
+		 </c:if>
+      
+       
+        <c:if test="${I_RFND_YN eq 'Y'}" > <!--  휴대폰 결재 -->
+        	<input type="hidden" id="I_RFND_YN" name="I_RFND_YN" value="${I_RFND_YN}"> <!--  환불유무 -->
+        	<input type="hidden" id="I_RFND_AMT" name="I_RFND_AMT" value="${RFND_AMT}"> <!--  환불금액 -->
+        	<p class="title">환불계좌를 입력해 주세요.</p>
+	        <div class="tbl">
+	            <table class="tbl-data">
+	                <colgroup>
+	                    <col width="100px">
+	                    <col width="*">
+	                </colgroup>
+	                <tbody>
+	                    <tr>
+	                        <th>은행명</th>
+	                        <td>
+		                        <select name="I_RTN_BANK" id="I_RTN_BANK">
+                                    <option value="N">선택</option>
+                                    <custom:codeList var="bankGbCd" groupCode="BANK_GB_CD" />
+									<c:forEach var="list" items="${bankGbCd}" varStatus="status">
+										<option value="${list.key }">${list.value }</option>
+					                </c:forEach>
+                                </select>
+	                        </td>
+	                    </tr>
+	                    <tr>
+	                        <th>계좌번호</th>
+	                        <td><input type="text" id="I_RTN_ACCOUNT" name="I_RTN_ACCOUNT" maxlength="40"></td>
+	                    </tr>
+	                    <tr>
+	                        <th>입금자명</th>
+	                        <td><input type="text" id="I_RTN_DEPOSIT" name="I_RTN_DEPOSIT" maxlength="20"></td>
+	                    </tr>
+	                   
+	                </tbody>
+	            </table>
+	        </div>
+	     </c:if>
+		
+		<div class="btn_enter">
+			<a href="javascript:page.updateOrderShare();" class="btn_r">주문취소</a>
+		</div>
+
+</form>
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+		<jsp:include page="../common/sale_bottom.jsp" flush="false" />
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+		    </div>
+		    <!-- //container -->
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>
+
+<%@ include file="/WEB-INF/views/web/common/CmmnJuso.jsp"%>

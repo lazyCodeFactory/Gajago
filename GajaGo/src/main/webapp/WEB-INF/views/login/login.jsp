@@ -4,6 +4,7 @@
 <jsp:include page="../template/includeResource.jsp" flush="true" />
 <script src="http://developers.kakao.com/sdk/js/kakao.min.js"></script>
 <script src="/resources/js/login/facebook.js"></script>
+<script src="/resources/js/login/login.js"></script>
 </head>
 <jsp:include page="../template/header.jsp" flush="true" />
 
@@ -24,10 +25,10 @@
 
 				<form method="post" action="#" role="login">
 					<img src="http://i.imgur.com/RcmcLv4.png" class="img-responsive" alt="" /> 
-					<input type="email" name="email" placeholder="Email" required class="form-control input-lg" value="" /> 
-					<input type="password" class="form-control input-lg" id="password" placeholder="Password" required="" />
+					<input type="email" name="id" id="id"  class="form-control input-lg" value="" /> 
+					<input type="password" name="password" id="password" class="form-control input-lg"  placeholder="Password" required="" />
 					<div class="pwstrength_viewport_progress"></div>
-					<button type="submit" name="go" class="btn btn-lg btn-primary btn-block">로그인</button>
+					<button type="button" name="go" class="btn btn-lg btn-primary btn-block" onclick="login();">로그인</button>
 				
 					<div class="col-md-12 snsLogin">
 <!-- 						<div id="fb-root"></div> -->

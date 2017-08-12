@@ -1,0 +1,142 @@
+package com.ssocio.sharing.service.web;
+
+import java.io.Reader;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import javax.annotation.Resource;
+
+import net.sf.json.JSONArray;
+import oracle.sql.CLOB;
+
+import org.json.simple.JSONObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.ui.ModelMap;
+
+import com.ssocio.sharing.dao.web.MobileMyMessageDao;
+import com.ssocio.sharing.vo.web.WebSession;
+
+@Service
+public class MobileMyMessageServiceImpl implements MobileMyMessageService {
+
+	private static final Logger logger = LoggerFactory.getLogger(MobileMyMessageServiceImpl.class);
+
+	@Resource(name="mobileMyMessageDao")
+	private MobileMyMessageDao mobileMyMessageDao;
+
+
+	/**
+	 * 메세지함 조회
+	 */
+	@Override
+	public ModelMap getMyMessageList(Map<String, Object> inParam, WebSession user){
+		ModelMap mm = new ModelMap();
+		// S 페이징 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+		logger.debug("FIRST_SEQ	:["+inParam.get("FIRST_SEQ")+"]");
+		logger.debug("LAST_SEQ	:["+inParam.get("LAST_SEQ")+"]");
+		int FIRST_SEQ = 0;
+			if(inParam.get("FIRST_SEQ")==null){
+				FIRST_SEQ = 0;
+			}else{
+				FIRST_SEQ 	= Integer.parseInt(inParam.get("FIRST_SEQ").toString() );
+				FIRST_SEQ = FIRST_SEQ + 20;
+			}
+			inParam.put("FIRST_SEQ", FIRST_SEQ);
+		int LAST_SEQ = 20;
+			if(inParam.get("LAST_SEQ")==null){
+				LAST_SEQ = 20;
+			}else{
+				LAST_SEQ 	= Integer.parseInt(inParam.get("LAST_SEQ").toString() );
+				logger.debug("20더한다.");
+				LAST_SEQ = LAST_SEQ + 20;
+				logger.debug("...");
+			}
+			inParam.put("LAST_SEQ", LAST_SEQ);
+			logger.debug("FIRST_SEQ	:["+inParam.get("FIRST_SEQ")+"]");
+			logger.debug("LAST_SEQ	:["+inParam.get("LAST_SEQ")+"]");
+		// E 페이징	>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+		inParam.put("MBER_SEQ", user.getMBER_SEQ());
+		try {
+			List<Map<String, Object>> countList = null;
+			countList = mobileMyMessageDao.getMyMessageList(inParam);
+			mm.put("resultList", clobToString(countList));
+			//mm.put("resultList", countList);
+		}catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+
+	/**
+	 * 메세지함 읽은 여부 업데이트 처리
+	 */
+	@Override
+	public ModelMap updateMyMessageReadChk(Map<String, Object> inParam, WebSession user){
+		ModelMap mm = new ModelMap();
+		int mberSeq = user.getMBER_SEQ();
+		logger.debug("mberSeq:"+mberSeq);
+		inParam.put("MBER_SEQ", mberSeq);
+		Integer adrStatus = 0;
+		String msg = "";
+		try {
+			adrStatus = mobileMyMessageDao.updateMyMessageReadChk(inParam);
+			logger.debug("adrStatus:"+adrStatus);
+			if(adrStatus == null){
+				msg = "메세지함 정보가 변경되었습니다.";
+			}
+			mm.put("msg", msg);
+		}catch (Exception e) {
+			throw e;
+		}
+		return mm;
+	}
+	/**
+	  *  List<Map<String, Object>>에 담긴 Clob를  json로 추출하여 String형태로 변환해서 Map를 Return.
+	  *  @param   map        Data
+	  *  @param   arryKey    CLOB key
+	  *  @return   List<Map<String, Object>>
+	  */
+	public static List<Map<String, Object>> clobToString(List<Map<String, Object>> countList) throws Exception{
+		JSONObject jsonObj = new JSONObject() ;
+		JSONObject jsonSubObj = new JSONObject() ;
+		JSONArray jsonArr = new JSONArray();
+		for(Map<String,Object> m : countList){
+			Set<String> key = m.keySet();
+			//logger.debug("### key	:"+key	+" >>>>");
+			jsonSubObj = new JSONObject();
+			for(Iterator<String> iterator = key.iterator(); iterator.hasNext();){
+				String k = (String) iterator.next();
+				//logger.debug("### k	:"+k	+" >>>>");
+				String val = "";
+				if("CONENTS".equals(k)){
+					// 내용
+					CLOB clobANSCONTENTS = (CLOB) m.get(k);
+					if(clobANSCONTENTS!=null){
+						Reader readerANSCONTENTS = clobANSCONTENTS.getCharacterStream();
+						StringBuffer outANSCONTENTS = new StringBuffer();
+						char[] buffANSCONTENTS = new char[1024];
+						int ncharsANS = 0;
+						while ((ncharsANS = readerANSCONTENTS.read(buffANSCONTENTS)) > 0) {
+							outANSCONTENTS.append(buffANSCONTENTS, 0, ncharsANS);
+						}
+						val = outANSCONTENTS.toString();
+						if(val.length() > 16){
+							val = val.substring(0, 16)+"...";
+						}
+					}else{
+						val = "";
+					}
+				}else{
+					val = String.valueOf(m.get(k));
+				}
+				jsonSubObj.put(k,val);
+			}
+			jsonArr.add(jsonSubObj);
+		}
+		return jsonArr;
+	}
+}

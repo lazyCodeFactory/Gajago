@@ -1,0 +1,1414 @@
+package com.ssocio.sharing.service.admin;
+
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+import javax.servlet.http.HttpServletRequest;
+
+import org.elasticsearch.common.recycler.NoneRecycler.NV;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.ui.ModelMap;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.multipart.MultipartHttpServletRequest;
+
+import com.ssocio.sharing.cmmn.admin.util.CommonUtil;
+import com.ssocio.sharing.cmmn.admin.util.FileUtil;
+import com.ssocio.sharing.cmmn.elasticsearch.Elasticsearch;
+import com.ssocio.sharing.cmmn.util.CmmnCnst;
+import com.ssocio.sharing.cmmn.util.LoggerUtil;
+import com.ssocio.sharing.cmmn.util.StringUtil;
+import com.ssocio.sharing.dao.admin.AdminBrandDao;
+import com.ssocio.sharing.dao.admin.AdminCodeDao;
+import com.ssocio.sharing.dao.admin.AdminCommonDao;
+import com.ssocio.sharing.dao.admin.AdminProdDao;
+import com.ssocio.sharing.vo.admin.AdminSession;
+import com.ssocio.sharing.vo.admin.PageNavigation;
+
+/**
+ * <pre>
+ * 상품 서비스
+ * 상품 관리를 위한 서비스
+ * @author Y.I.Chun
+ * @version 
+ * @since 2015. 7. 6. 오후 6:41:07
+ * @see 
+ * @History 
+ *  Date          |    author    | 변경내용  
+ *	2015. 7. 6.   |    Y.I.Chun  | 신규
+ * @Todo
+ * </pre>
+ */
+@Service
+public class AdminProdServiceImpl implements AdminProdService {
+	
+	// --------------------------------------------------------------------------
+	// # Log 설정
+	// --------------------------------------------------------------------------
+	private static final Logger logger = LoggerFactory.getLogger(AdminProdServiceImpl.class);
+
+	// --------------------------------------------------------------------------
+	// # DAO 설정
+	// --------------------------------------------------------------------------
+	@Resource(name="adminProdDao")
+	private AdminProdDao adminProdDao;
+	@Resource(name="adminBrandDao")
+	private AdminBrandDao adminBrandDao;
+	@Resource(name="adminCommonDao")
+	private AdminCommonDao adminCommonDao;
+	@Resource(name="adminCodeDao")
+	private AdminCodeDao adminCodeDao;
+	
+	/**
+	 * <pre>
+	 * 상품리스트정보 조회
+	 * 상품리스트정보를 조회 합니다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 7. 8. 오후 4:44:52
+	 * @author Y.I.Chun
+	 * @see com.ssocio.sharing.service.admin
+	 * </pre>
+	 */
+	public ModelMap selectProdList(Map<String, Object> inParam) throws Exception {
+
+		ModelMap mm = new ModelMap();
+		
+		String today = StringUtil.getCurrentDate();
+		inParam.put("regToDate", StringUtil.nvl((String)inParam.get("regToDate"), today));
+		
+		SimpleDateFormat format = new SimpleDateFormat("yyyyMMdd");
+		Calendar cal = Calendar.getInstance();
+		cal.add(Calendar.DATE, 0);
+		inParam.put("regFromDate", StringUtil.nvl((String)inParam.get("regFromDate"), format.format(cal.getTime())));
+		
+		
+		inParam.put("searchDateGb", StringUtil.nvl((String)inParam.get("searchDateGb"), "1"));
+		
+		//검색총건수
+		int rowTotal = adminProdDao.selectProdSearchCnt(inParam);
+		
+		//페이지설정
+		int nowPage = StringUtil.nvlInt((String)inParam.get("pageNo"), 1);
+		int rowCnt	= StringUtil.nvlInt((String)inParam.get("displayCnt"), CmmnCnst.ADM_LIST_SIZE);
+		inParam.put("displayCnt", rowCnt);
+		
+		PageNavigation pageNav= new PageNavigation(nowPage, rowTotal, rowCnt, CmmnCnst.ADM_BLOCK_SIZE);
+		mm.put("PAGE_NO", nowPage);
+		mm.put("pageNav", pageNav);
+		inParam.put("START_ROW", pageNav.getStartRow());
+		inParam.put("END_ROW", pageNav.getEndRow());
+			
+		mm.put("prodList", adminProdDao.selectProdList(inParam));
+		mm.put("prodCnt", adminProdDao.selectProdCnt(inParam));
+		return mm;
+	}
+	
+	/**
+	 * <pre>
+	 * 상품리스트정보 조회(Excel용)
+	 * 상품리스트정보를 조회 합니다.(Excel용)
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 7. 8. 오후 4:44:52
+	 * @author Y.I.Chun
+	 * @see com.ssocio.sharing.service.admin
+	 * </pre>
+	 */
+	public List<Map<String, Object>> selectProdListExcel(Map<String, Object> inParam) throws Exception{
+		return adminProdDao.selectProdListExcel(inParam);
+	}
+	
+	/**
+	 * <pre>
+	 * 상품등록 및 상세화면
+	 * 상품등록 및 상세화면용 데이터를 조회 합니다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 7. 8. 오후 4:44:52
+	 * @author Y.I.Chun
+	 * @see com.ssocio.sharing.service.admin
+	 * </pre>
+	 */
+	public ModelMap selectProdInfo(Map<String, Object> inParam) throws Exception {
+
+		ModelMap mm = new ModelMap();
+		String prodCode = (String)inParam.get("prodCode");
+		if(!StringUtil.isEmpty(prodCode)){
+			String[] arryKey = new String[3];
+			arryKey[0]="PROD_PC_DTL";//PC용상세설명     CLOB=>String
+			arryKey[1]="PROD_MB_DTL";//모바일용상품설명 CLOB=>String
+			arryKey[2]="AGR";//렌탈 약관 CLOB=>String
+			Map<String, Object> prodInfo = CommonUtil.clobToString(adminProdDao.selectProdInfo(inParam),arryKey);
+			mm.put("prodInfo", prodInfo);
+			
+			//상품 옵션명 가져오기
+			List<Map<String, Object>> optionNmInfo = adminProdDao.selectProdOptionNm(inParam);
+			mm.put("optionNmInfo", optionNmInfo);
+			//상품옵션정보
+			List<Map<String, Object>> optInfo = adminProdDao.selectProdOption(inParam);
+			mm.put("optInfo", optInfo);
+			//이미지정보
+			mm.put("imgInfo", adminProdDao.selectProdImg(inParam));
+			//출하지정보
+			inParam.put("mberSeq", prodInfo.get("MBER_SEQ"));
+			mm.put("shipmentInfo", adminProdDao.selectShipmentProdMap(inParam));
+		}
+		mm.put("itemList", adminProdDao.selectItemList());
+		return mm;
+	}
+	
+	/**
+	 * <pre>
+	 * 상품등록 
+	 * 상품을 등록 합니다.
+	 * @param req
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 7. 8. 오후 4:44:52
+	 * @author Y.I.Chun
+	 * @see com.ssocio.sharing.service.admin
+	 * </pre>
+	 */
+	public String insertProdInfo(MultipartHttpServletRequest req, Map<String, Object> inParam) throws Exception {
+		
+		
+		//판매구분
+		String prodTypeCd = String.valueOf(inParam.get("prodTypeCd"));
+		 
+		if(prodTypeCd.trim().equalsIgnoreCase("1")){
+			if( ((String) inParam.get("opt_rad")).equalsIgnoreCase("Y")){
+				inParam.put("opt_rad","Y");
+			}
+			if( ((String) inParam.get("opt_ext_rad")).equalsIgnoreCase("Y")){
+				inParam.put("opt_ext_rad","Y");
+			}
+		}else{
+			inParam.put("opt_rad",StringUtil.nvl(String.valueOf(inParam.get("opt_rad")),"N"));
+			inParam.put("opt_ext_rad",StringUtil.nvl(String.valueOf(inParam.get("opt_ext_rad")),"N"));
+		}
+		
+		// 나눔 일때 수량 1개 입력
+		if(prodTypeCd.trim().equalsIgnoreCase("3")){
+			inParam.put("stockQty","1");
+		}
+		
+		String prodCode = adminProdDao.insertProdInfo(inParam);
+		System.out.println("insertProdInfo : "+prodCode);
+		inParam.put("prodCode", prodCode);
+			
+		logger.info("prodTypeCd : " + prodTypeCd);
+		if(prodTypeCd.trim().equalsIgnoreCase("2")){
+			adminProdDao.insertProdSharing(inParam);
+		}
+		
+		//옵션등록
+		if( ((String) inParam.get("optFlg")).equalsIgnoreCase("Y") || ((String) inParam.get("optFlg2")).equalsIgnoreCase("Y")){
+			insertProdOption(inParam);
+		}
+				
+		//상품정보이외의 출하지, 정보고시, 도서산간비용저장
+		saveProdInfo(req, inParam, prodCode);
+		
+		
+		
+		 
+		
+		//현재 날짜 구하기
+		Date date = new Date();
+		SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd");
+		String ctryCd = ((String) inParam.get("ctryCd")).substring(0,4);
+		Map<String, Object> indexingMap = new HashMap<String, Object>();
+		indexingMap.put("PROD_CODE",String.valueOf(inParam.get("prodCode")));//상품코드
+		indexingMap.put("PROD_NM", String.valueOf(inParam.get("prodNm")));//상품명
+		indexingMap.put("KEYWORD", String.valueOf(inParam.get("keyword")));//키워드  규칙 (카메라,사진)
+		indexingMap.put("VIEW_YN", "Y");//노출여부
+		if(prodTypeCd.trim().equalsIgnoreCase("2")){
+			indexingMap.put("SELL_PRCE", String.valueOf(inParam.get("deposit")).replaceAll(",", ""));//판매가격
+		}else if(prodTypeCd.trim().equalsIgnoreCase("5")){
+			indexingMap.put("SELL_PRCE", String.valueOf("0"));//판매가격
+		}else{
+			indexingMap.put("SELL_PRCE", String.valueOf(inParam.get("sellPrce")).replaceAll(",", ""));//판매가격
+		}
+		indexingMap.put("ORD_QTY","0");//판매수
+		indexingMap.put("REGIST_DT",sdf.format(date));//등록일
+		indexingMap.put("PROD_TYPE_CD",prodTypeCd);//상품타입
+		indexingMap.put("CTRY",ctryCd);//카테고리대분류
+		try {
+		           Elasticsearch.putSearchIndexing(indexingMap);
+		} catch (Exception e) {
+		           e.printStackTrace();
+		}
+		
+		return prodCode;
+		
+		
+	}
+	
+	/**
+	 * <pre>
+	 * 상품수정
+	 * 상품을 수정 합니다.
+	 * @param req
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 7. 8. 오후 4:44:52
+	 * @author Y.I.Chun
+	 * @see com.ssocio.sharing.service.admin
+	 * </pre>
+	 */
+	public void updateProdInfo(MultipartHttpServletRequest req, Map<String, Object> inParam) throws Exception {
+		System.out.println(">>>>>>>>>>>>>>>>>>>>> 1 " +String.valueOf(inParam.get("mberSeq")));
+		System.out.println(">>>>>>>>>>>>>>>>>>>>> 2 " +String.valueOf(inParam.get("prodStatCd")));
+		System.out.println(">>>>>>>>>>>>>>>>>>>>> 3 " +String.valueOf(inParam.get("ctryCd")));
+		System.out.println(">>>>>>>>>>>>>>>>>>>>> 5 " +String.valueOf(inParam.get("brandCd")));
+		System.out.println(">>>>>>>>>>>>>>>>>>>>> 6 " +String.valueOf(inParam.get("prodNm")));
+		System.out.println(">>>>>>>>>>>>>>>>>>>>> 7 " +String.valueOf(inParam.get("nprodGbCd")));
+		System.out.println(">>>>>>>>>>>>>>>>>>>>> 8 " +String.valueOf(inParam.get("nrmPrce")));
+		System.out.println(">>>>>>>>>>>>>>>>>>>>> 9 " +String.valueOf(inParam.get("sellPrce")));
+		System.out.println(">>>>>>>>>>>>>>>>>>>>> 11 " +String.valueOf(inParam.get("stockQty")));
+		System.out.println(">>>>>>>>>>>>>>>>>>>>> 12 " +String.valueOf(inParam.get("txnOnYn")));
+		System.out.println(">>>>>>>>>>>>>>>>>>>>> 13 " +String.valueOf(inParam.get("keyword")));
+		System.out.println(">>>>>>>>>>>>>>>>>>>>> 14 " +String.valueOf(inParam.get("prodPcDtl")));
+		System.out.println(">>>>>>>>>>>>>>>>>>>>> 15 " +String.valueOf(inParam.get("prodMbDtl")));
+		System.out.println(">>>>>>>>>>>>>>>>>>>>> 16 " +String.valueOf(inParam.get("opt_rad")));
+		System.out.println(">>>>>>>>>>>>>>>>>>>>> 17 " +String.valueOf(inParam.get("dlvWayCd")));
+		System.out.println(">>>>>>>>>>>>>>>>>>>>> 18 " +String.valueOf(inParam.get("dlvCmpCd")));
+		System.out.println(">>>>>>>>>>>>>>>>>>>>> 19 " +String.valueOf(inParam.get("dlvPayGbCd")));
+		System.out.println(">>>>>>>>>>>>>>>>>>>>> 20 " +String.valueOf(inParam.get("dlvPrce")));
+		System.out.println(">>>>>>>>>>>>>>>>>>>>> 21 " +String.valueOf(inParam.get("bndlDlvYn")));
+		System.out.println(">>>>>>>>>>>>>>>>>>>>> 22 " +String.valueOf(inParam.get("prodItemCode")));
+		System.out.println(">>>>>>>>>>>>>>>>>>>>> 23 " +String.valueOf(inParam.get("freeShareOkGbCd")));
+		System.out.println(">>>>>>>>>>>>>>>>>>>>> 24 " +String.valueOf(inParam.get("freeShareEndDt")));
+		System.out.println(">>>>>>>>>>>>>>>>>>>>> 25 " +String.valueOf(inParam.get("optBuyGbCd")));
+		System.out.println(">>>>>>>>>>>>>>>>>>>>> 26 " +String.valueOf(inParam.get("agr")));
+		System.out.println(">>>>>>>>>>>>>>>>>>>>> 27" +String.valueOf(inParam.get("agr_yn")));
+		System.out.println(">>>>>>>>>>>>>>>>>>>>> 28" +String.valueOf(inParam.get("prodCode")));
+		
+		//판매구분
+		String prodTypeCd = String.valueOf(inParam.get("prodTypeCd"));
+				
+		
+		if(prodTypeCd.trim().equalsIgnoreCase("1")){
+			if( ((String) inParam.get("opt_rad")).equalsIgnoreCase("Y")){
+				inParam.put("opt_rad","Y");
+			}
+			if( ((String) inParam.get("opt_ext_rad")).equalsIgnoreCase("Y")){
+				inParam.put("opt_ext_rad","Y");
+			}
+		}else{
+			inParam.put("opt_rad",StringUtil.nvl(String.valueOf(inParam.get("opt_rad")),"N"));
+			inParam.put("opt_ext_rad",StringUtil.nvl(String.valueOf(inParam.get("opt_ext_rad")),"N"));
+		}
+		
+		inParam.put("txnOnYn",StringUtil.nvl(String.valueOf(inParam.get("txnOnYn")),"N"));
+		
+		inParam.put("optBuyGbCd",StringUtil.nvl(String.valueOf(inParam.get("optBuyGbCd")),""));
+		inParam.put("prodTax",StringUtil.nvl(String.valueOf(inParam.get("prodTax")),"0"));
+		//정보수정
+		adminProdDao.updateProdInfo(inParam);
+		//셰어링수정
+		if(prodTypeCd.equals("2")){
+			adminProdDao.updateProdSharing(inParam);
+		}
+		
+		//옵션등록
+		if( ((String) inParam.get("optFlg")).equalsIgnoreCase("Y") || ((String) inParam.get("optFlg2")).equalsIgnoreCase("Y")){
+			insertProdOption(inParam);
+		}
+		
+		
+		
+		//출하지, 정보고시, 도서산간배송비 
+		adminProdDao.deleteProdItem(inParam);
+		adminProdDao.deleteShipmentProdMap(inParam);
+		adminProdDao.deleteExtLandPrice(inParam);
+		
+		//상품정보이외의 출하지, 정보고시, 도서산간비용저장
+		saveProdInfo(req, inParam, (String)inParam.get("prodCode"));
+		
+		String ctryCd = ((String) inParam.get("ctryCd")).substring(0,4);
+		Map<String, Object> indexingMap = new HashMap<String, Object>();
+		indexingMap.put("PROD_CODE",(String)inParam.get("prodCode"));//상품코드
+		indexingMap.put("PROD_NM", (String)inParam.get("prodNm"));//상품명
+		indexingMap.put("KEYWORD", (String)inParam.get("keyword"));//키워드  규칙 (카메라,사진)
+		if(!String.valueOf(inParam.get("prodStatCd")).equals("0")){
+			indexingMap.put("VIEW_YN", "N");//노출여부
+		}else{
+			indexingMap.put("VIEW_YN", "Y");//노출여부
+		}
+		
+		if(prodTypeCd.trim().equalsIgnoreCase("2")){
+			indexingMap.put("SELL_PRCE", String.valueOf(inParam.get("deposit")).replaceAll(",", ""));//판매가격
+		}else if(prodTypeCd.trim().equalsIgnoreCase("5")){
+			indexingMap.put("SELL_PRCE", String.valueOf("0"));//판매가격
+		}else{
+			indexingMap.put("SELL_PRCE", String.valueOf(inParam.get("sellPrce")).replaceAll(",", ""));//판매가격
+		}
+		
+		//현재 날짜 구하기
+		Date date = new Date();
+		SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd");
+		Elasticsearch elasticsearch = new Elasticsearch();
+		
+
+		indexingMap.put("REGIST_DT",sdf.format(date));//등록일
+		indexingMap.put("CTRY",ctryCd);//카테고리대분류
+		try {
+				elasticsearch.upadteSearchIndexing(indexingMap);
+		} catch (Exception e) {
+		           e.printStackTrace();
+		}
+	}
+	
+	/**
+	 * <pre>
+	 * 상품부가정보 저장
+	 * 상품부가정보를 저장 합니다.
+	 * @param req
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 7. 8. 오후 4:44:52
+	 * @author Y.I.Chun
+	 * @see com.ssocio.sharing.service.admin
+	 * </pre>
+	 */
+	public void saveProdInfo(MultipartHttpServletRequest req, Map<String, Object> inParam, String prodCode) throws Exception {
+		
+		boolean chkUpdate = true;
+		String[] imgGbList = {"11", "12", "13", "14", "15", "16", "17", "21", "22", "23", "24", "25", "26", "27", "20"};
+		for(String gbCd : imgGbList){
+			if (inParam.get("imgFileSeq_"+gbCd) != null) {
+				chkUpdate = false;
+				break;
+			}
+		}
+		
+		//모바일상품이미지등록
+		insertProdImg(req.getFile("img_11"), inParam, "11"); 
+		insertProdImg(req.getFile("img_12"), inParam, "12");
+		insertProdImg(req.getFile("img_13"), inParam, "13");
+		insertProdImg(req.getFile("img_14"), inParam, "14");
+		insertProdImg(req.getFile("img_15"), inParam, "15");
+		insertProdImg(req.getFile("img_16"), inParam, "16");
+		//insertProdImg(req.getFile("img_17"), inParam, "17");
+		
+		//PC상품이미지등록
+		insertProdImg(req.getFile("img_21"), inParam, "21");
+		insertProdImg(req.getFile("img_22"), inParam, "22");
+		insertProdImg(req.getFile("img_23"), inParam, "23");
+		insertProdImg(req.getFile("img_24"), inParam, "24");
+		insertProdImg(req.getFile("img_25"), inParam, "25");
+		insertProdImg(req.getFile("img_26"), inParam, "26");
+		//insertProdImg(req.getFile("img_27"), inParam, "27");
+		
+//		if ( req.getFile("img_12") == null 
+//				&& req.getFile("img_13") == null 
+//				&& req.getFile("img_14") == null 
+//				&& req.getFile("img_15") == null 
+//				&& req.getFile("img_16") == null 
+//				&& req.getFile("img_11") != null 
+//				&& chkUpdate ) {
+//			insertProdImg(req.getFile("img_11"), inParam, "12");
+//		}
+//		
+//		if ( req.getFile("img_22") == null 
+//				&& req.getFile("img_23") == null 
+//				&& req.getFile("img_24") == null 
+//				&& req.getFile("img_25") == null 
+//				&& req.getFile("img_26") == null 
+//				&& req.getFile("img_21") != null 
+//				&& chkUpdate ) {
+//			insertProdImg(req.getFile("img_21"), inParam, "22");
+//		}
+		
+		insertProdImg(req.getFile("img_20"), inParam, "20");
+		
+		//정보고시등록
+		Map<String, Object> itemParam = new HashMap<String, Object>();
+		itemParam.put("prodCode", prodCode);
+		itemParam.put("prodItemCode", inParam.get("prodItemCode"));
+		
+		String[] entrySeqList = (String[]) inParam.get("entrySeq");
+		String[] infoTitleList = (String[]) inParam.get("infoTitle");
+		String[] infoDtlList = (String[]) inParam.get("infoDtl");
+		String[] extShowYnList = (String[]) inParam.get("extShowYn");
+		if ( entrySeqList != null && entrySeqList.length > 0 ){
+			for(int i=0; i < entrySeqList.length; i++){
+				itemParam.put("entrySeq", entrySeqList[i]);
+				itemParam.put("infoTitle", infoTitleList[i]);
+				itemParam.put("infoDtl", infoDtlList[i]);
+				itemParam.put("extShowYn", extShowYnList[i]);
+				
+				logger.info(entrySeqList[i]);
+				logger.info(infoTitleList[i]);
+				logger.info(infoDtlList[i]);
+				logger.info(extShowYnList[i]);
+				
+				adminProdDao.insertProdItem(itemParam);
+			}
+		}
+		
+		//출하지등록
+		String[] grpProdSeqList = (String[]) inParam.get("grpProdSeq");
+		if ( grpProdSeqList != null && grpProdSeqList.length > 0 ){
+			for(String grpProdSeq : grpProdSeqList){
+				inParam.put("grpProdSeq", grpProdSeq);
+				adminProdDao.insertShipmentProdMap(inParam);
+			}
+		}
+		
+		//나눔의 경우에는 기본 출하지 정보를 가져와서 출하지 등록한다.
+		/*
+		if(inParam.get("prodTypeCd").equals("3")){
+			Map<String, Object> shipInfo = new HashMap<String, Object>();
+			shipInfo = adminProdDao.selectGrpProfInfo(inParam);
+			
+			
+			if(!shipInfo.isEmpty()){
+				inParam.put("grpProdSeq", shipInfo.get("grpProdSeq"));
+				adminProdDao.insertShipmentProdMap(inParam);
+			}
+		}
+		*/
+		
+		if ( inParam.get("dlvWayCd") != null ) {
+			if(((String) inParam.get("dlvWayCd")).equalsIgnoreCase("1") || ((String) inParam.get("dlvWayCd")).equalsIgnoreCase("2")){
+				if(((String) inParam.get("addDlvUse")).equalsIgnoreCase("Y")){
+					//도서산간추가배송비 등록
+					Map<String, Object> extLandParam = new HashMap<String, Object>();
+					extLandParam.put("prodCode", prodCode);
+					extLandParam.put("extLandCd", "10");
+					//extLandParam.put("addDlvPrice", inParam.get("addDlvPrice1"));
+					extLandParam.put("addDlvPrice", StringUtil.nvl(String.valueOf(inParam.get("addDlvPrice1")),""));
+					adminProdDao.insertExtLandPrice(extLandParam);
+					extLandParam.put("extLandCd", "20");
+					//extLandParam.put("addDlvPrice", inParam.get("addDlvPrice2"));
+					extLandParam.put("addDlvPrice", StringUtil.nvl(String.valueOf(inParam.get("addDlvPrice2")),""));
+					adminProdDao.insertExtLandPrice(extLandParam);
+				}
+			}
+		}
+	}
+	
+	/**
+	 * <pre>
+	 * 판매자리스트 조회
+	 * 판매자리스트정보를 조회 합니다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception 
+	 * @exception 
+	 * @date 2015. 7. 6. 오후 6:41:07
+	 * @author Y.I.Chun
+	 * @비고
+	 * 
+	 * </pre>
+	 */
+	public ModelMap selectSellerList(Map<String, Object> inParam) throws Exception{
+		
+		ModelMap mm = new ModelMap();
+		//판매자리스트
+		List<Map<String, Object>> sellerList = adminProdDao.selectSellerList(inParam);
+		mm.put("sellerList", sellerList);
+		return mm;
+		
+	}
+	
+	/**
+	 * <pre>
+	 * 정보고시상세리스트 조회
+	 * 정보고시상세 리스트정보를 조회 합니다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception 
+	 * @exception 
+	 * @date 2015. 7. 6. 오후 6:41:07
+	 * @author Y.I.Chun
+	 * @비고
+	 * 
+	 * </pre>
+	 */
+	public ModelMap selectItemDtlList(Map<String, Object> inParam) throws Exception{
+		
+		ModelMap mm = new ModelMap();
+		//판매자리스트
+		mm.put("itemDtlList", adminProdDao.selectItemDtlList(inParam));
+		return mm;
+		
+	}
+	
+	/**
+	 * <pre>
+	 * 출하지리스트 조회
+	 * 출하지 리스트정보를 조회 합니다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception 
+	 * @exception 
+	 * @date 2015. 7. 6. 오후 6:41:07
+	 * @author Y.I.Chun
+	 * @비고
+	 * 
+	 * </pre>
+	 */
+	public ModelMap selectShipmentList(Map<String, Object> inParam) throws Exception{
+		
+		ModelMap mm = new ModelMap();
+		//판매자리스트
+		mm.put("shipmentList", adminProdDao.selectShipmentList(inParam));
+		return mm;
+		
+	}
+	
+	/**
+	 * <pre>
+	 * 출하지리스트 등록
+	 * 출하지 리스트정보를 등록 합니다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception 
+	 * @exception 
+	 * @date 2015. 7. 6. 오후 6:41:07
+	 * @author Y.I.Chun
+	 * @비고
+	 * 
+	 * </pre>
+	 */
+	public void insertShipment(Map<String, Object> inParam) throws Exception{
+		
+		logger.info(" ### insertShipment inParam ::: " + inParam + " \n ");
+		
+		ModelMap mm = new ModelMap();
+		try {
+			String GrpProdSeq="";
+			String cell0Str = (String)inParam.get("CELL0");
+			
+			int insertProdCnt = 0;
+			
+			if("Y".equals(inParam.get("baseYn"))) {
+				adminProdDao.updateShipmentStatus(inParam);
+			}
+			
+			GrpProdSeq = adminProdDao.insertShipment(inParam);
+			
+			logger.info(" ### insertShipment GrpProdSeq ::: " + GrpProdSeq + " \n ");
+
+			inParam.put("prodCode", GrpProdSeq);
+			if (cell0Str != null){
+				String CELL0[] = cell0Str.split(",");
+				for(int i=0; i<CELL0.length; i++) {
+					inParam.put("prodCode", CELL0[i]);
+					insertProdCnt++;
+					//adminProdDao.insertShipmentProdMap(inParam);
+				}
+			}
+			
+			
+			mm.put("insertProdCnt", insertProdCnt);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+	
+	/**
+	 * <pre>
+	 * 출하지리스트 수정
+	 * 출하지 리스트정보를 수정 합니다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception 
+	 * @exception 
+	 * @date 2015. 7. 6. 오후 6:41:07
+	 * @author Y.I.Chun
+	 * @비고
+	 * 
+	 * </pre>
+	 */
+	public void updateShipment(Map<String, Object> inParam) throws Exception{
+		String baseYn =StringUtil.nvl((String) inParam.get("baseYn"),"N");
+		if(baseYn.equals("Y")){
+			adminProdDao.updateShipmentStatus(inParam);
+		}
+		adminProdDao.updateShipment(inParam);
+	}
+	
+	/**
+	 * <pre>
+	 * 상품이미지등록
+	 * 상품이미지를 등록 합니다.
+	 * @param img
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 7. 8. 오후 4:44:52
+	 * @author Y.I.Chun
+	 * @see com.ssocio.sharing.service.admin
+	 * </pre>
+	 */
+	private void insertProdImg(MultipartFile img, Map<String, Object> inParam, String imgGbCd) throws Exception {
+		
+		if(img != null && img.getSize() > 0){
+			Map<String, Object> fileInfo = FileUtil.saveMultipartFile(img);//파일 저장
+			String fileSeq = adminCommonDao.insertFile(fileInfo);
+			Map<String, Object> imgParam = new HashMap<String, Object>();
+			imgParam.put("prodCode", inParam.get("prodCode"));
+			imgParam.put("prodImgGbCd", imgGbCd);
+			imgParam.put("fileSeq", fileSeq);
+			imgParam.put("fileUrl", fileInfo.get("I_FILE_URL"));
+			
+			String prodImgSeq = String.valueOf(inParam.get("imgFileSeq_"+imgGbCd));
+			if(prodImgSeq != null && !prodImgSeq.trim().equalsIgnoreCase("") && !prodImgSeq.trim().equalsIgnoreCase("null") ){
+				imgParam.put("oldFileSeq", prodImgSeq);
+				adminProdDao.updateProdImg(imgParam);//상품 이미지 Mapping
+			}else{
+				adminProdDao.insertProdImg(imgParam);
+			}
+		} else if ( img == null && inParam.get("img_" + imgGbCd) != null && !String.valueOf(inParam.get("img_" + imgGbCd)).trim().equalsIgnoreCase("") ) {
+			try{
+				String imagePath = String.valueOf(inParam.get("img_" + imgGbCd));
+				Map<String, Object> fileInfo = FileUtil.saveMultipartFile(imagePath);//파일 저장
+				logger.info(String.valueOf(fileInfo));
+				String fileSeq = adminCommonDao.insertFile(fileInfo);
+				Map<String, Object> imgParam = new HashMap<String, Object>();
+				imgParam.put("prodCode", inParam.get("prodCode"));
+				imgParam.put("prodImgGbCd", imgGbCd);
+				imgParam.put("fileSeq", fileSeq);
+				imgParam.put("fileUrl", fileInfo.get("I_FILE_URL"));
+				
+				String prodImgSeq = (String)inParam.get("imgFileSeq_"+imgGbCd);
+				if(prodImgSeq != null && !prodImgSeq.equals("")){
+					imgParam.put("oldFileSeq", prodImgSeq);
+					adminProdDao.updateProdImg(imgParam);//상품 이미지 Mapping
+				}else{
+					adminProdDao.insertProdImg(imgParam);
+				}
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		}else if(img == null ){
+			// 이미지 삭제
+			String prodImgSeq = String.valueOf(inParam.get("imgFileSeq_"+imgGbCd));
+			String imgFileOld = String.valueOf(inParam.get("imgFileOld_"+imgGbCd));
+			
+			if(prodImgSeq != null && imgFileOld.trim().equalsIgnoreCase("") ){
+				Map<String, Object> imgParam = new HashMap<String, Object>();
+				imgParam.put("prodCode", inParam.get("prodCode"));
+				imgParam.put("oldFileSeq", prodImgSeq);
+				adminProdDao.deleteProdImg(imgParam);//상품 이미지 삭제
+			}
+		}
+	}
+	
+	/**
+	 * <pre>
+	 * 상품 옵션 저장
+	 * 상품 옵션을 저장 합니다.
+	 * @param paramDto
+	 * @return 
+	 * @exception 
+	 * @date 2015. 8. 17. 오후 2:52:00
+	 * @author H.M.Yang
+	 * @비고
+	 * 
+	 * </pre>
+	 */
+	@Override
+	public ModelMap insertProdOption(Map<String, Object> paramDto) throws Exception {
+		ModelMap mm = new ModelMap();
+		try {
+			String maxDepth = "";
+			List<Map<String, Object>> opCnt= new ArrayList<Map<String, Object>>();
+			String optGrpCd ="";
+			int cnt = 0;
+			 
+			Map<String, String> opMap = new HashMap<String, String>();
+			// 부가구성옵션 insert update
+			logger.info("optFlg : " + paramDto.get("optFlg"));
+			logger.info("CELL0 : " + paramDto.get("CELL0"));
+			logger.info("CELL1 : " + paramDto.get("CELL1"));
+			logger.info("CELL2 : " + paramDto.get("CELL2"));
+			
+			if(paramDto.get("optFlg") != null && String.valueOf(paramDto.get("optFlg")).trim().equalsIgnoreCase("Y") && paramDto.get("CELL0") != null && paramDto.get("CELL1") != null && paramDto.get("CELL2") != null){
+				String cell0Array = (String) paramDto.get("CELL0");
+				String cell1Array = (String) paramDto.get("CELL1");
+				String cell2Array = (String) paramDto.get("CELL2");
+				String optCdArray = (String) paramDto.get("optCd");
+
+				String CELL0[] = cell0Array.split(",");
+				String CELL1[] = cell1Array.split(",");
+				String CELL2[] = cell2Array.split(",");
+
+				// 상품옵션 정보 테이블 세팅하는 로직
+				// 옵션 이름 설정
+				String optNmArry = (String) paramDto.get("optName");
+				String nmArry[] = optNmArry.split(",");
+				// String dbNmArry[] = { "grp1Num", "grp2Num", "grp3Num" };
+				System.out.println(">????????????????????? >>>>>> " + optNmArry.length());
+				for (int j = 0; j < nmArry.length; j++) {
+					paramDto.put("grp" + (j + 1) + "Nm", nmArry[j]);
+				}
+
+				// 옵션 뎁스 설정
+				maxDepth = (String) paramDto.get("maxDepth");
+				paramDto.put("maxDepth", maxDepth);
+
+				// 옵션 그룹 코드 설정
+				opCnt = adminProdDao.selectProdOp(paramDto);
+				optGrpCd = "";
+				cnt = Integer.parseInt(opCnt.get(0).get("OPCNT").toString());
+				if (cnt == 0) {
+					optGrpCd = adminProdDao.insertProdOpInfo(paramDto);
+					paramDto.put("optGrpCd", Integer.parseInt(optGrpCd));
+				} else {
+					optGrpCd = (String) opCnt.get(0).get("OPT_GRP_CD").toString();
+					paramDto.put("optGrpCd", Integer.parseInt(optGrpCd));
+					// update
+					// System.out.println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>"+prodCode);
+					System.out.println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>" + optGrpCd);
+					adminProdDao.updateProdOpInfo(paramDto);
+				}
+
+				System.out.println("optGrpCdoptGrpCdoptGrpCdoptGrpCdoptGrpCdoptGrpCdoptGrpCd : " + optGrpCd);
+
+				// 상품 옵션 테이블에 세팅하는 로직
+				// step.1 첫번째 뎁을 세팅 한다.
+				String tmpStr1 = ""; // 1deph
+				String tmpStr2 = ""; // 2deph
+				String optCd = "";
+				String optCd2 = "";
+
+				// prod_op 테이블 inset, update 구분
+				// optcd 길이로 체크한다
+				logger.info(optCdArray);
+				String optCdSplit[] = optCdArray.split(",");
+
+				opMap = new HashMap<String, String>();
+				for (int i = 0; i < CELL0.length; i++) {
+
+					if (optCdSplit[i].length() != 14) { // insert
+						String opStr = CELL0[i];
+						String[] opSplit = opStr.split("#");
+						int splitCnt = opSplit.length;
+						String first = "";
+						String second = "";
+						String third = "";
+
+						paramDto.put("optPrce", "");
+						paramDto.put("optStockQty", "");
+						paramDto.put("parOptCd", "");
+
+						logger.info("length : " + opStr.split("#").length);
+
+						if (splitCnt > 2) {
+							first = opStr.split("#")[0];
+							second = opStr.split("#")[1];
+							third = opStr.split("#")[2];
+
+							if (opMap.get(first) == null || opMap.get(first).trim().equalsIgnoreCase("")) {
+								paramDto.put("optNm", first);
+								paramDto.put("parOptCd", 0);
+								paramDto.put("depth", 0);
+								optCd = adminProdDao.insertProdOp(paramDto);
+								opMap.put(first, optCd);
+								paramDto.put("parOptCd", optCd);
+							} else {
+								paramDto.put("parOptCd", opMap.get(first));
+							}
+							if (opMap.get(first + "_" + second) == null
+									|| !opMap.get(first + "_" + second).trim().equalsIgnoreCase("")) {
+								paramDto.put("optNm", second);
+								paramDto.put("depth", 1);
+								optCd = adminProdDao.insertProdOp(paramDto);
+								paramDto.put("parOptCd", optCd);
+								opMap.put(first + "_" + second, optCd);
+							} else {
+								paramDto.put("parOptCd", opMap.get(first + "_" + second));
+							}
+							paramDto.put("depth", 2);
+							paramDto.put("optNm", third);
+							paramDto.put("optStockQty", CELL2[i]);
+							paramDto.put("optPrce", CELL1[i]);
+							optCd = adminProdDao.insertProdOp(paramDto);
+							//opMap.put(first + "_" + second + "-" + third, optCd);
+						} else if (splitCnt > 1) {
+							first = opStr.split("#")[0];
+							second = opStr.split("#")[1];
+
+							if (opMap.get(first) == null || !opMap.get(first).trim().equalsIgnoreCase("")) {
+								paramDto.put("optNm", first);
+								paramDto.put("parOptCd", 0);
+								paramDto.put("depth", 0);
+								optCd = adminProdDao.insertProdOp(paramDto);
+								opMap.put(first, optCd);
+								paramDto.put("parOptCd", optCd);
+							} else {
+								paramDto.put("parOptCd", opMap.get(first));
+							}
+							paramDto.put("depth", 1);
+							paramDto.put("optNm", second);
+							paramDto.put("optStockQty", CELL2[i]);
+							paramDto.put("optPrce", CELL1[i]);
+							optCd = adminProdDao.insertProdOp(paramDto);
+							opMap.put(first + "_" + second, optCd);
+
+						} else if (opStr.split("#").length > 0) {
+							first = opStr.split("#")[0];
+							paramDto.put("depth", 0);
+							paramDto.put("optNm", first);
+							paramDto.put("optStockQty", CELL2[i]);
+							paramDto.put("optPrce", CELL1[i]);
+							paramDto.put("parOptCd", 0);
+							optCd = adminProdDao.insertProdOp(paramDto);
+							opMap.put(first, optCd);
+						}
+					} else { // 업데이트
+						paramDto.put("optStockQty", CELL2[i]);
+						paramDto.put("optPrce", CELL1[i]);
+						paramDto.put("optCd", optCdSplit[i]);
+
+						// 업데이트
+						adminProdDao.updateProdOp(paramDto);
+					}
+				}
+			}
+	
+			//추가 구성형 추가
+			//그냥 하드코딩
+			
+			if(paramDto.get("optFlg2") != null && String.valueOf(paramDto.get("optFlg2")).trim().equalsIgnoreCase("Y") && paramDto.get("CELL3") != null && paramDto.get("CELL4") != null && paramDto.get("CELL5") != null){
+				String cell3Array = (String)paramDto.get("CELL3");
+				String cell4Array = (String)paramDto.get("CELL4");
+				String cell5Array = (String)paramDto.get("CELL5");
+				String optCd2Array = (String)paramDto.get("optCd2");
+				
+				String CELL0[] = cell3Array.split(",");
+				String CELL1[] = cell4Array.split(",");
+				String CELL2[] = cell5Array.split(",");
+				
+				// 상품옵션 정보 테이블 세팅하는 로직
+				// 옵션 이름 설정
+				String optNmArry = (String)paramDto.get("optName2");
+				String nmArry[] = optNmArry.split(",");
+				//String dbNmArry[] = { "grp1Num", "grp2Num", "grp3Num" };
+				System.out.println(">????????????????????? >>>>>> "+optNmArry.length());
+				for (int j=0; j<nmArry.length; j++){
+					paramDto.put("grp" + (j + 1) + "Nm", nmArry[j]);
+				}
+				
+				// 옵션 뎁스 설정
+				maxDepth = (String)paramDto.get("maxDepth2");
+				paramDto.put("maxDepth", maxDepth);
+				
+				// 추가옵션 그룹 코드 설정
+				paramDto.put("opGbCd",(String)paramDto.get("opGbCd2"));
+				
+				// 옵션 그룹 코드 설정
+				opCnt = adminProdDao.selectProdOp(paramDto);
+				optGrpCd ="";
+				cnt = Integer.parseInt( opCnt.get(0).get("OPCNT").toString() );
+				if( cnt == 0){
+					optGrpCd = adminProdDao.insertProdOpInfo(paramDto);
+					paramDto.put("optGrpCd", Integer.parseInt(optGrpCd));
+				}
+				else {
+					optGrpCd = (String) opCnt.get(0).get("OPT_GRP_CD").toString();
+					paramDto.put("optGrpCd", Integer.parseInt(optGrpCd));
+					// update
+					//System.out.println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>"+prodCode);
+					System.out.println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>"+optGrpCd);
+					adminProdDao.updateProdOpInfo(paramDto);
+				}
+				
+				System.out.println("optGrpCdoptGrpCdoptGrpCdoptGrpCdoptGrpCdoptGrpCdoptGrpCd : "+optGrpCd);
+				
+				// 상품 옵션 테이블에 세팅하는 로직
+				// step.1 첫번째 뎁을 세팅 한다.
+				String tmpStr1 = "";	// 1deph
+				String tmpStr2 = "";	// 2deph
+				String optCd = "";
+				String optCd2 = "";
+				
+				//prod_op 테이블 inset, update 구분
+				//optcd 길이로 체크한다
+				String optCdSplit[] = optCd2Array.split(",");
+
+				opMap = new HashMap<String, String>();
+				for (int i = 0; i < CELL0.length; i++) {
+
+					if (optCdSplit[i].length() != 14) { // insert
+						String opStr = CELL0[i];
+						String[] opSplit = opStr.split("#");
+						int splitCnt = opSplit.length;
+						String first = "";
+						String second = "";
+						String third = "";
+
+						paramDto.put("optPrce", "");
+						paramDto.put("optStockQty", "");
+						paramDto.put("parOptCd", "");
+
+						logger.info("length : " + opStr.split("#").length);
+
+						if (splitCnt > 2) {
+							first = opStr.split("#")[0];
+							second = opStr.split("#")[1];
+							third = opStr.split("#")[2];
+
+							if (opMap.get(first) == null || opMap.get(first).trim().equalsIgnoreCase("")) {
+								paramDto.put("optNm", first);
+								paramDto.put("parOptCd", 0);
+								paramDto.put("depth", 0);
+								optCd = adminProdDao.insertProdOp(paramDto);
+								opMap.put(first, optCd);
+								paramDto.put("parOptCd", optCd);
+							} else {
+								paramDto.put("parOptCd", opMap.get(first));
+							}
+							if (opMap.get(first + "_" + second) == null
+									|| !opMap.get(first + "_" + second).trim().equalsIgnoreCase("")) {
+								paramDto.put("optNm", second);
+								paramDto.put("depth", 1);
+								optCd = adminProdDao.insertProdOp(paramDto);
+								paramDto.put("parOptCd", optCd);
+								opMap.put(first + "_" + second, optCd);
+							} else {
+								paramDto.put("parOptCd", opMap.get(first + "_" + second));
+							}
+							paramDto.put("depth", 2);
+							paramDto.put("optNm", third);
+							paramDto.put("optStockQty", CELL2[i]);
+							paramDto.put("optPrce", CELL1[i]);
+							optCd = adminProdDao.insertProdOp(paramDto);
+							//opMap.put(first + "_" + second + "-" + third, optCd);
+						} else if (splitCnt > 1) {
+							first = opStr.split("#")[0];
+							second = opStr.split("#")[1];
+
+							if (opMap.get(first) == null || !opMap.get(first).trim().equalsIgnoreCase("")) {
+								paramDto.put("optNm", first);
+								paramDto.put("parOptCd", 0);
+								paramDto.put("depth", 0);
+								optCd = adminProdDao.insertProdOp(paramDto);
+								opMap.put(first, optCd);
+								paramDto.put("parOptCd", optCd);
+							} else {
+								paramDto.put("parOptCd", opMap.get(first));
+							}
+							paramDto.put("depth", 1);
+							paramDto.put("optNm", second);
+							paramDto.put("optStockQty", CELL2[i]);
+							paramDto.put("optPrce", CELL1[i]);
+							optCd = adminProdDao.insertProdOp(paramDto);
+							opMap.put(first + "_" + second, optCd);
+
+						} else if (opStr.split("#").length > 0) {
+							first = opStr.split("#")[0];
+							paramDto.put("depth", 0);
+							paramDto.put("optNm", first);
+							paramDto.put("optStockQty", CELL2[i]);
+							paramDto.put("optPrce", CELL1[i]);
+							paramDto.put("parOptCd", 0);
+							optCd = adminProdDao.insertProdOp(paramDto);
+							opMap.put(first, optCd);
+						}
+					} else { // 업데이트
+						paramDto.put("optStockQty", CELL2[i]);
+						paramDto.put("optPrce", CELL1[i]);
+						paramDto.put("optCd", optCdSplit[i]);
+
+						// 업데이트
+						adminProdDao.updateProdOp(paramDto);
+					}
+				}
+			}
+			//mm.put("uploadCnt", uploadCnt);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+	
+	
+	/**
+	 * <pre>
+	 * 상품 옵션 조회
+	 * 상품 옵션을 조회 합니다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 7. 8. 오후 4:44:52
+	 * @author Y.I.Chun
+	 * @see com.ssocio.sharing.service.admin
+	 * </pre>
+	 */
+	public List<Map<String, Object>> selectProdOption(Map<String, Object> inParam) throws Exception {
+		List<Map<String, Object>> listMap = new ArrayList<Map<String, Object>>();
+		listMap.addAll(adminProdDao.selectProdOption(inParam));
+		return listMap;
+	}
+	
+	/**
+	 * <pre>
+	 * 출하지 상세 조회
+	 * 출하지에 등록된 상품 정보를 조회 합니다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception 
+	 * @exception 
+	 * @date 2015. 7. 6. 오후 6:41:07
+	 * @author SEKIM
+	 * @비고
+	 * 
+	 * </pre>
+	 */
+	public ModelMap selectShipmentProdList(Map<String, Object> inParam) throws Exception{
+		
+		ModelMap mm = new ModelMap();
+		//판매자리스트
+		mm.put("ShipmentProdList", adminProdDao.selectShipmentProdList(inParam));
+		return mm;
+		
+	}
+	
+	/**
+	 * <pre>
+	 * 출하지 등록 상품 삭제
+	 * 출하지에 등록된 상품 삭제.
+	 * @param paramDto
+	 * @return 
+	 * @exception 
+	 * @date 2015. 8. 17. 오후 2:52:00
+	 * @author SEKIM
+	 * @비고
+	 * 
+	 * </pre>
+	 */
+	public ModelMap deleteShipmentProd(Map<String, Object> paramDto) throws Exception {
+		ModelMap mm = new ModelMap();
+		try {
+			
+			String cell0Array = (String)paramDto.get("delProdArry");
+			
+			String CELL0[] = cell0Array.split(",");
+			
+			int delCnt = 0;
+			
+			for(int i=0; i<CELL0.length; i++) {
+				paramDto.put("prodCode", CELL0[i]);
+				delCnt++;
+				adminProdDao.deleteShipmentProd(paramDto);
+				
+			}
+			mm.put("delCnt", delCnt);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+	
+	/**
+	 * <pre>
+	 * 출하지에 등록할 상품 조회
+	 * @param inParam
+	 * @return
+	 * @throws Exception 
+	 * @exception 
+	 * @date 2015. 7. 6. 오후 6:41:07
+	 * @author SEKIM
+	 * @비고
+	 * 
+	 * </pre>
+	 */
+	public ModelMap selectAddShipmentProdList(Map<String, Object> inParam) throws Exception{
+		
+		ModelMap mm = new ModelMap();
+		//판매자리스트
+		mm.put("ShipmentProdList", adminProdDao.selectAddShipmentProdList(inParam));
+		return mm;
+	}
+	
+	/**
+	 * <pre>
+	 * 상품 옵션 조회
+	 * 상품 옵션을 조회 합니다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 7. 8. 오후 4:44:52
+	 * @author Y.I.Chun
+	 * @see com.ssocio.sharing.service.admin
+	 * </pre>
+	 */
+	public ModelMap insetShipmentProdMap(Map<String, Object> paramDto) throws Exception {
+		ModelMap mm = new ModelMap();
+		try {
+			
+			String cell0Array = (String)paramDto.get("CELL0");
+			String CELL0[] = cell0Array.split(",");
+			
+			int uploadCnt = 0;
+			for(int i=0; i<CELL0.length; i++) {
+				paramDto.put("prodCode", CELL0[i]);
+				
+				uploadCnt++;
+				adminProdDao.insetShipmentProdMap(paramDto);
+			}
+			mm.put("uploadCnt", uploadCnt);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+	
+	@Override
+	public Map<String, Object> selectProdImg(Map<String, Object> inParam) throws Exception {
+		Map<String, Object> mm = adminProdDao.selectProdImg(inParam);
+		return mm;
+	}
+	
+	/**
+	 * <pre>
+	 * 상품 옵션 삭제처리
+	 * 상품 옵션을 삭제 합니다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 7. 8. 오후 4:44:52
+	 * @author Y.I.Chun
+	 * @see com.ssocio.sharing.service.admin
+	 * </pre>
+	 */
+	@Override
+	public void deleteProdOpInfo(Map<String, Object> paramDto) throws Exception {
+		ModelMap mm = new ModelMap();
+		try {
+				adminProdDao.deleteProdOpInfo(paramDto);
+			 
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	 
+	}
+	
+	/**
+	 * <pre>
+	 * 상품 옵션 조회
+	 * 상품 옵션을 조회 합니다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 7. 8. 오후 4:44:52
+	 * @author Y.I.Chun
+	 * @see com.ssocio.sharing.service.admin
+	 * </pre>
+	 */
+	@Override
+	public  ModelMap  selectOptionJson(Map<String, Object> inParam) throws Exception {
+		ModelMap mm = new ModelMap();
+		//부가상품 옵션명 가져오기
+		inParam.put("opGbCd", "10");
+		List<Map<String, Object>> optionNmInfo = adminProdDao.selectProdOptionNm(inParam);
+		mm.put("optionNmInfo", optionNmInfo);
+		
+		//부가상품 옵션정보
+		List<Map<String, Object>> optInfo = adminProdDao.selectProdOption(inParam);
+		mm.put("optInfo", optInfo);
+		
+		//추가상품 옵션명 가져오기
+		inParam.put("opGbCd", "20");
+		List<Map<String, Object>> optionNmExtInfo = adminProdDao.selectProdOptionNm(inParam);
+		mm.put("optionNmExtInfo", optionNmExtInfo);
+		
+		//추가상품 옵션정보
+		List<Map<String, Object>> optExtInfo = adminProdDao.selectProdOption(inParam);
+		mm.put("optExtInfo", optExtInfo);
+		
+		return mm;
+	}
+	
+	/**
+	 * <pre>
+	 * 렌탈상품일때 구매여부 조회하여 약관가능여부 체크
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 7. 8. 오후 4:44:52
+	 * @author Y.I.Chun
+	 * @see com.ssocio.sharing.service.admin
+	 * </pre>
+	 */
+ 
+	public int selectCountProdInfo(Map<String, Object> inParam) throws Exception{
+		return adminProdDao.selectCountProdInfo(inParam);
+	}
+	
+	/**
+	 * <pre>
+	 * 상품옵션 사용갯수 조회
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 7. 8. 오후 4:44:52
+	 * @author Y.I.Chun
+	 * @see com.ssocio.sharing.service.admin
+	 * </pre>
+	 */
+	@Override
+	public int selectopUseCnt(Map<String, Object> inParam) throws Exception {
+		return adminProdDao.selectOpUseCnt(inParam);
+	}
+
+	/**
+	 * <pre>
+	 * 상품옵션 사용안함 처리
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 7. 8. 오후 4:44:52
+	 * @author Y.I.Chun
+	 * @see com.ssocio.sharing.service.admin
+	 * </pre>
+	 */
+	@Override
+	public void updateProdOpUse(Map<String, Object> inParam) throws Exception{
+		ModelMap mm = new ModelMap();
+		try {
+			if( ((String) inParam.get("opGbCd")).equalsIgnoreCase("10")){
+				inParam.put("opt_rad","N");
+			}else{
+				inParam.put("opt_ext_rad","N");
+			}
+			 
+			adminProdDao.updateProdOpUse(inParam);
+			 
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+
+	/* (non-Javadoc)
+	 * @see com.ssocio.sharing.service.admin.AdminProdService#selectopUseCnt(java.util.Map)
+	 */
+	
+	/**
+	 * <pre>
+	 * 상품 등록 요청 리스트 조회
+	 * 상품 등록 요청 리스트를 조회 합니다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 
+	 * @author arkim
+	 * @see com.ssocio.sharing.service.admin
+	 * </pre>
+	 */
+public ModelMap selectProdWantList(Map<String, Object> inParam) {
+		
+		ModelMap mm = new ModelMap();
+		
+		try {
+		
+			inParam.put("S_GROUP_CODE", CmmnCnst.displayCnt); //"DISPLAY_CNT"
+			mm.put("displayCnt",adminCodeDao.selectListCodeGroup(inParam));
+			
+			inParam.put("PAGE_NO",StringUtil.nvl((String)inParam.get("PAGE_NO"), "1"));
+			int nowPage = StringUtil.nvlInt((String)inParam.get("PAGE_NO"), 1);
+			int rowCnt	= StringUtil.nvlInt((String)inParam.get("S_ROW_CNT"), 20);
+			inParam.put("S_ROW_CNT", rowCnt);
+			
+			String today = StringUtil.getCurrentDate();
+			
+			String S_END_DATE = inParam.get("S_END_DATE") != null && !"".equals((String)inParam.get("S_END_DATE")) ? String.valueOf(inParam.get("S_END_DATE")).replaceAll("-", "") : null;
+			inParam.put("S_END_DATE", StringUtil.nvl(S_END_DATE, today));
+			
+			//SimpleDateFormat format = new SimpleDateFormat("yyyyMMdd");
+			//Calendar cal = Calendar.getInstance();
+			//cal.add(Calendar.DATE, -30);
+			String S_START_DATE = inParam.get("S_START_DATE") != null && !"".equals((String)inParam.get("S_START_DATE")) ? String.valueOf(inParam.get("S_START_DATE")).replaceAll("-", "") : null;
+			//inParam.put("S_START_DATE", StringUtil.nvl(S_START_DATE, format.format(cal.getTime())));
+			inParam.put("S_START_DATE", StringUtil.nvl(S_START_DATE, today));
+
+			inParam.put("searchKeyword", StringUtil.nvl((String)inParam.get("searchKeyword"),""));
+			
+			LoggerUtil.writeMap(inParam);	
+			
+			int rowTotal = adminProdDao.selectProdWantListCount(inParam);		
+			
+			PageNavigation pageNav= new PageNavigation(nowPage, rowTotal, rowCnt, CmmnCnst.ADM_BLOCK_SIZE);
+			mm.put("PAGE_NO", nowPage);
+			mm.put("TOT_CNT", rowTotal);
+			mm.put("pageNav", pageNav);
+			inParam.put("START_ROW", pageNav.getStartRow());
+			inParam.put("END_ROW", pageNav.getEndRow());
+			
+			mm.put("selectProdWantList",adminProdDao.selectProdWantList(inParam));
+			
+			/// 공통 코드 조회 - 회원 구분 코드
+			inParam.put("S_GROUP_CODE", CmmnCnst.mberGbCd);
+			mm.put("mberGbCd", adminCodeDao.selectListCodeGroup(inParam));
+
+			/// 공통 코드 조회 - 가입 구분 코드
+			inParam.put("S_GROUP_CODE", CmmnCnst.mberRegGbCd);
+			mm.put("mberRegGbCd", adminCodeDao.selectListCodeGroup(inParam));		
+			
+			inParam.put("HANDLING_YN", inParam.get("handlingYn"));
+			
+			mm.put("params", inParam);
+			
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		return mm;
+	}
+ 
+	/**
+	 * <pre>
+	 * 상품 등록 요청 건 처리 내용 Update
+	 * 상품 등록 요청 건의 처리 내용을 Update 합니다. Y : 처리 완료
+	 * @param request, inParam, wantSeq
+	 * @return
+	 * @throws Exception
+	 * @date 
+	 * @author arkim
+	 * @see com.ssocio.sharing.service.admin
+	 * </pre>
+	 */
+	@Override
+	public void updateProdWantHandlingInfo(HttpServletRequest request, Map<String, Object> inParam, String[] wantSeq) {
+		ModelMap mm = new ModelMap();
+		
+		try{
+			
+			mm.put("wantSeq", wantSeq);
+			
+			AdminSession session = (AdminSession) request.getSession().getAttribute("manager");
+			String handlerId = session != null ? session.getADM_ID() : null;
+			mm.put("handlerId", handlerId);
+			
+			adminProdDao.updateProdWantHandlingInfo(mm);	
+		
+		}catch (Exception e) {
+			e.printStackTrace();
+		}		
+
+	}
+
+
+}

@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="adminPointMapper">
+
+	<!-- 검색조건 -->
+	<sql id="SearchPoint">
+		
+		<!-- 조회기간 -->
+		<if test="(S_FROM_DATE != null and S_FROM_DATE != '') and (S_TO_DATE != null and S_TO_DATE != '')">
+			AND TO_CHAR(A.REGIST_DT, 'YYYYMMDD') BETWEEN #{S_FROM_DATE} AND #{S_TO_DATE}
+		</if>
+		
+	</sql>
+	
+	<select id="selectListPeriPoint" parameterType="hashmap" resultType="hashmap">
+		<include refid="adminCommonMapper.pagingHeader" />
+		SELECT 
+			  TO_CHAR(A.REGIST_DT, 'YYYYMMDD') AS REGIST_DT,
+<!-- 		      NVL(SUM(DECODE(POINT_TYPE, '1', A.POINT)), 0) + NVL(SUM(DECODE(POINT_CD, '30', A.POINT)), 0) AS Y_POINT, -->
+<!-- 		      NVL(SUM(DECODE(POINT_TYPE, '2', A.POINT)), 0) AS N_POINT, -->
+		      NVL(SUM(DECODE(POINT_CD, '20', A.POINT)), 0) + NVL(SUM(DECODE(POINT_CD, '30', A.POINT)), 0) AS A_POINT,
+              NVL(SUM(DECODE(POINT_CD, '21', A.POINT)), 0) AS B_POINT,
+              NVL(SUM(DECODE(POINT_TYPE, 'Y', A.POINT)), 0) + NVL(SUM(DECODE(POINT_TYPE, '1', A.POINT)), 0)  AS Y_POINT,
+              NVL(SUM(DECODE(POINT_TYPE, 'N', A.POINT)), 0) + NVL(SUM(DECODE(POINT_TYPE, '2', A.POINT)), 0) AS N_POINT,
+		      ROW_NUMBER() OVER(ORDER BY TO_CHAR(A.REGIST_DT, 'YYYYMMDD') DESC) AS NO
+		FROM POINT_USE_LOG A
+		WHERE 1=1
+		<include refid="SearchPoint" />
+		GROUP BY TO_CHAR(A.REGIST_DT, 'YYYYMMDD')
+		<include refid="adminCommonMapper.pagingFooter" />
+	</select>
+	
+	<select id="selectPeriPointTotSum" parameterType="hashmap" resultType="hashmap">
+		SELECT 
+<!--       		  NVL(SUM(DECODE(POINT_TYPE, '1', A.POINT)), 0) + NVL(SUM(DECODE(POINT_CD, '30', A.POINT)), 0) AS Y_POINT, -->
+<!--       		  NVL(SUM(DECODE(POINT_TYPE, '2', A.POINT)), 0) AS N_POINT -->
+			  NVL(SUM(DECODE(POINT_CD, '20', A.POINT)), 0) + NVL(SUM(DECODE(POINT_CD, '30', A.POINT)), 0) AS A_POINT,
+              NVL(SUM(DECODE(POINT_CD, '21', A.POINT)), 0) AS B_POINT,
+              NVL(SUM(DECODE(POINT_TYPE, 'Y', A.POINT)), 0) + NVL(SUM(DECODE(POINT_TYPE, '1', A.POINT)), 0)  AS Y_POINT,
+              NVL(SUM(DECODE(POINT_TYPE, 'N', A.POINT)), 0) + NVL(SUM(DECODE(POINT_TYPE, '2', A.POINT)), 0) AS N_POINT
+		FROM POINT_USE_LOG A
+		WHERE 1=1
+		<include refid="SearchPoint" />
+	</select>
+	
+	<select id="selectPeriPointSearchCnt" parameterType="hashmap" resultType="int">
+		SELECT
+		      COUNT(1) AS CNT
+		FROM (
+				SELECT 
+					  TO_CHAR(A.REGIST_DT, 'YYYYMMDD') AS REGIST_DT  
+				FROM POINT_USE_LOG A
+				WHERE 1=1
+				<include refid="SearchPoint" />
+				GROUP BY TO_CHAR(A.REGIST_DT, 'YYYYMMDD')
+		) 
+	</select>
+	
+	<select id="selectListMberPoint" parameterType="hashmap" resultType="hashmap">
+		<include refid="adminCommonMapper.pagingHeader" />
+		SELECT 
+			  A.POINT_SEQ,
+			  B.MBER_EMAIL,
+		      TO_CHAR(A.REGIST_DT, 'YYYY-MM-DD HH24:MI') AS REGIST_DT,
+		      A.POINT_CD,
+		      (SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'POINT_CD' AND COM_CD = A.POINT_CD) AS POINT_NM,
+		      A.CHG_REASON,
+<!-- 		      DECODE(POINT_TYPE, '1', A.POINT) AS Y_POINT, -->
+<!-- 		      DECODE(POINT_TYPE, '2', A.POINT) AS N_POINT, -->
+			  CASE 
+                    WHEN POINT_CD='20' THEN A.POINT  
+                    WHEN POINT_CD='30' THEN A.POINT               
+              END A_POINT,
+              CASE               
+                    WHEN POINT_CD='21' THEN A.POINT
+              END B_POINT,
+			  CASE WHEN POINT_TYPE='1' THEN A.POINT 
+			       WHEN POINT_TYPE='Y' THEN A.POINT 
+                      
+              END Y_POINT,
+              CASE 
+                    WHEN POINT_TYPE='2' THEN A.POINT
+                    WHEN POINT_TYPE='N' THEN A.POINT
+              END N_POINT,
+/*		      ROW_NUMBER() OVER(ORDER BY A.MBER_SEQ DESC) AS NO */
+			  ROW_NUMBER() OVER(ORDER BY A.REGIST_DT DESC, A.POINT_SEQ DESC ) AS NO
+
+		FROM POINT_USE_LOG A, MBER_INFO B
+		WHERE A.MBER_SEQ = B.MBER_SEQ
+		  AND B.MBER_EMAIL = #{S_ID_TEXT}
+		ORDER BY A.REGIST_DT DESC, A.POINT_SEQ DESC
+
+		<include refid="adminCommonMapper.pagingFooter" />
+	</select>
+	
+	<select id="selectMberPointTotSum" parameterType="hashmap" resultType="hashmap">
+		SELECT 
+      		  NVL(SUM(DECODE(POINT_CD, '20', A.POINT)), 0) + NVL(SUM(DECODE(POINT_CD, '30', A.POINT)), 0) AS A_POINT,
+              NVL(SUM(DECODE(POINT_CD, '21', A.POINT)), 0) AS B_POINT,
+              NVL(SUM(DECODE(POINT_TYPE, 'Y', A.POINT)), 0) + NVL(SUM(DECODE(POINT_TYPE, '1', A.POINT)), 0)  AS Y_POINT,
+              NVL(SUM(DECODE(POINT_TYPE, 'N', A.POINT)), 0) + NVL(SUM(DECODE(POINT_TYPE, '2', A.POINT)), 0) AS N_POINT
+		FROM POINT_USE_LOG A, MBER_INFO B
+		WHERE A.MBER_SEQ = B.MBER_SEQ
+		AND B.MBER_EMAIL = #{S_ID_TEXT}
+	</select>
+	
+	<select id="selectMberPointSearchCnt" parameterType="hashmap" resultType="int">
+		SELECT 
+			  COUNT(1) AS CNT
+		FROM POINT_USE_LOG A, MBER_INFO B
+		WHERE A.MBER_SEQ = B.MBER_SEQ
+		AND B.MBER_EMAIL = #{S_ID_TEXT}
+	</select>
+	
+	<select id="selectMberSeqPoint" parameterType="hashmap" resultType="String">
+		SELECT 
+			  A.MBER_SEQ
+		FROM MBER_INFO A
+		WHERE A.MBER_EMAIL = #{S_ID_TEXT}
+	</select>
+	
+	<insert id="insertMberPoint" parameterType="hashmap">
+		INSERT INTO POINT_USE_LOG
+		      (POINT_SEQ,
+		       MBER_SEQ,
+		       POINT,
+		       POINT_CD,
+		       CHG_REASON,
+		       POINT_TYPE,
+		       REGIST_DT
+		 ) VALUES (
+		 	   SEQ_POINT_USE.NEXTVAL,
+		       #{I_MBER_SEQ, jdbcType=NUMERIC},
+		       #{I_POINT},
+		       #{I_POINT_CD},
+		       #{I_CHG_REASON},
+		       DECODE(#{I_POINT_TYPE}, 'Y','1'
+		       							,'N','2'
+		       							,#{I_POINT_TYPE}),
+		       SYSDATE
+		      ) 
+	</insert>
+	
+	<update id="updateMberPoint" parameterType="hashmap">
+		UPDATE
+			MBER_INFO
+		SET
+			POINT =  NVL(POINT,0) + 
+			DECODE(#{I_POINT_CD} ,'10',#{I_POINT},TO_NUMBER(#{I_POINT}) * -1)
+		WHERE
+			MBER_SEQ = #{I_MBER_SEQ}
+	</update>
+	
+	
+</mapper>

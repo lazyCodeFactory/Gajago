@@ -1,0 +1,1007 @@
+package com.ssocio.sharing.cmmn.admin.util;
+
+import java.awt.Image;
+import java.awt.image.BufferedImage;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.PrintWriter;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.nio.file.Files;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+
+import javax.imageio.ImageIO;
+import javax.swing.ImageIcon;
+
+import org.apache.commons.imaging.Imaging;
+import org.apache.commons.imaging.common.IImageMetadata;
+import org.apache.commons.imaging.formats.jpeg.JpegImageMetadata;
+import org.apache.commons.imaging.formats.jpeg.exif.ExifRewriter;
+import org.apache.commons.imaging.formats.tiff.TiffField;
+import org.apache.commons.imaging.formats.tiff.TiffImageMetadata;
+import org.apache.commons.imaging.formats.tiff.constants.TiffConstants;
+import org.apache.commons.imaging.formats.tiff.write.TiffOutputDirectory;
+import org.apache.commons.imaging.formats.tiff.write.TiffOutputSet;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+import org.apache.http.HttpResponse;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.impl.client.HttpClientBuilder;
+import org.springframework.ui.ModelMap;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.multipart.MultipartHttpServletRequest;
+
+import com.jcraft.jsch.Logger;
+import com.ssocio.sharing.cmmn.instance.config.AppConfigManager;
+import com.ssocio.sharing.cmmn.util.CmmnCnst;
+import com.ssocio.sharing.cmmn.util.Redis;
+import com.ssocio.sharing.cmmn.util.StringUtil;
+
+public class FileUtil {
+	private static Log log = LogFactory.getLog(FileUtil.class);
+
+	@SuppressWarnings ("static-access")
+	public static Map<String, Object> saveMultipartFile(MultipartFile file, MultipartHttpServletRequest req) throws IOException {
+		InputStream inputStream = null;
+		OutputStream outputStream = null;
+		boolean imgfailflag = false;
+		String strDir = StringUtil.getCurrentDateFormat("yyyy")+"/"
+				+StringUtil.getCurrentDateFormat("MM")+"/"
+				+StringUtil.getCurrentDateFormat("dd")+"/";
+		
+		Map<String, Object> file_map = new HashMap<String, Object>();
+		try {
+			if(file.getSize()>0){
+				
+				UUID randomeUUID = UUID.randomUUID();
+				inputStream  = file.getInputStream();
+
+		        String uploadRootPath = AppConfigManager.getInstance().getUploadRootPath();
+		        log.debug("@@@@@ >>>>> uploadRootPath :  " + uploadRootPath);
+				String filePath = uploadRootPath + CmmnCnst.UploadRealDir + strDir;
+				File realUploadDir = new File(filePath);
+				if(!realUploadDir.exists()){				  
+				  realUploadDir.mkdirs();				  
+				}
+
+				String file_type = file.getOriginalFilename().substring(file.getOriginalFilename().lastIndexOf("."));
+				String organizedfilePath = CmmnCnst.UploadRealDir + strDir + randomeUUID + file_type;
+								
+				String uploadUrlPath = AppConfigManager.getInstance().getUploadUrlPath();
+				log.debug("@@@@@ >>>>> uploadUrlPath :  " + uploadUrlPath);
+				
+				String fileURL = uploadUrlPath + strDir + randomeUUID + file_type;
+				log.debug("@@@@@ >>>>> organizedfilePath :  " + organizedfilePath);
+				
+				outputStream = new FileOutputStream(uploadRootPath + organizedfilePath);
+				
+				int readByte = 0;
+				byte[] buffer = new byte[8192];
+				
+				while ((readByte = inputStream.read(buffer, 0, 8120)) != -1) {
+					outputStream.write(buffer, 0, readByte);
+				}
+				outputStream.close();
+				
+				// 이미지 rotation 추가 (seongjoon@danalssocio.com)
+				// 테스트 버젼으로 stg, dev에서만 동작.
+				try {
+					log.info("############### rotateImage start");
+					log.info(System.currentTimeMillis());
+					log.info("############### //rotateImage start");
+					
+					String userAgent = (String)req.getHeader("User-Agent");
+					if(userAgent.indexOf("MOBILEAPP") == -1){
+						rotateImage(uploadRootPath + organizedfilePath);
+					}
+					log.info("############### rotateImage end");
+					log.info(System.currentTimeMillis());
+					log.info("############### //rotateImage end");
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+				
+				// 테스트 버젼으로
+				// sso-*.vmclub.co.kr 에서만 동작 : 서팀 추가 
+				try{
+					log.info("#########################");
+					log.info("getSystemIp : " + AppConfigManager.getInstance().getSystemIp().toString() + "");
+					log.info("#########################");
+					if ( AppConfigManager.getInstance().getSystemIp().toString().equals( "10.0.0.31") )
+					{
+						rotateImage(uploadRootPath + organizedfilePath);
+					}
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+				
+				//이미지 등록시 사이즈 값 추가 
+				// 2015.08.19 이진세 추가 
+				 file_map.put("I_FILE_WIDTH", "0");
+				 file_map.put("I_FILE_HEIGH", "0");
+				String lowerStr = file_type.toLowerCase();
+				if (".jpg".equals(lowerStr) || ".jpeg".equals(lowerStr) || ".gif".equals(lowerStr) || ".png".equals(lowerStr)) {
+					log.info("@@@@@@@@@ IMAGE Height && Width Sett @@@@@@@@@@@@@");
+					File imageFile = new File(uploadRootPath + organizedfilePath);
+
+					try {
+						BufferedImage bi = ImageIO.read(imageFile);
+						file_map.put("I_FILE_WIDTH",  bi.getWidth());
+						file_map.put("I_FILE_HEIGH",  bi.getHeight());
+						if (0 == bi.getWidth() || 0 == bi.getHeight()) {
+							log.info("######### IMAGE BUFFERD CLASS GET WIDTH & HEIGHT Exception ##############");
+							log.info("WIDTH : " + bi.getWidth());
+							log.info("HEIGHT : " + bi.getHeight());
+							log.info("FILL_SIZE : " + file.getSize());
+							log.info("#########################################################################");
+						}
+					} catch (Exception e) {
+						imgfailflag = true;
+					}
+					if(imgfailflag){
+						try {
+							Image img = new ImageIcon(uploadRootPath + organizedfilePath).getImage();
+							file_map.put("I_FILE_WIDTH", img.getWidth(null));
+							file_map.put("I_FILE_HEIGH", img.getHeight(null));
+							log.info("###########IMAGE ICON CLASS GET WIDTH & HEIGHT Exception ##############");
+							log.info("uploadRootPath : " + uploadRootPath);
+							log.info("organizedfilePath : " + organizedfilePath);
+							log.info("FILL_SIZE : " + file.getSize());
+							log.info("WIDTH : " + img.getWidth(null));
+							log.info("HEIGHT : " + img.getHeight(null));
+							log.info("#######################################################################");
+						} catch (Exception e) {
+							imgfailflag = true;
+							throw e;
+						}
+					}
+					// 확장자 명이 jpg, png, gif, jpeg 가 아닐경우
+				} else {
+					log.info("@@@@@@@@@@ FILE TYPE EXCEPTION @@@@@@@@@");
+					log.info("uploadRootPath : " + uploadRootPath);
+					log.info("organizedfilePath : " + organizedfilePath);
+					log.info("FILL_SIZE : " + file.getSize());
+					log.info("file_type : " + lowerStr);
+					log.info("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+				}
+				log.info("@@@@@@@@@@IMAGE Height && Width End @@@@@@@@@");
+				file_map.put("I_FILE_TITLE", file.getOriginalFilename());// �뚯씪�쒕ぉ
+				file_map.put("I_FILE_NM", randomeUUID + file_type);
+				file_map.put("I_FILE_URL", fileURL);
+				file_map.put("I_FILE_PATH", organizedfilePath);
+				file_map.put("I_FILE_SIZE", file.getSize());
+				file_map.put("I_FILE_EXT", file_type);
+			}
+		} catch (IOException e) {
+			e.printStackTrace();
+		} finally {
+			if(outputStream!=null)outputStream.close();
+			if(inputStream!=null)inputStream.close();
+		}
+		return file_map;
+	}
+	
+	
+	/**
+	 * 파일 등록: saveMultipartFile
+	 * @param  Map<String, Object>
+	 * @return Document
+	 * @throws IOException 
+	 * @throws ImageProcessingException 
+	 */
+	@SuppressWarnings ("static-access")
+	public static Map<String, Object> saveMultipartFile(MultipartFile file) throws IOException {
+		InputStream inputStream = null;
+		OutputStream outputStream = null;
+		boolean imgfailflag = false;
+		String strDir = StringUtil.getCurrentDateFormat("yyyy")+"/"
+				+StringUtil.getCurrentDateFormat("MM")+"/"
+				+StringUtil.getCurrentDateFormat("dd")+"/";
+		
+		Map<String, Object> file_map = new HashMap<String, Object>();
+		try {
+			if(file.getSize()>0){
+				
+				UUID randomeUUID = UUID.randomUUID();
+				inputStream  = file.getInputStream();
+
+		        String uploadRootPath = AppConfigManager.getInstance().getUploadRootPath();
+		        log.debug("@@@@@ >>>>> uploadRootPath :  " + uploadRootPath);
+				String filePath = uploadRootPath + CmmnCnst.UploadRealDir + strDir;
+				File realUploadDir = new File(filePath);
+				if(!realUploadDir.exists()){				  
+				  realUploadDir.mkdirs();				  
+				}
+
+				String file_type = file.getOriginalFilename().substring(file.getOriginalFilename().lastIndexOf("."));
+				String organizedfilePath = CmmnCnst.UploadRealDir + strDir + randomeUUID + file_type;
+								
+				String uploadUrlPath = AppConfigManager.getInstance().getUploadUrlPath();
+				log.debug("@@@@@ >>>>> uploadUrlPath :  " + uploadUrlPath);
+				
+				String fileURL = uploadUrlPath + strDir + randomeUUID + file_type;
+				log.debug("@@@@@ >>>>> organizedfilePath :  " + organizedfilePath);
+				
+				outputStream = new FileOutputStream(uploadRootPath + organizedfilePath);
+				
+				int readByte = 0;
+				byte[] buffer = new byte[8192];
+				
+				while ((readByte = inputStream.read(buffer, 0, 8120)) != -1) {
+					outputStream.write(buffer, 0, readByte);
+				}
+				outputStream.close();
+				
+				// 이미지 rotation 추가 (seongjoon@danalssocio.com)
+				// 테스트 버젼으로 stg, dev에서만 동작.
+				try {
+					log.info("############### rotateImage start");
+					log.info(System.currentTimeMillis());
+					log.info("############### //rotateImage start");
+					
+					rotateImage(uploadRootPath + organizedfilePath);
+					
+					log.info("############### rotateImage end");
+					log.info(System.currentTimeMillis());
+					log.info("############### //rotateImage end");
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+				
+				// 테스트 버젼으로
+				// sso-*.vmclub.co.kr 에서만 동작 : 서팀 추가 
+				try{
+					log.info("#########################");
+					log.info("getSystemIp : " + AppConfigManager.getInstance().getSystemIp().toString() + "");
+					log.info("#########################");
+					if ( AppConfigManager.getInstance().getSystemIp().toString().equals( "10.0.0.31") )
+					{
+						rotateImage(uploadRootPath + organizedfilePath);
+					}
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+				
+				//이미지 등록시 사이즈 값 추가 
+				// 2015.08.19 이진세 추가 
+				 file_map.put("I_FILE_WIDTH", "0");
+				 file_map.put("I_FILE_HEIGH", "0");
+				String lowerStr = file_type.toLowerCase();
+				if (".jpg".equals(lowerStr) || ".jpeg".equals(lowerStr) || ".gif".equals(lowerStr) || ".png".equals(lowerStr)) {
+					log.info("@@@@@@@@@ IMAGE Height && Width Sett @@@@@@@@@@@@@");
+					File imageFile = new File(uploadRootPath + organizedfilePath);
+
+					try {
+						BufferedImage bi = ImageIO.read(imageFile);
+						file_map.put("I_FILE_WIDTH",  bi.getWidth());
+						file_map.put("I_FILE_HEIGH",  bi.getHeight());
+						if (0 == bi.getWidth() || 0 == bi.getHeight()) {
+							log.info("######### IMAGE BUFFERD CLASS GET WIDTH & HEIGHT Exception ##############");
+							log.info("WIDTH : " + bi.getWidth());
+							log.info("HEIGHT : " + bi.getHeight());
+							log.info("FILL_SIZE : " + file.getSize());
+							log.info("#########################################################################");
+						}
+					} catch (Exception e) {
+						imgfailflag = true;
+					}
+					if(imgfailflag){
+						try {
+							Image img = new ImageIcon(uploadRootPath + organizedfilePath).getImage();
+							file_map.put("I_FILE_WIDTH", img.getWidth(null));
+							file_map.put("I_FILE_HEIGH", img.getHeight(null));
+							log.info("###########IMAGE ICON CLASS GET WIDTH & HEIGHT Exception ##############");
+							log.info("uploadRootPath : " + uploadRootPath);
+							log.info("organizedfilePath : " + organizedfilePath);
+							log.info("FILL_SIZE : " + file.getSize());
+							log.info("WIDTH : " + img.getWidth(null));
+							log.info("HEIGHT : " + img.getHeight(null));
+							log.info("#######################################################################");
+						} catch (Exception e) {
+							imgfailflag = true;
+							throw e;
+						}
+					}
+					// 확장자 명이 jpg, png, gif, jpeg 가 아닐경우
+				} else {
+					log.info("@@@@@@@@@@ FILE TYPE EXCEPTION @@@@@@@@@");
+					log.info("uploadRootPath : " + uploadRootPath);
+					log.info("organizedfilePath : " + organizedfilePath);
+					log.info("FILL_SIZE : " + file.getSize());
+					log.info("file_type : " + lowerStr);
+					log.info("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+				}
+				log.info("@@@@@@@@@@IMAGE Height && Width End @@@@@@@@@");
+				file_map.put("I_FILE_TITLE", file.getOriginalFilename());// �뚯씪�쒕ぉ
+				file_map.put("I_FILE_NM", randomeUUID + file_type);
+				file_map.put("I_FILE_URL", fileURL);
+				file_map.put("I_FILE_PATH", organizedfilePath);
+				file_map.put("I_FILE_SIZE", file.getSize());
+				file_map.put("I_FILE_EXT", file_type);
+			}
+		} catch (IOException e) {
+			e.printStackTrace();
+		} finally {
+			if(outputStream!=null)outputStream.close();
+			if(inputStream!=null)inputStream.close();
+		}
+		return file_map;
+	}
+	
+	/** 
+	 * 이미지가 아닌 경우
+	 * ext ex) .txt, .pdf
+	 * specificFolderName "" or "folderName/"
+	 * @param file
+	 * @param ext
+	 * @return
+	 * @throws IOException
+	 */
+	
+	@SuppressWarnings ("static-access")
+	public static Map<String, Object> saveMultipartFile(MultipartFile file, String ext, String specificFolderName, String path) throws IOException {
+		InputStream inputStream = null;
+		OutputStream outputStream = null;
+		String strDir = specificFolderName + StringUtil.getCurrentDateFormat("yyyy")+"/"
+				+StringUtil.getCurrentDateFormat("MM")+"/"
+				+StringUtil.getCurrentDateFormat("dd")+"/";
+		
+		Map<String, Object> file_map = new HashMap<String, Object>();
+		try {
+			if(file != null && file.getSize()>0){
+				
+				inputStream  = file.getInputStream();
+				
+				String filePath = path + strDir;
+//				String filePath = uploadRootPath + CmmnCnst.UploadRealDir + strDir;
+				log.debug("@@@@@ >>>>> filePath :  " + filePath);
+				File realUploadDir = new File(filePath);
+				if(!realUploadDir.exists()){				  
+					realUploadDir.mkdirs();				  
+				}
+				
+				String file_type = file.getOriginalFilename().substring(file.getOriginalFilename().lastIndexOf("."));
+				log.debug("@@@@@ >>>>> file_type :  " + file_type);
+				
+				String lowerStr = file_type.toLowerCase();
+				if (ext.indexOf(lowerStr) < 0) {
+					file_map.put("retCd", "E0001");
+					file_map.put("retMsg", ext+" 확장자의 파일만 업로드가 가능합니다.");
+					return file_map;
+				}
+				String organizedfilePath = filePath + file.getOriginalFilename();
+				
+				log.debug("@@@@@ >>>>> organizedfilePath :  " + organizedfilePath);
+				
+				outputStream = new FileOutputStream(organizedfilePath);
+				
+				int readByte = 0;
+				byte[] buffer = new byte[8192];
+				
+				while ((readByte = inputStream.read(buffer, 0, 8120)) != -1) {
+					outputStream.write(buffer, 0, readByte);
+				}
+				outputStream.close();
+				
+				log.info("@@@@@@@@@@IMAGE Height && Width End @@@@@@@@@");
+				file_map.put("I_FILE_NM", file.getOriginalFilename());
+				file_map.put("I_FILE_PATH", organizedfilePath);
+				file_map.put("I_FILE_SIZE", file.getSize());
+				file_map.put("I_FILE_EXT", file_type);
+				file_map.put("retCd", "S0000");
+			}else{
+				file_map.put("retCd", "N0000");
+				file_map.put("retMsg", "파일이 없습니다");
+			}
+		} catch (IOException e) {
+			e.printStackTrace();
+			file_map.put("retCd", "E0000");
+			file_map.put("retMsg", e.toString());
+		} finally {
+			if(outputStream!=null)outputStream.close();
+			if(inputStream!=null)inputStream.close();
+		}
+		return file_map;
+	}
+	
+	/**
+	 * 파일 삭제: deleteFile
+	 * @param  Map<String, Object>
+	 * @return Document
+	 * @throws ZpException
+	 * @throws IOException 
+	 */	
+	public static void deleteFile(Map<String, Object> paramDto) throws IOException{
+		String file_path = CmmnCnst.UploadRealDir+paramDto.get("FILE_URL");
+		log.debug("[file]"+file_path);
+		File f = new File(file_path);
+		f.delete();
+	}
+	
+	@SuppressWarnings("static-access")
+	public Map<String, Object> imgDowonloadFile(String imgUrl) {
+		Map<String, Object> file_map = new HashMap<String, Object>();
+
+		UUID randomeUUID = UUID.randomUUID();
+		String localImg = imgUrl.substring(imgUrl.lastIndexOf('/'));//파일명(*.jpg)
+		String file_type = localImg.substring(localImg.lastIndexOf("."));//확장자(jpg)
+		String strDir = StringUtil.getCurrentDateFormat("yyyy")+"/"+StringUtil.getCurrentDateFormat("MM")+"/"+StringUtil.getCurrentDateFormat("dd");//기본파일 업로드 경로에 년/월/일 폴더를 추가.
+		String organizedfilePath = CmmnCnst.UploadRealDir + strDir + randomeUUID + file_type;
+		String uploadUrlPath = AppConfigManager.getInstance().getUploadUrlPath();
+		String fileURL = uploadUrlPath + strDir + randomeUUID + file_type;		
+		
+		File realUploadDir = new File(CmmnCnst.UploadRealDir + strDir+ localImg);// 위의 내용을 저장하기 위한 경로 생성
+		if(!realUploadDir.exists())realUploadDir.mkdirs();//존재하지않을때 경로 생성
+				
+		// 위의 내용을 저장하기 위한 경로 생성
+		String path = realUploadDir + localImg;
+		
+		ImgDownloadThread imgDownloadThread = new ImgDownloadThread(imgUrl, path);
+		imgDownloadThread.start();
+		
+		System.out.println("다운로드가 완료되었습니다.");
+		
+		file_map.put("I_FILE_TITLE", localImg);//파일제목
+		file_map.put("I_FILE_NM", randomeUUID+file_type);//파일명
+		file_map.put("I_FILE_URL", fileURL);//파일URL
+		file_map.put("I_FILE_PATH", organizedfilePath);//파일경로
+		file_map.put("I_FILE_SIZE",imgDownloadThread.getLen());//파일사이즈
+		file_map.put("I_FILE_EXT",file_type);//파일확장자
+		return file_map;		
+		
+	}//End of imgDowonloadFile
+	
+	//스레드 클래스에서 실제 다운로드
+	public class ImgDownloadThread extends Thread{
+		//파일을 다운로드 받을 주소
+		private String mAddr;
+		//실제 저장할 파일 경로
+		private String mFile;
+		//다운로드 받을 파일의 크기
+		private int len=0;
+		//생성자로 이미지 url과 파일이름및 경로를 받는다
+		public ImgDownloadThread(String mAddr, String mFile) {
+			this.mAddr = mAddr;
+			this.mFile = mFile;
+		}
+		public int getLen() {
+			return len;
+		}
+		public void setLen(int len) {
+			this.len = len;
+		}
+		//스레드로 수행 할 내용 run(),call() -> thread로 수행 // call() -> 반환형을 받을 수 있는 스레드
+		public void run() {
+	   //다운로드 받을 주소 생성을 위한 변수
+			URL imgUrl;
+	   //데이터를 바이트 단위로 다운로드 받을 때 사용할 임시변수
+			int read;
+			try {
+				//url로 http 커넥션 한다
+				imgUrl = new URL(mAddr);
+				HttpURLConnection conn = (HttpURLConnection)imgUrl.openConnection();
+	
+				//다운로드 받을 파일의 크기 가져오기
+				len = conn.getContentLength();
+	
+				//다운로드 받은 내용을 저장할 바이트 배열 생성
+				byte[] raster = new byte[len];
+				//파일을 다운 받을 때는 byte 단위로 가능하다
+	
+				//url에서 바이트 단위로 읽기위한 스트림 생성
+				InputStream is = conn.getInputStream();
+	
+				//파일에 기록하기 위한 파일 스트림생성
+				FileOutputStream fos = new FileOutputStream(mFile);
+	
+				while (true) {
+					//is에서 한 바이트를 읽어서 raster에 기록하고
+					//그 값을 read에 저장
+					read = is.read(raster);
+	 
+					//읽어온 값이 없으면 종료
+					if(read <= 0) break;
+	 
+					//읽어온 데이터가 있으면 파일에 기록
+					//raster 배열의 0번째 부터 read 만큼 기록
+					fos.write(raster,0,read);
+					
+				}
+				is.close();
+				fos.close();
+				conn.disconnect();
+			} catch (Exception e) {
+				System.out.println("예외 발생: " + e.getMessage());
+			}
+		}
+	}//End of ImgDownloadThread
+	
+	@SuppressWarnings("static-access")
+	public static Map<String, Object> saveMultipartFile(String imagePath) throws IOException{
+		log.info("########## imagePath : " + imagePath);
+		FileInputStream inputStream = new FileInputStream(imagePath);
+		OutputStream outputStream = null;
+
+		String strDir = StringUtil.getCurrentDateFormat("yyyy")+"/"
+				+StringUtil.getCurrentDateFormat("MM")+"/"
+				+StringUtil.getCurrentDateFormat("dd")+"/";
+		
+		Map<String, Object> file_map = new HashMap<String, Object>();
+		try {
+//			if (file.getSize() > 0) {
+				UUID randomeUUID = UUID.randomUUID();
+
+				String uploadRootPath = AppConfigManager.getInstance().getUploadRootPath();
+				log.debug("@@@@@ >>>>> uploadRootPath :  " + uploadRootPath);
+				String filePath = uploadRootPath + CmmnCnst.UploadRealDir + strDir;
+				File realUploadDir = new File(filePath);
+				if (!realUploadDir.exists()) {
+					realUploadDir.mkdirs();
+				}
+
+				String file_type = imagePath.substring(imagePath.lastIndexOf("."));
+				String organizedfilePath = CmmnCnst.UploadRealDir + strDir + randomeUUID + file_type;
+				
+				String uploadUrlPath  = AppConfigManager.getInstance().getUploadUrlPath();
+				String fileURL = uploadUrlPath + strDir + randomeUUID + file_type;
+				log.debug("@@@@@ >>>>> organizedfilePath :  " + organizedfilePath);
+
+				outputStream = new FileOutputStream(uploadRootPath + organizedfilePath);
+
+				int readByte = 0;
+				byte[] buffer = new byte[8192];
+				
+				int temp = 0;
+				while ((readByte = inputStream.read(buffer, 0, 8120)) != -1) {
+					outputStream.write(buffer, 0, readByte);
+					temp = temp + readByte;
+				}
+				
+				// 이미지 등록시 사이즈 값 추가
+				// 2015.08.19 이진세 추가
+				file_map.put("I_FILE_WIDTH", "0");
+				file_map.put("I_FILE_HEIGH", "0");
+				
+				String lowerStr = file_type.toLowerCase();
+				if (".jpg".equals(lowerStr) || ".jpeg".equals(lowerStr) || ".gif".equals(lowerStr)
+						|| ".png".equals(lowerStr)) {
+					BufferedImage bi = ImageIO.read(new File(uploadRootPath + organizedfilePath));
+					log.info("@@@@@@IMAGE Height && Width Sett @@@@@@");
+					file_map.put("I_FILE_WIDTH", bi.getWidth());
+					file_map.put("I_FILE_HEIGH", bi.getHeight());
+					log.info("@@@@@@IMAGE Height && Width End @@@@@@");
+				}
+				file_map.put("I_FILE_TITLE", imagePath.split("//")[imagePath.split("//").length -1]);
+				file_map.put("I_FILE_NM", randomeUUID + file_type);
+				file_map.put("I_FILE_URL", fileURL);
+				file_map.put("I_FILE_PATH", organizedfilePath);
+				file_map.put("I_FILE_SIZE", temp);
+				file_map.put("I_FILE_EXT", file_type);
+//			}
+		} catch (IOException e) {
+			e.printStackTrace();
+		} finally {
+			if (outputStream != null)
+				outputStream.close();
+			if (inputStream != null)
+				inputStream.close();
+		}
+		return file_map;
+	}
+	
+	@SuppressWarnings("static-access")
+	public static Map<String, Object> saveSnsImageFile(String imagePath) throws IOException{
+		log.info("########## imagePath : " + imagePath);
+		URL url = new URL(imagePath);
+		InputStream inputStream = url.openStream();
+		OutputStream outputStream = null;
+
+		String strDir = StringUtil.getCurrentDateFormat("yyyy")+"/"
+				+StringUtil.getCurrentDateFormat("MM")+"/"
+				+StringUtil.getCurrentDateFormat("dd")+"/";
+		
+		Map<String, Object> file_map = new HashMap<String, Object>();
+		try {
+//			if (file.getSize() > 0) {
+				UUID randomeUUID = UUID.randomUUID();
+
+				String uploadRootPath = AppConfigManager.getInstance().getUploadRootPath();
+				log.debug("@@@@@ >>>>> uploadRootPath :  " + uploadRootPath);
+				String filePath = uploadRootPath + CmmnCnst.UploadRealDir + strDir;
+				File realUploadDir = new File(filePath);
+				if (!realUploadDir.exists()) {
+					realUploadDir.mkdirs();
+				}
+
+				String file_type = imagePath.substring(imagePath.lastIndexOf("."));
+				String organizedfilePath = CmmnCnst.UploadRealDir + strDir + randomeUUID + file_type;
+				
+				String uploadUrlPath  = AppConfigManager.getInstance().getUploadUrlPath();
+				String fileURL = uploadUrlPath + strDir + randomeUUID + file_type;
+				log.debug("@@@@@ >>>>> organizedfilePath :  " + organizedfilePath);
+
+				outputStream = new FileOutputStream(uploadRootPath + organizedfilePath);
+
+				int readByte = 0;
+				byte[] buffer = new byte[8192];
+				
+				int temp = 0;
+				while ((readByte = inputStream.read(buffer, 0, 8120)) != -1) {
+					outputStream.write(buffer, 0, readByte);
+					temp = temp + readByte;
+				}
+				
+				// 이미지 rotation 추가 (seongjoon@danalssocio.com)
+				// 테스트 버젼으로 stg, dev에서만 동작.
+				try {
+					Redis redis = Redis.getInstance();
+					if (redis.getREDIS_HOST_SPLIT_PK().trim().equalsIgnoreCase("DEV_") || redis.getREDIS_HOST_SPLIT_PK().trim().equalsIgnoreCase("STG_")) {
+						rotateImage(uploadRootPath + organizedfilePath);
+					}
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+
+				// 테스트 버젼으로
+				// sso-*.vmclub.co.kr 에서만 동작 : 서팀 추가 
+				try{
+					log.info("#########################");
+					log.info("getSystemIp : " + AppConfigManager.getInstance().getSystemIp().toString() + "");
+					log.info("#########################");
+					if ( AppConfigManager.getInstance().getSystemIp().toString().equals( "10.0.0.31") )
+					{
+						rotateImage(uploadRootPath + organizedfilePath);
+					}
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+				
+				// 이미지 등록시 사이즈 값 추가
+				// 2015.08.19 이진세 추가
+				file_map.put("I_FILE_WIDTH", "0");
+				file_map.put("I_FILE_HEIGH", "0");
+				
+				String lowerStr = file_type.toLowerCase();
+				if (".jpg".equals(lowerStr) || ".jpeg".equals(lowerStr) || ".gif".equals(lowerStr)
+						|| ".png".equals(lowerStr)) {
+					BufferedImage bi = ImageIO.read(new File(uploadRootPath + organizedfilePath));
+					log.info("@@@@@@IMAGE Height && Width Sett @@@@@@");
+					file_map.put("I_FILE_WIDTH", bi.getWidth());
+					file_map.put("I_FILE_HEIGH", bi.getHeight());
+					log.info("@@@@@@IMAGE Height && Width End @@@@@@");
+				}
+				file_map.put("I_FILE_TITLE", imagePath.split("//")[imagePath.split("//").length -1]);
+				file_map.put("I_FILE_NM", randomeUUID + file_type);
+				file_map.put("I_FILE_URL", fileURL);
+				file_map.put("I_FILE_PATH", organizedfilePath);
+				file_map.put("I_FILE_SIZE", temp);
+				file_map.put("I_FILE_EXT", file_type);
+//			}
+		} catch (IOException e) {
+			e.printStackTrace();
+		} finally {
+			if (outputStream != null)
+				outputStream.close();
+			if (inputStream != null)
+				inputStream.close();
+		}
+		return file_map;
+	}
+	
+	@SuppressWarnings("static-access")
+	public static Map<String, Object> saveExcelFile(MultipartFile file){
+		log.info("########## FileUtil :: saveExcelFile :: Start ##########");
+		InputStream inputStream = null;
+		OutputStream outputStream = null;
+
+		String strDir = StringUtil.getCurrentDateFormat("yyyy")+"/"
+				+StringUtil.getCurrentDateFormat("MM")+"/"
+				+StringUtil.getCurrentDateFormat("dd")+"/";
+		
+		Map<String, Object> file_map = new HashMap<String, Object>();
+		try {
+			if(file.getSize()>0){
+				UUID randomeUUID = UUID.randomUUID();
+				inputStream  = file.getInputStream();
+
+		        String uploadRootPath = AppConfigManager.getInstance().getUploadRootPath();
+		        log.debug("@@@@@ >>>>> uploadRootPath :  " + uploadRootPath);
+				String filePath = uploadRootPath + CmmnCnst.UploadRealDir + strDir;
+				File realUploadDir = new File(filePath);
+				if(!realUploadDir.exists()){				  
+				  realUploadDir.mkdirs();				  
+				}
+
+				String file_type = file.getOriginalFilename().substring(file.getOriginalFilename().lastIndexOf("."));
+				String organizedfilePath = CmmnCnst.UploadRealDir + strDir + randomeUUID + file_type;
+								
+				String uploadUrlPath = AppConfigManager.getInstance().getUploadUrlPath();
+				log.debug("@@@@@ >>>>> uploadUrlPath :  " + uploadUrlPath);
+				
+				String fileURL = uploadUrlPath + strDir + randomeUUID + file_type;
+				log.debug("@@@@@ >>>>> organizedfilePath :  " + organizedfilePath);
+				
+				outputStream = new FileOutputStream(uploadRootPath + organizedfilePath);
+				
+				int readByte = 0;
+				byte[] buffer = new byte[8192];
+				
+				while ((readByte = inputStream.read(buffer, 0, 8120)) != -1) {
+					outputStream.write(buffer, 0, readByte);
+				}
+				file_map.put("I_FILE_TITLE", file.getOriginalFilename());//�뚯씪�쒕ぉ
+				file_map.put("I_FILE_NM", randomeUUID+file_type);
+				file_map.put("I_FILE_URL", fileURL);
+				file_map.put("I_FILE_PATH", organizedfilePath);
+				file_map.put("I_FILE_SIZE",file.getSize());
+				file_map.put("I_FILE_EXT",file_type);
+				
+				log.debug(">>>>> file_map.get('I_FILE_PATH'); "+file_map.get("I_FILE_PATH"));
+			}else{
+				log.error(">>>>> file.getSize() : "+file.getSize());
+			}
+		} catch (IOException e) {
+			e.printStackTrace();
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+			if(outputStream!=null){try {outputStream.close();} catch (Exception e2) {log.error("error : " + e2.toString());}}
+			if(inputStream!=null){try {inputStream.close();} catch (Exception e2) {log.error("error : " + e2.toString());}}
+		}
+		log.info("########## FileUtil :: saveExcelFile :: End ##########");
+		return file_map;
+	}
+	
+	public static List<Map<String, Object>> readTxtFile(String filePath, String[] field, String charSet) throws IOException{
+		log.info("########## FileUtil :: readTxtFile :: Start ##########");
+//		String[] field = {"SELT_GB_CD_NM", "TR_ID", "CPID" ,"AMT", "TR_DT", "ORD_CD" };
+		log.debug(">>>>> filePath : "+filePath);
+		List<Map<String, Object>> list = new ArrayList<Map<String, Object>>();
+		BufferedReader br = null;
+		try {
+			Map<String, Object> resultMap = new HashMap<String, Object>();
+			String line    =  null;
+			File file    =  new File(filePath);
+			
+			if(!file.canRead()){
+				throw new IOException("no file");
+			}
+			
+			br  =  new BufferedReader(new InputStreamReader(new FileInputStream(file),charSet));
+
+			while((line=br.readLine()) != null){
+				if(field.length > 0){
+					resultMap = new HashMap<String, Object>();
+					String lineArr[] = line.split("\t");
+					for(int i = 0; i < lineArr.length; i++){
+						log.debug(">>>>> "+field[i]+" : "+lineArr[i]);
+						resultMap.put(field[i], lineArr[i]);
+					}
+					list.add(resultMap);
+				}
+			}
+		} catch (IOException e) {
+			e.printStackTrace();
+			throw new IOException(e);
+		} finally {
+			if(br!=null)br.close();
+		}
+		return list;
+	}
+	
+	public static boolean writeTxtFile(ModelMap mm, String charSet){
+		boolean hasData = false;
+		PrintWriter  out = null;
+//		BufferedWriter out = null;
+		 try {
+			 List<Map<String, Object>> list = null;
+			 if(mm != null && mm.get("list") != null){
+				 list = (List<Map<String, Object>>) mm.get("list");
+			 }else {
+				 return false;
+			 }
+			 
+			 if(list.size() < 1){
+				 return false;
+			 }
+//		      out = new BufferedWriter(new FileWriter("out.txt"));
+		      out = new PrintWriter(mm.get("filePathNName").toString(),charSet);
+//		      out = new BufferedWriter(new FileWriter(mm.get("filePathNName").toString()));
+//		      String s = "출력 파일에 저장될 이런 저런 문자열입니다.";
+		      StringBuffer sb = null;
+		      
+		      for(Map<String, Object> map: (List<Map<String, Object>>) mm.get("list")){
+		    	  sb = new StringBuffer();
+		    	  for(String str : (String[]) mm.get("fileField")){
+		    		  if(sb.length() > 0){
+		    			  
+		    			  sb.append("\t"); 
+		    		  }
+		    		  sb.append(map.get(str)); 
+		    	  }
+		    	  sb.append("\n");
+		    	  out.print(sb.toString()); 
+//		    	  out.write(sb.toString()); 
+//		    	  out.write(sb.toString(),0,200); 
+		      }
+
+//		      out.write(s); out.newLine();
+//		      out.write(s); out.newLine();
+
+		      hasData = true;
+		    } catch (IOException e) {
+		        System.err.println(e); // 에러가 있다면 메시지 출력
+		        System.exit(1);
+		        hasData = false;
+		    }finally{
+		    	if(out != null){try {out.close();} catch (Exception e) {e.printStackTrace();}}
+		    }
+		 return hasData;
+	}
+	
+	public static void main(String[] agr){
+		
+		try {
+//			Calendar cal = Calendar.getInstance();
+//			SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd");
+
+//			System.out.println("ASDF_YYYYMMDD.txt".replace("YYYYMMDD", sdf.format(cal.getTime())));
+//			String[] field = {"SELT_GB_CD_NM", "TR_ID", "CPID" ,"AMT", "TR_DT", "ORD_CD" };
+//			FileUtil.readTxtFile("D:\\1.Storage\\1. Work\\157. ssocio\\4. 정산양식\\ssocio_danal_20151117.txt",field,"");
+			
+			System.out.println(">>>>> test");
+			writeTxtFile(new ModelMap(),"euc-kr");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+	}
+	
+	public static void rotateImage(String imgFile) {
+		try {
+			HttpClient httpClient = HttpClientBuilder.create().build();
+			String url = "";
+			Redis redis = Redis.getInstance();
+			if ( redis.getREDIS_HOST_SPLIT_PK().trim().equalsIgnoreCase("DEV_") ) {
+				url = "http://dev-if.ssocio.com/IF_FILE/IMAGE/rotation.php";
+			} else if ( redis.getREDIS_HOST_SPLIT_PK().trim().equalsIgnoreCase("STG_") ) {
+				url = "http://stg-if.ssocio.com/IF_FILE/IMAGE/rotation.php";
+			} else if ( redis.getREDIS_HOST_SPLIT_PK().trim().equalsIgnoreCase("VIP_") ) {
+				url = "http://vip-if.ssocio.com/IF_FILE/IMAGE/rotation.php";
+			} else {
+				url = "http://if.ssocio.com/IF_FILE/IMAGE/rotation.php";
+			}
+			url += String.format("?imgFile=%s", imgFile);
+			log.info("image rotate URL = " + url);
+
+			HttpPost httpPost = new HttpPost(url);
+	        HttpResponse httpResponse = httpClient.execute(httpPost);
+	        log.info("########### image rotation result ###########");
+	        log.info(String.valueOf(httpResponse.getEntity()));
+	        log.info("########### // image rotation result ###########");
+	        httpPost.abort();
+	    }catch (Exception e) {
+	    	e.printStackTrace();
+	    }
+	}
+	
+/*	public static void rotateImage(String imgFile) {
+//		final int MAX_IMG = 1280;
+//		final int ORIENTATION = 0x0112;
+//		String rtnFile = imgFile;
+		
+		try {
+			File inputFile = new File(imgFile);
+//			File outputFile = new File(rtnFile);
+//			
+//			IImageMetadata metadata = Imaging.getMetadata(inputFile);
+//
+//	        if (!(metadata instanceof JpegImageMetadata)) {
+//	            throw new Exception();
+//	        }
+//
+//	        JpegImageMetadata jpegMetadata = (JpegImageMetadata) metadata;
+//	        
+//			TiffField field = jpegMetadata.getExif().findField(TiffConstants.TIFF_TAG_ORIENTATION);
+//			int orientation = (field == null ? 1 : field.getIntValue());
+//			
+//			if (orientation == 1) {
+//				throw new Exception();
+//			}
+//
+//	        final TiffImageMetadata exif = jpegMetadata.getExif();
+//
+//	        // Later we'll modify this.
+//	        TiffOutputSet outputSet = exif.getOutputSet();
+//	        TiffOutputDirectory exifDirectory = outputSet.getOrCreateRootDirectory();
+	        
+	        // Rotate image
+//	        javaxt.io.Image image = new javaxt.io.Image(inputFile);
+//	        
+//	        int width = image.getWidth();
+//	        int height = image.getHeight();
+//	        
+//	        int originWidth = width;
+//	        int originHeight = height;
+//	        
+//	        if ( width > height ) {
+//	        	if ( width > MAX_IMG ) {
+//	        		height = MAX_IMG * height / width;
+//	        		width = MAX_IMG;
+//	        	}
+//	        	if (height < 120) {
+//	        		width = 120 * width / height;
+//	        		height = 120;
+//	        	}
+//	        } else {
+//	        	if ( height > MAX_IMG ) {
+//	        		width = MAX_IMG * width / height;
+//	        		height = MAX_IMG;
+//	        	}
+//	        	if (width < 120) {
+//	        		height = MAX_IMG * height / width;
+//	        		width = MAX_IMG;
+//	        	}
+//	        }
+//	        
+	        try {
+				HttpClient httpClient = HttpClientBuilder.create().build();
+				String url = "";
+				Redis redis = Redis.getInstance();
+				if ( redis.getREDIS_HOST_SPLIT_PK().trim().equalsIgnoreCase("DEV_") ) {
+					url = "http://dev-if.ssocio.com/IF_FILE/IMAGE/rotation.php";
+				} else if ( redis.getREDIS_HOST_SPLIT_PK().trim().equalsIgnoreCase("STG_") ) {
+					url = "http://stg-if.ssocio.com/IF_FILE/IMAGE/rotation.php";
+				} else if ( redis.getREDIS_HOST_SPLIT_PK().trim().equalsIgnoreCase("VIP_") ) {
+					url = "http://vip-if.ssocio.com/IF_FILE/IMAGE/rotation.php";
+				} else {
+					url = "http://if.ssocio.com/IF_FILE/IMAGE/rotation.php";
+				}
+				
+				url += url + String.format("?originWidth=%d&originHeight=%d&width=%d&height=%d&imgFile=%s", originWidth, originHeight, width, height, imgFile);
+				log.info("image rotate URL = " + url);
+
+				HttpPost httpPost = new HttpPost(url);
+		        HttpResponse httpResponse = httpClient.execute(httpPost);
+		        httpPost.abort();
+		    }catch (Exception e) {
+		    	e.printStackTrace();
+		    }
+	        
+//	        image.rotate();
+//	        image.resize(width, height);
+//	        image.saveAs(outputFile);
+//
+//	        // Add exif tags back
+//	        exifDirectory.removeField(ORIENTATION);
+//
+//	        // Write updated exif
+//	        byte[] bytes = Files.readAllBytes(outputFile.toPath());
+//
+//
+//	        try (FileOutputStream fos = new FileOutputStream(outputFile)) {
+//	            new ExifRewriter().updateExifMetadataLossy(bytes, fos, outputSet);
+//	        }
+	        
+		} catch (Exception e) {
+			e.printStackTrace();
+			
+		} 
+	}*/
+	
+}

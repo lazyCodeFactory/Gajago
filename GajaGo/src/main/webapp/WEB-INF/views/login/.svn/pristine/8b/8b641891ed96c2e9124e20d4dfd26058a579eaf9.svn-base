@@ -1,0 +1,303 @@
+<%@ page language="java" contentType="text/html; charset=utf-8"
+    pageEncoding="utf-8"%>
+<!-- 태그는 cmmnHead.jsp 에 선언함 -->
+<%@ include file="/WEB-INF/views/admin/common/cmmnHead.jsp"%>
+<script>
+/* ======================================================================
+Function : 리스트체크박스 처리
+Return   : 없음
+========================================================================= */
+$(document).ready(function(){
+	$("#allChk").click(function(){
+		if($(this).is(":checked")){
+			$("tbody input[name=chkYn]").attr("checked",true);
+		}else{
+			$("tbody input[name=chkYn]").attr("checked",false);
+		}
+	});
+});
+
+/* ======================================================================
+Function : 배송 처리 엑셀 파일 업로드
+Return   : 없음
+========================================================================= */
+var normalCnt = 0;
+var overlapCnt = 0;
+var errorCnt = 0;
+var fileUploadCnt = 0;
+function fileUpload(){
+	var file = $("#I_UPLOAD_FILE").val();
+	if(file == "" || file == null){
+		alert("파일을 선택해주세요.");
+		return;
+	}else if(!checkFileType(file)){
+		alert("엑셀 파일만 업로드 해주세요.");
+		return;
+	}
+	
+	if(confirm("업로드 하시겠습니까?")){
+		fileUploadCnt++;
+		var options = {
+			dataType:'json',
+			url : "/admin/order/excelFileUpload.do",
+			success : function(data) {
+				var innerHtml = "";
+				var ret = [];
+				var dlv = [];
+				var inv = [];
+				var err = [];
+				
+				$("#uploadCnt").text("업로드 대상 "+data.list.uploadCount+"건");
+				$("tr.last-child tbody tr").remove();
+				for (var i = 0; i < data.list.excelList.length; i++) {
+					innerHtml += '<tr>';
+					innerHtml += '<td><input type="checkbox" id="chkYn" name="chkYn"></td>';
+					innerHtml += '<td>'+parseInt(Math.round(data.list.excelList[i].CELL0))+'</td>';
+					innerHtml += '<td>'+parseInt(Math.round(data.list.excelList[i].CELL1))+'</td>';
+					innerHtml += '<td>'+parseInt(Math.round(data.list.excelList[i].CELL2))+'</td>';
+					innerHtml += '<td>'+parseInt(Math.round(data.list.excelList[i].CELL3))+'</td>';
+					innerHtml += '<td>'+parseInt(Math.round(data.list.excelList[i].CELL4))+'</td>';
+					innerHtml += '<td>'+parseInt(Math.round(data.list.excelList[i].CELL5))+'</td>';
+					if ($.inArray(parseInt(data.list.excelList[i].CELL0), ret) == -1) {
+						ret.push(parseInt(data.list.excelList[i].CELL0));
+						dlv.push(parseInt(data.list.excelList[i].CELL4));
+						inv.push(parseInt(data.list.excelList[i].CELL5));
+						if (i > 0){
+							if ( parseInt(data.list.excelList[ret.indexOf(parseInt(data.list.excelList[i].CELL0))].CELL5) != parseInt(data.list.excelList[i].CELL5) ) {
+								innerHtml += '<td>정상</td>';
+								innerHtml += '<td class="tl">-</td>';
+								normalCnt++;
+							} else {
+								innerHtml += '<td><span class="text_r">중복</span></td>';
+								innerHtml += '<td class="tl"><span class="text_r">'+(ret.indexOf(parseInt(data.list.excelList[i].CELL0))+1)+'행 운송장번호와 동일</span></td>';
+								overlapCnt++;
+							}
+						} else {
+							innerHtml += '<td>정상</td>';
+	 						innerHtml += '<td class="tl">-</td>';
+	 						normalCnt++;
+						}
+						
+					} else {
+						err.push(parseInt(data.list.excelList[i].CELL0));
+						if (parseInt(data.list.excelList[ret.indexOf(parseInt(data.list.excelList[i].CELL0))].CELL4) == parseInt(data.list.excelList[i].CELL4) 
+								|| parseInt(data.list.excelList[ret.indexOf(parseInt(data.list.excelList[i].CELL0))].CELL5) == parseInt(data.list.excelList[i].CELL5) ) {
+							innerHtml += '<td>정상</td>';
+							innerHtml += '<td class="tl">-</td>';
+							normalCnt++;
+						} else {
+							innerHtml += '<td><span class="text_r">오류</span></td>';
+							innerHtml += '<td class="tl"><span class="text_r">택배사 코드 또는 운송장번호 불일치</span></td>';
+							errorCnt++;
+						}
+						
+					}
+					innerHtml += '</tr>';
+				}
+				$("#normalCnt").text("정상 "+normalCnt+"건");
+				$("#overlapCnt").text("");
+				$("#errorCnt").text("");
+				$("#overlapCnt").append("중복 <span class='text_r'>"+overlapCnt+"</span>건");
+				$("#errorCnt").append("오류 <span class='text_r'>"+errorCnt+"</span>건");
+				$("tr.last-child tbody").append(innerHtml);
+				$(".bot_tbl").append("<a href='javascript:delProd(this);' class='btn_r btn_prod_del'>선택 상품 목록 삭제</a>");
+			},
+			error: function(data, status, err) {
+				alert('서버와의 통신이 실패했습니다.');
+			}
+		};
+		$("#frm").ajaxSubmit(options);
+	}
+}
+
+/* ======================================================================
+Function : 파일 체크
+Return   : 없음
+========================================================================= */
+function checkFileType(filePath){
+	var fileFormat = filePath.split(".");
+	if(fileFormat.indexOf("xls") > -1){
+		return true;
+	} else {
+		return false;
+	}
+}
+
+/* ======================================================================
+Function : 선택 상품 목록 삭제
+Return   : 없음
+========================================================================= */
+function delProd(obj){
+	$("#chkProd tr").each(function(i){
+		var str = "";
+		var check = $(this).find('input[name=chkYn]').is(":checked");
+		if(check){
+			console.log($(this).find("td").eq(7).text());
+			if ($(this).find("td").eq(7).text() == "중복") {
+				overlapCnt--;
+			} else if ($(this).find("td").eq(7).text() == "오류") {
+				errorCnt--;
+			}
+			$(this).remove();
+		}
+	});
+}
+
+/* ======================================================================
+Function : 배송지 일괄 등록
+Return   : 없음
+========================================================================= */
+function insertListDlv(){
+	if(fileUploadCnt < 1){
+		alert("파일 업로드를 진행해주세요.");
+		return;
+	}
+	if ( overlapCnt > 0 || errorCnt > 0 ) {
+		alert("오류 및 중복 항목이 있습니다.");
+		
+	} else {
+		
+		if( $("#chkProd tr").length > 100 ) {
+			alert("최대 100까지 등록 하실 수 있습니다.");
+		}
+		
+		var cell0 = new Array();
+		var cell1 = new Array();
+		var cell2 = new Array();
+		var cell3 = new Array();
+		var cell4 = new Array();
+		var cell5 = new Array();
+		
+		for (var i = 0; i < $("#chkProd tr").length; i++) {
+			cell0.push($("#chkProd tr").eq(i).find("td").eq(1).text());
+			cell1.push($("#chkProd tr").eq(i).find("td").eq(2).text());
+			cell2.push($("#chkProd tr").eq(i).find("td").eq(3).text());
+			cell3.push($("#chkProd tr").eq(i).find("td").eq(4).text());
+			cell4.push($("#chkProd tr").eq(i).find("td").eq(5).text());
+			cell5.push($("#chkProd tr").eq(i).find("td").eq(6).text());
+		}
+		
+		$("#CELL0").val(cell0);
+		$("#CELL1").val(cell1);
+		$("#CELL2").val(cell2);
+		$("#CELL3").val(cell3);
+		$("#CELL4").val(cell4);
+		$("#CELL5").val(cell5);
+		
+		$.ajax({
+			type: 'post'
+			, async: true
+			, url: "/admin/order/insertListDlv.do"
+			, dataType:'json'
+			, data:  $("#excelFrm").serialize()
+			, success: function(data) {
+				if (data.CNT == 0) {
+					alert("등록에 실패하였습니다.")
+				} else {
+					alert(data.list.uploadCnt+'건 등록이 완료 되었습니다.');
+ 					window.close();
+				}
+			}
+			, error: function(data, status, err) {
+				alert('서버와의 통신이 실패했습니다.');
+			}
+		});
+	}
+	
+}
+</script>
+<div class="pop_inner">
+	<div class="pop_text mt5">
+		<p>* 운송장번호 일괄 업로드는 엑셀로만 업로드 가능합니다.</p>
+		<p>* 등록 중 화면을 종료하시면 종료 직전까지 등록 성공한 정보는 정상 등록 됩니다.</p>
+		<p>* 한번에 100개 까지 대량 등록하실 수 있습니다.</p>
+		<p>* 주문내역 조회에서 주문상태가 '상품준비중' 인 상품으로 조회 후 엑셀 다운로드를 통해 배송정보를 입력 후 업로드 해주세요.</p>
+		<a href="#" class="btn_w btn_ab_down"><span>양식다운로드</span></a>
+	</div>
+	<!-- tbl -->
+	<div class="tbl mt5">
+		<form name="frm" id="frm" method="post" enctype="multipart/form-data">
+			<table class="upd">
+				<colgroup>
+					<col style="width:16%" />
+					<col style="width:*" />
+				</colgroup>
+				<tbody id="upperTbody">
+					<tr>
+						<th scope="row"><span class="tit_type">파일 업로드</span></th>
+						<td>
+							<div class="file_upload_area">
+							<input type="text" id="" name="" class="file_txt" style="width:350px;" />
+							<span class="txt_file">
+								<input type="file" id="I_UPLOAD_FILE" name="I_UPLOAD_FILE" class="inp_file" />
+								<a href="#" class="btn_w ml5 vmid file_add">파일찾기</a>
+							</span>
+							<a href="javascript:fileUpload();" class="btn_w ml5 vmid file_add">파일업로드</a>
+						</div>
+						</td>
+					</tr>
+					<tr class="last-child">
+						<td colspan="2">
+							<p class="t_title">※ 업로드 결과</p>
+							<ul class="lst_type clear mt10">
+								<li id="uploadCnt">업로드 대상 0건</li>
+								<li id="normalCnt">정상 0건</li>
+								<li id="overlapCnt">중복 <span class="text_r">0</span>건</li>
+								<li id="errorCnt">오류 <span class="text_r">0</span>건</li>
+							</ul>
+							<table class="sub_upd v2 mt10 mb10">
+								<colgroup>
+									<col style="width:3%" />
+									<col style="width:8%" />
+									<col style="width:11%" />
+									<col style="width:22%" />
+									<col style="width:12%" />
+									<col style="width:10%" />
+									<col style="width:12%" />
+									<col style="width:7%" />
+									<col style="width:*" />
+								</colgroup>
+								<thead>
+									<tr>
+										<th scope="row"><input type="checkbox" id="allChk" name="allChk" /></th>
+										<th scope="row">주문번호</th>
+										<th scope="row">상품코드</th>
+										<th scope="row">상품명</th>
+										<th scope="row">출고일</th>
+										<th scope="row">택배사코드</th>
+										<th scope="row">운송장번호</th>
+										<th scope="row">결과</th>
+										<th scope="row">비고</th>
+									</tr>
+								</thead>
+								<tbody id="chkProd">
+									<tr>
+										<td colspan="9">파일을 업로드 해주세요</td>
+									</tr>
+								</tbody>
+							</table>
+						</td>
+					</tr>
+				</tbody>
+			</table>
+		</form>
+	</div>
+	<!-- //tbl -->
+	<!-- bot_tbl -->
+	<div class="bot_tbl">
+	</div>
+	<!-- //bot_tbl -->
+	<!-- bot_btn -->
+	<div class="bot_btn">
+		<a href="javascript:insertListDlv();" class="btn_r">등록</a>
+	</div>
+	<!-- //bot_btn -->
+	<form id="excelFrm" name="excelFrm" action="">
+		<input type="hidden" name="CELL0" id="CELL0"/>
+		<input type="hidden" name="CELL1" id="CELL1"/>
+		<input type="hidden" name="CELL2" id="CELL2"/>
+		<input type="hidden" name="CELL3" id="CELL3"/>
+		<input type="hidden" name="CELL4" id="CELL4"/>
+		<input type="hidden" name="CELL5" id="CELL5"/>
+	</form>
+</div>

@@ -1,0 +1,975 @@
+package com.ssocio.sharing.controller.admin;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.ModelMap;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.multipart.MultipartHttpServletRequest;
+import org.springframework.web.servlet.ModelAndView;
+
+import com.ssocio.sharing.cmmn.util.CmmnCnst;
+import com.ssocio.sharing.cmmn.util.LoggerUtil;
+import com.ssocio.sharing.cmmn.util.StringUtil;
+import com.ssocio.sharing.service.admin.AdminCodeService;
+import com.ssocio.sharing.service.admin.AdminCpnService;
+
+/**
+ * <pre>
+ * @author 조은별
+ * @version
+ * @since 2015. 8. 8. 오후 5:50:30
+ * @see
+ * @History
+ * Date			|	author	    | 변경 내용
+ * 2015. 8. 8.	|	조은별			| 신규
+ * @비고
+ * </pre>
+ */
+@Controller
+public class AdminCpnController extends AdminReferController {
+	
+	// --------------------------------------------------------------------------
+	// # Log 설정
+	// --------------------------------------------------------------------------
+	private static final Logger logger = LoggerFactory.getLogger(AdminCpnController.class);
+	
+	// --------------------------------------------------------------------------
+	// # Service 설정
+	// --------------------------------------------------------------------------
+	@Autowired
+	private AdminCpnService adminCpnService;
+	
+	@Autowired
+	private AdminCodeService adminCodeService;
+	
+	
+	/**
+	 * <pre>
+	 * 쿠폰리스트화면 첫화면
+	 * 기본 뷰 페이지
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 9. 오후 5:50:55
+	 * @author 조은별	
+	 * </pre>
+	 */
+	@RequestMapping("/admin/cpn/selectCpnView.do")
+	public ModelAndView selectCpnView(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception	{
+	
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN selectCpnView START☆★☆★☆★☆★☆★☆★☆");
+
+		ModelAndView mav = new ModelAndView();
+		
+		// 화면내 공통코드와  날자셋팅
+		mav.addObject("list", adminCpnService.startCpn(inParam));		
+	
+		mav.setViewName("admin/cpn/selectListCpn");
+		
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN selectCpnView END☆★☆★☆★☆★☆★☆★☆");
+		return mav;
+		
+	}
+	
+	
+	/**
+	 * <pre>
+	 * 쿠폰리스트화면 리스트 조회
+	 * 조회 내용 
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 9. 오후 5:50:55
+	 * @author 조은별	
+	 * </pre>
+	 */
+	@RequestMapping("/admin/cpn/selectCpnList.do")
+	public ModelAndView selectListCpn(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception	{
+		
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN selectListCpn START☆★☆★☆★☆★☆★☆★☆");
+
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(inParam);
+		
+		String cpnGbCd[] = request.getParameterValues("CPN_GB_CD[]");	
+		String cpnUseCd[] = request.getParameterValues("CPN_USE_CD[]");
+		String issueMth[] = request.getParameterValues("ISSUE_MTH[]");
+		
+		try {
+			
+			// 쿠폰 리스트  조건에 맞게 조회한다
+			mav.addObject("list", adminCpnService.selectListCpn(inParam,cpnGbCd,cpnUseCd,issueMth));		
+			mav.setViewName("admin/cpn/selectListCpn");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN selectListCpn END☆★☆★☆★☆★☆★☆★☆");
+		return mav;
+	
+	}
+	
+	/**
+	 * <pre>
+	 * 쿠폰 상세 조회
+	 * 상세 내용 
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 9. 오후 5:50:55
+	 * @author 조은별	
+	 * </pre>
+	 */
+	@RequestMapping("/admin/cpn/selectCpnDtl.do")
+	public ModelAndView selectCpnDtl(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception	{
+		
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN selectCpnDtl START☆★☆★☆★☆★☆★☆★☆");
+
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(inParam);
+		
+		String cpnGrpCd = request.getParameter("CPN_GRP_CD");
+		
+		inParam.put("CPN_GB_CD", request.getParameterValues("CPN_GB_CD[]"));
+		inParam.put("CPN_USE_CD", request.getParameterValues("CPN_USE_CD[]"));
+		inParam.put("ISSUE_MTH", request.getParameterValues("ISSUE_MTH[]"));
+		
+		try {
+
+			// 쿠폰리스트에서 상세화면 호출
+			mav.addObject("list", adminCpnService.selectCpnDtl(inParam,cpnGrpCd));		
+			mav.setViewName("admin/cpn/selectCpnDtl");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN selectCpnDtl END☆★☆★☆★☆★☆★☆★☆");
+		return mav;
+	
+	}
+	
+	/**
+	 * <pre>
+	 * 쿠폰 발행 샵 조회
+	 * 
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 9. 오후 5:50:55
+	 * @author 조은별	
+	 * </pre>
+	 */
+	@RequestMapping("/admin/cpn/selectCpnMarketList.do")
+	public ModelAndView selectCpnMarketList(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception	{
+		
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN selectCpnMarketList START☆★☆★☆★☆★☆★☆★☆");
+
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(inParam);
+				
+		try {
+						
+			mav.setViewName("admin/cpn/maketPopup");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN selectCpnMarketList END☆★☆★☆★☆★☆★☆★☆");
+		return mav;
+	
+	}
+	
+	/**
+	 * <pre>
+	 * 쿠폰 발행 샵 조회
+	 * 
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 9. 오후 5:50:55
+	 * @author 조은별	
+	 * </pre>
+	 */
+	@RequestMapping("/admin/cpn/selectMarketList.do")
+	public ModelAndView selectMarketList(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception	{
+		
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN selectMarketList START☆★☆★☆★☆★☆★☆★☆");
+		ModelAndView mav = new ModelAndView();
+		ModelMap list = new ModelMap();
+				
+		try {
+			mav.setViewName("admin/cpn/mktPopup");
+			String cmpnyNm = request.getParameter("CMPNY_NM");
+			list =adminCpnService.selectMarket(cmpnyNm);
+			mav.addObject("list", list);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN selectCpnMarketList END☆★☆★☆★☆★☆★☆★☆");
+		return  mav;
+	
+	}
+	
+		
+	/**
+	 * <pre>
+	 * 회원 조회 팝업
+	 * 
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 9. 오후 5:50:55
+	 * @author 조은별	
+	 * </pre>
+	 */
+	@RequestMapping("/admin/cpn/selectUseList.do")
+	public ModelAndView selectUseList(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception	{
+		
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN selectUseList START☆★☆★☆★☆★☆★☆★☆");
+
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(inParam);
+		
+		String registDt = request.getParameter("REGIST_DT");	
+		String mberEmail = request.getParameter("MBER_EMAIL");
+		String useYn[] = request.getParameterValues("USE_YN[]");
+		String cpnGrpCd = request.getParameter("CPN_GRP_CD");
+		
+		
+		try {
+
+			// 회원조회
+			mav.addObject("list", adminCpnService.selectUseList(inParam,registDt,mberEmail,useYn,cpnGrpCd));		
+			mav.setViewName("admin/cpn/cpnUsePopup");
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN selectUseList END☆★☆★☆★☆★☆★☆★☆");
+		return mav;
+	
+	}
+	
+	/**
+	 * <pre>
+	 * 특정회원 삭제
+	 * 
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 9. 오후 5:50:55
+	 * @author 조은별	
+	 * </pre>
+	 */
+	@RequestMapping("/admin/cpn/deleteUse.do")
+	public ModelAndView deleteUse(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception	{
+		
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN selectUseList START☆★☆★☆★☆★☆★☆★☆");
+
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(inParam);
+		
+		String mberSeq[] = request.getParameterValues("MBER_SEQ[]");
+		String cpnGrpCd = request.getParameter("CPN_GRP_CD");
+		String mberEmail = request.getParameter("MBER_EMAIL");
+		String useYn[] = request.getParameterValues("USE_YN[]");
+		String registDt = request.getParameter("REGIST_DT");	
+	
+		int cnt=0;
+		cnt = mberSeq.length;
+		String message = cnt+"개의 회원쿠폰을 삭제하였습니다.";
+		inParam.put("message", message);
+		
+		try {
+
+			// 특정회원 삭제 
+			adminCpnService.deleteUse(inParam,mberSeq,cpnGrpCd);		
+			
+			mav.addObject("list", adminCpnService.selectUseList(inParam,registDt,mberEmail,useYn,cpnGrpCd));		
+			mav.setViewName("admin/cpn/cpnUsePopup");
+			
+			selectUseList(request,response,inParam);
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN selectUseList END☆★☆★☆★☆★☆★☆★☆");
+			
+		return mav;
+		
+	}
+	
+	/**
+	 * <pre>
+	 * 회원 조회 팝업
+	 * 
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 9. 오후 5:50:55
+	 * @author 조은별	
+	 * </pre>
+	 */
+	@RequestMapping("/admin/cpn/selectTotUseList.do")
+	public ModelAndView selectTotUseList(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception	{
+		
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN selectUseList START☆★☆★☆★☆★☆★☆★☆");
+
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(inParam);
+				
+		String mberEmail = request.getParameter("MBER_EMAIL");
+		String mberGbCd[] = request.getParameterValues("MBER_GB_CD[]");
+		String joinChal[] = request.getParameterValues("JOIN_CHAL[]");
+		String dateChk = request.getParameter("DATE_CHK");
+				
+		try {
+
+			mav.addObject("list", adminCpnService.selectTotUseList(inParam,mberEmail,mberGbCd,joinChal,dateChk));		
+			mav.setViewName("admin/cpn/totUsePopup");
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN selectUseList END☆★☆★☆★☆★☆★☆★☆");
+		return mav;
+	
+	}
+	
+	/**
+	 * <pre>
+	 * 상품조회 팝업
+	 * 
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 9. 오후 5:50:55
+	 * @author 조은별	
+	 * </pre>
+	 */
+	@RequestMapping("/admin/cpn/selectTotProdList.do")
+	public ModelAndView selectTotProdList(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception	{
+		
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN selectTotProdList START☆★☆★☆★☆★☆★☆★☆");
+
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(inParam);
+				
+		String prodNm = ""; 
+		String prodTypeCd = "";
+		String mberEmail = "";
+		String step1Cd = "";
+		String step2Cd = "";
+		String step3Cd = "";
+		prodNm = request.getParameter("PROD_NM");
+		prodTypeCd = request.getParameter("PROD_TYPE_CD");
+		mberEmail = request.getParameter("MBER_EAMIL");
+		step1Cd = request.getParameter("STEP1_CD");
+		step2Cd = request.getParameter("STEP2_CD");
+		step3Cd = request.getParameter("STEP3_CD");
+		
+
+		try {
+
+			mav.addObject("list", adminCpnService.selectTotProdList(inParam,prodNm,prodTypeCd,mberEmail,step1Cd,step2Cd,step3Cd));		
+			mav.setViewName("admin/cpn/prodPopup");
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN selectTotProdList END☆★☆★☆★☆★☆★☆★☆");
+		return mav;
+	
+	}
+	
+	
+	
+	/**
+	 * <pre>
+	 * 쿠폰 발급상태 업데이트
+	 * 
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 9. 오후 5:50:55
+	 * @author 조은별	
+	 * </pre>
+	 */
+	@RequestMapping("/admin/cpn/updateCpnIssueMth.do")
+	public ModelAndView updateCpnIssueMth(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception	{
+		
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN updateCpnIssueMth START☆★☆★☆★☆★☆★☆★☆");
+
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(inParam);
+	
+		try {
+
+			// 쿠폰 발급상태 업데이트
+			mav.addObject("list", adminCpnService.updateCpnIssueMth(inParam));		
+			mav.setViewName("admin/cpn/selectCpnDtl");
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN updateCpnIssueMth END☆★☆★☆★☆★☆★☆★☆");
+		return mav;
+	
+	}
+	
+	
+
+	/**
+	 * <pre>
+	 * 쿠폰 상세정보 업데이트
+	 * 
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 9. 오후 5:50:55
+	 * @author 조은별	
+	 * </pre>
+	 */
+	@RequestMapping("/admin/cpn/updateCpnInfo.do")
+	public ModelAndView updateCpnInfo(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception	{
+		
+		
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN selectTotProdList START☆★☆★☆★☆★☆★☆★☆");
+
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(inParam);
+			
+		String cpnUseCdChnl[] = null;
+		cpnUseCdChnl =request.getParameterValues("CPN_USE_CD_CHNL[]");
+		
+		try {
+
+			// 쿠폰 상세정보 업데이트
+			mav.addObject("list", adminCpnService.updateCpnInfo(inParam,cpnUseCdChnl));		
+			mav.setViewName("admin/cpn/selectCpnDtl");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN selectCpnDtl END☆★☆★☆★☆★☆★☆★☆");
+		return mav;
+
+		
+			
+			
+		
+	}
+	
+	/**
+	 * <pre>
+	 * 기획리스트 조회
+	 * 
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 9. 오후 5:50:55
+	 * @author 조은별	
+	 * </pre>
+	 */
+	@RequestMapping("/admin/cpn/insertCpnOpen.do")
+	public ModelAndView insertCpnInfoOpen(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception   {
+      
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(inParam);
+		
+		// 공통코드 조회
+		try {
+			// 공통 코드 조회 - 쿠폰구분코드
+			inParam.put("S_GROUP_CODE", CmmnCnst.cpnGbCd);
+			mav.addObject("cpnGbCd", adminCodeService.selectListCodeGroup(inParam).get("selectListCodeGroup"));
+			// 공통 코드 조회 - 쿠폰사용채널
+			inParam.put("S_GROUP_CODE", CmmnCnst.cpnChanCd);
+			mav.addObject("cpnChanCd", adminCodeService.selectListCodeGroup(inParam).get("selectListCodeGroup"));
+			mav.addObject("TOT_PROD_CNT", adminCpnService.commProdCnt());
+						
+			mav.addObject("list", adminCpnService.selectPlanList());
+		
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+      
+		mav.setViewName("admin/cpn/insertCpn");
+      
+		return mav;
+   
+	}
+	
+	
+	/**
+	 * <pre>
+	 * 
+	 * 
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 9. 오후 5:50:55
+	 * @author 조은별	
+	 * </pre>
+	 */
+	@RequestMapping("/admin/cpn/insertPrintCpnOpen.do")
+	public ModelAndView insertPrintCpnOpen(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception   {
+		
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(inParam);
+		
+		// 공통코드 조회
+		try {
+			// 공통 코드 조회 - 쿠폰사용채널
+			inParam.put("S_GROUP_CODE", CmmnCnst.cpnChanCd);
+			mav.addObject("cpnChanCd", adminCodeService.selectListCodeGroup(inParam).get("selectListCodeGroup"));
+			mav.addObject("TOT_PROD_CNT", adminCpnService.commProdCnt());
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		mav.setViewName("admin/cpn/insertPrintCpn");
+		
+		return mav;
+		
+	}
+	
+	@RequestMapping("/admin/cpn/excelPopOpen.do")
+	public ModelAndView excelPopOpen(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception   {
+      
+		ModelAndView mav = new ModelAndView();
+      
+		mav.setViewName("admin/cpn/excelUploadPopup");
+      
+		return mav;
+   
+	}
+	
+	/**
+	 * <pre>
+	 * 지정회원 엑셀 파일 업로드
+	 * 
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 07. 오후 1:31:23
+	 * @author Kang
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@RequestMapping("/admin/cpn/excelFileUpload.do")
+	public ModelAndView excelFileUpload(MultipartHttpServletRequest inParam) throws Exception{
+		
+		ModelAndView mav = new ModelAndView();
+		try {
+			mav.addObject("list", adminCpnService.excelFileUpload(inParam));
+			mav.setViewName("admin/cpn/excelUploadPopup");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mav;
+		
+	}
+	
+	
+	/**
+	 * <pre>
+	 * 쿠폰 등록
+	 * 
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 9. 오후 5:50:55
+	 * @author 조은별	
+	 * </pre>
+	 */
+	@RequestMapping("/admin/cpn/insertCpnInfo.do")
+	public ModelAndView insertCpnInfo(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception   {
+      
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN insertCpnInfo START☆★☆★☆★☆★☆★☆★☆");
+
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(inParam);
+			
+		String cpnUseCdChnl[] = null;
+		cpnUseCdChnl =request.getParameterValues("CPN_USE_CD_CHNL[]");
+		
+		try {
+
+			//쿠폰 등록
+			mav.addObject("list", adminCpnService.insertCpnInfo(inParam,cpnUseCdChnl));		
+				
+			mav.setViewName("admin/cpn/selectListCpn");
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN selectCpnDtl END☆★☆★☆★☆★☆★☆★☆");
+		return mav;
+		
+		
+	}
+	
+	
+	/**
+	 * <pre>
+	 * 인쇄배포용 쿠폰 등록
+	 * 
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 9. 오후 5:50:55
+	 * @author 조은별	
+	 * </pre>
+	 */
+	@RequestMapping("/admin/cpn/insertPrintCpnInfo.do")
+	public ModelAndView insertPrintCpnInfo(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception   {
+      
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN insertPrintCpnInfo START☆★☆★☆★☆★☆★☆★☆");
+
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(inParam);
+			
+		String cpnUseCdChnl[] = null;
+		cpnUseCdChnl =request.getParameterValues("CPN_USE_CD_CHNL[]");
+		
+		try {
+
+			// 인쇄배포용 쿠폰등록
+			mav.addObject("list", adminCpnService.insertPrintCpnInfo(inParam,cpnUseCdChnl));		
+				
+			mav.setViewName("admin/cpn/selectListCpn");
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN selectCpnDtl END☆★☆★☆★☆★☆★☆★☆");
+		return mav;
+		
+		
+	}
+	
+	
+	/**
+	 * <pre>
+	 * 인쇄배포용 발급된 쿠폰 조회
+	 * 
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 9. 오후 5:50:55
+	 * @author 조은별	
+	 * </pre>
+	 */
+	@RequestMapping("/admin/cpn/selectPrintCpnNoList.do")
+	public ModelAndView selectPrintCpnNo(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception   {
+      
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN selectPrintCpnNo START☆★☆★☆★☆★☆★☆★☆");
+
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(inParam);
+				
+		try {
+
+			mav.addObject("list", adminCpnService.selectPrintCpnNoList(inParam));		
+				
+			mav.setViewName("admin/cpn/selectCertNoPopup");
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN selectPrintCpnNo END☆★☆★☆★☆★☆★☆★☆");
+		return mav;
+		
+		
+	}
+	
+	/**
+	 * <pre>
+	 * 엑셀등록
+	 * 
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 9. 오후 5:50:55
+	 * @author 조은별	
+	 * </pre>
+	 */
+	@RequestMapping("/admin/cpn/printCpnExcel.do")
+	public ModelAndView printCpnExcel(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception   {
+      
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN selectPrintCpnNo START☆★☆★☆★☆★☆★☆★☆");
+
+		ModelAndView mav = new ModelAndView();
+		mav.setViewName("excelDownloadView");
+		LoggerUtil.writeMap(inParam);
+		ModelMap mm = new ModelMap();
+				
+		try {
+			String today = StringUtil.getCurrentDate();
+			response.setContentType("application/msexcel");
+			response.setHeader("Content-Disposition", "attachment; filename="
+				+ new String(("cpnNoList").getBytes("KSC5601"),"8859_1") +"_"+today+ ".xls");
+			mm = adminCpnService.printCpnExcel(inParam);
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		String sheetName = "인증번호";
+		
+		// title
+		List<String> excelTitle = new ArrayList<String>();
+//		excelTitle.add("NO");
+		excelTitle.add("인증번호");
+		
+		// cell
+		List<String> CellName = new ArrayList<String>();
+//		CellName.add("NO");
+		CellName.add("CPN_NO");
+		
+		mav.addObject("SheetName", sheetName);
+		mav.addObject("excelTitle", excelTitle);
+		mav.addObject("CellName", CellName);
+		
+		mav.addObject("excelList", mm.get("printList"));
+		mav.addObject("param", inParam);
+		
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN selectPrintCpnNo END☆★☆★☆★☆★☆★☆★☆");
+		return mav;
+		
+		
+		
+		
+	}
+	
+	
+	/**
+	 * <pre>
+	 * 유입경로 할인 시작페이지
+	 * 
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 9. 오후 5:50:55
+	 * @author 조은별	
+	 * </pre>
+	 */	
+	@RequestMapping("/admin/cpn/selectInflowView.do")
+	public ModelAndView selectInflowView(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception	{
+	
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN selectCpnView START☆★☆★☆★☆★☆★☆★☆");
+
+		ModelAndView mav = new ModelAndView();
+		
+		mav.addObject("list", adminCpnService.startUrl());
+	
+		mav.setViewName("admin/cpn/selectListInflowRoute");
+		
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN selectCpnView END☆★☆★☆★☆★☆★☆★☆");
+		return mav;
+		
+	}
+	
+	
+	
+
+	/**
+	 * <pre>
+	 * 유입경로 할인 리스트 조회
+	 * 
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 9. 오후 5:50:55
+	 * @author 조은별	
+	 * </pre>
+	 */	
+	@RequestMapping("/admin/cpn/selectInflowRouteInfo.do")
+	public ModelAndView selectInflowRouteInfo(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception	{
+	
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN selectInflowRouteInfo START☆★☆★☆★☆★☆★☆★☆");
+
+		ModelAndView mav = new ModelAndView();
+		
+		String inflowRouteUseYn[] = null;
+		inflowRouteUseYn =request.getParameterValues("INFLOW_ROUTE_USE_YN[]");
+		
+		try{
+		
+			// 유입경로할인 리스트 조회
+			mav.addObject("list", adminCpnService.selectInflowRouteInfo(inParam,inflowRouteUseYn));		
+		
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		mav.setViewName("admin/cpn/selectListInflowRoute");
+		
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN selectInflowRouteInfo END☆★☆★☆★☆★☆★☆★☆");
+		return mav;
+		
+	}
+	
+	
+	
+	@RequestMapping("/admin/cpn/insertFlowRouteOpen.do")
+	public ModelAndView insertFlowRouteOpen(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception   {
+		
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(inParam);
+		
+		// 공통코드 조회
+		try {
+			// 공통 코드 조회 - 쿠폰사용채널
+			inParam.put("S_GROUP_CODE", CmmnCnst.cpnChanCd);
+			mav.addObject("cpnChanCd", adminCodeService.selectListCodeGroup(inParam).get("selectListCodeGroup"));
+			mav.addObject("TOT_PROD_CNT", adminCpnService.commProdCnt());
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		mav.setViewName("admin/cpn/insertFlowRoute");
+		
+		return mav;
+		
+	}
+	
+	@RequestMapping("/admin/cpn/insertInflowRoute.do")
+	public ModelAndView insertInflowRoute(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception   {
+		
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN insertInflowRoute START☆★☆★☆★☆★☆★☆★☆");
+
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(inParam);
+			
+		String cpnUseCdChnl[] = null;		
+		
+		cpnUseCdChnl =request.getParameterValues("CPN_USE_CD_CHNL[]");
+		
+		ModelMap mm = new ModelMap();
+				
+		try {
+
+			adminCpnService.insertInflowRoute(inParam,cpnUseCdChnl);		
+			
+			mav.addObject("list", adminCpnService.startUrl());
+			
+			mav.setViewName("admin/cpn/selectListInflowRoute");
+						
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN selectCpnDtl END☆★☆★☆★☆★☆★☆★☆");
+		return mav;
+		
+	}
+	
+	
+	
+	/**
+	 * <pre>
+	 * 대중소 분류별 카테고리 리스트정보 조회
+	 * 대중소 분류별 카테고리 리스트정보를 조회합니다.
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 7. 9. 오후 5:50:55
+	 * @author Y.I.Chun
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@RequestMapping("/admin/cpn/selectInflowRouteDtl.do")
+	public ModelAndView selectInflowRouteDtl(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception	{
+		
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN selectInflowRouteDtl START☆★☆★☆★☆★☆★☆★☆");
+
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(inParam);
+		
+		String cpnGrpCd = request.getParameter("CPN_GRP_CD");
+				
+		try {
+
+			mav.addObject("list", adminCpnService.selectInflowRouteDtl(inParam,cpnGrpCd));		
+			mav.setViewName("admin/cpn/selectInflowRouteDtl");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN selectCpnDtl END☆★☆★☆★☆★☆★☆★☆");
+		return mav;
+	
+	}
+	
+	
+	/**
+	 * <pre>
+	 * 대중소 분류별 카테고리 리스트정보 조회
+	 * 대중소 분류별 카테고리 리스트정보를 조회합니다.
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 7. 9. 오후 5:50:55
+	 * @author Y.I.Chun
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@RequestMapping("/admin/cpn/updateInflowRoute.do")
+	public ModelAndView updateInflowRoute(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception	{
+		
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN updateInflowRoute START☆★☆★☆★☆★☆★☆★☆");
+
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(inParam);
+			
+		String cpnUseCdChnl[] = null;
+		cpnUseCdChnl =request.getParameterValues("CPN_USE_CD_CHNL[]");
+		
+		try {
+
+			mav.addObject("list", adminCpnService.updateInflowRoute(inParam,cpnUseCdChnl));		
+			mav.setViewName("admin/cpn/selectInflowRouteDtl");
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN updateInflowRoute END☆★☆★☆★☆★☆★☆★☆");
+		return mav;
+	
+	}
+	
+	
+	@RequestMapping("/admin/cpn/deleteInflowRoute.do")
+	public ModelAndView deleteInflowRoute(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception   {
+		
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN deleteInflowRoute START☆★☆★☆★☆★☆★☆★☆");
+
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(inParam);
+				
+		String cpnGrpCd = request.getParameter("CPN_GRP_CD");
+				
+		try {
+
+			adminCpnService.deleteInflowRoute(cpnGrpCd);	
+			
+			mav.addObject("list", adminCpnService.startUrl());
+			
+			mav.setViewName("admin/cpn/selectListInflowRoute");
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN selectCpnDtl END☆★☆★☆★☆★☆★☆★☆");
+		return mav;
+		
+	}
+	
+	
+}

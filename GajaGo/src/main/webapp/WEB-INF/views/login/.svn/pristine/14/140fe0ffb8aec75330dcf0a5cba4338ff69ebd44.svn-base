@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="adminFaqMapper">
+	<!-- 검색조건 -->
+	<sql id="condition">  
+	    <!-- 시작일자-->
+	    <if test="S_START_DATE != null and S_START_DATE != ''">
+	      AND REGIST_DT <![CDATA[>=]]> TO_DATE(#{S_START_DATE})
+	    </if>
+	    <!-- 끝일자-->
+	    <if test="S_END_DATE != null and S_END_DATE != ''">
+	      AND REGIST_DT <![CDATA[<]]> TO_DATE(#{S_END_DATE}+1)
+	    </if>
+	    <!-- 제목-->
+	    <if test="P_TITLE != null and P_TITLE != ''" >
+	      AND TITLE LIKE '%' || #{P_TITLE} || '%'
+	    </if>
+	    <!-- 구분 -->
+	    <if test="chkType != null and chkType != ''" >
+	        AND FAQ_TYPE_CD IN
+	    	<foreach item="item" index="index" collection="chkType" open="(" separator="," close=")">
+	           #{item}
+			</foreach>
+	    </if>
+	    <!-- 노출여부-->
+	    <if test="P_VIEW_YN != null and P_VIEW_YN != ''">
+	      AND VIEW_YN = #{P_VIEW_YN}
+	    </if>
+	</sql>
+	
+	<!-- FAQ 리스트 조회 -->
+	<select id="selectListFaq" parameterType="HashMap" resultType="HashMap">
+	<include refid="adminCommonMapper.pagingHeader" />
+		/*adminFaqMapper.selectListFaq*/
+		SELECT BOARD_TYPE_CD    								AS BOARD_TYPE_CD	<!-- 게시판유형구분코드 -->
+	           , BOARD_SEQ										AS BOARD_SEQ		<!-- 게시일련번호 -->
+	           , WRITE_ID          								AS WRITE_ID			<!-- 작성자ID -->
+	           , WRITE_NM          								AS WRITE_NM			<!-- 작성자명 -->
+	           , TO_CHAR(REGIST_DT, 'YYYY-MM-DD HH24:MI') 		AS REGIST_DT      	<!-- 등록일시 -->
+	           , TITLE											AS TITLE			<!-- 제목 -->
+	           , DECODE(VIEW_YN, 'Y', '노출', 'N', '미노출')		AS VIEW_YN			<!-- 노출여부 -->
+	           , FAQ_TYPE_CD									AS FAQ_TYPE_CD		<!-- 구분코드 -->
+	           , (SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'FAQ_TYPE_CD' AND COM_CD = FAQ_TYPE_CD)	AS FAQ_TYPE_NM		<!-- 구분코드명 -->
+	           , ROW_NUMBER() OVER(ORDER BY REGIST_DT DESC ) 	AS NO
+		FROM BOARD_INFO
+		WHERE BOARD_TYPE_CD = #{BOARD_TYPE_CD}
+		<include refid="condition"/>
+		ORDER BY REGIST_DT DESC
+	<include refid="adminCommonMapper.pagingFooter" />
+	</select>
+	
+	<!-- 리스트 카운트 조회 -->
+	<select id="selectListFaqCount" parameterType="HashMap" resultType="int">
+		/*adminFaqMapper.selectListFaqCount*/
+	    SELECT COUNT(1) AS TOTAL_COUNT
+	      FROM BOARD_INFO
+	     WHERE BOARD_TYPE_CD = #{BOARD_TYPE_CD}
+		<include refid="condition"/>
+	</select>
+	
+	<!-- FAQ 상세 조회 -->
+	<select id="selectFaq" parameterType="HashMap" resultType="HashMap">
+		/*adminFaqMapper.selectFaq*/
+		SELECT BOARD_TYPE_CD    								AS BOARD_TYPE_CD	<!-- 게시판유형구분코드 -->
+	           , BOARD_SEQ										AS BOARD_SEQ		<!-- 게시일련번호 -->
+	           , WRITE_ID          								AS WRITE_ID			<!-- 작성자ID -->
+	           , WRITE_NM          								AS WRITE_NM			<!-- 작성자명 -->
+	           , TO_CHAR(REGIST_DT, 'YYYY-MM-DD HH24:MI') 		AS REGIST_DT      	<!-- 등록일시 -->
+	           , TO_CHAR(UPDT_DT, 'YYYY-MM-DD HH24:MI') 		AS UPDT_DT      	<!-- 수정일시 -->
+	           , TITLE											AS TITLE			<!-- 제목 -->
+	           , CONTENTS										AS CONTENTS			<!-- 내용 -->
+	           , VIEW_YN										AS VIEW_YN			<!-- 노출여부 -->
+	           , FAQ_TYPE_CD									AS FAQ_TYPE_CD		<!-- 구분코드 -->	
+	           , (SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'FAQ_TYPE_CD' AND COM_CD = FAQ_TYPE_CD)	AS FAQ_TYPE_NM		<!-- 구분코드명 -->
+		FROM BOARD_INFO
+		 WHERE BOARD_SEQ = #{BOARD_SEQ}
+	</select>
+	
+	<!-- FAQ 등록 -->
+	<insert id="insertFaqReg" parameterType="hashmap">
+		/*adminFaqMapper.insertFaqReg*/
+		INSERT INTO BOARD_INFO (
+			     BOARD_TYPE_CD   	<!--게시판유형구분코드 -->
+	           , BOARD_SEQ			<!-- 게시일련번호 -->
+	           , WRITE_ID           <!-- 작성자ID -->
+	           , WRITE_NM           <!-- 작성자명 -->
+	           , TITLE				<!-- 제목 -->
+	           , CONTENTS			<!-- 내용 -->
+	           , VIEW_YN			<!-- 노출여부 -->
+	           , FAQ_TYPE_CD		<!-- 구분코드 -->
+	           , REGIST_DT			<!-- 등록일시 -->
+	           , UPDT_DT 			<!-- 수정일시 -->
+			 )VALUES(
+			  #{BOARD_TYPE_CD}
+			, (SELECT NVL(MAX(BOARD_SEQ), 0) + 1 FROM BOARD_INFO)
+			, #{WRITE_ID}
+			, #{WRITE_NM}
+			, #{TITLE}
+			, #{CONTENTS}
+			, #{VIEW_YN}
+			, #{FAQ_TYPE_CD}
+			, SYSDATE
+			, SYSDATE
+			 )
+	</insert>
+	
+	<!-- FAQ 수정 -->
+	<update id="updateFaqReg" parameterType="hashmap">
+		/*adminFaqMapper.updateFaqReg*/
+		 UPDATE BOARD_INFO
+		 SET 	 WRITE_ID     	= #{WRITE_ID}   <!-- 작성자ID -->
+	           , WRITE_NM     	= #{WRITE_NM}   <!-- 작성자명 -->
+	           , TITLE			= #{TITLE}		<!-- 제목 -->
+	           , CONTENTS		= #{CONTENTS}	<!-- 내용 -->
+	           , VIEW_YN		= #{VIEW_YN}	<!-- 노출여부 -->
+	           , FAQ_TYPE_CD	= #{FAQ_TYPE_CD}<!-- 구분코드 -->
+	           , UPDT_DT 		= SYSDATE		<!-- 수정일시 -->
+		 WHERE                            
+			  BOARD_SEQ = #{BOARD_SEQ}	<!-- 고유번호 -->
+	</update>
+  
+  <!-- FAQ 삭제 -->
+  <delete id="deleteFaq" parameterType="hashmap">
+  	/*adminFaqMapper.updateFaqReg*/
+	DELETE FROM BOARD_INFO WHERE BOARD_SEQ = #{BOARD_SEQ }
+  </delete>
+  
+	
+</mapper>

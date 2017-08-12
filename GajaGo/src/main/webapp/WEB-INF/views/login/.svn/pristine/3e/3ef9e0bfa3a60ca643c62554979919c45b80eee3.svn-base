@@ -1,0 +1,151 @@
+/**
+ * 
+ */
+package com.ssocio.sharing.cmmn.admin.handler;
+
+import java.util.Enumeration;
+import java.util.HashMap;
+import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import net.sf.json.JSONObject;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+
+import com.ssocio.sharing.cmmn.handler.AbstractHandlerInterceptor;
+import com.ssocio.sharing.cmmn.instance.config.AppConfigManager;
+import com.ssocio.sharing.cmmn.service.CommonService;
+import com.ssocio.sharing.cmmn.util.StringUtil;
+import com.ssocio.sharing.service.admin.AdminLogService;
+import com.ssocio.sharing.vo.admin.AdminSession;
+
+/**
+ * <pre>
+ * AdminLogInterceptor
+ * 
+ * @author S.B.LEE
+ * @version
+ * @since 2015. 8. 31. 오후 2:29:57
+ * @see
+ * @History
+ * Date			|	author	| 변경 내용
+ * 2015. 8. 31.	|	SEOKBAE	|신규
+ * @비고
+ * </pre>
+ */
+public class AdminLogInterceptor extends AbstractHandlerInterceptor {
+	
+	private static final long serialVersionUID = -1451536219593789249L;
+	
+	// --------------------------------------------------------------------------
+	// # Log 설정
+	// --------------------------------------------------------------------------
+	private static final Logger logger = LoggerFactory.getLogger(AdminLogInterceptor.class);
+	// --------------------------------------------------------------------------
+	// # Service 설정
+	// --------------------------------------------------------------------------
+	//@Resource(name = "synchrnService")
+	@Autowired
+	private CommonService commonService;
+	
+	@Autowired
+	private AdminLogService adminLogService;
+	
+	/**
+	 * <pre>
+	 * preHandle
+	 * 
+	 * @param request
+	 * @param response
+	 * @param handler
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 31. 오후 2:31:50
+	 * @author S.B.LEE
+	 * @see @see org.springframework.web.servlet.handler.HandlerInterceptorAdapter#preHandle(javax.servlet.http.HttpServletRequest, javax.servlet.http.HttpServletResponse, java.lang.Object)
+	 * </pre>
+	 */
+	@Override
+	public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
+		
+		try {
+			logger.info("# @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+			logger.info("# [AdminLogInterceptor] Start @@@@@@@@@@@@@@@@@@@@");
+			// ----------------------------------------------------------------------
+			// request Info Log INSERT
+			// ----------------------------------------------------------------------
+			Map<String, Object> inParam = new HashMap<String, Object>();
+			AdminSession session = (AdminSession) request.getSession().getAttribute("manager");
+			String admId = "";
+			String device = "P";	//PC:P 디폴트, Mobile:M 
+			
+			if(session != null) admId = session.getADM_ID();
+			if("Mobile".equals((String)request.getAttribute("device"))) device = "M";
+			
+			// ----------------------------------------------------------------------
+			// 메인페이지에서 호출하는 Chart인 경우 로그등록 생략
+			//  - TODO : 하드코딩 어떻게 할지 고민해보자
+			// ----------------------------------------------------------------------
+//			if ("/admin/main/getSellStatChart.do".equals(StringUtil.nvl(request.getRequestURI())) || 
+//				"/admin/main/getVisitStatChart.do".equals(StringUtil.nvl(request.getRequestURI()))
+//				) {	
+//				return true;
+//			}
+			
+			//파라메터정보
+			StringBuffer paramVal = new StringBuffer();
+			StringBuffer headerVal = new StringBuffer();
+			JSONObject jsonObj = new JSONObject();
+			Enumeration<String> params = request.getParameterNames();
+			Enumeration<String> headers = request.getHeaderNames();
+			while (params.hasMoreElements()) {
+				String name = params.nextElement();
+				paramVal.append("[" + name + "]" + request.getParameter(name));
+				jsonObj.put(name, request.getParameter(name));
+			}
+			while (headers.hasMoreElements()) {
+				String name = headers.nextElement();
+				if(!("Cookie").equals(name) && !("cookie").equals(name)) headerVal.append("[" + name + "]" + request.getHeader(name));
+			}
+			
+			String[] AllParam	=	StringUtil.parseStringByBytes(paramVal.toString(), 4000, "UTF-8");  
+			
+			inParam.put("INIT_REFERER", request.getHeader("referer"));                     //유입경로URL
+			inParam.put("QUERY_STRING", request.getQueryString());                         //GET OR POST
+			inParam.put("METHOD", request.getMethod());                                    //METHOD
+			inParam.put("IP_ADD", request.getRemoteAddr());                                //IP주소
+			inParam.put("WAS_SVR_IP_ADD", AppConfigManager.getSystemIp());                 //WAS서버IP주소
+			inParam.put("UR_ACC_ID", admId);                                               //사용자계정ID
+			inParam.put("INFL_PH_URL", request.getRequestURI());                           //URL
+			inParam.put("WO_RCD_CN",AllParam[0] );                                         //전체레코드내용 - 파라메터정보
+			inParam.put("RMK_CN", headerVal.toString());                                   //비고내용 - 헤더정보
+			inParam.put("ACC_DVC_TC", device);                                             //디바이스 정보(P:PC, M:Mobile)
+			inParam.put("SITE_PREFIX", "ADMIN");                                           //접근사이트
+			inParam.put("INIT_JSON_PARAM", jsonObj.toString());                            //전체레코드내용 - 파라메터정보(JSON DATA)
+			
+			logger.debug("# INIT_REFERER: "+ request.getHeader("referer"));
+			logger.debug("# QUERY_STRING: "+ request.getQueryString());
+			logger.debug("# METHOD: "+ request.getMethod());
+			logger.debug("# IP_ADD: "+ request.getRemoteAddr());
+			logger.debug("# WAS_SVR_IP_ADD: "+ AppConfigManager.getSystemIp());
+			logger.debug("# UR_ACC_ID: "+admId);
+			logger.debug("# INFL_PH_URL: "+request.getRequestURI());
+			logger.debug("# WO_RCD_CN: "+paramVal);
+			logger.debug("# RMK_CN: "+headerVal);
+			logger.debug("# ACC_DVC_TC: "+ device + " , " + (String)request.getAttribute("device"));
+			logger.debug("# SITE_PREFIX", "ADMIN");
+			logger.debug("# INIT_JSON_PARAM: "+ jsonObj.toString());
+			
+//			adminLogService.insertAdminLog(inParam);
+			
+		} catch (Exception e) {
+			logger.error("AdminLogInterceptor 오류 [" + e.toString() + "]");
+			e.printStackTrace();
+		}
+		return true;
+	}
+}

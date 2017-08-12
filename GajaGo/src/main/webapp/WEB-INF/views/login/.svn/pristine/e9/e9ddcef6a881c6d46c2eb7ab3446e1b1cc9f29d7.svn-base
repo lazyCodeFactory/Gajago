@@ -1,0 +1,299 @@
+package com.ssocio.sharing.controller.mobile;
+
+import java.net.URLEncoder;
+import java.util.HashMap;
+import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.json.simple.JSONObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.servlet.ModelAndView;
+
+import com.ssocio.sharing.cmmn.admin.util.CommonUtil;
+import com.ssocio.sharing.cmmn.util.LoggerUtil;
+import com.ssocio.sharing.service.web.MobileCpnPointService;
+import com.ssocio.sharing.service.web.MobileMyInfoService;
+import com.ssocio.sharing.service.web.WebCommonService;
+import com.ssocio.sharing.vo.web.WebSession;
+
+/**
+ * <pre>
+ * 회원정보 컨트롤러
+ * 회원정보를 위한 컨트롤러
+ * @author 
+ * @version
+ * @since 
+ * @see
+ * @History
+ * Date			|	author	| 변경 내용
+ * @비고
+ * </pre>
+ */
+@Controller
+public class MobileMyInfoController extends MobileReferController {
+
+	private static final Logger logger = LoggerFactory.getLogger(MobileMyInfoController.class);
+	
+	@Autowired
+	private MobileMyInfoService mobileMyInfoService;
+	@Autowired
+	private WebCommonService webCommonService;
+	
+	/**
+	 * 회원정보 정보조회
+	 */
+	@RequestMapping("/mobile/myInfo/getMyInfoInfo.do")
+	public ModelAndView getMyInfoInfo(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		if(request.getSession().getAttribute("user")==null){
+			String returnUrl = "/mobile/myPage/getMyPageInfo.do?";
+			return new ModelAndView("redirect:/mobile/main/login.do"+"?ret="+URLEncoder.encode(returnUrl,"UTF-8"));
+		}
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(inParam);
+		try {
+			WebSession user = (WebSession)request.getSession().getAttribute("user");
+			logger.debug("### MBER_SEQ		:"+user.getMBER_SEQ());
+			logger.debug("### MOBILE_GUBUN	:"+user.getMOBILE_GUBUN());
+			logger.debug("### MBER_GB_CD	:["+user.getMBER_GB_CD()	+"] >>>>>>>>>>>>>>>>>> 0.구매, 1.판매");
+			mav.addObject("result", mobileMyInfoService.getMyInfoInfo(inParam, user));
+			mav.addObject("params", inParam);
+			mav.setViewName("web/myPage/getMyInfoInfo"+user.getMBER_REG_GB_CD());
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mav;
+	}
+	/**
+	 * 핸드폰번호 변경 화면으로 이동.
+	 */
+	@RequestMapping("/mobile/myInfo/getMyPhoneChangeForm.do")
+	public ModelAndView getMyPhoneChangeForm(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		if(request.getSession().getAttribute("user")==null){
+			String returnUrl = "/mobile/myPage/getMyPageInfo.do?";
+			return new ModelAndView("redirect:/mobile/main/login.do"+"?ret="+URLEncoder.encode(returnUrl,"UTF-8"));
+		}
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(inParam);
+		try {
+			WebSession user = (WebSession)request.getSession().getAttribute("user");
+			logger.debug("### MBER_SEQ:"+user.getMBER_SEQ());
+			mav.addObject("result", mobileMyInfoService.getMyPhoneChangeForm(inParam, user));
+			mav.addObject("params", inParam);
+			mav.setViewName("web/myPage/getMyPhoneChangeForm");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mav;
+	}
+	/**
+	 * 휴대폰 변경
+	 */
+	@RequestMapping("/mobile/myInfo/updateMyPhone.do")
+	public @ResponseBody String updateMyPhone(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		Map<String, Object> resultObj = new HashMap<String, Object>();
+		LoggerUtil.writeMap(inParam);
+		String phoneInfo = "";
+		String result = "";
+		try {
+			WebSession user = (WebSession)request.getSession().getAttribute("user");
+			logger.debug("### MBER_SEQ:"+user.getMBER_SEQ());
+			resultObj = mobileMyInfoService.updateMyPhone(inParam, user);
+			logger.debug("### resultObj:"+resultObj);
+			phoneInfo = (String)resultObj.get("msg");
+			String code = (String)resultObj.get("code");
+			//최초 인증시 포인트 지급
+			if("S".equals(code)){
+					logger.debug("### resultObj:"+(String)inParam.get("NEWAUTH"));
+					inParam.put("MBER_SEQ"	, user.getMBER_SEQ());		
+					webCommonService.updateMberPoint(inParam);
+			}
+			
+			JSONObject jsonObj = new JSONObject() ;
+			jsonObj.put("msg", phoneInfo);
+			result = jsonObj.toString();
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return result;
+	}
+	/******************************************************************************
+	 * 계좌변경
+	 *******************************************************************************/
+	/**
+	 * 계좌변경 화면으로 이동.
+	 */
+	@RequestMapping("/mobile/myInfo/getMyAccountChangeForm.do")
+	public ModelAndView getMyAccountChangeForm(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		if(request.getSession().getAttribute("user")==null){
+			String returnUrl = "/mobile/myPage/getMyPageInfo.do?";
+			return new ModelAndView("redirect:/mobile/main/login.do"+"?ret="+URLEncoder.encode(returnUrl,"UTF-8"));
+		}
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(inParam);
+		try {
+			WebSession user = (WebSession)request.getSession().getAttribute("user");
+			logger.debug("### MBER_SEQ:"+user.getMBER_SEQ());
+			mav.addObject("result", mobileMyInfoService.getMyAccountChangeForm(inParam, user));
+			mav.addObject("params", inParam);
+			mav.setViewName("web/myPage/getMyAccountChangeForm"+user.getMBER_REG_GB_CD());
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mav;
+	}
+	/**
+	 * 계좌 변경
+	 */
+	@RequestMapping("/mobile/myInfo/updateMyAccount.do")
+	public @ResponseBody String saveMyAccount(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		
+		Map<String, Object> resultObj = new HashMap<String, Object>();
+		LoggerUtil.writeMap(inParam);
+		String phoneInfo = "";
+		String result = "";
+		try {
+			WebSession user = (WebSession)request.getSession().getAttribute("user");
+			logger.debug("### MBER_SEQ:"+user.getMBER_SEQ());
+			resultObj = mobileMyInfoService.updateMyAccount(inParam, user)	;
+			logger.debug("### resultObj:"+resultObj);
+			phoneInfo = (String)resultObj.get("msg");
+			
+			JSONObject jsonObj = new JSONObject() ;
+			jsonObj.put("msg", phoneInfo);
+			result = jsonObj.toString();
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return result;
+	}
+	/**
+	 * 비밀번호변경 화면으로 이동.
+	 */
+	@RequestMapping("/mobile/myInfo/getMyPwChangeForm.do")
+	public ModelAndView getMyPwChangeForm(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		if(request.getSession().getAttribute("user")==null){
+			String returnUrl = "/mobile/myPage/getMyPageInfo.do?";
+			return new ModelAndView("redirect:/mobile/main/login.do"+"?ret="+URLEncoder.encode(returnUrl,"UTF-8"));
+		}
+		ModelAndView mav = new ModelAndView(); 
+		LoggerUtil.writeMap(inParam);
+		try {
+			WebSession user = (WebSession)request.getSession().getAttribute("user");
+			logger.debug("### MBER_SEQ:"+user.getMBER_SEQ());
+			mav.addObject("result", mobileMyInfoService.getMyPwChangeForm(inParam, user));
+			mav.addObject("params", inParam);
+			mav.setViewName("web/myPage/getMyPwChangeForm");
+			logger.debug("### 비밀번호 화면으로 이동.");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mav;
+	}
+	/**
+	 * 비밀번호 암호화
+	 */
+	@RequestMapping("/mobile/myInfo/encMyPw.do")
+	public @ResponseBody String encMyPw(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		LoggerUtil.writeMap(inParam);
+		String result = "";
+		try {
+			WebSession user = (WebSession)request.getSession().getAttribute("user");
+			logger.debug("### MBER_SEQ:"+user.getMBER_SEQ());
+			logger.debug("### MBER_PASS:"+inParam.get("MBER_PASS"));
+			String inputPwd = CommonUtil.getEncPassword((String)inParam.get("MBER_PASS"));
+			
+			logger.debug("### inputPwd:"+inputPwd);
+			
+			JSONObject jsonObj = new JSONObject() ;
+			jsonObj.put("MBER_PASS", inputPwd);
+			result = jsonObj.toString();
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return result;
+	}
+	/**
+	 * 비밀번호 변경
+	 */
+	@RequestMapping("/mobile/myInfo/saveMyPwChange.do")
+	public @ResponseBody String saveMyPwChange(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		Map<String, Object> resultObj = new HashMap<String, Object>();
+		LoggerUtil.writeMap(inParam);
+		String phoneInfo = "";
+		String result = "";
+		try {
+			WebSession user = (WebSession)request.getSession().getAttribute("user");
+			logger.debug("### MBER_SEQ:"+user.getMBER_SEQ());
+			String inputPwd = CommonUtil.getEncPassword((String)inParam.get("MBER_PASS"));
+			inParam.put("MBER_PASS", inputPwd);
+			resultObj = mobileMyInfoService.saveMyPwChange(inParam, user)	;
+			logger.debug("### resultObj:"+resultObj);
+			phoneInfo = (String)resultObj.get("msg");
+			
+			JSONObject jsonObj = new JSONObject() ;
+			jsonObj.put("msg", phoneInfo);
+			result = jsonObj.toString();
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return result;
+	}
+	/**
+	 * 이메일 수신여부 변경
+	 */
+	@RequestMapping("/mobile/myInfo/changeRadioMail.do")
+	public @ResponseBody String changeRadioMail(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		Map<String, Object> resultObj = new HashMap<String, Object>();
+		LoggerUtil.writeMap(inParam);
+		String result = "";
+		String msg = "";
+		try {
+			WebSession user = (WebSession)request.getSession().getAttribute("user");
+			logger.debug("### MBER_SEQ:"+user.getMBER_SEQ());
+			resultObj = mobileMyInfoService.changeRadioMail(inParam, user)	;
+			logger.debug("### resultObj:"+resultObj);
+			msg = (String)resultObj.get("msg");
+			JSONObject jsonObj = new JSONObject() ;
+			jsonObj.put("msg", msg);
+			result = jsonObj.toString();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return result;
+	}
+	/**
+	 * SMS 수신여부 변경
+	 */
+	@RequestMapping("/mobile/myInfo/changeRadioSMS.do")
+	public @ResponseBody String changeRadioSMS(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		Map<String, Object> resultObj = new HashMap<String, Object>();
+		LoggerUtil.writeMap(inParam);
+		String result = "";
+		String msg = "";
+		try {
+			WebSession user = (WebSession)request.getSession().getAttribute("user");
+			logger.debug("### MBER_SEQ:"+user.getMBER_SEQ());
+			resultObj = mobileMyInfoService.changeRadioSMS(inParam, user)	;
+			logger.debug("### resultObj:"+resultObj);
+			msg = (String)resultObj.get("msg");
+			JSONObject jsonObj = new JSONObject() ;
+			jsonObj.put("msg", msg);
+			result = jsonObj.toString();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return result;
+	}
+}

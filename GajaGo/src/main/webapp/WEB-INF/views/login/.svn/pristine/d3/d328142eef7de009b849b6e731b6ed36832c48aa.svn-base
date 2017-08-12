@@ -1,0 +1,865 @@
+package com.ssocio.sharing.vo.web;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import org.json.simple.JSONArray;
+import org.json.simple.JSONObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.ssocio.sharing.cmmn.util.StringUtil;
+import com.ssocio.sharing.vo.web.OrdProduct.Dlv;
+import com.ssocio.sharing.vo.web.OrdProduct.Freeshare;
+import com.ssocio.sharing.vo.web.OrdProduct.Option;
+import com.ssocio.sharing.vo.web.OrdProduct.Shar;
+
+public class OrdInfo {
+	private static final Logger logger = LoggerFactory.getLogger(OrdInfo.class);
+	
+	private String ordCd = "";
+	private String seltGbCd = "";
+	private String mberSeq = "";
+	private String sessId = "";
+	private String conGbCd = "";
+	private long realSeltAmt = 0L;
+	private long ordAmt = 0L;
+	private long dscntBfOrdAmt = 0L;
+	private long dscntAmt = 0L;
+	private String ordStatCd = "";
+	private long pointUseAmt = 0L;
+	private long cpnUseAmt = 0L;
+	private long dscntCpnProdAmt = 0L;
+	private long dscntCpnDlvAmt = 0L;
+	private long dlvSeltAmt = 0L;
+	private int totOrdQty = 0;
+	private int totOrdProdCnt = 0;
+	private SeltInfo seltInfo = null;
+	private DlvInfo dlvInfo = null;
+	private List<OrdProduct> prods = new ArrayList<OrdProduct>();
+	private List<OrdSeller> sellers = new ArrayList<OrdSeller>();
+	private List<CpnInfo> cpns = new ArrayList<CpnInfo>();
+	
+	public OrdInfo(JSONObject json){
+		this.ordCd = (String)json.get("ordCd");
+		this.seltGbCd = (String)json.get("seltGbCd");
+		this.realSeltAmt = json.get("realSeltAmt") == null ? 0L : (long)json.get("realSeltAmt");
+		this.ordAmt = json.get("ordAmt") == null ? 0L : (long)json.get("ordAmt");
+		this.dscntBfOrdAmt = json.get("dscntBfOrdAmt") == null ? 0L : (long)json.get("dscntBfOrdAmt");
+		this.dscntAmt = json.get("dscntAmt") == null ? 0L : (long)json.get("dscntAmt");
+		this.ordStatCd = (String)json.get("ordStatCd");
+		this.pointUseAmt = json.get("pointUseAmt") == null ? 0L : (long)json.get("pointUseAmt");
+		this.cpnUseAmt = json.get("cpnUseAmt") == null ? 0L : (long)json.get("cpnUseAmt");
+		this.dlvSeltAmt = json.get("dlvSeltAmt") == null ? 0L : (long)json.get("dlvSeltAmt");		
+		this.dscntCpnProdAmt = json.get("dscntCpnProdAmt") == null ? 0L : (long)json.get("dscntCpnProdAmt");
+		this.dscntCpnDlvAmt = json.get("dscntCpnDlvAmt") == null ? 0L : (long)json.get("dscntCpnDlvAmt");
+		this.totOrdQty = json.get("totOrdQty") == null ? 0 : (int)(long)json.get("totOrdQty");
+		this.totOrdProdCnt = json.get("totOrdProdCnt") == null ? 0 : (int)(long)json.get("totOrdProdCnt");
+		
+		JSONObject selt = (JSONObject)json.get("seltInfo");
+		if( selt != null){
+			this.seltInfo = new SeltInfo(this.ordCd, selt);
+		}
+
+		JSONObject dlv = (JSONObject)json.get("dlvInfo");
+		if( dlv != null){
+			this.dlvInfo = new DlvInfo(this.ordCd, dlv);
+		}
+
+		JSONArray arr = (JSONArray)json.get("prods");
+		for(int i=0 ; i<arr.size() ; i++){
+			OrdProduct op = new OrdProduct((JSONObject)arr.get(i));
+			this.prods.add(op);
+		}
+		
+		JSONArray arrCpn = (JSONArray)json.get("cpn");
+		int nCnt = 0;
+		if(null != arrCpn){
+			nCnt = arrCpn.size();
+		}
+		
+		if(0 < nCnt){
+			for(int i=0; i<nCnt; i++){
+				CpnInfo cpn = new CpnInfo((JSONObject)arrCpn.get(i));
+				this.cpns.add(cpn);
+			}			
+		}
+
+		//	OrdSeller를 초기화 한다.
+		initSeller();
+	}
+	
+	/*
+	 * 묶음 배송과 관련하여 OrdSeller를 초기화 한다.
+	 */
+	private void initSeller(){
+		for(OrdProduct op : this.prods){
+			addSeller(op);
+		}
+	}
+	
+	private void addSeller(OrdProduct op){
+		OrdSeller os = existSeller(op.getDlv().getDlvGrpCode());
+		if( os == null ){
+			os = new OrdSeller(op.getDlv().getDlvGrpCode());
+			os.getProds().add(op);
+			this.sellers.add(os);
+		}
+		else{
+			os.getProds().add(op);
+		}
+	}
+	
+	private OrdSeller existSeller(String dlvGrpProdSeq){
+		OrdSeller ret = null;
+		for( OrdSeller os : this.sellers){
+			if( dlvGrpProdSeq.equals(os.getDlvGrpCode())){
+				ret = os;
+				break;
+			}
+		}
+		return ret;
+	}
+	
+	public String getOrdCd() {
+		return ordCd;
+	}
+
+	public void setOrdCd(String ordCd) {
+		this.ordCd = ordCd;
+	}
+
+	public String getSeltGbCd() {
+		return seltGbCd;
+	}
+
+	public void setSeltGbCd(String seltGbCd) {
+		this.seltGbCd = seltGbCd;
+	}
+
+	public String getMberSeq() {
+		return mberSeq;
+	}
+
+	public void setMberSeq(String mberSeq) {
+		this.mberSeq = mberSeq;
+	}
+	
+	public long getDscntCpnProdAmt() {
+		return dscntCpnProdAmt;
+	}
+
+	public void setDscntCpnProdAmt(long dscntCpnProdAmt) {
+		this.dscntCpnProdAmt = dscntCpnProdAmt;
+	}
+
+	public long getDscntCpnDlvAmt() {
+		return dscntCpnDlvAmt;
+	}
+
+	public void setDscntCpnDlvAmt(long dscntCpnDlvAmt) {
+		this.dscntCpnDlvAmt = dscntCpnDlvAmt;
+	}
+
+	@Override
+	public String toString() {
+		return "OrdInfo [ordCd=" + ordCd + ", seltGbCd=" + seltGbCd + ", mberSeq=" + mberSeq + ", sessId=" + sessId
+				+ ", conGbCd=" + conGbCd + ", realSeltAmt=" + realSeltAmt + ", ordAmt=" + ordAmt + ", dscntBfOrdAmt="
+				+ dscntBfOrdAmt + ", dscntAmt=" + dscntAmt + ", ordStatCd=" + ordStatCd + ", pointUseAmt=" + pointUseAmt
+				+ ", dlvSeltAmt=" + dlvSeltAmt + ", totOrdQty=" + totOrdQty + ", totOrdProdCnt=" + totOrdProdCnt
+				+ ", seltInfo=" + seltInfo + ", dlvInfo=" + dlvInfo + ", prods=" + prods + "]";
+	}
+
+	public String getSessId() {
+		return sessId;
+	}
+
+	public void setSessId(String sessId) {
+		this.sessId = sessId;
+	}
+
+	public String getConGbCd() {
+		return conGbCd;
+	}
+
+	public void setConGbCd(String conGbCd) {
+		this.conGbCd = conGbCd;
+	}
+
+	public long getRealSeltAmt() {
+		return realSeltAmt;
+	}
+
+	public void setRealSeltAmt(long realSeltAmt) {
+		this.realSeltAmt = realSeltAmt;
+	}
+
+	public long getOrdAmt() {
+		return ordAmt;
+	}
+
+	public void setOrdAmt(long ordAmt) {
+		this.ordAmt = ordAmt;
+	}
+
+	public long getDscntBfOrdAmt() {
+		return dscntBfOrdAmt;
+	}
+
+	public void setDscntBfOrdAmt(long dscntBfOrdAmt) {
+		this.dscntBfOrdAmt = dscntBfOrdAmt;
+	}
+
+	public long getDscntAmt() {
+		return dscntAmt;
+	}
+
+	public void setDscntAmt(long dscntAmt) {
+		this.dscntAmt = dscntAmt;
+	}
+
+	public String getOrdStatCd() {
+		return ordStatCd;
+	}
+
+	public void setOrdStatCd(String ordStatCd) {
+		this.ordStatCd = ordStatCd;
+	}
+
+	public long getPointUseAmt() {
+		return pointUseAmt;
+	}
+
+	public void setPointUseAmt(long pointUseAmt) {
+		this.pointUseAmt = pointUseAmt;
+	}
+	
+	public long getCpnUseAmt() {
+		return cpnUseAmt;
+	}
+
+	public void setCpnUseAmt(long cpnUseAmt) {
+		this.cpnUseAmt = cpnUseAmt;
+	}
+
+	public long getDlvSeltAmt() {
+		return dlvSeltAmt;
+	}
+
+	public void setDlvSeltAmt(long dlvSeltAmt) {
+		this.dlvSeltAmt = dlvSeltAmt;
+	}
+
+	public int getTotOrdQty() {
+		return totOrdQty;
+	}
+
+	public void setTotOrdQty(int totOrdQty) {
+		this.totOrdQty = totOrdQty;
+	}
+
+	public int getTotOrdProdCnt() {
+		return totOrdProdCnt;
+	}
+
+	public void setTotOrdProdCnt(int totOrdProdCnt) {
+		this.totOrdProdCnt = totOrdProdCnt;
+	}
+
+	public SeltInfo getSeltInfo() {
+		return seltInfo;
+	}
+
+	public void setSeltInfo(SeltInfo seltInfo) {
+		this.seltInfo = seltInfo;
+	}
+
+	public DlvInfo getDlvInfo() {
+		return dlvInfo;
+	}
+
+	public void setDlvInfo(DlvInfo dlvInfo) {
+		this.dlvInfo = dlvInfo;
+	}
+
+	public List<OrdProduct> getProds() {
+		return prods;
+	}
+
+	public void setProds(List<OrdProduct> prods) {
+		this.prods = prods;
+	}
+
+	public List<CpnInfo> getCpns() {
+		return cpns;
+	}
+
+	public void setCpns(List<CpnInfo> cpns) {
+		this.cpns = cpns;
+	}
+
+	public boolean verify(){
+		long prodAmount = getProdAmount();
+		logger.info("prodAmount[" + prodAmount + "] : [" + this.ordAmt + "]");
+		
+		long cpnAmount = getCpnAmount();
+		logger.info("cpnAmount[" + cpnAmount + "] : [" + this.cpnUseAmt + "]");
+		
+		long dlvAmount = getDlvAmount();
+		logger.info("dlvAmount[" + dlvAmount + "] : [" + this.dlvSeltAmt + "]");
+		
+		logger.info("pointUseAmt[" + this.pointUseAmt + "]");
+		logger.info("realSeltAmt[" + this.realSeltAmt + "]");
+		
+		long result = this.realSeltAmt - (((prodAmount + dlvAmount) - cpnAmount) - this.pointUseAmt);
+		
+		logger.info("result[" + result + "]");
+		return result == 0 ? true : false;
+	}
+	
+	private long getProdAmount(){
+		long amount = 0L;
+		for(OrdProduct op : this.prods){
+			amount += op.getAmount();
+		}
+		
+		return amount;
+	}
+	
+	private long getCpnAmount(){
+		long amount = 0L;
+		for(CpnInfo cpn : this.cpns){
+			amount += cpn.getDscntPrce();
+		}
+		
+		return amount;
+	}
+	
+	private long getDlvAmount(){
+		long amount = 0L;
+		
+		for(OrdSeller os : this.sellers){
+			amount += os.getDlvAmount();
+			logger.info("Seller::getDlvAmount::" + amount);
+		}		
+		
+		return amount;
+	}
+	
+	class OrdSeller{
+		String dlvGrpCode = "";
+		ArrayList<OrdProduct> prods = new ArrayList<OrdProduct>();
+		
+		public OrdSeller(String dlvGrpCode){
+			this.dlvGrpCode = dlvGrpCode;
+		}
+		
+		public void addProduct(OrdProduct op){
+			this.prods.add(op);
+		}
+
+		public String getDlvGrpCode() {
+			return dlvGrpCode;
+		}
+
+		public void setDlvGrpCode(String dlvGrpCode) {
+			this.dlvGrpCode = dlvGrpCode;
+		}
+
+		public ArrayList<OrdProduct> getProds() {
+			return prods;
+		}
+
+		public void setProds(ArrayList<OrdProduct> prods) {
+			this.prods = prods;
+		}
+		
+		public long getDlvAmount(){
+			long amount = 0L;
+			long extLandPrce = 0L;
+			boolean isBand = this.prods.size() > 1 ? true : false;
+			for(int i=0 ; i<this.prods.size() ; i++){
+				OrdProduct op = this.prods.get(i);
+				extLandPrce = op.getDlv().getExtLandPrce();
+				
+				logger.info("##################extLandPrce####################"+extLandPrce);
+
+				if(0 < extLandPrce){
+					amount = extLandPrce;
+				}else{
+					boolean isStandYn = op.getStandable();
+					if(isStandYn == true ){
+						logger.info("step ------------------------ 조건부 무료");
+						amount = 0;
+						break;
+					}
+					
+					if( OrdProduct.DLV_PAY_F_CD_AFTER.equals(op.getDlv().getDlvPayFCd())){
+						logger.info("step ------------------------ 착불");
+						amount = 0;
+						break;
+					}
+					
+					if( OrdProduct.DLV_PAY_GB_CD_SELLER.equals(op.getDlv().getDlvPayGbCd())){
+						logger.info("step ------------------------ 판매자 부담");
+						amount = 0;
+						break;
+					}
+					
+					if( isBand ){
+						if( i==0 ){
+							logger.info("step ------------------------ 묶음 배송 1");
+							amount = op.getDlv().getAmount();
+						}
+						else{
+							if( amount > op.getDlv().getAmount()){
+								logger.info("step ------------------------ 묶음 배송 2");
+								amount = op.getDlv().getAmount();
+							}
+						}
+					}
+					else{
+						logger.info("step ------------------------ 구매자 부담");
+						amount = op.getDlv().getAmount();
+					}
+				}
+				
+			}
+			
+			return amount;
+		}
+	}
+
+	public class SeltInfo{
+		@Override
+		public String toString() {
+			return "SeltInfo [ordCd=" + ordCd + ", trdGbCd=" + trdGbCd + ", trdNo=" + trdNo + ", trdAmt=" + trdAmt
+					+ ", apprDt=" + apprDt + ", apprNo=" + apprNo + ", freeIntYn=" + freeIntYn + ", easyTerm="
+					+ easyTerm + ", rltCd=" + rltCd + ", rltMsg=" + rltMsg + ", seltNm=" + seltNm + ", cardCompNm="
+					+ cardCompNm + ", cardNo=" + cardNo + ", payApplyDay=" + payApplyDay + ", inputData=" + inputData
+					+ ", outputData=" + outputData + ", reserveOrdNo=" + reserveOrdNo + ", ordNo=" + ordNo
+					+ ", ordCerKey=" + ordCerKey + ", billKey=" + billKey + "]";
+		}
+
+		String ordCd = "";
+		String trdGbCd = "";
+		String trdNo = "";
+		long trdAmt = 0L;
+		String apprDt = "";
+		String apprNo = "";
+		String freeIntYn = "";
+		int easyTerm = 0;
+		String rltCd = "";
+		String rltMsg = "";
+		String seltNm = "";
+		String cardCompNm = "";
+		String cardNo = "";
+		String payApplyDay = "";
+		String inputData = "";
+		String outputData = "";
+		String reserveOrdNo = "";
+		String ordNo = "";
+		String ordCerKey = "";
+		String billKey = "";
+		String bankCd = "";
+		String carrier = ""; 	// 통신사
+		String dstAddr = "";	// 사용자 전화번호 
+		
+		public SeltInfo(String ordCd, JSONObject json){
+			this.ordCd = ordCd;
+			this.trdGbCd = StringUtil.nvl((String) json.get("trdGbCd"),"");
+			this.trdNo = StringUtil.nvl((String)json.get("trdNo"),"");
+			this.trdAmt = json.get("trdAmt") == null ? 0L : (long)json.get("trdAmt");
+			this.apprDt = StringUtil.nvl( (String)json.get("apprDt"),"");
+			this.apprNo = StringUtil.nvl( (String)json.get("apprNo"),"");
+			this.freeIntYn = StringUtil.nvl((String)json.get("freeIntYn"),"");
+			this.easyTerm = json.get("easyTerm") == null ? 0 : (int)(long)json.get("easyTerm");
+			this.rltCd = StringUtil.nvl((String)json.get("rltCd"),"");
+			this.rltMsg = StringUtil.nvl((String)json.get("rltMsg"),"");
+			this.seltNm = StringUtil.nvl((String)json.get("seltNm"),"");
+			this.cardCompNm = StringUtil.nvl((String)json.get("cardCompNm"),"");
+			this.cardNo =StringUtil.nvl((String)json.get("cardNo"),"");
+			this.payApplyDay = StringUtil.nvl((String)json.get("payApplyDay"),"");
+			this.inputData = StringUtil.nvl((String)json.get("inputData"),"");
+			this.outputData = StringUtil.nvl((String)json.get("outputData"),"");
+			this.reserveOrdNo = StringUtil.nvl((String)json.get("reserveOrdNo"),"");
+			this.ordNo = StringUtil.nvl((String)json.get("ordNo"),"");
+			this.ordCerKey = StringUtil.nvl((String)json.get("ordCerKey"),"");
+			this.billKey = StringUtil.nvl((String)json.get("billKey"),"");
+			this.bankCd = StringUtil.nvl((String)json.get("bankCd"),"");
+			this.carrier = StringUtil.nvl((String)json.get("carrier"),""); 
+			this.dstAddr = StringUtil.nvl((String)json.get("dstAddr"),""); 
+			
+		}
+		
+		public String getOrdCd() {
+			return ordCd;
+		}
+
+		public void setOrdCd(String ordCd) {
+			this.ordCd = ordCd;
+		}
+
+		public String getTrdGbCd() {
+			return trdGbCd;
+		}
+
+		public void setTrdGbCd(String trdGbCd) {
+			this.trdGbCd = trdGbCd;
+		}
+
+		public String getTrdNo() {
+			return trdNo;
+		}
+
+		public void setTrdNo(String trdNo) {
+			this.trdNo = trdNo;
+		}
+
+		public long getTrdAmt() {
+			return trdAmt;
+		}
+
+		public void setTrdAmt(long trdAmt) {
+			this.trdAmt = trdAmt;
+		}
+
+		public String getApprDt() {
+			return apprDt;
+		}
+
+		public void setApprDt(String apprDt) {
+			this.apprDt = apprDt;
+		}
+
+		public String getApprNo() {
+			return apprNo;
+		}
+
+		public void setApprNo(String apprNo) {
+			this.apprNo = apprNo;
+		}
+
+		public String getFreeIntYn() {
+			return freeIntYn;
+		}
+
+		public void setFreeIntYn(String freeIntYn) {
+			this.freeIntYn = freeIntYn;
+		}
+
+		public int getEasyTerm() {
+			return easyTerm;
+		}
+
+		public void setEasyTerm(int easyTerm) {
+			this.easyTerm = easyTerm;
+		}
+
+		public long getPointUseAmt() {
+			return pointUseAmt;
+		}
+
+
+		public long getCpnUseAmt() {
+			return cpnUseAmt;
+		}
+
+
+		public String getRltCd() {
+			return rltCd;
+		}
+
+		public void setRltCd(String rltCd) {
+			this.rltCd = rltCd;
+		}
+
+		public String getRltMsg() {
+			return rltMsg;
+		}
+
+		public void setRltMsg(String rltMsg) {
+			this.rltMsg = rltMsg;
+		}
+
+		public String getSeltNm() {
+			return seltNm;
+		}
+
+		public void setSeltNm(String seltNm) {
+			this.seltNm = seltNm;
+		}
+
+		public String getCardCompNm() {
+			return cardCompNm;
+		}
+
+		public void setCardCompNm(String cardCompNm) {
+			this.cardCompNm = cardCompNm;
+		}
+
+		public String getCardNo() {
+			return cardNo;
+		}
+
+		public void setCardNo(String cardNo) {
+			this.cardNo = cardNo;
+		}
+
+		public String getPayApplyDay() {
+			return payApplyDay;
+		}
+
+		public void setPayApplyDay(String payApplyDay) {
+			this.payApplyDay = payApplyDay;
+		}
+
+		public String getInputData() {
+			return inputData;
+		}
+
+		public void setInputData(String inputData) {
+			this.inputData = inputData;
+		}
+
+		public String getOutputData() {
+			return outputData;
+		}
+
+		public void setOutputData(String outputData) {
+			this.outputData = outputData;
+		}
+
+		public String getReserveOrdNo() {
+			return reserveOrdNo;
+		}
+
+		public void setReserveOrdNo(String reserveOrdNo) {
+			this.reserveOrdNo = reserveOrdNo;
+		}
+
+		public String getOrdNo() {
+			return ordNo;
+		}
+
+		public void setOrdNo(String ordNo) {
+			this.ordNo = ordNo;
+		}
+
+		public String getOrdCerKey() {
+			return ordCerKey;
+		}
+
+		public void setOrdCerKey(String ordCerKey) {
+			this.ordCerKey = ordCerKey;
+		}
+
+		public String getBillKey() {
+			return billKey;
+		}
+
+		public void setBillKey(String billKey) {
+			this.billKey = billKey;
+		}
+		
+		public String getBankCd() {
+			return bankCd;
+		}
+
+		public void setBankCd(String bankCd) {
+			this.bankCd =  bankCd;
+		}
+		
+		public String getCarrier() {
+			return carrier;
+		}
+
+		public void setCarrier(String bankCd) {
+			this.carrier =  bankCd;
+		}
+		
+		public String getDstAddr() {
+			return dstAddr;
+		}
+
+		public void setDstAddr(String bankCd) {
+			this.dstAddr =  bankCd;
+		}
+	}
+	
+	public class DlvInfo{
+		String ordCd = "";
+		String rcvNm = "";
+		String rcvTel = "";
+		String rcvHp = "";
+		String addrGb = "";
+		String zipCd = "";
+		String jusoJiben = "";
+		String jusoDoro = "";
+		String jusoDtl = "";
+		String dlvMsg = "";
+		String secuNoUseYn = "";
+		String ansimNo = "";
+
+		public DlvInfo(String ordCd, JSONObject json){
+			this.ordCd = ordCd;
+			this.rcvNm = (String)json.get("rcvNm");
+			this.rcvTel = (String)json.get("rcvTel");
+			this.rcvHp = (String)json.get("rcvHp");
+			this.addrGb = (String)json.get("addrGb");
+			this.zipCd = (String)json.get("zipCd");
+			this.jusoJiben = (String)json.get("jusoJiben");
+			this.jusoDoro = (String)json.get("jusoDoro");
+			this.jusoDtl = (String)json.get("jusoDtl");
+			this.dlvMsg = (String)json.get("dlvMsg");
+			this.secuNoUseYn = (String)json.get("secuNoUseYn");
+			this.ansimNo = (String)json.get("ansimNo");
+		}
+		
+		public String getOrdCd() {
+			return ordCd;
+		}
+
+		public void setOrdCd(String ordCd) {
+			this.ordCd = ordCd;
+		}
+
+		public String getRcvNm() {
+			return rcvNm;
+		}
+
+		public void setRcvNm(String rcvNm) {
+			this.rcvNm = rcvNm;
+		}
+
+		public String getRcvTel() {
+			return rcvTel;
+		}
+
+		public void setRcvTel(String rcvTel) {
+			this.rcvTel = rcvTel;
+		}
+
+		public String getRcvHp() {
+			return rcvHp;
+		}
+
+		public void setRcvHp(String rcvHp) {
+			this.rcvHp = rcvHp;
+		}
+
+		public String getAddrGb() {
+			return addrGb;
+		}
+
+		public void setAddrGb(String addrGb) {
+			this.addrGb = addrGb;
+		}
+
+		public String getZipCd() {
+			return zipCd;
+		}
+
+		public void setZipCd(String zipCd) {
+			this.zipCd = zipCd;
+		}
+
+		public String getJusoJiben() {
+			return jusoJiben;
+		}
+
+		public void setJusoJiben(String jusoJiben) {
+			this.jusoJiben = jusoJiben;
+		}
+
+		public String getJusoDoro() {
+			return jusoDoro;
+		}
+
+		public void setJusoDoro(String jusoDoro) {
+			this.jusoDoro = jusoDoro;
+		}
+
+		public String getJusoDtl() {
+			return jusoDtl;
+		}
+
+		public void setJusoDtl(String jusoDtl) {
+			this.jusoDtl = jusoDtl;
+		}
+
+		public String getDlvMsg() {
+			return dlvMsg;
+		}
+
+		public void setDlvMsg(String dlvMsg) {
+			this.dlvMsg = dlvMsg;
+		}
+
+		public String getSecuNoUseYn() {
+			return secuNoUseYn;
+		}
+
+		public void setSecuNoUseYn(String secuNoUseYn) {
+			this.secuNoUseYn = secuNoUseYn;
+		}
+		
+		public String getAnsimNo() {
+			return ansimNo;
+		}
+
+		public void setAnsimNo(String ansimNo) {
+			this.ansimNo = ansimNo;
+		}
+		
+	}
+	
+	public class CpnInfo{
+		
+		String cpnNo = "";
+		long dscntPrce = 0;
+		long prodSeq = 0;
+		String prodCode = "";
+		
+		public CpnInfo(JSONObject json){
+			this.cpnNo = StringUtil.nvl((String)json.get("cpnNo"));
+			this.dscntPrce = json.get("dscntPrce") == null ? 0L : (long)json.get("dscntPrce");
+			this.prodSeq = json.get("prodSeq") == null ? 0L : (long)json.get("prodSeq");
+			this.prodCode = StringUtil.nvl((String)json.get("prodCode"));
+		}
+
+		public String getCpnNo() {
+			return cpnNo;
+		}
+
+		public void setCpnNo(String cpnNo) {
+			this.cpnNo = cpnNo;
+		}
+
+		public long getDscntPrce() {
+			return dscntPrce;
+		}
+
+		public void setDscntPrce(long dscntPrce) {
+			this.dscntPrce = dscntPrce;
+		}
+
+		public long getProdSeq() {
+			return prodSeq;
+		}
+
+		public void setProdSeq(long prodSeq) {
+			this.prodSeq = prodSeq;
+		}
+
+		public String getProdCode() {
+			return prodCode;
+		}
+
+		public void setProdCode(String prodCode) {
+			this.prodCode = prodCode;
+		}	
+		
+	}
+	
+}

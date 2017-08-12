@@ -1,0 +1,186 @@
+/**<pre>
+ * 1. Project Name : SSOCIO
+ * 2. Package Name : com.ssocio.sharing.service.web
+ * 3. File Name	   : WebBuyRentalServiceImpl.java
+ * 4. Date		   : 오후 2:20 2015-08-19
+ * 5. Author	   : H.M.Yang
+ * 6. Note		   :
+ * </pre>
+ */
+package com.ssocio.sharing.service.web;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+import javax.servlet.http.HttpSession;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.ui.ModelMap;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.multipart.MultipartHttpServletRequest;
+import org.springframework.web.servlet.ModelAndView;
+
+import com.ssocio.sharing.cmmn.admin.util.CommonUtil;
+import com.ssocio.sharing.cmmn.admin.util.FileUtil;
+import com.ssocio.sharing.cmmn.util.CmmnCnst;
+import com.ssocio.sharing.cmmn.util.LoggerUtil;
+import com.ssocio.sharing.cmmn.util.StringUtil;
+import com.ssocio.sharing.cmmn.web.util.WebMobilePaging;
+import com.ssocio.sharing.dao.web.WebBuyRentalDao;
+import com.ssocio.sharing.dao.web.WebBuySharingDao;
+import com.ssocio.sharing.vo.web.WebSession;
+
+/**
+ * <pre>
+ * 구매관리 렌탈상품 서비스 인터페이스
+ * 구매관리 렌탈상품 처리를 위한 서비스 인터페이스
+ * @author H.M.Yang
+ * @version
+ * @since 2015. 8. 17. 오후 2:52:00
+ * @see
+ * @History
+ *  Date          |    author    | 변경내용
+ *	2015. 8. 17.  |    H.M.Yang  | 신규
+ * @Todo
+ * </pre>
+ */
+@Service
+public class WebBuyRentalServiceImpl implements WebBuyRentalService {
+
+	// --------------------------------------------------------------------------
+	// # Log 설정
+	// --------------------------------------------------------------------------
+	private static final Logger logger = LoggerFactory.getLogger(WebBuyRentalServiceImpl.class);
+
+	// --------------------------------------------------------------------------
+	// # DAO 설정
+	// --------------------------------------------------------------------------
+	@Resource(name="webBuyRentalDao")
+	private WebBuyRentalDao webBuyRentalDao;
+
+	@Resource(name="webBuySharingDao")
+	private WebBuySharingDao webBuySharingDao;
+
+	/**
+	 * <pre>
+	 * 렌탈상품 신청 내역 조회
+	 * 렌탈상품 신청 내역 조회 합니다.
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 19. 오후 2:20:00
+	 * @author H.M.Yang
+	 * @see com.ssocio.sharing.service.web
+	 * </pre>
+	 */
+	public ModelMap selectListRentalReqHist(Map<String, Object> paramDto) throws Exception {
+		ModelMap mm = new ModelMap();
+		paramDto.put("S_SEARCH_PERI", StringUtil.nvl((String) paramDto.get("S_SEARCH_PERI"), "3M"));
+		int nPageNo = StringUtil.nvlInt((String)paramDto.get("PAGE_NO"), 1);
+		int nTotCnt = webBuyRentalDao.selectListRentalReqHistTotCnt(paramDto);
+
+		// 페이징 클래스 initialize
+		WebMobilePaging pageNav = new WebMobilePaging(nTotCnt, nPageNo, CmmnCnst.MOBILE_LIST_SIZE);
+
+		paramDto.put("START_ROW", pageNav.getStartContent());
+		paramDto.put("END_ROW", pageNav.getEndContent());
+
+		mm.put("PAGE_NO", nPageNo);
+		mm.put("pageNav", pageNav);
+
+		mm.put("buyRentalList", webBuyRentalDao.selectListRentalReqHist(paramDto));
+		return mm;
+	}
+
+	/**
+	 * <pre>
+	 * 렌탈상품 신청 내역 상세 조회
+	 * 렌탈상품 신청 내역 상세 조회 합니다.
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 19. 오후 2:20:00
+	 * @author H.M.Yang
+	 * @see com.ssocio.sharing.service.web
+	 * </pre>
+	 */
+	public ModelMap selectListRentalReqDtl(Map<String, Object> paramDto) throws Exception {
+		ModelMap mm = new ModelMap();
+
+		// 렌탈 신청 내역 상품 목록 조회
+		mm.put("buyRentalList", webBuyRentalDao.selectListRentalReqProd(paramDto));
+		return mm;
+	}
+
+	/**
+	 * <pre>
+	 * 공통 렌탈 신청취소 상품 조회
+	 * 공통 렌탈 신청취소 상품을 조회 합니다.
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 19. 오후 2:20:00
+	 * @author H.M.Yang
+	 * @see com.ssocio.sharing.service.web
+	 * </pre>
+	 */
+	public ModelMap selectRentalCancel(Map<String, Object> paramDto) throws Exception {
+		ModelMap mm = new ModelMap();
+
+		// 렌탈 신청취소 상품 목록 조회
+		mm.put("buyRentProdList", webBuyRentalDao.selectListRentalReqProd(paramDto));
+		return mm;
+	}
+
+	/**
+	 * <pre>
+	 * 공통 상품별 렌탈 신청취소 처리
+	 * 공통 상품별 렌탈 신청취소를 처리 합니다.
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 19. 오후 2:20:00
+	 * @author H.M.Yang
+	 * @see com.ssocio.sharing.service.web
+	 * </pre>
+	 */
+	@Override
+	public int saveRentalCancel(Map<String, Object> paramDto) throws Exception {
+		int nResult = 0;
+
+		String arrProdCd[] = (String[])paramDto.get("S_PROD_CD").toString().split(",");
+		String arrMberSeq[] = (String[])paramDto.get("S_MBER_SEQ").toString().split(",");
+		String arrReqSeq[] = (String[])paramDto.get("S_REQ_SEQ").toString().split(",");
+
+		for(int i=0; i<arrProdCd.length; i++) {
+			paramDto.put("S_PROD_CD", arrProdCd[i]);
+			paramDto.put("S_MBER_SEQ", arrMberSeq[i]);
+			paramDto.put("S_REQ_SEQ", arrReqSeq[i]);
+			nResult = webBuyRentalDao.updateRentalCancel(paramDto);
+		}
+
+		return nResult;
+	}
+	
+	public int selectRentalCancelCnt(Map<String, Object> paramDto) throws Exception {
+		int nResult = 0;
+
+		String arrProdCd[] = (String[])paramDto.get("S_PROD_CD").toString().split(",");
+		String arrMberSeq[] = (String[])paramDto.get("S_MBER_SEQ").toString().split(",");
+		String arrReqSeq[] = (String[])paramDto.get("S_REQ_SEQ").toString().split(",");
+
+		for(int i=0; i<arrProdCd.length; i++) {
+			paramDto.put("S_PROD_CD", arrProdCd[i]);
+			paramDto.put("S_MBER_SEQ", arrMberSeq[i]);
+			paramDto.put("S_REQ_SEQ", arrReqSeq[i]);
+			nResult += webBuyRentalDao.selectRentalCancelCnt(paramDto);
+		}
+
+		return nResult;
+	}
+}

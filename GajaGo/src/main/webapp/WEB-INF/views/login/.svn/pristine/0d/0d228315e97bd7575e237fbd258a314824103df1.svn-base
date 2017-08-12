@@ -1,0 +1,2148 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/admin/common/cmmnHead.jsp" %>
+<script type="text/javascript" src="http://static.ssocio.net/admin/js/ctry/ctry.js"></script>
+<script type="text/javascript" src="http://static.ssocio.net/admin/js/layer_pop.js"></script>
+<script type="text/javascript">
+
+var baseImg = '<custom:codeTag code="DEFAULT_IMG_URL" groupCode="SITE_DEFAULT"/>';
+
+$(document).ready(function(){
+	//list_tab();
+	//2015-07-13 추가
+	//prod_padding();
+
+	$('.calendar').datepicker({
+      showOn: "button",
+      buttonImage: "http://static.ssocio.net/admin/images/ico_calendar.gif",
+      buttonImageOnly: true
+    });
+
+	// 날짜 선택
+	$('#S_START_DATE').datepicker("option", "maxDate", $("#S_END_DATE").val());
+	$('#S_START_DATE').datepicker("option", "onClose", function ( selectedDate ) {
+    $("#S_END_DATE").datepicker( "option", "minDate", selectedDate );
+	});
+
+	$('#S_END_DATE').datepicker("option", "minDate", $("#S_START_DATE").val());
+	$('#S_END_DATE').datepicker("option", "onClose", function ( selectedDate ) {
+    $("#S_START_DATE").datepicker( "option", "maxDate", selectedDate );
+	});
+
+
+	var bgUrl = '${result.miniShopInfo.MINI_BG_FILE_URL}';
+	var pfUrl = '${result.miniShopInfo.MINI_SHOP_IMG_PATH}';
+
+	if("" != pfUrl){
+		$("#imgView").attr("src",pfUrl)
+	}else{
+		$("#imgView").attr("src",baseImg)
+	}
+	if("" != bgUrl){
+		$("#imgView2").attr("src",bgUrl)
+	}else{
+		$("#imgView2").attr("src",baseImg)
+	}
+	init();
+// 	initProdList();
+
+	$('.btn_overlap').click(function(){
+			$.ajax({
+				url : "/admin/mber/ajaxminishop.do",
+				type : "POST",
+				data : { MINI_SHOP_PATH : $('#miniShopPath').val(), MBER_SEQ : "${result.mberInfo.MBER_SEQ }" } ,
+				success : function ( data ){
+					alert(data.param.retMsg);
+				}
+				,error : function ( data ) {
+					alert("ERR");
+				}
+		});
+	});
+
+
+
+	//cdnreload();
+});
+
+
+function delImgView(path,img){
+	// imgView : 대표 이미지
+	// imgView2 : 배경이미지
+	if("imgView" == img){
+		if("" != $("#MINI_PROFILE_SEQ").val()){
+			$("#profChk").val("Del");
+		}
+	}
+	if("imgView2" == img){
+		if("" != $("#BG_FILE_SEQ").val()){
+			$("#bgChk").val("Del");
+		}
+	}
+
+	if(path != '' ){
+		$("#"+path).val('');
+	}
+
+	if(img != '' ){
+		$("#"+img).attr("src", baseImg);
+
+	}
+
+	return;
+}
+
+function refreshPage(code,mberSeq, cDate, txt){
+	if(code=='30'){
+		$(".btn_record").find("a").attr("href", "javascript:mberStat(32,'" + mberSeq + "')").text("활동재개");
+		if($("#mber_stat_list tbody tr td").text().substr(0, 4) == "가입이력"){
+			$("#mber_stat_list tbody tr:first").remove();
+		}
+		$("#mber_stat_list tbody").prepend("<tr><td class='nolineL'>" + cDate + "</td><td>활동중지</td><td class='tl'>"+txt+"</td></tr>");
+	}
+}
+
+function refreshRejectPage(){
+	location.reload();
+}
+
+function imgDownLoad(filePath, title){
+
+	if(filePath==''){
+		alert("이미지가 존재 하지 않습니다. ");
+		return false;
+	}else{
+
+		 $.ajax({
+           type: 'post',
+           async: true,
+           url: '/admin/common/shareImg.do',
+           dataType : 'json',//fileseq - > 파일 SEQ, type_cd - > 상품 타입, prod_code - > 상품 코드
+           data: {"fileSeq" : filePath,"type_cd" : "4","title" : title},
+           success: function(data) {
+                 var temp = "";
+                 try {
+
+                	 if(data.result.localFilePath == undefined){ // 왜 오류로 안빠지지 ?
+                		alert("파일을 다운 받는 도중에 오류가 생겼습니다. 다시 시도해주세요.");
+                	 }else{
+	               		$('#localFilePath').val(data.result.localFilePath);
+	               		$("#fileDownFrm").attr('action', '/admin/common/fileDown.do');
+	               		$("#fileDownFrm").submit();
+                	 }
+                 } catch (e) {
+                            console.log(data);
+                 }
+            },
+                 error: function() {
+                            console.log('err');
+                 }
+       });
+	}
+}
+
+//--------------------------------- SETTING Function ------------------------------------
+
+/* ======================================================================
+Function :초기화
+========================================================================= */
+function init(){
+	//탭초기화
+	var tabNm = '${searchParam.tabNm}';
+	if(tabNm != null && tabNm != ''){
+		$('#'+tabNm).click();
+	}
+	//미니샵 수수료
+	var rate = '${result.miniShopInfo.RATE}';
+	if(rate != null && rate != ''){
+		$('#rate2').attr('checked', 'checked');
+	}else{
+		$('#rate1').attr('checked', 'checked');
+		$('#rate').attr('disabled', 'disabled');
+	}
+}
+/* ======================================================================
+Function : 상품리스트 초기화
+========================================================================= */
+function initProdList(){
+
+	//카테고리 초기화
+	initCtry('search', '${searchParam.searchCtryCd}');
+
+	//판매구분 초기화
+	var prodTypeCd = new Array();
+	var cnt = 0;
+	<c:forEach var="list" items="${searchParam.prodTypeCd}">
+	prodTypeCd[cnt] = '${list}';
+	cnt++;
+	</c:forEach>
+	if(prodTypeCd != null && prodTypeCd.length > 0){
+		for(var i=0; i < prodTypeCd.length; i++){
+			$('#prodTypeCd'+prodTypeCd[i]).attr('checked', 'checked');
+		}
+	}else{
+		$('input[name="prodTypeCd"]').each(function(){
+			$(this).attr('checked', 'checked');
+		});
+	}
+
+	//상품상태 초기화
+	var prodStatCd = new Array();
+	cnt = 0;
+	<c:forEach var="list" items="${searchParam.prodStatCd}">
+	prodStatCd[cnt] = '${list}';
+	cnt++;
+	</c:forEach>
+	if(prodStatCd != null && prodStatCd.length > 0){
+		for(var i=0; i < prodStatCd.length; i++){
+			$('#prodStatCd'+prodStatCd[i]).attr('checked', 'checked');
+		}
+	}else{
+		$('input[name="prodStatCd"]').each(function(){
+			$(this).attr('checked', 'checked');
+		});
+	}
+
+}
+/* ======================================================================
+Function : 기간버튼클릭시 날짜 셋팅
+========================================================================= */
+function clickDate(dateType, date){
+	var now = new Date();
+	var toDate = now.getFullYear() + '-' + (now.getMonth()+1) + '-' + now.getDate();
+	$('#regToDate').val(toDate);
+
+	if(dateType == 'day'){
+		now.setDate(now.getDate() - date);
+	}else{
+		now.setMonth(now.getMonth() - date);
+	}
+
+	var fromDate = now.getFullYear() + '-' + (now.getMonth()+1) + '-' + now.getDate();
+	$('#regFromDate').val(fromDate);
+}
+
+
+//--------------------------------- SUBMIT Function ------------------------------------
+
+/* ======================================================================
+Function : 관리자메모 저장
+Return   : 없음
+========================================================================= */
+function saveMemo(){
+	if(!$("#admMemo").val().length>0){
+	    alert("메모내용을 입력해주세요.");
+	    $("#admMemo").focus();
+	    return;
+	}
+
+	if(confirm('저장하시겠습니까?')){
+		var options = {
+	        url : "/admin/mber/updateMberInfo.do",
+	        success: function(){
+	          alert("저장 되었습니다.");
+	        }
+		};
+		$("#mberInfoFrm").ajaxSubmit(options);
+	}
+}
+
+/* ======================================================================
+Function : 미니샵저장
+Return   : 없음
+========================================================================= */
+function saveMiniShop(){
+	if(!$("#miniShopNm").val().length>0){
+	    alert("미니샵 이름을 입력해주세요.");
+	    $("#miniShopNm").focus();
+	    return;
+	}
+	if(!$("#miniShopPath").val().length>0){
+	    alert("미니샵 주소를 입력해주세요.");
+	    $("#miniShopPath").focus();
+	    return;
+	}
+
+	$.ajax({
+		url : "/admin/mber/ajaxminishop.do",
+		type : "POST",
+		data : { MINI_SHOP_PATH : $('#miniShopPath').val(), MBER_SEQ : "${result.mberInfo.MBER_SEQ }" } ,
+		success : function ( data ){
+			if(data.param.miniShopNameDupFlag == 'N'){
+				alert("미니샵 주소가 중복되었습니다.");
+				$("#miniShopPath").focus();
+			    return;
+			}else{
+				if(confirm('저장하시겠습니까?')){
+					var options = {
+				        url : "/admin/mber/saveMiniShopInfo.do",
+				        success: function(){
+				          alert("저장 되었습니다.");
+				          //cdnreload();
+				        }
+					};
+					$("#miniShopFrm").ajaxSubmit(options);
+				}
+			}
+
+		}
+		,error : function ( data ) {
+		}
+	});
+
+
+
+}
+/* ======================================================================
+Function : 다른페이지 이동
+Return   : 없음
+========================================================================= */
+function GoPage(pageNo) {
+	$("#pageNo").val(pageNo);
+	$("#prodSearchFrm").attr("action","/admin/mber/selectMberInfo.do").submit();
+}
+
+/* ======================================================================
+Function : 상품리스트 검색
+Return   : 없음
+========================================================================= */
+function searchProdList(){
+
+	var fromDt = $.trim($("#regFromDate").val()).replace(/-/g, '');
+    var toDt = $.trim($("#regToDate").val()).replace(/-/g, '');
+    if(toDt != '' && fromDt>toDt){
+		alert('조회시작일이 조회종료일보다 미래입니다.');
+		return;
+    }
+
+    if($('input[name=prodTypeCd]:checked').length <= 0 ){
+    	alert('판매구분을 1개이상 체크해 주십시요.');
+    	return;
+    }
+
+	$('#searchCtryCd').val(getCtryCd('search'));
+
+	$("#prodSearchFrm").attr('action', '/admin/mber/selectMberInfo.do');
+	$("#prodSearchFrm").submit();
+}
+/* ======================================================================
+Function : 상품상세
+Return   : 없음
+========================================================================= */
+function prodReg(prodCode){
+	$('#prodCode').val(prodCode);
+	$("#prodSearchFrm").attr('action', '/admin/prodMgr/prodReg.do');
+	$("#prodSearchFrm").submit();
+}
+
+/* ======================================================================
+Function : 쿠폰팝업
+Return   : 없음
+========================================================================= */
+function popupCoupon(mberSeq){
+	popup('/admin/mber/couponPopup.do?mberSeq='+mberSeq ,popupFrm,'1100','760');
+	return;
+}
+/* ======================================================================
+Function : 포인트팝업
+Return   : 없음
+========================================================================= */
+function popupPoint(mberSeq){
+	popup('/admin/mber/pointPopup.do?mberSeq='+mberSeq,'popupFrm','1100','760');
+	return;
+}
+/* ======================================================================
+Function : 판매신용점수팝업
+Return   : 없음
+========================================================================= */
+function popupCrePoint(){
+	popup2('/admin/mber/crePointPopup.do','popupFrm','1100','760');
+	return;
+}
+/* ======================================================================
+Function : 회원경고팝업
+Return   : 없음
+========================================================================= */
+function popupMberAlert(){
+	popup2('/admin/mber/mberAlertPopup.do','popupFrm','1100','760');
+	return;
+}
+/* ======================================================================
+Function : 판매경고팝업
+Return   : 없음
+========================================================================= */
+function popupSellAlert(){
+	popup2('/admin/mber/sellAlertPopup.do','popupFrm','1100','760');
+	return;
+}
+/* ======================================================================
+Function : 접속팝업
+Return   : 없음
+========================================================================= */
+function popupAcc(){
+	popup2('/admin/mber/mberAccPopup.do','popupFrm','561','760');
+	return;
+}
+/* ======================================================================
+Function : 구매신용점수팝업
+Return   : 없음
+========================================================================= */
+function popupBuyCred(){
+	popup2('/admin/mber/mberBuyCredPopup.do','popupFrm','1100','760');
+	return;
+}
+/* ======================================================================
+Function : 탈퇴팝업
+Return   : 없음
+========================================================================= */
+function popupDropOut(){
+	popup2('/admin/mber/mberDropOutPopup.do','popupFrm','1100','760');
+	return;
+}
+/* ======================================================================
+Function : 구매팝업
+Return   : 없음
+========================================================================= */
+function popupOrder(){
+	popup2('/admin/mber/mberOrderPopup.do','popupFrm','1100','760');
+	return;
+}
+/* ======================================================================
+Function : 반려팝업
+Return   : 없음
+========================================================================= */
+function popupReject(){
+	popup2('/admin/mber/mberRejectPopup.do','popupFrm','1100','760');
+	return;
+}
+/* ======================================================================
+Function : 판매신용팝업
+Return   : 없음
+========================================================================= */
+function popupSellCred(){
+	popup2('/admin/mber/mberSellCredPopup.do','popupFrm','1100','760');
+	return;
+}
+/* ======================================================================
+Function : 쉐어링신용팝업
+Return   : 없음
+========================================================================= */
+function popupShareCred(){
+	popup2('/admin/mber/mberShareCredPopup.do','popupFrm','1100','760');
+	return;
+}
+/* ======================================================================
+Function : 신고팝업
+Return   : 없음
+========================================================================= */
+function popupSusp(mberSeq){
+	popup2('/admin/mber/mberSuspPopup.do?mberSeq=' +mberSeq,'popupFrm','1100','760');
+	return;
+}
+/* ======================================================================
+Function : 가입상태 변경
+Return   : 없음
+========================================================================= */
+
+function mberStat(n, mberSeq){
+	// 중지
+	if(n == 30){
+		popup2('/admin/mber/mberStopPopup.do?mberSeq='+mberSeq,'popupFrm','1100','300');
+	}else if(n == 22){
+		popup2('/admin/mber/mberRejectPopup.do?mberSeq='+mberSeq,'popupFrm','1100','250');
+	}else{
+		$('#mod_mber_stat_cd').val(n);
+		$('#mod_mberSeq').val(mberSeq);
+		modStatForm.GUBUN.value = "U";
+		modStatForm.action = '/admin/mber/selectMberInfo.do';
+		modStatForm.submit();
+	}
+	return;
+}
+
+/* ======================================================================
+Function : 약관상세레이어 팝업
+Return   : 없음
+========================================================================= */
+function openPopup(AGR_ID){
+	layer_popup('.fee_reg_area');
+	$(".agree_box").html(document.getElementById("agr_"+AGR_ID).innerHTML).focus();
+	return;
+}
+
+/* ======================================================================
+Function : 스마트폰 쉐어링 주문상세 페이지 이동
+========================================================================= */
+function GO_ORDER_DTL_PAGE(COLOR_SEQ,PROD_CODE,SHARING_PRICE,COLOR_NAME,MAKER_CD,SP_SIZE_CD,MODEL_NM,ORD_REG_DATE, ORDER_CODE, MBER_EMAIL ,PROD_NM , TELCOM_NM, PAYPLAN_NM, STIP_PERIOD, ORD_STAT_CD){
+	$("#ORD_REG_DATE").val(ORD_REG_DATE);
+	$("#ORDER_CODE").val(ORDER_CODE);
+	$("#MBER_EMAIL").val(MBER_EMAIL);
+	$("#PROD_NM").val(PROD_NM);
+	$("#TELCOM_NM").val(TELCOM_NM);
+	$("#PAYPLAN_NM").val(PAYPLAN_NM);
+	$("#STIP_PERIOD").val(STIP_PERIOD);
+	$("#ORD_STAT_CD").val(ORD_STAT_CD);
+	$("#MAKER_CD").val(MAKER_CD);
+	$("#SP_SIZE_CD").val(SP_SIZE_CD);
+	$("#MODEL_NM").val(MODEL_NM);
+	$("#SHARING_PRICE").val(SHARING_PRICE);
+	$("#COLOR_NAME").val(COLOR_NAME);
+	$("#PROD_CODE").val(PROD_CODE);
+	$("#COLOR_SEQ").val(COLOR_SEQ);
+
+	$("#spSaringFrm").attr("action","/admin/sharingorder/selectOrderDtl.do").submit();
+}
+/* ======================================================================
+Function : 스마트폰 제품상세
+========================================================================= */
+function spProdDtl(prod_code){
+	$("#PROD_CODE").val(prod_code);
+	$("#spSaringFrm").attr("action","/admin/spprod/updateProd.do").submit();
+
+}
+
+/* ======================================================================
+Function : 상단우측페이지이동
+========================================================================= */
+function goLinkPage(type){
+
+	if(type == 'SH'){
+		linkSharePageForm.action = "/admin/order/selectListSharOrder.do";
+		linkSharePageForm.S_START_DATE.value = linkSharePageForm.S_START_DATE.value.replace(/-/g,'');
+		linkSharePageForm.S_END_DATE.value = linkSharePageForm.S_END_DATE.value.replace(/-/g,'');
+		linkSharePageForm.submit();
+	}else if(type == 'SA'){
+		linkSalePageForm.S_START_DATE.value = linkSalePageForm.S_START_DATE.value.replace(/-/g,'');
+		linkSalePageForm.S_END_DATE.value = linkSalePageForm.S_END_DATE.value.replace(/-/g,'');
+		linkSalePageForm.action = "/admin/order/selectListSaleOrd.do";
+		linkSalePageForm.submit();
+	}else if(type == 'FS'){
+		linkFreeSharePageForm.S_START_DATE.value = linkFreeSharePageForm.S_START_DATE.value.replace(/-/g,'');
+		linkFreeSharePageForm.S_END_DATE.value = linkFreeSharePageForm.S_END_DATE.value.replace(/-/g,'');
+		linkFreeSharePageForm.action = "/admin/order/selectListFreeShare.do";
+		linkFreeSharePageForm.submit();
+	}else if(type == 'RE'){
+		linkRentalPageForm.S_START_DATE.value = linkRentalPageForm.S_START_DATE.value.replace(/-/g,'');
+		linkRentalPageForm.S_END_DATE.value = linkRentalPageForm.S_END_DATE.value.replace(/-/g,'');
+		linkRentalPageForm.action = "/admin/order/selectListOrderRental.do";
+		linkRentalPageForm.submit();
+	}else if(type == 'SP'){
+		linkSellPerfPageForm.action = "/admin/perf/selectListMberPerf.do";
+		linkSellPerfPageForm.submit();
+	}
+}
+
+/* ======================================================================
+Function : 사업자 등록증 레이어 팝업
+Return   : 없음
+========================================================================= */
+function imgUpdatePop(imgValue, file_title, file_size){
+	layer_popup('.attach_file_bx');
+	$('.file_upload_area').find('.file_txt').val(file_title);
+	$('.imgFileSize').html("※ 이미지 사이즈 : " + numFormat(file_size+"") + " byte");
+	$('#imgValue').val(imgValue);
+
+	//$("#inp_file").attr("change", "preView(this, 'compRegImgView', 'inp_file')");
+
+}
+
+function fileTxtChange(obj, targetId, targetPath, txt){
+
+	var result = preView(obj, targetId, targetPath);
+
+	if(result==undefined){
+		$('.file_upload_area').find('.file_txt').val(txt);
+		var f = $('#inp_file')[0].files[0].size;
+		$('.imgFileSize').html("※ 이미지 사이즈 : " + numFormat(f+"") + " byte");
+	}
+
+
+}
+
+
+// 세자리 콤마 찍기
+function numFormat(num) {
+	var pattern = /(-?[0-9]+)([0-9]{3})/;
+	while(pattern.test(num)) {
+		num = num.replace(pattern,"$1,$2");
+	}
+	return num;
+}
+
+
+
+function imgSubmit(){
+
+	var options = {
+		type : "POST",
+        url : "/admin/mber/updateCmpnyImg.do",
+        success: function(data){
+        	//imgValue=COMP_REG_IMG
+
+          var imgValue = $("#imgValue").val();
+
+		  var fileTitle = $('#inp_file')[0].files[0].name;
+		  var fileSize = $('#inp_file')[0].files[0].size
+		  // 버튼 변경
+		  var aHref = "javascript:imgUpdatePop('"+imgValue+"','" + fileTitle + "','" +fileSize+ "');";
+		  $("#"+imgValue).attr("href", aHref);
+
+		  // 다운로드 필드 변경
+		  var onClick = "javascript:imgDownLoad('" + data.result.fileSeq + "', '" + fileTitle + "');return false;";
+		  if($("#"+imgValue).attr("id") == "COMP_REG_IMG"){
+			  $("#btnCmpImg").attr("onClick", onClick);
+		  }else if($("#"+imgValue).attr("id") == "REG_IMG"){
+			  $("#btnRegImg").attr("onClick", onClick);
+		  }else if($("#"+imgValue).attr("id") == "BNK_IMG"){
+			  $("#btnBnkImg").attr("onClick", onClick);
+		  }
+
+		  alert("저장되었습니다.");
+		  $(".attach_file_bx").removeClass("on");
+		  console.log(data);
+        }, error : function(request, status, error) {
+		    	alert("통신 오류가 발생 하였습니다. 잠시 후 다시 시도해 주세요"   + status  + " request [" + request  + "] error[" + error +"]");
+
+		 }
+	};
+	$("#cmpnyImgForm").ajaxSubmit(options);
+}
+
+/* ======================================================================
+Function : 우편번호 검색
+Return   : 없음
+========================================================================= */
+function getAddrInfo(zip_code,jiben_addr,road_addr) {
+	$("#ZIP_CODE").val(zip_code);
+	$("#JUSO_ROAD").val(road_addr);
+	$("#JUSO_JIBEN").val(jiben_addr);
+}
+/* ======================================================================
+Function : 메일발송
+========================================================================= */
+function sendMail(){
+	modStatForm.action = "/admin/email/insertEmail.do";
+	modStatForm.submit();
+}
+/* ======================================================================
+Function : 메시지발송
+========================================================================= */
+function sendMsg(){
+	modStatForm.action = "/admin/sms/insertSms.do";
+	modStatForm.submit();
+}
+//--------------------------------- AJAX Function ------------------------------------
+
+
+</script>
+
+<!-- content -->
+<div id="content">
+	<!-- top_content -->
+	<div class="top_content">
+		<!-- location -->
+		<div class="location">
+			<ul class="clear">
+				<li class="first-child"><a href="#">Home</a></li>
+				<li><a href="#">회원관리</a></li>
+				<li><a href="#" class="current">회원정보 상세</a></li>
+			</ul>
+		</div>
+		<!-- //location -->
+	</div>
+	<!-- //top_content -->
+	<form name="modStatForm" method="post">
+		<input type="hidden" name="MBER_STAT_CD" id="mod_mber_stat_cd"/>
+		<input type="hidden" name="GUBUN" />
+		<input type="hidden" name="mberSeq" id="mod_mberSeq" value="${result.mberInfo.MBER_SEQ }"/>
+		<input type="hidden" name="MBER_EMAIL" value="${result.mberInfo.MBER_EMAIL }"/>
+		<input type="hidden" name="MBER_REG_GB_CD" value="${result.mberInfo.MBER_REG_GB_CD }"/>
+	</form>
+	<div class="inner">
+<!-- 		<ul class="lst_tab type"> -->
+<!-- 			<li class="on"><a href="#">회원정보</a></li> -->
+<%-- 			<c:if test="${result.mberInfo.MBER_REG_GB_CD eq '1'}"> --%>
+<!-- 			<li><a href="#">미니샵</a></li> -->
+<!-- 			<li><a href="#" id="sellProdTab">판매상품</a></li> -->
+<%-- 			</c:if> --%>
+<!-- 			<li><a href="#">주문내역</a></li> -->
+<!-- 			<li><a href="#">교환/반품/주문취소 내역</a></li> -->
+<!-- 		</ul> -->
+		<ul class="lst_tab type">
+			<li class="on"><a href="#">회원정보</a></li>
+			<c:if test="${result.mberInfo.MBER_REG_GB_CD eq '1'}">
+			<li><a href="#">미니샵</a></li>
+			</c:if>
+		</ul>
+
+		<dl class="lst_buy_link">
+			<dt>구매내역</dt>
+			<dd><a href="javascript:goLinkPage('SH');" class="alink">셰어링</a></dd>
+			<dd><a href="javascript:goLinkPage('SA');" class="alink">판매</a></dd>
+			<dd><a href="javascript:goLinkPage('FS')" class="alink">나눔</a></dd>
+			<dd><a href="javascript:goLinkPage('RE')" class="alink">렌탈</a></dd>
+			<c:if test="${result.mberInfo.MBER_REG_GB_CD eq '1'}">
+			<dd><a href="javascript:goLinkPage('SP');" class="alink">판매내역</a></dd>
+			</c:if>
+		</dl>
+		<form name="linkSharePageForm" method="post">
+			<input type="hidden" name="SearchUserSel" value="SEARCH_ORD_ID" />
+			<input type="hidden" name="SEARCH_USER" value="${result.mberInfo.MBER_EMAIL }"/>
+			<input type="hidden" name="chk_box10" value="10" />
+			<input type="hidden" name="chk_box21" value="21" />
+			<input type="hidden" name="chk_box23" value="23" />
+			<input type="hidden" name="chk_box85" value="85" />
+			<input type="hidden" name="chk_box86" value="86" />
+			<input type="hidden" name="chk_box87" value="87" />
+			<input type="hidden" name="chk_box88" value="88" />
+			<input type="hidden" name="chk_box89" value="89" />
+			<input type="hidden" name="chk_box50" value="50" />
+			<input type="hidden" name="PAGE_NO" value="1" />
+			<input type="hidden" name="S_ROW_CNT" value="20" />
+			<input type="hidden" name="CHK_BOX_RESULT" value="10,21,23,50,85,86,87,88,89" />
+			<input type="hidden" name="S_START_DATE" value="${searchParam.regFromDate }" />
+			<input type="hidden" name="S_END_DATE" value="${searchParam.regToDate }" />
+		</form>
+		<form name="linkSalePageForm" method="post">
+			<input type="hidden" name="SearchUserSel" value="SEARCH_ORD_ID" />
+			<!--<input type="hidden" name="S_SEARCH_ID" value="ORD_ID" /> -->
+			<input type="hidden" name="SEARCH_USER" value="${result.mberInfo.MBER_EMAIL }"/>
+			<input type="hidden" name="PAGE_NO" value="1" />
+			<input type="hidden" name="S_ROW_CNT" value="20" />
+			<input type="hidden" name="S_START_DATE" value="${searchParam.regFromDate }" />
+			<input type="hidden" name="S_END_DATE" value="${searchParam.regToDate }" />
+		</form>
+		<form name="linkFreeSharePageForm" method="post">
+			<input type="hidden" name="P_MENU_CD" value="6" />
+			<input type="hidden" name="SEARCH_GB" value="3" />
+			<input type="hidden" name="SEARCH_NM" value="${result.mberInfo.MBER_EMAIL }"/>
+			<input type="hidden" name="S_START_DATE" value="${searchParam.regFromDate }" />
+			<input type="hidden" name="S_END_DATE" value="${searchParam.regToDate }" />
+		</form>
+		<form name="linkRentalPageForm" method="post">
+			<input type="hidden" name="P_MENU_CD" value="6" />
+			<input type="hidden" name="SEARCH_GB" value="3" />
+			<input type="hidden" name="SEARCH_NM" value="${result.mberInfo.MBER_EMAIL }"/>
+			<input type="hidden" name="S_START_DATE" value="${searchParam.regFromDate }" />
+			<input type="hidden" name="S_END_DATE" value="${searchParam.regToDate }" />
+		</form>
+		<form name="linkSellPerfPageForm" method="post">
+			<input type="hidden" name="TAB_INDEX" value="4" />
+			<input type="hidden" name="ACTION" value="list" />
+			<input type="hidden" name="S_SALES_TEXT" value="${result.mberInfo.MBER_EMAIL }"/>
+			<input type="hidden" name="FROM_DATE" value="${searchParam.regFromDate }" />
+			<input type="hidden" name="TO_DATE" value="${searchParam.regToDate }" />
+		</form>
+
+		<!-- mem_detail_area -->
+		<div class="mem_detail_area">
+			<!-- mem_info_area -->
+			<div class="mem_info_area on">
+				<!-- tbl -->
+				<div class="tbl join_info_bx mt10">
+					<p class="tbl_tit"><img src="http://static.ssocio.net/admin/images/ico_admin.gif" alt="" />가입정보</p>
+					<!-- list -->
+					<table class="list">
+						<colgroup>
+							<col style="width:*" />
+							<col style="width:10%" />
+							<col style="width:10%" />
+							<col style="width:10%" />
+							<col style="width:10%" />
+							<col style="width:10%" />
+							<col style="width:10%" />
+						</colgroup>
+						<thead>
+							<tr>
+								<th scope="col">아이디</th>
+								<th scope="col">이름</th>
+								<th scope="col">휴대폰번호</th>
+								<th scope="col">가입채널</th>
+								<th scope="col">가입경로</th>
+								<th scope="col">회원구분</th>
+								<th scope="col">가입구분</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td class="nolineL">
+								<c:if test="${result.mberInfo.SSO_GB_CD eq 'SCO'}"><a href="javascript:void(0);" style="cursor:text;">${result.mberInfo.MBER_EMAIL}</a></c:if>
+								<c:if test="${result.mberInfo.SSO_GB_CD eq 'FBO' }"><a href="javascript:void(0);" class="alink fb" style="cursor:text;">${result.mberInfo.MBER_EMAIL}</a></c:if>
+								<c:if test="${result.mberInfo.SSO_GB_CD eq 'KKO' }"><a href="javascript:void(0);" class="alink kko" style="cursor:text;">${result.mberInfo.MBER_EMAIL}</a></c:if>
+								</td>
+								<td>${result.mberInfo.MBER_NM}</td>
+								<td>${result.mberInfo.MBER_PHONE}</td>
+								<td>${result.mberInfo.JOIN_CHAN_NM}</td>
+								<td>${result.mberInfo.JOIN_PATH_NM}</td>
+								<td>${result.mberInfo.MBER_GB_NM}</td>
+								<td>${result.mberInfo.MBER_REG_GB_NM}</td>
+							</tr>
+						</tbody>
+					</table>
+					<!-- //list -->
+				</div>
+				<!-- //tbl -->
+
+				<c:if test="${result.mberInfo.MBER_GB_CD eq 1 }">
+				<!-- tbl -->
+					<div class="tbl licensee_bx mt10">
+						<p class="tbl_tit"><img src="http://static.ssocio.net/admin/images/ico_admin.gif" alt="" />사업자 정보</p>
+						<!-- list -->
+						<table class="list">
+							<colgroup>
+								<col style="width:*" />
+								<col style="width:25%" />
+								<col style="width:25%" />
+								<col style="width:25%" />
+							</colgroup>
+							<thead>
+								<tr>
+									<th scope="col">사업자번호</th>
+									<th scope="col">대표자명</th>
+									<th scope="col">회사명</th>
+									<th scope="col">전화번호</th>
+								</tr>
+							</thead>
+							<tbody>
+								<tr>
+									<td class="nolineL">${result.mberInfo.COMPNY_NO}</td>
+									<td>${result.mberInfo.CEO_NM}</td>
+									<td>${result.mberInfo.CMPNY_NM}</td>
+									<td>${result.mberInfo.CS_PER_TEL}</td>
+								</tr>
+							</tbody>
+						</table>
+						<!-- //list -->
+					</div>
+					<!-- //tbl -->
+
+
+					<c:if test="${result.mberInfo.MBER_REG_GB_CD eq 1 }">
+					<!-- tbl -->
+					<div class="tbl attached_bx mt10">
+						<p class="tbl_tit"><img src="http://static.ssocio.net/admin/images/ico_admin.gif" alt="" />첨부파일</p>
+						<!-- list -->
+						<table class="list">
+							<colgroup>
+								<col style="width:33%" />
+								<col style="width:*" />
+								<col style="width:33%" />
+							</colgroup>
+							<thead>
+								<tr>
+									<th scope="col">사업자 등록증</th>
+									<th scope="col">통신판매업 신고증</th>
+									<th scope="col">통장사본</th>
+								</tr>
+							</thead>
+							<tbody>
+								<tr>
+									<!-- 2015-07-29 수정영역 시작 -->
+									<td class="nolineL">
+										<div class="btn_file_area">
+											<p class="left"><a href="#" onclick="javascript:imgDownLoad('${result.mberInfo.COMP_REG_IMG}', '${result.mberInfo.COMP_REG_IMG_TITLE}');return false;" class="btn_g" id="btnCmpImg" >다운로드</a></p>
+											<p class="right">
+												<a href="javascript:imgUpdatePop('COMP_REG_IMG','${result.mberInfo.COMP_REG_IMG_TITLE }','${result.mberInfo.COMP_REG_IMG_SIZE }');" id="COMP_REG_IMG" class="btn_w"><span>변경</span></a>
+											</p>
+										</div>
+									</td>
+									<td class="nolineL">
+										<div class="btn_file_area">
+											<p class="left"><a href="#" class="btn_g" id="btnRegImg" onclick="javascript:imgDownLoad('${result.mberInfo.REG_IMG}', '${result.mberInfo.REG_IMG_TITLE}');return false;">다운로드</a></p>
+
+											<p class="right">
+												<a href="javascript:imgUpdatePop('REG_IMG','${result.mberInfo.REG_IMG_TITLE }','${result.mberInfo.REG_IMG_SIZE }');" id="REG_IMG" class="btn_w"><span>변경</span></a>
+											</p>
+										</div>
+									</td>
+									<td class="nolineL">
+										<div class="btn_file_area">
+											<p class="left"><a href="#"  class="btn_g" id="btnBnkImg" onclick="javascript:imgDownLoad('${result.mberInfo.BNK_IMG}', '${result.mberInfo.BNK_IMG_TITLE}');return false;">다운로드</a></p>
+											<p class="right">
+												<a href="javascript:imgUpdatePop('BNK_IMG','${result.mberInfo.BNK_IMG_TITLE }','${result.mberInfo.BNK_IMG_SIZE }');" id="BNK_IMG" class="btn_w"><span>변경</span></a>
+											</p>
+										</div>
+									</td>
+									<!-- 2015-07-29 수정영역 시작 -->
+								</tr>
+								</form>
+							</tbody>
+						</table>
+						<!-- //list -->
+					<div style="display:none">
+						<a id="btnCmmonDown" href="#" >다운로드</a>
+					</div>
+					</div>
+					<!-- //tbl -->
+					</c:if>
+					</c:if>
+				<!-- tbl -->
+				<div class="tbl mt10">
+					<p class="tbl_tit"><img src="http://static.ssocio.net/admin/images/ico_admin.gif" alt="" />광고 수신 동의</p>
+					<!-- list -->
+					<table class="list">
+						<colgroup>
+							<col style="width:*" />
+							<col style="width:15%" />
+							<col style="width:15%" />
+							<col style="width:*" />
+							<col style="width:15%" />
+							<col style="width:15%" />
+						</colgroup>
+						<thead>
+							<tr>
+								<th scope="col" colspan="3" class="bdb">이메일 수신동의</th>
+								<th scope="col" colspan="3" class="bdb">휴대폰 수신동의</th>
+							</tr>
+							<tr>
+								<th scope="col">동의 일시</th>
+								<th scope="col">상태</th>
+								<th scope="col">이메일 발송</th>
+								<th scope="col">동의 일시</th>
+								<th scope="col">상태</th>
+								<th scope="col">메시지 발송</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td class="nolineL">${result.mberInfo.EMAIL_AGREE_DT}</td>
+								<td>${result.mberInfo.EMAIL_AGREE_NM}</td>
+								<td>
+									<c:choose>
+										<c:when test="${result.mberInfo.EMAIL_AGREE_YN eq 'Y'}">
+											<a href="javascript:sendMail();" class="btn_b">이메일 발송</a>
+										</c:when>
+										<c:otherwise>
+										<!--
+											<a href="#" class="btn_g2" style="cursor:default;">이메일 발송</a>-->
+											<span class="btn_g2" style="cursor:default;">이메일 발송</span>
+										</c:otherwise>
+									</c:choose>
+								</td>
+								<td class="nolineL">${result.mberInfo.HP_AGREE_DT}</td>
+								<td>${result.mberInfo.HP_AGREE_NM}</td>
+								<td>
+									<c:choose>
+										<c:when test="${result.mberInfo.HP_AGREE_YN eq 'Y'}">
+											<a href="javascript:sendMsg();" class="btn_b">메시지 발송</a>
+										</c:when>
+										<c:otherwise>
+										<!--
+											<a href="#" class="btn_g2" style="cursor:default;">메시지 발송</a> -->
+											<span class="btn_g2" style="cursor:default;">메시지 발송</span>
+										</c:otherwise>
+									</c:choose>
+								</td> <!-- btn_g2 -->
+							</tr>
+						</tbody>
+					</table>
+					<!-- //list -->
+				</div>
+				<!-- //tbl -->
+
+				<!-- tbl -->
+				<div class="tbl mt10">
+					<p class="tbl_tit"><img src="http://static.ssocio.net/admin/images/ico_admin.gif" alt="" />활동 정보</p>
+					<!-- list -->
+					<table class="list">
+						<colgroup>
+							<!-- 2015-07-29 수정영역 시작 -->
+							<col style="width:18%" />
+							<col style="width:16%" />
+							<col style="width:16%" />
+							<col style="width:16%" />
+							<col style="width:17%" />
+							<col style="width:17%" />
+							<c:if test="${result.mberInfo.MBER_REG_GB_CD == '1'}">
+							<col style="width:17%" />
+							<col style="width:17%" />
+							</c:if>
+							<!-- //2015-07-29 수정영역 끝 -->
+						</colgroup>
+						<thead>
+							<tr>
+								<th colspan="2" scope="col" class="bdb">접속정보</th>
+								<th colspan="2" scope="col" class="bdb">혜택정보</th>
+								<th colspan="2" scope="col" class="bdb">주문정보</th>
+								<c:if test="${result.mberInfo.MBER_REG_GB_CD == '1'}">
+								<th colspan="2" scope="col" class="bdb">판매정보</th>
+								</c:if>
+							</tr>
+							<tr>
+								<th scope="col">최종접속일시</th>
+								<th scope="col">접속횟수</th>
+								<th scope="col">보유포인트</th>
+								<th scope="col">보유쿠폰</th>
+								<th scope="col">주문횟수</th>
+								<th scope="col">주문금액</th>
+								<c:if test="${result.mberInfo.MBER_REG_GB_CD == '1'}">
+								<th scope="col">판매횟수</th>
+								<th scope="col">판매금액</th>
+								</c:if>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td class="nolineL"><a href="javascript:popupAcc('${result.mberActInfo.MBER_SEQ }');" class="alink">${result.mberActInfo.LASTEST_LOGIN_TIME}</a></td>
+								<td>${result.mberActInfo.LOGIN_CNT}</td>
+								<td><a href="javascript:popupPoint('${result.mberActInfo.MBER_SEQ }');" class="alink"><fmt:formatNumber value="${result.mberActInfo.POINT}" type="number" />P
+								</a></td>
+								<td><a href="javascript:popupCoupon('${result.mberActInfo.MBER_SEQ }');" class="alink">${result.mberActInfo.CPN_CNT}장</a></td>
+								<td>
+									<fmt:formatNumber value="${result.mberActInfo.BUY_CNT}" type="number" />
+								</td>
+								<td>
+									<fmt:formatNumber value="${result.mberActInfo.BUY_PRCE}" type="number" />
+								</td>
+								<c:if test="${result.mberInfo.MBER_REG_GB_CD == '1'}">
+								<td>
+									<fmt:formatNumber value="${result.mberActInfo.SELL_CNT}" type="number" />
+								</td>
+								<td>
+									<fmt:formatNumber value="${result.mberActInfo.SELL_PRCE}" type="number" />원
+								</td>
+								</c:if>
+							</tr>
+						</tbody>
+					</table>
+					<!-- //list -->
+				</div>
+				<!-- //tbl -->
+
+				<!-- 2015-07-29 수정영역 시작 -->
+				<!-- tbl -->
+				<div class="tbl mt10">
+				  <p class="tbl_tit"><img src="http://static.ssocio.net/admin/images/ico_admin.gif" alt="" />회원등급</p>
+				  	<c:if test="${result.mberInfo.MBER_REG_GB_CD eq '0'}">
+				  	<!-- 구매회원 -->
+					<table class="list">
+						<colgroup>
+							<col style="width:50%" />
+							<col style="width:50%" />
+						</colgroup>
+						<thead>
+							<tr>
+								<th scope="col" class="bdb">구매</th>
+								<th scope="col" rowspan="2">회원경고</th>
+							</tr>
+							<tr>
+								<th scope="col">회원등급</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td class="nolineL"><a href="javascript:popupBuyCred();" class="alink">${result.mberInfo.BUY_MBER_LEV_NM}</a></td>
+								<td><a href="javascript:popupMberAlert();" class="alink2">${result.mberLvlInfo.MBER_ALERT_CNT}회</a></td>
+							</tr>
+						</tbody>
+					</table>
+					<!-- //구매회원 -->
+					</c:if>
+
+				  	<c:if test="${result.mberInfo.MBER_REG_GB_CD == '1'}">
+					<!-- 판매회원 -->
+                    <table class="list">
+						<colgroup>
+							<col style="width:20%" />
+							<col style="width:20%" />
+							<col style="width:20%" />
+							<col style="width:20%" />
+							<col style="width:20%" />
+						</colgroup>
+						<thead>
+							<tr>
+								<th scope="col" class="bdb">구매자</th>
+								<th scope="col" colspan="2" class="bdb">판매자</th>
+								<th scope="col" rowspan="2">회원경고</th>
+								<th scope="col" rowspan="2">판매경고</th>
+							</tr>
+							<tr>
+								<th scope="col">회원등급</th>
+								<th scope="col">회원등급</th>
+								<th scope="col"><p>신용점수</p></th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td class="nolineL"><a href="javascript:popupBuyCred();" class="alink">${result.mberInfo.BUY_MBER_LEV_NM}</a></td>
+								<td>${result.mberInfo.SELL_MBER_LEV_NM}</td>
+								<td><a href="javascript:popupCrePoint();" class="alink">${result.mberLvlInfo.CRE_POINT}</a><a href="#" class="alink2"></a></td>
+								<td><a href="javascript:popupMberAlert();" class="alink2">${result.mberLvlInfo.MBER_ALERT_CNT}회</a></td>
+								<td><a href="javascript:popupSellAlert();" class="alink2">${result.mberLvlInfo.SELL_ALERT_CNT}회</a></td>
+							</tr>
+						</tbody>
+				  	</table>
+					<!-- //판매회원 -->
+					</c:if>
+				</div>
+				<!-- //tbl -->
+				<!-- //2015-07-29 수정영역 끝 -->
+
+				<!-- tbl -->
+				<div class="tbl join_record_bx mt10">
+					<p class="tbl_tit"><img src="http://static.ssocio.net/admin/images/ico_admin.gif" alt="" />가입이력</p>
+					<div class="join_record_area brd_type bg_w clear">
+						<p><span>${result.mberInfo.MBER_EMAIL}</span> 회원님은 현재 ${result.mberInfo.MBER_STAT_NM } 상태입니다.</p>
+						<div class="btn_record">
+							<c:if test="${result.mberInfo.MBER_STAT_CD eq 30 }">
+							<a href="javascript:mberStat(32, '${result.mberInfo.MBER_SEQ}')" class="btn_w">활동재개</a>
+							</c:if>
+							<c:if test="${result.mberInfo.MBER_STAT_CD eq 10 or result.mberInfo.MBER_STAT_CD eq 32 }">
+							<a href="javascript:mberStat(30, '${result.mberInfo.MBER_SEQ}')" class="btn_w">활동중지</a>
+							</c:if>
+							<c:if test="${result.mberInfo.MBER_STAT_CD eq 20 }">
+							<a href="javascript:mberStat(10, '${result.mberInfo.MBER_SEQ}')" class="btn_w">가입승인</a>
+							<a href="javascript:mberStat(22, '${result.mberInfo.MBER_SEQ}')" class="btn_w">반려</a>
+							</c:if>
+						</div>
+					</div>
+					<!-- list -->
+					<table class="list" id="mber_stat_list">
+						<colgroup>
+							<col style="width:15%" />
+							<col style="width:10%" />
+							<col style="width:*" />
+						</colgroup>
+						<thead>
+							<tr>
+								<th scope="col">일시</th>
+								<th scope="col">가입상태</th>
+								<th scope="col">비고</th>
+							</tr>
+						</thead>
+						<tbody>
+							<c:if test="${empty result.mberHistList  }">
+							<tr><td class="nolineL" colspan="3">가입이력이 조회되지 않습니다.</td></tr>
+							</c:if>
+							<c:forEach var="map" items="${result.mberHistList }">
+							<tr>
+								<td class="nolineL">${map.REGIST_DT }</td>
+								<td>${map.GUBUN}</td>
+								<td class="tl">${map.MBER_HIST_REASON }</td>
+							</tr>
+							</c:forEach>
+<!-- 							<tr> -->
+<!-- 								<td class="nolineL"> -->
+<%-- 									<c:if test="${result.mberInfo.MBER_REG_GB_NM eq '구매'}"> --%>
+<!-- 										구매회원 가입 -->
+<%-- 									</c:if> --%>
+
+<%-- 									<c:if test="${result.mberInfo.MBER_REG_GB_NM eq '판매'}"> --%>
+<!-- 										판매회원 가입 -->
+<%-- 									</c:if> --%>
+<!-- 								</td> -->
+<%-- 								<td>${result.mberInfo.REGIST_DT }</td> --%>
+<%-- 								<td>${result.mberInfo.MBER_STAT_NM }</td> --%>
+<!-- 								<td class="tl">비고</td> -->
+<!-- 							</tr> -->
+						</tbody>
+					</table>
+					<!-- //list -->
+				</div>
+				<!-- //tbl -->
+
+				<!-- tbl -->
+				<div class="tbl attached_bx mt10">
+					<p class="tbl_tit"><img src="http://static.ssocio.net/admin/images/ico_admin.gif" alt="" />약관 동의 이력</p>
+					<!-- list -->
+					<table class="list">
+						<colgroup>
+							<col style="width:15%" />
+							<col style="width:10%" />
+							<col style="width:*" />
+							<col style="width:10%" />
+							<col style="width:15%" />
+							<col style="width:10%" />
+						</colgroup>
+						<thead>
+							<tr>
+								<th scope="col">약관 구분</th>
+								<th scope="col">약관 코드</th>
+								<th scope="col">약관명</th>
+								<th scope="col">약관 버전</th>
+								<th scope="col">약관동의 일시</th>
+								<th scope="col">상태</th>
+							</tr>
+						</thead>
+						<tbody>
+						<c:forEach var="mberAgrList" items="${result.mberAgrList}" varStatus="status">
+							<tr>
+								<td class="nolineL">${mberAgrList.AGR_GB_NM}</td>
+								<td>${mberAgrList.AGR_SEQ}</td>
+								<td class="tl"><a href="javascript:openPopup('${mberAgrList.AGR_SEQ}_${mberAgrList.AGR_VER }');" class="alink">${mberAgrList.AGR_NAME_NM}</a></td>
+								<td>${mberAgrList.AGR_VER}</td>
+								<td>${mberAgrList.REGIST_DT}</td>
+								<td>${mberAgrList.AGREE_YN}</td>
+							</tr>
+						</c:forEach>
+						</tbody>
+					</table>
+					<!-- //list -->
+				</div>
+				<!-- //tbl -->
+
+				<!-- tbl -->
+				<form id="mberInfoFrm" name="mberInfoFrm" method="post">
+				<input type="hidden" name="mberSeq" value="${result.mberInfo.MBER_SEQ}" />
+				<div class="tbl mt10">
+					<p class="tbl_tit"><img src="http://static.ssocio.net/admin/images/ico_admin.gif" alt="" />관리 메모</p>
+					<div class="mem_memo_area">
+						<textarea id="admMemo" name="admMemo" cols="55" rows="10" class="textarea">${result.mberInfo.ADM_MEMO}</textarea>
+					</div>
+					<div class="btn_area tr type">
+						<a href="javascript:saveMemo();" class="btn_r btn_memo">메모 저장</a>
+					</div>
+				</div>
+				</form>
+				<!-- //tbl -->
+			</div>
+			<!-- //mem_info_area -->
+			<c:if test="${result.mberInfo.MBER_REG_GB_CD == '1'}">
+			<!-- mem_minimall_area -->
+			<div class="mem_minimall_area">
+			<form id="miniShopFrm" name="miniShopFrm" method="post" enctype="multipart/form-data">
+			<input type="hidden" name="mberSeq" value="${result.miniShopInfo.MBER_SEQ}" />
+			<input type="hidden" id="MINI_PROFILE_SEQ" name="MINI_PROFILE_SEQ" value="${result.miniShopInfo.MINI_PROFILE_SEQ}">
+			<input type="hidden" id="BG_FILE_SEQ" name="BG_FILE_SEQ" value="${result.miniShopInfo.FILE_SEQ}">
+			<input type="hidden" id="profChk" name="profChk">
+			<input type="hidden" id="bgChk" name="bgChk">
+				<!-- tbl -->
+				<div class="tbl mt10">
+					<table class="list">
+						<colgroup>
+							<col style="width:50%" />
+							<col style="width:50%" />
+						</colgroup>
+						<thead>
+							<tr>
+								<th scope="col" class="first">상품 현황</th>
+								<th scope="col">미니샵 이미지</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>
+									<table class="infoTbl innerTbl v2">
+										<colgroup>
+											<col style="width:16%" />
+											<col style="width:21" />
+											<col style="width:21%" />
+											<col style="width:21%" />
+											<col style="width:21%" />
+										</colgroup>
+										<thead>
+											<tr>
+												<th scope="col">구분</th>
+												<th scope="col">등록</th>
+												<th scope="col">판매중</th>
+												<th scope="col">판매완료</th>
+												<th scope="col">판매중지</th>
+											</tr>
+										</thead>
+										<tbody>
+											<tr class="sum">
+												<th scope="row">합계</th>
+												<td>${result.prodCnt[3].SELL_TOT_CNT }건</td>
+												<td>${result.prodCnt[3].SELL_ING_CNT }건</td>
+												<td>${result.prodCnt[3].SELL_END_CNT }건</td>
+												<td>${result.prodCnt[3].SELL_STOP_CNT }건</td>
+											</tr>
+											<tr>
+												<th scope="row">판매</th>
+												<td>${result.prodCnt[0].SELL_TOT_CNT }건</td>
+												<td>${result.prodCnt[0].SELL_ING_CNT }건</td>
+												<td>${result.prodCnt[0].SELL_END_CNT }건</td>
+												<td>${result.prodCnt[0].SELL_STOP_CNT }건</td>
+											</tr>
+											<tr>
+												<th scope="row">셰어링</th>
+												<td>${result.prodCnt[1].SELL_TOT_CNT }건</td>
+												<td>${result.prodCnt[1].SELL_ING_CNT }건</td>
+												<td>${result.prodCnt[1].SELL_END_CNT }건</td>
+												<td>${result.prodCnt[1].SELL_STOP_CNT }건</td>
+											</tr>
+											<tr>
+												<th scope="row">나눔</th>
+												<td>${result.prodCnt[2].SELL_TOT_CNT }건</td>
+												<td>${result.prodCnt[2].SELL_ING_CNT }건</td>
+												<td>${result.prodCnt[2].SELL_END_CNT }건</td>
+												<td>${result.prodCnt[2].SELL_STOP_CNT }건</td>
+											</tr>
+										</tbody>
+									</table>
+								</td>
+								<td class="bl">
+								<!--
+									<div class="clear">
+										<div class="left mini_img_area">
+											<img src="${result.miniShopInfo.MINI_SHOP_IMG_PATH}" id="miniShopImgView" width="58" height="58"/>
+										</div>
+										<div class="right tl">
+											<div class="file_upload_area">
+												<input type="text" id="miniShopImgPath" name="miniShopImgPath" readonly="readonly" class="file_txt" style="width:260px;" />
+												<span class="txt_file">
+													<input type="file" id="miniShopImg" name="miniShopImg" class="inp_file" onchange="preView(this, 'miniShopImgView', 'miniShopImgPath');"/>
+													<a href="#" class="btn_w ml5 vmid file_add">찾아보기</a>
+												</span>
+											</div>
+											<div class="mt10">
+												- 이미지 사이즈 : 600 X 세로 600<br/>
+												-v11 jpg, png 형식의 이미지 파일만 등록 가능하며, GIF 형식의 이미지는 사용하실 수 없습니다.
+											</div>
+										</div>
+									</div>  -->
+								<div class="clear">
+									<div class="left mini_img_area">
+										<img src=""  id="imgView">
+										<a href="javascript:delImgView('imgViewPath','imgView');" class="btn_img_del"><img src="http://static.ssocio.net/seller/images/btn_img_delete.png" alt="이미지 삭제"  ></a>
+									</div>
+
+									<div class="left tl">
+										<strong>대표이미지</strong>
+										<div class="file_upload_area mt5">
+											<input type="text" id="imgViewPath" name="imgViewPath" class="file_txt" style="width:260px;" >
+											<span class="txt_file">
+												<input type="file" id="mainImg" name="mainImg" class="inp_file" onchange="preView(this, 'imgView','imgViewPath');">
+												<a href="#" class="btn_w ml5 vmid file_add">찾아보기</a>
+											</span>
+										</div>
+										<div class="mt10">
+											- 이미지 사이즈 : 600 X 세로 600<br>
+											- jpg, png 형식의 이미지 파일만 등록 가능합니다.
+										</div>
+									</div>
+								</div>
+								<div class="left mini_img_area">
+										<img src="" alt="" id="imgView2">
+										<a href="javascript:delImgView('imgBackPath','imgView2');" class="btn_img_del"><img src="http://static.ssocio.net/seller/images/btn_img_delete.png" alt="이미지 삭제"  ></a>
+									</div>
+								<div class="mini_bg_bx mt10">
+									<strong>배경이미지</strong>
+									<div class="file_upload_area ml10">
+										<input type="text" id="imgBackPath" name="imgBackPath" class="file_txt" style="width:260px;">
+										<span class="txt_file">
+											<input type="file" id="BackgrdImg" name="BackgrdImg" class="inp_file" onchange="preView(this, 'imgView2','imgBackPath');">
+											<a href="#" class="btn_w ml5 vmid file_add">찾아보기</a>
+										</span>
+									</div>
+								</div>
+								</td>
+							</tr>
+						</tbody>
+					</table>
+					<!-- upd -->
+					<table class="upd">
+						<colgroup>
+							<col style="width:10%" />
+							<col style="width:*" />
+						</colgroup>
+						<tbody>
+							<tr>
+								<th scope="row">미니샵 이름</th>
+								<td>
+									<p class="posr"><input type="text" id="miniShopNm" name="miniShopNm" value="${result.miniShopInfo.MINI_SHOP_NM}" style="width:345px;padding-right:55px" /> 미니샵 이름은 최대 20자 까지 입력 가능합니다.</p>
+								</td>
+							</tr>
+							<tr>
+								<th scope="row">미니샵 주소</th>
+								<td>
+									<p class="posr">http://mall.ssocio.com/ <input type="text" id="miniShopPath" name="miniShopPath" value="${result.miniShopInfo.MINI_SHOP_PATH}" style="width:255px;padding-right:55px" />
+									<a href="#" class="btn_r ml5 btn_overlap">중복확인</a></p>
+								</td>
+							</tr>
+							<tr>
+								<th scope="row">판매자 주소</th>
+								<td>
+									<p><input type="text" id="ZIP_CODE" name="SND_ZIP_CD" class="readonly" value="${result.miniShopInfo.CMPNY_ZIP_CD }" style="width:150px" readonly="readonly"/> <a href="#" class="btn_addr ml5" onclick="popup('/admin/common/jusopopup.do','우편번호찾기','714','660');return false;"><span>우편번호</span></a></p>
+									<p class="mt5"><input type="text" id="JUSO_ROAD" name="SND_JUSO_DORO" class="readonly" value="${result.miniShopInfo.CMPNY_JUSO_DORO }"  style="width:500px" readonly="readonly" /></p>
+									<p class="mt5"><input type="hidden" id="JUSO_JIBEN" name="SND_JUSO_JIBEN" class="readonly" value="${result.miniShopInfo.CMPNY_JUSO_JIBEN }" style="width:500px" readonly="readonly" /></p>
+									<p class="mt5"><input type="text" id="JUSO_DTL" name="SND_JUSO_DTL" value="${result.miniShopInfo.CMPNY_JUSO_DTL }" style="width:500px" /></p>
+
+<!-- 									<p><input type="text" id="ZIP_CODE" name="ZIP_CODE" class="readonly" style="width:150px" readonly="readonly"/> <a href="#" class="btn_addr ml5" onclick="popup('/admin/common/jusopopup.do','우편번호찾기','714','660');return false;"><span>우편번호</span></a></p> -->
+<!-- 									<p class="mt5"><input type="text" id="JUSO_ROAD" name="JUSO_ROAD" class="readonly" style="width:500px" readonly="readonly" /></p> -->
+<!-- 									<p class="mt5"><input type="text" id="" name="" style="width:500px" /></p> -->
+								</td>
+							</tr>
+							<tr>
+								<th scope="col">입금계좌</th>
+								<td class="tl">${result.miniShopInfo.BANK_NM} ${result.miniShopInfo.BANK_ACNT_NO} ${result.miniShopInfo.ACNT_NM}</td>
+							</tr>
+							<tr>
+								<th scope="col">판매자 신고이력</th>
+								<td class="tl">총 ${result.tcnt}건 <a href="javascript:popupSusp(${result.mberInfo.MBER_SEQ });" class="btn_w"><span>조회하기</span></a></td>
+							</tr>
+							<tr>
+								<th scope="col">수수료</th>
+								<td class="tl">
+                                       <input type="radio" id="rate1" name="charge" onclick="$('#rate').attr('disabled', 'disabled');"/><label for="rate1" class="mr20">설정안함</label>
+                                       <input type="radio" id="rate2" name="charge" onclick="$('#rate').removeAttr('disabled');"/><label for="rate2" class="mr5">설정</label>
+                                       <input type="text" id="rate" name="rate" value="${result.miniShopInfo.RATE}" style="width:50px" /> %
+                                   </td>
+							</tr>
+						</tbody>
+					</table>
+					<!-- //upd -->
+				</div>
+				<!-- //tbl -->
+
+				<div class="bot_btn mt10 tc">
+					<a href="javascript:saveMiniShop();" class="btn_r">변경내역 저장</a>
+				</div>
+			</form>
+			</div>
+			<!-- mem_minimall_area -->
+
+			<!-- mem_buy_prod_area -->
+			<div class="mem_buy_prod_area">
+				<div class="tbl mt20">
+				<form id="prodSearchFrm" name="prodSearchFrm" method="post">
+				<input type="hidden" name="mberSeq" value="${result.mberInfo.MBER_SEQ}" />
+				<input type="hidden" id="prodCode" name="prodCode"/>
+				<input type="hidden" id="searchCtryCd" name="searchCtryCd" />
+				<input type="hidden" id="pageNo" name="pageNo"/>
+				<input type="hidden" id="tabNm" name="tabNm" value="sellProdTab"/>
+					<table class="search">
+						<colgroup>
+							<col style="width:8%" />
+							<col style="width:35%" />
+							<col style="width:5%" />
+							<col style="width:*" />
+						</colgroup>
+						<tbody>
+							<tr>
+								<th scope="row">등록일</th>
+								<td colspan="3">
+									<input type="text" id="regFromDate" name="regFromDate" class="calendar" value="${searchParam.regFromDate}" style="width:82px" readonly="readonly"/> -
+									<input type="text" id="regToDate" name="regToDate" class="calendar" value="${searchParam.regToDate}" style="width:82px" readonly="readonly"/>
+									<span class="ml5">
+										<a href="javascript:clickDate('day', 0);" class="btn_w">오늘</a>
+										<a href="javascript:clickDate('day', 3);" class="btn_w">3일</a>
+										<a href="javascript:clickDate('day', 7);" class="btn_w">7일</a>
+										<a href="javascript:clickDate('month', 1);" class="btn_w">1개월</a>
+										<a href="javascript:clickDate('month', 3);" class="btn_w">3개월</a>
+										<a href="javascript:clickDate('month', 6);" class="btn_w">6개월</a>
+									</span>
+								</td>
+							</tr>
+							<tr>
+								<th scope="row">판매구분</th>
+								<td colspan="3">
+									<custom:codeList var="prodTypeCd" groupCode="PROD_TYPE_CD" />
+									<c:forEach var="list" items="${prodTypeCd}" varStatus="status" end="2">
+										<span <c:if test="${ !status.first}">class="ml5"</c:if> >
+											<input type="checkbox" id="prodTypeCd${list.key}" name="prodTypeCd" value="${list.key}"/>
+											<label for="prodTypeCd${list.key}">${list.value}</label>
+										</span>
+									</c:forEach>
+
+									<span class="select ml5" style="width:100px;">
+										<span id="searchTxt" class="sel_txt"></span>
+										<select id="searchTxtGb" name="searchTxtGb">
+											<option value="">전체</option>
+											<option value="1">상품명</option>
+											<option value="3">상품코드</option>
+										</select>
+									</span>
+									<input type="text" id="searchText" name="searchText" value="${searchParam.searchText}" style="width:200px" />
+								</td>
+							</tr>
+							<tr>
+								<th scope="row">카테고리</th>
+								<td>
+									<span class="select" style="width:100px">
+										<span id="searchCtryTxt1" class="sel_txt"></span>
+										<select id="searchCtryCd1" name="searchCtryCd1" onchange="chgCtryCd1Box('search');">
+											<option value="">대분류</option>
+										</select>
+									</span>
+									<span class="select ml5" style="width:100px">
+										<span id="searchCtryTxt2" class="sel_txt"></span>
+										<select id="searchCtryCd2" name="searchCtryCd2" onchange="chgCtryCd2Box('search');">
+											<option value="">중분류</option>
+										</select>
+									</span>
+									<span class="select ml5" style="width:100px">
+										<span id="searchCtryTxt3" class="sel_txt"></span>
+										<select id="searchCtryCd3" name="searchCtryCd3">
+											<option value="">소분류</option>
+										</select>
+									</span>
+								</td>
+								<th scope="row">상태</th>
+								<td>
+									<custom:codeList var="prodStatCd" groupCode="PROD_STAT_CD" />
+									<c:forEach var="list" items="${prodStatCd}" varStatus="status">
+										<span <c:if test="${ !status.first}">class="ml5"</c:if> >
+											<input type="checkbox" id="prodStatCd${list.key}" name="prodStatCd" value="${list.key}"/>
+											<label for="prodStatCd${list.key}">${list.value}</label>
+										</span>
+					                </c:forEach>
+								</td>
+							</tr>
+						</tbody>
+					</table>
+					<p class="btn_area type"><a href="javascript:searchProdList();" class="btn_chk btn_r">조회</a></p>
+				</form>
+				</div>
+
+
+
+				<!-- tbl -->
+				<div class="tbl mt10">
+					<p class="tbl_tit"><img src="http://static.ssocio.net/admin/images/ico_admin.gif" alt="" />상품정보</p>
+					<table class="list">
+						<colgroup>
+							<col style="width:12%" />
+							<col style="width:8%" />
+							<col style="width:8%" />
+							<col style="width:*" />
+							<col style="width:13%" />
+							<col style="width:7%" />
+							<col style="width:7%" />
+							<col style="width:5%" />
+							<col style="width:5%" />
+							<col style="width:7%" />
+						</colgroup>
+						<thead>
+							<tr>
+								<th scope="col" class="first">등록일시</th>
+								<th scope="col">상품코드</th>
+								<th scope="col">판매구분</th>
+								<th scope="col">상품명</th>
+								<th scope="col">카테고리</th>
+								<th scope="col">판매가</th>
+								<th scope="col">배송비</th>
+								<th scope="col">재고수량</th>
+								<th scope="col">상품옵션</th>
+								<th scope="col">상태</th>
+							</tr>
+						</thead>
+						<tbody>
+						<c:if test="${fn:length(list.prodList) > 0}">
+						<c:forEach var="prodList" items="${list.prodList}" varStatus="status">
+							<tr>
+								<td class="first">${prodList.REGIST_DT}</td>
+								<td>${prodList.PROD_CODE}</td>
+								<td>${prodList.PROD_TYPE_NM}</td>
+								<td>
+									<div class="thumbnail_bx">
+										<img src="${prodList.IMG_URL}">
+										<a href="javascript:prodReg('${prodList.PROD_CODE}');" class="alink prod_name mt23">
+										<span class="ellipsis" style="width:235px">${prodList.PROD_NM}</span></a>
+									</div>
+								</td>
+								<td>${prodList.CTRY_NM}</td>
+								<td class="tr">5,000${prodList.SELL_PRCE}</td>
+								<td class="tr">5,000${prodList.DLV_PRCE}</td>
+								<td>${prodList.STOCK_QTY}</td>
+								<td>${prodList.OPT_PROD_YN}</td>
+								<td>${prodList.PROD_STAT_NM}</td>
+							</tr>
+						</c:forEach>
+						</c:if>
+						<c:if test="${fn:length(list.prodList) <= 0}">
+						<tr><td colspan="10">검색결과가 없습니다</td></tr>
+						</c:if>
+						</tbody>
+					</table>
+				</div>
+				<!-- //tbl -->
+
+				<!-- bot_tbl -->
+				<div class="bot_tbl">
+					<%@ include file="/WEB-INF/views/admin/common/PageView.jsp" %>
+				</div>
+				<!-- //bot_tbl -->
+			</div>
+			<!-- //mem_buy_prod_area -->
+			</c:if>
+
+			<!-- mem_order_area -->
+			<div class="mem_order_area">
+				<!-- tbl -->
+				<div class="tbl mt10">
+					<p class="tbl_tit"><img src="http://static.ssocio.net/admin/images/ico_admin.gif" alt="" />스마트폰 셰어링 주문내역 <a href="#" class="btn_m_more">더보기 &gt;</a></p>
+					<!-- list -->
+					<table class="list type">
+						<colgroup>
+							<col style="width:12%" />
+							<col style="width:10%" />
+							<col style="width:*" />
+							<col style="width:6%" />
+							<col style="width:6%" />
+							<col style="width:6%" />
+							<col style="width:10%" />
+							<col style="width:10%" />
+							<col style="width:6%" />
+						</colgroup>
+						<thead>
+							<tr>
+								<th scope="col">주문일시</th>
+								<th scope="col">주문번호</th>
+								<th scope="col">모델명</th>
+								<th scope="col">통신사</th>
+								<th scope="col">가입유형</th>
+								<th scope="col">약정기간</th>
+								<th scope="col">요금제</th>
+								<th scope="col">셰어링 금액</th>
+								<th scope="col">상태</th>
+							</tr>
+						</thead>
+						<tbody>
+						<c:if test="${empty result.orderSpSharing}">
+							<tr>
+								<td class="nolineL" colspan="9">스마트폰 셰어링 주문내역이 없습니다.</td>
+							</tr>
+						</c:if>
+						<c:if test="${not empty result.orderSpSharing}">
+						<c:forEach var="spSharingList" items="${result.orderSpSharing}" varStatus="status">
+							<tr>
+								<td>${spSharingList.ORD_REG_DATE}</td>
+								<td><a href="javascript:GO_ORDER_DTL_PAGE('${spSharingList.COLOR_SEQ}','${spSharingList.PROD_CODE}','${spSharingList.SHARING_PRICE}','${spSharingList.COLOR_NAME}','${spSharingList.MAKER_CD}','${spSharingList.SP_SIZE_CD}','${spSharingList.MODEL_NM}','${spSharingList.ORD_REG_DATE}','${spSharingList.ORD_CD}','${spSharingList.MBER_EMAIL}','${spSharingList.PROD_NM}','${spSharingList.TELCOM_NM}','${spSharingList.PAYPLAN_NM}','${spSharingList.STIP_PERIOD}','${spSharingList.ORD_STAT_CD}')" class="alink">${spSharingList.ORD_CD}</a></td>
+								<td class="tl">
+									<div class="thumbnail_bx">
+										<img src="${spSharingList.IMG_URL}"/>
+										<a href="javascript:spProdDtl('${spSharingList.PROD_CODE}');" class="alink prod_name mt23"><span class="ellipsis" style="width:300px">${spSharingList.MODEL_NM}</span></a>
+									</div>
+								</td>
+								<td>${spSharingList.TELCOM_NM}</td>
+								<td>가입유형설계없음</td>
+								<td>${spSharingList.STIP_PERIOD}년</td>
+								<td>${spSharingList.PAYPLAN_NM}</td>
+								<td>월 ${spSharingList.SHARING_PRICE}원</td>
+								<td><custom:codeTag code="${spSharingList.ORD_STAT_CD}" groupCode="ORD_STAT_CD" /></td>
+							</tr>
+						</c:forEach>
+						</c:if>
+						</tbody>
+					</table>
+					<!-- //list -->
+				</div>
+				<!-- //tbl -->
+
+				<!-- tbl -->
+				<div class="tbl mt10">
+					<p class="tbl_tit"><img src="http://static.ssocio.net/admin/images/ico_admin.gif" alt="" />셰어링 주문내역 <a href="#" class="btn_m_more">더보기 &gt;</a></p>
+					<!-- list -->
+					<table class="list type">
+						<colgroup>
+							<col style="width:12%" />
+							<col style="width:10%" />
+							<col style="width:*" />
+							<col style="width:15%" />
+							<col style="width:5%" />
+							<col style="width:7%" />
+							<col style="width:5%" />
+							<col style="width:7%" />
+							<col style="width:7%" />
+							<col style="width:6%" />
+						</colgroup>
+						<thead>
+							<tr>
+								<th scope="col">주문일시</th>
+								<th scope="col">주문번호</th>
+								<th scope="col">상품명</th>
+								<th scope="col" colspan="2">셰어링기간</th>
+								<th scope="col">예치금</th>
+								<th scope="col">배송비</th>
+								<th scope="col">할인금액</th>
+								<th scope="col">결제금액</th>
+								<th scope="col">상태</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td class="nolineL" colspan="10">셰어링 주문내역이 없습니다.</td>
+							</tr>
+							<!--
+							<tr>
+								<td>2015-06-08 13:10</td>
+								<td><a href="#" class="alink">2345678912</a></td>
+								<td class="tl">
+									<div class="thumbnail_bx">
+										<img src="http://static.ssocio.net/admin/images/sample.jpg" alt="상품 이미지">
+										<a href="#" class="alink prod_name mt23"><span class="ellipsis" style="width:215px">SHV-E250s</span></a>
+									</div>
+								</td>
+								<td>2015-06-08 ~ 2015-06-08</td>
+								<td>3일</td>
+								<td>50,000</td>
+								<td>0</td>
+								<td>10,000</td>
+								<td>40,000원</td>
+								<td>주문취소</td>
+							</tr>
+							-->
+						</tbody>
+					</table>
+					<!-- //list -->
+				</div>
+				<!-- //tbl -->
+
+				<!-- tbl -->
+				<div class="tbl mt10">
+					<p class="tbl_tit"><img src="http://static.ssocio.net/admin/images/ico_admin.gif" alt="" />판매상품 주문내역 <a href="#" class="btn_m_more">더보기 &gt;</a></p>
+					<!-- list -->
+					<table class="list type">
+						<colgroup>
+							<col style="width:12%" />
+							<col style="width:10%" />
+							<col style="width:*" />
+							<col style="width:6%" />
+							<col style="width:6%" />
+							<col style="width:6%" />
+							<col style="width:10%" />
+							<col style="width:10%" />
+							<col style="width:6%" />
+						</colgroup>
+						<thead>
+							<tr>
+								<th scope="col">주문일시</th>
+								<th scope="col">주문번호</th>
+								<th scope="col">상품명</th>
+								<th scope="col">판매가</th>
+								<th scope="col">배송비</th>
+								<th scope="col">할인금액</th>
+								<th scope="col">결제금액</th>
+								<th scope="col">상태</th>
+							</tr>
+						</thead>
+						<tbody>
+						<c:if test="${empty result.orderSell}">
+							<tr>
+								<td class="nolineL" colspan="8">판매 상품 주문내역이 없습니다.</td>
+							</tr>
+						</c:if>
+
+						<c:if test="${not empty result.orderSell}">
+						<c:forEach var="orderSell" items="${result.orderSell }" varStatus="status">
+						<c:choose>
+							<c:when test="${orderSell.NO eq 1 }">
+							<tr>
+								<td rowspan="${orderSell.MAX_PROD_SEQ}" class="first"><fmt:formatDate value="${orderSell.ORD_REG_DATE}" pattern="yyyy-MM-dd HH:mm" /></td>
+								<td rowspan="${orderSell.MAX_PROD_SEQ}">
+									<a href="#" class="alink" onclick="go_ordDtl('${orderSell.ORD_CD}','${orderSell.ORG_ORD_CD}'
+																				, '<fmt:formatDate value="${orderSell.ORD_REG_DATE}" pattern="yyyy-MM-dd HH:mm" />'
+																				, '${orderSell.PROD_TYPE_CD}', '모바일웹', '${orderSell.ORD_STAT_CD}'
+																				, '${orderSell.SELT_GB_CD}');">${orderSell.ORD_CD}</a>
+								</td>
+								<td>
+									<div class="thumbnail_bx">
+										<img src="${orderSell.PROD_IMG_URL}" alt="${orderSell.PROD_NM}">
+										<a href="#" class="prod_name"><span class="ellipsis" style="width:250px;" >${orderSell.PROD_NM}</span></a>
+									</div>
+								</td>
+								<td><fmt:formatNumber value="${orderSell.PROD_ORD_AMT}" pattern="#,###" /></td>
+								<td><fmt:formatNumber value="${orderSell.DLV_PRCE}" pattern="#,###" /></td>
+								<td><fmt:formatNumber value="${orderSell.DSCNT_AMT}" pattern="#,###" /></td>
+								<td><fmt:formatNumber value="${orderSell.ORD_AMT}" pattern="#,###" /></td>
+								<td><custom:codeTag code="${orderSell.ORD_STAT_CD}" groupCode="ORD_STAT_CD" /></td>
+							</tr>
+							</c:when>
+							<c:when test="${orderSell.NO > 1 }">
+							<tr>
+								<td>
+									<div class="thumbnail_bx">
+										<img src="${orderSell.PROD_IMG_URL}" alt="${orderSell.PROD_NM}">
+										<a href="#" class="prod_name"><span class="ellipsis" style="width:250px;" >${orderSell.PROD_NM}</span></a>
+									</div>
+								</td>
+								<td><fmt:formatNumber value="${orderSell.PROD_ORD_AMT}" pattern="#,###" /></td>
+								<td><fmt:formatNumber value="${orderSell.DLV_PRCE}" pattern="#,###" /></td>
+								<td><fmt:formatNumber value="${orderSell.DSCNT_AMT}" pattern="#,###" /></td>
+								<td><fmt:formatNumber value="${orderSell.ORD_AMT}" pattern="#,###" /></td>
+								<td><custom:codeTag code="${orderSell.ORD_STAT_CD}" groupCode="ORD_STAT_CD" /></td>
+							</tr>
+							</c:when>
+						</c:choose>
+						</c:forEach>
+						</c:if>
+						</tbody>
+					</table>
+					<!-- //list -->
+				</div>
+				<!-- //tbl -->
+
+				<!-- tbl -->
+				<div class="tbl mt10">
+					<p class="tbl_tit"><img src="http://static.ssocio.net/admin/images/ico_admin.gif" alt="" />나눔상품 주문내역 <a href="#" class="btn_m_more">더보기 &gt;</a></p>
+					<!-- list -->
+					<table class="list type">
+						<colgroup>
+							<col style="width:12%" />
+							<col style="width:10%" />
+							<col style="width:*" />
+							<col style="width:10%" />
+							<col style="width:10%" />
+							<col style="width:10%" />
+						</colgroup>
+						<thead>
+							<tr>
+								<th scope="col">주문일시</th>
+								<th scope="col">주문번호</th>
+								<th scope="col">상품명</th>
+								<th scope="col">배송비</th>
+								<th scope="col">결제금액</th>
+								<th scope="col">상태</th>
+							</tr>
+						</thead>
+						<tbody>
+						<c:if test="${empty result.orderFree}">
+							<tr>
+								<td class="nolineL" colspan="6">나눔 상품 주문내역이 없습니다.</td>
+							</tr>
+						</c:if>
+
+						<c:if test="${not empty result.orderFree}">
+						<c:forEach var="orderFree" items="${result.orderFree }" varStatus="status">
+						<c:choose>
+							<c:when test="${orderFree.NO eq 1 }">
+							<tr>
+								<td rowspan="${orderFree.MAX_PROD_SEQ}" class="first"><fmt:formatDate value="${orderFree.ORD_REG_DATE}" pattern="yyyy-MM-dd HH:mm" /></td>
+								<td rowspan="${orderFree.MAX_PROD_SEQ}">
+									<a href="#" class="alink" onclick="go_ordDtl('${orderFree.ORD_CD}','${orderFree.ORG_ORD_CD}'
+																				, '<fmt:formatDate value="${orderFree.ORD_REG_DATE}" pattern="yyyy-MM-dd HH:mm" />'
+																				, '${orderFree.PROD_TYPE_CD}', '모바일웹', '${orderFree.ORD_STAT_CD}'
+																				, '${orderFree.SELT_GB_CD}');">${orderFree.ORD_CD}</a>
+								</td>
+								<td>
+									<div class="thumbnail_bx">
+										<img src="${orderFree.PROD_IMG_URL}" alt="${orderFree.PROD_NM}">
+										<a href="#" class="prod_name"><span class="ellipsis" style="width:250px;" >${orderFree.PROD_NM}</span></a>
+									</div>
+								</td>
+								<td><fmt:formatNumber value="${orderFree.DLV_PRCE}" pattern="#,###" /></td>
+								<td><fmt:formatNumber value="${orderFree.ORD_AMT}" pattern="#,###" /></td>
+								<td><custom:codeTag code="${orderFree.ORD_STAT_CD}" groupCode="ORD_STAT_CD" /></td>
+							</tr>
+							</c:when>
+							<c:when test="${orderFree.NO > 1 }">
+							<tr>
+								<td>
+									<div class="thumbnail_bx">
+										<img src="${orderFree.PROD_IMG_URL}" alt="${orderFree.PROD_NM}">
+										<a href="#" class="prod_name"><span class="ellipsis" style="width:250px;" >${orderFree.PROD_NM}</span></a>
+									</div>
+								</td>
+								<td><fmt:formatNumber value="${orderFree.DLV_PRCE}" pattern="#,###" /></td>
+								<td><fmt:formatNumber value="${orderFree.ORD_AMT}" pattern="#,###" /></td>
+								<td><custom:codeTag code="${orderFree.ORD_STAT_CD}" groupCode="ORD_STAT_CD" /></td>
+							</tr>
+							</c:when>
+						</c:choose>
+						</c:forEach>
+						</c:if>
+						</tbody>
+					</table>
+					<!-- //list -->
+				</div>
+				<!-- //tbl -->
+			</div>
+			<!-- //mem_order_area -->
+
+			<!-- mem_change_area -->
+			<div class="mem_change_area">
+				<!-- tbl -->
+				<div class="tbl mt10">
+					<p class="tbl_tit"><img src="http://static.ssocio.net/admin/images/ico_admin.gif" alt="" />주문 취소 내역</p>
+					<!-- list -->
+					<table class="list type">
+						<colgroup>
+							<col style="width:20%" />
+							<col style="width:15%" />
+							<col style="width:15%" />
+							<col style="width:15%" />
+							<col style="width:*%" />
+						</colgroup>
+						<thead>
+							<tr>
+								<th scope="col" rowspan="2">구분</th>
+								<th scope="col" rowspan="2">취소건수</th>
+								<th scope="col" rowspan="2">금액</th>
+								<th scope="col" colspan="2" class="bdb">최근 주문 취소 내역</th>
+							</tr>
+							<tr>
+								<th scope="col">취소일시</th>
+								<th scope="col">상품명</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr class="sum">
+								<th scope="row" class="nolineL">합계</th>
+								<td>${result.orderTotalCnlCnt}건</td>
+								<td class="tr">${result.orderTotalCnlPrce}원</td>
+								<td> - </td>
+								<td class="tl"> - </td>
+							</tr>
+							<tr>
+								<th scope="row" class="nolineL">스마트폰 셰어링상품</th>
+								<td>${result.orderSpSharCnlCnt}건</td>
+								<td class="tr">${result.orderSpSharCnlPrce}원</td>
+								<td><fmt:formatDate value="${result.orderSpSharCnlInfo.CANC_DT}" pattern="yyyy-MM-dd HH:mm" /></td>
+								<td class="tl">
+									<div class="thumbnail_bx">
+										<img src="${result.orderSpSharCnlInfo.PROD_IMG_URL}" >
+										<a href="javascript:prodReg();" class="alink prod_name"><span class="ellipsis  mt23" style="width:300px;">${result.orderSpSharCnlInfo.PROD_NM}</span></a>
+									</div>
+								</td>
+							</tr>
+							<tr>
+								<th scope="row" class="nolineL">셰어링상품</th>
+								<td>${result.orderSharCnlCnt}건</td>
+								<td class="tr">${result.orderSharCnlPrce}원</td>
+								<td><fmt:formatDate value="${result.orderSharCnlInfo.CANC_DT}" pattern="yyyy-MM-dd HH:mm" /></td>
+								<td class="tl">
+									<div class="thumbnail_bx">
+										<img src="${result.orderSharCnlInfo.PROD_IMG_URL}" >
+										<a href="#" class="alink prod_name"><span class="ellipsis  mt23" style="width:300px;">${result.orderSharCnlInfo.PROD_NM}</span></a>
+									</div>
+								</td>
+							</tr>
+							<tr>
+								<th scope="row" class="nolineL">판매상품</th>
+								<td>${result.orderSellCnlCnt}건</td>
+								<td class="tr">${result.orderSellCnlPrce}원</td>
+								<td><fmt:formatDate value="${result.orderSellCnlInfo.CANC_DT}" pattern="yyyy-MM-dd HH:mm" /></td>
+								<td class="tl">
+									<div class="thumbnail_bx">
+										<img src="${result.orderSellCnlInfo.PROD_IMG_URL}" >
+										<a href="#" class="alink prod_name"><span class="ellipsis  mt23" style="width:300px;">${result.orderSellCnlInfo.PROD_NM}</span></a>
+									</div>
+								</td>
+							</tr>
+						</tbody>
+					</table>
+					<!-- //list -->
+				</div>
+				<!-- //tbl -->
+
+				<!-- tbl -->
+				<div class="tbl mt10">
+					<p class="tbl_tit"><img src="http://static.ssocio.net/admin/images/ico_admin.gif" alt="" />교환 신청 내역</p>
+					<!-- list -->
+					<table class="list type">
+						<colgroup>
+							<col style="width:20%" />
+							<col style="width:26%" />
+							<col style="width:27%" />
+							<col style="width:*%" />
+						</colgroup>
+						<thead>
+							<tr>
+								<th scope="col">구분</th>
+								<th scope="col">신청건수</th>
+								<th scope="col">교환중</th>
+								<th scope="col">교환완료</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr class="sum">
+								<th scope="row" class="nolineL">합계</th>
+								<c:forEach var="list" items="${result.chgRtnProdTotCnt}" begin="0"  end="2">
+								<td>${list.CNT}건</td>
+								</c:forEach>
+							</tr>
+							<tr>
+								<th scope="row" class="nolineL">스마트폰 셰어링</th>
+								<c:forEach var="list" items="${result.chgRtnProdCnt}" begin="12"  end="14">
+								<td>${list.CNT}건</td>
+								</c:forEach>
+							</tr>
+							<tr>
+								<th scope="row" class="nolineL">셰어링상품</th>
+								<c:forEach var="list" items="${result.chgRtnProdCnt}" begin="6"  end="8">
+								<td>${list.CNT}건</td>
+								</c:forEach>
+							</tr>
+							<tr>
+								<th scope="row" class="nolineL">판매상품</th>
+								<c:forEach var="list" items="${result.chgRtnProdCnt}" begin="0"  end="2">
+								<td>${list.CNT}건</td>
+								</c:forEach>
+							</tr>
+						</tbody>
+					</table>
+					<!-- //list -->
+				</div>
+				<!-- //tbl -->
+
+				<!-- tbl -->
+				<div class="tbl mt10">
+					<p class="tbl_tit"><img src="http://static.ssocio.net/admin/images/ico_admin.gif" alt="" />반품 신청 내역</p>
+					<!-- list -->
+					<table class="list type">
+						<colgroup>
+							<col style="width:20%" />
+							<col style="width:26%" />
+							<col style="width:27%" />
+							<col style="width:*%" />
+						</colgroup>
+						<thead>
+							<tr>
+								<th scope="col">구분</th>
+								<th scope="col">신청건수</th>
+								<th scope="col">반품중</th>
+								<th scope="col">반품완료</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr class="sum">
+								<th scope="row" class="nolineL">합계</th>
+								<c:forEach var="list" items="${result.chgRtnProdTotCnt}" begin="3"  end="5">
+								<td>${list.CNT}건</td>
+								</c:forEach>
+							</tr>
+							<tr>
+								<th scope="row" class="nolineL">스마트폰 셰어링</th>
+								<c:forEach var="list" items="${result.chgRtnProdCnt}" begin="15"  end="17">
+								<td>${list.CNT}건</td>
+								</c:forEach>
+							</tr>
+							<tr>
+								<th scope="row" class="nolineL">셰어링상품</th>
+								<c:forEach var="list" items="${result.chgRtnProdCnt}" begin="9"  end="11">
+								<td>${list.CNT}건</td>
+								</c:forEach>
+							</tr>
+							<tr>
+								<th scope="row" class="nolineL">판매상품</th>
+								<c:forEach var="list" items="${result.chgRtnProdCnt}" begin="3"  end="5">
+								<td>${list.CNT}건</td>
+								</c:forEach>
+							</tr>
+						</tbody>
+					</table>
+					<!-- //list -->
+				</div>
+				<!-- //tbl -->
+			</div>
+			<!-- //mem_change_area -->
+		</div>
+		<!-- //mem_detail_area -->
+	</div>
+</div>
+<!-- //content -->
+
+<!-- 활동중지사유 레이어팝업 -->
+<div class="lay_pop active_stop_bx" style="width:685px">
+	<!-- pop_header -->
+	<div class="pop_header">
+		<h1>활동중지 사유</h1>
+		<a href="#" class="btn_close"><img src="http://static.ssocio.net/admin/images/btn_layer_close.gif" alt="close" /></a>
+	</div>
+	<!-- //pop_header -->
+	<div class="layer_tbl_area">
+		<div class="stop_sel_bx line_type">
+			<strong>활동중지 사유 선택</strong>
+			<span class="select ml10" style="width:400px">
+				<span class="sel_txt"></span>
+				<select>
+					<option value="">전체</option>
+				</select>
+			</span>
+		</div>
+		<div class="stop_detail_bx clear">
+			<p class="left"><strong>상세 사유 입력 [선택]</strong> - 최대 100자까지 입력 가능</p>
+			<p class="right">[0/100]</p>
+		</div>
+		<div class="detail_info_bx">
+			<textarea cols="30" rows="10" class="textarea"></textarea>
+		</div>
+
+		<div class="bot_btn mt10 tc">
+			<a href="#" class="btn_r btn_detail_submit">등록</a>
+			<a href="#" class="btn_b ml10  btn_detail_cancel">취소</a>
+		</div>
+	</div>
+</div>
+<!-- //활동중지사유 레이어팝업 -->
+
+<!-- 약관보기 레이어 팝업 -->
+<div class="lay_pop fee_reg_area" style="width: 685px; left: 266.5px; top: 324px; z-index: 100;">
+	<!-- pop_header -->
+	<div class="pop_header">
+		<h1>약관보기</h1>
+		<a href="#" class="btn_close"><img src="http://static.ssocio.net/admin/images/btn_layer_close.gif" alt="close"></a>
+	</div>
+	<!-- //pop_header -->
+
+	<!-- pop_con -->
+	<div class="pop_con">
+		<div class="agree_box" style="max-height: 500px;"><!-- AGR_DESC --></div>
+	</div>
+	<!-- //pop_con -->
+</div>
+
+
+<!-- 첨부파일변경 레이어팝업 -->
+<div class="lay_pop attach_file_bx" style="width:490px">
+	<!-- pop_header -->
+	<div class="pop_header">
+		<h2>첨부파일 변경</h2>
+		<a href="#" class="btn_close"><img src="http://static.ssocio.net/admin/images/btn_layer_close.gif" alt="close" /></a>
+	</div>
+	<!-- //pop_header -->
+	<div class="layer_tbl_area">
+		<div class="img_file_bx">
+			<div class="file_upload_area ml5">
+				<form name="cmpnyImgForm" id="cmpnyImgForm" enctype="multipart/form-data" method="POST">
+					<input type="hidden" name="MBER_SEQ" value="${result.mberInfo.MBER_SEQ }">
+					<input type="hidden" name="imgValue" value="" id="imgValue">
+					<input type="hidden" name="fileSize" value="" id="fileSize">
+					<input type="text" id="" name="" class="file_txt" style="width:350px;" />
+					<span class="txt_file">
+					<!--
+						<input type="file" id="inp_file" name="img" class="inp_file" onchange="javascript:fileTxtChange(this.value)"/> -->
+						<input type="file" id="inp_file" name="img" class="inp_file" onchange="javascript:fileTxtChange(this, 'inp_file', '', this.value);"/>
+
+
+						<a href="javascript:void(0);" class="btn_w ml5 vmid file_add">파일찾기</a>
+					</span>
+				</form>
+			</div>
+			<p class="mt10">※ jpg, png 형식의 이미지 파일만 등록 가능합니다. (GIF 이미지 사용 불가)</p>
+			<p class="mt5 imgFileSize">※ 이미지 사이즈 : 000X000</p>
+		</div>
+		<div class="bot_btn mt10 tc">
+			<a href="javascript:imgSubmit();" class="btn_r">확인</a>
+		</div>
+	</div>
+</div>
+
+<c:forEach var="list" items="${result.mberAgrList }">
+<div id="agr_${list.AGR_SEQ}_${list.AGR_VER }" style="display:none;">
+${list.AGR_DESC }
+<%-- agr_${list.AGR_SEQ}_${list.AGR_VER } --%>
+</div>
+</c:forEach>
+
+<form id="imgDwnl" name="imgDwnl" method="post" >
+	<input type="hidden" name="FILE_URL" id="FILE_URL"/>
+</form>
+<!-- //약관보기 레이어 팝업 -->
+
+<form id="popupFrm" name="popupFrm" method="post" >
+	<input type="hidden" name="mberSeq" value="${result.mberInfo.MBER_SEQ}"/>
+	<input type="hidden" name="mberEmail" value="${result.mberInfo.MBER_EMAIL}"/>
+	<input type="hidden" name="crePoint" value="${result.mberLvlInfo.CRE_POINT}"/>
+</form>
+<form id="spSaringFrm" name="popupFrm" method="post" >
+	<input type="hidden" id="ORD_REG_DATE" name="ORD_REG_DATE" />
+	<input type="hidden" id="ORDER_CODE" name="ORDER_CODE" />
+	<input type="hidden" id="MBER_EMAIL" name="MBER_EMAIL" />
+	<input type="hidden" id="PROD_NM" name="PROD_NM" />
+	<input type="hidden" id="TELCOM_NM" name="TELCOM_NM" />
+	<input type="hidden" id="PAYPLAN_NM" name="PAYPLAN_NM" />
+	<input type="hidden" id="STIP_PERIOD" name="STIP_PERIOD" />
+	<input type="hidden" id="ORD_STAT_CD" name="ORD_STAT_CD" />
+	<input type="hidden" id="MAKER_CD" name="MAKER_CD" />
+	<input type="hidden" id="SP_SIZE_CD" name="SP_SIZE_CD" />
+	<input type="hidden" id="MODEL_NM" name="MODEL_NM" />
+	<input type="hidden" id="SHARING_PRICE" name="SHARING_PRICE" />
+	<input type="hidden" id="COLOR_NAME" name="COLOR_NAME" />
+	<input type="hidden" id="COLOR_SEQ" name="COLOR_SEQ" />
+	<input type="hidden" id="PROD_CODE" name="PROD_CODE" />
+</form>
+
+<form id="fileDownFrm" name="fileDownFrm" method="post" >
+	<input type="hidden" id="localFilePath" name="localFilePath" />
+</form>

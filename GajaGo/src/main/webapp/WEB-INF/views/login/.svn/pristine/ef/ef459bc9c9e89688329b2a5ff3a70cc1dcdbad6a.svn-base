@@ -1,0 +1,137 @@
+$(document).ready(function(){
+	$(".check_all input").click(function(){
+		if ($("input[id='ALL_TELCOM']").is(':checked') == true) {
+			$("#apllChk_YN").val("Y");
+			$("input[name='TELCOM']").prop('checked', true);
+		} else {
+			$("#apllChk_YN").val("N");
+			$("input[name='TELCOM']").prop('checked', false);
+		}
+	});
+	
+
+	
+});
+
+var val = "";
+var pageNo = 2;
+var nextPage = true;
+/* ======================================================================
+Function : 스크롤 페이징
+Return   : SHARING LIST
+========================================================================= */
+$(window).scroll(function(){
+	if (nextPage) {
+		if ($(window).scrollTop() >= $(document).height() - $(window).height() ) {
+			$("#PAGE_NO").val(this.pageNo);
+			$.ajax({
+				type: 'post'
+				, async: true
+				, url: '/mobile/shar/selectListSharAdd.do'
+				, data: $("#frm").serialize()
+				, success: function(data) {
+					if (!$.isEmptyObject(data.outParam)) {
+						if ( parseInt(data.pageNav.totalPage) >= parseInt($("#PAGE_NO").val()) ) {
+							for (var i =0; i < data.outParam.length; i++) {
+								val += "<li>";
+								val += "<p><img data-img='"+data.outParam[i].FILE_URL+"'>";
+								val += "<span class='logo'><img src='"+data.outParam[i].TEL_FILE_URL+"' alt='"+data.outParam[i].TEL_FILE_URL+"'></span></p>";
+								val += "<p>"+data.outParam[i].PROD_NM+"</p>";
+								val += "<p><strong>"+numberWithCommas(data.outParam[i].SHARING_PRICE)+"</strong><span>원/월</span></p>"
+								val += "</li>";
+							}
+						} else {
+							nextPage = false;
+						}
+					} else {
+						nextPage = false;
+					}
+					$(".main-list li:last").after(val);
+					pageNo++;
+					val = "";
+					cdnreload();
+					
+				}
+				, error: function(data, status, err) {
+				  alert('서버와의 통신이 실패했습니다.');
+				}
+			});
+		}
+	}
+});
+
+/* ======================================================================
+Function : 통신사 선택
+Return   : 스마트폰 셰어링 상품 리스트 (해당 통신사)
+========================================================================= */
+function selectTelcom(obj, sort){
+	
+	//페이지 번호 초기화
+	$("#PAGE_NO").val(1);
+	
+	var frm = document.frm;
+	var telcomCode = new Array();
+	$(":checked[name='TELCOM']:checked").each(function (index) {  
+		telcomCode.push($(this).val());  
+	});
+	var telcomNm = $(":checked[name='TELCOM']:checked").nextAll("label").text();
+	var sortNm = $(obj).find("span").text();
+	
+	if ( String(telcomCode).valueOf() == 'undefined' ) {
+		telcomCode = $("#TELCOM_CODE").val();
+		telcomNm= $("#TELCOM_NM").val();
+	}
+	
+	if ( String(sort).valueOf() == 'undefined' ) {
+		sort = $("#SORT").val();
+		sortNm= $("#SORT_NM").val();
+	}
+	
+	frm.TELCOM_CODE.value = telcomCode;
+	frm.TELCOM_NM.value = telcomNm;
+	frm.SORT.value = sort;
+	frm.SORT_NM.value = sortNm;
+	
+	$("#frm").attr("action", "/mobile/shar/selectListShar.do").submit();
+	
+//	return false; 
+}
+
+/* ======================================================================
+Function : 상세페이지 이동
+Return   : 
+========================================================================= */
+function goDtl(code, telCode){
+	var form = document.frm;
+	form.PROD_CODE.value = code;
+	form.TELCOM_CODE.value = telCode;
+	form.action = "/mobile/shar/selectSharDtl.do?PROD_CODE="+code;
+	form.submit();
+}
+
+/* ======================================================================
+Function : 통신사 체크 박스
+Return   : 
+========================================================================= */
+function telChk(){
+	
+	var chkY = 0;
+	var chkN = 0;
+	$("input[name='TELCOM']").length;
+	for (var i=1; i<=$("input[name='TELCOM']").length; i++) {
+		if ($("input[id='TELCOM_"+i+"']").is(':checked') == true) {
+			chkY++;
+		} else if ($("input[id='TELCOM_"+i+"']").is(':checked') == false) {
+			chkN++;
+		}
+	}
+	
+	if (chkY == $("input[name='TELCOM']").length) {
+		$("input[id='ALL_TELCOM']").prop('checked', true);
+		$("#apllChk_YN").val("Y");
+	} else if (chkY != $("input[name='TELCOM']").length) {
+		$("input[id='ALL_TELCOM']").prop('checked', false);
+		$("#apllChk_YN").val("N");
+	}
+	
+}

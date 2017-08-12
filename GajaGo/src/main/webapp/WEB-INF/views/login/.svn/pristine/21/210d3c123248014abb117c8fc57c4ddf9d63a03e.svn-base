@@ -1,0 +1,468 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<meta http-equiv="Cache-Control" content="no-cache"/>
+<meta http-equiv="Expires" content="0"/>
+<meta http-equiv="Pragma" content="no-cache"/>
+
+<%@ include file="/WEB-INF/views/admin/common/cmmnHead.jsp"%>
+<script type="text/javascript">
+$(function(){
+	//문의유형에 따른 display 설정
+	$("#QNA_TYPE_CD").change(function(){
+		setQnaType()
+	});
+	function setQnaType(){
+		if($("#QNA_TYPE_CD").val() == '10'
+				|| $("#QNA_TYPE_CD").val() == '20'
+				|| $("#QNA_TYPE_CD").val() == '30'
+				|| $("#QNA_TYPE_CD").val() == '40'
+				|| $("#QNA_TYPE_CD").val() == '50'){					//주문결재
+			$("#PROD_CODE").val('');
+			$("#PROD_NM").val('');
+			$("#prodTr").hide();
+			$("#orderTr").show();
+			$("#prodTrNm").show();
+		}else if($("#QNA_TYPE_CD").val() == '60'){			//상품문의
+			$("#ORD_CD").val('');
+			$("#orderTr").hide();
+			$("#prodTr").show();
+			$("#prodTrNm").hide();
+		}else{										//나머지(주문번호, 상품코드, 상품명 초기화)
+			$("#ORD_CD").val('');
+			$("#PROD_CODE").val('');
+			$("#PROD_NM").val('');
+			$("#orderTr").hide();
+			$("#prodTr").hide();
+			$("#prodTrNm").hide();
+		}
+	}setQnaType();
+});
+//문의 등록
+function onInsert() {
+	if(!validate()) return;
+	if(confirm("등록 하시겠습니까?"))
+  	{
+	  	$("#frm").attr("action","/admin/qaadvice/insertQAAdviceReg.do").submit();
+  	}
+}
+
+function orderSearch(code){
+
+	$("#flag").val($("#inOutFlag").val());
+
+	if(code=='code'){
+		$("#P_SEL_CD").val("ON");
+		$("#S_SEARCH_WORD").val($("#ORD_CD").val());
+	//popup3('/admin/qaadvice/selectOrderListPopup.do?S_SEARCH_WORD='+ordCd + '&flag=Y&P_SEL_CD=ON','popupFrm','1400','680');
+		popup3('/admin/qaadvice/selectOrderListPopup.do','popupFrm','1400','680');
+	}else{//name
+		$("#P_SEL_CD").val("OP");
+		$("#S_SEARCH_WORD").val($("#PROD_NM2").text());
+		//popup3('/admin/qaadvice/selectOrderListPopup.do?S_SEARCH_WORD='+ prodNm + '&flag=Y&P_SEL_CD=OP','popupFrm','1400','680');
+		popup3('/admin/qaadvice/selectOrderListPopup.do','popupFrm','1400','680');
+	}
+}
+
+/* ======================================================================
+Function : 폼을 이용한 팝업
+Return   :
+========================================================================= */
+function popup3(url,pop_tit,width,height){
+    var res_w = ( screen.availWidth - width ) / 2;
+    var res_h = ( screen.availHeight - height ) / 2;
+    if ( window.screen.Left > window.screen.width ) {
+        res_w = window.screen.width + res_w;
+    }
+
+    pop_tit_ta = "poppop3";
+	window.open("",pop_tit_ta,'width='+width+', height='+height + ', top=' + res_h + ', left=' + res_w + ', toolbar=no, menubar=no, scrollbars=yes, resizable=no');
+
+	$("#"+pop_tit).attr("action", url).attr("target", pop_tit_ta).submit();
+}
+
+//문의 등록/수정
+function onUpdate(IU) {
+	if(!validate()) return;
+	var msg = "등록 하시겠습니까?";
+	var callUrl = "/admin/qaadvice/insertQAAdviceReg.do";
+
+	if(IU == 'U'){
+		msg = "수정 하시겠습니까";
+		callUrl = "/admin/qaadvice/updateQAAdviceReg.do";
+	}
+	if(confirm(msg))
+  	{
+		$.ajax({
+		      type: 'post'
+		      , async: true
+		      , url: callUrl
+		      , dataType:'json'
+		      , data: $("#frm").serialize()
+		      , before: function() {
+		        loadingForm.showDialog();
+		      }
+		      , success: function(data) {
+		    	  if(IU == 'U'){
+		    		  alert("수정 되었습니다.");
+		    	  }else{
+		    		  alert("등록 되었습니다.");
+		    	  }
+
+		    	  goList();
+		      }
+		      , complete: function() {
+		        loadingForm.hideDialog();
+		      }
+		      , error : function(request, status, error) {
+					alert("통신 오류가 발생 하였습니다. 잠시 후 다시 시도해 주세요");
+				}
+		    });
+  	}
+}
+//문의 삭제
+function onDelete() {
+  	if(confirm("삭제 하시겠습니까?"))
+  	{
+		$.ajax({
+		      type: 'post'
+		      , async: true
+		      , url: "/admin/qaadvice/deleteQAAdvice.do"
+		      , dataType:'json'
+		      , data: $("#frm").serialize()
+		      , before: function() {
+		        loadingForm.showDialog();
+		      }
+		      , success: function(data) {
+		    	  //alert("삭제 되었습니다.");
+		    	  goList();
+		      }
+		      , complete: function() {
+		        loadingForm.hideDialog();
+		      }
+		      , error : function(request, status, error) {
+					alert("통신 오류가 발생 하였습니다. 잠시 후 다시 시도해 주세요");
+				}
+		    });
+  	}
+}
+//리스트 이동
+function goList() {
+    $("#frm").attr("action","/admin/qaadvice/selectListQAAdvice.do").submit();
+}
+//입력값 유효성 체크
+function validate(){
+	var QNA_TYPE_CD = $("#QNA_TYPE_CD").val();	//문의유형
+	if(QNA_TYPE_CD == '10' && $("#ORD_CD").val() == ""){	//주문결재
+		alert("주문번호 조회후 주문번호를 선택하세요.");
+		$("#ORD_CD").focus();
+		return false;
+	}
+	if(QNA_TYPE_CD == '60' && $("#PROD_CODE").val() == ""){	//상품문의
+		alert("상품을 선택하세요.");
+		$("#PROD_CODE").focus();
+		return false;
+	}
+	if($("#QNA_TYPE_CD").val() == ""){
+		alert("문의유형을 선택하세요.");
+		$("#QNA_TYPE_CD").focus();
+		return false;
+	}
+	if($("#CUST_NM").val() == ""){
+		alert("이름을 입력하세요.");
+		$("#CUST_NM").focus();
+		return false;
+	}
+	if($("#CUST_TEL").val() == ""){
+		alert("연락처를 입력하세요.");
+		$("#CUST_TEL").focus();
+		return false;
+	}
+	if(!$("#CONTENTS").val()){
+		alert("고객 문의내용을 입력하세요.");
+		$("#CONTENTS").focus();
+		return false;
+	}
+	$("#CONTENTS").val(replaceHtmlTag($("#CONTENTS").val()));
+
+	//처리중or처리완료일 경우
+	if(!$("#ANS_CONTENTS").val() && $("input:radio[name=ANS_GB_CD]:checked").val() != '10'){
+		alert("처리내용을 입력하세요.");
+		$("#ANS_CONTENTS").focus();
+		return false;
+	}else{
+		$("#ANS_CONTENTS").val(replaceHtmlTag($("#ANS_CONTENTS").val()));
+	}
+	return true;
+}
+function selectProd(PROD_CODE, PROD_NM){
+	$("#PROD_CODE").val(PROD_CODE);
+	$("#PROD_NM").val(PROD_NM);
+};
+function selectOrd(ORD_CD,PROD_IMG_URL,PROD_NM,PROD_CODE, PROD_TYPE_CD){
+	$("#ORD_CD").val(ORD_CD);
+	$("#PROD_NM2").text(PROD_NM);
+	$("#PROD_CODE").val(PROD_CODE);
+	$("#PROD_IMG_URL").attr("src",PROD_IMG_URL);
+	$("#PROD_TYPE_CD").val(PROD_TYPE_CD);
+};
+
+function openProdDetail(){
+	if(true){
+
+	}
+}
+
+/* ======================================================================
+Function : 상품상세 페이지 새창 열기
+Return   : 없음
+========================================================================= */
+function popProductDetail(product_code){
+	var frm = document.getElementById("frm");
+	$("#prodCode").val(product_code);
+	var result = Math.floor(Math.random() * 1000) + 1;
+
+	window.open('', result,'_blank');
+ 	frm.action = "/admin/prodMgr/prodReg.do";
+	frm.target = result;
+	frm.method = "post";
+	frm.submit();
+
+	//var url = "/admin/prodMgr/prodReg.do";
+	//$("#prodCode").val(product_code);
+	//popup3(url,'frm','1400','680');
+}
+
+function openOrderPopup(){
+
+
+	//var frm = document.getElementById("frm");
+	var ordCd = $("#ORD_CD").val();
+	var prodTypeCd = $("#PROD_TYPE_CD").val();
+
+
+	if(prodTypeCd == '' || prodTypeCd.length<=0){
+		return false;
+	}
+	//window.open('', 'viewer','_blank');
+
+	var url = "";
+	var result = Math.floor(Math.random() * 1000) + 1;
+
+	if(prodTypeCd == '1'){ // 판매
+		url = "/admin/order/selectSaleOrdDtl.do?result="+result;
+	}else if(prodTypeCd == '2'){ // 셰어링
+		url = "/admin/order/selectSharOrderDtl.do?result="+result;
+	}else if(prodTypeCd == '3'){ // 나눔
+		url = "/admin/order/selectListFreeShare.do?result="+result;
+	}else if(prodTypeCd == '4'){ // 스마트폰셰어링
+		url = "/admin/sharingorder/selectOrderDtl.do?result="+result;
+	}else if(prodTypeCd == '5'){ // 렌탈
+		url = "/admin/order/selectListOrderRental.do?result="+result;
+	}
+
+	$("#ORDER_CODE").val(ordCd);
+
+	var frm = document.getElementById("frm");
+	//$("#prodCode").val(product_code);
+	window.open('', result,'_blank');
+ 	frm.action = url;
+	frm.target = result;
+	frm.method = "post";
+	frm.submit();
+
+	//$(document.location).attr("href","javascript:modifyDlvTime();");
+	//$(document.location).attr("href","");
+	//alert($(document.location).attr("href"));
+	//popup3(url,'frm','1400','680');
+}
+</script>
+<!-- content -->
+<form id="popupFrm" method="post" name="popupFrm">
+	<input type="hidden" id="S_SEARCH_WORD" name="S_SEARCH_WORD">
+	<input type="hidden" id="flag" name="flag">
+	<input type="hidden" id="P_SEL_CD" name="P_SEL_CD">
+</form>
+<!--
+<form id="popupOrder" method="post" name="popupOrder">
+	<input type="hidden" id="ORDER_CODE" name="ORDER_CODE">
+</form>-->
+<form id="frm" method="post" name="frm">
+<input type="hidden" id="inOutFlag" name="inOutFlag" value="${params.inOutFlag }">
+<input type="hidden" id="BOARD_TYPE_CD" name="BOARD_TYPE_CD" value="${params.BOARD_TYPE_CD }">
+<input type="hidden" id="BOARD_SEQ" name="BOARD_SEQ" value="${params.BOARD_SEQ }">
+<!-- 검색조건 params -->
+<input type="hidden" id="S_START_DATE" name="S_START_DATE" value="${params.S_START_DATE }">
+<input type="hidden" id="S_END_DATE" name="S_END_DATE" value="${params.S_END_DATE }">
+<input type="hidden" id="P_QNA_TYPE_CD" name="P_QNA_TYPE_CD" value="${params.P_QNA_TYPE_CD }">
+<input type="hidden" id="P_ORD_CD" name="P_ORD_CD" value="${params.P_ORD_CD }">
+<input type="hidden" id="P_WRITE_NM" name="P_WRITE_NM" value="${params.P_WRITE_NM }">
+<input type="hidden" id="P_PROD_CODE" name="P_PROD_CODE" value="${params.P_PROD_CODE }">
+<input type="hidden" id="P_PROD_NM" name="P_PROD_NM" value="${params.P_PROD_NM }">
+<input type="hidden" id="P_TITLE" name="P_TITLE" value="${params.P_TITLE }">
+<input type="hidden" id="P_MBER_EMAIL" name="P_MBER_EMAIL" value="${params.P_MBER_EMAIL }">
+<input type="hidden" id="P_ANS_GB_CD" name="P_ANS_GB_CD" value="${params.P_ANS_GB_CD }">
+<input type="hidden" id="PROD_TYPE_CD" name="PROD_TYPE_CD" value="${selectQAAdvice.PROD_TYPE_CD}">
+<input type="hidden" id="ORDER_CODE" name="ORDER_CODE">
+<input type="hidden" id="prodCode" name="prodCode">
+
+<!-- content -->
+<div id="content">
+	<!-- top_content -->
+	<div class="top_content">
+		<!-- location -->
+		<div class="location">
+			<ul class="clear">
+				<li class="first-child"><a href="#">Home</a></li>
+				<li><a href="#">문의관리</a></li>
+				<li><a href="#" class="current">상담관리 상세</a></li>
+			</ul>
+		</div>
+		<!-- //location -->
+	</div>
+	<!-- //top_content -->
+
+	<div class="inner">
+		<c:if test="${IU == 'U' }">
+		<!-- tbl -->
+		<div class="tbl mt10">
+			<table class="upd">
+				<colgroup>
+					<col style="width:12%">
+					<col style="width:21%">
+					<col style="width:13%">
+					<col style="width:21%">
+					<col style="width:13%">
+					<col style="width:21%">
+				</colgroup>
+				<tbody>
+					<tr>
+						<th scope="row">등록일</th>
+						<td>${selectQAAdvice.REGIST_DT}</td>
+						<th scope="row" class="bl">CS담당자</th>
+						<td>${selectQAAdvice.WRITE_ID}</td>
+						<th scope="row" class="bl">최종 처리자</th>
+						<td>${selectQAAdvice.FWRITER_ID}</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+		<!-- //tbl -->
+		</c:if>
+
+		<!-- tbl -->
+		<div class="tbl mt10">
+			<table class="upd">
+				<colgroup>
+					<col style="width:12%">
+					<col style="width:38%">
+					<col style="width:12%">
+					<col style="width:38%">
+				</colgroup>
+				<tbody>
+					<tr>
+						<th scope="row">문의유형</th>
+						<td colspan="3">
+							<span class="select" style="width:150px">
+								<span class="sel_txt"></span>
+								<custom:codeList var="QNA_TYPE_CD" groupCode="QNA_TYPE_CD" />
+								<select id="QNA_TYPE_CD" name="QNA_TYPE_CD">
+									<option value="">선택하세요.</option>
+									<c:forEach var="list" items="${QNA_TYPE_CD}">
+				                      <option value="${list.key}" <c:if test="${list.key == selectQAAdvice.QNA_TYPE_CD}"> selected="selected" </c:if>>${list.value}</option>
+				                    </c:forEach>
+								</select>
+							</span>
+						</td>
+					</tr>
+					<tr id="orderTr" style="display: none">
+						<th scope="row">주문번호</th>
+						<td colspan="3">
+							<a href="#" class="btn_b" onclick="orderSearch('code');"><span>주문번호 조회</span></a>
+							<input type="text" id="ORD_CD" name="ORD_CD" value="${selectQAAdvice.ORD_CD}" onClick="openOrderPopup();" readonly="readonly">
+						</td>
+					</tr>
+					<tr id="prodTr" style="display: none">
+						<th scope="row">상품명</th>
+						<td colspan="3">
+							<a href="#" class="btn_b" onclick="orderSearch('name')"><span>상품 조회</span></a>
+							<input type="hidden" id="PROD_CODE" name="PROD_CODE" value="${selectQAAdvice.PROD_CODE}">
+								<input type="text" id="PROD_NM" name="PROD_NM" value="${selectQAAdvice.PROD_NM}" readonly="readonly" style="width: 300px">
+						</td>
+					</tr>
+					<tr id="prodTrNm" style="display: none">
+						<th scope="row">상품명</th>
+						<td colspan="3">
+						<div class="thumbnail_bx">
+						<img src="<c:choose>
+							<c:when test="${selectQAAdvice.PROD_IMG_URL ne null and selectQAAdvice.PROD_IMG_URL ne ''}">${selectQAAdvice.PROD_IMG_URL }</c:when>
+							<c:otherwise>http://static.ssocio.net/admin/images/sample.jpg</c:otherwise></c:choose>"  id="PROD_IMG_URL">
+							<a href="javascript:popProductDetail('${selectQAAdvice.PROD_CODE}')">
+							<span class="ellipsis" style="width:250px;cursor:pointer;" id="PROD_NM2">${selectQAAdvice.PROD_NM}</span>
+							</a>
+						</div>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row">고객ID</th>
+						<td>
+							<input type="text" id="CUST_NM" name="CUST_NM" value="${selectQAAdvice.CUST_NM}" maxlength="20">
+						</td>
+						<th scope="row">연락처</th>
+						<td>
+							<input type="text" id="CUST_TEL" name="CUST_TEL" value="${selectQAAdvice.CUST_TEL}" onkeyup="numberOnly(this)" maxlength="11">
+						</td>
+					</tr>
+					<tr>
+						<th scope="row">고객 문의내용</th>
+						<td colspan="3">
+							<textarea id="CONTENTS" name="CONTENTS" cols="30" rows="10" class="textarea">${selectQAAdvice.CONTENTS}</textarea>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row">처리내용</th>
+						<td colspan="3">
+							<textarea id="ANS_CONTENTS" name="ANS_CONTENTS" cols="30" rows="10" class="textarea" <c:if test="${selectQAAdvice.ANS_GB_CD eq '30' }"> readonly="readonly"</c:if> >${selectQAAdvice.ANS_CONTENTS}</textarea>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row">처리상태</th>
+						<td colspan="3">
+							<custom:codeList var="ANS_GB_CD" groupCode="ANS_GB_CD" />
+							<c:forEach var="list" items="${ANS_GB_CD}" varStatus="status">
+								<label>
+									<input type="radio" name="ANS_GB_CD" value="${list.key}"
+										<c:if test="${list.key == selectQAAdvice.ANS_GB_CD}">checked</c:if>
+										<c:choose>
+											<c:when test="${selectQAAdvice.ANS_GB_CD eq '30' and list.key ne '30'}">
+													disabled
+											</c:when>
+											<c:otherwise>
+											</c:otherwise>
+										</c:choose>
+
+										<c:if test="${empty selectQAAdvice.ANS_GB_CD  and status.first}">checked</c:if>
+										/>${list.value}
+								</label>
+							</c:forEach>
+						</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+		<!-- //tbl -->
+
+		<div class="btn_area tc mt20">
+			<c:if test="${IU != 'U' }">
+				<a href="javascript:onUpdate('${IU }');" class="btn_r">등록</a>
+			</c:if>
+			<c:if test="${IU == 'U' }">
+				<a href="javascript:onUpdate('${IU }');" class="btn_r">확인</a>
+			</c:if>
+			<a href="javascript:goList();" class="btn_b ml10">취소</a>
+<%-- 			<c:if test="${IU == 'U' }"> --%>
+<!-- 				<a href="javascript:onDelete();" class="btn_r ml10">삭제</a> -->
+<%-- 			</c:if> --%>
+		</div>
+	</div>
+</div>
+<!-- //content -->
+</form>

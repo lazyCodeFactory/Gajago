@@ -1,0 +1,386 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="adminMyStatisMapper">
+
+	<insert id="insertAccLogSeq" parameterType="hashmap" useGeneratedKeys="true" keyProperty="SEQ" >
+		INSERT INTO seq_master 
+		( TABLE_ID
+		 , REGIST_DT
+		 , SEQ
+		) VALUES (
+		 'ACC_LOG'
+		 , DATE_FORMAT(NOW(), '%Y%m%d')
+		 , 1
+		 ) ON DUPLICATE KEY UPDATE SEQ = SEQ + 1
+		<selectKey resultType="int" keyProperty="SEQ" order="AFTER"> 
+			SELECT SEQ FROM seq_master WHERE TABLE_ID = 'ACC_LOG' AND REGIST_DT = DATE_FORMAT(NOW(), '%Y%m%d'); 
+		</selectKey>
+	</insert>
+
+	<insert id="insertAmdinLog" parameterType="hashmap">
+		INSERT INTO acc_dt /*adminLogMapper.insertAmdinLog*/
+		(
+		 ACC_DT        <!-- 등록유효일자 -->
+		 , ACC_SEQ        <!-- 자료일련번호 -->
+		 , ADMIN_ID         <!-- IP주소 -->
+		 , WAS_SVR_IP_ADD <!-- WAS서버IP주소 -->
+		 , UR_ACC_ID      <!-- 사용자계정ID -->
+		 , INFL_PH_URL    <!-- 유입경로URL -->
+		 , WO_RCD_CN      <!-- 전체레코드내용 -->
+		 , RMK_CN         <!-- 비고내용 -->
+		 , FST_CRT_USID   <!-- 등록회원ID -->
+		 , FST_CRT_DTTI   <!-- 등록일시 -->
+		 , LT_CH_USID     <!-- 수정회원ID -->
+		 , LT_CH_DTTI     <!-- 수정일시 -->
+		 )VALUES (
+		TO_CHAR(SYSDATE, 'YYYYMMDD')
+		, (SELECT NVL(MAX(MTR_SEQ)+1, 1) FROM ML_TB_MGR_CNNT_HIST WHERE RG_VALD
+		= TO_CHAR(SYSDATE, 'YYYYMMDD'))
+		, <![CDATA[#{IP_ADD}]]>
+		, <![CDATA[#{WAS_SVR_IP_ADD}]]>
+		, <![CDATA[#{UR_ACC_ID}]]>
+		, <![CDATA[#{INFL_PH_URL}]]>
+		, <![CDATA[#{WO_RCD_CN}]]>
+		, <![CDATA[#{RMK_CN}]]>
+		, #{UR_ACC_ID}
+		, SYSDATE
+		, #{UR_ACC_ID}
+		, SYSDATE
+		)
+	</insert>
+	
+	<!-- METALOG 등록 -->
+	<insert id="insertMetaLog" parameterType="hashmap">
+		INSERT INTO acc_log /*adminLogMapper.insertMetaLog*/
+		(
+		 ACC_DT							<!-- 기준일자 -->
+		 , ACC_SEQ						<!-- ACC_SEQ -->
+		 , SITE_PREFIX 					<!-- 접근사이트 -->
+		 , ADMIN_ID						<!-- 사용자계정ID -->
+		 , REFER_URL					<!-- 유입경로URL -->
+		 , URL
+		 , PAR_POST						<!-- POST 파라메터 -->
+		 , PAR_GET						<!-- GET 파라메커 -->
+		 , IP							<!-- IP -->
+		 , REGIST_DT					<!-- 등록일시 -->
+		 , METHOD						<!-- 접근 METHOD -->
+		 , WAS_IP						<!-- WAS IP -->
+		 , HEADER
+		)VALUES (
+		 DATE_FORMAT(NOW(), '%Y%m%d')
+		, #{SEQ}
+		, <![CDATA[#{SITE_PREFIX}]]>
+		, <![CDATA[#{UR_ACC_ID}]]>
+		, <![CDATA[#{INIT_REFERER}]]>
+		, <![CDATA[#{INFL_PH_URL}]]>
+		, <![CDATA[#{INIT_JSON_PARAM}]]>
+		, <![CDATA[#{QUERY_STRING}]]>
+		, <![CDATA[#{IP_ADD}]]>
+		, NOW()
+		, <![CDATA[#{METHOD}]]>
+		, <![CDATA[#{WAS_SVR_IP_ADD}]]>
+		, <![CDATA[#{RMK_CN}]]>
+		)
+</insert>
+
+
+<select id="selectTotalAccStatis" resultType="HashMap">
+	SELECT 	SUM(M.TOTAL)		 AS TOTAL_CNT
+<!-- 	,	(SUM(M.MW_ACC_CNT) + SUM(M.MA_ACC_CNT)) AS MW_TOTAL_CNT  -->
+	<!-- , 	SUM(M.MWA_ACC_CNT)	 AS MWA_ACC_CNT -->
+	<!-- , 	SUM(M.MWI_ACC_CNT)	 AS MWI_ACC_CNT -->
+	, 	SUM(M.MW_ACC_CNT)	 AS MW_ACC_CNT 
+	<!-- , 	SUM(M.MAA_ACC_CNT)	 AS MAA_ACC_CNT -->
+	<!-- , 	SUM(M.MAI_ACC_CNT)	 AS MAI_ACC_CNT -->
+	, 	SUM(M.MA_ACC_CNT)	 AS MA_ACC_CNT
+	, 	SUM(M.PW_ACC_CNT)	 AS PW_ACC_CNT
+	FROM 
+		(
+		SELECT	(IFNULL(MWA_ACC_CNT, 0) + IFNULL(MWI_ACC_CNT, 0) + IFNULL(MAA_ACC_CNT, 0) + IFNULL(MAI_ACC_CNT, 0) + IFNULL(PW_ACC_CNT, 0)) AS TOTAL 	
+			,	IFNULL(MWA_ACC_CNT, 0)		AS MWA_ACC_CNT
+			, 	IFNULL(MWI_ACC_CNT, 0)		AS MWI_ACC_CNT
+			,	(IFNULL(MWA_ACC_CNT, 0) + IFNULL(MWI_ACC_CNT, 0)) AS MW_ACC_CNT 
+			,	IFNULL(MAA_ACC_CNT, 0)		AS MAA_ACC_CNT
+			,	IFNULL(MAI_ACC_CNT, 0)		AS MAI_ACC_CNT
+			,	(IFNULL(MAA_ACC_CNT, 0) + IFNULL(MAI_ACC_CNT, 0)) AS MA_ACC_CNT 
+			,	IFNULL(PW_ACC_CNT, 0) AS PW_ACC_CNT
+		FROM statis_acc_date
+		GROUP BY MWA_ACC_CNT
+			, 	MWI_ACC_CNT 
+			,	MAA_ACC_CNT
+			,	MAI_ACC_CNT
+			,	PW_ACC_CNT
+		) M
+</select>
+
+
+
+<select id="selectAccStatis" parameterType="HashMap" resultType="HashMap">
+	SELECT 	M.TIME AS TIME
+		,	SUM(M.MWA_ACC_CNT + M.MWI_ACC_CNT) AS MW_ACC_CNT
+		,	SUM(M.MAA_ACC_CNT + M.MAI_ACC_CNT) AS MA_ACC_CNT
+		,	SUM(M.PW_ACC_CNT) AS PW_ACC_CNT
+		,	SUM(M.LAST_MWA_ACC_CNT + M.LAST_MWI_ACC_CNT) AS LAST_MW_ACC_CNT
+		,	SUM(M.LAST_MAA_ACC_CNT + M.LAST_MAI_ACC_CNT) AS LAST_MA_ACC_CNT
+		,	SUM(M.LAST_PW_ACC_CNT) AS LAST_PW_ACC_CNT
+	FROM (
+		SELECT		REF.TIME
+			,		IFNULL(A.MWA_ACC_CNT, 0) AS MWA_ACC_CNT
+			,		IFNULL(A.MWI_ACC_CNT, 0) AS MWI_ACC_CNT
+			,		IFNULL(A.MAA_ACC_CNT, 0) AS MAA_ACC_CNT
+			,		IFNULL(A.MAI_ACC_CNT, 0) AS MAI_ACC_CNT
+			,		IFNULL(A.PW_ACC_CNT, 0) AS PW_ACC_CNT
+			,		IFNULL(B.MWA_ACC_CNT, 0) AS LAST_MWA_ACC_CNT
+			,		IFNULL(B.MWI_ACC_CNT, 0) AS LAST_MWI_ACC_CNT
+			,		IFNULL(B.MAA_ACC_CNT, 0) AS LAST_MAA_ACC_CNT
+			,		IFNULL(B.MAI_ACC_CNT, 0) AS LAST_MAI_ACC_CNT
+			,		IFNULL(B.PW_ACC_CNT, 0) AS LAST_PW_ACC_CNT
+		FROM ( 	SELECT #{date} AS YMD
+					, 	DATE_FORMAT(ADDDATE(#{date}, -1),'%Y%m%d') B_YMD
+					, 	LPAD(@ROWNUM := @ROWNUM + 1,2,'0') AS TIME 
+				FROM statis_ref_date,(SELECT @ROWNUM := -1) R
+				LIMIT 24 ) REF
+			LEFT OUTER JOIN statis_acc_time AS A
+			ON      REF.TIME = A.TIME
+			AND    REF.YMD = A.YMD
+			LEFT OUTER JOIN statis_acc_time AS B
+			ON       REF.TIME = B.TIME 
+			AND    REF.B_YMD = B.YMD
+		WHERE REF.YMD = #{date}
+		) M
+	GROUP BY TIME WITH ROLLUP
+</select>
+
+<select id="selectAccWeekStatis" parameterType="HashMap" resultType="HashMap" >
+	SELECT 	
+			DATE_FORMAT(M.YMD, '%Y-%m-%d') AS YMD
+		,	SUM(M.MWA_ACC_CNT + M.MWI_ACC_CNT) AS MW_ACC_CNT
+		,	SUM(M.MAA_ACC_CNT + M.MAI_ACC_CNT) AS MA_ACC_CNT
+		,	SUM(M.PW_ACC_CNT) AS PW_ACC_CNT
+		,	SUM(M.LAST_MWA_ACC_CNT + M.LAST_MWI_ACC_CNT) AS LAST_MW_ACC_CNT
+		,	SUM(M.LAST_MAA_ACC_CNT + M.LAST_MAI_ACC_CNT) AS LAST_MA_ACC_CNT
+		,	SUM(M.LAST_PW_ACC_CNT) AS LAST_PW_ACC_CNT
+	FROM (
+		SELECT	SRD.YMD AS YMD
+			,	IFNULL(A.MWA_ACC_CNT, 0) AS MWA_ACC_CNT
+			,	IFNULL(A.MWI_ACC_CNT, 0) AS MWI_ACC_CNT
+			,	IFNULL(A.MAA_ACC_CNT, 0) AS MAA_ACC_CNT
+			,	IFNULL(A.MAI_ACC_CNT, 0) AS MAI_ACC_CNT
+			,	IFNULL(A.PW_ACC_CNT, 0) AS PW_ACC_CNT
+			,	ADDDATE(SRD.YMD, -7) LAST_YMD
+			,	IFNULL(B.MWA_ACC_CNT, 0) AS LAST_MWA_ACC_CNT
+			,	IFNULL(B.MWI_ACC_CNT, 0) AS LAST_MWI_ACC_CNT
+			,	IFNULL(B.MAA_ACC_CNT, 0) AS LAST_MAA_ACC_CNT
+			,	IFNULL(B.MAI_ACC_CNT, 0) AS LAST_MAI_ACC_CNT
+			,	IFNULL(B.PW_ACC_CNT, 0) AS LAST_PW_ACC_CNT
+		FROM statis_ref_date SRD
+			LEFT OUTER JOIN statis_acc_date A
+			ON SRD.YEAR = A.YEAR
+			AND SRD.MONTH = A.MONTH
+			AND SRD.DATE = A.DATE
+			LEFT OUTER JOIN statis_acc_date B	
+			ON SRD.YMD = DATE_FORMAT(ADDDATE(CONCAT(B.YEAR , B.MONTH , B.DATE),-7),'%Y%m%d')
+		WHERE SRD.YMD BETWEEN #{date} AND #{last_date}
+		) M
+		GROUP BY YMD WITH ROLLUP
+</select>
+
+
+<select id="selectAccWhDayStatis" parameterType="HashMap" resultType="HashMap" >
+	SELECT 	
+			DATE_FORMAT(M.YMD, '%Y-%m-%d') AS YMD
+		,	SUM(M.MWA_ACC_CNT + M.MWI_ACC_CNT) AS MW_ACC_CNT
+		,	SUM(M.MAA_ACC_CNT + M.MAI_ACC_CNT) AS MA_ACC_CNT
+		,	SUM(M.PW_ACC_CNT) AS PW_ACC_CNT
+		,	SUM(M.LAST_MWA_ACC_CNT + M.LAST_MWI_ACC_CNT) AS LAST_MW_ACC_CNT
+		,	SUM(M.LAST_MAA_ACC_CNT + M.LAST_MAI_ACC_CNT) AS LAST_MA_ACC_CNT
+		,	SUM(M.LAST_PW_ACC_CNT) AS LAST_PW_ACC_CNT
+	FROM (
+		SELECT	SRD.YMD AS YMD
+			,	IFNULL(A.MWA_ACC_CNT, 0) AS MWA_ACC_CNT
+			,	IFNULL(A.MWI_ACC_CNT, 0) AS MWI_ACC_CNT
+			,	IFNULL(A.MAA_ACC_CNT, 0) AS MAA_ACC_CNT
+			,	IFNULL(A.MAI_ACC_CNT, 0) AS MAI_ACC_CNT
+			,	IFNULL(A.PW_ACC_CNT, 0) AS PW_ACC_CNT
+			,	ADDDATE(SRD.YMD, -7) LAST_YMD
+			,	IFNULL(B.MWA_ACC_CNT, 0) AS LAST_MWA_ACC_CNT
+			,	IFNULL(B.MWI_ACC_CNT, 0) AS LAST_MWI_ACC_CNT
+			,	IFNULL(B.MAA_ACC_CNT, 0) AS LAST_MAA_ACC_CNT
+			,	IFNULL(B.MAI_ACC_CNT, 0) AS LAST_MAI_ACC_CNT
+			,	IFNULL(B.PW_ACC_CNT, 0) AS LAST_PW_ACC_CNT
+		FROM statis_ref_date SRD
+			LEFT OUTER JOIN statis_acc_date A
+			ON SRD.YEAR = A.YEAR
+			AND SRD.MONTH = A.MONTH
+			AND SRD.DATE = A.DATE
+			LEFT OUTER JOIN statis_acc_date B	
+			ON SRD.YMD = DATE_FORMAT(ADDDATE(CONCAT(B.YEAR , B.MONTH , B.DATE), #{gap, jdbcType=NUMERIC} ),'%Y%m%d')
+		WHERE SRD.YMD BETWEEN #{date} AND #{last_date}
+		) M
+		GROUP BY YMD WITH ROLLUP
+</select>
+
+
+<select id="selectAccMonthStatis" parameterType="HashMap" resultType="HashMap" >
+	SELECT 	DATE_FORMAT(M.YMD, '%d') AS DAY
+		,	DATE_FORMAT(M.YMD, '%Y-%m-%d') AS YMD
+		,	SUM(M.MWA_ACC_CNT + M.MWI_ACC_CNT) AS MW_ACC_CNT
+		,	SUM(M.MAA_ACC_CNT + M.MAI_ACC_CNT) AS MA_ACC_CNT
+		,	SUM(M.PW_ACC_CNT) AS PW_ACC_CNT
+		,	SUM(M.LAST_MWA_ACC_CNT + M.LAST_MWI_ACC_CNT) AS LAST_MW_ACC_CNT
+		,	SUM(M.LAST_MAA_ACC_CNT + M.LAST_MAI_ACC_CNT) AS LAST_MA_ACC_CNT
+		,	SUM(M.LAST_PW_ACC_CNT) AS LAST_PW_ACC_CNT
+	FROM (
+		SELECT	SRD.YMD AS YMD
+			,	IFNULL(A.MWA_ACC_CNT, 0) AS MWA_ACC_CNT
+			,	IFNULL(A.MWI_ACC_CNT, 0) AS MWI_ACC_CNT
+			,	IFNULL(A.MAA_ACC_CNT, 0) AS MAA_ACC_CNT
+			,	IFNULL(A.MAI_ACC_CNT, 0) AS MAI_ACC_CNT
+			,	IFNULL(A.PW_ACC_CNT, 0) AS PW_ACC_CNT
+			,	DATE_ADD(SRD.YM, INTERVAL -1 month) LAST_YM
+			,	IFNULL(B.MWA_ACC_CNT, 0) AS LAST_MWA_ACC_CNT
+			,	IFNULL(B.MWI_ACC_CNT, 0) AS LAST_MWI_ACC_CNT
+			,	IFNULL(B.MAA_ACC_CNT, 0) AS LAST_MAA_ACC_CNT
+			,	IFNULL(B.MAI_ACC_CNT, 0) AS LAST_MAI_ACC_CNT
+			,	IFNULL(B.PW_ACC_CNT, 0) AS LAST_PW_ACC_CNT
+		FROM statis_ref_date SRD
+			LEFT OUTER JOIN statis_acc_date A
+			ON SRD.YEAR = A.YEAR
+			AND SRD.MONTH = A.MONTH
+			AND SRD.DATE = A.DATE
+			LEFT OUTER JOIN statis_acc_date B	
+			ON SRD.YEAR = B.YEAR
+			AND SRD.MONTH = B.MONTH - 1
+			AND SRD.DATE = B.DATE
+		WHERE SRD.YM = #{date}
+		) M
+	GROUP BY YMD WITH ROLLUP
+</select>
+
+<select id="selectMenuStatis" parameterType="HashMap" resultType="HashMap" >
+	SELECT 	M.TIME AS TIME
+		,	SUM(M.MAIN_CNT) AS MAIN_CNT
+		,	SUM(M.SEARCH_CNT) AS SEARCH_CNT
+		,	SUM(M.SP_SHARE_CNT) AS SP_SHARE_CNT
+		,	SUM(M.PLAN_CNT) AS PLAN_CNT
+		,	SUM(M.RECMMD_CNT) AS RECMMD_CNT
+		,	SUM(M.WISH_CNT) AS WISH_CNT
+		,	SUM(M.ODR_MNG_CNT) AS ODR_MNG_CNT
+		,	SUM(M.SEL_MNG_CNT) AS SEL_MNG_CNT
+		,	SUM(M.EVT_CNT) AS EVT_CNT
+	FROM (
+		SELECT		REF.TIME
+			,		IFNULL(A.MAIN_CNT, 0) AS MAIN_CNT
+			,		IFNULL(A.SEARCH_CNT, 0) AS SEARCH_CNT
+			,		IFNULL(A.SP_SHARE_CNT, 0) AS SP_SHARE_CNT
+			,		IFNULL(A.PLAN_CNT, 0) AS PLAN_CNT
+			,		IFNULL(A.RECMMD_CNT, 0) AS RECMMD_CNT
+			,		IFNULL(A.WISH_CNT, 0) AS WISH_CNT
+			,		IFNULL(A.ODR_MNG_CNT, 0) AS ODR_MNG_CNT
+			,		IFNULL(A.SEL_MNG_CNT, 0) AS SEL_MNG_CNT
+			,		IFNULL(A.EVT_CNT, 0) AS EVT_CNT
+		FROM ( 	SELECT #{date} AS YMD
+					, 	DATE_FORMAT(ADDDATE(#{date}, -1),'%Y%m%d') B_YMD
+					, 	LPAD(@ROWNUM := @ROWNUM + 1,2,'0') AS TIME 
+				FROM statis_ref_date,(SELECT @ROWNUM := -1) R
+				LIMIT 24 ) REF
+			LEFT OUTER JOIN statis_acc_menu_time AS A
+			ON      REF.TIME = A.TIME
+			AND    REF.YMD = A.YMD
+			LEFT OUTER JOIN statis_acc_menu_time AS B
+			ON       REF.TIME = B.TIME 
+			AND    REF.B_YMD = B.YMD
+		WHERE REF.YMD = #{date}
+		) M
+	GROUP BY TIME WITH ROLLUP
+	
+</select>
+
+<select id="selectMenuWeekStatis" parameterType="HashMap" resultType="HashMap" >
+	SELECT 	
+			DATE_FORMAT(M.YMD, '%Y-%m-%d') AS YMD
+		,	SUM(M.MAIN_CNT) AS MAIN_CNT
+		,	SUM(M.SEARCH_CNT) AS SEARCH_CNT
+		,	SUM(M.SP_SHARE_CNT) AS SP_SHARE_CNT
+		,	SUM(M.PLAN_CNT) AS PLAN_CNT
+		,	SUM(M.RECMMD_CNT) AS RECMMD_CNT
+		,	SUM(M.WISH_CNT) AS WISH_CNT
+		,	SUM(M.ODR_MNG_CNT) AS ODR_MNG_CNT
+		,	SUM(M.SEL_MNG_CNT) AS SEL_MNG_CNT
+		,	SUM(M.EVT_CNT) AS EVT_CNT
+	FROM (
+		SELECT	SRD.YMD AS YMD
+			,		IFNULL(A.MAIN_CNT, 0) AS MAIN_CNT
+			,		IFNULL(A.SEARCH_CNT, 0) AS SEARCH_CNT
+			,		IFNULL(A.SP_SHARE_CNT, 0) AS SP_SHARE_CNT
+			,		IFNULL(A.PLAN_CNT, 0) AS PLAN_CNT
+			,		IFNULL(A.RECMMD_CNT, 0) AS RECMMD_CNT
+			,		IFNULL(A.WISH_CNT, 0) AS WISH_CNT
+			,		IFNULL(A.ODR_MNG_CNT, 0) AS ODR_MNG_CNT
+			,		IFNULL(A.SEL_MNG_CNT, 0) AS SEL_MNG_CNT
+			,		IFNULL(A.EVT_CNT, 0) AS EVT_CNT
+		FROM statis_ref_date SRD
+			LEFT OUTER JOIN statis_acc_menu_date A
+			ON SRD.YEAR = A.YEAR
+			AND SRD.MONTH = A.MONTH
+			AND SRD.DATE = A.DATE
+			LEFT OUTER JOIN statis_acc_menu_date B	
+			ON SRD.YMD = DATE_FORMAT(ADDDATE(CONCAT(B.YEAR , B.MONTH , B.DATE),-7),'%Y%m%d')
+			WHERE SRD.YMD BETWEEN #{date} AND #{last_date}
+		) M
+		GROUP BY YMD WITH ROLLUP
+</select>
+
+<select id="selectMenuMonthStatis" parameterType="HashMap" resultType="HashMap" >
+	SELECT 	
+			DATE_FORMAT(M.YMD, '%Y-%m-%d') AS YMD
+		,	SUM(M.MAIN_CNT) AS MAIN_CNT
+		,	SUM(M.SEARCH_CNT) AS SEARCH_CNT
+		,	SUM(M.SP_SHARE_CNT) AS SP_SHARE_CNT
+		,	SUM(M.PLAN_CNT) AS PLAN_CNT
+		,	SUM(M.RECMMD_CNT) AS RECMMD_CNT
+		,	SUM(M.WISH_CNT) AS WISH_CNT
+		,	SUM(M.ODR_MNG_CNT) AS ODR_MNG_CNT
+		,	SUM(M.SEL_MNG_CNT) AS SEL_MNG_CNT
+		,	SUM(M.EVT_CNT) AS EVT_CNT
+	FROM (
+		SELECT	SRD.YMD AS YMD
+			,		IFNULL(A.MAIN_CNT, 0) AS MAIN_CNT
+			,		IFNULL(A.SEARCH_CNT, 0) AS SEARCH_CNT
+			,		IFNULL(A.SP_SHARE_CNT, 0) AS SP_SHARE_CNT
+			,		IFNULL(A.PLAN_CNT, 0) AS PLAN_CNT
+			,		IFNULL(A.RECMMD_CNT, 0) AS RECMMD_CNT
+			,		IFNULL(A.WISH_CNT, 0) AS WISH_CNT
+			,		IFNULL(A.ODR_MNG_CNT, 0) AS ODR_MNG_CNT
+			,		IFNULL(A.SEL_MNG_CNT, 0) AS SEL_MNG_CNT
+			,		IFNULL(A.EVT_CNT, 0) AS EVT_CNT
+		FROM statis_ref_date SRD
+			LEFT OUTER JOIN statis_acc_menu_date A
+			ON SRD.YEAR = A.YEAR
+			AND SRD.MONTH = A.MONTH
+			AND SRD.DATE = A.DATE
+		WHERE SRD.YM = #{date}
+		) M
+	GROUP BY YMD WITH ROLLUP	
+</select>
+
+<insert id="insertStatisDate" parameterType="HashMap">
+	INSERT INTO statis_ref_date
+		(
+				YEAR
+			,	MONTH
+			,	DATE
+			,	YMD
+			,	YM
+		)
+		VALUES
+		(
+				DATE_FORMAT(ADDDATE(${date},+${plus}),'%Y')
+			,	DATE_FORMAT(ADDDATE(${date},+${plus}),'%m')
+			,	DATE_FORMAT(ADDDATE(${date},+${plus}),'%d')
+			,	DATE_FORMAT(ADDDATE(${date},+${plus}),'%Y%m%d')
+			,	DATE_FORMAT(ADDDATE(${date},+${plus}),'%Y%m')
+		)
+</insert>
+</mapper>

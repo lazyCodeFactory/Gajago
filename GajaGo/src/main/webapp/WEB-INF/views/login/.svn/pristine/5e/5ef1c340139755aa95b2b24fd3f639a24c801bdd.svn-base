@@ -1,0 +1,605 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/web/common/webJSTL.jsp"%>
+<jsp:useBean id="toDay" class="java.util.Date" />
+<script type="text/javascript">
+
+var OrdMoney = function(){
+	this.extPrce = '';
+	this.usePhonePrce = '';
+	this.buySalePrce = '';
+	this.insurPrce = '';
+	this.guranteeInsPrce = '';
+	this.revInsPrce = '';
+	this.servicePrce = '';
+	this.nrmPrce = '';
+	this.percent = '';
+	this.recomYn = '';
+	this.cponApplyPsblYn = '';
+	this.dlvPrceTypeCd = '';
+	this.telFileUrl  = '';
+	this.fileUrl = '';
+
+};
+
+
+$(document).ready(function(){
+	//공통 HEADER SETTING
+// 	header.type = 6;
+	header.type	= 2;
+	header.title = "스마트폰 셰어링 주문내역 상세";
+	header.backUrl = "/mobile/shar/selectSharOrdDtl.do";
+	header.method = "GET";
+	initHeader();
+	//공통 FOOTER SETTING
+	displayFooter(false);
+	
+// 	console.log('${outParam}');
+	
+// 	MoneyInt();
+	document.title ="스마트폰 셰어링 주문내역 상세";
+
+	
+	proc.phoneMasking('${outParam.USIM_PHONE }');
+	proc.phoneSearialMasking('${outParam.PROD_UNIQUENO }','pu');
+	proc.phoneSearialMasking('${outParam.PROD_SERIAL }','ps');
+	proc.phoneSearialMasking('${outParam.USIM_SEQ_CODE }','usc');
+	
+});
+var proc = {
+	//개통전화번호 마스킹 처리
+	phoneMasking : function(phoneData){
+		var maskingData = "";
+	
+		//01055551111
+		if(phoneData.length > 10){
+			maskingData = phoneData.substring(0,3)+"-"+phoneData.substring(3,4)+"**"+phoneData.substring(6,7)+"-****";	
+		//0117554575
+		}else{
+			maskingData = phoneData.substring(0,3)+"-"+phoneData.substring(3,4)+"*"+phoneData.substring(6,7)+"-****";	
+		}
+		$("#openPhone").html(maskingData)			
+	},
+	//일련번호 마스킹
+	phoneSearialMasking : function(serialData,guBun){
+		var maskingData = "";
+		var leng = (serialData.length)-6;
+		var makingStr = "";
+		for(var i=0; i < leng; i++){
+			makingStr += "*"
+		}
+		maskingData = serialData.substring(0,3)+makingStr+serialData.substring(serialData.length-3);
+		if('pu' == guBun){
+			$("#boxsnNum").html(maskingData)
+		}else if('ps' == guBun){
+			$("#snNum").html(maskingData)
+		}else if('usc' == guBun){
+			$("#usimNum").html(maskingData)
+		}
+	
+	},
+	
+}
+function MoneyInt(){
+	var ordMoney = new OrdMoney();
+	
+	ordMoney.extPrce = '${outParam.EXT_PRCE}';
+// 	var SHARING_FEE_PRCE = '${outParam.SHARING_FEE_PRCE}';
+// 	var SHARING_FEE_PRCE = '${outParam.INSURANCE_PRCE}';
+// 	var SHARING_FEE_PRCE = '${outParam.GUARANTEE_INSURANCE_PRCE}';
+// 	var SHARING_FEE_PRCE = '${outParam.RV_INSURANCE_PRCE}';
+	
+// 	var SHARING_FEE_PRCE = '${outParam.SERVICIZING_PRCE}';
+
+// 	var SHARING_FEE_PRCE = '${outParam.USE_PHONE_PRE_COMPENSATE_PRCE}';
+// 	var SHARING_FEE_PRCE = '${outParam.SALE_SUPP_PRCE}';
+// 	var SHARING_FEE_PRCE = '${outParam.SALE_GSUPP_PRCE}';
+// 	var SHARING_FEE_PRCE = '${outParam.SALE_DISC_PRCE}';
+// 	var SHARING_FEE_PRCE = '${outParam.BUY_SALE_PRCE}';
+}
+
+
+function statChg(code, ord_cd, prod_cd,scr_id){
+	var rtnmsg = "";
+	$("#statChg input[name=S_ORD_CD]").val(ord_cd);
+	$("#statChg input[name=ORD_CD]").val(ord_cd);
+	$("#statChg input[name=S_PROD_CD]").val(prod_cd);
+	$("#statChg input[name=S_SCR_ID]").val(scr_id);
+	
+	if(code == '01') {
+		if(confirm("스마트폰 셰어링 주문을 취소하시겠습니까?")){
+			$("#statChg").attr("action","/mobile/buy/selectOrderCancel.do").submit();
+			return;
+		}
+	} else if ( code == '03' ) {
+		rtnmsg = chkFunc('S'); 
+		if("S" == rtnmsg){
+			if(confirm("선택하신 상품을 셰어링 확정 처리를 하시겠습니까?")){
+				$.ajax({
+					type: 'post'
+					, async: true
+					, url: '/mobile/shar/updateSharDate.do'
+					, data: $("#statChg").serialize()
+					, success: function(data) {
+						if (data.outParam == "C") {
+							alert("이미 교환신청이 접수된 주문건입니다.");
+							return;
+						} else if(data.outParam == "R"){
+							alert("이미 반품신청이 접수된 주문건입니다.");
+							return;
+						}else if(data.outParam == "P"){
+							alert("이미 스마트폰 셰어링이 확정된 주문건 입니다.");
+							return;
+						}else if(data.outParam == "S"){
+							alert("스마트폰 셰어링이 확정 되었습니다.");
+							var form = document.statChg;
+							form.action = "/mobile/shar/selectSharOrdDtl.do";
+							form.submit();
+						}else if(data.outParam == "F"){
+							alert("스마트폰 셰어링 확정에 실패하였습니다.")
+						}
+						
+					}
+					, error: function(data, status, err) {
+					  alert('서버와의 통신이 실패했습니다.');
+					}
+				});
+				return;
+			}
+		}else{
+			alert(rtnmsg);
+			return;
+		}
+	} else if ( code == '04' ) {
+		rtnmsg = chkFunc('C');
+		if("S" == rtnmsg){
+			if(confirm("선택하신 상품을 교환신청 하시겠습니까?")){
+				$("#statChg").attr("action","/mobile/buy/selectExcReq.do").submit();
+				return;
+			}
+		}else{
+			alert(rtnmsg);
+			return;
+		}
+	} else if ( code == '05' ) {
+		rtnmsg = chkFunc('R');
+		if("S" == rtnmsg){
+			if(confirm("선택하신 상품을 반품신청 하시겠습니까?")){
+				$("#statChg").attr("action","/mobile/buy/selectTakeBackReq.do").submit();
+				return;
+			}
+		}else{
+			alert(rtnmsg);
+			return;
+		}
+	} else if ( code == '06' ) {
+		$("#statChg").attr("action","/mobile/buy/selectProdPost.do").submit();
+		return;
+	} else if ( code == '07' ) {
+		if(confirm("선택하신 상품을 해지신청 하시겠습니까?")){
+			if(chkFunc('T')){
+				$("#statChg").attr("action","/mobile/shar/procSharCanl.do").submit();
+	// 			alert("해지신청");
+				return;
+			}else{
+				alert("이미 해지신청이 접수된 주문건입니다.");
+				return;
+			}
+		}
+	}else if ( code == '08' ) {
+		$("#statChg").attr("action","/mobile/shar/selectSharShipView.do").submit();
+//			alert("해지신청");
+		return;
+	}
+}
+function chkFunc(guBun){
+	var rtnMsg = "";
+	$("#chkGubun").val(guBun);
+	$.ajax({
+		type: 'post'
+		, async: false
+		, url: '/mobile/shar/selectChkCrtn.do'
+		, data: $("#statChg").serialize()
+		, success: function(data) {
+			
+			rtnMsg = data.msg;
+		}
+		, error: function(data, status, err) {
+		  alert('서버와의 통신이 실패했습니다.');
+		}
+	});
+	return rtnMsg;
+}
+function callPhone(){
+
+	//20 : 아이폰 , 10: 안드로이드
+	 var gubun = 	getRemoteChannel(true);
+	if(20 == gubun){
+		var number = '18770101';
+		var data = '{"number":"'+number+'"}';
+		document.location.replace('ssocio://web/tel?'+encodeURIComponent(data));
+	}else if(10 == gubun){
+		var number = '18770101';
+		var data = '{"number":"'+number+'"}';
+		document.location.replace('ssocio://web/boardtel?'+encodeURIComponent(data));
+	}
+		
+	
+}
+
+function sndreMail(){
+// 	if(confirm("선택하신 상품을 셰어링 확정 처리를 하시겠습니까?")){
+		$.ajax({
+			type: 'post'
+			, async: true
+			, url: '/mobile/shar/sndreMail.do'
+			, data: $("#statChg").serialize()
+			, success: function(data) {
+					alert("가입신청 안내 메일이 재발송 되었습니다.");
+			}
+			, error: function(data, status, err) {
+			  alert('서버와의 통신이 실패했습니다.');
+			}
+		});
+		return;
+// 	}
+}
+
+function viewPageProdDtl(prodCode){
+	location.href = "/mobile/shar/selectSharDtl.do?PROD_CODE="+prodCode;
+}
+
+/* ======================================================================
+Function : 상품후기 수정 페이지
+Return   : 없음
+========================================================================= */
+function selectProdReviewForm(boardSeq, prodCode){
+	$('#BOARD_SEQ').val(boardSeq);
+	$('#PROD_CODE').val(prodCode);
+	//$("#frm").attr("action", "/mobile/board/saveProdPostMod.do").submit();
+	$("#statChg").attr("action","/mobile/board/saveProdPostMod.do").submit();
+}
+</script>
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+
+        <div class="roc">
+        	<ul class="inner">
+            	<li><img src="http://static.ssocio.net/pc/img/common/section/roc_home.png" alt="홈"></li>
+                <li>스마트폰 셰어링</li>
+            </ul>
+        </div>
+        
+        <!-- inner -->
+		<div class="inner">
+			<h3 class="tit_cate mb20"><p>스마트폰 셰어링</p></h3>
+
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+	 <!-- container -->
+		<div id="container">
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>
+
+
+<c:set value="${outParam.USE_PHONE_PRE_COMPENSATE_PRCE + outParam.BUY_SALE_PRCE + outParam.SALE_SUPP_PRCE + outParam.SALE_GSUPP_PRCE + outParam.SALE_DISC_PRCE }" var="SUPPORT_FUND" />
+<c:set value="${outParam.INSURANCE_PRCE + outParam.GUARANTEE_INSURANCE_PRCE + outParam.RV_INSURANCE_PRCE  }" var="sumInsurance" />
+	<h3 class="title">
+		<strong class="fl">${outParam.ORD_CD }</strong>
+		<span class="fr">주문일 : <fmt:formatDate value="${outParam.ORD_REG_DATE }" pattern="yyyy-MM-dd HH:mm" /></span>
+	</h3>
+	<p class="title">주문상품 정보</p>
+	<ul class="sha_oder">
+		<li>
+			<div class="user_info">
+					<span class="fl"><img src="<custom:codeTag groupCode='SITE_DEFAULT' code='DEFAULT_IMG_URL'/>" alt=""></span>
+					<p class="fl ml5"><span>SSOCIO</span></p>
+	   				<c:choose>
+					<c:when test="${sessionScope.APP eq 'SSOCIO' }">
+						<a href="#" class="user_phone" onclick="callPhone()"><strong>고객센터</strong></a>
+					</c:when>
+					<c:otherwise>
+						<a href="tel:1877-0101" class="user_phone"><strong>고객센터</strong></a>
+					</c:otherwise>
+					</c:choose>
+				</div>
+			<ul class="mt10">
+				<li onclick="viewPageProdDtl('${outParam.PROD_CODE}')"><img src="${outParam.FILE_URL }" alt=""></li>
+				<li><img src="${outParam.TEL_FILE_URL }" alt="" width="55"></li>
+				<li onclick="viewPageProdDtl('${outParam.PROD_CODE}')"><strong>${outParam.PROD_NM }</strong></li>
+				<li>
+					<span class="round fl">
+						<custom:codeTag groupCode="SP_SIZE_GB_CD" code="${outParam.SP_SIZE_CD }" />
+					</span>
+					<strong class="fr">월 <fmt:formatNumber value="${outParam.PROD_PRCE}" pattern="#,###" />원</strong>
+				</li>
+			</ul>
+			<p class="btn">
+				<span class="fl">
+					<c:choose>
+						<c:when test="${outParam.PROC_STAT_CD eq '10' }">
+							<a href="javascript:statChg('01','${outParam.ORD_CD }','${outParam.PROD_CODE }','selectSharCanlProd');" class="btn_b-line"><strong>주문취소</strong></a>
+						</c:when>
+						<c:when test="${outParam.PROC_STAT_CD eq '11' }">
+<%-- 							<a href="javascript:statChg('01','${outParam.ORD_CD }','${outParam.PROD_CODE }','selectSharCanlProd');" class="btn_b-line"><strong>주문취소</strong></a> --%>
+						</c:when>
+						<c:when test="${outParam.PROC_STAT_CD eq '22' }">
+							<a href="javascript:statChg('08','${outParam.ORD_CD }','${outParam.PROD_CODE }','selectSharShipView')" class="btn_b"><strong>배송조회</strong></a>
+						</c:when>
+						<c:when test="${outParam.PROC_STAT_CD eq '23' }">
+						<c:if test="${outParam.RTN_CNT == 0 }">
+							<c:if test="${outParam.CHG_CNT == 0 }">
+							<a href="javascript:statChg('03','${outParam.ORD_CD }','${outParam.PROD_CODE }','selectSharOrdInfo');" class="btn_b"><strong>셰어링 확정</strong></a>
+							<a href="javascript:statChg('04','${outParam.ORD_CD }','${outParam.PROD_CODE }','selectSharChgProd');" class="btn_b"><strong>교환신청</strong></a>
+							<a href="javascript:statChg('05','${outParam.ORD_CD }','${outParam.PROD_CODE }','selectSharBackProd');" class="btn_b"><strong>반품신청</strong></a>
+							</c:if>
+							</c:if>
+						</c:when>
+						<c:when test="${outParam.PROC_STAT_CD eq '85' }">
+								<c:if test="${outParam.BOARD_SEQ eq null}" >
+							<a href="javascript:statChg('06','${outParam.ORD_CD }','${outParam.PROD_CODE }','selectSharOrdInfo');" class="btn_b"><strong>상품후기 작성</strong></a>
+								</c:if>
+								<c:if test="${outParam.BOARD_SEQ ne null}" >
+							<a href="javascript:selectProdReviewForm('${outParam.BOARD_SEQ }','${outParam.PROD_CODE }');" class="btn_b"><strong>상품후기 수정</strong></a>
+								</c:if>
+							<c:if test="${outParam.TERMI_CNT == 0 }">
+							<a href="javascript:statChg('07','${outParam.ORD_CD }','${outParam.PROD_CODE }','selectSharOrdInfo');" class="btn_b"><strong>해지신청</strong></a>
+							</c:if>
+						</c:when>
+						<c:when
+							test="${outParam.PROC_STAT_CD eq '86' || outParam.PROC_STAT_CD eq '90' || outParam.PROC_STAT_CD eq '91' || outParam.PROC_STAT_CD eq '92' }">
+									<c:if test="${outParam.BOARD_SEQ eq null}" >
+							<a href="javascript:statChg('06','${outParam.ORD_CD }','${outParam.PROD_CODE }','selectSharOrdInfo');" class="btn_b"><strong>상품후기 작성</strong></a>
+								</c:if>
+								<c:if test="${outParam.BOARD_SEQ ne null}" >
+							<a href="javascript:selectProdReviewForm('${outParam.BOARD_SEQ }','${outParam.PROD_CODE }');" class="btn_b"><strong>상품후기 수정</strong></a>
+								</c:if>				
+						</c:when>
+					</c:choose>
+				</span>
+				<span class="fr"><custom:codeTag groupCode="PROC_STAT_CD" code="${outParam.PROC_STAT_CD}" />
+				<c:choose>
+				<c:when test="${outParam.TERMI_CNT > 0 }">
+				(해지신청/완료)
+				</c:when>
+				<c:otherwise>
+				<c:if test="${outParam.CHG_CNT > 0 }">(교환/반품중)</c:if>
+				<c:if test="${outParam.RTN_CNT > 0 }">(반품완료)</c:if>
+				</c:otherwise>
+				</c:choose>
+				</span>
+			</p>
+		</li>
+	</ul>
+
+	<div class="content">
+		<p class="title-bg">스마트폰 셰어링 신청 정보</p>
+		<ul class="list list-bot">
+			<c:choose>
+				<c:when test="${fn:length(outParam.UP_BUY_CODE) > 0}">
+					<li><span class="fl">중고스마트폰 매입</span> <span class="fr point_p">신청완료</span></li>
+				</c:when>
+				<c:otherwise>
+					<li><span class="fl">중고스마트폰 매입</span> <span class="fr point_p">미신청</span></li>
+				</c:otherwise>
+			</c:choose>
+			<li><span class="fl">색상</span> <strong class="fr">${outParam.COLOR_NAME }</strong></li>
+			<li><span class="fl">가입유형</span> <strong class="fr"><custom:codeTag groupCode="OPEN_TYPE" code="${outParam.OPEN_TYPE }" /></strong></li>
+			<li><span class="fl">약정기간</span> <strong class="fr">${outParam.STIP_PERIOD }개월</strong></li>
+			<li><span class="fl">요금제</span> <strong class="fr">${outParam.PAYPLAN_NM }</strong></li>
+		</ul>
+		
+		<c:if test="${selectOlivarYn.COM_CD_NM eq 'Y' }">
+			<p class="title-bg">중고 스마트폰 매입 정보</p>
+			<c:choose>
+				<c:when test="${fn:length(outParam.UP_BUY_CODE) > 0}">
+						<ol class="list type2 lineb">
+						<c:forEach items="${selectOlivarInfo }" var="oliPhList" varStatus="status">
+							<c:choose>
+								<c:when test="${not status.last}">
+									<li class=""><span class="fl">${oliPhList.MODEL }</span> <strong class="fr"><fmt:formatNumber value="${oliPhList.REAL_PRCE }" pattern="#,###" />원</strong></li>
+								</c:when>
+								<c:otherwise>
+									<li class="line"><span class="fl">${oliPhList.MODEL }</span> <strong class="fr"><fmt:formatNumber value="${oliPhList.REAL_PRCE }" pattern="#,###" />원</strong></li>
+								</c:otherwise>
+							</c:choose>
+						</c:forEach>
+						<li><strong class="fl">중고 스마트폰 매입 금액</strong> <strong class="fr point_r"><fmt:formatNumber value="${selectOlivarInfo[0].SUM_REAL_PRCE }" pattern="#,###" />원</strong></li>
+					</ol>
+				</c:when>
+				<c:otherwise>
+					<ol class="list type2 lineb">
+						<li><strong class="tc">중고 스마트폰 매입 내역이 없습니다.</strong></li>
+					</ol>
+				</c:otherwise>
+			</c:choose>
+		</c:if>
+		<p class="title-bg">결제정보</p>
+		<ol class="list type2">
+			<li><span class="fl">출고가</span> <strong class="fr"><fmt:formatNumber value="${outParam.EXT_PRCE }" pattern="#,###" /> 원</strong></li>
+			<li><span class="fl">지원금</span> <strong class="fr">-<fmt:formatNumber value="${SUPPORT_FUND }" pattern="#,###" /> 원</strong></li>
+			<li><span class="fl">보험료</span> <strong class="fr"><fmt:formatNumber value="${sumInsurance }" pattern="#,###" /> 원</strong></li>
+			<li><span class="fl">서비사이징</span> <strong class="fr"><fmt:formatNumber value="${outParam.SERVICIZING_PRCE }" pattern="#,###" /> 원</strong></li>
+		<c:choose>
+		<c:when test="${selectOlivarInfo == ''}">
+			<li><span class="fl">중고 스마트폰 매입 할인</span> <strong class="fr">0 원</strong></li>			
+		</c:when>
+		<c:otherwise>
+			<li><span class="fl">중고 스마트폰 매입 할인</span> <strong class="fr">-<fmt:formatNumber value="${selectOlivarInfo[0].SUM_REAL_PRCE}" pattern="#,###" /> 원</strong></li>			
+		</c:otherwise>
+		</c:choose>
+		<li class="line"><span class="fl">수수료</span> <strong class="fr"><fmt:formatNumber value="${outParam.SHARING_FEE_PRCE }" pattern="#,###" /> 원</strong></li>
+			<li class="line">
+				<span class="fl">신용카드 결제</span>
+				<c:choose>
+					<c:when test="${outParam.EASY_TERM eq '1'}">
+						<strong class="fr">${outParam.CARD_COMP_NM }(일시불) ${outParam.CARD_NO }</strong>
+					</c:when>
+					<c:otherwise>
+						<strong class="fr">${outParam.CARD_COMP_NM } ${outParam.CARD_NO }</strong>
+					</c:otherwise>
+				</c:choose>
+			</li>
+			<c:if test="${outParam.PROC_STAT_CD ne '10' }">
+			<li class="line"><span class="fl">결제일</span> <strong class="fr">매월 ${outParam.OPEN_DD }일 자동결제</strong></li>
+			</c:if>
+			<li><strong class="fl">스마트폰 셰어링 요금</strong> <strong class="fr point_r">월 <fmt:formatNumber value="${outParam.PROD_PRCE}" pattern="#,###" />원</strong></li>
+		</ol>
+		<c:if test="${outParam.PROC_STAT_CD eq '10' }">
+			<!-- 재결제 -->
+			<div class="btn_enter linet" style="display: none;">
+				<p class="point_r tc mt10">
+					신청하신 중고스마트폰 매입 금액이 변경 되었습니다.<br>변경된 금액으로 재결제를 해주세요
+				</p>
+				<a href="#" class="btn_r mt10">재결제하기</a>
+			</div>
+	
+			<!-- 신청서 메일 발송 -->
+			<p class="title-bg linet">스마트폰 셰어링 가입신청서 작성 안내</p>
+			<div class="info-box type2">
+				<p><strong class="id">${outParam.ORD_EMAIL}</strong></p>
+				<p>으로 가입신청 안내 메일이 발송 되었습니다.<br>가입신청서 작성은 PC에서만 가능하며,<br>
+					전송받은 이메일을 통해 가입신청을 완료 후<br>스마트폰 셰어링 개통이 완료 됩니다.
+				</p>
+				<p><span>스마트폰 셰어링 신청 후 3일 이내 가입신청서를 작성하지 않으시면 자동으로 신청 취소가 됩니다.</span></p>
+			</div>
+		</c:if>
+	</div>
+	<c:if test="${outParam.PROC_STAT_CD eq '85' || outParam.PROC_STAT_CD eq '86'}">
+		<div class="sha_oder_area">
+			<ol class="graph_area">
+				<li class="dot">
+					<strong>셰어링 기간</strong>
+					<fmt:parseNumber var="dDay" value="${SHARING_TODAY }" integerOnly="true" />
+					<fmt:parseNumber var="ingDay" value="${SHARING_ING}" integerOnly="true" />
+					<span class="color_7">
+						<fmt:formatDate value="${outParam.OPEN_DT }" pattern="yyyy-MM-dd" /> ~ <fmt:formatDate value="${outParam.END_DT }" pattern="yyyy-MM-dd" /> (${ingDay}일 사용) | ${dDay }일 남음
+					</span>
+				</li>
+				<li>
+					<c:choose>
+						<c:when test="${SHARING_DAY <= 50}">
+							<!-- 그래프 영역 50% 이하일때 -->
+							<div class="line_graph type1">
+								<p class="tr">
+									<span class="ico" style="left: ${SHARING_DAY}%"><fmt:formatDate value="${toDay }" pattern="M/dd" />(D-${dDay })</span>
+								</p>
+								<div class="bar">
+									<p style="width: ${SHARING_DAY}%"></p>
+								</div>
+								<p class="clear">
+									<span class="fl"><fmt:formatDate value="${outParam.OPEN_DT }" pattern="yyyy/MM/dd" /></span>
+									<span class="fr"><fmt:formatDate value="${outParam.END_DT }" pattern="yyyy/MM/dd" /></span>
+								</p>
+							</div>
+						</c:when>
+						<c:otherwise>
+							<!-- 그래프 영역 50% 이상일때 -->
+							<div class="line_graph type2">
+								<p class="tr" style="width: ${SHARING_DAY}%">
+									<span class="ico"><fmt:formatDate value="${toDay }" pattern="M/dd" />(D-${dDay })</span>
+								</p>
+								<div class="bar">
+									<p style="width: ${SHARING_DAY}%"></p>
+								</div>
+								<p class="clear">
+									<span class="fl"><fmt:formatDate value="${outParam.OPEN_DT }" pattern="yyyy/MM/dd" /></span>
+									<span class="fr"><fmt:formatDate value="${outParam.END_DT }" pattern="yyyy/MM/dd" /></span>
+								</p>
+							</div>
+						</c:otherwise>
+					</c:choose>
+				</li>
+			</ol>
+		</div>
+	</c:if>
+	
+	<c:if test="${outParam.PROC_STAT_CD eq '10' }">
+		<div class="btn_enter"><a href="javascript:sndreMail()" class="btn_r">가입신청 안내 메일 재발송</a></div>
+	</c:if>
+
+	<c:if test="${outParam.PROC_STAT_CD eq '11' || outParam.PROC_STAT_CD eq '22' || outParam.PROC_STAT_CD eq '23' }">
+		<div class="tbl">
+			<table class="tbl-data">
+				<colgroup>
+					<col width="100px">
+					<col width="*">
+				</colgroup>
+				<tbody>
+					<tr>
+						<th>단말 일련번호</th>
+						<td id="boxsnNum"></td>
+					</tr>
+					<tr>
+						<th>S/N</th>
+						<td id="snNum"></td>
+					</tr>
+					<tr>
+						<th>USIM 일련번호</th>
+						<td id="usimNum"></td>
+					</tr>
+					<tr>
+						<th>개통 전화번호</th>
+						<td id="openPhone"></td>
+					</tr>
+					<tr>
+						<th>신청자명</th>
+						<td>${outParam.ORD_NAME } (${outParam.BIRTH_YYYYMMDD })</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+	
+		<p class="title">배송지 정보</p>
+		<div class="tbl">
+			<table class="tbl-data">
+				<colgroup>
+					<col width="100px">
+					<col width="*">
+				</colgroup>
+				<tbody>
+					<tr>
+						<th>받는사람</th>
+						<td>${outParam.RCV_NM}</td>
+					</tr>
+					<tr>
+						<th>주소</th>
+						<td>(${outParam.ZIP_CD}) ${outParam.JUSO_DORO } ${outParam.JUSO_DTL }</td>
+					</tr>
+					<tr>
+						<th>연락처</th>
+						<c:if test="${outParam.SECU_NO_USE_YN eq 'Y' }">
+							<td>${outParam.SECU_NO } <br>
+							<span>(안심번호 사용)</span></td>
+						</c:if>
+						<c:if test="${outParam.SECU_NO_USE_YN eq 'N' }">
+							<td>${outParam.RCV_HP } <br></td>
+						</c:if>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+	</c:if>
+</div>
+<form id="frmDtl" name="frmDtl" method="post">
+	<input type="hidden" id="ORD_CD" name="ORD_CD"/>
+</form>
+<!-- //container -->
+<form id="statChg" name="statChg" method="post">
+	<input type="hidden" id="chkGubun" name="chkGubun" />
+	<input type="hidden" id="ORD_CD" name="ORD_CD" value="${outParam.ORD_CD }"/>
+	<input type="hidden" id="S_ORD_CD" name="S_ORD_CD" value="${outParam.ORD_CD }">
+	<input type="hidden" id="S_PROD_CD" name="S_PROD_CD" value="${outParam.PROD_CODE }">
+	<input type="hidden" id="P_EMAIL" name="P_EMAIL" value="${outParam.ORD_EMAIL}">
+	<input type="hidden" id="S_PROD_SEQ" name="S_PROD_SEQ" value="1">
+	<input type="hidden" id="BOARD_SEQ" name="BOARD_SEQ" value="">
+	<input type="hidden" id="PROD_CODE" name="PROD_CODE" value="">
+	<input type="hidden" id="S_PROD_TYPE_CD" name="S_PROD_TYPE_CD" value="4">
+<!-- 	<input type="hidden" id="S_SCR_ID" name="S_SCR_ID" value="selectSharOrdInfo"> -->
+		<input type="hidden" id="S_SCR_ID" name="S_SCR_ID" value="selectSharCanlProd">
+	
+</form>

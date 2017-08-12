@@ -1,0 +1,299 @@
+package com.ssocio.sharing.controller.mobile;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.ModelMap;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.servlet.ModelAndView;
+
+import com.ssocio.sharing.cmmn.elasticsearch.Elasticsearch;
+import com.ssocio.sharing.cmmn.util.LoggerUtil;
+import com.ssocio.sharing.cmmn.util.StringUtil;
+import com.ssocio.sharing.service.web.MobileSearchService;
+import com.ssocio.sharing.vo.web.WebSession;
+
+@Controller
+public class MobileSearchController extends MobileReferController {
+	 
+	// --------------------------------------------------------------------------
+	// # Log 설정
+	// --------------------------------------------------------------------------
+	private static final Logger logger = LoggerFactory.getLogger(MobileSearchController.class);
+	
+	@Autowired
+	private MobileSearchService mobileSearchService;
+	
+
+	/**
+	* <pre>
+	* 1. 메소드명 : info
+	* 2. 작성일 : 2015. 9. 16. 오후 2:22:04
+	* 3. 작성자 : guitarhyo
+	* 4. 설명 : 모바일 검색 페이지
+	* </pre>
+	* @param request
+	* @param response
+	* @param inParam
+	* @return
+	* @throws Exception
+	*/
+	@RequestMapping("/mobile/search/selectSearch.do")
+	public ModelAndView selectSearch(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception	{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★   /mobile/search/selectSearch.do");
+		ModelMap modelMap =  new ModelMap();
+		List<Map<String, Object>> rankList = null;
+		LoggerUtil.writeMap(inParam);
+		try {
+
+			rankList = mobileSearchService.selectListHitKeyword();
+		
+		} catch (Exception e) {
+		e.printStackTrace();
+		}
+
+		modelMap.put("rankList", rankList);
+		return new ModelAndView("web/search/selectSearch",modelMap);
+	}
+	
+	
+	@RequestMapping("/mobile/search/selectListSearch.do")
+	public ModelAndView selectListSearch(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception	{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★   /mobile/search/selectListSearch.do");
+		
+		
+		ModelMap modelMap =  new ModelMap();
+	
+		modelMap.put("SEARCH_NM", StringUtil.nvl((String)inParam.get("SEARCH_NM"), "").trim());
+		
+	
+		LoggerUtil.writeMap(inParam);
+		modelMap.put("prod", mobileSearchService.selectListProd(inParam));
+		
+		modelMap.put("inParam", inParam);
+
+		return new ModelAndView("web/search/selectListSearch",modelMap);
+	}
+	
+	@RequestMapping("/mobile/search/selectSearchAjax.do")
+	public ModelAndView selectCtryAjax(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆MOBILE selectSearchAjax START☆★☆★☆★☆★☆★☆★☆");
+		ModelAndView mav = new ModelAndView("jsonView");
+		//	대분류 리스트 가져와야 함.
+		//	중분류에 대한 상위 코드로 .
+		LoggerUtil.writeMap(inParam);
+		
+		mav.addObject("data", mobileSearchService.selectListProd(inParam));
+		logger.info("☆★☆★☆★☆★☆★☆★☆MOBILE selectSearchAjax END☆★☆★☆★☆★☆★☆★☆");
+		return mav;
+	}
+	@RequestMapping("/mobile/search/selectAutoSearchList.do")
+	public ModelAndView selectAutoSearchList(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆MOBILE selectAutoSearchList START☆★☆★☆★☆★☆★☆★☆");
+		ModelAndView mav = new ModelAndView("jsonView");
+		LoggerUtil.writeMap(inParam);
+		logger.debug("selectSearchAjax searchNm:"+StringUtil.nvl((String)inParam.get("searchNm"), ""));
+		
+		String  searchNm = StringUtil.nvl((String)inParam.get("searchNm"), "");
+		Elasticsearch elasticsearch =  new Elasticsearch();
+		String retCode = "S";
+		List<String> nmList = null;
+		nmList = elasticsearch.getAutocompletion(searchNm);
+//		nmList = mobileSearchService.selectListAutoSearch(StringUtil.nvl((String)inParam.get("searchNm"), ""));
+		
+		if(nmList != null && nmList.size() > 0){
+			
+		}else{
+			retCode = "F";
+		}
+		Map<String,Object> retJsonView = new HashMap<String, Object>();
+		retJsonView.put("retCode", retCode);
+		retJsonView.put("nmList", nmList);
+		mav.addObject("data", retJsonView);
+		logger.info("☆★☆★☆★☆★☆★☆★☆MOBILE selectSearchAjax END☆★☆★☆★☆★☆★☆★☆");
+		return mav;
+	}
+	
+	
+	@RequestMapping("/mobile/search/intsertSearchTestAjax.do")
+	public ModelAndView intsertSearchTestAjax(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆MOBILE selectSearchAjax START☆★☆★☆★☆★☆★☆★☆");
+		ModelAndView mav = new ModelAndView("jsonView");
+		String TEST_YN = StringUtil.nvl((String)inParam.get("TEST_YN"), "N");
+		Map<String, Object> indexingMap = new HashMap<String, Object>();
+		List<Map<String, Object>> list = new ArrayList<Map<String,Object>>();
+		Elasticsearch elasticsearch = new Elasticsearch();
+		if("Y".equals(TEST_YN)){
+			list = mobileSearchService.selectListProdAll(inParam);
+			
+			for (int i = 0; i < list.size(); i++) {
+				
+				indexingMap.put("PROD_CODE", StringUtil.nvl((String)list.get(i).get("PROD_CODE")));//상품코드
+				indexingMap.put("PROD_NM", StringUtil.nvl((String)list.get(i).get("PROD_NM")));//상품명
+				indexingMap.put("KEYWORD", StringUtil.nvl((String)list.get(i).get("KEYWORD")));//키워드
+			String PROD_STAT_CD =	StringUtil.nvl((String)list.get(i).get("PROD_STAT_CD"),"Y");
+				if("0".equals(PROD_STAT_CD)){
+					indexingMap.put("VIEW_YN", "Y");//노출여부
+				}else{
+					indexingMap.put("VIEW_YN", "N");//노출여부
+				}
+				
+				indexingMap.put("ORD_QTY", String.valueOf( list.get(i).get("ORD_QTY")));//판매수
+				indexingMap.put("SELL_PRCE",  String.valueOf(list.get(i).get("SELL_PRCE")));//가걱
+				indexingMap.put("REGIST_DT",  String.valueOf(list.get(i).get("REGIST_DT")));//가걱
+				indexingMap.put("PROD_CHO",  String.valueOf(list.get(i).get("PROD_CHO")));//상품 초성
+				indexingMap.put("CTRY",  String.valueOf(list.get(i).get("CTRY")));//상품 초성
+				
+				indexingMap.put("PROD_TYPE_CD",  String.valueOf(list.get(i).get("PROD_TYPE_CD")));//상품 타입
+				
+				Elasticsearch.putSearchIndexing(indexingMap);
+			}
+			
+
+//            indexingMap.put("PROD_CODE","20150930004241");//상품코드
+//			indexingMap.put("PROD_CODE","20150930004346");
+//            
+//			indexingMap.put("PROD_NM","당신의 삶을 업그레이드 시킬 최신 노트북");//상품명
+//            indexingMap.put("KEYWORD","노트북,패커드");//키워드
+//            indexingMap.put("VIEW_YN", "N");//노출여부
+//            indexingMap.put("ORD_QTY","100");//판매수
+//            indexingMap.put("SELL_PRCE", "");//가격
+//            indexingMap.put("REGIST_DT","");//등록일
+//
+//			
+//			 elasticsearch.upadteSearchIndexing(indexingMap);
+		
+//			if(null != map.get("INDEX_DT") && !"".equals((String)map.get("INDEX_DT"))){
+//				Elasticsearch.putSearchIndexingNone(map);
+//			}
+			
+			
+		}
+		
+		 
+		mav.addObject("data",list);
+		logger.info("☆★☆★☆★☆★☆★☆★☆MOBILE selectSearchAjax END☆★☆★☆★☆★☆★☆★☆");
+		return mav;
+	}
+	
+	
+	
+	@RequestMapping("/mobile/elasticsearch/prodreg.do")
+	public ModelAndView elasticSearchput(HttpServletRequest request, @RequestParam Map<String, Object> paramDto) {
+		
+	  ModelAndView mav = new ModelAndView("web/elasticsearch/prodreg");
+	  
+		
+		
+		
+	  return mav;
+	}
+	
+	
+	@RequestMapping("/mobile/elasticsearch/prodAct.do")
+	public ModelAndView setLogin(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception {
+	
+		LoggerUtil.writeMap(inParam);
+		ModelAndView mav = new ModelAndView("jsonView");
+		mav.addObject("retCode", "F");
+		Map<String, Object> indexingMap = new HashMap<String, Object>();
+		indexingMap.put("PROD_CODE",(String)inParam.get("PROD_CODE"));//상품코드
+		indexingMap.put("PROD_NM",(String)inParam.get("PROD_NM"));//상품명
+		indexingMap.put("KEYWORD", (String)inParam.get("KEYWORD"));//키워드
+		indexingMap.put("VIEW_YN", (String)inParam.get("VIEW_YN"));//노출여부
+		indexingMap.put("SELL_PRCE", (String)inParam.get("SELL_PRCE"));//판매가격
+		
+		try {
+			Elasticsearch.putSearchIndexing(indexingMap);
+		} catch (Exception e) {
+			mav.addObject("retCode", "F");
+		}
+
+		mav.addObject("retCode", "S");
+
+		return mav;
+	}
+	
+	@SuppressWarnings("unchecked")
+	@RequestMapping("/mobile/elasticsearch/prodlist.do")
+	public ModelAndView elasticSearchget(HttpServletRequest request, @RequestParam Map<String, Object> paramDto) {
+		
+		Elasticsearch elasticsearch = new Elasticsearch();
+		Map<String, Object> indexingMap = new HashMap<String, Object>();
+			indexingMap = new HashMap<String, Object>();
+			indexingMap.put("searchWord", (String)paramDto.get("searchWord"));// 검색어
+			indexingMap.put("sortName", (String)paramDto.get("sortName"));// 정렬 컬럼
+			indexingMap.put("sortDescribe", (String)paramDto.get("sortDescribe"));//정렬 방향(ASC, DESC)
+			indexingMap.put("pageIndex", Integer.parseInt((String)paramDto.get("pageIndex")));// 페이징 처리용 int
+			indexingMap.put("pageSize", Integer.parseInt((String)paramDto.get("pageSize")));// 페이징 처리용 int
+			
+			  ModelAndView mav = new ModelAndView("web/elasticsearch/prodlist");	
+		List<String> temp;
+		Map<String,Object> ret = new HashMap<String, Object>();
+		try {
+			
+//			ret = elasticsearch.searchElasticSearch(indexingMap);
+			temp = (List<String>) ret.get("prods");
+			System.out.println(temp.size());
+			System.out.println(temp.toString());
+			 mav.addObject("temp",temp);
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+	
+	 
+	  return mav;
+	}
+	  
+	
+//	public static void main(String[] args) {
+//		String test ="/ 삼성 일반냉장고 RL35TEB7F [336ℓ / Refined Steel / 상냉장 하냉동 / 멀티냉각 / 디지털인버터 컴프레서";
+//		System.out.println(test.replaceFirst("\\/ ", "").trim());
+//	}
+	
+	@RequestMapping("/mobile/search/insertSearchProd.do")
+	public ModelAndView insertSearchProd(HttpServletRequest request, @RequestParam Map<String, Object> inParam) {
+		
+		ModelAndView mav = new ModelAndView("web/search/insertSearchProd");	
+		try {
+			
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	return mav;
+	}
+	
+	@RequestMapping("/mobile/search/insertWantProd.do")
+	public ModelAndView insertWantProd(HttpServletRequest request, @RequestParam Map<String, Object> inParam) {
+		ModelAndView mav = new ModelAndView("jsonView");
+		int result = 0;
+		try {
+			WebSession session = (WebSession)request.getSession().getAttribute("user");
+			if ( session != null ) {
+				inParam.put("MBER_SEQ", session.getMBER_SEQ());
+				result = mobileSearchService.insertWantProd(inParam);
+				mav.addObject("result", result);
+			} else {
+				mav.addObject("result", "로그인 후 등록하실 수 있습니다.");
+			}
+			
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	return mav;
+	}
+}

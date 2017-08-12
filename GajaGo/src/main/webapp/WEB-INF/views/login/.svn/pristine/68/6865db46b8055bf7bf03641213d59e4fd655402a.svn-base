@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="sellerCtryMapper">
+
+	<select id="selectCtryTree" resultType="hashmap">
+	SELECT
+		A.CTRY_CD               
+      , A.PARENT_CTRY_CD    
+      , A.LVL_SEQ        
+      , A.SORT_SEQ       
+      , A.CTRY_NM
+      , CASE WHEN A.LVL_SEQ = 3 THEN 'true' 
+             WHEN (SELECT COUNT(*) FROM CTRY B WHERE B.PARENT_CTRY_CD = A.CTRY_CD) = 0 THEN 'true' 
+             ELSE 'false' 
+        END AS IS_LEAF
+	FROM 
+		CTRY A
+    WHERE 1 = 1
+    START WITH   (A.PARENT_CTRY_CD IS NULL OR A.PARENT_CTRY_CD = '0000000000000000')
+    CONNECT BY   PRIOR A.CTRY_CD = A.PARENT_CTRY_CD
+    ORDER SIBLINGS BY   A.PARENT_CTRY_CD ASC, A.SORT_SEQ ASC
+	</select>
+
+	<select id="selectCtryInfo" parameterType="hashmap" resultType="hashmap">
+	SELECT
+		A.CTRY_CD,
+		A.CTRY_NM,
+		A.PARENT_CTRY_CD,
+		A.VIEW_YN,
+		B.FILE_URL
+	FROM 
+		CTRY A,
+		FILE_INFO B
+	WHERE
+		A.FILE_SEQ = B.FILE_SEQ(+)
+	AND	A.CTRY_CD = #{ctryCd}
+	</select>
+	
+	<update id="updateCtryInfo" parameterType="hashmap">
+	UPDATE 
+		CTRY
+	SET
+		CTRY_NM = #{ctryNm},
+		VIEW_YN = #{viewYn},
+		UPDT_DT = SYSDATE
+		<if test="fileSeq != null and fileSeq != ''" >
+		, FILE_SEQ =  #{fileSeq}
+    	</if>
+	WHERE
+		CTRY_CD = #{ctryCd}
+	</update>
+	
+	<update id="updateCtrySort" parameterType="hashmap">
+	UPDATE 
+		CTRY
+	SET
+		SORT_SEQ = #{sortSeq},
+		UPDT_DT = SYSDATE
+	WHERE
+		CTRY_CD = #{ctryCd}
+	</update>
+	
+	<delete id="deleteCtryInfo" parameterType="hashmap">
+	DELETE FROM CTRY
+	WHERE CTRY_CD IN (SELECT CTRY_CD FROM CTRY
+						START WITH PARENT_CTRY_CD = #{ctryCd}
+						CONNECT BY PRIOR CTRY_CD = PARENT_CTRY_CD
+					UNION ALL
+						SELECT #{ctryCd} FROM DUAL)
+	</delete>
+	
+	<select id="selectCtryCd" parameterType="hashmap" resultType="string">
+	SELECT 
+		MAX(CTRY_CD)+1 AS CTRY_CD
+	FROM
+		(
+		SELECT DECODE(LVL_SEQ, 1, SUBSTR(CTRY_CD,0,4), 2, SUBSTR(CTRY_CD,0,8), 3, SUBSTR(CTRY_CD,0,12)) AS CTRY_CD
+		FROM CTRY WHERE PARENT_CTRY_CD = #{parentCtryCd} AND LVL_SEQ = #{lvlSeq}
+		)
+	</select>
+	
+	<insert id="insertCtryInfo" parameterType="hashmap">
+	INSERT INTO CTRY(
+		CTRY_CD,
+		PARENT_CTRY_CD,
+		LVL_SEQ,
+		SORT_SEQ,
+		CTRY_NM,
+		VIEW_YN,
+		VIEW_START_DATE,
+		VIEW_END_DATE,
+		FILE_SEQ,
+		REGIST_DT,
+		UPDT_DT
+	)VALUES(
+		RPAD(#{ctryCd}, 16, '0'),
+		#{parentCtryCd},
+		#{lvlSeq},
+		(SELECT NVL(MAX(SORT_SEQ)+1, 1) FROM CTRY WHERE PARENT_CTRY_CD = #{parentCtryCd}),
+		#{regCtryNm},
+		'N',
+		'20150202',
+		'99991231',
+		#{fileSeq, jdbcType=NUMERIC},
+		SYSDATE,
+		SYSDATE
+	)
+	</insert>
+	
+	<select id="selectCtryList" parameterType="hashmap" resultType="hashmap">
+	SELECT
+		CTRY_CD,
+		CTRY_NM,
+		DECODE(VIEW_YN,'Y','사용' ,'N','미사용') AS VIEW_YN_NM,
+		SORT_SEQ,
+		TO_CHAR(NVL(TAX_SHARING,0),'FM90.0') AS TAX_SHARING, 
+		TO_CHAR(NVL(TAX_SALE,0),'FM90.0') AS TAX_SALE
+	FROM
+		CTRY
+	WHERE
+		LVL_SEQ = #{lvlSeq}
+	<if test="viewYn != null and viewYn != ''" >
+	AND VIEW_YN = #{viewYn}
+    </if>
+	<if test="parentCtryCd != null and parentCtryCd != ''" >
+	AND PARENT_CTRY_CD = #{parentCtryCd}
+    </if>
+    
+	ORDER BY
+		SORT_SEQ ASC
+	</select>
+</mapper>

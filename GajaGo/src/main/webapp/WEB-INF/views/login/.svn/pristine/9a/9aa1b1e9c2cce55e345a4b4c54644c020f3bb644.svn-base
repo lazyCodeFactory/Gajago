@@ -1,0 +1,228 @@
+package com.ssocio.sharing.service.web;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+
+import org.springframework.stereotype.Service;
+import org.springframework.ui.ModelMap;
+
+import com.ssocio.sharing.cmmn.util.CreateCoupon;
+import com.ssocio.sharing.cmmn.util.LoggerUtil;
+import com.ssocio.sharing.cmmn.util.StringUtil;
+import com.ssocio.sharing.dao.web.MobileCpnPointDao;
+
+@Service
+public class MobileCpnPointServiceImpl implements MobileCpnPointService{
+
+	@Resource(name="mobileCpnPointDao")
+	private MobileCpnPointDao mobileCpnPointDao;
+
+	
+	@Override
+	public Map<String, Object> insertCpn(Map<String, Object> inParam) {
+
+		int cpnCnt=0;
+		List<String> cpnNoDB = new ArrayList<>();
+		List<String> cpnGrpCdDB = null;
+		List<String> cpnNo = null;
+		CreateCoupon cc = new CreateCoupon();
+		String gubun="";
+
+		try{
+			int nCpnNoLen = 0;
+			
+			/* 상품항인쿠폰, 배송비 쿠폰 지정회원 */
+			cpnNoDB = mobileCpnPointDao.selectCpnNo();
+			
+			cpnGrpCdDB = new ArrayList<>();						
+			cpnGrpCdDB = mobileCpnPointDao.selectCpnIsNull(inParam);
+			
+			if(!"".equals(cpnGrpCdDB) && cpnGrpCdDB != null){
+				
+				cpnNo = new ArrayList<>();			
+				gubun = "C";
+				cpnCnt = cpnGrpCdDB.size();
+				cpnNo = cc.getCuponNum(cpnCnt,cpnNoDB, gubun);
+				
+				nCpnNoLen = 0;
+				if(null != cpnNo){
+					nCpnNoLen = cpnNo.size();
+				}
+				
+				if(0 < nCpnNoLen){
+					for(int i=0; i<nCpnNoLen; i++){
+						inParam.put("CPN_GRP_CD", cpnGrpCdDB.get(i));
+						inParam.put("CPN_NO", cpnNo.get(i));
+						inParam.put("USE_YN", "N");
+						mobileCpnPointDao.updateCpn(inParam);
+						
+					}					
+				}
+			}
+			
+			/* 상품항인쿠폰, 배송비 쿠폰 전체회원 */
+			cpnNoDB = mobileCpnPointDao.selectCpnNo();			
+			
+			cpnGrpCdDB = new ArrayList<>();
+			cpnGrpCdDB = mobileCpnPointDao.selectCpnGrpCd(inParam);						
+			
+			if(!"".equals(cpnGrpCdDB) && cpnGrpCdDB != null){						
+						
+				cpnNo = new ArrayList<>();			
+				gubun = "C";
+				cpnCnt = cpnGrpCdDB.size();
+				cpnNo = cc.getCuponNum(cpnCnt, cpnNoDB, gubun);
+				
+				nCpnNoLen = 0;
+				if(null != cpnNo){
+					nCpnNoLen = cpnNo.size();
+				}
+				
+				if(0 < nCpnNoLen){
+					for(int i=0; i<cpnNo.size(); i++){
+						inParam.put("CPN_GRP_CD", cpnGrpCdDB.get(i));
+						inParam.put("CPN_NO", cpnNo.get(i));
+						inParam.put("USE_YN", "N");
+						mobileCpnPointDao.insertCpn(inParam);
+					}					
+				}
+
+			}			
+
+		}catch (Exception e) {
+			e.printStackTrace();
+		}	
+			
+		return inParam;
+		
+	}
+
+
+	@Override
+	public Map<String, Object> selectCpnList(Map<String, Object> inParam) {
+		
+		ModelMap mm = new ModelMap();
+		
+		try{
+						
+			mm.put("cpnList", mobileCpnPointDao.selectCpnList(inParam));
+			
+			mm.put("params", inParam);
+			
+		}catch (Exception e) {
+			e.printStackTrace();
+		}	
+		
+		
+		return mm;
+		
+	}
+
+
+	@Override
+	public Map<String, Object> selectCpnUseList(Map<String, Object> inParam) {
+
+		ModelMap mm = new ModelMap();
+		
+		try{
+						
+			mm.put("cpnList", mobileCpnPointDao.selectCpnUselist(inParam));
+			mm.put("params", inParam);
+			
+		}catch (Exception e) {
+			e.printStackTrace();
+		}	
+		
+		
+		return mm;
+		
+	}
+
+
+	@Override
+	public Map<String, Object> selectPointList(Map<String, Object> inParam) {
+		
+		ModelMap mm = new ModelMap();
+		
+		try{
+						
+			String today = StringUtil.getCurrentDate();			
+			mm.put("yyyy", today.substring(0, 4));
+			mm.put("mm", today.substring(4, 6));
+			mm.put("dd", today.substring(6, 8));
+			mm.put("point", mobileCpnPointDao.selectPoint(inParam));
+			mm.put("pointList", mobileCpnPointDao.selectPointList(inParam));
+			mm.put("params", inParam);
+			
+		}catch (Exception e) {
+			e.printStackTrace();
+		}	
+		
+		
+		return mm;
+		
+	}
+
+
+	@Override
+	public String cpnCheck(Map<String, Object> inParam) {
+		
+		ModelMap mm = new ModelMap();
+		int rst1 =0;
+		int rst2 =0;
+		int rst3 =0;
+		String cpnGrpCd ="";
+		String result="";
+		
+		try {
+			
+			LoggerUtil.writeMap(inParam);
+			
+			rst1 = mobileCpnPointDao.cpnCheckNot(inParam);   // 쿠폰 존재 체크
+			System.out.println("rst1 : "+rst1);
+			if(rst1 == 0){
+				result = "0001";	//쿠폰이 미존재
+				return result;
+			}else{
+				rst2 = mobileCpnPointDao.cpnCheckDate(inParam); //유효기간 체크
+			}
+			
+			if(rst2 >0){
+				result = "0002";	// 휴효기간이 지남			
+				return result;
+			}else{
+				rst3 = mobileCpnPointDao.cpnCheckReg(inParam); // 사용유무 체크
+			}
+			
+			if(rst3 >0){
+				result = "0003";	// 이미 사용한 쿠폰	
+				return result;
+			}else{
+				cpnGrpCd = mobileCpnPointDao.cpnCheck(inParam);	 //완벽하게 제정상인 쿠폰인지 체크	
+			}
+			
+			if(!"".equals(cpnGrpCd) && cpnGrpCd != null){
+				result = "0000";
+				inParam.put("CPN_GRP_CD", cpnGrpCd);
+				mobileCpnPointDao.insertMberCpnInfo(inParam);
+				mobileCpnPointDao.updatePrintCpnInfo(inParam);
+			}else if(!"".equals(result) && result != null){
+				result = "9999";
+			}
+			
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return result;
+	}
+	
+	
+	
+	
+	
+}

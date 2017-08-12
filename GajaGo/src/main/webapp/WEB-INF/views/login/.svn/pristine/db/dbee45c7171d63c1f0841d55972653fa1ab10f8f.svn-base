@@ -1,0 +1,566 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/web/common/cmmnHead.jsp"%>
+<script type="text/javascript" src="/js/web/cart.js" ></script> <!-- 장바구니용 js -->
+<script type="text/javascript">
+
+	var grpProd = new Array();
+	var prodTypeCd = '${params.prodTypeCd }';
+
+	//ready
+	$(document).ready(function(){
+		
+		// title 및 back 버튼 url set		
+		document.title = "반품접수";
+		var url = "";
+		if (prodTypeCd == "1") {
+			url = "/mobile/salemanage/selectOrderShareDtl.do";
+		}
+		else if (prodTypeCd == "2") {
+			url = "/mobile/salemanage/selectOrderShellDtl.do";
+		}
+// 		header.type	= 6;
+		header.type	= 4;
+		header.title = "반품접수";
+		header.method = "POST";
+		header.backUrl = url;
+		header.callback = headerCallback; // 장바구니용 callback
+		header.form = $("#form");
+		initHeader();
+		
+		displayFooter(false);
+		
+		// 출하지 정보 구조체 만들기
+		<c:forEach var="list" items="${grpProdList }" varStatus="status">
+			grpProd['${status.index}'] = new grp.grpProdInfo();
+			grpProd['${status.index}'].mberSeq = '${list.MBER_SEQ}';
+			grpProd['${status.index}'].grpProdSeq = '${list.GRP_PROD_SEQ}';
+			grpProd['${status.index}'].grpNm = '${list.GRP_NM}';
+			grpProd['${status.index}'].zipCode = '${list.ZIP_CD}';
+			grpProd['${status.index}'].jusoDoro = '${list.JUSO_DORO}';
+			grpProd['${status.index}'].jusoJiben = '${list.JUSO_JIBEN}';
+			grpProd['${status.index}'].jusoDtl = '${list.JUSO_DTL}';
+			grpProd['${status.index}'].tel = '${list.TEL}';
+			grpProd['${status.index}'].hp = '${list.HP}';
+			grpProd['${status.index}'].baseYn = '${list.BASE_YN}';
+			grpProd['${status.index}'].acntNm = '${list.ACNT_NM}';
+		</c:forEach>
+		
+		// input
+		proc.procDisabled();
+		
+		// change
+		$("#selGrpProd").change(function () {
+			proc.procSetProdInfo();
+		});
+		
+		// 수령방법 변경
+		$("#dlvCmpCd").change(function () {
+			proc.prodDlvCmp();
+		});
+		
+	});
+	
+	var page = {
+			
+		// 상태변경 및 배송신청
+		updateOrderShare : function () {
+			
+			if (!confirm("해당 상품을 반품처리중 상태로 변경 하시겠습니까?")) {
+				return;
+			}
+			
+			var dlvCmpCdIdx = $("#dlvCmpCd option").index($("#dlvCmpCd option:selected"));
+			if (dlvCmpCdIdx == "0") {
+				alert("반품상품을 수령하실 방법을 선택해 주세요.");
+				return;
+			}
+			else {
+				if (dlvCmpCdIdx == "1") {
+					$("#dlvWayCd").val("5");
+				}
+				else {
+					$("#dlvWayCd").val("1");
+					if (!validation.saveValidation()) {
+						return;
+					}
+				}
+			}
+			
+			var url = "";
+			if (prodTypeCd == "1") {
+				url = "/mobile/salemanage/updateOrderSellProcStat.do";
+			}
+			else if (prodTypeCd == "2") {
+				url = "/mobile/salemanage/updateOrderShareProcStat.do";
+			}
+			
+			$.ajax({
+			    type: 'post'
+			    , async: true
+			    , dataType:'json'
+			    , url: url
+			    , data: $("#form").serialize()
+			    , success: function(data) {
+			    	
+			    	alert(data.rtnMsg);
+			    	
+			    	var dtlGb = data.params.dtlGb;
+			    	var rtnUrl = "";
+			    	if (prodTypeCd == "1") {
+			    		if (dtlGb == "Y") {
+			    			rtnUrl = "/mobile/salemanage/selectOrderSellDtl.do";
+			    		}
+			    		else {
+			    			rtnUrl = "/mobile/salemanage/selectListOrderSell.do";
+			    		}
+					}
+					else if (prodTypeCd == "2") {
+						if (dtlGb == "Y") {
+			    			rtnUrl = "/mobile/salemanage/selectOrderShareDtl.do";
+			    		}
+			    		else {
+			    			rtnUrl = "/mobile/salemanage/selectListOrderShare.do";
+			    		}
+					}
+			    	
+					form.action = rtnUrl;
+					form.submit();
+			    	
+			    }
+			    , error: function(data, status, err) {
+			      alert('서버와의 통신이 실패했습니다.');
+			    }
+			
+			});
+			
+		}
+		
+	};
+	
+	// 유효성 검사
+	var validation = {
+			
+		saveValidation : function () {
+			
+			var grpProdIdx = $("#selGrpProd option").index($("#selGrpProd option:selected"));
+			if (grpProdIdx <= 0) {
+				
+				// 출하지 명
+				var grpNm = $("#grpNm").val();
+				if (grpNm == null || grpNm == "") {
+					alert("출하지명을 입력해 주세요.");
+					$("#grpNm").focus();
+					return false;
+				}
+				
+				// 이름
+				var acntNm = $("#acntNm").val();
+				if (acntNm == null || acntNm == "") {
+					alert("이름을 입력해 주세요.");
+					$("#acntNm").focus();
+					return false;
+				}
+				
+				// 주소
+				var zipCode = $("#zipCode").val();
+				if (zipCode == null || zipCode == "") {
+					alert("주소를 입력해 주세요.");
+					return false;
+				}
+				
+				// 상세주소
+				var jusoDtl = $("#jusoDtl").val();
+				if (jusoDtl == null || jusoDtl == "") {
+					alert("상세주소를 입력해 주세요.");
+					$("#jusoDtl").focus();
+					return false;
+				}
+				
+				// 연락처
+				var hp = $("#hp").val();
+				if (hp == null || hp == "") {
+					alert("연락처를 입력해 주세요.");
+					$("#hp").focus();
+					return false;
+				}
+				
+			}
+			
+			return true;
+			
+		}
+			
+	};
+	
+	// 출하지 구조체
+	var grp = {
+			
+		grpProdInfo : function () {
+			
+			var mberSeq = "";
+			var grpProdSeq = "";
+			var grpNm = "";
+			var zipCode = "";
+			var jusoDoro = "";
+			var jusoJiben = "";
+			var jusoDtl = "";
+			var tel = "";
+			var hp = "";
+			var baseYn = "";
+			var acntNm = "";
+			
+		}
+			
+	};
+	
+	var proc = {
+			
+		// 출하지 선택 시
+		procSetProdInfo : function () {
+			
+			var grpProdIdx = $("#selGrpProd option").index($("#selGrpProd option:selected"));
+
+			if (grpProdIdx > 0) {
+				$("#grpNm").val(grpProd[grpProdIdx-1].grpNm);
+				$("#acntNm").val(grpProd[grpProdIdx-1].acntNm);
+				$("#zipCode").val(grpProd[grpProdIdx-1].zipCode);
+				$("#jusoDoro").val(grpProd[grpProdIdx-1].jusoDoro);
+				$("#jusoJiben").val(grpProd[grpProdIdx-1].jusoJiben);
+				$("#jusoDtl").val(grpProd[grpProdIdx-1].jusoDtl);
+				$("#hp").val(grpProd[grpProdIdx-1].hp);
+			}
+			else {
+				$("#grpNm").val("");
+				$("#acntNm").val("");
+				$("#zipCode").val("");
+				$("#jusoDoro").val("");
+				$("#jusoJiben").val("");
+				$("#jusoDtl").val("");
+				$("#hp").val("");
+			}
+			
+			proc.procDisabled();
+			
+		},
+		
+		// 직접입력 가능 불가능
+		procDisabled : function () {
+			
+			var grpProdIdx = $("#selGrpProd option").index($("#selGrpProd option:selected"));
+			if (grpProdIdx <= 0) {
+				$("#grpNm").attr("readOnly", false);
+				$("#acntNm").attr("readOnly", false);
+				$("#jusoDtl").attr("readOnly", false);
+				$("#hp").attr("readOnly", false);
+			}
+			else {
+				$("#grpNm").attr("readOnly", true);
+				$("#acntNm").attr("readOnly", true);
+				$("#jusoDtl").attr("readOnly", true);
+				$("#hp").attr("readOnly", true);
+			}
+			
+		},
+		
+		// 수령방법 변경
+		prodDlvCmp : function () {
+			var dlvCmpCdIdx = $("#dlvCmpCd option").index($("#dlvCmpCd option:selected"));
+			
+			if (dlvCmpCdIdx == "0" || dlvCmpCdIdx == "1") {
+				$("#pBackInfo").hide();
+				$("#divBackInfo").hide();
+			}
+			else {
+				$("#pBackInfo").show();
+				$("#divBackInfo").show();
+			}
+			
+		}
+			
+	};
+	
+	/*
+	 *	addr(우편번호)
+	 *	jiben_addr(지번)
+	 *	road_addr(신주소)
+	 */
+	function selAddr(gubun,addr,jiben_addr,road_addr){
+		$('.add_layer').hide(); 
+		$('#wrap div#container').show(); 
+// 		$('#id_tile_footer').show();
+		// 1.도로명 , 2.지번
+		if('1'==gubun){
+			$("#zipCode").val(addr);	// 우편번호	
+			$("#jusoText").html('<input type="text" id="jusoDoro" name="jusoDoro" value=\"'+road_addr+'\" readonly>');
+			$("#jusoHidden").html('<input type="hidden" id="jusoJiben" name="jusoJiben" value=\"'+jiben_addr+'\" readonly>');
+		}else if('2'==gubun){
+			$("#zipCode").val(addr);	// 우편번호	
+			$("#jusoText").html('<input type="text" id="jusoJiben" name="jusoJiben" value=\"'+jiben_addr+'\" readonly>');
+			$("#jusoHidden").html('<input type="hidden" id="jusoDoro" name="jusoDoro" value=\"'+road_addr+'\" readonly>');
+		}
+		popup_hide();
+	}
+
+</script>
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+		<div class="roc">
+			<ul class="inner">
+				<li><img src="http://static.ssocio.net/pc/img/common/section/roc_home.png" alt="홈"></li>
+				<li>판매관리</li>
+			</ul>
+		</div>
+		<jsp:include page="../common/sale_top.jsp" flush="false" />
+		<div class="mype_s_tit">
+			<p>상품등록</p>
+		</div>
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+		<!-- container -->
+		<div id="container">
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>
+
+
+<form id="form" name="form" method="get" action="">
+	<input type="hidden" id="ordGb" name="ordGb" value="${params.ordGb }" />
+	<input type="hidden" id="ordCd" name="ordCd" value="${params.ordCd }" />
+	<input type="hidden" id="prodSeq" name="prodSeq" value="${params.prodSeq }" />
+	<input type="hidden" id="prodCode" name="prodCode" value="${params.prodCode }" />
+	<input type="hidden" id="chgCd" name="chgCd" value="${params.chgCd }" />
+	<input type="hidden" id="upProcStatCd" name="upProcStatCd" value="${params.upProcStatCd }" />
+	<input type="hidden" id="mberSeq" name="mberSeq" value="${params.mberSeq }" />
+	<input type="hidden" id="dlvWayCd" name="dlvWayCd" value="" />
+	<input type="hidden" id="dtlGb" name="dtlGb" value="Y" />
+	<input type="hidden" id="prodTypeCd" name="prodTypeCd" value="${params.prodTypeCd }" />
+	<input type="hidden" id="reload" name="reload" value="" />
+
+		<c:if test="${params.reload ne 'Y' }">
+			<p class="title">상품 정보</p>
+			<ul class="sha_oder">
+				<li>
+					<ul class="mt10">
+						<li>
+							<img src="${orderShareBack.PROD_IMG_URL }" alt="">
+						</li>
+						<li>
+							<strong>${orderShareBack.PROD_NM }</strong>
+						</li>
+						<c:choose>
+							<c:when test="${params.prodTypeCd == '1' }">
+								<li class="tr">
+			                		<span>
+			                			상품금액  <fmt:formatNumber value="${orderShareBack.SELL_PRCE }" type="number" />원
+			                		</span>
+			                	</li>
+							</c:when>
+							<c:otherwise>
+								<li class="tr">
+									<span>
+										보증금  <fmt:formatNumber value="${orderShareBack.DEPOSIT }" type="number" />원
+										<br>
+										(셰어링 금액 1일 <fmt:formatNumber value="${orderShareBack.SHARING_PRICE }" type="number" />원)
+									</span>
+								</li>
+							</c:otherwise>
+						</c:choose>
+						<li>
+							<c:choose>
+								<c:when test="${orderShareBack.DLV_PAY_GB_CD == '1' }">
+									<span>
+			                			배송비  무료배송  |  구매수량 ${orderShareBack.ORD_QTY }개
+			                		</span>
+								</c:when>
+								<c:otherwise>
+									<span>
+			                			배송비  <fmt:formatNumber value="${orderShareBack.DLV_PRCE }" type="number" />원  |  구매수량 ${orderShareBack.ORD_QTY }개
+			                		</span>
+								</c:otherwise>
+							</c:choose>
+						</li>
+					</ul>
+				</li>
+			</ul>
+			
+			<p class="title">구매자 정보
+		       	<c:choose>
+		       		<c:when test="${orderShareBack.ORD_HP != null and orderShareBack.ORD_HP != '' }">
+		       			<a href="TEL:${orderShareBack.ORD_HP }" class="user_phone">
+			        		<strong>전화걸기</strong>
+			        	</a>
+		       		</c:when>
+		       		<c:otherwise>
+		       			<a href="TEL:${orderShareBack.ORD_TEL }" class="user_phone">
+			        		<strong>전화걸기</strong>
+			        	</a>
+		       		</c:otherwise>
+		       	</c:choose>
+            </p>
+			<div class="user_info">
+		       	<span class="fl">
+		       		<img alt="${orderShareBack.MBER_IMG_URL }" src="<custom:codeTag code="DEFAULT_IMG_URL" groupCode="SITE_DEFAULT" />" />
+		       	</span>
+		       	<p class="fl ml5">
+		       		<span><img src="${orderShareBack.MBER_LEV }" class="img_level"/>${orderShareBack.ORD_EMAIL }</span>
+		       		
+		       	</p>
+			</div>
+			
+			<p class="title">반품 상품 회수 주소</p>
+	        <div class="tbl">
+	            <table class="tbl-data">
+	                <colgroup>
+	                    <col width="100px">
+	                    <col width="*">
+	                </colgroup>
+	                <tbody>
+	                    <tr>
+	                        <th>받는사람</th>
+	                        <td>${orderShareBack.RCV_NM }</td>
+	                    </tr>
+	                    <tr>
+	                        <th>주소</th>
+	                        <td>
+	                        	<c:set var="dlvAddr" value="" />
+	                        	<c:set var="dlvAddrSplt" value="${fn:split(orderShareBack.JUSO_JIBEN, ' ') }" />
+	                        	<c:forEach var="addr" items="${dlvAddrSplt }" varStatus="status">
+	                        		<c:if test="${status.last }">
+	                        			<c:set var="dlvAddr" value="${addr }" />
+	                        		</c:if>
+	                        	</c:forEach>
+	                        	${orderShareBack.JUSO_DORO } (${dlvAddr }) ${orderShareBack.JUSO_DTL }
+	                        </td>
+	                    </tr>
+	                    <tr>
+	                        <th>연락처</th>
+	                        <td>
+	                        	<c:choose>
+	                        		<c:when test="${orderShareBack.HP != null and orderShareBack.HP != '' }">
+	                        			${orderShareBack.HP }
+	                        		</c:when>
+	                        		<c:otherwise>
+	                        			${orderShareBack.TEL }
+	                        		</c:otherwise>
+	                        	</c:choose>
+	                        </td>
+	                    </tr>
+	                    <tr>
+	                        <th>배송메모</th>
+	                        <td>
+	                        	${orderShareBack.MEMO }
+	                        </td>
+	                    </tr>
+	                </tbody>
+	            </table>
+	        </div>
+	        
+	        <p class="title">반품상품 수령 방법</p>
+	        <div class="content">
+	            <ul class="sbox01">
+	            	<li><p class="txt_type3">구매자로 부터 반품 상품을 수령할 방법을 선택해 주세요.<span class="text_r">필수</span></p></li>
+	                <li>
+	                	<select id="dlvCmpCd" name="dlvCmpCd">
+	                    	<option value="">선택</option>
+	                    	<option value="">직접수령</option>
+	                    	<c:forEach var="list" items="${revDlvList }" varStatus="status">
+								<option value="${list.DLV_CMP_CD }">${list.DLV_CMP_NM }</option>
+							</c:forEach>
+							
+	                    	<%-- <custom:codeList var="dlvCmpCd" groupCode="DLV_CMP_CD" />
+							<c:forEach var="list" items="${dlvCmpCd}" varStatus="status">
+								<c:if test="${list.key eq '10' or list.key eq '20' }">
+									<option value="${list.key}">${list.value}</option>
+								</c:if>
+			                </c:forEach> --%>
+	                    </select>
+	                </li>
+	            </ul>
+	        </div>
+	        
+	        <p id="pBackInfo" style="display:none;" class="title">반품상품을 전달 받을 판매자 주소를 입력해 주세요.</p>
+	        <div id="divBackInfo" style="display:none;" class="tbl">
+				<table class="tbl-data">
+					<colgroup>
+						<col width="100px">
+						<col width="*">
+					</colgroup>
+					<tbody>
+						<tr class="line">
+							<th>출하지</th>
+							<td class="pd5">
+								<select id="selGrpProd" name="selGrpProd">
+									<option value="N">신규등록</option>
+									<c:forEach var="list" items="${grpProdList }" varStatus="status">
+										<option value="${list.GRP_PROD_SEQ }">${list.GRP_NM }</option>
+									</c:forEach>
+								</select>
+							</td>
+						</tr>
+						<tr>
+							<th>출하지명</th>
+							<td class="pd5">
+								<input type="text" id="grpNm" name="grpNm" value="" maxLength="100" />
+							</td>
+						</tr>
+						<tr>
+							<th>이름</th>
+							<td class="pd5">
+								<input type="text" id="acntNm" name="acntNm" value="" maxLength="40" />
+							</td>
+						</tr>
+						<tr>
+							<th class="stop">주소</th>
+							<td class="pd5">
+								<ul class="add">
+									<li>
+										<input type="text" id="zipCode" name="zipCode" class="fl" readOnly />
+										<a href="javascript:postShow();" class="btn_b fr">우편번호</a>
+									</li>
+									<li id="jusoText">
+										<input type="text" id="jusoDoro" name="jusoDoro" readOnly />
+									</li>
+									<li id="jusoHidden">
+										<input type="hidden" id="jusoJiben" name="jusoJiben" readOnly />
+									</li>
+									<li>
+										<input type="text" id="jusoDtl" name="jusoDtl" placeholder="상세 주소 입력" />
+									</li>
+								</ul>
+							</td>
+						</tr>
+						<tr>
+							<th>연락처</th>
+							<td class="pd5">
+								<input type="text" id="hp" name="hp" value="" maxLength="20" />
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			
+			<div class="btn_enter">
+				<a href="javascript:page.updateOrderShare();" class="btn_r">반품처리</a>
+			</div>
+		</c:if>
+</form>
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+		<jsp:include page="../common/sale_bottom.jsp" flush="false" />
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+		    </div>
+		    <!-- //container -->
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>
+
+<%@ include file="/WEB-INF/views/web/common/CmmnJuso.jsp"%>	

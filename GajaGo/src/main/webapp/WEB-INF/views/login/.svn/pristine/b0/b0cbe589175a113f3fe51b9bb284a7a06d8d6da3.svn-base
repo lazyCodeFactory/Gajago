@@ -1,0 +1,211 @@
+<%@ page language="java" contentType="text/html; charset=utf-8"
+    pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/seller/common/cmmnHead.jsp"%>
+<script type="text/javascript">	
+$(document).ready(function(){
+	$('.calendar').datepicker({
+      showOn: "button",
+      buttonImage: "http://static.ssocio.net/seller/images/ico_calendar.gif",
+      buttonImageOnly: true
+    });
+});
+
+/* ======================================================================
+Function : 기간버튼클릭시 날짜 셋팅
+========================================================================= */
+function clickDate(dateType, date){
+	var now = new Date();
+	var toDate = now.getFullYear() + '-' + (now.getMonth()+1) + '-' + now.getDate();
+	$('#regToDate').val(toDate);
+	
+	if(dateType == 'day'){
+		now.setDate(now.getDate() - date);
+	}else{
+		now.setMonth(now.getMonth() - date);
+	}
+	  
+	var fromDate = leadingZeros(now.getFullYear(),4) + '-' + leadingZeros(now.getMonth()+1,2) + '-' + leadingZeros(now.getDate(),2);
+	$('#regFromDate').val(fromDate);
+}
+
+function leadingZeros(n, digits) {
+    var zero = '';
+    n = n.toString();
+ 
+    if (n.length < digits) {
+        for (i = 0; i < digits - n.length; i++)
+            zero += '0';
+    }
+    return zero + n;
+}
+
+function searchSuspectList(){
+	var url = '/seller/prodMgr/sellCreditPopup.do'; 
+	var fromDt = $.trim($("#regFromDate").val()).replace(/-/g, '');
+    var toDt = $.trim($("#regToDate").val()).replace(/-/g, '');   
+    if(toDt != '' && fromDt>toDt){
+		alert('조회시작일이 조회종료일보다 미래입니다.');
+		return;
+    }
+    
+    $("#searchFrm").attr('action', url);
+	$("#searchFrm").submit();
+    
+}
+
+/* ======================================================================
+Function : 다른페이지 이동
+Return   : 없음
+========================================================================= */
+function GoPage(pageNo) {
+	$("#pageNo").val(pageNo);  
+	$("#searchFrm").attr("action","/seller/prodMgr/sellCreditPopup.do").submit();
+}
+</script>
+<div class="pop_inner">
+
+	<!-- tbl --> 
+	<div class="tbl">
+		<p class="tbl_tit"><img src="http://static.ssocio.net/seller/images/ico_admin.gif" alt="">판매 신용 점수 조회</p>
+		<form id="searchFrm" name="searchFrm" method="post">
+		<input type="hidden" id="MBER_SEQ" name="MBER_SEQ" value="${MBER_SEQ }" />
+		<input type="hidden" id="pageNo" name="pageNo"/>
+			<table class="search">
+				<colgroup>
+					<col style="width:8%">
+					<col style="width:18%">
+					<col style="width:8%">
+					<col style="width:18%">
+					<col style="width:8%">
+					<col style="width:24%">
+					<col style="width:*">
+				</colgroup>
+				<tbody>
+					<tr>
+						<th scope="row">반영일</th>
+						<td colspan="6">
+							<input type="text" id="regFromDate" name="regFromDate" class="calendar" value="${searchParam.regFromDate}" style="width:100px" readonly="readonly"/> - 
+							    <input type="text" id="regToDate" name="regToDate" value="${searchParam.regToDate}" class="calendar" style="width:100px" readonly="readonly"/>
+							<span class="ml5">
+								<a href="javascript:clickDate('day', 0);" class="btn_w">오늘</a>
+									<a href="javascript:clickDate('day', 3);" class="btn_w">3일</a>
+									<a href="javascript:clickDate('day', 7);" class="btn_w">7일</a>
+									<a href="javascript:clickDate('month', 1);" class="btn_w">1개월</a>
+									<a href="javascript:clickDate('month', 3);" class="btn_w">3개월</a>
+									<a href="javascript:clickDate('month', 6);" class="btn_w">6개월</a>
+							</span> 
+						</td>
+					</tr>
+					<tr>
+						<th scope="row">구분</th>
+						<td>
+							<input type="checkbox" id="plus" name="gubun" checked="checked" value="Y"><label for="plus">지급</label>
+							<span class="ml5"><input type="checkbox" id="minus" name="gubun" value="N"><label for="minus">차감</label></span>
+						</td>
+						<th scope="row" class="bl">항목</th>
+						<td>
+							<span class="select" style="width:120px;">
+								<span class="sel_txt" style="width: 113px;">선택</span>
+								<select id="searchGbCd" name="searchGbCd">
+									<option value="">선택</option>
+									<custom:codeList var="cpointCd" groupCode="CPOINT_REASON_CD"  />
+									<c:forEach var="list" items="${cpointCd}" varStatus="status" >
+										<option value="${list.key }" <c:if test="${list.key == result.prodInfo.SUSPECT_GB_CD}">selected="selected"</c:if>>${list.value }</option>
+									</c:forEach>   
+								</select>
+							</span>
+						</td>
+						<th scope="row" class="bl">상품명</th>
+						<td class="nolineR">
+							<input type="text" id="" name="" style="width:200px">
+						</td> 
+						<td class="tr"><a href="javascript:searchSuspectList();" class="btn_chk btn_r">조회</a></td>
+					</tr>
+				</tbody>
+			</table>
+		</form>  
+	</div>
+	<!-- //tbl -->
+	<div class="desc_bx clear mt10">     
+		<p class="p_info left mt5">${sessionScope.sellerManager.MBER_EMAIL} 회원님의 판매 신용 점수 : 
+		<span class="text_r">
+		-<c:forEach var="result" items="${list.prodList }" end="0">
+			${result.CPOINT }
+		</c:forEach>
+		</span> 점</p>
+	</div>
+	
+	<!-- tbl -->
+	<div class="tbl mt20">
+		<!-- list -->
+		<table class="list">
+			<colgroup>
+				<col style="width:12%">
+				<col style="width:8%">
+				<col style="width:12%">
+				<col style="width:*">
+				<col style="width:8%">
+			</colgroup>
+			<thead>	
+				<tr>
+					<th scope="col" class="first">반영일시</th>
+					<th scope="col">구분</th>
+					<th scope="col">항목</th>
+					<th scope="col">상품명</th>
+					<th scope="col">점수</th>
+				</tr>
+			</thead> 
+			<tbody>
+				<c:if test="${fn:length(list.prodList) <= 0}">
+					<tr>
+						<td colspan="5">조회된 결과가 없습니다.</td>
+					</tr>
+				</c:if>
+				
+				<c:if test="${fn:length(list.prodList) > 0}">
+					<c:forEach var="result" items="${list.prodList }" varStatus="stat">
+						<tr>   
+							<td class="first">${result.REGIST_DT }</td>
+							<td>
+								<c:if test="${result.ADD_YN eq 'Y' }">
+									지급
+								</c:if>   
+								 
+								<c:if test="${result.ADD_YN eq 'N' }">
+									차감
+								</c:if>  
+							</td> 
+							
+							<td>
+								<custom:codeList var="cpointCd" groupCode="CPOINT_REASON_CD"/>
+								<c:forEach var="list" items="${cpointCd}" varStatus="status" >
+									<c:if test="${list.key == result.CPOINT_REASON_CD}">
+										${list.value }
+									</c:if> 
+								</c:forEach>         
+							</td>     
+							  
+							<td class="tl">
+								<div class="thumbnail_bx">            
+									<img src="http://static.ssocio.net/seller/images/${result.IMG_URL }">      
+									<span class="prod_name alink" style="width: 450px; padding-top: 16px; padding-bottom: 16px;">${result.PROD_NM }</span>
+								</div>
+							</td>
+							<td>${result.JUMSU }</td>
+						</tr>
+					</c:forEach>
+				</c:if>
+			</tbody>
+		</table>
+		<!-- //list -->
+	</div>
+	<!-- //tbl -->
+	
+	<!-- bot_tbl -->  
+	<div class="bot_tbl">
+		<!-- paging -->
+		<%@ include file="/WEB-INF/views/seller/common/PageView.jsp" %>
+		<!-- //paging -->
+	</div>
+	<!-- //bot_tbl -->
+</div>

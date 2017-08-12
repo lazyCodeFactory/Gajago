@@ -1,0 +1,214 @@
+/**
+ * 
+ */
+package com.ssocio.sharing.cmmn.admin.handler;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.servlet.ModelAndView;
+
+import com.ssocio.sharing.cmmn.handler.AbstractHandlerInterceptor;
+import com.ssocio.sharing.cmmn.instance.cmmncode.CmmnCodeTableManager;
+import com.ssocio.sharing.cmmn.instance.config.AppConfigManager;
+import com.ssocio.sharing.cmmn.service.CommonService;
+import com.ssocio.sharing.cmmn.util.StringUtil;
+import com.ssocio.sharing.cmmn.web.util.WebCommonUtil;
+import com.ssocio.sharing.vo.admin.AdminSession;
+
+/**
+ * <pre>
+ * AdminCodeInterceptor
+ * 
+ * @author S.B.LEE
+ * @version
+ * @since 2015. 8. 31. 오전 11:03:42
+ * @see
+ * @History
+ * Date			|	author	| 변경 내용
+ * 2015. 8. 31.	|	SEOKBAE	|신규
+ * @비고
+ * </pre>
+ */
+public class AdminCodeInterceptor extends AbstractHandlerInterceptor {
+
+	private static final long serialVersionUID = 9123144232304332549L;
+	
+	// --------------------------------------------------------------------------
+	// # Log 설정
+	// --------------------------------------------------------------------------
+	private static final Logger logger = LoggerFactory.getLogger(AdminCodeInterceptor.class);
+	
+	// --------------------------------------------------------------------------
+	// # Service 설정
+	// --------------------------------------------------------------------------
+	//@Resource(name = "synchrnService")
+	@Autowired
+	private CommonService commonService;
+	
+	/**
+	 * <pre>
+	 * preHandle
+	 * 
+	 * @param request
+	 * @param response
+	 * @param handler
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 31. 오전 11:05:38
+	 * @author S.B.LEE
+	 * @see @see org.springframework.web.servlet.handler.HandlerInterceptorAdapter#preHandle(javax.servlet.http.HttpServletRequest, javax.servlet.http.HttpServletResponse, java.lang.Object)
+	 * </pre>
+	 */
+	@SuppressWarnings ("static-access")
+	@Override
+	public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
+		
+		try {
+			logger.info("# @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+			logger.info("# [AdminCodeInterceptor] Start @@@@@@@@@@@@@@@@@@@");
+			logger.info("# @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+			String reqURL = StringUtil.nvl((String)request.getRequestURI());
+			// ----------------------------------------------------------------------
+			// Application Config설정파일 Load - application-config.xml
+			// ----------------------------------------------------------------------
+			AppConfigManager.getInstance(request);
+			
+			// ----------------------------------------------------------------------
+			// 공통코드 Instance Check & Create
+			// ----------------------------------------------------------------------
+			//CmmnCodeTableManager.getInstance(request);
+			if (CmmnCodeTableManager.getInstance() == null) {
+				logger.info("# ################################################");
+				logger.info("# CmmnCodeTableManager Instance Loading...");
+				commonService.setComCdInstanceInfo();
+				logger.info("# ################################################");
+			} else {
+				logger.debug("# CmmnCodeTableManager Instance Already Loaded");
+			}
+			
+			// ----------------------------------------------------------------------
+			// System Info Log
+			// ----------------------------------------------------------------------
+			logger.info("# ################################################");
+			logger.info("# System Info ####################################");
+			logger.info("# Sys.SystemSe  : " + AppConfigManager.getInstance(request).getSystemSe());
+			logger.info("# Sys.SystemIP  : " + AppConfigManager.getInstance(request).getSystemIp());
+			
+			// ----------------------------------------------------------------------
+			// request Info Log
+			// ----------------------------------------------------------------------
+			logger.info("# ################################################");
+			logger.info("# Request Info ###################################");
+			logger.info("# Req.LocalAddr          : " + request.getLocalAddr());    // was IP
+			logger.info("# Req.LocalName          : " + request.getLocalName());    // was host명
+			logger.info("# Req.LocalPort          : " + request.getLocalPort());    // 개발서버의 경우 36181 찍힘
+			logger.info("# Req.RemoteAddr         : " + request.getRemoteAddr());   // 접속자 PC의 IP
+			logger.info("# Req.RemoteHost         : " + request.getRemoteHost());   // 접속자 PC의 IP
+			logger.info("# Req.RequestUri         : " + request.getRequestURI());   // ip이후의 /부터 ~~do 까지의 uri 
+			logger.info("# Req.ServerName         : " + request.getServerName());   // web ip
+			logger.info("# Req.ServerPort         : " + request.getServerPort());   // web으로 접속한 Port
+			logger.info("# Req.ServletPath        : " + request.getServletPath());  // ip이후의 /부터 ~~do 까지의 uri
+			logger.info("# Req.ContextPath        : " + request.getContextPath());
+			logger.info("# Req.ContentType        : " + request.getContentType());
+			logger.info("# Req.Session            : " + request.getSession());
+			logger.info("# Req.RequestedSessionId : " + request.getRequestedSessionId());
+			logger.info("# Req.PathInfo           : " + request.getPathInfo());
+			logger.info("# Req.HeaderNames        : " + request.getHeaderNames());
+			logger.info("# Req.ParameterNames     : " + request.getParameterNames());
+			logger.info("# ################################################");
+			
+			
+			HttpSession session = request.getSession();
+			AdminSession sessionVO = (AdminSession)session.getAttribute("manager");
+			if(sessionVO!=null){
+				//로그인 페이지 호출시 세션이 있으면 메인으로	
+				if(reqURL.indexOf("/admin/login.do")>-1) {
+						 response.sendRedirect("/admin/main.do"); 
+		                    return false;
+					}
+			}
+			
+		} catch (Exception e) {
+			logger.error("# AdminCodeInterceptor 오류 [" + e.toString() + "]");
+			e.printStackTrace();
+		}
+		
+		logger.info("# [AdminCodeInterceptor] End @@@@@@@@@@@@@@@@@@@@@");
+		logger.info("# @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+		
+		return true;
+	}
+	
+	/**
+	 * <pre>
+	 * postHandle
+	 * 
+	 * @param request
+	 * @param response
+	 * @param handler
+	 * @param model
+	 * @throws Exception
+	 * @date 2015. 8. 31. 오전 11:10:02
+	 * @author S.B.LEE
+	 * @see @see org.springframework.web.servlet.handler.HandlerInterceptorAdapter#postHandle(javax.servlet.http.HttpServletRequest, javax.servlet.http.HttpServletResponse, java.lang.Object, org.springframework.web.servlet.ModelAndView)
+	 * </pre>
+	 */
+	@Override
+	public void postHandle(HttpServletRequest request, HttpServletResponse response, Object handler, ModelAndView model) throws Exception {
+		// TODO Auto-generated method stub
+	}
+	
+	/**
+	 * <pre>
+	 * afterCompletion
+	 * 
+	 * @param request
+	 * @param response
+	 * @param handler
+	 * @param exception
+	 * @throws Exception
+	 * @date 2015. 8. 31. 오전 11:10:28
+	 * @author S.B.LEE
+	 * @see @see org.springframework.web.servlet.handler.HandlerInterceptorAdapter#afterCompletion(javax.servlet.http.HttpServletRequest, javax.servlet.http.HttpServletResponse, java.lang.Object, java.lang.Exception)
+	 * </pre>
+	 */
+	@Override
+	public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler, Exception exception) throws Exception {
+		// TODO Auto-generated method stub
+	}
+	
+	/**
+	 * <pre>
+	 * AfterContextPathUri반환
+	 *  - request에서 가져옴
+	 * @param request
+	 * @return
+	 * @date 2015. 8. 31. 오전 11:11:35
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.cmmn.admin.handler
+	 * </pre>
+	 */
+	public static String getAfterContextPathUri(HttpServletRequest request) {
+		
+		String requestUri             = "";
+		String strAfterContextPathUri = "";
+		
+		try {
+			requestUri = request.getRequestURI();   // ex) /lotteCardMall/web/web.apiTest
+			logger.debug("# requestUri          : " + requestUri);
+			strAfterContextPathUri = requestUri.substring(request.getContextPath().length());
+			//logger.debug("@@afterContextPathUri : " + strAfterContextPathUri);
+		} catch (Exception e) {
+			
+			logger.error("# AdminCodeInterceptor 오류 [" + e.toString() + "]");
+			e.printStackTrace();
+		}
+		return strAfterContextPathUri;
+	 }
+	
+}

@@ -1,0 +1,301 @@
+package com.ssocio.sharing.vo.web;
+
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
+
+import kr.co.danal.rnd.TeleditClient;
+
+
+public class Phone {
+	/********************************************************************************
+	 *
+	 * 다날 휴대폰 결제
+	 *
+	 * - Function Library
+	 *      결제 연동에 필요한 Function 및 변수값 설정
+	 *
+	 * 결제 시스템 연동에 대한 문의사항이 있으시면 서비스개발팀으로 연락 주십시오.
+	 * DANAL Commerce Division Technique supporting Team
+	 * EMail : tech@danal.co.kr
+	 *
+	 ********************************************************************************/
+
+	/******************************************************
+	 *
+	 * info.properties 경로설정( 절대경로 )
+	 *
+	 ******************************************************/
+	private String Info = "";
+
+	/******************************************************
+	 * ID		: 다날에서 제공해 드린 CPID
+	 * PWD		: 다날에서 제공해 드린 CPPWD
+	 * AMOUNT	: 결제 금액
+	 ******************************************************/
+	private String ID  = "xxxxx";
+	private String PWD = "xxxxx";
+	private String AMOUNT = "301";
+
+	/******************************************************
+	 * - CallTeledit
+	 * - CallTeleditCancel
+	 *      다날 서버와 통신하는 함수입니다.
+	 ******************************************************/
+	public Map CallTeledit(Map TransR) {
+
+		String Input = MakeParam( TransR );
+		String Output = new TeleditClient( Info ).SClient( Input );
+
+		return Parsor( Output,"\n" );
+	}
+
+	public Map CallTeleditCancel(Map TransR) {
+
+		String Input = MakeParam( TransR );
+		String Output = new TeleditClient( Info ).cancel( Input );
+
+		return Parsor( Output,"\n" );
+	}
+
+	public Map Parsor(String output,String delimiter) {
+
+		String[] step1 = null;
+		String[] step2 = null;
+
+		int stepc;
+
+		Map retval = new HashMap();
+
+		step1 = output.split(delimiter);
+
+		for( stepc=0;stepc<step1.length;stepc++ )
+		{
+			step2 = step1[stepc].split( "=" );
+
+			if( step2.length < 2 ) continue;
+
+			retval.put( step2[0].trim(),step2[1].trim() );
+		}
+
+		return retval;
+	}
+
+	public String MakeFormInput(Map map,String[] arr) {
+
+		StringBuffer ret = new StringBuffer();
+
+		if( arr!=null )
+		{
+			for( int i=0;i<arr.length;i++ )
+			{
+				if( map.containsKey(arr[i]) )
+				{
+					map.remove( arr[i] );
+				}
+			}
+		}
+
+		Iterator i = map.keySet().iterator();
+
+		while( i.hasNext() )
+		{
+			String key = (String)i.next();
+			String value = (String)map.get(key);
+			
+			ret.append( "<input type=\"hidden\" name=\"" );
+			ret.append( key );
+			ret.append( "\" value=\"" );
+			ret.append( value );
+			ret.append( "\">" );
+			ret.append( "\n" );
+		}
+
+		return ret.toString();
+	}
+
+	public String MakeFormInputHTTP(Map HTTPVAR,String arr) {
+
+		StringBuffer ret = new StringBuffer();
+		String key = "";
+		String[] value = null;
+
+		Iterator i = HTTPVAR.keySet().iterator();
+
+		while( i.hasNext() )
+		{
+			key = (String)i.next();
+
+			if( key.equals(arr) )
+			{
+				continue;
+			}
+
+			value = (String[])HTTPVAR.get(key);
+			
+			for( int j=0;j<value.length;j++ )
+			{
+				ret.append( "<input type=\"hidden\" name=\"" );
+				ret.append( key );
+				ret.append( "\" value=\"" );
+//				ret.append( toEuckr(value[j]) );
+				ret.append( value[j] );
+				ret.append( "\">" );
+				ret.append( "\n" );
+			}
+		}
+
+		return ret.toString();
+	}
+
+	public void MakeAddtionalInput(Map Trans,Map HTTPVAR,String[] Names) {
+
+		for (int i=0;i<Names.length;i++ )
+		{
+			if( HTTPVAR.containsKey(Names[i]) )
+			{
+				String[] a = (String[])HTTPVAR.get( Names[i] );
+				Trans.put( Names[i],a[0] );
+			}
+		}
+	}
+
+	public String MakeItemInfo(String ItemAmt,String ItemCode,String ItemName) {
+
+		StringBuffer ItemInfo = new StringBuffer();
+
+		ItemInfo.append( ItemCode.substring(0,1) );
+		ItemInfo.append( "|" );
+		ItemInfo.append( ItemAmt );
+		ItemInfo.append( "|1|" );
+		ItemInfo.append( ItemCode );
+		ItemInfo.append( "|" );
+		ItemInfo.append( ItemName );
+
+		return ItemInfo.toString();
+	}
+
+	public String MakeParam(Map Trans) {
+
+		Iterator i = Trans.keySet().iterator();
+		StringBuffer sb = new StringBuffer();
+	
+		while( i.hasNext() )
+		{
+	    		Object key = i.next();
+	    		Object value = Trans.get(key);
+	    		sb.append( key.toString().trim()+"="+value.toString().trim()+";" );
+		}
+
+		if( sb.length() > 0 )
+		{
+			return sb.substring( 0,sb.length()-1 );
+		}
+		else
+		{
+	    		return "";
+		}
+    	}
+
+	public String GetCIURL(String IsUseCI,String CIURL) {
+
+		/*
+		 * Default Danal CI
+		 */
+		String URL = "https://ui.teledit.com/Danal/Teledit/EPMobile/images/logo_danal.png";
+
+		if( IsUseCI.equals("Y") && CIURL != null )
+		{
+			URL = CIURL;
+		}
+
+		return URL;
+	}
+
+	public String GetBgColor(String BgColor) {
+
+		/*
+		 * Default : Blue
+		 */
+		int Color = 0;
+		int nBgColor = Integer.parseInt(BgColor);
+
+		if( nBgColor > 0 && nBgColor < 11 )
+		{
+			Color = nBgColor;
+		}
+
+		if( Color >= 0 && Color <= 9 )
+		{
+			return "0" + Integer.toString(Color);
+		}
+		else
+		{
+			return Integer.toString(Color);
+		}
+	}
+
+	public String Map2Str(Map Trans) {
+
+		Iterator i = Trans.keySet().iterator();
+		StringBuffer sb = new StringBuffer();
+
+		while( i.hasNext() )
+		{
+			Object key = i.next();
+			Object value = Trans.get(key);
+			sb.append( key.toString().trim()+" = "+value.toString().trim()+"<BR>" );
+		}
+
+		return sb.toString();
+	}
+
+	public String toEuckr(String str) {
+
+		if( str == null ) return "";
+
+		try
+		{
+			return new String( str.getBytes("8859_1"),"euc-kr" );
+		}
+		catch(IOException e)
+		{
+			return "";
+		}
+	}
+
+	public String getInfo() {
+		return Info;
+	}
+
+	public void setInfo(String info) {
+		Info = info;
+	}
+
+	public String getID() {
+		return ID;
+	}
+
+	public void setID(String iD) {
+		ID = iD;
+	}
+
+	public String getPWD() {
+		return PWD;
+	}
+
+	public void setPWD(String pWD) {
+		PWD = pWD;
+	}
+
+	public String getAMOUNT() {
+		return AMOUNT;
+	}
+
+	public void setAMOUNT(String aMOUNT) {
+		AMOUNT = aMOUNT;
+	}
+	
+	
+}

@@ -1,0 +1,392 @@
+/**<pre>
+ * 1. Project Name : Gapping1.0
+ * 2. Package Name : com.lottecard.mall.cmmn.util
+ * 3. File Name    : PageUtil.java
+ * 4. Date         : 2014. 8. 21. 오후 9:37:19
+ * 5. Author       : adrra
+ * 6. Note         : 
+ * </pre>
+ */
+
+package com.ssocio.sharing.cmmn.util;
+
+import java.io.Serializable;
+import java.net.URLEncoder;
+import java.util.Enumeration;
+import javax.servlet.http.HttpServletRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+/**
+ * <pre>
+ * Page Util
+ * 
+ * @author adrra
+ * @version 
+ * @since 2014. 8. 21. 오후 9:37:35
+ * @see 
+ * @History 
+ *  Date          |    author    | 변경내용  
+ *	2014. 8. 21.  |    adrra            | 신규 
+ * @Todo
+ * </pre>
+ */
+public class PageUtil implements Serializable {
+
+	private static final long serialVersionUID = 3627161375213805216L;
+
+	// --------------------------------------------------------------------------
+	// # Log 설정
+	// --------------------------------------------------------------------------
+	private static final Logger logger = LoggerFactory.getLogger(PageUtil.class);
+	
+	public PageUtil() {
+		this.page     = 0;      // 현재페이지번호
+		this.total    = 0;      // 총페이지수
+		this.rows     = 10;     // 페이지당보여줄row수
+		this.records  = 0;      // 총데이터갯수
+		this.pagePerGroup = 10; // 노출될페이지수
+	}
+	
+	// ------------------------------------------------------------------------
+	// # 객체/변수 선언
+	// ------------------------------------------------------------------------
+	private Integer page          = 0;  // 현재페이지번호
+	private Integer total         = 0;  // 총페이지수
+	private Integer rows          = 0;  // 페이지당보여줄row수
+	private Integer records       = 0;  // 총데이터갯수
+	private Integer pagePerGroup  = 10; // 노출될페이지수
+
+	// --------------------------------------------------------------------------
+	// 페이징기능
+	// --------------------------------------------------------------------------
+	/**
+	 * <pre>
+	 * 데이터를 가져올 시작 번호를 리턴
+	 *  - MySql에서 Limit 처음에 들어가는 시작 rownum
+	 * @return 
+	 * @exception 
+	 * @date 2014. 8. 21. 오후 9:42:22
+	 * @author adrra
+	 * @비고
+	 * 
+	 * </pre>
+	 */
+	public Integer getStart() {
+
+		if ((this.page == null || this.page == 0) || (this.rows == null || this.rows == 0)) {
+			return 0;
+		} else {
+			// 쿼리의 page.start 에 들어가는 부분이며, 0으로 끝나는지 1로 끝나는지에 따라 + 0, +1 처리해줘야 함
+			return Integer.valueOf((this.page.intValue() - 1) * this.rows.intValue()) + 0;
+		}
+	}
+	
+	/**
+	 * <pre>
+	 * 데이터를 가져올 끝 index 번호를 리턴
+	 *  - 조회종료 rownum
+	 * @return 
+	 * @exception 
+	 * @date 2014. 8. 21. 오후 9:42:41
+	 * @author adrra
+	 * @비고
+	 * 
+	 * </pre>
+	 */
+	public Integer getEnd() {
+
+		if ((this.page == null || this.page == 0) || (this.rows == null || this.rows == 0)) {
+			return 0;
+		} else {
+			return this.page * rows;
+		}
+	}
+	
+	/**
+	 * <pre>
+	 * 
+	 * getNextPageIndexes(request, className, totalRow, pageSize, * page_no);
+	 * className: 실행경로까지 적는다.
+	 * className 을 적기 싫으면 null 을 입력한다.
+	 * @param req
+	 * @param className
+	 * @param totalRow
+	 * @return
+	 * @throws Exception 
+	 * @exception 
+	 * @date 2014. 8. 21. 오후 9:43:37
+	 * @author adrra
+	 * @비고
+	 * 
+	 * </pre>
+	 */
+	public String getNextPageIndexes(HttpServletRequest req, String className, int totalRow) throws Exception{
+		
+		// ------------------------------------------------------------------------
+		// # 시작로그
+		// ------------------------------------------------------------------------
+		logger.info("getNextPageIndexes Start");
+		
+		// ------------------------------------------------------------------------
+		// # 객체/변수 선언
+		// ------------------------------------------------------------------------
+		int     pageNo    = 0;
+		int     pageSize  = 0;
+		String  result    = "";
+		String  url       = "";
+		int     startPage = 1;
+		int     totalPage = 0;
+		int     endPage   = 0; 
+		
+		// ------------------------------------------------------------------------
+		// # Biz Start
+		// ------------------------------------------------------------------------
+		pageNo = (getPage() == 0) ?  1 : getPage();
+		pageSize = getRows();
+
+		if (className == null) {
+			className = req.getRequestURI();
+		}
+		
+		url = getUrl(req, className);
+		
+		if (totalRow <= pageSize) {
+			return result;
+		}
+		
+		startPage = ((((pageNo % 10) == 0) ? pageNo - 1 : pageNo) / 10) * 10 + 1;
+		totalPage = (totalRow / pageSize) + (((totalRow % pageSize) == 0) ? 0 : 1);
+		endPage   = ((totalPage - startPage) >= 10) ? (startPage + 9) : totalPage;
+		
+		logger.debug("init startPage : " + startPage);
+		logger.debug("init totalPage : " + totalPage);
+		logger.debug("init endPage   : " + endPage);
+		
+		result += "<table border='0' cellspacing='0' cellpadding='0' align='center'>"
+				+ "<tr>";
+		logger.debug("pageNo : " + pageNo);
+		if (pageNo > 10) {
+
+			result  += "<td class='pagging_btn'><a href='"
+					+ url
+					+ "page.page="
+					+ (startPage - 1)
+					+ "' onfocus='this.blur();'><img src='/resources/images/paging_btn_pre.gif' width='40' height='20' alt='이전' /></a></td>";
+//			result  += "<td class='pagging_btn'><a href='#' onclick='pageSubmit(" 
+//					+ "\""
+//					+  url 
+//					+  "page.page="
+//					+  (startPage - 1)
+//					+ "\""
+//					+ ");' onfocus='this.blur();'>"
+//					+ "<img src='/resources/images/paging_btn_pre.gif' width='40' height='20' alt='이전' /></a>" 
+//					+ "</td>";
+		}
+		logger.debug("result1 : " + result);
+		
+		//한페이지씩이동이없어서 변경
+		//if (pageNo > 10) {
+		//  result += "<a href='"
+		//      + url
+		//      + "&page.page="
+		//      + (startPage - 1)
+		//      + "'><img align=absmiddle src=/img/bu_backarw.gif border=0></a>";
+		//} else {
+		//  if (pageNo > 1) {
+		//    // result +=
+		//    // "<img align=absmiddle src=/img/bu_backarwn.gif border=0>";
+		//    result += "<a href='" + url + "&page.page=" + (pageNo - 1)
+		//        + "'><이전></a>";
+		//  } else {
+		//    // result +=
+		//    // "<img align=absmiddle src=/img/bu_backarwn.gif border=0>";
+		//  }
+		//}
+		
+		for (int i = startPage; i <= endPage; i++) {
+			
+			if (pageNo == i) {
+				result += "<td><span id='list_paging_now' >[" + i + "]</span></td>";
+			} else {
+				
+				result += "<td><a href='" + url + "page.page=" + i + "' onfocus='this.blur();' class='list_paging'>[" + i + "]</a></td>";
+//				result  += "<td><a href='#' onclick='pageSubmit(\""
+//						+  url 
+//						+  "page.page="
+//						+ i
+//						+ "\""
+//						+ ");' onfocus='this.blur();' class='list_paging'>["
+//						+ i
+//						+ "]</a></td>";
+				
+			}
+			
+			logger.debug("result[" + i + "] : " + result);
+			
+		} // End of 
+		
+		logger.debug("endPage   : " + endPage);
+		logger.debug("totalPage : " + totalPage);
+		
+		if (endPage != totalPage) {
+			
+			result  += "<td class='pagging_btn'><a href='"
+					+ url
+					+ "page.page="
+					+ (endPage + 1)
+					+ "' onfocus='this.blur();'><img src='/resources/images/paging_btn_next.gif' width='40' height='20' alt='다음' /></a></td>";
+//      result  += "<td class='pagging_tbn'><a href='#' onclick='pageSubmit(\""
+//              +  url
+//              +  "page.page="
+//              +  (endPage + 1) 
+//              +  "\");' onfocus='this.blur();'>"
+//              + "<img src='/resources/images/paging_btn_next.gif' width='40' height='20' alt='다음' />"
+//              + "</a></td>";
+		}
+		
+		logger.debug("result2 : " + result);
+		
+		//한페이지씩이동이없어서 변경
+		//if (endPage != totalPage) {
+		//  result += "<a href='"
+		//      + url
+		//      + "&page.page="
+		//      + (endPage + 1)
+		//      + "'><img align=absmiddle src=/img/bu_nextarw.gif border=0></a><a href='"
+		//      + url + "&page.page=" + (endPage + 1) + "'></a>";
+		//} else {
+		//  if (pageNo < endPage) {
+		//    // result +=
+		//    // "<img align=absmiddle src=/img/bu_nextarwn.gif border=0>";
+		//    result += "<a href='" + url + "&page.page=" + (pageNo + 1)
+		//        + "'><다음></a>";
+		//  } else {
+		//    // result +=
+		//    // "<img align=absmiddle src=/img/bu_nextarwn.gif border=0>";
+		//  }
+		//}
+		result += "</tr></table>";
+
+		logger.debug("getNextPageIndexes : " + result);
+		
+		return result;
+	}
+
+	/**
+	 * <pre>
+	 * paging 처리를 위한 parameter를 구한다.
+	 * 
+	 * @param req
+	 * @param className
+	 * @return
+	 * @throws Exception 
+	 * @exception 
+	 * @date 2014. 8. 21. 오후 9:52:10
+	 * @author adrra
+	 * @비고
+	 * 
+	 * </pre>
+	 */
+	@SuppressWarnings ({ "unchecked" })
+	public static String getUrl(HttpServletRequest req, String className) throws Exception{
+
+		// ------------------------------------------------------------------------
+		// # 시작로그
+		// ------------------------------------------------------------------------
+		logger.info("getUrl Start");
+		
+		// ------------------------------------------------------------------------
+		// # 객체/변수 선언
+		// ------------------------------------------------------------------------
+		Enumeration<String> names = null;
+		String    result  = "";
+		String    temp    = null;
+		String[]  values  = null;
+
+		// ------------------------------------------------------------------------
+		// # Biz Start
+		// ------------------------------------------------------------------------
+		result  = className + "?";
+		names   = req.getParameterNames();
+		
+		while (names.hasMoreElements()) {
+			temp = (String) names.nextElement();
+			if (temp.equals("page.page")) {
+				continue;
+			}
+
+			values = req.getParameterValues(temp);
+
+			for (int i = 0, n = values.length; i < n; i++) {
+				result += temp + "=" + URLEncoder.encode(values[i],"UTF-8") + "&";
+			}
+		}
+		logger.debug("getUrl : " + result);
+
+		return result;
+	}
+
+	/**
+	 * <pre>
+	 * paging 처리를 위한 parameter를 구한다.[pageNo를 넘겨받아 같이 처리한다.]
+	 * 
+	 * @param req
+	 * @param className
+	 * @param pageNo
+	 * @return
+	 * @throws Exception 
+	 * @exception 
+	 * @date 2014. 8. 21. 오후 9:52:25
+	 * @author adrra
+	 * @비고
+	 * 
+	 * </pre>
+	 */
+	public static String getUrl(HttpServletRequest req, String className, String pageNo) throws Exception {
+		return getUrl(req, className) + "page.page=" + pageNo;
+	}
+
+	// --------------------------------------------------------------------------
+	// # Setter/Getter
+	// --------------------------------------------------------------------------
+	public Integer getPage () {
+		return page;
+	}
+	
+	public void setPage (Integer page) {
+		this.page = page;
+	}
+	
+	public Integer getTotal () {
+		return total;
+	}
+	
+	public void setTotal (Integer total) {
+		this.total = total;
+	}
+	
+	public Integer getRows () {
+		return rows;
+	}
+	
+	public void setRows (Integer rows) {
+		this.rows = rows;
+	}
+	
+	public Integer getRecords () {
+		return records;
+	}
+	
+	public void setRecords (Integer records) {
+		this.records = records;
+	}
+	
+	public static Logger getLogger () {
+		return logger;
+	}
+	
+	public Integer getPagePerGroup () {
+		return pagePerGroup;
+	}
+}

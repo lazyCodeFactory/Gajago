@@ -1,0 +1,431 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<!-- 태그는 cmmnHead.jsp 에 선언함 -->
+<%@ include file="/WEB-INF/views/admin/common/cmmnHead.jsp"%>
+<script type="text/javascript">
+
+	$(document).ready(function(){
+		$('.calendar').datepicker({
+			showOn: "button",
+			buttonImage: "http://static.ssocio.net/admin/images/ico_calendar.gif",
+			buttonImageOnly: true
+		});
+		
+		/* enter event */
+		$("#searchKeyword").keypress( function (evt) {
+			if (evt.keyCode == 13) {
+				searchPage();
+			}
+		});
+				
+		//처리상태 checkbox 초기화
+		var handlingCheckbox = new Array();
+		cnt = 0;
+		<c:forEach var="list" items="${list.params.HANDLING_YN}">
+		handlingCheckbox[cnt] = '${list}';
+		cnt++;
+		</c:forEach>
+		if(handlingCheckbox != null && handlingCheckbox.length > 0){
+		}else{
+			$("input[id*='handling']").each( function () {
+				$(this).attr('checked', 'checked');
+			});
+		}
+		
+		// 전체선택
+		$("#chkAll").click( function () {
+			allCheck();
+		});
+		
+		$("input[name^=WANT_SEQ]").click( function (evt) {
+			chkSeq();
+		});
+		
+		$("#handlingYnAll").click( function (evt) {
+			Component.handlingAllChk();
+		});
+		
+		$("input[name^=HANDLING_YN]").click( function (evt) {
+			Component.handlingChk();
+		});	
+		
+	});
+	
+	// 전체 선택
+	function allCheck() {
+		var chk = $("#chkAll").is(":checked");
+		if (chk) {
+			$("input[name^=WANT_SEQ]").each( function (idx) {
+				$(this).attr("checked", true);
+			});
+		}
+		else {
+			$("input[name^=WANT_SEQ]").each( function (idx) {
+				$(this).attr("checked", false);
+			});
+		}
+	}
+	
+	// 전체 선택을 제외한 체크박스 선택
+	function chkSeq() {
+		var chkAllCnt = $("input[name^=WANT_SEQ]").length; 
+		var chkCnt = $("input[name^=WANT_SEQ]:checked").length;
+		
+		if (chkAllCnt == chkCnt) {
+			$("#chkAll").attr("checked", true);	
+		}
+		else {
+			$("#chkAll").attr("checked", false);
+		}
+	}
+	
+	// 날짜 세팅 
+	function setDate(interval) {
+		getDateInterval(interval);
+	}
+	
+	/* ======================================================================
+	Function : 다른페이지 이동
+	Return   : 없음
+	========================================================================= */
+	function GoPage(pageNo) {
+		$("#PAGE_NO").val(pageNo);
+	
+		$("#S_START_DATE").val($("#S_START_DATE").val().replace(/\-/ig, ''));
+		$("#S_END_DATE").val($("#S_END_DATE").val().replace(/\-/ig, ''));
+		$("#form").attr("action","/admin/prodWant/selectProdWantList.do").attr("target", "").submit();
+	}
+	
+	function searchPage() {
+
+		// validation check
+		if (!validation.searchValidation()) {
+			return;
+		}
+		$("#PAGE_NO").val("");
+		$("#S_START_DATE").val($("#S_START_DATE").val().replace(/\-/ig, ''));
+		$("#S_END_DATE").val($("#S_END_DATE").val().replace(/\-/ig, ''));
+		$("#form").attr("action","/admin/prodWant/selectProdWantList.do").attr("target", "").submit();
+		
+	}
+		
+	/* ======================================================================
+	Function : validation check
+	Return   : 없음
+	========================================================================= */
+	var validation = {
+			
+		searchValidation : function () {
+			
+			var searchKeyword = $("#searchKeyword").val();		
+			
+			if ((searchKeyword != null && searchKeyword != "") && searchKeyword.length < 2) {
+				alert("키워드를 두글자 이상 입력하세요.");
+				$("#searchKeyword").focus();
+				return false;
+			}
+			
+			return true;
+			
+		}
+			
+	};
+	
+	
+	/* ======================================================================
+	Function : 조회
+	Return   : 없음
+	========================================================================= */
+	function f_searchList(sAction) {
+		
+		var sYear = $("#S_YEAR").val();
+		var sMonth = $("#S_MONTH").val();
+		var sDay = $("#S_DAY").val();
+		var sSalesDate = "";
+		var url;
+		
+		url = "/admin/prodWant/selectProdWantList.do";
+		
+		$("#ACTION").val(sAction);
+		$("#S_SALES_DATE").val(sSalesDate);
+		$("#form").attr("action", url).submit();
+	}
+
+	function chkUpdateYn() {
+			
+		// 선택여부 확인
+		var chkCnt = $("input[name^=WANT_SEQ]:checked").length;
+		if (chkCnt <= 0) {
+			alert("선택된 건이 없습니다.");
+			return;
+		}
+		
+		var UpdateCnt = 0;
+		
+		//이미 처리 완료된 건 check
+		$("input[name^=WANT_SEQ]:checked").each( function (idx) {
+			if($(this).val() == ''){
+				UpdateCnt++;
+			}
+		});
+		
+		if(UpdateCnt > 0){
+			alert("이미 처리 완료된 "+ UpdateCnt +"건이 포함되어 있습니다. 다시 선택해 주십시오.");
+			return;
+		}else {
+			setHandlingYn();		
+		}
+	}		
+	
+	//선택 건 처리 완료 상태로 변경
+	function setHandlingYn() {
+		
+		if (!confirm("선택된 건을 처리 완료 상태로 변경 하시겠습니까?")) {
+			return;
+		}
+				
+		$("#PAGE_NO").val("");
+		$("#S_START_DATE").val($("#S_START_DATE").val().replace(/\-/ig, ''));
+		$("#S_END_DATE").val($("#S_END_DATE").val().replace(/\-/ig, ''));
+		
+		var url = "/admin/prodWant/updateProdWantHandlingInfo.do";
+		
+		form.action = url;
+		form.submit();
+		
+	}
+	
+	/* ======================================================================
+	Function : component
+	Return   : 없음
+	========================================================================= */
+	var Component = {
+			
+		// 구분
+		handlingAllChk : function () {
+			var chk = $("#handlingYnAll").is(":checked");
+			if (chk) {
+				$("input[name^=HANDLING_YN]").each( function (idx) {
+					$(this).attr("checked", true);
+				});
+			}
+			else {
+				$("input[name^=HANDLING_YN]").each( function (idx) {
+					$(this).attr("checked", false);
+				});
+			}
+		},
+		
+		handlingChk : function () {
+			var chkAllCnt = $("input[name^=HANDLING_YN]").length; 
+			var chkCnt = $("input[name^=HANDLING_YN]:checked").length;
+			
+			if (chkAllCnt == chkCnt) {
+				$("#handlingYnAll").attr("checked", true);	
+			}
+			else {
+				$("#handlingYnAll").attr("checked", false);
+			}
+		},
+							
+	};
+	
+	</script>
+
+<form id="form" name="form" method="post" action="">
+	<input type="hidden" id="no" name="NO" value="" />	
+	<input type="hidden" name="PAGE_NO" id="PAGE_NO" value="${list.params.PAGE_NO }" />
+	<!-- content -->
+	<div id="content">
+		<!-- top_content -->
+		<div class="top_content">
+			<!-- location -->
+			<div class="location">
+				<ul class="clear">
+					<li class="first-child"><a href="/admin/main.do">Home</a></li>
+					<li><a>상품 관리</a></li>
+					<li><a href="/admin/prodWant/selectProdWantList.do" class="current">고객 요청 상품</a></li>
+				</ul>
+			</div>
+			<!-- //location -->
+		</div>
+		<!-- //top_content -->
+		<div class="inner">
+			<!-- tbl -->
+			<div class="tbl mt20">
+
+				<table class="search">
+					<colgroup>
+						<col style="width:8%" />
+						<col style="width:25%" />
+						<col style="width:8%" />
+						<col style="width:*" />
+					</colgroup>
+					<tbody>
+						<tr>
+							<td colspan="5">
+								<span class="select" style="width:160px">
+									<span class="sel_txt"></span>
+									<select id="dateChk" name="DATE_CHK">
+										<option value="A" <c:if test="${list.params.DATE_CHK eq 'A' }">selected</c:if>>등록일</option>
+										<option value="B" <c:if test="${list.params.DATE_CHK eq 'B' }">selected</c:if>>시작일</option>
+										<option value="C" <c:if test="${list.params.DATE_CHK eq 'C' }">selected</c:if>>종료일</option>
+									</select>
+								</span>
+								<fmt:parseDate value="${list.params.S_START_DATE }" var="S_START_DATE" pattern="yyyymmdd" scope="page" />
+    							<fmt:parseDate value="${list.params.S_END_DATE }" var="S_END_DATE" pattern="yyyymmdd" scope="page" />
+								<input type="text" id="S_START_DATE" name="S_START_DATE" class="calendar" style="width:100px" value='<fmt:formatDate value="${S_START_DATE }" pattern="yyyy-mm-dd" />' readonly /> - 
+								<input type="text" id="S_END_DATE" name="S_END_DATE" class="calendar" style="width:100px" value='<fmt:formatDate value="${S_END_DATE }" pattern="yyyy-mm-dd" />' readonly/>
+								<span class="ml5">
+									<a href="javascript:setDate('1D');" class="btn_w" >오늘</a>
+									<a href="javascript:setDate('3D');" class="btn_w">3일</a>
+									<a href="javascript:setDate('7D');" class="btn_w">7일</a>
+									<a href="javascript:setDate('1M');" class="btn_w">1개월</a>
+									<a href="javascript:setDate('3M');" class="btn_w">3개월</a>
+									<a href="javascript:setDate('6M');" class="btn_w">6개월</a>
+								</span> 
+							</td>
+						</tr>
+						<tr>
+							<th scope="row">키워드</th>
+							<td>
+								<span><input type="text" id="searchKeyword" name="searchKeyword" style="width:220px" value="${list.params.searchKeyword }" /></span>
+							</td>
+							<th scope="row">처리상태</th>
+							<td colspan="2">
+								<span>
+									<input type="checkbox" id="handlingYnAll" name="show" 
+										<c:if test="${list.params.HANDLING_YN ne null and (fn:length(list.params.HANDLING_YN) == 0 or fn:length(list.params.HANDLING_YN) == 2) }">checked</c:if> 
+									/>
+									<label for="handlingYnAll">전체</label>
+								</span>
+								<span>
+									<input type="checkbox" id="handlingY" name="HANDLING_YN[]" value="Y"
+										<c:forEach var="handling" items="${list.params.HANDLING_YN}" varStatus="status">
+											<c:if test="${handling eq 'Y' }">checked</c:if>
+										</c:forEach>
+									/>
+									<label for="handlingY">처리 완료</label>
+								</span>
+								<span class="ml5">
+									<input type="checkbox" id="handlingN" name="HANDLING_YN[]" value="N"
+										<c:forEach var="handling" items="${list.params.HANDLING_YN}" varStatus="status">
+											<c:if test="${handling eq 'N' }">checked</c:if>
+										</c:forEach>
+									/>
+									<label for="handlingN">처리 대기</label>
+								</span>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+				<p class="btn_area type">
+					<a href="javascript:searchPage();" class="btn_chk btn_r">조회</a>
+				</p>
+			</div>
+			<!-- //tbl -->
+			
+			<!-- top_tbl -->
+ 			<div class="top_tbl mt20 clear">
+				<div class="right">
+					<span class="select" style="width:130px;">
+						<span class="sel_txt"></span>
+						<select name="S_ROW_CNT" onchange="f_searchList();">
+							<custom:codeList var="display" groupCode="DISPLAY_CNT" />
+								<c:choose>
+									<c:when test="${fn:contains(display, list.params.S_ROW_CNT)}">
+										<c:forEach var="displaylist" items="${display}" varStatus="status">
+												s<option value="${displaylist.key}" <c:if test="${displaylist.key == list.params.S_ROW_CNT }">selected="selected"</c:if> >${displaylist.value}</option>
+											</c:forEach>
+										<option value="">전체</option>
+				            		</c:when>
+				            		<c:otherwise>
+				            			<option value="" selected="selected">전체</option>
+			            					<c:forEach var="displaylist" items="${display}" varStatus="status">
+			            						<option value="${displaylist.key}">${displaylist.value}</option>
+			            					</c:forEach>	
+									</c:otherwise>
+								</c:choose>
+						</select>
+					</span>
+				</div>
+			</div>
+			<!-- //top_tbl -->
+			
+			<!-- tbl -->
+			<div class="tbl mt10">
+				<!-- list -->
+				<table class="list">
+					<colgroup>
+						<col style="width:3%" />
+						<col style="width:3%" />
+						<col style="width:10%" />
+						<col style="width:12%" />
+						<col style="width:5%" />
+						<col style="width:5%" />
+						<col style="width:*" />
+						<col style="width:7%" />
+						<col style="width:10%" />
+						<col style="width:7%" />
+					</colgroup>
+					<thead>	
+						<tr>
+							<th scope="col"><input type="checkbox" id="chkAll" name="chkAll" /></th>
+							<th scope="col">No.</th>
+							<th scope="col">등록일시</th>
+							<th scope="col">아이디</th>
+							<th scope="col">회원구분</th>
+							<th scope="col">가입구분</th>
+							<th scope="col">내용</th>
+							<th scope="col">처리상태</th>
+							<th scope="col">처리일시</th>
+							<th scope="col">처리자</th>
+						</tr>
+					</thead>
+					<tbody>
+						<c:choose>
+							<c:when test="${fn:length(list.selectProdWantList)>0}">						
+								<c:forEach var="list" items="${list.selectProdWantList}" varStatus="status">
+							    	<tr><td class="nolineL">
+						    			<input type="checkbox" id="wantSeq" name="WANT_SEQ[]" value="${list.HANDLING_YN eq 'Y' ? '' : list.WANT_SEQ}" class="" />
+						    		</td>
+							    		<td>${list.SORT_NO}</td>
+							    		<td>${list.REGIST_DT}</td>
+							    		<td>${list.MBER_EMAIL}</td>
+							    		<td>${list.MBER_GB_CD_NM}</td>
+										<td>${list.MBER_REG_GB_CD_NM}</td>
+										<td style="align:'left';">${list.WANT_PROD_COMMENT}</td>
+										<td>${list.HANDLING_YN_NM == null ? "-" : list.HANDLING_YN_NM}</td>
+										<td>${list.HANDLING_DATE == null ? "-" : list.HANDLING_DATE}</td>
+										<td>${list.HANDLER_ID == null ? "-" : list.HANDLER_ID}</td>
+							    	</tr>
+							    </c:forEach>								
+							</c:when>
+							<c:otherwise>
+								<tr>
+									<td class="nolineL" colspan="10">조회된 결과가 없습니다.</td>
+								</tr>
+							</c:otherwise>
+						</c:choose>
+					</tbody>
+				</table>
+				<!-- //list -->
+			</div>
+			<!-- //tbl -->
+
+			<div class="bot_btn tc mt20">
+				<a href="javascript:chkUpdateYn();" class="btn_r btn_prod_del"><span> 선택 건 완료 상태로 변경 </span></a>
+			</div>
+
+			<!-- bot_tbl -->
+			<div class="bot_tbl">
+				<!-- paging -->
+				<c:if test="${fn:length(list.selectProdWantList)>0}">		
+					<%@ include file="/WEB-INF/views/admin/common/PageView.jsp" %>
+				</c:if>
+				<!-- //paging -->
+			</div>
+			<!-- //bot_tbl -->
+		</div>
+	</div>
+	<!-- //content -->
+</form>

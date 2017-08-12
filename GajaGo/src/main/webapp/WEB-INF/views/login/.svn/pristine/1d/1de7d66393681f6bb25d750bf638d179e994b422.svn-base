@@ -1,0 +1,211 @@
+//카카오톡 & 페이스북 키 설정
+var fbAppId = Const.FACEBOOK_APP_ID;
+var kkoAppId = Const.KAKAOTALK_APP_ID;
+
+$(document).ready(function(){
+	var adminId = $.cookie('sellerId');
+	if(adminId != null && adminId != ''){
+		$('#MBER_EMAIL').val(adminId);
+		$('#saveId').attr('checked','checked');
+	}
+});
+
+enterReturnKey = function(e) {
+	if(e.keyCode==13 && e.srcElement.type != 'textarea') {
+		OnLogon();
+	}
+};
+/* ======================================================================
+Function : 로그인 처리
+Return   : 없음
+========================================================================= */
+function OnLogon() {
+	var id = $('#MBER_EMAIL').val();
+	var pwd = $('#MBER_PASS').val();
+	if(id == ''){
+		alert('아이디를 입력해 주세요.');
+		return;
+	}
+	if(pwd == ''){
+		alert('패스워드를 입력해 주세요.');
+		return;
+	}
+	
+	$.ajax({
+	    type: 'post'
+	    , async: true
+	    , url: '/seller/setLogin.do'
+	    , data: $("#frmLogon").serialize()
+	    , success: function(data) {
+	    	var result = data.result;
+	    	if(result == 'OK'){
+	    		var saveIdYn = $("input:checkbox[id='saveId']").is(":checked");
+	    		if(saveIdYn){
+	    			$.cookie('sellerId', id, { expires: 365, path: '/seller' });
+	    		}else{
+	    			$.removeCookie('sellerId', { path: '/seller' });
+	    		}
+	    		$("#frmLogon").attr("action","/seller/main.do").submit();
+	    	}else if(data.MBER_STAT_CD == "40"){
+	    		$('#mberemail').text(data.mberemail);
+	    		$('#MBER_GB_CD').val(data.MBER_GB_CD);
+	    		
+				// 안드로이드에서 UI 깨짐 현상이 발생 하여. 0.5초 후 팝업이 발생 하도록 수정
+				setTimeout(function(){
+					$('.lay_pop').show();
+				}, 500);	
+	    	}else{
+	    		alert(data.msg);
+	    	}
+	    }
+	    , error: function(data, status, err) {
+	      alert('서버와의 통신이 실패했습니다.');
+	    }
+	  });
+  
+}
+/*
+ * ======================================================================
+ * Function : 카카오톡 로그인
+ * Return   : 없음
+ * =========================================================================
+ */
+Kakao.init(kkoAppId);
+function kakaoSetLogin(){
+	// 로그인 창을 띄웁니다.
+	Kakao.Auth.login({
+		success: function(authObj) {
+			Kakao.API.request({
+				url: '/v1/user/me',
+				success: function(res) {
+					$("#SSO_GB_CD").val("KKO")
+					$("#SSO_MBER_ID").val(JSON.stringify(res.id))
+					$.ajax({
+						type: 'post'
+						, async: true
+						, url: '/seller/setSnsLogin.do'
+						, data: $("#frmLogon").serialize()
+						, success: function(data) {
+							var result = data.result;
+							if(result == 'OK'){
+								$("#frmLogon").attr("action","/seller/main.do").submit();
+							}else if(data.MBER_STAT_CD == "40"){
+								$('#mberemail').text(data.mberemail);
+								$('#MBER_GB_CD').val(data.MBER_GB_CD);
+								
+								// 안드로이드에서 UI 깨짐 현상이 발생 하여. 0.5초 후 팝업이 발생 하도록 수정
+								setTimeout(function(){
+									$('.lay_pop').show();
+								}, 500);	
+							}else{
+								alert(data.msg);
+							}
+					
+						}
+						, error: function(data, status, err) {
+							alert('서버와의 통신이 실패했습니다.');
+						}
+					});
+				},
+				fail: function(error) {
+					console.log(JSON.stringify(error));
+					alert("서버 통신 중 오류가 발생하였습니다.\n잠시 후 이용해 주세요.");
+					return;
+				}
+			});
+		},
+		fail: function(err) {
+			alert("서버 통신 중 오류가 발생하였습니다.\n잠시 후 이용해 주세요.");
+			return;
+		}
+	});
+	Kakao.Auth.logout();
+}
+/*
+ * ======================================================================
+ * Function : facebook 로그인 Return : 없음
+ * =========================================================================
+ */
+function statusChangeCallback(response) {
+	// 페이스북 로그인 여부 체크
+	if (response.status === 'connected') { //페이스북 로그인
+		facebooklogin();
+	} else if (response.status === 'not_authorized') {
+		// The person is logged into Facebook, but not your app.
+		FB.login(function(response) {
+			if ( response.status == 'connected' ) {
+				facebooklogin();
+			}
+		});
+	} else { //페이스북 미로그인
+		// Facebook login popup
+		FB.login(function(response) {
+			//facebook connected 
+			if( response.status === 'connected' ) {
+				facebooklogin()
+			} else {
+				//alert("페이스북 로그인에 실패하였습니다.");
+			}
+		}, {scope : 'email'});
+	}
+}
+
+/*
+ * ======================================================================
+ * Function : facebook 로그인 상태 체크 Return : 없음
+ * =========================================================================
+ */
+function checkLoginState(code, retUrl) {
+	FB.getLoginStatus(function(response) {
+		statusChangeCallback(response, retUrl);
+	});
+}
+
+window.fbAsyncInit = function() {
+	FB.init({
+		appId : fbAppId,
+		status : true,
+		cookie : true, // enable cookies to allow the server to access
+		xfbml : true, // parse social plugins on this page
+		version : 'v2.5', // use version 2.2
+		oauth : true
+	});
+};
+
+function facebooklogin() {
+	//Facebook login api (email, name)
+	FB.api('/me?fields=name, email, picture', function(response) {
+		console.log(response);
+		$("#SSO_GB_CD").val("FBO");
+		$("#SSO_MBER_ID").val(response.id);
+		$.ajax({
+			type: 'post'
+			, async: true
+			, url: '/seller/setSnsLogin.do'
+			, data: $("#frmLogon").serialize()
+			, success: function(data) {
+				var result = data.result;
+				if(result == 'OK'){
+					$("#frmLogon").attr("action","/seller/main.do").submit();
+				}else if(data.MBER_STAT_CD == "40"){
+					$('#mberemail').text(data.mberemail);
+					$('#MBER_GB_CD').val(data.MBER_GB_CD);
+					
+					// 안드로이드에서 UI 깨짐 현상이 발생 하여. 0.5초 후 팝업이 발생 하도록 수정
+					setTimeout(function(){
+						$('.lay_pop').show();
+					}, 500);	
+				}else{
+					alert(data.msg);
+				}
+			}
+			, error: function(data, status, err) {
+				alert('서버와의 통신이 실패했습니다.');
+			}
+		});
+		
+	}, {scope : 'email'});
+	FB.logout(function(response) {
+		  // user is now logged out
+	});
+}

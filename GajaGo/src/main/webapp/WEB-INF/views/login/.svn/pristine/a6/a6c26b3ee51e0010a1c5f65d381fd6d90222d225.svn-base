@@ -1,0 +1,880 @@
+package com.ssocio.sharing.service.web;
+
+import java.net.URLDecoder;
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.ui.ModelMap;
+
+import com.ssocio.sharing.cmmn.admin.util.CommonUtil;
+import com.ssocio.sharing.cmmn.admin.util.FileUtil;
+import com.ssocio.sharing.cmmn.util.CmmnCnst;
+import com.ssocio.sharing.cmmn.util.LoggerUtil;
+import com.ssocio.sharing.cmmn.util.StringUtil;
+import com.ssocio.sharing.dao.web.MobileJoinDao;
+import com.ssocio.sharing.vo.web.WebSession;
+
+@Service
+public class MobileJoinServiceImpl implements MobileJoinService{
+
+	/* ========================================================================= */
+	/* # Log 설정ㅇㅇㅇ
+	/* ========================================================================= */
+	private static final Logger logger = LoggerFactory.getLogger(MobileJoinServiceImpl.class);
+
+
+	@Resource(name="mobileJoinDao")
+	private MobileJoinDao mobileJoinDao;
+
+
+
+
+	/**
+	 * 	약관리스트 가져오기
+	 */
+	@Override
+	public Map<String, Object> selectTerms(Map<String, Object> inParam,String[] agrGbCd) {
+
+		ModelMap mm = new ModelMap();
+		List<Map<String, Object>> termsList = null;
+
+		try {
+
+			mm.put("agrGbCd", agrGbCd);
+
+			termsList = mobileJoinDao.selectTerms(mm);	// 구매자 회원가입용 (모두 가져옴)
+
+			mm.put("termsList", termsList);
+			mm.put("params", inParam);
+
+
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return mm;
+	}
+
+
+
+	/**
+	 * 	약관리스트 가져오기 (판매자 전환 전용)
+	 */
+	@Override
+	public Map<String, Object> selectTermsSwitchSeller(Map<String, Object> inParam,String[] agrGbCd) {
+
+		ModelMap mm = new ModelMap();
+		List<Map<String, Object>> termsList = null;
+
+		try {
+
+			mm.put("agrGbCd", agrGbCd);
+			mm.put("MBER_SEQ", inParam.get("MBER_SEQ"));
+
+
+			termsList = mobileJoinDao.selectTermsSwitchSeller(mm);	// 판매자 전환용  (기존 구매자때 동의한건 안가져옴)
+
+			mm.put("termsList", termsList);
+			mm.put("params", inParam);
+
+
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return mm;
+	}
+
+	public String selectTermsDesc(Map<String, Object> inParam) {
+
+		String ret = "";
+
+		try {
+
+			ret = (String) mobileJoinDao.selectTermsDesc(inParam).get("AGR_DESC");
+
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return ret;
+	}
+
+	@Override
+	public Map<String, Object> selectEamilChek(Map<String, Object> inParam) {
+
+		ModelMap mm = new ModelMap();
+		try {
+			LoggerUtil.writeMap(inParam);
+
+			String lowerEmail = ((String)inParam.get("EMAIL")).toLowerCase();
+			inParam.put("EMAIL", lowerEmail);
+
+			mm.put("selectEamilChek", mobileJoinDao.selectEamilChek(inParam));
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return mm;
+
+	}
+
+	@Override
+	public int selectMberChk(Map<String, Object> inParam) {
+
+		int count = 0;
+		try {
+			LoggerUtil.writeMap(inParam);
+			count = mobileJoinDao.selectMberChk(inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return count;
+
+	}
+
+	@Override
+	public void insertUserMber(Map<String, Object> inParam, String AGR_SEQ_VER[] ,String JOIN_CHAN_CD)throws Exception {
+
+		String mberSeq="";
+		String code="BUY_MBER_LEV_SEQ";
+		String emailAgreeYn="";
+		String hpAgreeYn="";
+		String comNm="";
+		String agrSeqVerN="";
+		String wishSeq="";
+		String AGR_TEMP[];
+		String AGR_SEQ_VER_TEMP[];
+		String pass = CommonUtil.getEncPassword((String)inParam.get("MBER_PASS"));
+		String serialKey ="";
+
+			emailAgreeYn =  StringUtil.nvl((String) inParam.get("EMAIL_AGREE_YN"), "");
+			hpAgreeYn = StringUtil.nvl((String) inParam.get("HP_AGREE_YN"), "");
+
+			agrSeqVerN = StringUtil.nvl((String) inParam.get("AGR_SEQ_VER_N"), "");
+
+			mberSeq = mobileJoinDao.selectMberSeq();
+			wishSeq = mobileJoinDao.selectWishSeq();
+			comNm = mobileJoinDao.selectLevCode(code);
+			serialKey = mobileJoinDao.selectSerialKey();
+
+			inParam.put("MBER_SEQ", mberSeq);
+			inParam.put("EMAIL_AGREE_YN", emailAgreeYn);
+			inParam.put("HP_AGREE_YN", hpAgreeYn);
+			inParam.put("JOIN_CHAN_CD", JOIN_CHAN_CD);	// 모바일웹
+			inParam.put("BUY_MBER_LEV_SEQ", mobileJoinDao.selectLevCode("BUY_MBER_LEV_SEQ"));
+			inParam.put("SELL_MBER_LEV_SEQ", mobileJoinDao.selectLevCode("SELL_MBER_LEV_SEQ"));
+			inParam.put("CONN_CNT", 0); // 최초 회원가입시는 접속건수를 0으로 처리 한다.
+			inParam.put("BUY_CNT", 0);
+			inParam.put("BUY_PRCE", 0);
+			inParam.put("POINT_SUM", 0);
+			inParam.put("POINT_USE", 0);
+			inParam.put("WISH_SEQ", wishSeq);
+			inParam.put("WISH_NAME", "WISH");
+			inParam.put("MBER_PASS", pass);
+			inParam.put("SERIAL_KEY", serialKey);
+
+			LoggerUtil.writeMap(inParam);
+
+			String lowerEmail = ((String)inParam.get("MBER_EMAIL")).toLowerCase();
+			inParam.put("MBER_EMAIL", lowerEmail);
+
+			mobileJoinDao.insertUserMber(inParam);
+			mobileJoinDao.insertMberDtl(inParam);
+
+			mobileJoinDao.insertWishCate(inParam);
+//			mobileJoinDao.insertAlrm(inParam);
+
+			// 회원 히스토리에 쌓
+			if(CmmnCnst.MBER_REG_GB_B == Integer.parseInt(StringUtil.nvl(((String)inParam.get("MBER_REG_GB_CD")), "0"))){
+				inParam.put("MBER_HIST_CD", CmmnCnst.MBER_HIST_CD_10); // 구매회원
+			}else{
+				inParam.put("MBER_HIST_CD", CmmnCnst.MBER_HIST_CD_12); // 판매회원
+			}
+			mobileJoinDao.insertUserMberHist(inParam); // 회원히스토리
+
+
+			if(!"".equals(AGR_SEQ_VER) && AGR_SEQ_VER != null){
+
+				for(int i=0; i<AGR_SEQ_VER.length; i++){
+
+					String AGR_SEQ="";
+					String AGR_VER="";
+
+					AGR_SEQ_VER_TEMP = AGR_SEQ_VER[i].split(",");
+
+					if(AGR_SEQ_VER_TEMP.length > 1){
+						AGR_SEQ = AGR_SEQ_VER_TEMP[0];
+						AGR_VER = AGR_SEQ_VER_TEMP[1];
+					}else{
+						AGR_SEQ = AGR_SEQ_VER_TEMP[0];
+					}
+
+					inParam.put("AGR_SEQ", AGR_SEQ);
+					inParam.put("AGR_VER", AGR_VER);
+					inParam.put("AGREE_YN", "Y");
+
+					mobileJoinDao.insertAgree(inParam);
+
+				}
+
+			}
+
+			if(agrSeqVerN.length()>0){
+
+				AGR_TEMP = agrSeqVerN.split("/");
+
+				for(int i=0; i<AGR_TEMP.length; i++){
+
+					String AGR_SEQ="";
+					String AGR_VER="";
+
+					AGR_SEQ_VER_TEMP = AGR_TEMP[i].split(",");
+
+					if(AGR_SEQ_VER_TEMP.length > 1){
+						AGR_SEQ = AGR_SEQ_VER_TEMP[0];
+						AGR_VER = AGR_SEQ_VER_TEMP[1];
+					}else{
+						AGR_SEQ = AGR_SEQ_VER_TEMP[0];
+					}
+
+					inParam.put("AGR_SEQ", AGR_SEQ);
+					inParam.put("AGR_VER", AGR_VER);
+					inParam.put("AGREE_YN", "N");
+
+					mobileJoinDao.insertAgree(inParam);
+
+				}
+			}
+
+	}
+
+	@Override
+	public int insertSnsUserMber(Map<String, Object> inParam, String AGR_SEQ_VER[] ,String JOIN_CHAN_CD)throws Exception {
+
+		String mberSeq="";
+		String code="BUY_MBER_LEV_SEQ";
+		String emailAgreeYn="";
+		String hpAgreeYn="";
+		String comNm="";
+		String agrSeqVerN="";
+		String wishSeq="";
+		String AGR_TEMP[];
+		String AGR_SEQ_VER_TEMP[];
+		String pass = CommonUtil.getEncPassword((String)inParam.get("MBER_PASS"));
+		String serialKey ="";
+		int outParam = 0;
+
+
+
+			emailAgreeYn =  StringUtil.nvl((String) inParam.get("EMAIL_AGREE_YN"), "");
+			hpAgreeYn = StringUtil.nvl((String) inParam.get("HP_AGREE_YN"), "");
+
+			agrSeqVerN = StringUtil.nvl((String) inParam.get("AGR_SEQ_VER_N"), "");
+
+			mberSeq = mobileJoinDao.selectMberSeq();
+			wishSeq = mobileJoinDao.selectWishSeq();
+			comNm = mobileJoinDao.selectLevCode(code);
+			serialKey = mobileJoinDao.selectSerialKey();
+
+			inParam.put("MBER_SEQ", mberSeq);
+			inParam.put("EMAIL_AGREE_YN", emailAgreeYn);
+			inParam.put("HP_AGREE_YN", hpAgreeYn);
+			inParam.put("JOIN_CHAN_CD", JOIN_CHAN_CD);	// 모바일웹
+			inParam.put("BUY_MBER_LEV_SEQ", mobileJoinDao.selectLevCode("BUY_MBER_LEV_SEQ"));
+			inParam.put("SELL_MBER_LEV_SEQ", mobileJoinDao.selectLevCode("SELL_MBER_LEV_SEQ"));
+			inParam.put("CONN_CNT", 0); // 최초 회원가입시는 접속건수를 0으로 처리 한다.
+			inParam.put("BUY_CNT", 0);
+			inParam.put("BUY_PRCE", 0);
+			inParam.put("POINT_SUM", 0);
+			inParam.put("POINT_USE", 0);
+			inParam.put("WISH_SEQ", wishSeq);
+			inParam.put("WISH_NAME", "WISH");
+			inParam.put("MBER_PASS", pass);
+			inParam.put("SERIAL_KEY", serialKey);
+
+			LoggerUtil.writeMap(inParam);
+			outParam = mobileJoinDao.insertSnsUserMber(inParam);
+			mobileJoinDao.insertMberDtl(inParam);
+
+			//SNS 가입 시 POINT 지급  2015-11-20 본인인증시 지급이로 바뀜
+//			mobileJoinDao.snsJoinPoint(inParam);
+//			mobileJoinDao.snsInsertJoinPoint(inParam);
+
+			//SNS 이미지 등록
+			Integer fileStatus = 0;
+			String imagePath = String.valueOf(inParam.get("PROFILE_IMAGE"));
+			if ( imagePath != null && imagePath.length() > 2) {
+				Map<String, Object> fileInfo = FileUtil.saveSnsImageFile(URLDecoder.decode(imagePath, "UTF-8"));//파일 저장
+				fileStatus = mobileJoinDao.insertMberSnsImg(fileInfo);
+				inParam.put("FILE_SEQ", fileInfo.get("FILE_SEQ"));
+				inParam.put("MBER_SEQ", mberSeq);
+
+				fileStatus = mobileJoinDao.updateMberImg(inParam);
+				inParam.put("mainImgSeq", fileStatus );
+				inParam.put("mainImgUrl", fileInfo.get("I_FILE_URL"));
+			}
+
+			mobileJoinDao.insertWishCate(inParam);
+//			mobileJoinDao.insertAlrm(inParam);
+
+			if(!"".equals(AGR_SEQ_VER) && AGR_SEQ_VER != null){
+
+				for(int i=0; i<AGR_SEQ_VER.length; i++){
+
+					String AGR_SEQ="";
+					String AGR_VER="";
+
+					AGR_SEQ_VER_TEMP = AGR_SEQ_VER[i].split(",");
+
+					if(AGR_SEQ_VER_TEMP.length > 1){
+						AGR_SEQ = AGR_SEQ_VER_TEMP[0];
+						AGR_VER = AGR_SEQ_VER_TEMP[1];
+					}else{
+						AGR_SEQ = AGR_SEQ_VER_TEMP[0];
+					}
+
+					inParam.put("AGR_SEQ", AGR_SEQ);
+					inParam.put("AGR_VER", AGR_VER);
+					inParam.put("AGREE_YN", "Y");
+
+					mobileJoinDao.insertAgree(inParam);
+
+				}
+
+			}
+
+			if(agrSeqVerN.length()>0){
+
+				AGR_TEMP = agrSeqVerN.split("/");
+
+				for(int i=0; i<AGR_TEMP.length; i++){
+
+					String AGR_SEQ="";
+					String AGR_VER="";
+
+					AGR_SEQ_VER_TEMP = AGR_TEMP[i].split(",");
+
+					if(AGR_SEQ_VER_TEMP.length > 1){
+						AGR_SEQ = AGR_SEQ_VER_TEMP[0];
+						AGR_VER = AGR_SEQ_VER_TEMP[1];
+					}else{
+						AGR_SEQ = AGR_SEQ_VER_TEMP[0];
+					}
+
+					inParam.put("AGR_SEQ", AGR_SEQ);
+					inParam.put("AGR_VER", AGR_VER);
+					inParam.put("AGREE_YN", "N");
+
+					mobileJoinDao.insertAgree(inParam);
+
+				}
+			}
+
+		return outParam;
+	}
+
+	@Override
+	public Map<String, Object> selectCmpnyChek(Map<String, Object> inParam) {
+
+		ModelMap mm = new ModelMap();
+		try {
+			LoggerUtil.writeMap(inParam);
+			mm.put("selectCmpnyChek", mobileJoinDao.selectCmpnyChek(inParam));
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return mm;
+
+	}
+
+
+	@Override
+	public void insertCompnyMber(Map<String, Object> inParam, String[] AGR_SEQ_VER, String JOIN_CHAN_CD)throws Exception {
+
+		String mberSeq="";
+		String code="BUY_MBER_LEV_SEQ";
+		String emailAgreeYn="";
+		String hpAgreeYn="";
+		String comNm="";
+		String agrSeqVerN="";
+		String wishSeq="";
+		String AGR_TEMP[];
+		String AGR_SEQ_VER_TEMP[];
+		String pass = CommonUtil.getEncPassword((String)inParam.get("MBER_PASS"));
+		String serialKey ="";
+		String sellerCd = "";
+
+			emailAgreeYn =  StringUtil.nvl((String) inParam.get("EMAIL_AGREE_YN"), "");
+			hpAgreeYn = StringUtil.nvl((String) inParam.get("HP_AGREE_YN"), "");
+
+			agrSeqVerN = StringUtil.nvl((String) inParam.get("AGR_SEQ_VER_N"), "");
+
+			mberSeq = mobileJoinDao.selectMberSeq();
+			wishSeq = mobileJoinDao.selectWishSeq();
+			comNm = mobileJoinDao.selectLevCode(code);
+			serialKey = mobileJoinDao.selectSerialKey();
+			sellerCd = mobileJoinDao.selectSellerSeq();
+
+			inParam.put("MBER_SEQ", mberSeq);
+			inParam.put("EMAIL_AGREE_YN", emailAgreeYn);
+			inParam.put("HP_AGREE_YN", hpAgreeYn);
+			inParam.put("JOIN_CHAN_CD", JOIN_CHAN_CD);
+			inParam.put("BUY_MBER_LEV_SEQ", mobileJoinDao.selectLevCode("BUY_MBER_LEV_SEQ"));
+			inParam.put("SELL_MBER_LEV_SEQ", mobileJoinDao.selectLevCode("SELL_MBER_LEV_SEQ"));
+			inParam.put("CONN_CNT", 0); // 최초 회원가입시는 접속건수를 0으로 처리 한다.
+			inParam.put("BUY_CNT", 0);
+			inParam.put("BUY_PRCE", 0);
+			inParam.put("POINT_SUM", 0);
+			inParam.put("POINT_USE", 0);
+			inParam.put("WISH_SEQ", wishSeq);
+			inParam.put("WISH_NAME", "WISH");
+			inParam.put("MBER_PASS", pass);
+		    inParam.put("SERIAL_KEY", serialKey);
+		    inParam.put("SELLER_CD", sellerCd);
+
+			mobileJoinDao.insertUserMber(inParam);		// 회원
+			mobileJoinDao.insertMberDtl(inParam);		// 회원상세
+			mobileJoinDao.insertCmpnyNo(inParam);		//
+			mobileJoinDao.insertWishCate(inParam);		// 위쉬
+//			mobileJoinDao.insertAlrm(inParam);
+
+			// 회원 히스토리에 쌓는다
+			if(1 == Integer.parseInt(StringUtil.nvl(((String)inParam.get("MBER_REG_GB_CD")), "0")) // 사업자판매
+					&& 1 == Integer.parseInt(StringUtil.nvl(((String)inParam.get("MBER_GB_CD")), "0"))){
+				inParam.put("MBER_HIST_CD", CmmnCnst.MBER_HIST_CD_20); // 심사중
+			}else if(1 == Integer.parseInt(StringUtil.nvl(((String)inParam.get("MBER_REG_GB_CD")), "0")) // 개인판매
+					&& 0 == Integer.parseInt(StringUtil.nvl(((String)inParam.get("MBER_GB_CD")), "0"))){
+				inParam.put("MBER_HIST_CD", CmmnCnst.MBER_HIST_CD_12); // 판매회원
+			}else{
+				inParam.put("MBER_HIST_CD", CmmnCnst.MBER_HIST_CD_10); // 구매회원
+			}
+
+			mobileJoinDao.insertUserMberHist(inParam);
+
+
+			if(!"".equals(AGR_SEQ_VER) && AGR_SEQ_VER != null){
+
+				for(int i=0; i<AGR_SEQ_VER.length; i++){
+
+					String AGR_SEQ="";
+					String AGR_VER="";
+
+					AGR_SEQ_VER_TEMP = AGR_SEQ_VER[i].split(",");
+
+					if(AGR_SEQ_VER_TEMP.length > 1){
+						AGR_SEQ = AGR_SEQ_VER_TEMP[0];
+						AGR_VER = AGR_SEQ_VER_TEMP[1];
+					}else{
+						AGR_SEQ = AGR_SEQ_VER_TEMP[0];
+					}
+
+					inParam.put("AGR_SEQ", AGR_SEQ);
+					inParam.put("AGR_VER", AGR_VER);
+					inParam.put("AGREE_YN", "Y");
+
+					mobileJoinDao.insertAgree(inParam);
+
+				}
+
+			}
+
+			if(agrSeqVerN.length()>0){
+
+				AGR_TEMP = agrSeqVerN.split("/");
+
+				for(int i=0; i<AGR_TEMP.length; i++){
+
+					String AGR_SEQ="";
+					String AGR_VER="";
+
+					AGR_SEQ_VER_TEMP = AGR_TEMP[i].split(",");
+
+					if(AGR_SEQ_VER_TEMP.length > 1){
+						AGR_SEQ = AGR_SEQ_VER_TEMP[0];
+						AGR_VER = AGR_SEQ_VER_TEMP[1];
+					}else{
+						AGR_SEQ = AGR_SEQ_VER_TEMP[0];
+					}
+
+					inParam.put("AGR_SEQ", AGR_SEQ);
+					inParam.put("AGR_VER", AGR_VER);
+					inParam.put("AGREE_YN", "N");
+
+					mobileJoinDao.insertAgree(inParam);
+
+				}
+			}
+
+
+
+
+	}
+
+	@Override
+	public String insertSellerMber(Map<String, Object> inParam, String[] AGR_SEQ_VER, String jOIN_CHAN_CD)throws Exception {
+
+
+		String mberSeq="";
+		String code="SELL_MBER_LEV_SEQ";
+		String code2="BUY_MBER_LEV_SEQ";
+		String emailAgreeYn="";
+		String hpAgreeYn="";
+		String comNm="";
+		String comNm2="";
+		String agrSeqVerN="";
+		String wishSeq="";
+		String AGR_TEMP[];
+		String AGR_SEQ_VER_TEMP[];
+		//String grpProdSeq="";
+		String pass = CommonUtil.getEncPassword((String)inParam.get("MBER_PASS"));
+		String serialKey ="";
+		String sellerCd = "";
+
+
+			emailAgreeYn =  StringUtil.nvl((String) inParam.get("EMAIL_AGREE_YN"), "");
+			hpAgreeYn = StringUtil.nvl((String) inParam.get("HP_AGREE_YN"), "");
+
+			agrSeqVerN = StringUtil.nvl((String) inParam.get("AGR_SEQ_VER_N"), "");
+
+			mberSeq = mobileJoinDao.selectMberSeq();
+			wishSeq = mobileJoinDao.selectWishSeq();
+		//	grpProdSeq = mobileJoinDao.selectGrpProdSeq();
+			comNm = mobileJoinDao.selectLevCode(code);
+			comNm2 = mobileJoinDao.selectLevCode(code2);
+	        serialKey = mobileJoinDao.selectSerialKey();
+	        sellerCd = mobileJoinDao.selectSellerSeq();
+
+			inParam.put("MBER_SEQ", mberSeq);
+			inParam.put("EMAIL_AGREE_YN", emailAgreeYn);
+			inParam.put("HP_AGREE_YN", hpAgreeYn);
+			inParam.put("JOIN_CHAN_CD", jOIN_CHAN_CD);	// 모바일웹
+			inParam.put("BUY_MBER_LEV_SEQ", mobileJoinDao.selectLevCode("BUY_MBER_LEV_SEQ"));
+			inParam.put("SELL_MBER_LEV_SEQ", mobileJoinDao.selectLevCode("SELL_MBER_LEV_SEQ"));
+			inParam.put("CONN_CNT", 0); // 최초 회원가입시는 접속건수를 0으로 처리 한다.
+			inParam.put("BUY_CNT", 0);
+			inParam.put("BUY_PRCE", 0);
+			inParam.put("POINT_SUM", 0);
+			inParam.put("POINT_USE", 0);
+			inParam.put("WISH_SEQ", wishSeq);
+			inParam.put("WISH_NAME", "WISH");
+		//	inParam.put("GRP_PROD_SEQ", grpProdSeq);
+			inParam.put("MBER_PASS", pass);
+			inParam.put("SERIAL_KEY", serialKey);
+			inParam.put("ACC_AUTHYN", "Y");
+			inParam.put("SELLER_CD", sellerCd);
+
+			LoggerUtil.writeMap(inParam);
+
+			mobileJoinDao.insertUserMberS(inParam);
+			mobileJoinDao.insertMberDtl(inParam);
+			mobileJoinDao.insertSellerInfo(inParam);
+			mobileJoinDao.insertWishCate(inParam);
+			mobileJoinDao.insertMberMiniShop(inParam);
+//			mobileJoinDao.insertGrpProd(inParam);		// 출하지
+//			mobileJoinDao.insertAlrm(inParam);
+
+			if(!"".equals(AGR_SEQ_VER) && AGR_SEQ_VER != null){
+
+				for(int i=0; i<AGR_SEQ_VER.length; i++){
+
+					String AGR_SEQ="";
+					String AGR_VER="";
+
+					AGR_SEQ_VER_TEMP = AGR_SEQ_VER[i].split(",");
+
+					if(AGR_SEQ_VER_TEMP.length > 1){
+						AGR_SEQ = AGR_SEQ_VER_TEMP[0];
+						AGR_VER = AGR_SEQ_VER_TEMP[1];
+					}else{
+						AGR_SEQ = AGR_SEQ_VER_TEMP[0];
+					}
+
+					inParam.put("AGR_SEQ", AGR_SEQ);
+					inParam.put("AGR_VER", AGR_VER);
+					inParam.put("AGREE_YN", "Y");
+
+					mobileJoinDao.insertAgree(inParam);
+
+				}
+
+			}
+
+			if(agrSeqVerN.length()>0){
+
+				AGR_TEMP = agrSeqVerN.split("/");
+
+				for(int i=0; i<AGR_TEMP.length; i++){
+
+					String AGR_SEQ="";
+					String AGR_VER="";
+
+					AGR_SEQ_VER_TEMP = AGR_TEMP[i].split(",");
+
+					if(AGR_SEQ_VER_TEMP.length > 1){
+						AGR_SEQ = AGR_SEQ_VER_TEMP[0];
+						AGR_VER = AGR_SEQ_VER_TEMP[1];
+					}else{
+						AGR_SEQ = AGR_SEQ_VER_TEMP[0];
+					}
+
+					inParam.put("AGR_SEQ", AGR_SEQ);
+					inParam.put("AGR_VER", AGR_VER);
+					inParam.put("AGREE_YN", "N");
+
+					mobileJoinDao.insertAgree(inParam);
+
+				}
+			}
+
+
+
+		return mberSeq;
+
+
+	}
+
+	@Override
+	public void updateSellerMber(Map<String, Object> inParam, String[] AGR_SEQ_VER) throws Exception {
+
+
+		String code="SELL_MBER_LEV_SEQ";
+		String emailAgreeYn="";
+		String hpAgreeYn="";
+		String comNm="";
+		String agrSeqVerN="";
+		String confirmYn="";
+
+		String AGR_TEMP[];
+		String AGR_SEQ_VER_TEMP[];
+		String grpProdSeq="";
+		String sellerCd = "";
+
+
+
+			emailAgreeYn =  StringUtil.nvl((String) inParam.get("EMAIL_AGREE_YN"), "");
+			hpAgreeYn = StringUtil.nvl((String) inParam.get("HP_AGREE_YN"), "");
+
+			agrSeqVerN = StringUtil.nvl((String) inParam.get("AGR_SEQ_VER_N"), "");
+			confirmYn = StringUtil.nvl((String) inParam.get("confirmYn"), "");
+
+			grpProdSeq = mobileJoinDao.selectGrpProdSeq();
+			comNm = mobileJoinDao.selectLevCode(code);
+			sellerCd = mobileJoinDao.selectSellerSeq();
+
+			inParam.put("EMAIL_AGREE_YN", emailAgreeYn);
+			inParam.put("HP_AGREE_YN", hpAgreeYn);
+			inParam.put("BUY_MBER_LEV_SEQ", mobileJoinDao.selectLevCode("BUY_MBER_LEV_SEQ"));
+			inParam.put("SELL_MBER_LEV_SEQ", mobileJoinDao.selectLevCode("SELL_MBER_LEV_SEQ"));
+			inParam.put("GRP_PROD_SEQ", grpProdSeq);
+			inParam.put("ACC_AUTHYN", "Y");
+			inParam.put("SELLER_CD", sellerCd);
+
+			LoggerUtil.writeMap(inParam);
+
+			if("N".equals(confirmYn)){
+
+				mobileJoinDao.updateUserMberCfm(inParam);
+			}else{
+
+				mobileJoinDao.updateUserMber(inParam);
+			}
+
+			mobileJoinDao.updateMberDtl(inParam);
+
+			// 구매회원 -> 판매회원 전환시 seller_info_cfg에 추가
+			// seller_info_cfg 테이블에 mber_seq 있는지 확인
+			int cnt = 0;
+			cnt = mobileJoinDao.selectCmpnySellerChek(inParam);
+			logger.debug("mobileJoinDao.selectCmpnySellerChek : " + cnt);
+			if(cnt == 0){
+				mobileJoinDao.insertSellerInfo(inParam);
+			}else{
+				mobileJoinDao.updateSellerInfo(inParam);
+			}
+
+
+			mobileJoinDao.insertMberMiniShop(inParam);
+//			mobileJoinDao.deleteAgree(inParam);			// [2015-11-30] rocokang >> 앞으로 동의된 약관은 지우지 않음
+//			mobileJoinDao.insertGrpProd(inParam);		// 출하지
+
+
+
+			// agree 버전이 없는경우.
+			if(!"".equals(AGR_SEQ_VER) && AGR_SEQ_VER != null){
+
+				for(int i=0; i<AGR_SEQ_VER.length; i++){
+
+					String AGR_SEQ="";
+					String AGR_VER="";
+
+					AGR_SEQ_VER_TEMP = AGR_SEQ_VER[i].split(",");
+
+					if(AGR_SEQ_VER_TEMP.length > 1){
+						AGR_SEQ = AGR_SEQ_VER_TEMP[0];
+						AGR_VER = AGR_SEQ_VER_TEMP[1];
+					}else{
+						AGR_SEQ = AGR_SEQ_VER_TEMP[0];
+					}
+
+					inParam.put("AGR_SEQ", AGR_SEQ);
+					inParam.put("AGR_VER", AGR_VER);
+					inParam.put("AGREE_YN", "Y");
+
+					mobileJoinDao.insertAgree(inParam);
+
+				}
+
+			}
+
+
+			// agrSeqVerN 이 있는 경우
+			if(agrSeqVerN.length()>0){
+
+				AGR_TEMP = agrSeqVerN.split("/");
+
+				for(int i=0; i<AGR_TEMP.length; i++){
+
+					String AGR_SEQ="";
+					String AGR_VER="";
+
+					AGR_SEQ_VER_TEMP = AGR_TEMP[i].split(",");
+
+					if(AGR_SEQ_VER_TEMP.length > 1){
+						AGR_SEQ = AGR_SEQ_VER_TEMP[0];
+						AGR_VER = AGR_SEQ_VER_TEMP[1];
+					}else{
+						AGR_SEQ = AGR_SEQ_VER_TEMP[0];
+					}
+
+					inParam.put("AGR_SEQ", AGR_SEQ);
+					inParam.put("AGR_VER", AGR_VER);
+					inParam.put("AGREE_YN", "N");
+
+					mobileJoinDao.insertAgree(inParam);
+
+				}
+			}
+
+
+
+
+	}
+
+	@Override
+	public Map<String, Object> sellerMber(Map<String, Object> inParam) {
+
+		ModelMap mm = new ModelMap();
+		try {
+
+			mm.put("selectSellerChek", mobileJoinDao.selectMiniShopChek(inParam));
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return mm;
+
+	}
+
+	@Override
+	public Map<String, Object> cmpnyCheck(Map<String, Object> inParam) {
+
+		ModelMap mm = new ModelMap();
+		try {
+
+			mm.put("selectSellerChek", mobileJoinDao.selectCmpnySellerChek(inParam));
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return mm;
+
+	}
+
+	@Override
+	public Map<String, Object> confirmYn(Map<String, Object> inParam) {
+
+//		String confirmYn="";
+
+		try {
+
+//			Map<String, Object> confirmResult = mobileJoinDao.confirmYn(inParam);
+
+
+			inParam.put("confirmYn", mobileJoinDao.confirmYn(inParam));
+
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return inParam;
+	}
+
+	@Override
+	public String selectsiteIFUrl() throws Exception {
+		return mobileJoinDao.selectsiteIFUrl();
+	}
+
+	@Override
+	public String selectUserInfo(Map<String, Object> inParam) throws Exception {
+		// TODO Auto-generated method stub
+
+		String temp_case="";
+
+		Map<String, Object> mm = null;
+
+		try{
+
+			mm = mobileJoinDao.selectUserInfo(inParam);
+
+			if(mm.get("MBER_GB_CD").equals("0") && mm.get("MBER_REG_GB_CD").equals("0")){
+				temp_case = "1";
+			}else if(mm.get("MBER_GB_CD").equals("1") && mm.get("MBER_REG_GB_CD").equals("0")){
+				temp_case = "2";
+			}else if(mm.get("MBER_GB_CD").equals("0") && mm.get("MBER_REG_GB_CD").equals("1")){
+				temp_case = "3";
+			}else if(mm.get("MBER_GB_CD").equals("1") && mm.get("MBER_REG_GB_CD").equals("1")){
+				temp_case = "4";
+			}
+
+		}catch(Exception e){
+			e.printStackTrace();
+		}
+
+		return temp_case;
+	}
+
+	@Override
+	public Map<String, Object> selectShopChek(Map<String, Object> inParam) {
+		ModelMap mm = new ModelMap();
+		try {
+			LoggerUtil.writeMap(inParam);
+			mm.put("selectShopChek", mobileJoinDao.selectShopChek(inParam));
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return mm;
+	}
+
+	@Override
+	public WebSession getMberInfo(Map<String, Object> inParam) throws Exception {
+		WebSession webSession = mobileJoinDao.getMberInfo(inParam);
+		webSession.setLogin(true);
+		return webSession;
+	}
+
+
+
+
+
+
+}

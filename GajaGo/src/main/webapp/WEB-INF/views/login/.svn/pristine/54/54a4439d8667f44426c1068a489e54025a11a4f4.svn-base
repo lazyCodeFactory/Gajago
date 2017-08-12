@@ -1,0 +1,282 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/web/common/cmmnHead.jsp"%>
+<script type="text/javascript">
+
+$(document).ready(function(){
+	//공통 HEADER SETTING
+	header.type = 11;
+	header.title = "회원가입";
+	header.backUrl = "/mobile/join/termsView.do";
+	header.method = "GET";
+	initHeader();
+	//공통 FOOTER SETTING
+	displayFooter(false);
+	//APP TITLE
+	document.title = "회원가입";
+
+	var SSO_GB_CD = $("#SSO_GB_CD").val();
+
+	if(SSO_GB_CD == "FBO"){
+
+		$("#SSO_GB_CD").val();
+		$("#MBER_EMAIL").val($("#fbEmail").val())
+		$('#MBER_EMAIL').attr('disabled',true);
+
+	}
+
+
+});
+
+var ch = false;
+
+function emailChek() {
+
+	if(!validate()){
+		return;
+	}
+
+	var EMAIL_AGREE_YN = $("#EMAIL_AGREE_YN").val();
+	var HP_AGREE_YN = $("#HP_AGREE_YN").val();
+
+	var EMAIL = $("#MBER_EMAIL").val();
+	var PASS = $("#MBER_PASS").val();
+	var SSO_GB_CD = $("#SSO_GB_CD").val();
+
+	if (ch) {
+        alert("등록중 입니다.");
+        return;
+    }
+
+	ch = true;
+
+	$.ajax({
+		type: 'post'
+		, async: true
+		, url: '/mobile/join/selectEamilChek.do'
+		, dataType:'json'
+		, data: {"EMAIL":EMAIL, "PASS":PASS, "EMAIL_AGREE_YN":EMAIL_AGREE_YN, "HP_AGREE_YN":HP_AGREE_YN, "SSO_GB_CD":SSO_GB_CD}
+		, before: function() {
+			loadingForm.showDialog();
+		}
+		, success: function(data) {
+			if(Number(data.selectEamilChek) > 0){
+				alert("해당 이메일 주소는 이미 존재합니다.");
+				$('#MBER_EMAIL').focus();
+				ch = false;
+
+			} else {
+				$("#frm").attr("action","/mobile/join/insertUserMber.do").submit();
+			}
+		}
+		, complete: function() {
+			loadingForm.hideDialog();
+		}
+		, error : function(request, status, error) {
+			alert("통신 오류가 발생 하였습니다. 잠시 후 다시 시도해 주세요");
+			ch = false;
+		}
+	});
+}
+
+
+function validate(){
+
+	var regEmail = /([\w-\.]+)@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.)|(([\w-]+\.)+))([a-zA-Z]{2,4}|[0-9]{1,3})(\]?)$/;	//이메일 유효성
+	var engPw = /[a-zA-Z]/;	//비밀번호 유효성 영문
+	var numPw = /[0-9]/;	//비밀번호 유효성 숫자
+
+	var EMAIL = $("#MBER_EMAIL").val();
+	var MBER_NM = $("#MBER_NM").val();
+	var pattern3 = /[~!@#$%^&*()_+|<>?:{}]/;    //특수문자
+
+	if(EMAIL.length == 0 ){
+		alert("이메일을 입력해주세요.");
+		$('#MBER_EMAIL').focus();
+		return;
+	}
+
+	if(!regEmail.test(EMAIL)) {
+		alert('이메일 상세주소를 입력해주세요.');
+		$("#MBER_EMAIL").focus();
+		return false;
+	}
+
+	//페이스북, 카카오톡 회원 가입이 아닐 경우
+	if ($("#SSO_GB_CD").val() != "FBO" && $("#SSO_GB_CD").val() != "KKO" ) {
+
+		var PASS = $("#MBER_PASS").val().trim();
+		var PASS_TEMP = $("#PASS_TEMP").val().trim();
+
+		if(PASS.length < 8 || PASS.length > 20 ){
+			alert('비밀번호는 반드시\n영문/숫자/특수문자 조합 8자리 이상으로\n입력해주세요.');
+			$('#MBER_PASS').focus();
+			return;
+		}
+
+		if(PASS_TEMP.length < 1 ){
+			alert("비밀번호확인을 입력해주세요.");
+			$('#PASS_TEMP').focus();
+			return;
+		}
+
+		if(!engPw.test(PASS) || !numPw.test(PASS) || !pattern3.test(PASS) ) {
+			alert('비밀번호는 반드시\n영문/숫자/특수문자 조합 8자리 이상으로\n입력해주세요.');
+			$("#MBER_PASS").focus();
+			return false;
+		}
+
+		if(PASS != PASS_TEMP){
+			alert("비밀번호가 일치하지 않습니다.");
+			$("#MBER_PASS").focus();
+			return false;
+		}
+	}
+
+	return true;
+}
+
+function goPrePage () {
+
+	$('#AGR_GB_CD1').val("01");	// 구매가입
+	$('#AGR_GB_CD2').val("03");	// 공통구매가입
+	var url = "/mobile/join/termsView.do";
+	frm.action = url;
+	frm.submit();
+
+}
+
+function del () {
+
+	var SSO_GB_CD = $("#SSO_GB_CD").val();
+
+	if(SSO_GB_CD != "FBO"){
+		$("#MBER_EMAIL").val("");
+	}
+}
+
+
+</script>
+<form id="frm" name="frm" method="post" action="">
+<input type="hidden" name="fbEmail" id="fbEmail" value="${params.fbEmail}"  />
+<input type="hidden" name="fbMberId" id="fbMberId" value="${params.fbMberId}"  />
+<input type="hidden" name="SSO_MBER_ID" id="SSO_MBER_ID" value="${params.SSO_MBER_ID}"  />
+<input type="hidden" name="MBER_NICK" id="MBER_NICK" value="${params.MBER_NICK}"  />
+<input type="hidden" name="SSO_GB_CD" id="SSO_GB_CD" value="${params.SSO_GB_CD}"  />
+<input type="hidden" name="MBER_GB_CD" id="MBER_GB_CD" value="${params.MBER_GB_CD}"  />
+<input type="hidden" name="MBER_REG_GB_CD" id="MBER_REG_GB_CD" value="${params.MBER_REG_GB_CD}"  />
+<input type="hidden" name="PROFILE_IMAGE" id="PROFILE_IMAGE" value="${params.PROFILE_IMAGE}"  />
+<input type="hidden" name="REFER_URL" id="REFER_URL" value="${params.REFER_URL}"  />
+<c:forEach var="list" items="${params.AGR_SEQ_VER}" varStatus="status">
+	<input type="hidden" id="agrSeq${status.index}" name="AGR_SEQ_VER[]" value="${list}" />
+</c:forEach>
+<input type="hidden" name="AGR_SEQ_VER_N" id="AGR_SEQ_VER_N" value="${params.AGR_SEQ_VER_N }"  />
+
+<input type="hidden" name="AGR_GB_CD[]" id="AGR_GB_CD1" value=""  />
+<input type="hidden" name="AGR_GB_CD[]" id="AGR_GB_CD2" value=""  />
+	<c:choose>
+		<c:when test="${sessionScope.isPcAgent }">
+			<!-- PC 회원가입 -->
+		</c:when>
+		<c:otherwise>
+			<!-- 모바일 회원가입 -->
+		    <!-- container -->
+			<div id="container">
+		        <ul class="step">
+		        	<li>약관동의</li>
+		        	<li class="active">회원정보 입력</li>
+		        	<li>가입완료</li>
+		        </ul>
+		        <p class="title">1. ID로 사용하실 이메일 주소와 비밀번호를 입력해주세요.</p>
+		        <div class="content type">
+		        	<ul class="sbox01">
+		                <li>
+		                	<div class="input_text">
+		                        <input type="text"  id="MBER_EMAIL" name="MBER_EMAIL" value="" placeholder="이메일 주소 입력" maxlength="200">
+		                        <a href="#"><img src="http://static.ssocio.net/web/images/ico_del.png" alt="삭제" onclick="del();"></a>
+		                    </div>
+		                </li>
+		                <li class="text mb5">
+		                	<p class="txt-type">* 실제 사용하는 이메일을 입력해 주세요. 입력된 이메일은 SSOCIO 아이디로 사용 되며, 회원가입 완료 후 이메일 인증이 필요 합니다.</p>
+		                </li>
+		                <li class="mb5">
+		                    <table class="tbl-data">
+		                        <colgroup>
+		                            <col width="100px">
+		                            <col width="*">
+		                        </colgroup>
+		                        <tbody>
+		                            <tr>
+		                                <th>비밀번호 입력</th>
+		                                <td class="pd5"><input type="password" id="MBER_PASS" value="" name="MBER_PASS" maxlength="20"></td>
+		                            </tr>
+		                            <tr>
+		                                <th>비밀번호 확인</th>
+		                                <td class="pd5"><input type="password" id="PASS_TEMP" value="" name="PASS_TEMP" maxlength="20"></td>
+		                            </tr>
+		                        </tbody>
+		                    </table>
+		                </li>
+		                <li class="text">
+		                	<p class="txt-type">* 비밀번호는 영문,숫자,특수문자 조합 8자리 이상 입력해 주세요.</p>
+		                	<p>※ 비밀번호 특수문자는 ~!@#$%^&*()_+|<>?:{} 만 사용이 가능합니다.</p>
+		                </li>
+			        	<li><input id="EMAIL_AGREE_YN" name="EMAIL_AGREE_YN" type="checkbox" value="Y" checked> <label>이벤트/쇼핑정보 이메일 수신에 동의합니다.</label></li>
+			        	<li><input id="HP_AGREE_YN" name="HP_AGREE_YN" type="checkbox" value="Y" checked> <label>이벤트/쇼핑정보 SMS 수신에 동의합니다. </label></li>
+		            </ul>
+		        </div>
+		        <!-- 삭제예정
+		        <p class="title">1. 이메일 주소와 비밀번호를 입력해주세요.</p>
+		        <div class="content">
+		             <ul class="sbox01">
+		                <li>
+							<div class="input_text">
+								<input type="email"  id="MBER_EMAIL" name="MBER_EMAIL" placeholder="이메일 주소 입력" maxlength="200">
+								<a href="#"><img src="http://static.ssocio.net/web/images/ico_del.png" alt="삭제" onclick="del();"></a>
+							</div>
+		                </li>
+		                <li class="text">
+		                	<p>* 입력된 이메일은 SSOCIO 아이디로 사용 됩니다.</p>
+		                    <p>* 실제 사용하는 이메일을 입력해 주세요.</p>
+		                    <p>* 로그인 비밀번호 찾기 등의 회원관련 기능에 사용 됩니다.</p>
+		                </li>
+		                <li class="line-dot"><input type="checkbox" id="evtChek" name="EMAIL_AGREE_YN" value="Y"> <label>이벤트/쇼핑정보 이메일 수신에 동의합니다.</label></li>
+		                <c:if test="${params.SSO_GB_CD ne 'FBO' && params.SSO_GB_CD ne 'KKO' }">
+		                <li>
+		                    <table class="tbl-data">
+		                        <colgroup>
+		                            <col width="90px">
+		                            <col width="*">
+		                        </colgroup>
+		                        <tbody>
+		                            <tr>
+		                                <td>비밀번호 입력</td>
+		                                <td class="pd5"><input type="password" id="MBER_PASS" name="MBER_PASS" maxlength="20"></td>
+		                            </tr>
+		                            <tr>
+		                                <td>비밀번호 확인</td>
+		                                <td class="pd5"><input type="password" id="PASS_TEMP" name="PASS_TEMP" maxlength="20"></td>
+		                            </tr>
+		                        </tbody>
+		                    </table>
+		                </li>
+		                <li class="line-dot text">
+		                	<p>* 비밀번호는 영문/숫자/특수문자 조합 8자리 이상으로 입력해주세요.</p>
+		                	<p>* 비밀번호 특수문자는 ~!@#$%^&*()_+|<>?:{} 만 사용이 가능합니다.</p>
+		                </li>
+
+		                </c:if>
+		            </ul>
+		       </div> -->
+		        <div class="btn_enter">
+		            <ul>
+		            	<li><input type="button" class="btn_r-line" value="이전" title="이전" alt="이전" onclick="goPrePage();"></li>
+		            	<li><input type="button" class="btn_r" value="다음 " title="다음 " alt="다음 " onclick="emailChek();"></li>
+		            </ul>
+		        </div>
+		    </div>
+		    <!-- //container -->
+		</c:otherwise>
+	</c:choose>
+
+
+</form>

@@ -1,0 +1,214 @@
+package com.ssocio.sharing.service.web;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import javax.annotation.Resource;
+import javax.servlet.http.HttpServletRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.ui.ModelMap;
+import org.springframework.web.bind.annotation.RequestParam;
+
+import com.ssocio.sharing.cmmn.admin.util.CommonUtil;
+import com.ssocio.sharing.dao.web.MobilePromoEvtDao;
+import com.ssocio.sharing.vo.web.WebSession;
+
+@Service
+public class MobilePromoEvtServiceImpl implements MobilePromoEvtService {
+
+	// --------------------------------------------------------------------------
+	// # Log 설정
+	// --------------------------------------------------------------------------
+	private static final Logger logger = LoggerFactory.getLogger(MobilePromoEvtServiceImpl.class);
+
+	// --------------------------------------------------------------------------
+	// # DAO 설정
+	// --------------------------------------------------------------------------
+	@Resource(name = "mobilePromoEvtDao")
+	private MobilePromoEvtDao mobilePromoEvtDao;
+
+	/**
+	* <pre>
+	* 프로모션 이벤트 조회
+	* 진행중인 프로모션 이벤트를 조회한다
+	* @param evtName, isIng, inParam
+	* @return
+	* @throws Exception 
+	* @exception 
+	* @date 2015. 11. 3. 오후 10:25
+	* @author arkim
+	* @see com.ssocio.sharing.service.web
+	* @비고
+	* 
+	* </pre>
+	*/
+	@Override
+	public ModelMap searchEvt(String evtName, String isIng, @RequestParam Map<String, Object> inParam, HttpServletRequest request) {
+
+		ModelMap mm = new ModelMap();
+		WebSession session = (WebSession)request.getSession().getAttribute("user") == null? null : (WebSession)request.getSession().getAttribute("user"); //로그인 체크
+		 
+		try {
+				
+				String EVT_API_NM = evtName; //ex) join
+				String EVT_STATE_YN = isIng;
+				
+				List<Map<String, Object>> tempList = new ArrayList<Map<String, Object>>();
+				List<Map<String, Object>> result = new ArrayList<Map<String, Object>>();
+				Map<String, Object> tempMap = new HashMap<String, Object>();
+				
+				String[] errorMsg = { "요청한 parameter로 검색한 결과가 없습니다." };
+				String isPossible = null;
+				
+				inParam.put("EVT_API_NM", EVT_API_NM);
+				inParam.put("EVT_STATE_YN", EVT_STATE_YN);
+			
+				tempList = mobilePromoEvtDao.selectPromoEvtApi(inParam);
+				
+				if(session == null){ //로그인 정보가 없을 경우,
+					//ISPOSSIBLE = N
+					isPossible = "N"; //참가 불가
+				} else {
+					//ISPOSSIBLE = Y OR N
+					String MBER_SEQ = String.valueOf(session.getMBER_SEQ());
+					inParam.put("MBER_SEQ", MBER_SEQ);
+					int joinCnt = mobilePromoEvtDao.selectJoinCount(inParam); //참여이력 조회
+					isPossible = joinCnt == 0 ? "Y" : "N" ; // Count가 0이면 참가 가능
+				}
+				
+				tempMap.put("ISPOSSIBLE", isPossible);
+				for(Map<String, Object> maps : tempList){
+					for( String key : maps.keySet() ){
+			            tempMap.put(key, maps.get(key));
+			        }
+				}
+					
+				result.add(tempMap);
+				mm.put("success", result.size() > 0 ? result : errorMsg[0]);
+				
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return mm;
+	}
+	
+	/**
+	* <pre>
+	* 프로모션 이벤트 참가
+	* @param request, inParam
+	* @return
+	* @throws Exception 
+	* @exception 
+	* @date 2015. 11. 4. 오후 7:37
+	* @author arkim
+	* @see com.ssocio.sharing.service.web
+	* @비고
+	* 
+	* </pre>
+	*/
+	@Override
+	public ModelMap insertMber(HttpServletRequest request, @RequestParam Map<String, Object> inParam) throws Exception{
+
+		ModelMap mm = new ModelMap();
+		WebSession session = (WebSession)request.getSession().getAttribute("user");
+		
+		String evtName = inParam.get("evtName") == null ? "" : String.valueOf(inParam.get("evtName")).toLowerCase(); // ex) joinmber
+		
+		String[] errorMsg = { "로그인 후 참가할 수 있습니다.", "이미 응모 하였습니다.", "응모 대상이 아닙니다. 지금 첫 쏘시오 하고 꿀 혜택을 받아가세요.", "해당 이벤트는 개인회원만 참여 가능합니다."};
+		String[] successMsg = { "응모 완료! \n선착순 당첨자에 한해 매주 수요일 일괄 발송!", "응모 완료 되었습니다."};
+		
+		if(session == null){ //로그인 정보가 없을 경우,
+		
+			mm.put("error", errorMsg[0]);
+			
+		} else { //로그인 정보 있을 경우
+			
+			if("0".equals(session.getMBER_GB_CD())){ //개인일경우
+				
+				inParam.put("MBER_SEQ", Integer.parseInt(session.getMBER_SEQ().toString())); 
+				inParam.put("EVT_API_NM", evtName);
+
+				int joinCnt = mobilePromoEvtDao.selectJoinCount(inParam); // 참여 이력 조회. ferrari는 dateOption을 추가해 당일 참여한 이력이 있는지 조회함.
+				
+				if(joinCnt == 0){ // 참여 이력 없음
+					
+					if("join".equals(evtName)){ //회원가입 이벤트. MBER_SEQ당 1회만 응모.
+						inParam.put("MBER_NM", String.valueOf(inParam.get("joinUserNm"))); 
+						inParam.put("MBER_PHONE", String.valueOf(inParam.get("joinUserPhone")));
+						mobilePromoEvtDao.insertPromoEvtMber(inParam);
+						mm.put("success",  successMsg[0]);
+					}				
+					
+					if("firstpay".equals(evtName)){ //첫 결제 이벤트
+						int payCnt = mobilePromoEvtDao.selectPayCount(inParam);//결제이력 뒤지기
+						if(payCnt == 0){ //결제 이력이 없다면
+							mm.put("error", errorMsg[2]);
+						}else if (payCnt > 0){ //결제 이력이 0보다 크면
+							mobilePromoEvtDao.insertPromoEvtMber(inParam);
+							mm.put("success",  successMsg[0]);
+						}	
+					}
+					
+					if("ferrari".equals(evtName)){ //페라리 이벤트
+						
+						inParam.put("MBER_NM", String.valueOf(inParam.get("joinUserNm"))); 
+						inParam.put("MBER_PHONE", String.valueOf(inParam.get("joinUserPhone")));
+						inParam.put("BIRTH", String.valueOf(inParam.get("birth"))); //생년월일
+						inParam.put("CAR_OWNER_YN", String.valueOf(inParam.get("carOwnerYn"))); //차 소유 여부
+						inParam.put("DRIVE_EXPERIENCE", String.valueOf(inParam.get("driveExperience"))); //운전 경력
+						inParam.put("ETC", "DRIVE_SEQ:"+String.valueOf(inParam.get("driveSeq"))); //응모 차수
+						mobilePromoEvtDao.insertPromoEvtMber(inParam);
+						mm.put("success",  successMsg[1]);
+					}
+					
+					if(!"join".equals(evtName) && !"firstpay".equals(evtName) && !"ferrari".equals(evtName)){
+						
+						inParam.put("MBER_NM", inParam.get("joinUserNm") != null ? String.valueOf(inParam.get("joinUserNm")) : ""); 
+						inParam.put("MBER_PHONE", inParam.get("joinUserPhone") != null ? String.valueOf(inParam.get("joinUserPhone")) : "");
+						inParam.put("BIRTH", inParam.get("birth") != null ? String.valueOf(inParam.get("birth")) : ""); //생년월일
+						inParam.put("CAR_OWNER_YN", inParam.get("carOwnerYn") != null ? String.valueOf(inParam.get("carOwnerYn")) : ""); //차 소유 여부
+						inParam.put("DRIVE_EXPERIENCE", inParam.get("driveExperience") != null ? String.valueOf(inParam.get("driveExperience")) : ""); //운전 경력
+						inParam.put("ETC", inParam.get("etc") != null ? String.valueOf(inParam.get("etc")) : ""); //기타 정보
+						inParam.put("REF_CODE", inParam.get("refCode") != null ? String.valueOf(inParam.get("refCode")) : ""); //ref code 상품 주문코드
+						
+						mobilePromoEvtDao.insertPromoEvtMber(inParam);
+						mm.put("success",  inParam.get("successMsg") != null ? String.valueOf(inParam.get("successMsg")) : successMsg[1]);
+					}
+					
+				} else { //참여 이력 있음
+					
+					mm.put("error", errorMsg[1]);
+				}//join cnt
+			
+			} else{
+				mm.put("error", errorMsg[3]);
+			}//personal check end
+			
+		} //session check end
+		
+		return mm;
+	}
+
+	@Override
+	public Map<String, Object> evtView(Map<String, Object> inParam) throws Exception {
+		// TODO Auto-generated method stub
+		Map<String, Object> mm = new HashMap<String, Object>();
+		
+		Map<String, Object> map = mobilePromoEvtDao.evtView(inParam);
+		if( !"".equals(map.get("EVT_COMMENT")) && map.get("EVT_COMMENT") != null){
+				String[] arryKey = {"EVT_COMMENT"};
+				Map<String, Object> mmTemp = CommonUtil.clobToString(map,arryKey);
+				mm.put("evtView", mmTemp);
+		}else{
+			mm.put("evtView", map);
+			
+		}
+		return mm;
+	}
+
+}
+

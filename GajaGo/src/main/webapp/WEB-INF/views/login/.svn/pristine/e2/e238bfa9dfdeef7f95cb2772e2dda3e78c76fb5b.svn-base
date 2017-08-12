@@ -1,0 +1,175 @@
+package com.ssocio.sharing.controller.seller;
+
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.URL;
+import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.servlet.ModelAndView;
+
+import com.ssocio.sharing.cmmn.seller.util.SellerCommonUtil;
+import com.ssocio.sharing.cmmn.util.CmmnCnst;
+import com.ssocio.sharing.cmmn.util.StringUtil;
+import com.ssocio.sharing.service.seller.SellerMainService;
+import com.ssocio.sharing.vo.seller.SellerSession;
+
+/**
+ * <pre>
+ * 메인화면 콘트롤러
+ * 메인화면 콘트롤러
+ * @author Y.I.Chun
+ * @version
+ * @since 2015. 7. 8. 오후 5:50:42
+ * @see
+ * @History
+ * Date			|	author	| 변경 내용
+ * 2015. 7. 8.	|	Y.I.Chun	|신규
+ * @비고
+ * </pre>
+ */
+@Controller
+public class SellerMainController {
+
+	// --------------------------------------------------------------------------
+	// # Log 설정
+	// --------------------------------------------------------------------------
+	private static final Logger logger = LoggerFactory.getLogger(SellerMainController.class);
+
+	// --------------------------------------------------------------------------
+	// # Service 설정
+	// --------------------------------------------------------------------------
+	@Autowired
+	private SellerMainService sellerMainService;
+
+	@RequestMapping("/seller/main.do")
+	public ModelAndView getMain(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> paramDto) throws Exception	{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("MAIN START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		ModelAndView mav = null;
+		SellerSession session = (SellerSession) request.getSession().getAttribute("sellerManager");
+		paramDto.put("mberSeq", session.getMBER_SEQ());
+		paramDto.put("MBER_GB_CD", session.getMBER_GB_CD());
+		paramDto.put("MBER_REG_GB_CD", session.getMBER_REG_GB_CD());
+
+		if(SellerCommonUtil.isLogin(request)){
+			// 	회원 접속 +1 로직 추가   조은별
+			//	로그인 사용자에 한해서 실행 	|	20151102	|	WOOK-KIM
+			sellerMainService.updateConnCnt(paramDto);
+
+			paramDto.put("CON_GB", deviceChk(request));
+			paramDto.put("CON_IP", StringUtil.nvl((String)request.getRemoteAddr(), ""));
+			// 접속이력 테이블 insert
+			sellerMainService.insertConnLog(paramDto);
+			// 접속시간 update
+			sellerMainService.updateLastLoginDt(paramDto);
+		}
+
+		try {
+//			session = (SellerSession) request.getSession().getAttribute("sellerManager");
+			mav = sellerMainService.selectMainData(paramDto);
+			mav.setViewName("seller/main");
+		} catch (Exception e) {e.printStackTrace();}
+
+		return mav;
+	}
+
+	public String deviceChk(HttpServletRequest request){
+		String userAgent = (String)request.getHeader("User-Agent");
+		boolean secure= request.isSecure();
+		String result = "30";
+		if ( secure ) {
+			request.setAttribute("INIT_URL", "https://"+request.getServerName()+":"+request.getServerPort());
+		} else {
+			request.setAttribute("INIT_URL", "http://"+request.getServerName()+":"+request.getServerPort());
+		}
+		String[] mobileos = {"MOBILEAPP","iPhone", "iPod", "Android", "BlackBerry", "Windows CE", "Nokia", "Webos", "Opera", "Mini", "SonyEricsson", "Opera Mobi", "IEMobile"};
+		// okayjava : 11.14 : 판매관리/구매관리 폴더 추가
+		String reqURL = StringUtil.nvl((String)request.getRequestURI());
+		boolean bMobileDevice = false;
+		boolean isPcAgent = false;
+		logger.info("# userAgent : " + userAgent);
+		if(userAgent != null && !userAgent.equals("")){
+			// --------------------------------------------------------------------
+			// 디바이스 체크 (모바일/PC)
+			//  - 모바일기기 목록에 없으면 모두 PC로 인식
+			// --------------------------------------------------------------------
+			for(String os : mobileos){
+				if(userAgent.indexOf(os)>-1){
+					// 모바일디바이스로 접속
+					bMobileDevice = true;
+					break;
+				}
+			} // End of
+
+			// --------------------------------------------------------------------
+			// 디바이스와 접속URL비교
+			// --------------------------------------------------------------------
+			if (bMobileDevice) {
+				request.getSession().setAttribute("isPcAgent", isPcAgent);
+				////////////////모바일 웹인지 App인지 판별하기 위해 셋팅 /////////////////
+				if(userAgent.indexOf("MOBILEAPP") > -1){
+					logger.info("@@@@@@@@WEB VIEW IN@@@@@@@");
+					result = CmmnCnst.CON_GBN_CD_20;
+				if(reqURL.indexOf("/mobile/")>-1) {
+					result = CmmnCnst.CON_GBN_CD_10;
+				}
+
+			} else {
+				result = CmmnCnst.CON_GBN_CD_30;
+			}
+			logger.info("###### isPcAgent ###### : " + isPcAgent);
+		}
+	}
+		return result;
+	}
+
+
+
+
+	@RequestMapping("/seller/manualDownload.do")
+	public void manualDownload(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> paramDto) throws Exception	{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("MAIN START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		ModelAndView mav = null;
+		SellerSession session = (SellerSession) request.getSession().getAttribute("sellerManager");
+		paramDto.put("mberSeq", session.getMBER_SEQ());
+
+
+        // MIME Type 을 application/octet-stream 타입으로 변경
+        // 무조건 팝업(다운로드창)이 뜨게 된다.
+        response.setContentType("application/octet-stream");
+
+        // 브라우저는 ISO-8859-1을 인식하기 때문에
+        // UTF-8 -> ISO-8859-1로 디코딩, 인코딩 한다.
+//        orgname = new String(orgname.getBytes("UTF-8"), "iso-8859-1");
+
+        // 파일명 지정
+        response.setHeader("Content-Disposition", "attachment; filename='manual.pdf' ");
+
+        OutputStream os = response.getOutputStream();
+        // String path = servletContext.getRealPath("/resources");
+        // d:/upload 폴더를 생성한다.
+        // server에 clean을 하면 resources 경로의 것이 다 지워지기 때문에
+        // 다른 경로로 잡는다(실제 서버에서는 위의 방식으로)
+        InputStream fis = new URL("http://static.ssocio.net/download/SSOCIO_SellerOffice_Manual.pdf").openStream();
+        int n = 0;
+        byte[] b = new byte[512];
+        while((n = fis.read(b)) != -1 ) {
+            os.write(b, 0, n);
+        }
+        fis.close();
+        os.close();
+	}
+
+}

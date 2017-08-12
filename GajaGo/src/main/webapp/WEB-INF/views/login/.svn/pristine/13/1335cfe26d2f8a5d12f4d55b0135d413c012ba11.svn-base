@@ -1,0 +1,873 @@
+package com.ssocio.sharing.controller.admin;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.codehaus.jackson.map.ObjectMapper;
+import org.codehaus.jackson.type.TypeReference;
+import org.elasticsearch.cluster.routing.PlainShardIterator;
+import org.json.simple.JSONArray;
+import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.multipart.MultipartHttpServletRequest;
+import org.springframework.web.servlet.ModelAndView;
+
+import com.ssocio.sharing.cmmn.util.LoggerUtil;
+import com.ssocio.sharing.cmmn.util.StringUtil;
+import com.ssocio.sharing.dao.admin.AdminCommonDao;
+import com.ssocio.sharing.service.admin.AdminPlanService;
+import com.ssocio.sharing.vo.admin.PlanBanner;
+import com.ssocio.sharing.vo.admin.PlanContent;
+import com.ssocio.sharing.vo.admin.PlanExhibition;
+import com.ssocio.sharing.vo.admin.PlanTemplate;
+
+/**
+ * <pre>
+ * 기획전 콘트롤러
+ * 기획전 콘트롤러
+ * @author Wook.kim
+ * @version
+ * @since 2015. 8. 4. 오후 7:40:30
+ * @see
+ * @History
+ * Date			|	author	    | 변경 내용
+ * 2015. 8. 4.	|	Wook.kim	| 신규
+ * @비고
+ * </pre>
+ */
+@Controller
+@RequestMapping(value="/admin/plan")
+public class AdminPlanController extends AdminReferController {
+	
+	// --------------------------------------------------------------------------
+	// # Log 설정
+	// --------------------------------------------------------------------------
+	private static final Logger logger = LoggerFactory.getLogger(AdminPlanController.class);
+
+	// --------------------------------------------------------------------------
+	// # Service 설정
+	// --------------------------------------------------------------------------
+	@Autowired
+	private AdminPlanService adminPlanService;
+	
+	@Resource(name="adminCommonDao")
+	private AdminCommonDao adminCommonDao;
+	
+	/**
+	 * 
+	 * <pre>
+	 * 설명 메인 메뉴에서 기획전 선택했을 시 호출되는 requestMapping 메소드
+	 * 설명 기획전 목록을 가져온다.
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 9. 4. 오전 11:15:33
+	 * @author WOOK.KIM
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@RequestMapping("/selectListPlan.do")
+	public ModelAndView selectListPlan(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception	{
+	
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN selectListPlan START☆★☆★☆★☆★☆★☆★☆");
+		
+		ModelAndView mav = new ModelAndView();
+		
+		String planType = StringUtil.nvl((String)request.getParameter("PLAN_TYPE"), "0");
+		String dateGubun = StringUtil.nvl((String)request.getParameter("DATE_GUBUN"), "R");
+		String startDt = StringUtil.nvl((String)request.getParameter("S_DT"), StringUtil.getDatewithGapCurrent("MONTH", -1));
+		String endDt = StringUtil.nvl((String)request.getParameter("E_DT"), StringUtil.getCurrentDate());
+		String searchGubun = StringUtil.nvl((String)request.getParameter("SEARCH_GUBUN"), "0");
+		String searchNm = StringUtil.nvl((String)request.getParameter("SEARCH_NM"), "");
+		
+		inParam.put("PLAN_TYPE", planType);
+		inParam.put("DATE_GUBUN", dateGubun);
+		inParam.put("S_DT", startDt.replace("-", ""));
+		inParam.put("E_DT", endDt.replace("-", ""));
+		inParam.put("SEARCH_GUBUN", searchGubun);
+		inParam.put("SEARCH_NM", searchNm);
+		
+		LoggerUtil.writeMap(inParam);
+		
+		mav.addObject("result", adminPlanService.selectListPlan(inParam));
+
+		inParam.put("PLAN_TYPE", "0");
+		mav.addObject("params", inParam);
+		mav.setViewName("admin/plan/selectListPlan");
+		
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN selectListPlan END☆★☆★☆★☆★☆★☆★☆");
+		return mav;
+	}
+	
+	/**
+	 * 
+	 * <pre>
+	 * 설명 컨트롤러 내부에서 호출되어 목록 페이지로 이동하는 메소드
+	 * 설명
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 9. 4. 오전 11:16:12
+	 * @author WOOK.KIM
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	private ModelAndView selectListPlan(MultipartHttpServletRequest inParam) throws Exception	{
+		
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN selectListPlan START☆★☆★☆★☆★☆★☆★☆");
+		
+		ModelAndView mav = new ModelAndView();
+		
+		String planType = StringUtil.nvl((String)inParam.getParameter("PLAN_TYPE"), "0");
+		String dateGubun = StringUtil.nvl((String)inParam.getParameter("DATE_GUBUN"), "R");
+		String startDt = StringUtil.nvl((String)inParam.getParameter("S_DT"), StringUtil.getDatewithGapCurrent("MONTH", -1));
+		String endDt = StringUtil.nvl((String)inParam.getParameter("E_DT"), StringUtil.getCurrentDate());
+		String searchGubun = StringUtil.nvl((String)inParam.getParameter("SEARCH_GUBUN"), "0");
+		String searchNm = StringUtil.nvl((String)inParam.getParameter("SEARCH_NM"), "");
+		
+		Map<String, Object> map = new HashMap<String, Object>();
+		
+		map.put("PLAN_TYPE", "0");
+		map.put("DATE_GUBUN", dateGubun);
+		map.put("S_DT", startDt.replace("-", ""));
+		map.put("E_DT", endDt.replace("-", ""));
+		map.put("SEARCH_GUBUN", searchGubun);
+		map.put("SEARCH_NM", searchNm);
+		
+		LoggerUtil.writeMap(map);
+		
+		mav.addObject("result", adminPlanService.selectListPlan(map));
+
+		mav.addObject("params", map);
+		mav.setViewName("admin/plan/selectListPlan");
+		
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN selectListPlan END☆★☆★☆★☆★☆★☆★☆");
+		return mav;
+	}
+	
+	/**
+	 * 
+	 * <pre>
+	 * 설명 전시종료 탭에서 기획전 선택했을 시 호출되는 requestMapping 메소드
+	 * 설명
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 9. 4. 오전 11:16:48
+	 * @author WOOK.KIM
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@RequestMapping("/selectPlanEnd.do")
+	public ModelAndView selectPlanEnd(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception	{
+	
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN selectPlanEnd START☆★☆★☆★☆★☆★☆★☆");
+		
+		ModelAndView mav = new ModelAndView();
+		
+		LoggerUtil.writeMap(inParam);
+		
+		mav.addObject("params", inParam);
+		mav.addObject("result", adminPlanService.selectPlan((String)inParam.get("PLAN_CD"), false));
+		mav.setViewName("admin/plan/selectPlanEnd");
+		
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN selectPlanEnd END☆★☆★☆★☆★☆★☆★☆");
+		return mav;
+	}
+	
+	/**
+	 * 
+	 * <pre>
+	 * 설명 전시중/메인기획전 탭에서 기획전 선택했을 시 호출되는 requestMapping 메소드
+	 * 설명
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 9. 4. 오전 11:17:34
+	 * @author WOOK.KIM
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@RequestMapping("/selectPlanIng.do")
+	public ModelAndView selectPlanIng(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception	{
+	
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN selectPlanIng START☆★☆★☆★☆★☆★☆★☆");
+		
+		ModelAndView mav = new ModelAndView();
+		
+		LoggerUtil.writeMap(inParam);
+		
+		mav.addObject("params", inParam);
+		mav.addObject("result", adminPlanService.selectPlan((String)inParam.get("PLAN_CD"), false));
+		mav.setViewName("admin/plan/selectPlanIng");
+		
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN selectPlanIng END☆★☆★☆★☆★☆★☆★☆");
+		logger.info(mav.toString());
+		return mav;
+	}
+	
+	/**
+	 * 
+	 * <pre>
+	 * 설명 기획전 목록 > 기획전 등록 선택 시 호출되는 requestMapping 메소드
+	 * 설명
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 9. 4. 오전 11:18:58
+	 * @author WOOK.KIM
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@RequestMapping("/insertPlan.do")
+	public ModelAndView insertPlan(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception	{
+	
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN insertPlan START☆★☆★☆★☆★☆★☆★☆");
+
+		ModelAndView mav = new ModelAndView();
+		
+		mav.setViewName("admin/plan/insertPlan");
+		
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN insertPlan END☆★☆★☆★☆★☆★☆★☆");
+		return mav;
+		
+	}
+	
+	/**
+	 * 
+	 * <pre>
+	 * 설명 기획전 등록 > 저장 버튼 클릭시 호출되는 requestMapping 메소드 
+	 * 설명
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 9. 4. 오전 11:19:48
+	 * @author WOOK.KIM
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@RequestMapping("/insertPlanReg.do")
+	public ModelAndView insertPlanReg(MultipartHttpServletRequest inParam) throws Exception{
+
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN insertPlanReg START☆★☆★☆★☆★☆★☆★☆");
+		PlanExhibition pe = new PlanExhibition(inParam);
+		
+		String banners = (String)inParam.getParameter("PLAN_BANNER_INDEXES");
+		String templates = (String)inParam.getParameter("PLAN_TEMPLATE_INDEXES");
+		
+		try{
+			//	Banner 영역에서 가져온 값 세팅
+			JSONParser parser = new JSONParser();
+			JSONArray jsonBanner = (JSONArray)parser.parse(banners);
+			for(int i=0 ; i<jsonBanner.size() ; i++){
+				PlanBanner pb = new PlanBanner((JSONObject)jsonBanner.get(i), inParam);
+				pb.setFileInfo();
+				
+				pe.getBanners().add(pb);
+			}
+			
+			/*	Template 영역에서 가져온 값 세팅 */
+			JSONArray jsonTemplate = (JSONArray)parser.parse(templates);
+			for(int i=0 ; i<jsonTemplate.size() ; i++ ){
+				JSONObject json = (JSONObject)jsonTemplate.get(i);
+				PlanTemplate pt = new PlanTemplate(json);
+				pt.setContents(json, inParam);
+
+				pe.getTemplates().add(pt);
+			}
+			
+			adminPlanService.insertPlan(pe);
+		}catch(Exception e){
+			logger.info(e.getMessage());
+		}
+		
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN insertPlanReg END☆★☆★☆★☆★☆★☆★☆");
+		
+		return selectListPlan(inParam);
+	}
+	
+	/**
+	 * 
+	 * <pre>
+	 * 설명 기획전 상세 > 기획전 저장 버튼 클릭 시 호출되는 requestMapping 메소드
+	 * 설명
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 9. 4. 오전 11:20:44
+	 * @author WOOK.KIM
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@RequestMapping("/updatePlanReg.do")
+	public ModelAndView updatePlanReg(MultipartHttpServletRequest inParam) throws Exception{
+
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN updatePlanReg START☆★☆★☆★☆★☆★☆★☆");
+		PlanExhibition pe = new PlanExhibition(inParam);
+		logger.info("PlanExhibition ========= " + pe.toString());
+		
+		String banners = (String)inParam.getParameter("PLAN_BANNER_INDEXES");
+		String templates = (String)inParam.getParameter("PLAN_TEMPLATE_INDEXES");
+		
+		logger.info("banners ========= " + banners);
+		logger.info("template ========= " + templates);
+		try{
+			//	Banner 영역에서 가져온 값 세팅
+			JSONParser parserBanner = new JSONParser();
+			JSONArray jsonBanner = (JSONArray)parserBanner.parse(banners);
+			for(int i=0 ; i<jsonBanner.size() ; i++){
+				PlanBanner pb = new PlanBanner((JSONObject)jsonBanner.get(i), inParam);
+				pb.setFileInfo();
+				
+				pe.getBanners().add(pb);
+			}
+			
+			/*	Template 영역에서 가져온 값 세팅*/
+			JSONParser parserTemplate = new JSONParser();
+			JSONArray jsonTemplate = (JSONArray)parserTemplate.parse(templates);
+			for(int i=0 ; i<jsonTemplate.size() ; i++ ){
+				JSONObject json = (JSONObject)jsonTemplate.get(i);
+				PlanTemplate pt = new PlanTemplate(json);
+				
+//				if( (boolean)json.get("isNew")){
+//					pt.setContents(inParam);
+//				}
+//				else{
+//					pt.setContents(json, inParam);
+//				}
+				pt.setContents(json, inParam);
+				
+				pe.getTemplates().add(pt);
+			}
+			
+			adminPlanService.updatePlan(pe);
+		}catch(Exception e){
+			logger.info(e.getMessage());
+		}
+		
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN updatePlanReg END☆★☆★☆★☆★☆★☆★☆");
+		
+		return selectListPlan(inParam);
+	}
+	
+	/**
+	 * 
+	 * <pre>
+	 * 설명 미리보기 requestMapping 메소드
+	 * 설명 TMP 테이블에 insert 후 selectPlan을 한다. 모든 과정은 기존의 메소드를 이용하며, isPreview값에 따라서 mapper에서 분기처리된다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 17. 오후 5:34:46
+	 * @author WOOK.KIM
+	 * @see
+	 * </pre>
+	 */
+	
+	@RequestMapping("/selectPlanPreview.do")
+	public ModelAndView selectPlanPreview(MultipartHttpServletRequest inParam) throws Exception	{
+
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN selectPlanPreview START☆★☆★☆★☆★☆★☆★☆");
+		PlanExhibition pe = new PlanExhibition(inParam);
+		
+		String banners = (String)inParam.getParameter("PLAN_BANNER_INDEXES");
+		String templates = (String)inParam.getParameter("PLAN_TEMPLATE_INDEXES");
+		String PLAN_CD = "";
+		
+		try{
+			//	Banner 영역에서 가져온 값 세팅
+			JSONParser parser = new JSONParser();
+			JSONArray jsonBanner = (JSONArray)parser.parse(banners);
+			for(int i=0 ; i<jsonBanner.size() ; i++){
+				PlanBanner pb = new PlanBanner((JSONObject)jsonBanner.get(i), inParam);
+				pb.setFileInfo();
+				pb.setPreview(true);
+				pe.getBanners().add(pb);
+				pe.setPreview(true);
+			}
+			
+			/*	Template 영역에서 가져온 값 세팅 */
+			JSONArray jsonTemplate = (JSONArray)parser.parse(templates);
+			for(int i=0 ; i<jsonTemplate.size() ; i++ ){
+				JSONObject json = (JSONObject)jsonTemplate.get(i);
+				PlanTemplate pt = new PlanTemplate(json);
+				pt.setContents(json, inParam);
+				pt.setPreview(true);
+				pe.getTemplates().add(pt);
+				pe.setPreview(true);
+				
+			}
+			
+			Map<String, Object> mm = adminPlanService.insertPlan(pe);
+			PLAN_CD = String.valueOf(mm.get("PLAN_CD"));
+		}catch(Exception e){
+			logger.info(e.getMessage());
+		}
+		
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN selectPlanPreview END☆★☆★☆★☆★☆★☆★☆");
+		
+		ModelAndView mav = new ModelAndView("admin/plan/planPreviewPopup");
+		mav.addObject("params", inParam);
+		mav.addObject("PLAN_CD", PLAN_CD);
+		mav.addObject("result", adminPlanService.selectMainPlanPreview(PLAN_CD));
+		return mav;
+	}
+/*	@RequestMapping("/selectPlanPreview.do")
+	public ModelAndView selectPlanPreview(MultipartHttpServletRequest inParam) throws Exception	{
+
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN selectPlanPreview START☆★☆★☆★☆★☆★☆★☆");
+		PlanExhibition pe = new PlanExhibition(inParam);
+		
+		String banners = (String)inParam.getParameter("PLAN_BANNER_INDEXES");
+		String templates = (String)inParam.getParameter("PLAN_TEMPLATE_INDEXES");
+		
+		List<HashMap<String, Object>> templatesList = new ArrayList<HashMap<String, Object>>();
+		
+		try{
+			//	Banner 영역에서 가져온 값 세팅
+			JSONParser parserBanner = new JSONParser();
+			JSONArray jsonBanner = (JSONArray)parserBanner.parse(banners);
+			for(int i=0 ; i<jsonBanner.size() ; i++){
+				PlanBanner pb = new PlanBanner((JSONObject)jsonBanner.get(i), inParam);
+				pb.setFileInfo();
+				pe.getBanners().add(pb);
+			}
+			
+				Template 영역에서 가져온 값 세팅
+			JSONParser parserTemplate = new JSONParser();
+			JSONArray jsonTemplate = (JSONArray)parserTemplate.parse(templates);
+			for(int i=0 ; i<jsonTemplate.size() ; i++ ){
+				JSONObject json = (JSONObject)jsonTemplate.get(i);
+				logger.info("json : " + json.toString());
+				PlanTemplate pt = new PlanTemplate(json);
+				pt.setContents(json, inParam);
+				pe.getTemplates().add(pt);
+				
+				List<HashMap<String, Object>> contentsList = new ArrayList<HashMap<String, Object>>();
+				HashMap<String, Object> templateMap = new HashMap<String, Object>();
+				templateMap.put("TPL_GB_CD", pt.getTplGbCd());
+				templateMap.put("TPL_VIEW_SEQ", pt.getViewSeq());
+				templateMap.put("TPL_SEQ", pt.getSequence());
+//				templateMap.put("BANNER_IMG_URL", );
+				
+				for ( int j = 0 ; j < pt.getContents().size(); j++) {
+					PlanContent content = pt.getContents().get(j);
+					HashMap<String, Object> contentMap = new HashMap<String, Object>();
+					
+					contentMap.put("CONT_VIEW_SEQ", content.getViewSeq());
+					contentMap.put("CONT_GB_CD", content.getContGbCd());
+					contentMap.put("CONT_VIEW_GB_CD", content.getPlanViewGbCd());
+					contentMap.put("CONT_TPL_SEQ", pt.getSequence());
+					contentMap.put("CONT_NO", content.getContNo());
+					contentMap.put("CONT_NM", content.getContNm());
+					
+					// 값이 없다?				
+					contentMap.put("CONT_URL", content.getUrl());
+					contentMap.put("CONT_VIEW_CSS", content.getPlanViewCss());
+					contentMap.put("CONT_NM_USE_YN", content.isContNmUseYn() ? "Y" : "N");
+					
+					// 이미지 경로
+					contentMap.put("CONT_FILE_URL", content.getViewSeq());
+					
+					if ( content.getContNo() != null && !content.getContNo().trim().equalsIgnoreCase("")) {
+						
+						contentMap.put("CONT_PROD_PS_DEPOSIT", content.get);
+						contentMap.put("CONT_PROD_NM", content.get);
+						contentMap.put("CONT_PROD_NRM_PRCE", "");
+						contentMap.put("CONT_PROD_SELL_PRCE", content.getViewSeq());
+						contentMap.put("CONT_PROD_DLV_PAY_GB_CD", content.);
+						contentMap.put("CONT_PROD_TYPE_CD", "1");
+					}
+					
+					contentsList.add(contentMap);
+				}
+				templateMap.put("contents", contentsList);
+				templatesList.add(templateMap);
+			}
+			
+			
+		} catch(Exception e){
+			e.printStackTrace();
+		}
+		
+		logger.info(banners);
+		logger.info(templates);
+		logger.info(pe.toString());
+		logger.info(pe.getBanners().toString());
+		logger.info(pe.getTemplates().toString());
+		logger.info(pcList.toString());
+		
+		Map<String, Object> planMap = new HashMap<String, Object>();
+		planMap.put("PLAN_NM", pe.getPlanNm());
+		planMap.put("templates", pe.getTemplates());
+		planMap.put("PLAN_TITLE", pe.getPlanTitle());
+		planMap.put("PLAN_CD", pe.getPlanCd());
+		planMap.put("banners", pe.getBanners());
+		planMap.put("pcList", pcList);
+		
+		List<Map<String, Object>> mapList = new ArrayList<Map<String, Object>>(); 
+		mapList.add(planMap);
+		
+		Map<String, Object> rtnMap = new HashMap<String, Object>();
+		rtnMap.put("plans", mapList);
+		
+		logger.info(rtnMap.toString());
+		
+		ModelAndView mav = new ModelAndView();
+		
+		//	PLAN_CD의 유무에 따라서 select or insert 구분
+		mav.addObject("params", inParam);
+		mav.addObject("result", rtnMap);
+		mav.setViewName("admin/plan/planPreviewPopup");
+		
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN selectPlanPreview END☆★☆★☆★☆★☆★☆★☆");
+		return mav;
+	}
+*/	
+	/**
+	 * 
+	 * <pre>
+	 * 설명 기획전 상세 > 삭제 버튼 클릭 시 호출되는 requestMapping 메소드
+	 * 설명
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 9. 4. 오전 11:21:37
+	 * @author WOOK.KIM
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@RequestMapping("/deletePlan.do")
+	public ModelAndView deletePlan(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception	{
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN deletePlan START☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+		
+		String planCd = (String)request.getParameter("PLAN_CD");
+		try{
+			adminPlanService.deletePlan(planCd, false);
+		}catch(Exception e){
+			logger.info(e.getMessage());
+		}
+		
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN deletePlan START☆★☆★☆★☆★☆★☆★☆");
+		return selectListPlan(request, response, inParam);
+	}	
+	
+	/**
+	 * 
+	 * <pre>
+	 * 설명 기획전 목록 > 삭제 버튼 클릭 시 호출되는 requestMapping 메소드
+	 * 설명
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 17. 오후 8:26:58
+	 * @author WOOK.KIM
+	 * @see
+	 * </pre>
+	 */
+	@RequestMapping("/deleteListPlan.do")
+	public ModelAndView deleteListPlan(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception	{
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN deleteListPlan START☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+		
+		String indexes = (String)request.getParameter("PLAN_INDEXES");
+		try{
+			//	Banner 영역에서 가져온 값 세팅
+			JSONParser parser = new JSONParser();
+			JSONObject json = (JSONObject)parser.parse(indexes);
+			String type = (String)json.get("TYPE");
+			JSONArray list = (JSONArray)json.get("LIST");
+			
+			for(int i=0 ; i<list.size() ; i++){
+				adminPlanService.deletePlan((String)list.get(i), false);
+			}
+
+		}catch(Exception e){
+			logger.info(e.getMessage());
+		}
+		
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN deleteListPlan END☆★☆★☆★☆★☆★☆★☆");
+
+		return selectListPlan(request, response, inParam);
+	}
+	
+	/**
+	 * 
+	 * <pre>
+	 * 설명 리스트에서 선택 전시 종료 클릭시 호출되는  requestMapping 메소드
+	 * 설명 리스트의 VIEW_SEQ의 값을 update한다.
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 17. 오후 10:03:31
+	 * @author WOOK.KIM
+	 * @see
+	 * </pre>
+	 */
+	@RequestMapping("/finishListPlan.do")
+	public ModelAndView finishListPlan(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception	{
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN finishListPlan START☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+		
+		String indexes = (String)request.getParameter("PLAN_INDEXES");
+		try{
+			//	Banner 영역에서 가져온 값 세팅
+			JSONParser parser = new JSONParser();
+			JSONObject json = (JSONObject)parser.parse(indexes);
+			JSONArray list = (JSONArray)json.get("LIST");
+			
+			for(int i=0 ; i<list.size() ; i++){
+				//	현재는 전시 종료에 대한 것만 있으나, 향후 전시 개시에 대한 항목이 추가될 경우를 대비에 isView를 추가해 놨음.
+				adminPlanService.updatePlanViewYn(false, (String)list.get(i), false);
+			}
+
+		}catch(Exception e){
+			logger.info(e.getMessage());
+		}
+		
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN finishListPlan END☆★☆★☆★☆★☆★☆★☆");
+
+		return selectListPlan(request, response, inParam);
+	}
+	
+	/**
+	 * 
+	 * <pre>
+	 * 설명 기획전 탭에서 [선택 메인기획전 추가] 클릭시 매핑되는 메소드
+	 * 설명
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 18. 오후 8:44:47
+	 * @author WOOK.KIM
+	 * @see
+	 * </pre>
+	 */
+	@RequestMapping("/updateListMainPlan.do")
+	public ModelAndView updateListMainPlan(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN updateListMainPlan START☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+		
+		String indexes = (String)request.getParameter("PLAN_INDEXES");
+		try{
+			//	Banner 영역에서 가져온 값 세팅
+			JSONParser parser = new JSONParser();
+			JSONObject json = (JSONObject)parser.parse(indexes);
+			String type = (String)json.get("TYPE");
+			JSONArray list = (JSONArray)json.get("LIST");
+			
+			boolean allViewYn = true;
+			if( "0".equals(type)){
+				allViewYn = true;
+			}
+			else if( "2".equals(type)){
+				allViewYn = false;
+			}
+			
+			for(int i=0 ; i<list.size() ; i++){
+				adminPlanService.updatePlanViewYn(true, (String)list.get(i), allViewYn);
+			}
+
+		}catch(Exception e){
+			logger.info(e.getMessage());
+		}
+		
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN updateListMainPlan END☆★☆★☆★☆★☆★☆★☆");
+
+		return selectListPlan(request, response, inParam);
+	}
+	
+	/**
+	 * 
+	 * <pre>
+	 * 설명 노출 순서 변경 후 [변경 사항 적용] 클릭시 매핑되는 메소드
+	 * 설명
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 18. 오후 8:46:20
+	 * @author WOOK.KIM
+	 * @see
+	 * </pre>
+	 */
+	@RequestMapping(value="/updateSeqListPlan.do")
+	public ModelAndView updateSeqListPlan(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN updateSeqListPlan START☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+		String type = (String)request.getParameter("PLAN_TYPE");
+		String indexes = (String)request.getParameter("PLAN_INDEXES");
+		
+		logger.info("INDEXES ================== " + indexes);
+		
+		try{
+			boolean allViewYn = true;
+			if( "0".equals(type)){
+				allViewYn = false;
+			}
+			else if( "2".equals(type)){
+				allViewYn = true;
+			}
+
+			//	기획전 목록에서 가져온 값 세팅
+			JSONParser parser = new JSONParser();
+			JSONArray jsonArr = (JSONArray)parser.parse(indexes);
+			
+			for(int i=0 ; i<jsonArr.size() ; i++){
+				JSONObject json = (JSONObject)jsonArr.get(i);
+				logger.info("json ========================= " + json.toString());
+				//	imgSeq에 PLAN_CD를 담은 이유는 기획전 등록 / 수정 시 javascript의 Item의 생성자에서 적당한 항목이 없어서 대체함.
+				adminPlanService.updatePlanViewSeq(allViewYn, (String)json.get("imgSeq"), (int)(long)json.get("seq"));
+			}
+
+		}catch(Exception e){
+			logger.info(e.getMessage());
+		}
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN updateSeqListPlan END☆★☆★☆★☆★☆★☆★☆");
+
+		return selectListPlan(request, response, inParam);
+	}
+	
+	@RequestMapping(value="/insertCopyPlan.do")
+	public ModelAndView insertCopyPlan(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN selectCopyPlan START☆★☆★☆★☆★☆★☆★☆");
+		
+		LoggerUtil.writeMap(inParam);
+		
+		ModelAndView mav = new ModelAndView();
+		mav.addObject("params", inParam);
+		mav.addObject("result", adminPlanService.selectPlan((String)inParam.get("PLAN_CD"), false));
+
+		mav.setViewName("admin/plan/insertCopyPlan");
+		
+		return mav;
+	}
+	
+	/**
+	 * 
+	 * <pre>
+	 * 설명 상품 코드를 통해서 상품정보를 가져오는 ajax requestMapping 메소스
+	 * 설명 
+	 * @param request
+	 * @param response
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 17. 오후 5:35:57
+	 * @author WOOK.KIM
+	 * @see
+	 * </pre>
+	 */
+	@RequestMapping(value = "/getProdInfo.do")
+	public ModelAndView getProdInfo(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN getProdInfo START☆★☆★☆★☆★☆★☆★☆");
+		
+		int idx = StringUtil.nvlInt((String)request.getParameter("IDX"), 0);
+		int seq = StringUtil.nvlInt((String)request.getParameter("SEQ"), 0);
+		String contGbCd = StringUtil.nvl((String)request.getParameter("CONT_GB_CD"), "30");
+		String prodCode = StringUtil.nvl((String)request.getParameter("PROD_CODE"), "");
+		String prodType = StringUtil.nvl((String)request.getParameter("PROD_TYPE"), "30");
+
+		logger.info("IDX[" + idx + "] : SEQ[" + seq + "] : CONT_GB_CD[" + contGbCd + "] : PROD_CODE[" + prodCode + "]: PROD_TYPE[" + prodType + "]");
+
+		//	향후 PROD_TYPE으로 분기처리 해야 함.
+		ModelAndView mav = new ModelAndView("jsonView");
+		mav.addObject("IDX", idx);
+		mav.addObject("SEQ", seq);
+		mav.addObject("CONT_GB_CD", contGbCd);
+		mav.addObject("PROD_CODE", prodCode);
+		
+		if(prodType.equals("30")){ // 상품
+			mav.addObject("prodInfo", adminPlanService.selectProd(prodCode));
+		}else if(prodType.equals("40")){ //셰어림 상품
+			mav.addObject("prodInfo", adminPlanService.selectShProd(prodCode));
+		}
+		
+		
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN getProdInfo END☆★☆★☆★☆★☆★☆★☆");
+		
+		return mav;
+	}
+	
+	/**
+	 * 
+	 * <pre>
+	 * 설명 동적으로 추가되는 banner와 content에 대해서 html을 리턴하는 ajax requestMapping 메소스
+	 * 설명 TYPE에 따라서, banner, 카드형, 대칭형으로 나뉜다.
+	 * @param request
+	 * @param response
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 17. 오후 5:36:33
+	 * @author WOOK.KIM
+	 * @see
+	 * </pre>
+	 */
+	@RequestMapping(value = "/getContainerHtml.do")
+	public ModelAndView getContainerHtml(HttpServletRequest request, HttpServletResponse response) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN getContainerHtml START☆★☆★☆★☆★☆★☆★☆");
+		
+		String type = StringUtil.nvl((String)request.getParameter("TYPE"), "10");
+		int seq = StringUtil.nvlInt((String)request.getParameter("SEQ"), 0);
+		int rowNum = StringUtil.nvlInt((String)request.getParameter("ROW_NUM"), 1);
+		
+		logger.info("TYPE[" + type + "] : SEQ[" + seq + "] : rowNum[" + rowNum + "]");
+
+		String body = "";
+
+		if( PlanTemplate.TYPE_CARD.equals(type)){
+			body += PlanContent.makeHeader(PlanTemplate.TYPE_S_CARD, seq);
+			body += PlanContent.makeCardHtml(seq, rowNum);
+			body += PlanContent.makeFooter(seq);
+		}
+		else if( PlanTemplate.TYPE_SYMMETRY.equals(type)){
+			body += PlanContent.makeHeader(PlanTemplate.TYPE_S_SYMMETRY, seq);
+			body += PlanContent.makeSymmetryHtml(seq, rowNum);
+			body += PlanContent.makeFooter(seq);
+		}
+		else if( PlanTemplate.TYPE_BANNER.equals(type)){
+			body += PlanContent.makeHeader(PlanTemplate.TYPE_S_BANNER, seq);
+			body += PlanContent.makeBannerHtml(seq, rowNum);
+			body += PlanContent.makeFooter(seq);
+		}
+		else{
+			body = PlanBanner.makeHtml(seq);
+		}
+
+		ModelAndView mav = new ModelAndView("jsonView");
+		mav.addObject("TYPE", type);
+		mav.addObject("ROW_NUM", rowNum);
+		mav.addObject("BODY", body);
+
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN getContainerHtml END☆★☆★☆★☆★☆★☆★☆");
+		
+		return mav;
+	}
+}

@@ -1,0 +1,504 @@
+package com.ssocio.sharing.controller.admin;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.multipart.MultipartHttpServletRequest;
+import org.springframework.web.servlet.ModelAndView;
+
+import com.ssocio.sharing.cmmn.admin.util.CommonUtil;
+import com.ssocio.sharing.cmmn.util.CmmnCnst;
+import com.ssocio.sharing.cmmn.util.DateUtil;
+import com.ssocio.sharing.cmmn.util.LoggerUtil;
+import com.ssocio.sharing.service.admin.AdminCodeService;
+import com.ssocio.sharing.service.admin.AdminPromoEvtService;
+
+@Controller
+public class AdminPromoEvtComtroller extends AdminReferController {
+
+	// --------------------------------------------------------------------------
+	// # Log 설정
+	// --------------------------------------------------------------------------
+	private static final Logger logger = LoggerFactory.getLogger(AdminPromoEvtComtroller.class);
+	
+	// --------------------------------------------------------------------------
+	// # Service 설정
+	// --------------------------------------------------------------------------
+	
+	@Autowired
+	private AdminPromoEvtService adminPromoEvtService;
+	
+	@Autowired
+	private AdminCodeService adminCodeService;
+	
+/*	@RequestMapping("/admin/promo/selectPromoEvtDtl.do")
+	public ModelAndView selectPromoEvtDtl(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception	{
+	
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN selectEvtView START☆★☆★☆★☆★☆★☆★☆");
+
+		ModelAndView mav = new ModelAndView();
+		
+		try {
+			
+			mav.addObject("list", adminPromoEvtService.startUrl());
+			mav.setViewName("admin/promo/selectPromoEvtDtl");
+		
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN selectEvtView END☆★☆★☆★☆★☆★☆★☆");
+		return mav;
+		
+	}*/
+	
+	//이벤트 등록화면
+	@RequestMapping("/admin/promo/insertPromoEvtOpen.do")
+	public ModelAndView insertPromoEvtOpen(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception   {
+		
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(inParam);
+		
+		// 공통코드 조회
+		try {
+			// 공통 코드 조회 - 쿠폰사용채널
+			inParam.put("S_GROUP_CODE", CmmnCnst.evtGbCd);			
+			mav.addObject("evtGbCd", adminCodeService.selectListCodeGroup(inParam).get("selectListCodeGroup"));
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		mav.setViewName("admin/promo/insertPromoEvt");
+		
+		return mav;
+		
+	}
+	
+	//이벤트 등록 후 eventlist로 이동
+	@RequestMapping("/admin/promo/insertPromoEvt.do")
+	public ModelAndView insertPromoEvt(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam,MultipartHttpServletRequest req) throws Exception   {
+		
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN insertEvent START☆★☆★☆★☆★☆★☆★☆");
+
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(inParam);
+							
+		try {
+
+			adminPromoEvtService.insertEvent(inParam,req);
+			mav.addObject("list", adminPromoEvtService.startUrl());
+			mav.setViewName("admin/promo/selectPromoEvtList");
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN insertEvent END☆★☆★☆★☆★☆★☆★☆");
+		return mav;
+		
+	}
+	
+	
+	@RequestMapping("/admin/promo/selectPromoEvtList.do")
+	public ModelAndView selectEvt(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception	{
+	
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN selectEvt START☆★☆★☆★☆★☆★☆★☆");
+
+		ModelAndView mav = new ModelAndView();
+		
+		String evtGbCd[] = null;
+		String exposureYn[] = null;
+		String evtStateYn[] = null;
+		evtGbCd =request.getParameterValues("EVT_GB_CD[]");
+		exposureYn =request.getParameterValues("EXPOSURE_YN[]");
+		evtStateYn =request.getParameterValues("EVT_STATE_YN[]");
+		
+		try{
+		
+			mav.addObject("list", adminPromoEvtService.selectEvt(inParam,evtGbCd,exposureYn,evtStateYn));		
+		
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		mav.setViewName("admin/promo/selectPromoEvtList");
+		
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN selectEvt END☆★☆★☆★☆★☆★☆★☆");
+		return mav;
+		
+	}
+	
+	
+	@RequestMapping("/admin/promo/selectPromoEvtDtl.do")
+	public ModelAndView selectEvtDtl(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception	{
+		
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN selectEvtDtl START☆★☆★☆★☆★☆★☆★☆");
+
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(inParam);
+		
+		String evtGrpCd = request.getParameter("NO");
+		String dtlFlag = "A";
+				
+		try {
+
+			mav.addObject("list", adminPromoEvtService.selectEvtDtl(inParam,evtGrpCd,dtlFlag));		
+			mav.setViewName("admin/promo/selectPromoEvtDtl");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN selectEvtDtl END☆★☆★☆★☆★☆★☆★☆");
+		return mav;
+	
+	}
+	
+	
+	@RequestMapping("/admin/promo/selectPromoEvtJoinPopup.do")
+	public ModelAndView selectPromoEvtJoinPopup(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception	{
+		
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN selectEvtJoinMber START☆★☆★☆★☆★☆★☆★☆");
+		
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(inParam);
+
+		String mberEmail = request.getParameter("MBER_EMAIL");
+		String mberGbCd[] = request.getParameterValues("MBER_GB_CD[]");
+		String mberRegGbCd[] = request.getParameterValues("MBER_REG_GB_CD[]");
+		String dateChk = request.getParameter("DATE_CHK");
+		String evtGrpCd = request.getParameter("EVT_GRP_CD");
+				
+		try {
+
+			mav.addObject("list", adminPromoEvtService.selectEvtJoinMber(inParam,mberEmail,mberGbCd,mberRegGbCd,dateChk,evtGrpCd));		
+			mav.setViewName("admin/promo/selectPromoEvtJoinPopup");
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN selectEvtJoinMber END☆★☆★☆★☆★☆★☆★☆");
+		return mav;
+	
+	}
+	
+	@RequestMapping("/admin/promo/selectPromoEvtJoinMberExcelDownload.do")
+	public ModelAndView selectPromoEvtJoinMberExcelDownload(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam)
+	{
+		
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN selectPromoEvtJoinMberExcelDownload START☆★☆★☆★☆★☆★☆★☆");
+		
+		ModelAndView mav = new ModelAndView();
+		mav.setViewName("excelDownloadView");
+		LoggerUtil.writeMap(inParam);
+		
+		String mberEmail = request.getParameter("MBER_EMAIL");
+		String mberGbCd[] = request.getParameterValues("MBER_GB_CD[]");
+		String mberRegGbCd[] = request.getParameterValues("MBER_REG_GB_CD[]");
+		String dateChk = request.getParameter("DATE_CHK");
+		String evtGrpCd = request.getParameter("EVT_GRP_CD");
+		String todate = null;
+		
+		try {
+			todate = DateUtil.toDateString("yyyy.MM.dd");
+			response.setContentType("application/msexcel");
+			response.setHeader("Content-Disposition"
+					, CommonUtil.getDisposition("SSOCIO이벤트 참여 회원_" + todate + ".xls", CommonUtil.check_browser(request)));
+		
+			String SheetName = "이벤트 참여 회원";
+			
+			List<String> excelTitle = new ArrayList<String>();
+			excelTitle.add("No");
+			excelTitle.add("참여일시");
+			excelTitle.add("멤버SEQ");
+			excelTitle.add("아이디");
+			excelTitle.add("이름");
+			excelTitle.add("휴대폰번호");
+			excelTitle.add("참여한 이름");
+			excelTitle.add("참여한 휴대폰 번호");
+			excelTitle.add("상품/주문코드");
+			excelTitle.add("출생년도");
+			excelTitle.add("자차 소유 여부");
+			excelTitle.add("운전경력");
+			excelTitle.add("추가사항");
+			excelTitle.add("당첨여부");
+
+			List<String> CellName = new ArrayList<String>();
+			CellName.add("NO"); // No
+			CellName.add("REGIST_DT"); // 참여일시
+			CellName.add("MBER_SEQ");
+			CellName.add("MBER_EMAIL"); // ID
+			CellName.add("MBER_NM");	
+			CellName.add("MBER_PHONE");	
+			CellName.add("WRITE_MBER_NM");	
+			CellName.add("WRITE_MBER_PHONE");
+			CellName.add("REF_CODE");
+			CellName.add("BIRTH");
+			CellName.add("CAR_OWNER_YN");
+			CellName.add("DRIVE_EXPERIENCE");
+			CellName.add("ETC_STR");
+			CellName.add("PRIZE_YN_NM");
+					
+			mav.addObject("SheetName", SheetName);
+			mav.addObject("excelTitle", excelTitle);
+			mav.addObject("CellName", CellName);
+			
+			mav.addObject("excelList", adminPromoEvtService.selectEvtJoinMberExcelDownload(inParam,mberEmail,mberGbCd,mberRegGbCd,dateChk,evtGrpCd));	
+			mav.addObject("param", inParam);
+
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN selectPromoEvtJoinMberExcelDownload END☆★☆★☆★☆★☆★☆★☆");
+		return mav;
+	}
+	
+	
+	@RequestMapping("/admin/promo/selectPromoEvtWinPopup.do")
+	public ModelAndView selectEvtWinMber(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception	{
+		
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN selectEvtWinMber START☆★☆★☆★☆★☆★☆★☆");
+
+		ModelAndView mav = new ModelAndView();
+		//inParam.remove("EVT_COMMENT");
+		LoggerUtil.writeMap(inParam);
+				
+		String mberEmail = request.getParameter("MBER_EMAIL");
+		String mberGbCd[] = request.getParameterValues("MBER_GB_CD[]");
+		String mberRegGbCd[] = request.getParameterValues("MBER_REG_GB_CD[]");
+		String dateChk = request.getParameter("DATE_CHK");
+		String evtGrpCd = request.getParameter("EVT_GRP_CD");
+				
+		try {
+
+			mav.addObject("list", adminPromoEvtService.selectEvtWinMber(inParam,mberEmail,mberGbCd,mberRegGbCd,dateChk,evtGrpCd));		
+			mav.setViewName("admin/promo/selectPromoEvtWinPopup");
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN selectEvtWinMber END☆★☆★☆★☆★☆★☆★☆");
+		return mav;
+	
+	}
+	
+	@RequestMapping("/admin/promo/selectPromoEvtwinMberExcelDownload.do")
+	public ModelAndView selectPromoEvtWinMberExcelDownload(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam)
+	{
+		
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN selectPromoEvtWinMberExcelDownload START☆★☆★☆★☆★☆★☆★☆");
+		
+		ModelAndView mav = new ModelAndView();
+		mav.setViewName("excelDownloadView");
+		LoggerUtil.writeMap(inParam);
+		
+		String mberEmail = request.getParameter("MBER_EMAIL");
+		String mberGbCd[] = request.getParameterValues("MBER_GB_CD[]");
+		String mberRegGbCd[] = request.getParameterValues("MBER_REG_GB_CD[]");
+		String dateChk = request.getParameter("DATE_CHK");
+		String evtGrpCd = request.getParameter("EVT_GRP_CD");
+		String todate = null;
+		
+		try {
+			todate = DateUtil.toDateString("yyyy.MM.dd");
+			response.setContentType("application/msexcel");
+			response.setHeader("Content-Disposition"
+					, CommonUtil.getDisposition("SSOCIO이벤트 당첨 회원_" + todate + ".xls", CommonUtil.check_browser(request)));
+		
+			String SheetName = "이벤트 당첨 회원";
+			
+			List<String> excelTitle = new ArrayList<String>();
+			excelTitle.add("No");
+			excelTitle.add("참여일시");
+			excelTitle.add("당첨일시");
+			excelTitle.add("멤버SEQ");
+			excelTitle.add("아이디");
+			excelTitle.add("이름");
+			excelTitle.add("휴대폰번호");
+			excelTitle.add("참여한 이름");
+			excelTitle.add("참여한 휴대폰 번호");
+			excelTitle.add("상품/주문코드");
+			excelTitle.add("출생년도");
+			excelTitle.add("자차 소유 여부");
+			excelTitle.add("운전경력");
+			excelTitle.add("추가사항");
+			
+			List<String> CellName = new ArrayList<String>();
+			CellName.add("NO"); // No
+			CellName.add("REGIST_DT"); // 참여일시
+			CellName.add("WIN_DT"); // 당첨일시
+			CellName.add("MBER_SEQ"); // 당첨일시
+			CellName.add("MBER_EMAIL"); // 아이디
+			CellName.add("MBER_NM");	
+			CellName.add("MBER_PHONE");	
+			CellName.add("WRITE_MBER_NM");	
+			CellName.add("WRITE_MBER_PHONE");
+			CellName.add("REF_CODE");
+			CellName.add("BIRTH");
+			CellName.add("CAR_OWNER_YN");
+			CellName.add("DRIVE_EXPERIENCE");
+			CellName.add("ETC_STR");
+		
+			mav.addObject("SheetName", SheetName);
+			mav.addObject("excelTitle", excelTitle);
+			mav.addObject("CellName", CellName);
+			
+			mav.addObject("excelList", adminPromoEvtService.selectEvtWinMberExcelDownload(inParam,mberEmail,mberGbCd,mberRegGbCd,dateChk,evtGrpCd));	
+			mav.addObject("param", inParam);
+
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN selectEvtWinMberExcelDownload END☆★☆★☆★☆★☆★☆★☆");
+		return mav;
+	}
+	
+	
+	@RequestMapping("/admin/promo/updatePromoEvtJoinMber.do")
+	public ModelAndView updateEvtJoinMber(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception	{
+		
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN updateEvtJoinMber START☆★☆★☆★☆★☆★☆★☆");
+
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(inParam);
+		
+		String pkNo[] = request.getParameterValues("PK_NO[]");
+		String evtGrpCd = request.getParameter("EVT_GRP_CD");
+		String mberEmail = request.getParameter("MBER_EMAIL");
+		String mberGbCd[] = request.getParameterValues("MBER_GB_CD[]");
+		String mberRegGbCd[] = request.getParameterValues("MBER_REG_GB_CD[]");
+		String dateChk = request.getParameter("DATE_CHK");
+	
+		int cnt=0;
+		cnt = pkNo.length;
+		String message = cnt+"명의 회원을 당첨시켰습니다.";
+		inParam.put("message", message);
+		
+		try {
+
+			adminPromoEvtService.updateEvtJoinMber(inParam,pkNo,evtGrpCd);		
+						
+			mav.addObject("list", adminPromoEvtService.selectEvtJoinMber(inParam,mberEmail,mberGbCd,mberRegGbCd,dateChk,evtGrpCd));		
+			mav.setViewName("admin/promo/selectPromoEvtJoinPopup");
+			
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN selectUseList END☆★☆★☆★☆★☆★☆★☆");
+			
+		return mav;
+		
+	}
+	
+	
+	@RequestMapping("/admin/promo/updatePromoEvtWinMber.do")
+	public ModelAndView updateEvtWinMber(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception	{
+		
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN updateEvtWinMber START☆★☆★☆★☆★☆★☆★☆");
+
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(inParam);
+		
+		String pkNo[] = request.getParameterValues("PK_NO[]");
+		String evtGrpCd = request.getParameter("EVT_GRP_CD");
+		String mberEmail = request.getParameter("MBER_EMAIL");
+		String mberGbCd[] = request.getParameterValues("MBER_GB_CD[]");
+		String mberRegGbCd[] = request.getParameterValues("MBER_REG_GB_CD[]");
+		String dateChk = request.getParameter("DATE_CHK");
+	
+		int cnt=0;
+		cnt = pkNo.length;
+		String message = cnt+"명의 회원을 당첨 취소시켰습니다.";
+		inParam.put("message", message);
+		
+		try {
+
+			adminPromoEvtService.updateEvtWinMber(inParam,pkNo,evtGrpCd);		
+						
+			mav.addObject("list", adminPromoEvtService.selectEvtWinMber(inParam,mberEmail,mberGbCd,mberRegGbCd,dateChk,evtGrpCd));		
+			mav.setViewName("admin/promo/selectPromoEvtWinPopup");
+			
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN updateEvtWinMber END☆★☆★☆★☆★☆★☆★☆");
+			
+		return mav;
+		
+	}
+	
+	
+	//상세 내용 확인-수정 에서 기획안과 같이 상세 내용 확인 -수정-eventlist 페이지로 이동
+	@RequestMapping("/admin/promo/updatePromoEvt.do")
+	public ModelAndView updateEvt(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam,MultipartHttpServletRequest req) throws Exception	{
+		
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN updateEvt START☆★☆★☆★☆★☆★☆★☆");
+
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(inParam);
+		
+		String evtGrpCd = request.getParameter("EVT_GRP_CD");
+		String dtlFlag = "B";
+		
+		try {
+
+			adminPromoEvtService.updateEvt(inParam,req);		
+			mav.addObject("list", adminPromoEvtService.startUrl());
+			mav.setViewName("admin/promo/selectPromoEvtList");
+			//mav.addObject("list", adminEvtService.selectEvtDtl(inParam,evtGrpCd,dtlFlag));		
+			//mav.setViewName("admin/evt/selectEvtDtl");
+
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN updateEvt END☆★☆★☆★☆★☆★☆★☆");
+			
+		return mav;
+		
+	}
+	
+	
+	@RequestMapping("/admin/promo/updateEvtState.do")
+	public ModelAndView updateEvtState(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception	{
+		
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN updateEvtState START☆★☆★☆★☆★☆★☆★☆");
+
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(inParam);
+		
+		String evtGrpCd = request.getParameter("EVT_GRP_CD");
+		String dtlFlag = "B";
+		
+		try {
+
+			adminPromoEvtService.updateEvtState(inParam);		
+						
+			mav.addObject("list", adminPromoEvtService.selectEvtDtl(inParam,evtGrpCd,dtlFlag));		
+			
+			mav.setViewName("admin/promo/selectPromoEvtDtl");
+			
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		logger.info("☆★☆★☆★☆★☆★☆★☆ADMIN updateEvtState END☆★☆★☆★☆★☆★☆★☆");
+			
+		return mav;
+		
+	}
+
+
+}
+

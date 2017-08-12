@@ -1,0 +1,774 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="sellerJoinMapper">
+	<sql id="pagingHeader">
+		SELECT * FROM (
+	</sql>
+
+	<sql id="pagingFooter">
+		)
+		WHERE NO BETWEEN #{START_ROW} AND #{END_ROW}
+	</sql>
+
+
+	<select id="selecMberPhoneChek" resultType="int" parameterType="hashmap">
+
+    	SELECT count(1) AS MBER_CNT
+		FROM MBER_INFO
+		WHERE  MBER_PHONE  = #{MBER_PHONE }
+
+	</select>
+
+
+	<select id="selecMberEmailChek1" resultType="int" parameterType="hashmap">
+
+    	SELECT count(1) AS MBER_CNT
+		FROM MBER_INFO
+		WHERE MBER_EMAIL  = #{MBER_EMAIL }
+		AND MBER_REG_GB_CD = '1'
+
+	</select>
+
+	<select id="selecMberEmailChek" resultType="int" parameterType="hashmap">
+
+    	SELECT count(1) AS MBER_CNT
+		FROM MBER_INFO
+		WHERE MBER_EMAIL  = #{MBER_EMAIL }
+
+	</select>
+
+		<select id="selecMberInfoChek" resultType="hashmap" parameterType="hashmap">
+
+    	SELECT MBER_PASS,MBER_PHONE,MBER_SEQ
+		FROM MBER_INFO
+		WHERE MBER_EMAIL  = #{MBER_EMAIL }
+
+	</select>
+
+<select id="selectAgreePopup" resultType="hashmap" parameterType="hashmap">
+
+    	SELECT Z.AGR_SEQ
+		    , Z.AGR_NAME_CD
+		    , Z.AGR_MUST_YN
+		    , Z.AGR_GB_CD
+		    , Z.AGR_VER
+		    , ZZ.AGR_DESC
+		    , Z.COM_CD_NM
+		FROM (SELECT X.AGR_SEQ
+		            , X.AGR_NAME_CD
+		            , X.AGR_MUST_YN
+		            , X.AGR_GB_CD
+		            , X.AGR_VER
+		            , Y.COM_CD_NM
+		FROM CODE Y LEFT OUTER JOIN (
+		                            SELECT A.AGR_SEQ        AS AGR_SEQ
+		                                , A.AGR_NAME_CD     AS AGR_NAME_CD
+		                                , A.AGR_MUST_YN     AS AGR_MUST_YN
+		                                , A.AGR_GB_CD       AS AGR_GB_CD
+		                                , MAX(B.AGR_VER)    AS AGR_VER
+		                            FROM AGR A, AGR_VER B
+		                            WHERE A.AGR_SEQ = B.AGR_SEQ
+		                            AND A.AGR_USE_YN = 'Y'
+		                            AND B.AGR_USE_YN  = 'Y'
+		                            AND SYSDATE <![CDATA[>=]]> B.REGIST_DT
+		                            <if test="agrGbCd != null and agrGbCd != ''">
+								    	AND A.AGR_GB_CD IN
+								    	<foreach collection="agrGbCd" item="cd" open="(" close=")" separator=",">
+								  			#{cd}
+								  		</foreach>
+								  	</if>
+		                            GROUP BY A.AGR_SEQ, A.AGR_NAME_CD, A.AGR_MUST_YN, A.AGR_GB_CD
+		                            ORDER BY A.AGR_SEQ ASC) X ON Y.COM_CD = X.AGR_NAME_CD
+		WHERE Y.GRP_CD = 'AGR_NAME_CD'
+		    AND Y.COM_CD = X.AGR_NAME_CD
+		) Z, AGR_VER ZZ
+		WHERE Z.AGR_SEQ = ZZ.AGR_SEQ
+		    AND Z.AGR_VER = ZZ.AGR_VER
+
+	</select>
+
+
+	<select id="selectLevCode" resultType="String" parameterType="String">
+    	SELECT COM_CD_NM FROM CODE
+		WHERE GRP_CD = 'MBER_DEFAULT'
+		AND COM_CD = #{code}
+   	</select>
+
+  	<insert id="insertUserMber"  parameterType="hashmap"  useGeneratedKeys="true" keyProperty="MBER_SEQ" keyColumn="MBER_SEQ">
+
+    	INSERT INTO MBER_INFO
+		(
+		  MBER_SEQ
+		  ,SSO_GB_CD
+		  ,MBER_GB_CD
+		  ,MBER_REG_GB_CD
+		  ,MBER_EMAIL
+		  ,MBER_PASS
+		  ,MBER_PHONE
+		  ,REGIST_DT
+		  ,UPDT_DT
+		  ,JOIN_CHAN_CD
+		  ,JOIN_PATH_CD
+		  ,MBER_NM
+		   ,MBER_STAT_CD
+		)
+		VALUES
+		(
+		  SEQ_MBER_INFO.NEXTVAL
+		  ,#{SSO_GB_CD}
+		  ,#{MBER_GB_CD}
+		  ,#{MBER_REG_GB_CD}
+		  ,#{MBER_EMAIL}
+		  ,#{MBER_PASS}
+		  ,#{MBER_PHONE}
+		  ,SYSDATE
+		  ,SYSDATE
+		  ,#{JOIN_CHAN_CD}
+		  ,#{JOIN_PATH_CD}
+		  ,#{MBER_NM}
+		  ,'40'
+		)
+
+	</insert>
+
+
+	<update id="updateUserMber" parameterType="hashmap">
+		 UPDATE MBER_INFO
+			SET   UPDT_DT = SYSDATE
+			<if test='MBER_PHONE != null and MBER_PHONE != ""'>
+				, MBER_PHONE = #{MBER_PHONE}
+			</if>
+			<if test='MBER_NM != null and MBER_NM != ""'>
+				, MBER_NM = #{MBER_NM}
+			</if>
+			<if test='MBER_REG_GB_CD != null and MBER_REG_GB_CD != ""'>
+				, MBER_REG_GB_CD = '1'
+			</if>
+			<if test='CI != null and CI != ""'>
+			, CI = <![CDATA[#{CI}]]>
+			</if>
+			<if test='DI != null and DI != ""'>
+			, DI = <![CDATA[#{DI}]]>
+			</if>
+			<if test='SEX != null and SEX != ""'>
+			, SEX = <![CDATA[#{SEX}]]>
+			</if>
+			<if test='TID != null and TID != ""'>
+			, TID = <![CDATA[#{TID}]]>
+			</if>
+			<if test='BIRTH != null and BIRTH != ""'>
+			, BIRTH = <![CDATA[#{BIRTH}]]>
+			</if>
+	     	<if test='MBER_STAT_CD != null and MBER_STAT_CD != ""'> 
+				, MBER_STAT_CD = #{MBER_STAT_CD}
+			</if>			
+			
+			WHERE
+				MBER_EMAIL = #{MBER_EMAIL}
+	</update>
+
+	<insert id="insertAgree"  parameterType="hashmap">
+  		MERGE INTO AGR_AGREE
+            USING DUAL
+            ON (MBER_SEQ =#{MBER_SEQ}  AND  AGR_SEQ=#{AGR_SEQ}  AND AGR_VER=#{AGR_VER} )
+            WHEN MATCHED THEN
+					UPDATE SET
+						AGREE_YN = #{AGREE_YN}
+						,REGIST_DT = SYSDATE
+            WHEN NOT MATCHED THEN
+                     INSERT
+						(
+						  MBER_SEQ
+						  ,AGR_SEQ
+						  ,AGR_VER
+						  ,AGREE_YN
+						  ,REGIST_DT
+						)
+						VALUES
+						(
+						  #{MBER_SEQ}
+						  ,#{AGR_SEQ}
+						  ,#{AGR_VER}
+						  ,#{AGREE_YN}
+						  ,SYSDATE
+						)
+
+
+	</insert>
+
+
+	<insert id="insertCmpnyNo"  parameterType="hashmap">
+
+    	INSERT INTO SELLER_INFO_CFG
+		(
+		  MBER_SEQ
+		  ,CMPNY_NO
+		  ,CMPNY_ZIP_CD
+		  ,CMPNY_ADDR
+		  ,CMPNY_ROAD_ADDR
+		  ,CMPNY_ADDR_DTL
+		  ,ACNT_NM
+		  ,BANK_NM
+		  ,BANK_ACNT_NO
+		  ,REGIST_DT
+		  ,UPDT_DT
+		  ,SELLER_CD
+		)
+		VALUES
+		(
+		  #{MBER_SEQ}
+		  ,#{CMPNY_NO}
+		  ,#{CMPNY_ZIP_CD}
+		  ,#{CMPNY_ADDR}
+		  ,#{CMPNY_ROAD_ADDR}
+		  ,#{CMPNY_ADDR_DTL}
+		  ,#{ACNT_NM}
+		  ,#{BANK_NM}
+		  ,#{BANK_ACNT_NO}
+		  ,SYSDATE
+		  ,SYSDATE
+		  ,#{SELLER_CD}
+		)
+
+	</insert>
+
+	<insert id="insertMberDtl"  parameterType="hashmap">
+
+    	INSERT INTO MBER_DTL_INFO
+		(
+		  MBER_SEQ
+		  ,EMAIL_AGREE_YN
+		<if test='EMAIL_AGREE_YN == "Y"'>
+	  		,EMAIL_AGREE_DT
+		</if>
+		  ,HP_AGREE_YN
+		<if test='HP_AGREE_YN == "Y"'>
+	  		,HP_AGREE_DT
+		</if>
+		  ,BUY_MBER_LEV_SEQ
+		  ,SELL_MBER_LEV_SEQ
+		  ,CONN_CNT
+		  ,BUY_CNT
+		  ,BUY_PRCE
+		  ,POINT_SUM
+		  ,POINT_USE
+		)
+		VALUES
+		(
+		  #{MBER_SEQ}
+		  ,#{EMAIL_AGREE_YN}
+		<if test='EMAIL_AGREE_YN == "Y"'>
+  			,SYSDATE
+		</if>
+		  ,#{HP_AGREE_YN}
+		<if test='HP_AGREE_YN == "Y"'>
+	  		,SYSDATE
+		</if>
+		  ,#{BUY_MBER_LEV_SEQ}
+		  ,#{SELL_MBER_LEV_SEQ}
+		  ,#{CONN_CNT}
+		  ,#{BUY_CNT}
+		  ,#{BUY_PRCE}
+		  ,#{POINT_SUM}
+		  ,#{POINT_USE}
+		)
+
+	</insert>
+
+
+
+	<update id="updateMberDtl" parameterType="hashmap">
+		UPDATE MBER_DTL_INFO
+			SET
+				EMAIL_AGREE_YN = #{EMAIL_AGREE_YN}
+					,HP_AGREE_YN = #{HP_AGREE_YN}
+					,SELL_MBER_LEV_SEQ = #{SELL_MBER_LEV_SEQ}
+					<if test='EMAIL_AGREE_YN == "Y"'>
+					,EMAIL_AGREE_DT = SYSDATE
+					</if>
+					<if test='HP_AGREE_YN == "Y"'>
+					,HP_AGREE_DT = SYSDATE
+					</if>
+			WHERE
+				MBER_SEQ = #{MBER_SEQ}
+	</update>
+
+	<insert id="insertMiniShop"  parameterType="hashmap">
+
+<!--     	INSERT INTO MBER_MINI_SHOP_INFO -->
+<!-- 		( -->
+<!-- 		  MBER_SEQ -->
+<!-- 		  ,MINI_SHOP_NM -->
+<!-- 		  ,REGIST_DT -->
+<!-- 		  ,UPDT_DT -->
+<!-- 		) -->
+<!-- 		VALUES -->
+<!-- 		( -->
+<!-- 		  #{MBER_SEQ} -->
+<!-- 		  ,#{MINI_SHOP_NM} -->
+<!-- 		  ,SYSDATE -->
+<!-- 		  ,SYSDATE -->
+<!-- 		) -->
+
+		INSERT INTO MBER_MINI_SHOP_INFO
+		(
+			MBER_SEQ
+			,MINI_SHOP_NM
+			,MINI_SHOP_PATH
+			,REGIST_DT
+			,UPDT_DT
+		)
+		VALUES
+		(
+			#{MBER_SEQ}
+			,#{MINI_SHOP_NM}
+			,#{MINI_SHOP_PATH}
+			,SYSDATE
+			,SYSDATE
+		)
+
+	</insert>
+
+
+
+
+	<!-- 회원 -->
+	<select id="selectMberSeq" resultType="String">
+    	SELECT SEQ_MBER_INFO.NEXTVAL AS MBER_SEQ
+    	FROM DUAL
+   	</select>
+   	
+	<select id="selectWishSeq" resultType="String">
+    	SELECT SEQ_WISH_CATE.NEXTVAL AS WISH_SEQ
+    	FROM DUAL
+   	</select>
+
+   	<select id="selectSerialKey" resultType="String">
+    	SELECT TO_CHAR(SYSDATE, 'YYYYMMDD')||LPAD(SEQ_SERIAL_KEY.NEXTVAL,8,0) AS SERIAL_KEY
+    	FROM DUAL
+   	 </select>
+
+   	 <insert id="insertUserMberS"  parameterType="hashmap">
+
+    	INSERT INTO MBER_INFO
+		(
+			MBER_SEQ
+			,SSO_GB_CD
+			,MBER_GB_CD
+			,MBER_REG_GB_CD
+			,MBER_EMAIL
+			,MBER_PASS
+			,MBER_PHONE
+			,REGIST_DT
+			,UPDT_DT
+			,JOIN_CHAN_CD
+			,MBER_NM
+			,PERCHK_YN
+			,CI
+			,DI
+			,SEX
+			,TID
+			,BIRTH
+			,SERIAL_KEY
+			,MBER_STAT_CD
+		)
+		VALUES
+		(
+			#{MBER_SEQ}
+			,#{SSO_GB_CD}
+			,#{MBER_GB_CD}
+			,#{MBER_REG_GB_CD}
+			,#{MBER_EMAIL}
+			,#{MBER_PASS}
+			,#{MBER_PHONE}
+			,SYSDATE
+			,SYSDATE
+			,#{JOIN_CHAN_CD}
+			,#{MBER_NM}
+			,'Y'
+			,#{CI}
+			,#{DI}
+			,#{SEX}
+			,#{TID}
+			,#{BIRTH}
+			,#{SERIAL_KEY}
+			,#{MBER_STAT_CD}
+		)
+
+	</insert>
+
+	<insert id="insertSellerInfo"  parameterType="hashmap">
+
+    	INSERT INTO SELLER_INFO_CFG
+		(
+			SELLER_CD
+			,MBER_SEQ
+			,CMPNY_ZIP_CD
+			,CMPNY_JUSO_JIBEN
+			,CMPNY_JUSO_DORO
+			,CMPNY_JUSO_DTL
+			,CMPNY_ADDR_GB
+			,BANK_ACNT_NO
+			,ACNT_NM
+			,BANK_NM
+			,ACC_AUTHYN
+			,REGIST_DT
+			,UPDT_DT
+			<if test='MBER_GB_CD == "1"'>
+				,COMP_REG_IMG
+				,REG_IMG
+				,BNK_IMG
+				,CMPNY_NO
+				,CMPNY_NM
+				,CS_PER_TEL
+			</if>
+		)
+		VALUES
+		(
+			#{SELLER_CD}
+			,#{MBER_SEQ}
+			,#{CMPNY_ZIP_CD}
+			,#{CMPNY_JUSO_JIBEN}
+			,#{CMPNY_JUSO_DORO}
+			,#{CMPNY_JUSO_DTL}
+			,#{CMPNY_ADDR_GB}
+			,#{BANK_ACNT_NO}
+			,#{ACNT_NM}
+			,#{BANK_NM}
+			,#{ACC_AUTHYN}
+			,SYSDATE
+			,SYSDATE
+			<if test='MBER_GB_CD == "1"'>
+				,#{COMP_REG_IMG, jdbcType=INTEGER}
+				,#{REG_IMG, jdbcType=INTEGER}
+				,#{BNK_IMG, jdbcType=INTEGER}
+				,#{CMPNY_NO}
+				,#{CMPNY_NM}
+				,#{CS_PER_TEL}
+			</if>
+		)
+
+	</insert>
+
+	<select id="selectSellerSeq" resultType="String">
+    	SELECT TO_CHAR(SYSDATE, 'YYYYMMDD')||LPAD(SEQ_SELLER_INFO_CFG.NEXTVAL,8,0) AS SELLER_CD
+    	FROM DUAL
+   	 </select>
+
+	<update id="updateSellerInfo" parameterType="hashmap">
+			UPDATE SELLER_INFO_CFG
+			SET
+				  	CMPNY_ZIP_CD 		=       #{CMPNY_ZIP_CD}
+					,CMPNY_JUSO_JIBEN	=       #{CMPNY_JUSO_JIBEN}
+					,CMPNY_JUSO_DORO	=       #{CMPNY_JUSO_DORO}
+					,CMPNY_JUSO_DTL 	=       #{CMPNY_JUSO_DTL}
+					,ACNT_NM        	=       #{ACNT_NM}
+					,BANK_NM        	=       #{BANK_NM}
+					,ACC_AUTHYN			=	    #{ACC_AUTHYN}
+					,BANK_ACNT_NO   	=       #{BANK_ACNT_NO}
+					,CS_PER_TEL			= 		#{CS_PER_TEL}
+					,UPDT_DT        	=       SYSDATE
+
+			WHERE
+				MBER_SEQ = (SELECT MAX(MBER_SEQ)  FROM MBER_INFO WHERE MBER_EMAIL = #{MBER_EMAIL})
+	</update>
+
+	<insert id="insertWishCate"  parameterType="hashmap">
+
+    	INSERT INTO WISH_CATE
+		(
+		  WISH_SEQ
+		  ,MBER_SEQ
+		  ,WISH_NAME
+		  ,REGIST_DT
+		)
+		VALUES
+		(
+		  #{WISH_SEQ}
+		  ,#{MBER_SEQ}
+		  ,#{WISH_NAME}
+		  ,SYSDATE
+		)
+
+	</insert>
+
+	<insert id="insertMberMiniShop"  parameterType="hashmap">
+
+    	INSERT INTO MBER_MINI_SHOP_INFO
+		(
+			MBER_SEQ
+			,MINI_SHOP_NM
+			,MINI_SHOP_PATH
+			,REGIST_DT
+			,UPDT_DT
+		)
+		VALUES
+		(
+			#{MBER_SEQ}
+			,#{MINI_SHOP_NM}
+			,#{MINI_SHOP_PATH}
+			,SYSDATE
+			,SYSDATE
+		)
+
+	</insert>
+
+	<!-- 출하지명이 없는 경우 "기본출하지"로 d입력함 : okayjava -->
+	<insert id="insertGrpProd"  parameterType="hashmap">
+
+    	INSERT INTO GRP_PROD_INFO
+		(
+		    MBER_SEQ
+		    ,GRP_NM
+		    ,GRP_PROD_SEQ
+		    ,ZIP_CD
+		    ,JUSO_DORO
+		    ,JUSO_JIBEN
+		    ,JUSO_DTL
+		    ,HP
+		    ,BASE_YN
+		    ,REGIST_DT
+		    ,UPDT_DT
+		    <if test='MBER_GB_CD == "1"'>
+				,TEL
+			</if>
+		)
+		VALUES
+		(
+		    #{MBER_SEQ}
+		    <choose>
+		    <when test='MBER_GB_CD == "1"'>
+		    , (SELECT NVL(CMPNY_NM, '') FROM SELLER_INFO_CFG WHERE MBER_SEQ = #{MBER_SEQ})
+		    </when>
+		    <otherwise>
+		     ,'기본출하지'
+		     </otherwise>
+		    </choose>
+		    ,'1'
+		    ,#{CMPNY_ZIP_CD}
+		    ,#{CMPNY_JUSO_DORO}
+		    ,#{CMPNY_JUSO_JIBEN}
+		    ,#{CMPNY_JUSO_DTL}
+		    ,#{MBER_PHONE}
+		    ,'Y'
+		    ,SYSDATE
+		    ,SYSDATE
+		    <if test='MBER_GB_CD == "1"'>
+				,#{CS_PER_TEL}
+			</if>
+		)
+
+	</insert>
+
+	<insert id="insertAlrm"  parameterType="hashmap">
+
+    	INSERT INTO ALRM
+		(
+		    MBER_SEQ
+		    ,NOTI_ALRM
+		    ,EVENT_ALRM
+		    ,FAVO_ALRM
+		    ,PROD_ALRM
+		    ,RENT_ALRM
+		    ,SELL_ALRM
+		    ,QUE_ALRM
+		    ,ANS_ALRM
+		)
+		VALUES
+		(
+			  #{MBER_SEQ}
+			  ,'Y'
+			  ,'Y'
+			  ,'Y'
+			  ,'Y'
+			  ,'Y'
+			  ,'Y'
+			  ,'Y'
+			  ,'Y'
+		)
+
+	</insert>
+
+	<!-- 계정 확인 -->
+   	<select id="selectMyAccount" resultType="hashmap">
+
+		SELECT
+    			NVL( (SELECT MBER_EMAIL FROM	MBER_INFO WHERE	MBER_EMAIL = #{MBER_EMAIL } AND MBER_REG_GB_CD = '0') , 1) AS MBER_EMAIL
+    			, NVL( (SELECT MBER_PASS FROM	MBER_INFO WHERE	MBER_EMAIL = #{MBER_EMAIL } AND MBER_REG_GB_CD = '0') , 1) AS MBER_PASS
+    			, (SELECT MBER_GB_CD FROM	MBER_INFO WHERE	MBER_EMAIL = #{MBER_EMAIL } ) 		AS MBER_GB_CD
+    			, (SELECT MBER_REG_GB_CD FROM	MBER_INFO WHERE	MBER_EMAIL = #{MBER_EMAIL }) 	AS MBER_REG_GB_CD
+    			, (SELECT PERCHK_YN FROM    MBER_INFO WHERE    MBER_EMAIL =  #{MBER_EMAIL })     AS PERCHK_YN
+                , (SELECT MBER_NM FROM    MBER_INFO WHERE    MBER_EMAIL =  #{MBER_EMAIL })     AS MBER_NM
+                , (SELECT MBER_STAT_CD FROM    MBER_INFO WHERE    MBER_EMAIL =  #{MBER_EMAIL })     AS MBER_STAT_CD
+    	FROM	DUAL
+
+   	 </select>
+
+   	 <select id="selectsiteIFUrl" resultType="String">
+       SELECT COM_CD_NM
+         FROM CODE
+        WHERE GRP_CD = 'SITE_DEFAULT'
+          AND COM_CD = 'EMAIL_IF_URL'
+	</select>
+
+	<!-- 미니샵 유무 -->
+	<select id="selectShopPathCount" parameterType="HashMap" resultType="int">
+		SELECT			COUNT(MINI_SHOP_PATH)
+			FROM		MBER_MINI_SHOP_INFO
+			WHERE		MINI_SHOP_PATH=#{MINI_SHOP_PATH}
+	</select>
+
+	<select id="selectAuthCPNY" parameterType="HashMap" resultType="int">
+		SELECT			COUNT(CMPNY_NO)
+			FROM		SELLER_INFO_CFG
+			WHERE		CMPNY_NO = #{CMPNY_NO}
+	</select>
+
+	<!-- 회원가입 이력 -->
+	<insert id="insertUserMberHist"  parameterType="hashmap">
+    	INSERT INTO MBER_HIST
+		(
+	         MBER_SEQ
+	       , MBER_HIST_SEQ
+	       , MBER_HIST_CD
+	       , REGIST_DT
+		)
+		VALUES
+		(
+	        #{MBER_SEQ}
+	       , SEQ_MBER_HIST.NEXTVAL
+	       , #{MBER_HIST_CD}
+	       , SYSDATE
+		)
+	</insert>
+
+	<select id="selectUserInfo" resultType="hashmap" parameterType="hashmap">
+
+    	SELECT MBER_EMAIL
+		      , MBER_GB_CD
+		      , MBER_REG_GB_CD
+		FROM MBER_INFO
+		WHERE MBER_EMAIL = #{MBER_EMAIL}
+
+	</select>
+	
+	<select id="goMyInfoInfo" parameterType="HashMap" resultType="HashMap">
+SELECT AA.*
+     , FI1.FILE_URL AS MINI_BG_FILE_URL
+     , FI2.FILE_URL AS MINI_PROFILE_URL
+  FROM (
+       SELECT G.COM_CD_NM AS MBER_GB_CD_NM
+            , Z.MBER_GB_CD
+            , H.COM_CD_NM AS MBER_REG_GB_CD_NM
+            , Z.MBER_REG_GB_CD
+            , Z.MBER_NICK
+            , Z.MBER_PHONE
+            , Z.MBER_NM
+            , Z.MBER_EMAIL
+            , A.BANK_ACNT_NO
+            , A.BANK_NM
+            , A.ACNT_NM
+            , NVL(A.RATE, 0) AS RATE
+            , A.CMPNY_ZIP_CD
+            , A.CMPNY_JUSO_DORO
+            , A.CMPNY_JUSO_JIBEN
+            , A.CMPNY_JUSO_DTL
+            , B.EMAIL_AGREE_YN
+            , B.HP_AGREE_YN
+            , B.SELL_MBER_LEV_SEQ
+            , (
+              SELECT NVL(MBER_LEV_NM, '')
+                FROM MBER_LEV OO
+               WHERE OO.MBER_LEV_SEQ = B.SELL_MBER_LEV_SEQ
+            ) AS SELL_MBER_LEV_NM, C.MINI_SHOP_NM, C.MINI_SHOP_PATH, C.FILE_SEQ, C.MINI_PROFILE_SEQ, NVL(D.WARNING_CNT
+            , 0) AS WARNING_CNT, NVL(E.CPOINT
+            , 0) AS CPOINT, NVL(F.BOARD_SUSPECT_CNT
+            , 0) AS BOARD_SUSPECT_CNT
+         FROM MBER_INFO Z LEFT OUTER JOIN SELLER_INFO_CFG A ON Z.MBER_SEQ = A.MBER_SEQ
+                          LEFT OUTER JOIN MBER_DTL_INFO B ON Z.MBER_SEQ = B.MBER_SEQ
+                          LEFT OUTER JOIN MBER_MINI_SHOP_INFO C ON Z.MBER_SEQ = C.MBER_SEQ
+                          LEFT OUTER JOIN (/*판매자신고이력 */
+						       SELECT COUNT(SELELR_SUSPECT_SEQ) AS WARNING_CNT
+						            , SELLER_MBER_SEQ AS MBER_SEQ
+						         FROM SELLER_SUSPECT_INFO
+						        WHERE SELLER_MBER_SEQ = #{MBER_SEQ}
+						        GROUP BY SELLER_MBER_SEQ ) D ON Z.MBER_SEQ = D.MBER_SEQ LEFT OUTER JOIN (/*신용점수 */
+						       SELECT PLUS_SUM - MINUS_SUM AS CPOINT
+						            , MBER_SEQ
+						         FROM (
+						              SELECT NVL(SUM(CASE WHEN ADD_YN = 'Y' THEN CPOINT ELSE 0 END), 0) AS PLUS_SUM
+						                   , NVL(SUM(CASE WHEN ADD_YN = 'N' THEN CPOINT ELSE 0 END), 0) AS MINUS_SUM
+						                   , MAX(MBER_SEQ) AS MBER_SEQ
+						                FROM CRED_POINT
+						               WHERE MBER_SEQ = #{MBER_SEQ}
+						            ) ) E ON Z.MBER_SEQ = E.MBER_SEQ LEFT OUTER JOIN (/*판매자경고 */
+								       SELECT COUNT(SUSPECT_SEQ) AS BOARD_SUSPECT_CNT
+								            , MBER_SEQ
+								         FROM BOARD_SUSPECT_INFO
+								        WHERE MBER_SEQ = #{MBER_SEQ}
+								        GROUP BY MBER_SEQ ) F ON Z.MBER_SEQ = F.MBER_SEQ LEFT OUTER JOIN CODE G ON Z.MBER_GB_CD = G.COM_CD
+								          AND G.GRP_CD = 'MBER_GB_CD' LEFT OUTER JOIN CODE H ON Z.MBER_REG_GB_CD = H.COM_CD
+								          AND H.GRP_CD = 'MBER_REG_GB_CD'
+								        WHERE Z.MBER_SEQ = #{MBER_SEQ}
+     ) AA LEFT OUTER JOIN FILE_INFO FI1 ON AA.FILE_SEQ = FI1.FILE_SEQ LEFT OUTER JOIN FILE_INFO FI2 ON AA.MINI_PROFILE_SEQ = FI2.FILE_SEQ
+	</select>
+	
+	<update id="updateMyInfo">
+		UPDATE
+		SELLER_INFO_CFG
+		SET
+		CMPNY_ZIP_CD = <![CDATA[#{CMPNY_ZIP_CD}]]>
+		, CMPNY_JUSO_DORO = <![CDATA[#{CMPNY_JUSO_DORO}]]>
+		, CMPNY_JUSO_JIBEN = <![CDATA[#{CMPNY_JUSO_JIBEN}]]>
+		, CMPNY_JUSO_DTL = <![CDATA[#{CMPNY_JUSO_DTL}]]>
+		WHERE MBER_SEQ = <![CDATA[#{MBER_SEQ}]]>
+	</update>
+
+	<update id="updateMberInfo">
+		UPDATE
+		MBER_INFO
+		SET 
+<!-- 		<if test="MBER_NAME != null and MBER_NAME != ''"> -->
+<!-- 			MBER_NM = <![CDATA[#{MBER_NAME}]]> -->
+<!-- 		</if> -->
+		
+		CI = <![CDATA[#{CI}]]>
+		, DI = <![CDATA[#{DI}]]>
+		, SEX = <![CDATA[#{SEX}]]>
+		, TID = <![CDATA[#{TID}]]>
+		, BIRTH = <![CDATA[#{BIRTH}]]>
+		<if test="MBER_PHONE != null and MBER_PHONE != ''">
+		,	 MBER_PHONE = <![CDATA[#{MBER_PHONE}]]>
+		</if>
+		, MBER_STAT_CD = '20'
+		WHERE MBER_SEQ = <![CDATA[#{MBER_SEQ}]]>
+	</update>
+
+	<update id="updateMberDtlInfo">
+		UPDATE
+		MBER_DTL_INFO
+		SET
+		EMAIL_AGREE_YN = <![CDATA[#{EMAIL_AGREE_YN}]]>
+		, HP_AGREE_YN = <![CDATA[#{HP_AGREE_YN}]]>
+		WHERE MBER_SEQ = <![CDATA[#{MBER_SEQ}]]>
+	</update>
+	
+	<!-- 비밀번호 수정 -->
+	<update id="saveMyPwChange">
+		UPDATE
+		MBER_INFO
+		SET
+		MBER_PASS = <![CDATA[#{MBER_PASS}]]>
+		WHERE MBER_SEQ = <![CDATA[#{MBER_SEQ}]]>
+	</update>
+	
+	<update id="updateMyAccount">
+		UPDATE SELLER_INFO_CFG
+		SET ACNT_NM = <![CDATA[#{ACNT_NM}]]>
+		,BANK_ACNT_NO = <![CDATA[#{BANK_ACNT_NO}]]>
+		,BANK_NM = <![CDATA[#{BANK_NM}]]>
+		WHERE MBER_SEQ = <![CDATA[#{MBER_SEQ}]]>
+	</update>
+	
+</mapper>

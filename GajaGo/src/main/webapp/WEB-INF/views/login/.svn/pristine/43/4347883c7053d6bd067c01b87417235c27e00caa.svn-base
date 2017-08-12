@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="adminCommonMapper">
+	<sql id="pagingHeader">
+		SELECT * FROM (
+	</sql>
+
+	<sql id="pagingFooter">
+		)
+		WHERE NO BETWEEN #{START_ROW} AND #{END_ROW}
+	</sql>
+
+	<!-- 관리자 로그인 -->
+	<select id="setLogin" resultType="com.ssocio.sharing.vo.admin.AdminSession">
+		SELECT ADM_ID
+			 , ADM_PSSWD
+			 , ADM_GB
+			 , ADM_NM
+			 , AUTH_CD
+			 , HP
+			 , EMAIL
+			 , RM
+			 , TEL
+			 , USE_YN
+			 , FAIL_CNT
+			 , REGIST_DT
+			 , UPDT_DT
+		  FROM ADM_INFO_CFG
+		 WHERE
+		 	ADM_ID = <![CDATA[#{ADM_ID}]]>
+	</select>
+
+	<!-- 로그인실패횟수 수정 -->
+	<update id="updateLoginFailCnt" parameterType="hashmap">
+	UPDATE
+		ADM_INFO_CFG
+	SET
+		FAIL_CNT = NVL((FAIL_CNT + 1), 1)
+	WHERE
+		ADM_ID = <![CDATA[#{ADM_ID}]]>
+	</update>
+
+	<!-- 로그인 아이디별 메뉴 리스트 조회 -->
+	<select id="selectListMenu" resultType="hashmap">
+		SELECT * FROM (
+			SELECT A.* ,
+              CASE
+                  WHEN B.MENU_CD IS NOT NULL
+                  THEN 'Y'
+                  ELSE 'N'
+              END USE_YN
+         FROM
+              (SELECT A.MENU_CD ,
+                     A.PARENT_MENU_CD ,
+                     A.LVL_SEQ ,
+                     A.SORT_SEQ ,
+                     A.MENU_NM ,
+                     A.LINK_ADDR ,
+                     A.VIEW_YN ,
+                     A.REGIST_DT ,
+                     A.UPDT_DT ,
+                     CASE
+                         WHEN A.LVL_SEQ = '2'
+                             AND A.SORT_SEQ =
+                             (SELECT MIN(SORT_SEQ)
+                               FROM MENU_INFO_CFG
+                              WHERE PARENT_MENU_CD = A.PARENT_MENU_CD
+                                    AND VIEW_YN = 'Y'
+                             )
+                         THEN 'S'
+                     END S_FLAG ,
+                     CASE
+                         WHEN A.LVL_SEQ = '2'
+                             AND A.SORT_SEQ =
+                             (SELECT MAX(SORT_SEQ)
+                               FROM MENU_INFO_CFG
+                              WHERE PARENT_MENU_CD = A.PARENT_MENU_CD
+                                    AND VIEW_YN = 'Y'
+                             )
+                         THEN 'E'
+                     END E_FLAG
+                FROM MENU_INFO_CFG A
+               WHERE 1 = 1
+                     AND A.VIEW_YN = 'Y' START
+              WITH A.PARENT_MENU_CD IS NULL CONNECT BY PRIOR A.MENU_CD = A.PARENT_MENU_CD
+              ORDER SIBLINGS BY A.PARENT_MENU_CD ASC,
+                     A.SORT_SEQ ASC
+                 )
+                 A,
+                 (SELECT MENU_CD
+                   FROM AUTH_INFO_CFG
+                  WHERE ADM_ID = #{ADM_ID}
+                 ) B
+           WHERE A.MENU_CD = B.MENU_CD(+)
+           )
+           WHERE USE_YN ='Y'
+	</select>
+
+	<!-- 파일등록 -->
+	<insert id="insertFile" parameterType="hashmap" useGeneratedKeys="true" keyProperty="FILE_SEQ" keyColumn="FILE_SEQ">
+		INSERT INTO FILE_INFO(
+				 FILE_SEQ        <!--  파일일련번호  -->
+				, FILE_TITLE     <!--  파일제목  -->
+				, FILE_NM        <!--  파일명 -->
+				, FILE_PATH      <!--  파일경로  -->
+				, FILE_URL       <!--  파일URL  -->
+				, FILE_SIZE      <!--  파일사이즈 -->
+				, FILE_EXT       <!--  파일확장자 -->
+				, REGIST_DT      <!--  등록일시  -->
+				, UPDT_DT        <!--  수정일시  -->
+				, FILE_WIDTH        <!--  수정일시  -->
+				, FILE_HEIGH        <!--  수정일시  -->
+
+		)VALUES (
+				TO_CHAR(SYSDATE, 'YYYYMMDD')||LPAD(SEQ_FILE_INFO.NEXTVAL,8,0)
+				, #{I_FILE_TITLE}
+				, #{I_FILE_NM}
+				, #{I_FILE_PATH}
+				, #{I_FILE_URL}
+				, #{I_FILE_SIZE}
+				, #{I_FILE_EXT}
+				, SYSDATE
+				, SYSDATE
+				, #{I_FILE_WIDTH}
+				, #{I_FILE_HEIGH}
+		)
+  </insert>
+
+  <!-- 파일 정보 조회  -->
+  <select id="selectFileInfo" resultType="hashmap">
+    SELECT
+		FILE_SEQ,
+		FILE_TITLE,
+		FILE_NM,
+		FILE_PATH,
+		FILE_URL,
+		FILE_SIZE,
+		FILE_EXT,
+		REGIST_DT,
+		UPDT_DT
+	FROM
+		FILE_INFO
+    WHERE
+		FILE_SEQ = #{fileSeq}
+  </select>
+
+  <!-- 파일 삭제 -->
+
+  <delete id="deleteFile" parameterType="String"  >
+  	DELETE 	FILE_INFO
+  	WHERE FILE_SEQ = #{fileSeq}
+  </delete>
+	<select id="selectShareUrl" resultType="string">
+		SELECT COM_CD_NM FROM CODE where  grp_cd = 'SITE_DEFAULT' AND COM_CD ='SHARE_IF_URL'
+	</select>
+</mapper>

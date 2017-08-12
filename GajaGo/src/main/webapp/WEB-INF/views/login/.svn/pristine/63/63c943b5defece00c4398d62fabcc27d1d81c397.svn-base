@@ -1,0 +1,782 @@
+<%@ page language="java" contentType="text/html; charset=utf-8"
+    pageEncoding="utf-8"%>
+<!-- 태그는 cmmnHead.jsp 에 선언함 -->
+<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c"%>
+<script type="text/javascript" src="http://static.ssocio.net/admin/js/layer_pop.js"></script>
+<%@ include file="/WEB-INF/views/admin/common/cmmnHead.jsp"%>
+<script type="text/javascript">
+$(document).ready(function(){
+	
+	common_set();
+	layer_close('.btn_g2');
+	
+	
+	$("#All_check").click(function(){
+		var chk = jQuery("#All_check").is(':checked');
+		if(chk){
+// 			jQuery(this).attr("checked");
+			//jQuery("input[name=Excel_chk_box]").prop("checked",true);
+			$("input[name=Excel_chk_box]:checkbox").each(function() {
+				if(!$(this).attr("disabled")){
+					$(this).attr("checked", true);
+				}
+				
+			});
+		} else {
+			jQuery("input[name=Excel_chk_box]").removeAttr("checked");
+		}
+	});
+
+	
+	$("#I_UPLOAD_FILE").change(function(){
+	     val = $(this).val().split("\\");
+	     f_name = val[val.length-1]; //마지막 화일명
+	    $("#I_UPLOAD_FILE_NAME").val(f_name);
+	   });
+});
+
+
+function insertExcelreg(){
+	var frm = document.getElementById("sndfrm");
+    var check_arr = frm.Excel_chk_box;
+    //console.log(check_arr);
+    //console.log(check_arr.length);
+    var result_array =[];
+    var check_cnt = 0;
+    $("#Upload_tbody input:checkbox:checked").each(function (index) {  
+    	result_array[index] = $(this).val();
+    	check_cnt++;
+    });  
+    
+    if(check_cnt == 0){
+    	alert("업로드할 일련번호가 없습니다.");
+    	return false;
+    }
+    
+    
+// 	for(var i=0;i<check_arr.length;i++){ 
+//         if(check_arr[i].checked){       
+//         	result_array[i] = check_arr[i].value ;
+//             }
+//     }
+	
+	$("#EXCEL_UPLOAD_UNIQUENO").val(result_array);
+	//console.log($("#EXCEL_UPLOAD_UNIQUENO").val());
+	if(confirm("등록 하시겠습니까?")){
+		  var options = {
+				dataType:'json',
+		    url : "/admin/smartstock/inserProdExcelreg.do",
+		    success : function(data) {
+		    	if(0 < data.uploadResult){
+		    		alert("등록 성공하였습니다.");
+		    		$(".serialnum_area").hide();
+		    		window.location.reload(true);
+// 					layer_close('.btn_g2');
+		    	}else{
+		    		alert("등록된 일련번호가 있습니다.\n 일련번호를 확인해 주세요.");
+		    		 $(".serialnum_area").hide();
+			    		window.location.reload(true);
+		    	}
+		    },
+		    error: function(data, status, err) {
+		      alert('서버와의 통신이 실패했습니다.');
+		      $(".serialnum_area").hide();
+	    		window.location.reload(true);
+		    }
+		  };
+		  $("#sndfrm").ajaxSubmit(options);
+		}
+	
+	
+
+}
+
+function ExcelDownload(){
+	var frm = document.getElementById("sndfrm");
+	frm.action = '/admin/smartstock/excelDownload.do';
+	frm.submit();
+}
+
+function download_sample(){
+	var frm = document.getElementById("sndfrm");
+	frm.action = '/admin/smartstock/excelSampleDownload.do';
+	frm.submit();
+}
+
+/* ======================================================================
+Function : 대량상품 엑셀 업로드
+Return   : 없음
+========================================================================= */
+function uploadProdExcel(){
+	
+    var strReg = /^[A-Za-z0-9]+$/; 
+	var blank_pattern = /[\s]/g;
+	var file = $("#I_UPLOAD_FILE").val();
+	if(file == "" || file == null){
+	    alert("파일을 선택해주세요.");
+	    return;
+	}
+// 	else if(!checkFileType(file)){
+// 	    alert("엑셀 파일만 업로드 해주세요.");
+// 	    return;
+// 	}
+	
+	if(confirm("업로드 하시겠습니까?")){
+	  var options = {
+			dataType:'json',
+	    url : "/admin/smartstock/uploadProdExcel.do",
+	    success : function(data) {
+			var result = []; //
+			var duplicate_result = []; //
+			var error_result = []; //
+	    	var test = data.uploadResult.excelList;
+	    	var str = "";
+	    	//console.log(data.uploadResult.excelList);
+	    	$("#Upload_tbody tr").remove()
+	    	$.each(data.uploadResult.excelList, function(key,val) {
+	    		var testset = String(val.CELL0);
+	    		str += "<tr>";
+	    		//특수 문자 포함 되어 있는경우 
+	    		if(!strReg.test(testset) || blank_pattern.test(testset)){
+	    			error_result.push(val.CELL0);   
+	    			str += "<td><input type=\"checkbox\" id=\"\" name=\"\"  onclick=\"return false;\"  disabled/></td>";
+		    		str += "<td>"+parseInt(key+1) +"</td>";
+		    		str += "<td>"+val.CELL0+"</td>";
+	    			str +=  "<td><span class=\"text_r reterror\">오류</span></td>";
+	    		}else{
+	    			if ($.inArray(val.CELL0, result) == -1) {
+		    			result.push(val.CELL0);
+		    			  
+		    			if(val.CHK == "Y"){
+		    				str += "<td><input type=\"checkbox\" id=\"\" name=\"Excel_chk_box\" value="+val.CELL0+" checked/></td>";
+				    		str += "<td>"+parseInt(key+1) +"</td>";
+				    		str += "<td>"+val.CELL0+"</td>";
+				    		str +=  "<td><span reterror>정상</span></td>";		
+		    			}else{
+		    				duplicate_result.push(val.CELL0);   
+		    				str += "<td><input type=\"checkbox\" id=\"\" name=\"Excel_chk_box\" value="+val.CELL0+" disabled/></td>";
+				    		str += "<td>"+parseInt(key+1) +"</td>";
+				    		str += "<td>"+val.CELL0+"</td>";
+				    		str +=  "<td><span class=\"text_r\">중복</span></td>";
+		    			}
+	    			
+		    		}else{
+		    			duplicate_result.push(val.CELL0);   
+		    			str += "<td><input type=\"checkbox\" id=\"\" name=\"\"  onclick=\"return false;\" value="+val.CELL0+" disabled/></td>";
+			    		str += "<td>"+parseInt(key+1) +"</td>";
+			    		str += "<td>"+val.CELL0+"</td>";
+			    		str +=  "<td><span class=\"text_r\">중복</span></td>";
+		    			
+		    		}	
+	    		}
+				str += "</tr>";
+	    	});
+	    	$("#Total_Cnt").text(data.uploadResult.excelList.length)
+	    	$("#Success_Cnt").text((data.uploadResult.excelList.length - duplicate_result.length )- error_result.length)
+	    	$("#Duplicate_Cnt").text(duplicate_result.length)
+	    	$("#Error_Cnt").text(error_result.length);
+	    	$("#Upload_tbody").append(str);
+	    },
+	    error: function(data, status, err) {
+	      alert('서버와의 통신이 실패했습니다.');
+	    }
+	  };
+	  $("#sndfrm").ajaxSubmit(options);
+	}
+}
+
+//파일체크
+function checkFileType(filePath){
+  var fileFormat = filePath.split(".");
+  if(fileFormat.indexOf("xls") > -1){
+      return true;
+  }else{
+      return false;
+  }
+}
+
+
+function upload_uniqueno(){
+	layer_popup('.serialnum_area');
+}
+
+
+function popup(obj,UNIQUENO,POP_UP_SH_STAT_CD){
+	
+	//대기        :수리중 , 사용불가 
+	//쉐어링중  : - 
+	//수리중     :대기, 사용불가
+	//사용불가  :대기,수리중
+	
+	$("#POP_UP_UNIQUENO").text(UNIQUENO);
+	$("#POP_UP_SEL_UNIQUENO").val(UNIQUENO);
+	$("#pop_up_td a").css("display","none");
+	$("#POP_UP_SEL_STAT").val("");
+
+		$("#POP_UP_SH_STAT_CD").text($(obj).parent().parent().find("#test").text());
+		// 대기      : pop_up_stat_btn_1
+		// 수리중   :pop_up_stat_btn_2
+		// 사용불가 pop_up_stat_btn_3
+		
+		//쉐어링중 
+		if("01" == POP_UP_SH_STAT_CD){
+			$("#pop_up_td").hide();
+			$("#pop_up_td_shairng").show();
+			$("#delUniqueNo_btn").hide();
+			$("#insert_Btn_div").hide();
+			$("#sharing_closeBtn_div").show();
+		// 회수대기 
+		}else if("02" == POP_UP_SH_STAT_CD){
+			//그외 만들 옵션 매뉴 공통 코드 (회수 완료)
+			var strif = "05";
+			 commonSelBox(POP_UP_SH_STAT_CD,strif);
+		// 수리중	
+		}else if("03" == POP_UP_SH_STAT_CD){
+			//그외 만들 옵션 매뉴 공통 코드 (사용불가,대기)
+			var strif = "0406";
+			 commonSelBox(POP_UP_SH_STAT_CD,strif);
+		//사용불가
+		}else if("04" == POP_UP_SH_STAT_CD){
+			//그외 만들 옵션 매뉴 공통 코드 (수리중,대기)
+			var strif = "0306";
+			 commonSelBox(POP_UP_SH_STAT_CD,strif);
+		//회수완료
+		}else if("05" == POP_UP_SH_STAT_CD){
+			//그외 만들 옵션 매뉴 공통 코드 (수리중,사용불가,대기)
+			var strif = "030406";
+			 commonSelBox(POP_UP_SH_STAT_CD,strif);
+		}else if("06" == POP_UP_SH_STAT_CD){
+			var strif = "0304";
+			 commonSelBox(POP_UP_SH_STAT_CD,strif);
+		}
+	
+
+	layer_popup('.cond_change_area');
+}
+function commonSelBox(POP_UP_SH_STAT_CD,strif){
+	$("#CHANGE_AREA_SEL option").remove();
+	// 등록 버튼 클릭시 이전의 상태값이 바뀌었나 체크 하기 위해 
+	$("#CHK_SELVALUE").val(POP_UP_SH_STAT_CD);
+	var str="";
+	  <custom:codeList var="selectList" groupCode="SH_STAT_CD" />
+		<c:forEach var="list" items="${selectList}" varStatus="status">
+			if(POP_UP_SH_STAT_CD == "${list.key}"){
+				$("#CHANGE_AREA_SEL_TXT").text("${list.value}");
+				$("#CHANGE_AREA_SEL").val("${list.key}");
+				str += "<option value= \"${list.key}\" selected=\"selected\" >${list.value}</option>";
+			//공통 코드 값이 회수대기 or 회수 완료 가 아니면 	
+			}else{
+				 if(strif.indexOf("${list.key}") > -1) {
+					str += "<option value= \"${list.key}\">${list.value}</option>";
+			      }	
+			}
+		</c:forEach>
+		
+		$("#delUniqueNo_btn").show();
+		$("#CHANGE_AREA_SEL").append(str);
+		$("#pop_up_td").show();
+		$("#pop_up_td_shairng").hide();
+		$("#insert_Btn_div").show();
+		$("#sharing_closeBtn_div").hide();
+}
+
+
+function goSearch(){
+	var uniqueNo = $("#PROD_UNIQUENO").val().length;
+	var realUniqueNo = $("#PROD_UNIQUENO").val().trim().length;
+	if(0 == realUniqueNo){
+		if(realUniqueNo < uniqueNo){
+			alert("일련번호를 다시입력해 주세요.")
+			return;
+		}
+	}
+	
+	$("#PAGE_NO").val("1");
+	$("#sndfrm").attr("action","/admin/smartstock/selectSmartDtl.do").submit();
+}
+
+
+function go_page(url){
+	var frm = document.getElementById("sndfrm");
+	frm.action = url;
+	frm.submit();
+}
+function GoPage(pageNo) {
+	$("#PAGE_NO").val(pageNo);
+	$("#sndfrm").attr("action","/admin/smartstock/selectSmartDtl.do").submit();
+}
+
+function common_set(){
+	$("#PROD_CODE").val('${params.PROD_CODE}');
+	$("#COLOR_SEQ").val('${params.COLOR_SEQ}');
+	$("#TELCOM_NM").val('${params.TELCOM_NM}');
+	$("#MAKER_CD").val('${params.MAKER_CD}');
+	$("#PROD_NM").val('${params.PROD_NM}');
+	$("#MODEL_NM").val('${params.MODEL_NM}');
+	$("#COLOR_NAME").val('${params.COLOR_NAME}');
+	$("#SP_SIZE_CD").val('${params.SP_SIZE_CD}');
+	$("#TOTALCNT").val('${params.TOTALCNT}');
+	$("#WAITCNT").val('${params.WAITCNT}');
+	$("#SHARINGCNT").val('${params.SHARINGCNT}');
+	$("#RTNCNT").val('${params.RTNCNT}');
+	$("#PREPARINGCNT").val('${params.PREPARINGCNT}');
+	$("#NOUSECNT").val('${params.NOUSECNT}');
+	$("#RTNCOMPCNT").val('${params.RTNCOMPCNT}');
+}
+function update_btn_val(result){
+	$("#POP_UP_SEL_STAT").val(result);	
+}
+function go_statUpdate(){
+	if($("#CHANGE_AREA_SEL").val() == $("#CHK_SELVALUE").val()){
+		alert("이전 값과 동일합니다.\n 상태변경을 다시 시도해 주세요.");
+		return;
+	}else{
+		var PROD_UNIQUENO =$("#POP_UP_SEL_UNIQUENO").val();
+		$.ajax({
+		    type: 'post'
+		    , async: true
+		    , url: '/admin/smartstock/updateProdStat.do'
+		    , data: {"POP_UP_SEL_UNIQUENO":PROD_UNIQUENO,"POP_UP_SEL_STAT":$("#CHANGE_AREA_SEL").val()}
+		    , success: function(data) {
+		    	alert("상태변경이 완료되었습니다.");
+		    
+		    	window.location.reload(true);
+				
+		    }
+		    , error: function(data, status, err) {
+		      alert('서버와의 통신이 실패했습니다.');
+		    }
+		});
+	}
+}
+
+
+function delUniqueNo(){
+		if(confirm("선택하신 일련번호를 삭제 하시겠습니까?")){
+			var PROD_UNIQUENO =$("#POP_UP_SEL_UNIQUENO").val();
+			$.ajax({
+			    type: 'post'
+			    , async: true
+			    , url: '/admin/smartstock/delUniqueNo.do'
+//	 		    , data: $("#sndfrm").serialize()
+			    , data: {"POP_UP_SEL_UNIQUENO":PROD_UNIQUENO}
+			    , success: function(data) {
+	 		    	alert("선택하신 일련번호가 삭제 되었습니다.");
+			    	window.location.reload(true);
+					
+			    }
+			    , error: function(data, status, err) {
+			      alert('서버와의 통신이 실패했습니다.');
+			    }
+			});
+		}
+	
+}
+</script>
+
+<!-- content -->
+<form name="sndfrm" method="post" id="sndfrm"  enctype="multipart/form-data">
+<div id="content">
+	  
+	  <input type="hidden"   id="PAGE_NO" name="PAGE_NO" value="${list.PAGE_NO}">
+	  <input type="hidden"   id="PROD_CODE" name="PROD_CODE" value="">
+	  <input type="hidden"   id="COLOR_SEQ" name="COLOR_SEQ" value="">
+	  <input type="hidden"   id="TELCOM_NM" name="TELCOM_NM" value="">
+	  <input type="hidden"   id="MAKER_CD" name="MAKER_CD" value="">
+	  <input type="hidden"   id="PROD_NM" name="PROD_NM" value="">
+	  <input type="hidden"   id="MODEL_NM" name="MODEL_NM" value="">
+	  <input type="hidden"   id="COLOR_NAME" name="COLOR_NAME" value="">
+	  <input type="hidden"   id="SP_SIZE_CD" name="SP_SIZE_CD" value="">
+	  <input type="hidden"   id="TOTALCNT" name="TOTALCNT" value="">
+	  <input type="hidden"   id="WAITCNT" name="WAITCNT" value="">
+	  <input type="hidden"   id="SHARINGCNT" name="SHARINGCNT" value="">
+	  <input type="hidden"   id="RTNCNT" name="RTNCNT" value="">
+	  <input type="hidden"   id="PREPARINGCNT" name="PREPARINGCNT" value="">
+	  <input type="hidden"   id="NOUSECNT" name="NOUSECNT" value="">.
+	  <input type="hidden"   id="RTNCOMPCNT" name="RTNCOMPCNT" value="">.
+	  <input type="hidden" name="POP_UP_SEL_UNIQUENO" id="POP_UP_SEL_UNIQUENO">
+	  <input type="hidden" name="POP_UP_SEL_UNIQUENO" id="POP_UP_SEL_STAT">
+	  <input type="hidden" name="EXCEL_UPLOAD_UNIQUENO" id="EXCEL_UPLOAD_UNIQUENO">
+	  <input type="hidden" name="CHK_SELVALUE" id="CHK_SELVALUE">
+<!-- top_content -->
+		<div class="top_content">
+			<!-- location -->
+			<div class="location">
+				<ul class="clear">
+					<li class="first-child"><a href="#">Home</a></li>
+					<li><a href="#">스마트폰 셰어링 관리</a></li>
+					<li><a href="#" class="current">스마트폰 관리</a></li>
+				</ul>
+			</div>
+			<!-- //location -->
+		</div>
+		<!-- //top_content -->
+		
+		<div class="inner">
+			<!-- tbl -->
+			<div class="tbl mt20">
+				<div class="btn_area type">
+					<a href="javascript:download_sample()" class="btn_w"><span>양식 다운로드</span></a>
+					<a href="javascript:upload_uniqueno()" class="btn_w serial_upload"><span>일련번호 업로드</span></a>
+				</div>
+				
+				<table class="list">
+					<colgroup>
+						<col style="width:8%" />
+						<col style="width:8%" />
+						<col style="width:*" />
+						<col style="width:*" />
+						<col style="width:6%" />
+						<col style="width:6%" />
+						<col style="width:6%" />
+						<col style="width:6%" />
+						<col style="width:6%" />
+						<col style="width:6%" />
+						<col style="width:6%" />
+						<col style="width:6%" />
+						<col style="width:6%" />
+					</colgroup>
+					<thead>	
+						<tr>
+							<th scope="col">통신사</th>
+							<th scope="col">제조사</th>
+							<th scope="col">제품명</th>
+							<th scope="col">모델명</th>
+							<th scope="col">색상</th>
+							<th scope="col">용량</th>
+							<th scope="col">전체수량</th>
+							<th scope="col">대기</th>
+							<th scope="col">셰어링중</th>
+							<th scope="col">회수대기</th>
+							<th scope="col">회수완료</th>
+							<th scope="col">수리중</th>
+							<th scope="col">사용불가</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td class="nolineL">${params.TELCOM_NM}</td>
+							<td><custom:codeTag code="${params.MAKER_CD}" groupCode="SP_MAKER_GB_CD" /></td>
+							<td>${params.PROD_NM}</td>
+							<td>${params.MODEL_NM}</td>
+							<td>${params.COLOR_NAME}</td>
+							<td><custom:codeTag code="${params.SP_SIZE_CD}" groupCode="SP_SIZE_GB_CD" /></td>
+							<td>${params.TOTALCNT}</td>
+							<td>${params.WAITCNT}</td>
+							<td>${params.SHARINGCNT}</td>	
+							<td>${params.RTNCNT}</td>
+							<td>${params.RTNCOMPCNT}</td>			
+							<td>${params.PREPARINGCNT}</td>
+							<td>${params.NOUSECNT}</td>			
+						</tr>
+					</tbody>
+				</table>
+
+				<table class="search">
+					<colgroup>
+						<col style="width:9%" />
+						<col style="width:20%" />
+						<col style="width:9%" />
+						<col style="width:*" />
+					</colgroup>
+					<tbody>
+						<tr>
+							<th scope="row" class="nolineR">일련번호</th>
+							<td>
+								<input type="text" id="PROD_UNIQUENO" name="PROD_UNIQUENO"  value="${params.PROD_UNIQUENO}" class="" style="width:200px;" />
+							</td>
+							<th scope="row" class="nolineR">상태</th>
+							<td>
+								<span class="select" style="width:80px;">
+									<span class="sel_txt"></span>
+									<select id="SH_STAT_CD" name="SH_STAT_CD">
+												<option value="" selected="selected">전체</option>
+										  <custom:codeList var="selectList" groupCode="SH_STAT_CD" />
+									<c:forEach var="list" items="${selectList}" varStatus="status">
+										<option value="${list.key}" <c:if test="${list.key == param.SH_STAT_CD}"> selected="selected" </c:if>>${list.value}</option>
+									</c:forEach>
+									
+									</select>
+								</span>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+				<p class="btn_area type"><a href="javascript:goSearch()" class="btn_chk btn_r">조회</a></p>
+			</div>
+			<!-- //tbl -->
+			
+			<!-- top_tbl -->
+			<div class="top_tbl mt20 clear">
+				<div class="right">
+					<a href="javascript:ExcelDownload()" class="btn_excel mr0"><span>엑셀 다운로드</span></a>
+				</div>
+			</div>
+			<!-- //top_tbl -->
+			<!-- tbl -->
+			<div class="tbl">
+				<!-- list -->
+				<table class="list">
+					<colgroup>
+						<col style="width:*" />
+						<col style="width:9%" />
+						<col style="width:9%" />
+						<col style="width:9%" />
+						<col style="width:9%" />
+						<col style="width:9%" />
+						<col style="width:9%" />
+						<col style="width:9%" />
+						<col style="width:9%" />
+					</colgroup>
+					<thead>	
+						<tr>
+							<th scope="col">일련번호</th>
+							<th scope="col">S/N</th>
+							<th scope="col">상태</th>
+							<th scope="col">셰어링 시작일</th>
+							<th scope="col">셰어링 종료일</th>
+							<th scope="col">USIM</th>
+							<th scope="col">전화번호</th>
+							<th scope="col">요금제</th>
+							<th scope="col">사용자명</th>
+							<th scope="col">생년월일</th>
+						</tr>
+					</thead>
+					<tbody>
+					<c:forEach var="list" items="${list.selectListProd}" varStatus="status">
+						<tr>
+							<c:choose>
+								 <c:when test="${list.SH_STAT_CD == '06'}">
+									<td><a href="#" onclick="popup(this,'${list.PROD_UNIQUENO}','${list.SH_STAT_CD}')" class="serial_num alink">${list.PROD_UNIQUENO}</a></td>
+									<td>${list.PROD_SERIAL == null or '' ? "-" : list.PROD_SERIAL}</td>
+									<td id="test"><custom:codeTag code="${list.SH_STAT_CD}" groupCode="SH_STAT_CD" /></td>
+									<td>-</td>
+									<td>-</td>
+									<td>-</td>
+									<td>-</td>
+									<td>-</td>
+									<td>-</td>
+									<td>-</td>
+								 </c:when>
+							<c:otherwise>
+									<td><a href="#" onclick="popup(this,'${list.PROD_UNIQUENO}','${list.SH_STAT_CD}')" class="serial_num alink">${list.PROD_UNIQUENO}</a></td>
+									<td>${list.PROD_SERIAL == null or '' ? "-" : list.PROD_SERIAL}</td>
+									<c:choose>
+										 <c:when test="${list.SH_STAT_CD == null or '' }"><td>대기</td></c:when>
+										 <c:otherwise><td id="test"><custom:codeTag code="${list.SH_STAT_CD}" groupCode="SH_STAT_CD" /></td></c:otherwise>
+									</c:choose>
+									<td>${list.OPEN_DT == null or '' ? "-" : list.OPEN_DT}</td>
+									<td>${list.END_DT == null or '' ? "-" : list.END_DT}</td>
+									<td>${list.USIM_SEQ_CODE == null or '' ? "-" : list.USIM_SEQ_CODE}</td>
+									<td>${list.USIM_PHONE == null or '' ? "-" : list.USIM_PHONE}</td>
+									<td>${list.PAYPLAN_NM == null or '' ? "-" : list.PAYPLAN_NM}</td>
+									<td>${list.ORD_NAME == null or '' ? "-" : list.ORD_NAME}</td>
+									<td>${list.BIRTH_YYYYMMDD == null or '' ? "-" : list.BIRTH_YYYYMMDD}</td>
+							</c:otherwise>
+							</c:choose>
+<%-- 							<td><a href="#" onclick="popup(this,'${list.PROD_UNIQUENO}','${list.SH_STAT_CD}')" class="serial_num alink">${list.PROD_UNIQUENO}</a></td> --%>
+<%-- 							<td>${list.PROD_SERIAL == null or '' ? "-" : list.PROD_SERIAL}</td> --%>
+<%-- 							<c:choose> --%>
+<%-- 								 <c:when test="${list.SH_STAT_CD == null or '' }"><td>대기</td></c:when> --%>
+<%-- 								 <c:otherwise><td id="test"><custom:codeTag code="${list.SH_STAT_CD}" groupCode="SH_STAT_CD" /></td></c:otherwise> --%>
+<%-- 							</c:choose> --%>
+<%-- 							<td>${list.OPEN_DT == null or '' ? "-" : list.OPEN_DT}</td> --%>
+<%-- 							<td>${list.END_DT == null or '' ? "-" : list.END_DT}</td> --%>
+<%-- 							<td>${list.USIM_SEQ_CODE == null or '' ? "-" : list.USIM_SEQ_CODE}</td> --%>
+<%-- 							<td>${list.USIM_PHONE == null or '' ? "-" : list.USIM_PHONE}</td> --%>
+<%-- 							<td>${list.PAYPLAN_NM == null or '' ? "-" : list.PAYPLAN_NM}</td> --%>
+<%-- 							<td>${list.ORD_NAME == null or '' ? "-" : list.ORD_NAME}</td> --%>
+<%-- 							<td>${list.BIRTH_YYYYMMDD == null or '' ? "-" : list.BIRTH_YYYYMMDD}</td> --%>
+						</tr>
+					</c:forEach>
+					<c:if test="${empty list.selectListProd}"> 
+						<tr>
+							<td class="nolineL" colspan="10">일치하는 정보가 없습니다.</td>
+						</tr>
+					</c:if>
+					
+					</tbody>
+				</table>
+				<!-- //list -->
+			</div>
+			<!-- //tbl -->
+			
+			<!-- bot_tbl -->
+			<div class="bot_tbl">
+					<!-- paging -->
+					<%@ include file="/WEB-INF/views/admin/common/PageView.jsp" %>
+					<!-- //paging -->
+				</div>
+			<!-- //bot_tbl -->
+		</div>
+	
+	</div>
+	<!-- //content -->
+	
+	<!-- 상태변경 레이어팝업 -->
+	<div class="lay_pop cond_change_area" style="width:685px">
+		<!-- pop_header -->
+		<div class="pop_header">
+			<h1>상태변경</h1>
+			<a href="#" class="btn_close"><img src="http://static.ssocio.net/admin/images/btn_layer_close.gif" alt="close" /></a>
+		</div>
+		<!-- //pop_header -->
+		
+		<!-- pop_con -->
+		<div class="pop_con">
+			<div class="layer_tbl_area">
+				<!-- tbl -->
+				<div class="tbl">
+					<p class="tbl_tit"><img src="http://static.ssocio.net/admin/images/ico_admin.gif" alt="" />상태변경</p>
+					<!-- list -->
+					<table class="list">
+						<colgroup>
+							<col style="width:30%" />
+							<col style="width:30%" />
+							<col style="width:*" />
+						</colgroup>
+						<thead>	
+							<tr>
+								<th scope="col">일련번호</th>
+								<th scope="col">상태</th>
+								<th scope="col">상태변경</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td id="POP_UP_UNIQUENO"></td>
+								<td id="POP_UP_SH_STAT_CD"></td>
+								<td id="pop_up_td_shairng">-</td>
+								<td id="pop_up_td">
+								 <span class="select" style="width:80px;">
+									<span class="sel_txt" id="CHANGE_AREA_SEL_TXT"></span>
+									<select id="CHANGE_AREA_SEL" name="CHANGE_AREA_SEL">
+									
+									</select>
+								</span>
+<!-- 									<a id="pop_up_stat_btn_1" href="javascript:update_btn_val('06')"  class="btn_w">대기</a> -->
+<!-- 									<a id="pop_up_stat_btn_2" href="javascript:update_btn_val('03')" class="btn_w">수리중</a> -->
+<!-- 									<a id="pop_up_stat_btn_3" href="javascript:update_btn_val('04')" class="btn_w">사용불가</a> -->
+<!-- 									<a id="pop_up_stat_btn_4" href="javascript:update_btn_val('05')" class="btn_w">회수완료</a> -->
+								</td>
+							</tr>
+						</tbody>
+					</table>
+					<!-- //list -->
+				</div>
+				<!-- //tbl -->
+				
+				<!-- bot_btn -->
+				<div id="insert_Btn_div" class="bot_btn tc mt20">
+					<a href="javascript:go_statUpdate()" class="btn_r">등록</a>
+					
+					<a href="#" class="btn_g2">취소</a>
+				</div>
+				
+				<div id="sharing_closeBtn_div" class="bot_btn tc mt20">
+					
+					<a href="#" class="btn_g2">닫기</a>
+				</div>
+				<!-- //bot_btn -->
+				
+				<div id="delUniqueNo_btn" class="btm_btn_bx">
+					<a href="#" onclick="delUniqueNo()" class="btn_b">일련번호삭제</a>
+					<!-- <span class="btn_g2">일련번호삭제</span> 비활성화시 태그-->
+				</div>
+			</div>
+		</div>
+		<!-- //pop_con -->
+	</div>
+	<!-- //상태변경 레이어팝업 -->
+	<!-- 일련번호 업로드 레이어팝업 -->
+	<div class="lay_pop serialnum_area" style="width:685px">
+		<!-- pop_header -->
+		<div class="pop_header">
+			<h1>일련번호 업로드</h1>
+			<a href="#" class="btn_close"><img src="http://static.ssocio.net/admin/images/btn_layer_close.gif" alt="close" /></a>
+		</div>
+		<!-- //pop_header -->
+		
+		<!-- pop_con -->
+		<div class="pop_con">
+			<div class="cont_bx clear">
+				<div>
+					<div class="serial_bx clear">
+						<span class="txt_serial">일련번호 업로드</span>
+						<div class="file_upload_area ml10">
+							<input type="text" id="I_UPLOAD_FILE_NAME" name="I_UPLOAD_FILE_NAME" class="file_txt" style="width:350px;" />
+							<span class="txt_file">
+								<input type="file" id="I_UPLOAD_FILE" name="I_UPLOAD_FILE" class="inp_file" /> 
+								<a href="#" class="btn_w ml5 vmid file_add">파일찾기</a>
+							</span>
+						</div>
+					</div>
+				</div>
+				<div>
+					<a href="javascript:uploadProdExcel();" class="btn_w">일련번호 업로드</a>
+				</div>
+			</div>
+			<div class="cont_bx2">
+				<ul class="lst_type clear">
+					<li >* 업로드 대상 <span id="Total_Cnt">0건</span></li>
+					<li >정상<span id="Success_Cnt">0건</span></li>
+					<li>중복 <span class="text_r" id="Duplicate_Cnt">0</span>건</li>
+					<li>기타오류 <span class="text_r" id="Error_Cnt">0</span>건</li>
+				</ul>
+			</div>
+			<!-- fixed_tbl_v2 -->
+			<div class="layer_tbl_area">
+				<div class="fixed_tbl_v2" style="height:350px;">
+					<!-- thead -->
+					<div class="tbl thead" style="">
+						<table class="list">
+							<colgroup>
+								<col style="width:32px" />
+								<col style="width:65px" />
+								<col style="width:*" />
+								<col style="width:117px" />
+							</colgroup>
+							<thead>	
+								<tr>
+									<th scope="col"><input type="checkbox" id="All_check" name="All_check" /></th>
+									<th scope="col">No</th>
+									<th scope="col">일련번호</th>
+									<th scope="col" class="nolineR">비고</th>
+								</tr>
+							</thead>
+						</table>
+					</div>
+					<!-- //thead -->
+					<!-- tbody -->
+					<div class="tbl tbody" style="height:295px;">
+						<table class="list">
+							<colgroup>
+								<col style="width:32px" />
+								<col style="width:65px" />
+								<col style="width:*" />
+								<col style="width:100px" />
+							</colgroup>
+							<tbody id="Upload_tbody">
+								<tr>
+									<td colspan="4">일련번호를 등록하실 파일은 선택하신 후 '일련번호 업로드'를 선택해주세요</td>
+								</tr>
+								
+							</tbody>
+						</table>
+					</div>
+					<!-- //tbody -->
+				</div>
+				<!-- //fixed_tbl_v2 -->
+			</div>
+			
+			<!-- btn_area -->
+			<div class="btn_area">
+				<a href="javascript:insertExcelreg()" class="btn_br">등록</a>
+			</div>
+			<!-- //btn_area -->
+		</div>
+		<!-- //pop_con -->
+	</div>
+	<!-- //일련번호 업로드 레이어팝업 -->
+</form>
+	

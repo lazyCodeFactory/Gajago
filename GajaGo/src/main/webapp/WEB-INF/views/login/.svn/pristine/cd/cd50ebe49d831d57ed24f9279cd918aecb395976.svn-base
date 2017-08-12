@@ -1,0 +1,3161 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/admin/common/cmmnHead.jsp" %>
+<script type="text/javascript" src="/js/smartEditor/js/HuskyEZCreator.js" charset="utf-8"></script>
+<script type="text/javascript" src="http://static.ssocio.net/admin/js/ctry/ctry.js?10"></script>
+ 
+<script type="text/javascript">
+var oEditors = [];
+var optNameDiv, optInfoDiv, optExtNameDiv,optExtInfoDiv, optLength, optExtLength;
+var optMax = 0, optExtMax = 0 ;
+var optNewYn = true; 
+var optExtNewYn = true;
+var dlvCdPrice = [];
+var optUseYn = false, optExtUseYn = false;
+
+$(document).ready(function(){
+	prodReg();
+
+	//PC상세 에디터
+	nhn.husky.EZCreator.createInIFrame({
+		oAppRef: oEditors,
+		elPlaceHolder: "prodPcDtl",
+		sSkinURI: "/js/smartEditor/SmartEditor2Skin.html",
+		fCreator: "createSEditor2"
+	});
+	
+	//Mobile상세 에디터
+	nhn.husky.EZCreator.createInIFrame({
+		oAppRef: oEditors,
+		elPlaceHolder: "prodMbDtl",
+		sSkinURI: "/js/smartEditor/SmartEditor2Skin.html",
+		fCreator: "createSEditor2"
+	});
+	
+	
+	$('.calendar').datepicker({
+		showOn: "button",
+		buttonImage: "http://static.ssocio.net/admin/images/ico_calendar.gif",
+		buttonImageOnly: true,
+		/* minDate: new Date(2015,8-1,26) */
+		minDate: new Date((new Date().getFullYear()), (new Date().getMonth()), (new Date().getDate()) )
+	});
+	
+	//옵션삭제
+	$(document).on("click", ".deleteOption", function(){
+	    $(this).parent().parent().remove();//옵션 삭제
+    });
+	
+	//출하지삭제
+	$(document).on("click", ".shipmentDel", function(){
+	    $(this).parent().remove();
+    });
+	
+	// 옵션정보를 ajax로 가져오자
+	var prodCode = "${result.prodInfo.PROD_CODE}";
+	var prodTypeCd = "${result.prodInfo.PROD_TYPE_CD}";
+	
+	// 판매중일때 데이터 출력
+	if(prodTypeCd == "1"){
+		if(prodCode != null || prodCode != ""){
+			selectOptionJson(prodCode);		
+		}
+	}
+	
+	
+	
+});
+
+
+//--------------------------------- INIT Function ------------------------------------    
+
+function selectOptionJson(prodCode){
+
+	var options = {
+	        url : "/admin/prodMgr/selectOptionJson.do",
+	        dataType: "json",
+	        success: function(data){
+	        	  
+				
+	        	 var optInfo = data.result.optInfo; //부가 구성옵션 내용
+	        	 var optionNmInfo = data.result.optionNmInfo; //부가구성 옵션 타이틀
+	        	 
+	        	 var optExtInfo = data.result.optExtInfo; //추가 구성옵션 내용
+	        	 var optionNmExtInfo = data.result.optionNmExtInfo; //추가구성 옵션 타이틀
+	        	 
+	        	 var optionArr = new Array();
+	 	    	 var items = new Array();
+	 	    	 var extItems = new Array();
+	 	    	 var titleArr = new Array();
+	 	    	 var extTitleArr = new Array();
+	 	    	 var tempOption = '';
+	 	    	
+	 	    	 // 부가옵션 타이틀 가져오기
+	 	    	 if(optionNmInfo.length > 0){
+	 	    		titleArr.push(optionNmInfo[0].GRP1_NM);
+	 	    		if(optionNmInfo[0].MAXDEPTH == 2){
+	 	    			titleArr.push(optionNmInfo[0].GRP2_NM);
+	 	    		}else if(optionNmInfo[0].MAXDEPTH == 3){
+	 	    			titleArr.push(optionNmInfo[0].GRP2_NM);
+	 	    			titleArr.push(optionNmInfo[0].GRP3_NM);
+	 	    		}
+	 	    	 }
+				
+	 	    	 // 부가옵션 내용 가져오기
+	 	    	 if(optInfo.length > 0){
+	 	    		for (var i = 0; i<optInfo.length; i++){
+		 	    		
+	 	    			MAXDEPTH = optInfo[i].MAXDEPTH; // 옵션단계 확인
+	 	    			var opGbCd = optInfo[i].OP_GB_CD;
+	 	    			optMax = MAXDEPTH;
+	 	    			// 리스트의 첫번째 값이 아닌 이후에 0depth로 시작하지 않는경우에는 기존 0번재 depth 값을 가져온다.
+		 	    		if(i != 0 && optionArr.length < 1 && optInfo[i].DEPTH != 0){
+		 	    			optionArr.push(tempOption);
+		 	    		}
+		     				optionArr.push(optInfo[i].OPT_NM);
+		     			if(MAXDEPTH -1 == optInfo[i].DEPTH){
+		 	    			optionArr.push(optInfo[i].OPT_EXP_QTY);
+		     				optionArr.push(optInfo[i].OPT_STOCK_QTY);
+		 	    			optionArr.push(optInfo[i].OPT_USE_YN);
+		 	    			if(optInfo[i].OPT_USE_YN == "Y"){
+		 	    				optUseYn = true;
+		 	    			}
+		   					optionArr.push(optInfo[i].OPT_CD);
+		 	    			items.push(optionArr);
+		 	    			
+		 	    			//depth 0인 값을 temp 변수에 담고 배열초기화
+		 	    			tempOption = optionArr[0];
+		 	    			optionArr = new Array();
+		 	    			
+		     			}
+		        	 }	 
+	 	    		
+	 	    		 optNewYn = false;
+	 	    		 $('#opGbCd').val(opGbCd);
+	 	    		 //$('#opt_rad1').attr('checked', false);
+	 	    		 //$('#opt_rad2').attr('checked', true);
+	 	    	 }else{
+	 	    		MAXDEPTH = 0;
+	 	    	 }
+	 	    	 
+				 	//옵션 html 그리기
+ 	    	 		makeOptionHtml(titleArr,items,"1",MAXDEPTH);
+					 
+	 	    	 
+
+	 	    	// 추가옵션 타이틀 가져오기
+	 	    	 if(optionNmExtInfo.length > 0){
+	 	    		extTitleArr.push(optionNmExtInfo[0].GRP1_NM);
+	 	    		if(optionNmExtInfo[0].MAXDEPTH == 2){
+	 	    			extTitleArr.push(optionNmExtInfo[0].GRP2_NM);
+	 	    		}else if(optionNmExtInfo[0].MAXDEPTH == 3){
+	 	    			extTitleArr.push(optionNmExtInfo[0].GRP2_NM);
+	 	    			extTitleArr.push(optionNmExtInfo[0].GRP3_NM);
+	 	    		}
+	 	    	 }
+	 	    	
+	 	    	 // 추가옵션 내용 가져오기
+	 	    	 if(optExtInfo.length > 0){
+	 	    		for (var i = 0; i<optExtInfo.length; i++){
+		 	    		
+	 	    			MAXDEPTH = optExtInfo[i].MAXDEPTH; // 옵션단계 확인
+	 	    			var opGbCd = optExtInfo[i].OP_GB_CD;
+	 	    			optExtMax = MAXDEPTH;
+	 	    			// 리스트의 첫번째 값이 아닌 이후에 0depth로 시작하지 않는경우에는 기존 0번재 depth 값을 가져온다.
+		 	    		if(i != 0 && optionArr.length < 1 && optExtInfo[i].DEPTH != 0){
+		 	    			optionArr.push(tempOption);
+		 	    		}
+		     				optionArr.push(optExtInfo[i].OPT_NM);
+		     			if(MAXDEPTH -1 == optExtInfo[i].DEPTH){
+		 	    			optionArr.push(optExtInfo[i].OPT_EXP_QTY);
+		     				optionArr.push(optExtInfo[i].OPT_STOCK_QTY);
+		 	    			optionArr.push(optExtInfo[i].OPT_USE_YN);
+		 	    			if(optExtInfo[i].OPT_USE_YN == "Y"){
+		 	    				optExtUseYn = true;
+		 	    			}
+		   					optionArr.push(optExtInfo[i].OPT_CD);
+		   					extItems.push(optionArr);
+		 	    			
+		 	    			//depth 0인 값을 temp 변수에 담고 배열초기화
+		 	    			tempOption = optionArr[0];
+		 	    			optionArr = new Array();
+		 	    			
+		     			}
+		        	}	 
+	 	    		
+	 	    		optExtNewYn = false;
+	 	    		$('#opGbCd2').val(opGbCd);
+	 	    		//$('#opt_rad3').attr('checked', false);
+	 	    		//$('#opt_rad4').attr('checked', true);
+	 	    	 }else{
+	 	    		MAXDEPTH = 0;
+	 	    	 }
+	 	    	 
+				 	//옵션 html 그리기
+ 	    	 		makeOptionHtml(extTitleArr,extItems,"2",MAXDEPTH);
+					 
+	        }
+		};
+		$("#prodFrm").ajaxSubmit(options);
+}
+
+/* ======================================================================
+Function : 옵션데이터 그리기
+========================================================================= */
+function makeOptionHtml(titles,items,type,maxDepth){
+
+	var thtml='';
+	var ohtml= '';
+	 
+	thtml +='<tr>';
+	thtml +='<th scope="col">No</th>';
+	thtml +='<th scope="col" class="btnDisplay"><input type="checkbox" id="" name="allChk" onclick="doToggleChkBox(this);"></th>';
+ 	
+	if(titles != ''){
+		
+		for(var i = 0; i < maxDepth; i++){
+			thtml +='<th scope="col" id="thVal'+(i+1)+'">'+titles[i]+'</th>';
+		}
+		if(type == '1'){
+			if(maxDepth == '1'){
+				$('#col1').css('width','60%');
+				$('#col2').css('display','none');
+				$('#col3').css('display','none');
+			}else if(maxDepth == "2"){
+				$('#col1').css('width','30%');
+				$('#col2').css('width','30%');
+				$('#col3').css('display','none');
+			}else if(maxDepth == "3"){
+				$('#col1').css('width','20%');
+				$('#col2').css('width','20%');
+				$('#col3').css('display','');
+				$('#col3').css('width','20%');
+			}
+		}else{
+			if(maxDepth == '1'){
+				$('#extCol1').css('width','60%');
+				$('#extCol2').css('display','none');
+				$('#extCol3').css('display','none');
+			}else if(maxDepth == "2"){
+				$('#extCol1').css('width','20%');
+				$('#extCol2').css('width','20%');
+				$('#extCol3').css('display','none');
+			}else if(maxDepth == "3"){
+				$('#extCol1').css('width','20%');
+				$('#extCol2').css('width','20%');
+				$('#extCol3').css('display','');
+				$('#extCol3').css('width','20%');
+			}
+		}
+		
+	
+	}else{
+		thtml +='<th scope="col" id="thVal1">옵션명1</th>';
+		thtml +='<th scope="col" id="thVal2">옵션명2</th>';
+		thtml +='<th scope="col" id="thVal3">옵션명3</th>';
+	}
+	thtml +='<th scope="col">추가금액</th>';
+	thtml +='<th scope="col">재고수량</th>';
+	thtml +='<th scope="col">사용여부</th>';
+	thtml +='<th scope="col" class="btnDisplay">순서변경</th>';
+	thtml +='</tr>';
+	
+	
+	if(items != ''){
+		for(var i=0; i < items.length; i++){
+			ohtml +='<tr>';
+			ohtml +='<th scope="row">'+parseInt(i+1)+'</th>';
+			ohtml +='<td class="btnDisplay"><input type="checkbox" id="" name="chkBox" value='+parseInt(items[i][items[i].length - 1])+'></td>';
+			for(var k=0; k < items[i].length - 1; k++){
+					
+				
+				if(k == items[i].length - 4){
+					ohtml +='<td><input type="text" id="extraCharges" name="extraCharges" style="width:50px;" value="'+ numberWithCommas( items[i][k] )+'" class="inputView2" onkeyup="numberOnly(this);numberWithCommaObj(this);"></td>'; // 추가금액
+				}else if (k == items[i].length - 3){
+					ohtml +='<td><input type="text" id="quantityPod" name="quantityPod" style="width:50px;" value="'+ numberWithCommas( items[i][k] )+'" class="inputView2" onkeyup="numberOnly(this);numberWithCommaObj(this);"></td>'; //재고수량
+				}else if (k == items[i].length - 2){
+					ohtml +='<td><input type="text" id="optUseYn" name="optUseYn" style="width:50px" value="'+items[i][k]+'" class="inputView"></td>'; //사용여부
+				}else{
+					ohtml +='<td class="tl"><input type="text" id="" name="optVal'+(k+1)+' " style="width:90px" readonly="readonly" value="'+items[i][k]+'" class="inputView"> </td>'; //기타 옵션
+				}
+				
+			}
+			ohtml +='	<td class="btnDisplay">';
+			ohtml +='		<a href="#" onclick="moveRows(this, \'up\');"><img src="http://static.ssocio.net/admin/images/ico_b_up.png" alt="올림"></a>';
+			ohtml +='		<a href="#" onclick="moveRows(this, \'down\');"><img src="http://static.ssocio.net/admin/images/ico_b_down.png" alt="내림"></a>';
+			ohtml +='	</td>';
+			ohtml +='</tr>';
+		}
+	}else{
+		
+		ohtml +='<tr>';
+		ohtml +='<th scope="row">1</th>';
+		ohtml +='<td class="tl">ex) 색상</td>';
+		ohtml +='<td class="tl" colspan="2">ex) 블루</td>';
+		ohtml +='<td>0</td>';
+		ohtml +='<td>0</td>';
+		ohtml +='<td> </td>';
+		ohtml +='</tr>';
+	}
+	
+	if(type == "1"){
+		$('#optNameDiv > tr').remove();
+		$('#optInfoDiv > tr').remove();
+		$("#optNameDiv").append(thtml);
+		$("#optInfoDiv").append(ohtml);
+		optNameDiv = thtml;
+		optInfoDiv = ohtml;
+		optLength = items.length;
+		
+		 
+	}else{
+		$('#optExtNameDiv > tr').remove();
+		$('#optExtInfoDiv > tr').remove();
+		$("#optExtNameDiv").append(thtml);
+		$("#optExtInfoDiv").append(ohtml);
+		optExtNameDiv = thtml;
+		optExtInfoDiv = ohtml;
+		optExtLength = items.length;
+		
+		 
+	}
+	 
+	// td 숨김
+	$(".btnDisplay").css("display","none");
+	$(".inputView").css("border","none");
+	$(".inputView").attr("readonly", true);
+	$(".inputView2").css("border","none");
+	$(".inputView2").attr("readonly", true);
+	
+}
+/* ======================================================================
+Function : 상품리스트 초기화
+========================================================================= */
+function prodReg(){
+	
+	var prodCode = '${result.prodInfo.PROD_CODE}';
+	 
+ 
+	//판매자
+	var mberSeq = '${result.prodInfo.MBER_SEQ}';
+	var sellerCd = '${result.prodInfo.SELLER_CD}';
+	
+	if(sellerCd == '1'){
+		$('#seller1').attr('checked', 'checked');
+		$('#sellerSpan').hide();
+		$('#bizSellerSpan').hide();
+	}else if(sellerCd =='2'){
+		$('#seller2').attr('checked', 'checked');
+		$('#sharingMaxTerm').attr("readonly",true);
+	}else if(sellerCd == '3'){
+		$('#seller3').attr('checked', 'checked');
+	}else{
+		$('#seller1').attr('checked', 'checked');
+		$('#sellerSpan').hide();
+		$('#bizSellerSpan').hide();
+	}
+
+	//판매구분 초기화
+	var prodTypeCd = '${result.prodInfo.PROD_TYPE_CD}';
+	if(prodTypeCd == '' || prodTypeCd == '1'){
+		$('#prodTypeCd1').attr('checked', 'checked');
+		prodTypeCd = '1';
+	}else if(prodTypeCd == '2'){
+		$('#prodTypeCd2').attr('checked', 'checked');
+	}else if(prodTypeCd == '3'){
+		$('#prodTypeCd3').attr('checked', 'checked');
+	}else if(prodTypeCd == '5'){
+		$('#prodTypeCd5').attr('checked', 'checked');
+		var argYnChk = '${agrCnt}';
+		if(argYnChk > 0){
+			$('#agr').attr("readonly",true);
+			$("#agr_yn").attr("disabled",true );
+			$("#rad_rental2").attr("disabled",true );
+		}
+	}else {
+		prodTypeCd = '1'; 
+	}
+	if(prodTypeCd != 5 )doViewSellerType(prodTypeCd);
+	clickProdType(prodTypeCd);
+	
+	//카테고리 초기화
+	//alert(ctryCd_2);alert(ctryCd_3);
+	//임시카테고리도 갖고 오도록 수정 : okayjava :2015-12-10
+	initCtry('reg', '${result.prodInfo.CTRY_CD}', true);
+	   
+	//브랜드 초기화
+	makeBrandBox();
+	
+	//옵션 여부
+	var optProdYn = '${result.prodInfo.OPT_PROD_YN}';
+	
+
+	
+	//과세여부
+	var txnOnYn = '${result.prodInfo.TXN_ON_YN}';
+	if(txnOnYn == '' || txnOnYn == 'Y'){
+		$('#txnOnY').attr('checked', 'checked');
+	}else{
+		$('#txnOnN').attr('checked', 'checked');
+	}
+	
+	//mobile 상세 사용여부
+	mbDtlUseYn = '${result.prodInfo.MB_DTL_USE_YN}';
+	if(mbDtlUseYn == '' || mbDtlUseYn == 'N'){
+		$('#mbDtlUseYn2').attr('checked', 'checked');
+	}else{
+		$('#mbDtlUseYn1').attr('checked', 'checked');
+	}
+	
+	//배송비부담
+	var dlvPayGbCd = '${result.prodInfo.DLV_PAY_GB_CD}';
+	if(dlvPayGbCd == '' || dlvPayGbCd == '1'){
+		dlvPayGbCd = '1';
+		$('#dlvPayGbCd1').attr('checked', 'checked');
+	}else{
+		dlvPayGbCd = '2';
+		$('#dlvPayGbCd2').attr('checked', 'checked');
+	}
+	//배송비 설정체크
+	doChkDlvPay(dlvPayGbCd);
+	
+	//이미지초기화
+	setImg(1);
+	
+	//정보고시초기화
+	if(prodCode != null && prodCode != ''){
+		makeItemDtl();
+	}
+	// 옵션 초기화
+	if(prodCode ==""){
+		makeOptionHtml("","","1","");
+		makeOptionHtml("","","2","");
+	}
+	
+	//택배사 초기화
+	if(prodTypeCd == '1' || prodTypeCd == '2' || prodTypeCd == '3'){
+		var dlvWayCd = '${result.prodInfo.DLV_WAY_CD}'; 
+		if(dlvWayCd == ''){
+			dlvWayCd = '1';
+		}
+		checkDlvType(dlvWayCd);
+	}	
+ 
+	//제주,도서산간
+	addDlvView();
+
+    // 판매중지사유
+    <c:if test="${!empty result.prodInfo.PROD_CODE}">     
+    fn_selView('${result.prodInfo.PROD_STAT_CD}');
+    </c:if>
+
+}
+
+
+//--------------------------------- SETTING Function ------------------------------------
+
+/* ======================================================================
+Function : 판매자아이디 조회시 셋팅
+========================================================================= */
+function setSeller(sellerId, mberSeq){
+	var chkFlg =  $('input[name="seller"]:checked').val();
+	if(chkFlg == '2'){
+		$('#sellerId').val(sellerId)
+	}else if(chkFlg == '3'){
+		$('#bizSellerId').val(sellerId);
+	}
+	
+	$('#mberSeq').val(mberSeq);
+	$('#popupMberSeq').val(mberSeq);
+
+// 등록시 기본 출하지.
+    <c:if test="${empty result.prodInfo.PROD_CODE}"> 
+        makeShipmentList();
+    </c:if>
+}
+/* ======================================================================
+Function : 출하지셋팅
+========================================================================= */
+function setShipment(grpSeqList, grpNmList){
+	$('#shipmentList').empty();
+	$('#shipmentList').append('<a href="javascript:popupShipment();" class="btn_b left">출하지 선택</a>');
+	for(var i=0; i<grpSeqList.length; i++){
+		var html = '<p class="s_place"><span>'+grpNmList[i]+'</span>';
+		html += '<input type="hidden" name="grpProdSeq" value="'+grpSeqList[i]+'"/>';
+		html += '<a href="javascript:;" class="ml5 shipmentDel"><img src="http://static.ssocio.net/admin/images/btn_b_close.gif"></a></p>';
+		$('#shipmentList').append(html);
+	}
+}
+/* ======================================================================
+Function : 이미지셋팅
+========================================================================= */
+function setImg(idx){
+	for(var i=1; i<8; i++){
+		$('#imgSpan1'+i).hide();
+		$('#imgSpan2'+i).hide(); 
+		$('#imgViewSpan1'+i).hide();
+		$('#imgViewSpan2'+i).hide();
+	}
+	$('#imgSpan1'+idx).show();
+	$('#imgSpan2'+idx).show();
+	$('#imgViewSpan1'+idx).show();
+	$('#imgViewSpan2'+idx).show();
+	
+	if(idx == 1){
+		$('#pcImgTitle').text('메인 이미지');
+		$('#mobileImgTitle').text('메인 이미지');
+	}else{
+		$('#pcImgTitle').text('추가 이미지'+(idx-1));
+		$('#mobileImgTitle').text('추가 이미지'+(idx-1));
+	}
+ 
+	$('#productImg>td').removeClass('active');
+	$('#productImg>td:eq('+(idx-1)+')').addClass('active');
+	
+}
+/* ======================================================================
+Function : 판매구분 라디오버튼 클릭
+========================================================================= */
+function clickProdType(typeCd){
+	var prodCode = '${result.prodInfo.PROD_CODE}';
+
+	if(typeCd == '1'){
+		for(var i=1; i<11; i++) $('#sellsharing'+i).show();
+		for(var i=1; i<8; i++) $('#sharing'+i).hide();
+		for(var i=1; i<7; i++) $('#nanum'+i).hide();
+		for(var i=1; i<7; i++) $('#rental'+i).hide();
+		for(var i=1; i<5; i++) $('#p'+i).show();
+		//$('#sell1').show();$('#sell2').show();
+		$('#sellsharing2').show();	// 부가상품 주문옵션 선택
+		$('#sellsharing3').show(); 	// 부가상품 주문옵션 상세
+		$('#sellsharing8').show();	// 추가구성 주문옵션 선택
+		$('#sellsharing9').show(); 	// 추가구성 주문옵션 상세
+		$('#qtycnt').show(); // 판매수량
+		 // 배송택배사 초기화
+		 for(var i = 2; i < 7; i++) {
+			$('#dlvWayCd' + i).parent().show();
+		}
+		 checkDlvType(1);
+		$('#p5').hide();
+		$('#p6').hide();
+		$('#p7').hide();
+	}else if(typeCd == '2'){
+		for(var i=1; i<11; i++) $('#sellsharing'+i).hide();
+		for(var i=1; i<8; i++) $('#sharing'+i).show();
+		for(var i=1; i<7; i++) $('#nanum'+i).hide();
+		for(var i=1; i<7; i++) $('#rental'+i).hide();
+		for(var i=1; i<5; i++) $('#p'+i).show();
+		//$('#sell1').hide();$('#sell2').hide();
+		
+		if( $(':radio[id="seller2"]:checked').val() ){
+			$('#sharing5').hide();
+			$('#sharing6').attr("readonly",true);
+		} 
+		
+		$('#sellsharing4').show();
+		$('#sellsharing7').show();
+		$('#sellsharing10').show();
+		
+		for(var i = 2; i < 7; i++) {
+			$('#dlvWayCd' + i).parent().hide();
+		}
+		$('#qtycnt').show(); // 판매수량
+
+		// 개인일때 셰어링 최소 이용기간 표시 안함
+		var sellerCd = '${result.prodInfo.SELLER_CD}';
+		if( $(':radio[id="seller2"]:checked').val() || sellerCd == 2 ){
+			$('#sharingMaxTerm').attr("readonly",true);
+		}else{
+			$('#sharing5').show();
+			$('#sharingMaxTerm').attr("readonly",false);
+		}
+		$('#p5').hide();
+		$('#p6').hide();
+		$('#p7').hide();
+		
+		 // 배송택배사 초기화
+		 checkDlvType(1);
+	}else if(typeCd == '3'){
+		for(var i=1; i<11; i++) $('#sellsharing'+i).hide();
+		for(var i=1; i<8; i++) $('#sharing'+i).hide();
+		for(var i=1; i<7; i++) $('#nanum'+i).show();
+		for(var i=1; i<7; i++) $('#rental'+i).hide();
+		//for(var i=2; i<7; i++) $('#p'+i).hide();
+		//$('#sell1').hide();$('#sell2').hide();
+		$('#qtycnt').hide(); // 판매수량
+		
+		$('#p4').hide();
+ 	 
+		// 배송택배사 초기화
+		 checkDlvType(1);
+	}else if(typeCd == '5'){
+		for(var i=1; i<11; i++) $('#sellsharing'+i).hide();
+		for(var i=1; i<8; i++) $('#sharing'+i).hide();
+		for(var i=1; i<7; i++) $('#nanum'+i).hide();
+		for(var i=1; i<7; i++) $('#rental'+i).show();
+		for(var i=1; i<7; i++) $('#p'+i).hide();
+		$('#qtycnt').show(); // 판매수량
+
+		//렌탈약란 초기화
+		var prodCode = '${result.prodInfo.PROD_CODE}';
+		if(prodCode ==""){
+			$('#agr_yn').attr('checked','checked');	
+			rentalInfoDiv('N');
+		}else{
+			rentalInfoDiv('${result.prodInfo.AGR_YN}');
+		}
+	}
+	 
+}
+/* ======================================================================
+Function : 상품상세복사 초기화
+========================================================================= */
+/* 20150825
+function copyPcDtlContents(){
+	 
+	oEditors[0].exec("UPDATE_CONTENTS_FIELD", []);
+	var sHtml = $('#prodPcDtl').val();
+	oEditors[1].exec("PASTE_HTML", [sHtml]); 
+}
+*/
+
+/* ======================================================================
+Function : 정보고시 전항목 별도표기
+========================================================================= */
+function clickShowYnAll(){
+	if($('#showYnAll').is(':checked')){
+		$('input[name="itemCheck"]').each(function(){
+			$(this).attr('checked', 'checked');
+		});
+		$('input[name="infoDtl"]').each(function(){
+			$(this).attr('readonly', 'true');
+		});
+	}else{
+		$('input[name="itemCheck"]').each(function(){
+			$(this).removeAttr('checked');
+		});
+		$('input[name="infoDtl"]').each(function(){
+			$(this).removeAttr('readonly');
+		});
+	}
+}
+
+/* ======================================================================
+Function : 출하지 팝업
+========================================================================= */
+function popupShipment(){
+ 	var popupMberSeq;
+	if($('input[name="seller"]:checked').val() == '1'){
+		$('#popupMberSeq').val('1');
+	}
+	if($('#popupMberSeq').val() == ''){
+		alert('판매자를 선택해 주십시요.');
+		return;
+	}
+	
+	if($('#mberSeq').val() != ''){
+		popupMberSeq = $('#mberSeq').val() ;
+	}else{
+		popupMberSeq = $('#popupMberSeq').val()
+	}
+	popup('/admin/prodMgr/shipmentPopup.do?mberSeq='+popupMberSeq,'popupFrm','1100','760');
+}
+
+
+//--------------------------------- SUBMIT Function ------------------------------------
+
+/* ======================================================================
+Function : 상품등록
+Return   : 없음
+========================================================================= */
+function saveProdInfo(){
+ 
+	oEditors[0].exec("UPDATE_CONTENTS_FIELD", []);   // 에디터의 내용이 textarea에 적용된다.
+	oEditors[1].exec("UPDATE_CONTENTS_FIELD", []);   // 에디터의 내용이 textarea에 적용된다.
+	
+	if(prodValidation()){
+		return;
+	}
+
+	// 판매구분
+	var prodTypeCd = $('input[name=prodTypeCd]:checked').val();
+	var prodTypeCd2 = $('#prodType2').val();
+	
+//alert(" ### saveProdInfo prodTypeCd ::: " + prodTypeCd +  " / prodTypeCd2 ::: " + prodTypeCd2 +  );
+
+    // 수량계산 - 판매수량
+    var STOCK_QTY = $('#stockQty').val().replace(/[^\d]+/g, ''); // 콤마제거 
+    var EXP_QTY   = parseFloat('${result.prodInfo.EXP_QTY}');
+
+    if(!STOCK_QTY) {
+        STOCK_QTY = 0;
+    }
+
+    if(!EXP_QTY) {
+        EXP_QTY = 0;
+    }
+
+    var SUM_STOCK_QTY = parseFloat(STOCK_QTY) + EXP_QTY;
+
+//alert(" ### saveProdInfo STOCK_QTY-입고 / EXP_QTY-출고 / SUM_STOCK_QTY ::: " + $('#stockQty').val() + ' / ' + EXP_QTY + ' / ' + SUM_STOCK_QTY);
+
+    $('#stockQty').val(SUM_STOCK_QTY);
+	// 2번클릭 방지
+	$('a').click(function(event){
+		event.preventDefault();
+	});
+ 
+	var options = {
+        url : "/admin/prodMgr/saveProdInfo.do",
+        success: function(data){
+        	//alert("data.prodCd"+data.prodCd);
+        	if (data.prodCd !=  "" && data.prodCd !='' )$("#prodCode").val(data.prodCd);
+			//if ($(':radio[name="opt_rad"]:checked').attr('id') == 'opt_rad2')regOption();
+			
+			//if( ($("#optFlg").val() == 'Y' || $("#optFlg2").val() == 'Y') && (prodTypeCd == '1' || prodTypeCd2 == '1' ) ) {
+			//	setTimeout(regOption(),3000);
+			//}else{
+			//	alert("저장되었습니다.");	
+			//}
+			 
+			alert("저장되었습니다.");	
+
+			<c:if test="${empty result.prodInfo.PROD_CODE}">
+    			goMmenu('/admin/prodMgr/selectProdList.do', '3'); // 등록. 
+			</c:if>
+			<c:if test="${!empty result.prodInfo.PROD_CODE}">     // 수정
+                fn_Search();
+			</c:if>
+        }
+	};
+	$("#prodFrm").ajaxSubmit(options);
+	
+}
+
+//
+// fn_Search 조회.
+//
+function fn_Search(){
+
+    arrProdTypeCd = '${searchParam.searchProdTypeCd}'.split(",");
+    arrProdStatCd = '${searchParam.searchProdStatCd}'.split(",");
+
+    var searchFlag = '${searchParam.searchFlag}';
+
+//alert(" ### arrProdTypeCd ::: " + arrProdTypeCd + " / arrProdStatCd ::: " + arrProdStatCd ); 
+//alert(" ### document.searchFrm.prodTypeCd.length ::: " + document.searchFrm.prodTypeCd.length   );
+
+    if(arrProdTypeCd == null || arrProdTypeCd == '' || searchFlag == '') {
+        arrProdTypeCd = '1,2,3,5'.split(",");
+    }
+
+    if(arrProdStatCd == null || arrProdStatCd == '' || searchFlag == '') {
+        arrProdStatCd = '0,1,2,3'.split(",");
+    }
+
+    for(var ii = 0; ii < document.searchFrm.prodTypeCd.length; ii++) {
+        if(arrProdTypeCd[ii]) {
+            document.searchFrm.prodTypeCd[ii].value = arrProdTypeCd[ii];
+        } else {
+            document.searchFrm.prodTypeCd[ii].value = '';
+        }
+    } // end for.
+
+
+    for(var ii = 0; ii < document.searchFrm.prodStatCd.length; ii++) {
+        if(arrProdStatCd[ii]) {
+            document.searchFrm.prodStatCd[ii].value = arrProdStatCd[ii];
+        } else {
+            document.searchFrm.prodStatCd[ii].value = '';
+        }
+    } // end for.
+
+	$("#searchFrm").attr('action', '/admin/prodMgr/selectProdList.do');
+	$("#searchFrm").submit();
+}
+
+/* ======================================================================
+Function : 상품등록 입력값체크
+========================================================================= */
+function prodValidation(){
+	 
+	// 판매구분
+	var prodTypeCd = $('input[name=prodTypeCd]:checked').val();
+	var prodTypeCd2 = $('#prodType2').val();
+	var seller = $('input[name="seller"]:checked').val();
+ 	
+	// pc상세설명 사용여부
+	var pcDtlUseYn = $('input[name=pcDtlUseYn]:checked').val();
+	// mobile 상세설명 사용여부
+	var mbDtlUseYn = $('input[name=mbDtlUseYn]:checked').val();
+
+	var prodStatCd = $('input[name=prodStatCd]:checked').val();
+
+	//판매자
+	if(seller == '1'){
+		$('#mberSeq').val('1');
+	}else{
+		if($('#mberSeq').val() == ''){
+			alert('판매자를 선택해 주십시요.');
+			if(seller == 2){ //개인
+				$('#sellerId').focus();
+			}else{ //사업자
+				$('#bizSellerId').focus();
+			}
+			return true;
+		}
+	}
+// 수정시 - 판매중지
+    <c:if test="${!empty result.prodInfo.PROD_CODE}">
+        if( prodStatCd == '2') {
+
+		    if(!$.trim($("#prodStopReasonCd").val()).length > 0){
+                alert("판매중지분류를 선택해 주세요.")
+                $('#prodStopReasonCd').focus();
+                return true;
+
+            }
+
+		    if(!$.trim($("#prodStopReason").val()).length > 0){
+                alert("판매중지사유를 입력해 주세요.")
+                $('#prodStopReason').focus();
+                return true;
+
+            }
+
+        } else {
+            $("#prodStopReasonCd").val('');
+            $("#prodStopReason").val('');
+        }
+    </c:if>   
+
+
+	//카테고리
+	var ctryCd = getCtryCd('reg');
+	if(ctryCd == ''){
+		return true;
+	}
+	$('#ctryCd').val(ctryCd);
+ 
+	if($('#regCtryCd2 option:selected').val().length == 0 ){
+		alert("카테고리를 중분류를 선택해주세요.")
+		$('#regCtryCd2').focus();
+		return true;
+	}
+	
+	if($('#regCtryCd3 option:selected').val().length == 0 ){
+		alert("카테고리를 소분류를 선택해주세요.")
+		$('#regCtryCd3').focus();
+		return true;
+	}
+	
+	/*
+	if($('#brandCd option:selected').val().length == 0 ){
+		alert("브랜드를  선택해주세요.")
+		$('#brandCd').focus();
+		return true;
+	}
+	*/
+	
+	//상품명
+	var str = $.trim($("#prodNm").val());
+	var strLength = str.length;
+	
+	if(!strLength > 0){
+		
+		alert("상품명을 입력해주세요.");
+		$("#prodNm").focus();
+		return true;
+	
+	} else {
+		
+		var stringByteLength = cal_length(str);
+		
+		if(stringByteLength > 50){ //50byte 이상일 경우 50byte로 cut
+			
+			var str_character;
+	    	var int_char_count = 0
+	    	var returnValue = "";
+	    	
+	    	for (k = 0; k < strLength; k++) {
+	    		str_character = str.charAt(k);
+	        	if (escape(str_character).length > 4)
+	        	    int_char_count += 2;
+	       	 else
+	         	   int_char_count++;
+	        	if ( int_char_count > 50 ) {
+	            break;
+	       		}
+	        returnValue += str_character;
+	    	}
+	    	
+	    	alert("상품명은 최대 50Byte까지 입력 가능합니다.");
+	    	$("#prodNm").val(returnValue);
+	    	$("#prodNm").focus();
+	    	
+	    	return true;
+	    	
+		}
+	}
+	//판매상품일때
+	if(prodTypeCd == '1' || prodTypeCd2 == '1' ) {
+		
+		var nrm =  $("#nrmPrce").val().replace(/,/gi, "");
+		var sell = $("#sellPrce").val().replace(/,/gi, ""); 
+		var stockQty = $("#stockQty").val().replace(/,/gi, ""); 
+		
+		//정상가
+		if(!$.trim($("#nrmPrce").val()).length>0){
+			alert("정상가를 입력해주세요.");
+			$("#nrmPrce").focus();
+			return true;
+		}
+		if(parseInt(nrm) < 1){
+			alert('정상가를 입력해주세요');
+			$("#nrmPrce").focus();
+			return true;
+		}
+		
+		if(nrm.charAt(0) =="0"){
+			alert('정상가를 잘못입력하였습니다.');
+			$("#nrmPrce").focus();
+			return true;
+		}
+		
+		//판매가
+		if(!$.trim($("#sellPrce").val()).length>0){
+			alert("판매가를 입력해주세요.");
+			$("#sellPrce").focus();
+			return true;
+		}
+		if(parseInt(sell) < 1){
+			alert('판매가를 입력해주세요');
+			$("#sellPrce").focus();
+			return true;
+		}
+		
+		if(sell.charAt(0) =="0"){
+			alert('판매가를 잘못입력하였습니다.');
+			$("#sellPrce").focus();
+			return true;
+		}
+		
+		if(parseInt(nrm) < parseInt(sell)){  
+			alert("정상가보다 판매가가 더 높습니다.");
+			$("#sellPrce").focus();
+			return true;
+		}
+		
+		//판매수량
+		if(!$.trim($("#stockQty").val()).length>0){
+			alert("판매수량을 입력해주세요.");
+			$("#stockQty").focus();
+			return true;
+		}
+		if(parseInt(stockQty) < 1){
+			alert('판매수량을 입력해주세요');
+			$("#stockQty").focus();
+			return true;
+		}
+		
+		if(stockQty.charAt(0) =="0"){
+			alert('판매수량을 잘못입력하였습니다.');
+			$("#stockQty").focus();
+			return true;
+		}
+ 
+		 if( $(':radio[id="opt_rad2"]:checked').val() ){
+			 if(optMax == 0 || optUseYn == false){
+				 alert('부가상품형 옵션을 입력해주세요.');
+				 return true;
+			 }
+		 }
+		 if( $(':radio[id="opt_rad4"]:checked').val() ){
+			 if(optExtMax == 0 || optExtUseYn == false){
+				 alert('추가상품형 옵션을 입력해주세요.');
+				 return true;
+			 }
+		 }
+		
+		if($(':radio[name="taxUseYn"]:checked').val() == "1"){
+			$('#prodTax').val(0);
+		}
+		
+		if($('input[name="opt_rad"]:checked').val() == "Y"){
+			if(optMax == 0){
+				$('input[name="opt_rad"]').val('N');
+			}
+		}
+		
+		if($('input[name="opt_ext_rad"]:checked').val() == "Y"){
+			if(optExtMax == 0){
+				$('input[name="opt_ext_rad"]').val('N');
+			}
+		}
+		
+		
+		
+	} 
+ 
+ 
+    var sellerCd = '${result.prodInfo.SELLER_CD}';          // 개인 : 2.  수정시
+    var chkFlg =  $('input[name="seller"]:checked').val();  // 개인 : 2.  등록시
+
+
+ //   alert(" sellerCd ::: " + sellerCd + " /   chkFlg ::: " + chkFlg);
+
+	// 셰어링일때
+	if(prodTypeCd == '2' || prodTypeCd2 == '2' ) {  
+
+        var deposit =  $("#deposit").val().replace(/,/gi, "");              // 보증금
+        var sharingPrice = $("#sharingPrice").val().replace(/,/gi, "");     // 셰어링
+        var sharingMaxTerm = $("input[name=sharingMaxTerm]").val(); 
+
+
+//    alert(" deposit ::: " + deposit + " /   sharingPrice ::: " + sharingPrice);
+
+        if(sellerCd == '2' || chkFlg == '2' ) { // 개인
+		           
+            if(deposit.length < 1){
+                alert("보증금을 입력해주세요.");
+                $("#deposit").focus();
+                return true;
+            }
+            if(parseInt(deposit) < 1){
+                alert('보증금을 입력해주세요');
+                $("#deposit").focus();
+                return true;
+            }
+            if(deposit.charAt(0) =="0"){
+                alert('보증금을 잘못입력하였습니다.');
+                $("#deposit").focus();
+                return true;
+            }
+            
+            if(sharingPrice.length < 1){
+                alert("셰어링금액을 입력해주세요.");
+                $("#sharingPrice").focus();
+                return true;
+            }
+            if(parseInt(sharingPrice) < 1){
+                alert('셰어링금액을 입력해주세요');
+                $("#sharingPrice").focus();
+                return true;
+            }
+            if(sharingPrice.charAt(0) =="0"){
+                alert('셰어링 금액을 잘못입력하였습니다.');
+                $("#sharingPrice").focus();
+                return true;
+            }
+            
+            if(parseInt(deposit) < parseInt(sharingPrice)){  
+                alert("1일 셰어링금액은 보증금보다 클수 없습니다.");
+                $("#sharingPrice").focus();
+                return true;
+            }
+            
+            if(sharingPrice < 100){
+                alert("1일 셰어링금액은 최소 100원입니다.");
+                $("#sharingPrice").focus();
+                return true;
+            }
+
+        } // end sellerCd, chkFlg
+		
+
+//		var sellerCd = '${result.prodInfo.SELLER_CD}';
+//		var chkFlg =  $('input[name="seller"]:checked').val();
+		 
+
+// 보증금 : deposit
+// 셰어링 금액 : sharingPrice
+
+		if(sellerCd != '2' && chkFlg != '2' ){  // 사업자 셰어링
+			var sharingMinTerm = $("#sharingMinTerm").val(); 
+			
+            if(deposit.length < 1){
+                alert("보증금을 입력해주세요.");
+                $("#deposit").focus();
+                return true;
+            }
+
+            if(sharingPrice.length < 1){
+                alert("셰어링금액을 입력해주세요.");
+                $("#sharingPrice").focus();
+                return true;
+            }
+            
+			if(sharingMinTerm == ""){
+				alert("셰어링 최소 이용기간을 입력해주세요.");
+				$("#sharingMinTerm").focus();
+				return true;
+			}
+			
+			if(parseInt(sharingMinTerm) < 1){
+				alert('셰어링 최소 이용기간을 1일 이상 입력해주세요.');
+				$("#sharingMinTerm").focus();
+				return true;
+			}
+			if(sharingMinTerm.charAt(0) =="0"){
+				alert('셰어링 최소 이용기간을 잘못입력하였습니다.');
+				$("#sharingMinTerm").focus();
+				return true;
+			}
+			
+			if(parseInt(sharingMinTerm) > parseInt(sharingMaxTerm) ){
+				alert('셰어링 최대 이용기간이 최소 이용기간보다 작게 입력되었습니다.');
+				$("#sharingMaxTerm").focus();
+				return true;
+			}
+		}
+		
+		if(sharingMaxTerm == ""){
+			alert("셰어링 최대 이용기간을 입력해주세요.");
+			$("#sharingMaxTerm").focus();
+			return true;
+		}
+		
+		if(parseInt(sharingMaxTerm) < 1){
+			alert('셰어링 최대 이용기간을 1일 이상 입력해주세요.');
+			$("#sharingMaxTerm").focus();
+			return true;
+		}
+
+		if(sharingMaxTerm.charAt(0) =="0"){
+			alert('셰어링 최대 이용기간을 잘못입력하였습니다.');
+			$("#sharingMaxTerm").focus();
+			return true;
+		}
+		
+		//판매수량
+		var stockQty = $("#stockQty").val().replace(/,/gi, ""); 
+		if(!$.trim($("#stockQty").val()).length>0){
+			alert("판매수량을 입력해주세요.");
+			$("#stockQty").focus();
+			return true;
+		}
+		if(parseInt(stockQty) < 1){
+			alert('판매수량을 입력해주세요');
+			$("#stockQty").focus();
+			return true;
+		}
+		
+		if(stockQty.charAt(0) =="0"){
+			alert('판매수량을 잘못입력하였습니다.');
+			$("#stockQty").focus();
+			return true;
+		}
+
+	}
+	
+
+	//렌탈상품
+	if(prodTypeCd == '5' || prodTypeCd2 == '5'){
+		if(!$.trim($("#stockQty").val()).length>0){
+			alert("판매수량을 입력해주세요.");
+			$("#stockQty").focus();
+			return true;
+		}
+		
+		//약관
+		if($(':radio[name="agr_yn"]:checked').val() == "Y"){
+			if(!$.trim($("#agr").val()).length>0){
+				alert("약관내용을 입력해주세요.");
+				$("#agr").focus();
+				return true;
+			}	
+		}
+		
+		//판매수량
+		var stockQty = $("#stockQty").val().replace(/,/gi, ""); 
+		
+		if(!$.trim($("#stockQty").val()).length>0){
+			alert("판매수량을 입력해주세요.");
+			$("#stockQty").focus();
+			return true;
+		}
+		if(parseInt(stockQty) < 1){
+			alert('판매수량을 입력해주세요');
+			$("#stockQty").focus();
+			return true;
+		}
+		
+		if(stockQty.charAt(0) =="0"){
+			alert('판매수량을 잘못입력하였습니다.');
+			$("#stockQty").focus();
+			return true;
+		}
+		
+		$('#freeShareOkGbCd').val("");
+		
+	}
+	//나눔상품일때
+	if(prodTypeCd == '3'){
+		//나눔종료일
+		if(!$.trim($("#freeShareEndDt").val()).length>0){
+			alert("나눔종료일을 선택해주세요.");
+			$("#freeShareEndDt").focus();
+			return true;
+		}
+	}
+	
+	//키워드
+	if(!$.trim($("#keyword").val()).length>0){
+		alert("키워드를 입력해주세요.");
+		$("#keyword").focus();
+		return true;
+	}
+	
+	//이미지
+	for(var i=1; i<3; i++){
+		if($("#imgView_1"+i).attr("src").indexOf("static.ssocio") > -1 ){ //기본 이미지가 아닌 경우
+			alert('필수이미지를 등록해 주십시요.');
+			if( i == 2){
+				setImg(2);
+			}
+			$("#img_1"+i).focus();
+			return true;
+		}
+	}
+	for(var i=1; i<3; i++){
+		if($("#imgView_2"+i).attr("src").indexOf("static.ssocio") > -1){ //기본 이미지가 아닌 경우
+			alert('필수이미지를 등록해 주십시요.');
+			if( i == 2){
+				setImg(2);
+			}
+			$("#img_2"+i).focus();
+			return true;
+		}
+	}
+	
+	// 모바일 상품 상세 이미지
+	/* 
+	if(!$("#imgView_20").attr("src").length>0 || !$("#imgView_20").attr("src").length>0){
+		alert('모바일 상품 상세 이미지를 등록해 주십시요.');
+		return true;
+	}
+	 */
+	
+	//상품상세(PC)
+	if(pcDtlUseYn == "Y"){
+		var prodPcDtl = $('#prodPcDtl').val().replace(/<p>&nbsp;<\/p>/gi,'');
+		if(prodPcDtl == ''){
+			alert("PC용 상품상세를 입력해주세요.");
+			oEditors.getById["prodPcDtl"].exec("FOCUS"); 
+			//$('#prodPcDtl').focus();
+			return true;
+		}
+	}
+	//상품상세(Mobile)
+	if(mbDtlUseYn == "Y"){
+		var prodMbDtl = $('#prodMbDtl').val().replace(/<p>&nbsp;<\/p>/gi,'');
+		if(prodMbDtl == ''){
+			alert("Mobile용 상품상세를 입력해주세요.");
+			oEditors.getById["prodMbDtl"].exec("FOCUS"); 
+			$('#prodMbDtl').focus();
+			return true;
+		}
+	}
+	
+	if(pcDtlUseYn == "N" && mbDtlUseYn == "N"){
+		alert("상품 상세설명이 들어가야 합니다.");
+		return true;
+	}
+	
+	//상품상세(Mobile)
+	/* 
+	prodDtl = $('#prodMbDtl').val().replace(/<p>&nbsp;<\/p>/gi,'');
+	if(prodDtl == ''){
+		alert("Mobile용 상품상세를 입력해주세요.");
+		return true;
+	}
+	 */
+	// 택배사
+	if((prodTypeCd == '1' || prodTypeCd == '2' || prodTypeCd == '3') || (prodTypeCd2 == '1' || prodTypeCd2 == '2' || prodTypeCd2 == '3') ){
+		if($(':radio[name="dlvWayCd"]:checked').val() == "1" || $(':radio[name="dlvWayCd"]:checked').val() == "2"){
+			if(!$.trim($("#dlvCmpCd").val()).length>0){
+				alert("택배사를 선택해주세요.");
+				return true;
+			}	
+		}
+	}
+	 
+	// 배송가능지역
+	if($(':radio[name="dlvWayCd"]:checked').val() == "4"){
+		if(prodTypeCd == '3' || prodTypeCd2 == '3' ){
+			$("#tradLoc").val($("#tradLoc3").val());
+		}else{
+			$("#tradLoc").val($("#tradLoc1").val());
+		}
+	}
+	// 거래희망지역
+	if($(':radio[name="dlvWayCd"]:checked').val() == "5"){
+		$("#tradLoc").val($("#tradLoc2").val());
+	}
+	
+	//출하지
+	
+	if((prodTypeCd == '1' || prodTypeCd == '2' || prodTypeCd == '3') || (prodTypeCd2 == '1' || prodTypeCd2 == '2' || prodTypeCd2 == '3') ){
+		var grpProdSeqList = $('input[name=grpProdSeq]');
+		if($(':radio[name="dlvWayCd"]:checked').val() == "1" || $(':radio[name="dlvWayCd"]:checked').val() == "2"){
+			if(grpProdSeqList.length <= 0){
+				alert('출하지를 선택해 주십시요.');
+				return true;
+			}
+		}
+	}
+	 
+	//조건부 무료
+	if($('input[name=dlvStandYn]').prop('checked')){
+		$('#dlvStandYn').val('Y');
+		if($('#dlvPrce').val() == '0' || $('#dlvPrce').val().length < 1){
+			alert('배송비가 유료일 경우에만 조건부 무료를 선택하실수 있습니다.');
+			$("#dlvStandAmt").val(0);
+			$('#dlvStandYn').attr('checked',false);
+			return true;
+		}
+		if(parseInt($("#dlvStandAmt").val().replace(",","") == 0)){
+			alert('조건금액을 입력해주세요.');
+			return true;
+		}
+	} 
+	
+	// 판매,셰어링
+	if(prodTypeCd == '1' || prodTypeCd2 == '1' || prodTypeCd == '2' || prodTypeCd2 == '2' || prodTypeCd == '3' || prodTypeCd2 == '3'){
+	 
+		var dlvPayGbCd = $(':radio[name="dlvPayGbCd"]:checked').val();
+		if($("input:checkbox[id='addDlv']").is(":checked")){
+				if($.trim($("#addDlvPrice1").val()) == 0 ){
+					alert("제주도 추가배송비를 입력해주세요.");
+					$("#addDlvPrice1").focus();
+					return true;
+				}
+				if($.trim($("#addDlvPrice2").val()) == 0 ){
+					alert("도서산간 추가배송비를 입력해주세요.");
+					$("#addDlvPrice2").focus();
+					return true;
+				}	
+			
+			$("#addDlvUse").val("Y");
+		}else{
+			$("#addDlvUse").val("N");
+			if($(':radio[name="dlvWayCd"]:checked').val() != "1"){
+				$("#addDlvPrice1").val(0);
+				$("#addDlvPrice2").val(0);	
+			}
+			
+		}
+		
+		$('#freeShareOkGbCd').val("");
+	}
+	
+	//정보고시 - 개인의 경우 필수가 아님
+	var sellerCd = '${result.prodInfo.SELLER_CD}';
+	var chkFlg =  $('input[name="seller"]:checked').val();
+	if(chkFlg != "2" && sellerCd != "2"){
+		if(!$.trim($("#prodItemCode").val()).length>0){
+			alert("상품정보고시 항목을 선택해주세요.");
+			$("#prodItemCode").focus();
+			return true;
+		}
+		
+		
+	}
+	
+	var infoDtlList = $('input[name=infoDtl]');
+	var extShowYnList = $('input[name=extShowYn]');
+	var itemCheckList = $('input[name=itemCheck]');
+	for(var i=0; i<infoDtlList.length; i++){
+		if(!$.trim($(infoDtlList[i]).val()).length>0 && !$(itemCheckList[i]).prop('checked')){
+			alert("정보고시내용을 입력해 주세요.");
+			$(infoDtlList[i]).focus();
+			return true;
+		}else if($(itemCheckList[i]).prop('checked')){
+			$(extShowYnList[i]).val('Y');
+		}else{
+			$(extShowYnList[i]).val('N');
+		}
+	}
+	
+	//조건부 무료
+	if($('input[name=dlvStandYn]').prop('checked')){
+		$('#dlvStandYn').val('Y');
+		
+	}else{
+		$('#dlvStandYn').attr('checked', 'checked');
+		$('#dlvStandYn').val('N');
+		$('#dlvStandAmt').val(0);
+	}
+	
+	if($("#deposit").val() == ''){
+        $("#deposit").val('0');
+    }
+
+	if($("#sharingPrice").val() == ''){
+        $("#sharingPrice").val('0');
+    }
+
+	return false;
+
+	
+} // end prodValidation
+
+function cal_length(str){
+	return unescape(escape(str).replace(/%u..../g,function(s){ return "uu"; })).length;
+	}
+
+//--------------------------------- AJAX Function ------------------------------------
+
+/* ======================================================================
+Function : 브랜드 셀렉트박스 생성
+Return   : 없음
+========================================================================= */
+function makeBrandBox(){
+	var searchCtryCd ;
+	var selectedBrandCd = '${result.prodInfo.BRAND_CD}';
+	
+	if($("#regCtryCd3").val() !=''){
+		searchCtryCd = $("#regCtryCd3").val();
+	}else{
+		searchCtryCd = '${result.prodInfo.CTRY_CD}';
+	}
+	
+	$.ajax({
+	    type: 'post'
+	    , async: true
+	    , url: '/admin/prodMgr/selectBrandList.do'
+	    , data: {"viewYn":"Y", "searchCtryCd":searchCtryCd}
+	    , success: function(data) {
+	    	var brandList = data.brandList;
+	    	var html = '<option value="">브랜드 선택</option>';
+
+			if(brandList.length > 0){
+				for(var i=0; i<brandList.length; i++){
+					html += '<option value="' +brandList[i].BRAND_CD+ '" ';
+					if(selectedBrandCd != '' && brandList[i].BRAND_CD == selectedBrandCd){
+						html += 'selected="selected"';
+						$('#brandTxt').text(brandList[i].BRAND_NM);
+					}
+					html += ' >' +brandList[i].BRAND_NM+ '</option>';
+				}
+			}
+			$('#brandCd').html(html);
+	    } 
+	    , error: function(data, status, err) {
+	      //alert('서버와의 통신이 실패했습니다.');
+	    }
+	});
+}
+
+/* ======================================================================
+Function : 기본출하지리스트 조회
+========================================================================= */
+function makeShipmentList(){
+	var mberSeq = $('#mberSeq').val();
+	$.ajax({
+	    type: 'post'
+	    , async: true
+	    , url: '/admin/prodMgr/selectShipmentList.do'
+	    , data: {"mberSeq":mberSeq, "baseYn":"Y"}
+	    , success: function(data) {
+	    	var shipmentList = data.result.shipmentList;
+	    	$('#shipmentList').empty();
+	    	$('#shipmentList').append('<a href="javascript:popupShipment();" class="btn_b left">출하지 선택</a>');
+			if(shipmentList.length > 0){
+				for(var i=0; i<shipmentList.length; i++){
+					var html = '<p class="s_place"><span>'+shipmentList[i].GRP_NM+'</span>';
+					html += '<input type="hidden" name="grpProdSeq" value="'+shipmentList[i].GRP_PROD_SEQ+'"/>';
+					html += '<a href="#" class="ml5 shipmentDel"><img src="http://static.ssocio.net/admin/images/btn_b_close.gif"></a></p>';
+					$('#shipmentList').append(html);
+				}
+			}
+	    }
+	    , error: function(data, status, err) {
+	      alert('서버와의 통신이 실패했습니다.');
+	    }
+	});
+}
+
+/* ======================================================================
+Function : 정부고시항목 생성
+========================================================================= */
+function makeItemDtl(){
+ 	var allchk = true;
+	$('#showYnAll').removeAttr('checked');
+	$.ajax({
+	    type: 'post'
+	    , async: true
+	    , url: '/admin/prodMgr/selectItemDtlList.do'
+	    , data: {"prodCode":$('#prodCode').val(), "itemCd":$('#prodItemCode').val()}
+	    , success: function(data) {
+	    	var itemDtlList = data.result.itemDtlList;
+	    	$('#itemDtlList').empty();
+			if(itemDtlList.length > 0){
+				for(var i=0; i<itemDtlList.length; i++){
+					var html = '<tr>';
+					html += '<th scope="row">'+itemDtlList[i].ENTRY_NM+'</th>';
+					html += '<td class="tl"><p><input type="text" id="infoDtl'+i+'" name="infoDtl" value="'+itemDtlList[i].INFO_DTL+'" style="width:80%" /></p></td>';
+ 					
+					html += '<td><input type="checkbox" name="itemCheck" onclick="checkRead('+i+')" id="itemCheck'+i+'" ';
+					if(itemDtlList[i].EXT_SHOW_YN == 'Y'){
+						html += ' checked="checked" ';
+					}else{
+						allchk = false;
+					}
+					html += '/><label for="extShowYn">상세정보 별도표기</label></td>';
+					html += '<input type="hidden" name="entrySeq" value="'+itemDtlList[i].ENTRY_SEQ+'"/>';
+					html += '<input type="hidden" name="infoTitle" value="'+itemDtlList[i].ENTRY_NM+'"/>';
+					html += '<input type="hidden" name="extShowYn" value="'+itemDtlList[i].EXT_SHOW_YN+'"/>';
+					html += '</tr>';
+					$('#itemDtlList').append(html);
+ 
+				}
+
+				if(allchk){
+					$('#showYnAll').attr('checked','checked');
+				}
+			}
+	    }
+	    , error: function(data, status, err) {
+	      alert('서버와의 통신이 실패했습니다.');
+	    }
+	});
+}
+
+
+/* ======================================================================
+Function : 판매자별 판매구분
+Return   : 없음
+========================================================================= */
+ 
+function doViewSellerType(flg){
+	var flg = flg-1; // 배열을 위해 1만큼 감소
+	// 판매자별 노출하지 말아야할 판매구분
+	var sellerArry		= [
+	              		 	["3", "sellerSpan", "bizSellerSpan"],			// 판매자 - SSOCIO
+	              		 	["4", "5", "bizSellerSpan"],		// 판매자 - 개인 판매회원
+	              		 	["3", "4", "sellerSpan"]		// 판매자 - 사업자 판매회원
+	              		  ];
+	//일단 판매구분 항목들은 전부 보이게 한다.
+	for(i=1; i<=5; i++){
+		$('#prodTypeCd'+i).parent().show();
+	}
+	// 판매자별 검색 조건도 일단 전부 노출
+	$('#sellerSpan').show();
+	$('#bizSellerSpan').show();
+	
+	// 배열에서 노출하지 말아야할 판매구분 코드를 가져와 숨김처리한다.
+	for(j=0; j<=sellerArry[flg].length; j++){ 
+		var tagId	= sellerArry[flg][j]
+		$('#prodTypeCd'+tagId).parent().hide();
+		$('#'+tagId).hide();
+	}
+ 
+	//판매구분
+	var prodTypeCd = $('input[name=prodTypeCd]:checked').val();
+	// 셰어링 최소 신청 기간 보이기 안보이기 설정
+
+	if( $(':radio[id="seller2"]:checked').val() == 2 && flg == 1 && prodTypeCd == 2){
+		$('#sharing5').hide();
+		$('#sharingMaxTerm').attr("readonly",true);
+	}else{
+		if(prodTypeCd == 2){
+			$('#sharing5').show();
+			$('#sharingMaxTerm').attr("readonly",false);
+		}
+	}
+	//사업자일때 기존에 나눔이 체크되 있을시 변경
+	if(flg == 2){
+		if(prodTypeCd == 3){
+			clickProdType(1);
+			$('#prodTypeCd1').attr('checked', 'checked');
+		}
+	}
+	
+}
+
+/* ======================================================================
+Function : 셰어링 가격 계산
+========================================================================= */
+function calMaxTerm(){
+	var sellerCd = '${result.prodInfo.SELLER_CD}';
+
+	if( $(':radio[id="seller2"]:checked').val() == 2 || sellerCd == 2){
+		if($("#deposit").val().replace(/,/gi, "")  != "" && $("#sharingPrice").val().replace(/,/gi, "")  != ""){
+			var calMaxTerm = $("#deposit").val().replace(/,/gi, "") / $("#sharingPrice").val().replace(/,/gi, "");
+			$("#sharingMaxTerm").val(Math.ceil(calMaxTerm));
+		}
+		//$("#sharingMaxTerm").attr("readonly", true);
+	}
+}
+/* ======================================================================
+Function : 판매자별 판매구분
+Return   : 없음
+========================================================================= */
+
+function regOption(){
+	var options = {
+			type: "post",
+			url: "/admin/prodMgr/saveProdOption.do",
+			dataType:"json",
+			async: true ,
+			success: function(data) {
+				alert("저장되었습니다.");
+			},
+			error: function(data, status, err) {
+				//alert("서버와의 통신이 실패했습니다.");
+				
+			}
+		};
+		
+	$("#prodFrm").ajaxSubmit(options);
+	
+}
+
+function getOptInfo(nmCell, valCell, exchCell, qtyCell, opGb, combChk, sumQty, rowCnt, valCell1, valCell2, valCell3, optCell, objTitleHTML, objHTML){
+ 
+	var prodCode = '${result.prodInfo.PROD_CODE}';
+	// 옵션값이 null 인경우에는 옵션 예제 테이블 다시그려주기
+ 	
+	if(prodCode == ""){
+		if(objHTML.length == "0"){
+			if(opGb == "10"){
+				makeOptionHtml("","","1","");
+				$('#optFlg').val('N');
+				$('#opt_rad1').attr('checked', 'checked');
+				return true;
+			}else{
+				makeOptionHtml("","","2","");
+				$('#optFlg2').val('N');
+				$('#opt_rad3').attr('checked', 'checked');
+				return true;
+			}
+		}
+	} 
+	 
+	/* 
+	console.log(nmCell);
+	console.log(valCell);
+	console.log(valCell.length);
+	console.log(exchCell);
+	console.log(qtyCell);
+	console.log(opGb);
+	console.log(combChk);
+	console.log(sumQty);
+	console.log(rowCnt);
+	 */
+	 
+	var html='';
+	var fullStr ='';
+	var strArry = new Array();
+	var tempTitle = '';
+	var tempInfo = '';
+	
+	 
+	
+	for (var i=0; i<rowCnt; i++){
+		
+		for (var j=0; j<valCell.length; j++){
+			//html	+=	'<td class="tl">'+valCell[j][i]+'</td>';
+			// 급 하드 코딩
+			if(j==0){
+				fullStr = valCell1[i];
+			}
+			if(j==1){
+				fullStr += '#'+valCell2[i];
+			}
+			if(j==2){
+				fullStr += '#'+valCell3[i];
+			}
+		}
+		strArry.push(fullStr);
+		
+	}
+	if(opGb == '10'){
+		$('#optNameDiv > tr').remove();
+		$('#optInfoDiv > tr').remove();
+		$("#optNameDiv").append(objTitleHTML);
+		$("#optInfoDiv").append(objHTML);
+		$('#opt_rad2').attr('checked', 'checked');
+		$('#optFlg').val('Y');
+		$('#optName').val(nmCell);
+		$('#maxDepth').val(combChk);
+		$('#opGbCd').val(opGb);
+		$("#CELL0").val(strArry);	// 옵션값
+		$("#CELL1").val(exchCell);	// 옵션값
+		$("#CELL2").val(qtyCell);	// 옵션값
+		$("#optCd").val(optCell);	// optcd값
+		optUseYn = true;
+		if(valCell.length == 1){
+			$('#optionTable1 #thVal2').remove();$('#optionTable1 #thVal3').remove();
+		}else if(valCell.length == 2){
+			$('#optionTable1 #thVal3').remove();
+		}
+		$('#stockQty').val( numberWithCommas( sumQty )); //수량
+		
+		optNameDiv = objTitleHTML;
+		optInfoDiv    = objHTML;
+		optLength		= rowCnt;
+		optMax = combChk;
+		
+ 
+		 
+		if(combChk == '1'){
+			$('#col1').css('width','60%');
+			$('#col2').css('display','none');
+			$('#col3').css('display','none');
+		}else if(combChk == "2"){
+			$('#col1').css('width','30%');
+			$('#col2').css('width','30%');
+			$('#col3').css('display','none');
+		}else if(combChk == "3"){
+			$('#col1').css('width','20%');
+			$('#col2').css('width','20%');
+			$('#col3').css('display','');
+			$('#col3').css('width','20%');
+		}
+		
+		
+		
+	}else{
+		$('#optExtNameDiv > tr').remove();
+		$('#optExtInfoDiv > tr').remove();
+		$("#optExtNameDiv").append(objTitleHTML);
+		$("#optExtInfoDiv").append(objHTML);
+		$('#opt_rad4').attr('checked', 'checked');
+		$('#optFlg2').val('Y');
+		$('#optName2').val(nmCell);
+		$('#maxDepth2').val(combChk);
+		
+		$('#opGbCd2').val(opGb);
+		$("#CELL3").val(strArry);	// 옵션값
+		$("#CELL4").val(exchCell);	// 옵션값
+		$("#CELL5").val(qtyCell);	// 옵션값
+		$("#optCd2").val(optCell);	// optcd값
+		optExtUseYn = true;
+		if(valCell.length == 1){
+			$('#optionTable2 #thVal2').remove();$('#optionTable2 #thVal3').remove();
+		}else if(valCell.length == 2){
+			$('#optionTable2 #thVal3').remove();
+		}
+		
+		optExtNameDiv = objTitleHTML;
+		optExtInfoDiv    = objHTML;
+		optExtLength		= rowCnt;
+		optExtMax = combChk;
+		
+		if(combChk == '1'){
+			$('#extCol1').css('width','60%');
+			$('#extCol2').css('display','none');
+			$('#extCol3').css('display','none');
+		}else if(combChk == "2"){
+			$('#extCol1').css('width','30%');
+			$('#extCol2').css('width','30%');
+			$('#extCol3').css('display','none');
+		}else if(combChk == "3"){
+			$('#extCol1').css('width','20%');
+			$('#extCol2').css('width','20%');
+			$('#extCol3').css('display','');
+			$('#extCol3').css('width','20%');
+		}
+	}
+	
+	$('#optBuyGbCd').val(opGb);
+	// td 숨김
+	$(".btnDisplay").css("display","none");
+	//$(".inputView").css("border","none");
+	$(".inputView").attr("readonly", true);
+	$(".inputView2").css("border","none");
+	$(".inputView2").attr("readonly", true);
+//	$(".inputView2").css("text-align","center");
+	 
+	
+} // end getOptInfo
+
+
+// 배송비 설정 값 체크 
+function doChkDlvPay(val){
+
+	var dlvPayGbCd = val;
+	var dlvWayCd = $(':radio[name="dlvWayCd"]:checked').val();
+	var prodCode = '${result.prodInfo.PROD_CODE}';
+  
+	var dlvPrice = numberWithCommas('${result.prodInfo.DLV_PRCE}');
+	var addDlvPrice1 = numberWithCommas('${result.prodInfo.ADD_DLV_PRICE_1}');
+	var addDlvPrice2 = numberWithCommas('${result.prodInfo.ADD_DLV_PRICE_2}');
+	
+//alert( " doChkDlvPay - " + dlvPayGbCd + " / dlvPrice ::: " + dlvPrice + " / addDlvPrice1 ::: " + addDlvPrice1);
+//alert( " doChkDlvPay - dlvCdPrice[1] ::: " + dlvCdPrice[1] + " / dlvCdPrice[2] ::: " + dlvCdPrice[2]);
+
+
+	if (dlvPayGbCd == 1){ // 판매자 부담
+		//$("#dlvPrce").attr("readonly",true);
+		
+		if(dlvWayCd == 1){ //제휴택배
+			$("#dlvPrce").attr("readonly",true);
+			$("#addDlvPrice1").attr("readonly",true);
+			$("#addDlvPrice2").attr("readonly",true);
+			
+			$("#dlvPrce").val(0);
+			if(prodCode == null || prodCode == "" ){
+				$("#addDlvPrice1").val(dlvCdPrice[1]);
+				$("#addDlvPrice2").val(dlvCdPrice[2]);	 
+			}else{
+				$("#addDlvPrice1").val(addDlvPrice1);
+				$("#addDlvPrice2").val(addDlvPrice2);
+			}
+			
+			
+		}else{
+			if($(':radio[name="dlvWayCd"]:checked').val() == "1"){
+				$("#dlvPrce").attr("readonly",true);
+				$("#addDlvPrice1").attr("readonly",true);
+				$("#addDlvPrice2").attr("readonly",true);
+			}else{
+				$("#dlvPrce").attr("readonly",true);
+				$("#addDlvPrice1").attr("readonly",false);
+				$("#addDlvPrice2").attr("readonly",false);
+			}
+			
+			$("#dlvPrce").val(0);
+			//제주/도서산간 선택시에만 가격 입력
+			if($("input:checkbox[id='addDlv']").is(":checked")){
+				$("#addDlvPrice1").val(addDlvPrice1);
+				$("#addDlvPrice2").val(addDlvPrice2);
+			}else{
+				$("#addDlvPrice1").val(0);
+				$("#addDlvPrice2").val(0);
+			}
+		}
+
+		$("#dlvStandYn").val("N");
+		$("#dlvStandAmt").val("0");
+		$("#dlvStandView").css("display","none");
+		$("#dlvStandView2").css("display","");
+		
+	}else{ // 구매자 부담 
+		
+		if(prodCode == null || prodCode == "" ||  dlvPrice == "0"){
+			if(dlvWayCd == 1){ //제휴택배
+
+				$("#dlvPrce").attr("readonly",true);
+
+                if(dlvCdPrice[0]) {
+                    $("#dlvPrce").val( numberWithCommas( dlvCdPrice[0] ) );
+                }
+
+				$("#addDlvPrice1").attr("readonly",true);
+				$("#addDlvPrice2").attr("readonly",true);
+				
+				//제주/도서산간 선택시에만 가격 입력
+				if($("input:checkbox[id='addDlv']").is(":checked")){
+                    if(dlvCdPrice[1]) {
+                        $("#addDlvPrice1").val( numberWithCommas( dlvCdPrice[1] ));
+                    }
+                    if(dlvCdPrice[2]) {
+                        $("#addDlvPrice2").val( numberWithCommas( dlvCdPrice[2] ));
+                    }
+				}else{
+					$("#addDlvPrice1").val(0);
+					$("#addDlvPrice2").val(0);
+				}
+			}else{
+				if($("input:checkbox[id='addDlv']").is(":checked")){
+					$("#dlvPrce").attr("readonly",false);
+					$("#dlvPrce").val(0);
+					$("#addDlvPrice1").attr("readonly",false);
+					$("#addDlvPrice1").val(0);
+					$("#addDlvPrice2").attr("readonly",false);
+					$("#addDlvPrice2").val(0);
+				}else{
+					$("#dlvPrce").attr("readonly",false);
+					$("#dlvPrce").val(0);
+					$("#addDlvPrice1").attr("readonly",true);
+					$("#addDlvPrice1").val(0);
+					$("#addDlvPrice2").attr("readonly",true);
+					$("#addDlvPrice2").val(0);
+				}
+				
+			}
+		}else{
+			
+			if(dlvWayCd == 1){ //제휴택배
+				$("#dlvPrce").attr("readonly",true);
+				$("#dlvPrce").val(dlvPrice);
+				$("#addDlvPrice1").attr("readonly",true);
+				$("#addDlvPrice1").val(addDlvPrice1);
+				$("#addDlvPrice2").attr("readonly",true);
+				$("#addDlvPrice2").val(addDlvPrice2);
+			}else{
+				if($("input:checkbox[id='addDlv']").is(":checked")){
+					$("#dlvPrce").attr("readonly",false);
+					$("#addDlvPrice1").attr("readonly",false);
+					$("#addDlvPrice2").attr("readonly",false);
+				}else{
+					$("#dlvPrce").attr("readonly",false);
+					$("#addDlvPrice1").attr("readonly",true);
+					$("#addDlvPrice2").attr("readonly",true);
+				}
+			}
+			
+			 
+		}
+		$("#dlvStandView").css("display","");
+		$("#dlvStandView2").css("display","none");
+		//$("#dlvStandYn").css("display","");
+		//$("#dlvStandAmt").css("display","");
+		//$("#dlvStandAmtP").css("display","");
+		
+	}
+	
+}
+
+/* ======================================================================
+Function : 상품상세옵션 팝업
+========================================================================= */
+function popupPost(opGbCd){
+ 
+	var returnHTML = new Array();
+	 
+	if(opGbCd == "10"){
+ 		var tempName = $("#optNameDiv > tr").clone(true);
+ 		var tempInfo = $("#optInfoDiv  > tr").clone(true);
+ 		
+ 		returnHTML.push(tempName);
+ 		returnHTML.push(tempInfo);
+ 		returnHTML.push(optLength);
+ 		returnHTML.push(optMax);
+ 		returnHTML.push(optNewYn);
+ 	}else{
+ 		var tempName = $("#optExtNameDiv > tr").clone(true);
+ 		var tempInfo = $("#optExtInfoDiv  > tr").clone(true);
+ 		
+ 		returnHTML.push(tempName);
+ 		returnHTML.push(tempInfo);
+ 		returnHTML.push(optExtLength);
+ 		returnHTML.push(optExtMax);
+ 		returnHTML.push(optExtNewYn);
+ 	}
+	
+	return returnHTML;
+
+}
+
+/* ======================================================================
+Function : 제휴 택배사 사용시 가격 셋팅
+========================================================================= */
+function selectDlv(){
+	
+	var dlvWayCd = $(':radio[name="dlvWayCd"]:checked').val();
+	var dlvPayGbCd = $('input[name=dlvPayGbCd]:checked').val();
+	if (dlvWayCd == 1){ // 제휴택배
+		var arrPrice = $('#dlvCmpCd option:selected').attr('dlvInfo');
+		dlvCdPrice = arrPrice.split(",");
+		if(dlvPayGbCd == "2"){
+			$("#dlvPrce").attr("readonly",true);
+			$("#dlvPrce").val(dlvCdPrice[0]);
+			$("#addDlvPrice1").attr("readonly",true);
+			$("#addDlvPrice2").attr("readonly",true);
+			if($("input:checkbox[id='addDlv']").is(":checked")){
+				$("#addDlvPrice1").val(dlvCdPrice[1]);
+				$("#addDlvPrice2").val(dlvCdPrice[2]);	
+			}else{
+				$("#addDlvPrice1").val(0);
+				$("#addDlvPrice2").val(0);
+			}
+			
+		}
+	}
+}
+
+/* ======================================================================
+Function : 배송방식 체크
+========================================================================= */
+function checkDlvType(type){
+  	
+	var selectedDlvCd = '${result.prodInfo.DLV_CMP_CD}';
+	var prodTypeCd = $('input[name=prodTypeCd]:checked').val();
+	var dlvWayCd = '${result.prodInfo.DLV_WAY_CD}';
+	var newDlvWayCd = $(':radio[name="dlvWayCd"]:checked').val();
+	var prodTypeCd2 = $('#prodType2').val();
+	if(type == "1" || type == "2"){
+		$.ajax({
+		    type: 'post'
+		    , async: true
+		    , dataType:"json"
+		    , url: '/admin/code/selectDlvCompList.do'
+		    , data : {"dlvType": type}
+		    , success: function(data) {
+		    	var list = data.dlvList.dlvList;
+		    	//if(dlvWayCd != newDlvWayCd){
+		    		var html = '<option value="" selected="selected">택배사 선택</option>';	
+		    	//}
+		    	 
+				if(list.length > 0){
+					for(var i=0; i<list.length; i++){
+						
+						if(type == "1"){
+							
+							html += '<option value="' +list[i].COM_CD+ '" ';
+							if(dlvWayCd != '' && selectedDlvCd != '' && list[i].COM_CD == selectedDlvCd && dlvWayCd == newDlvWayCd ){
+								html += 'selected="selected"';
+								$('#dlvText').text(list[i].COM_CD_NM);
+								dlvCdPrice = [list[i].DLV_AMT,list[i].DLV_AMT_DOSE,list[i].DLV_AMT_JEJU];
+							}else{
+								if(dlvWayCd != type){
+									$('#dlvText').text('택배사 선택');	
+								}
+							}
+							html += 'dlvInfo="'+list[i].DLV_AMT+','+list[i].DLV_AMT_DOSE+','+list[i].DLV_AMT_JEJU+'">' +list[i].COM_CD_NM+ '</option>';
+						}else{
+							html += '<option value="' +list[i].COM_CD+ '" ';
+							if(dlvWayCd != '' && selectedDlvCd != '' && list[i].COM_CD == selectedDlvCd && dlvWayCd == newDlvWayCd){
+								html += 'selected="selected"';
+								$('#dlvText').text(list[i].COM_CD_NM);
+							}else{
+								if(dlvWayCd != type){
+									$('#dlvText').text('택배사 선택');	
+								}
+							}
+							html += '>'+list[i].COM_CD_NM+'</option>';
+						}
+						
+					}
+					
+					$('#dlvCmpCd').html(html);
+					//$('#dlvCmpCd').val('').attr('selected','selected');
+				 
+					
+				}
+		    } 
+		    , error: function(data, status, err) {
+		      alert('서버와의 통신이 실패했습니다.');
+		    }
+		});
+		
+		$('#p2').show();
+		$('#p3').show();
+		
+		if(prodTypeCd != 3){
+			$('#p4').show();
+		}
+		
+		$('#p5').hide();
+		$('#p6').hide();
+		$('#p7').hide();
+	}else{
+		$('#p2').hide();
+		$('#p3').hide();
+		
+		if(prodTypeCd != 3){
+			$('#p4').hide();
+		}
+		if(type == "4"){
+			if(prodTypeCd == 3 || prodTypeCd2 == 3){
+				$('#p5').hide();
+				$('#p7').show();
+			}else{
+				$('#p5').show();	
+				$('#p7').hide();
+			}
+			$('#p6').hide();
+		}else if(type =="5"){
+			$('#p5').hide();
+			$('#p6').show();
+			$('#p7').hide();
+		}else{
+			$('#p5').hide();
+			$('#p6').hide();
+			$('#p7').hide();
+		}
+	 
+		
+	}
+		
+	 
+		var dlvPayGbCd = $('input[name=dlvPayGbCd]:checked').val();
+		doChkDlvPay(dlvPayGbCd);
+}
+
+
+function addDlvView(){
+  
+	if($("input:checkbox[id='addDlv']").is(":checked")){
+		if($(':radio[name="dlvWayCd"]:checked').val() == "1"){  // 제휴
+			$("#addDlvPrice1").attr("readonly",true);
+			$("#addDlvPrice2").attr("readonly",true);
+			
+			if($(':radio[name="dlvPayGbCd"]:checked').val() == "1"){ // 판매자 부담	
+				if(dlvCdPrice[1]){
+					$("#addDlvPrice1").val( numberWithCommas(dlvCdPrice[1]) );
+                }
+
+				if(dlvCdPrice[2]){
+					$("#addDlvPrice2").val( numberWithCommas(dlvCdPrice[2]) ); 
+				}
+			}else{
+				if(dlvCdPrice[1]){
+					$("#addDlvPrice1").val( numberWithCommas(dlvCdPrice[1]) );
+                }
+				if(dlvCdPrice[2]){
+					$("#addDlvPrice2").val( numberWithCommas(dlvCdPrice[2]) );	
+				}
+			}
+		}else{
+			$("#addDlvPrice1").attr("readonly",false);
+			$("#addDlvPrice2").attr("readonly",false);
+		}
+		
+	}else{
+		$("#addDlvPrice1").attr("readonly",true);
+		$("#addDlvPrice2").attr("readonly",true);
+		if($(':radio[name="dlvWayCd"]:checked').val() == "1"){
+			$("#addDlvPrice1").val(0);
+			$("#addDlvPrice2").val(0);
+		}
+	}
+}
+
+function dlvStandYnChk(){
+ 
+	if($('input[name=dlvStandYn]').prop('checked')){
+		$('#dlvStandAmt').attr("readonly", false);
+	}else{
+		$('#dlvStandAmt').attr("readonly", true);
+	}
+}
+
+//정보고시 체크박스 클릭해서 입력제어
+function checkRead(num){
+	if($('#itemCheck'+num).prop('checked')){
+		$('#infoDtl'+num).attr("readonly", true);
+	}else{
+		$('#infoDtl'+num).attr("readonly", false);
+	}
+}
+
+//렌탄약관 미사용시에 약관내용 작성못함
+function rentalInfoDiv(str){
+	if(str == "N"){
+		$('#agr').attr("readonly",true);
+	}else{
+		$('#agr').attr("readonly",false);
+	}
+}
+
+//이미지 삭제
+function delPreviewImage(value,number){
+	imgObj = $('#img_' + number);
+	pathObj = $('#imgView_' + number);
+	nameObj = $('input[name=imgFileSeq_'+number+']');
+	oldObj 	  = $('input[name=imgFileOld_'+number+']');
+	 
+	if(imgObj.val() == "" && (pathObj.attr("src") == "" || pathObj.attr("src") == "http://static.ssocio.net/admin/images/imgView"+number.substring(1)+".jpg" ) ){
+		alert('삭제가능한 이미지가 없습니다.');
+	}else{http://r.ssocio.net/attachments/2784/%EC%9D%B4%EB%AF%B8%EC%A7%80%20101.png
+		
+		
+		imgObj.val('');
+		//모바일 상품 상세 이미지 없을떄 보여지는 이미지 없음
+		if(number != "20"){
+			pathObj.attr('src',"http://static.ssocio.net/admin/images/imgView"+number.substring(1)+".jpg");	
+		}else{
+			pathObj.attr('src',"");
+		}
+		//nameObj.val('');
+		oldObj.val('');
+	}
+}
+
+function onlyNumDecimalInput(obj){
+ 	  
+	  var pattern = /^(\d{1,2}([.]\d{0,1})?)?$/; // 현재 value값이 소수점 둘째짜리 숫자이면 더이상 입력 불가
+	  if(!pattern.test($(obj).val())){
+		  
+			$(obj).val($(obj).val().slice(0,-1));
+	  }     
+	
+	return false;
+ 
+}
+
+/* ======================================================================
+Function : 할인가 할인율 Set
+Return   : 없음
+========================================================================= */
+function setDiscounted(){
+
+    var nomalPrice =$("#nrmPrce").val().replace(/,/gi, "");
+    //$("#nrmPrce").val(nomalPrice);
+    var sellPrice = $("#sellPrce").val().replace(/,/gi, "");
+    //$("#sellPrce").val(sellPrice);
+     
+    if( (sellPrice != '' && sellPrice != '0') && (nomalPrice != '' && nomalPrice != '0')){
+//       if($(":radio[name='I_TXN_OJ_YN']:checked").val() == "Y"){
+//     	  $("#TAX_VAT").text(numberWithCommas(Math.round(Number(sellPrice - sellPrice/1.1)))); //과세
+//       }else{
+//     	  $("#TAX_VAT").text(0);
+//       }
+    	if(nomalPrice != ''){
+    		var disPrice = nomalPrice-sellPrice;
+//         	$("#Discount").text(numberWithCommas(disPrice));
+          $("#DiscountRate").text("할인율 : "+Math.floor(Number(disPrice/nomalPrice*100))+'%');		
+    	}
+    	
+    }else{
+    	$("#DiscountRate").text("");
+    }
+}
+
+function strChk(obj, chkLen){
+	 
+	var str = $(obj).val();
+	var stringByteLength = cal_length(str);
+	var strLength = str.length;
+			if(stringByteLength > chkLen){ //chkLen 로 cut
+				
+				var str_character;
+		    	var int_char_count = 0
+		    	var returnValue = "";
+		    	
+		    	for (k = 0; k < strLength; k++) {
+		    		str_character = str.charAt(k);
+		        	if (escape(str_character).length > 4)
+		        	    int_char_count += 2;
+		       	 else
+		         	   int_char_count++;
+		        	if ( int_char_count > 50 ) {
+		            break;
+		       		}
+		        returnValue += str_character;
+		    	}
+		    	
+		    	alert("최대 "+chkLen+"Byte까지 입력 가능합니다.");
+		    	$("#prodNm").val(returnValue);
+		    	$("#prodNm").focus();
+		    	
+		    	return true;
+		    	
+			}
+}
+
+//
+// setStockQty
+// 
+function setStockQty(){
+    var stockQty =$("#stockQty").val().replace(/,/gi, "");
+    $("#stockQty").val(stockQty);
+}
+
+//
+// fn_selView
+//
+
+function fn_selView(code) {
+//  alert('fn_selView code ::: ' + code);
+
+    if(code == '2') {
+        $("#dlvStatusView").css('display','block'); 
+    } else {
+        $("#dlvStatusView").css('display','none');
+    }
+}
+
+
+</script>
+
+<!-- content -->
+<div id="content">
+	<!-- top_content -->
+	<div class="top_content">
+		<!-- location -->
+		<div class="location">
+			<ul class="clear">
+				<li class="first-child"><a href="#">Home</a></li>
+				<li><a href="#">상품관리</a></li>
+				<li><a href="#">상품 조회</a></li>
+				<li><a href="#" class="current">상세</a></li>
+			</ul>
+		</div>
+		<!-- //location -->
+	</div>
+	<!-- //top_content -->
+	
+	<!-- 2015-07-21 수정영역 시작 -->
+	<!-- inner -->
+	<form id="prodFrm" name="prodFrm" method="post" enctype="multipart/form-data">
+	<input type="hidden" id="prodCode" name="prodCode" value="${result.prodInfo.PROD_CODE}" />
+	<input type="hidden" id="ctryCd" name="ctryCd" />
+	<input type="hidden" id="optBuyGbCd" name="optBuyGbCd"  value="${result.prodInfo.OPT_BY_GB_CD}" />
+	<input type="hidden" id="optName" name="optName"/>
+	<input type="hidden" id="maxDepth" name="maxDepth"/>
+	<input type="hidden" id="optFlg" name="optFlg" value="N"/>
+	<input type="hidden" id="opGbCd" name="opGbCd" />
+	<input type="hidden" id="optCd" name="optCd"/>
+	<input type="hidden" id="optName2" name="optName2"/>
+	<input type="hidden" id="maxDepth2" name="maxDepth2"/>
+	<input type="hidden" id="optFlg2" name="optFlg2" value="N"/>
+	<input type="hidden" id="opGbCd2" name="opGbCd2"/>
+	<input type="hidden" id="optCd2" name="optCd2"/>
+	<input type="hidden" id="titleHTML" name="titleHTML"/>
+	<input type="hidden" id="infoHTML" name="infoHTML"/>
+	<input type="hidden" id="addDlvUse" name="addDlvUse"/>
+	
+    <c:if test="${ result.prodInfo.PROD_TYPE_CD == 3 }">
+        <input type="hidden" id="stockQty" name="stockQty" value='0'/>
+    </c:if>
+
+	<div class="inner">
+		<!-- tbl -->   
+		<div class="tbl mt10">
+			<table class="upd">
+				<colgroup>
+					<col style="width:15%" />
+					<col style="width:35%" />
+					<col style="width:15%" />
+					<col style="width:35%" />
+				</colgroup>
+				<tbody>
+					<c:if test="${!empty result.prodInfo.PROD_CODE}">
+					<tr>
+						<th scope="row">등록일시</th>
+						<td>${result.prodInfo.REGIST_DT}</td>
+						<th scope="row">수정일시</th>
+						<td>${result.prodInfo.UPDT_DT}</td>
+					</tr>
+					</c:if>
+					<tr>
+						<th scope="row">판매자</th>
+						<td colspan="3">
+							<input type="hidden" id="mberSeq" name="mberSeq" value="${result.prodInfo.MBER_SEQ}"/>
+							<c:if test="${empty result.prodInfo.PROD_CODE}">
+							<input type="radio" id="seller1" name="seller" value="1" onclick="doViewSellerType('1');"/><label for="seller1">SSOCIO</label>
+							<span class="ml10"><input type="radio" id="seller2" name="seller" value="2" onclick="doViewSellerType('2');"/><label for="seller2">개인 판매회원</label></span>
+							<span id="sellerSpan">
+								<a href="#" class="btn_sr ml5" onclick="popup('/admin/prodMgr/selectSellerListPopup.do?mberGb=0','prodFrom','760','760')"><span>개인 판매회원 조회</span></a>
+								<span class="ml10"><input type="text" id="sellerId" name="sellerId" value="${result.prodInfo.MBER_EMAIL}" style="width:180px" readonly="readonly"/></span>
+							</span>
+							<span class="ml10"><input type="radio" id="seller3" name="seller" value="3" onclick="doViewSellerType('3');"/><label for="seller3">사업자 판매회원</label></span>
+							<span id="bizSellerSpan">
+								<a href="#" class="btn_sr ml5" onclick="popup('/admin/prodMgr/selectSellerListPopup.do?mberGb=1','prodFrom','760','760')"><span>사업자 판매회원 조회</span></a>
+								<span class="ml10"><input type="text" id="bizSellerId" name="bizSellerId" value="${result.prodInfo.MBER_EMAIL}" style="width:180px" readonly="readonly"/></span>
+							</span>
+							</c:if>
+							<c:if test="${(not empty result.prodInfo.PROD_CODE && result.prodInfo.MBER_SEQ == 1) || esult.prodInfo.SELLER_CD == '' }">
+							[쏘시오]
+							</c:if>
+							<c:if test="${not empty result.prodInfo.PROD_CODE && result.prodInfo.SELLER_CD == 2}">
+							[개인] ${result.prodInfo.MBER_EMAIL}
+							</c:if>
+							<c:if test="${not empty result.prodInfo.PROD_CODE && result.prodInfo.SELLER_CD == 3}">
+							[사업자] ${result.prodInfo.MBER_EMAIL}
+							</c:if>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row">판매구분</th>
+						<td colspan="3">
+						<c:if test="${empty result.prodInfo.PROD_CODE}">
+						<custom:codeList var="prodTypeCd" groupCode="PROD_TYPE_CD" />
+						<c:forEach var="list" items="${prodTypeCd}" varStatus="status" end="5">
+							<span <c:if test="${ !status.first}">class="ml10"</c:if> >
+								<c:if test="${ status.index != 6 && status.index != 3 }">
+								<input type="radio" id="prodTypeCd${list.key}" name="prodTypeCd" value="${list.key}" onclick="clickProdType('${list.key}');"/>
+								<label for="prodTypeCd${status.count}">${list.value}</label>
+								</c:if>
+							</span>
+		                </c:forEach>
+		                </c:if>
+		                <c:if test="${not empty result.prodInfo.PROD_CODE}">
+		                <input type="hidden" id="prodType2" name="prodTypeCd" value="${result.prodInfo.PROD_TYPE_CD}" />
+		                ${result.prodInfo.PROD_TYPE_NM}
+		                </c:if>
+						</td>
+					</tr>
+					<c:if test="${!empty result.prodInfo.PROD_CODE}">
+					<tr>
+						<th scope="row">상태</th>
+						<td colspan="3">
+						<custom:codeList var="prodStatCd" groupCode="PROD_STAT_CD" />
+						<c:forEach var="list" items="${prodStatCd}" varStatus="status">
+							<span <c:if test="${ !status.first}">class="ml5"</c:if> >
+								<input type="radio" id="prodStatCd${status.count}" name="prodStatCd" value="${list.key}" onClick="fn_selView('${list.key}')" <c:if test="${list.key==result.prodInfo.PROD_STAT_CD || status.first}">checked="checked"</c:if>  />
+								<label for="prodStatCd${status.count}">${list.value}</label>
+							</span>
+						</c:forEach>
+						</td>
+					</tr>
+					</c:if>
+				</tbody>
+			</table>
+		</div>
+		<div id="dlvStatusView" class="tbl" style="display:none;"  >
+			<table class="upd">
+				<colgroup>
+					<col style="width:15%" />
+					<col style="width:35%" />
+					<col style="width:15%" />
+					<col style="width:35%" />
+				</colgroup>
+                <tr>
+                    <th scope="row">판매중지사유</th>
+
+                    <td colspan="3">
+						<span class="select">
+							<span class="sel_txt" style="width: 143px;"></span>
+							<select id="prodStopReasonCd" name="prodStopReasonCd">
+								<option value="">선택</option>
+								<custom:codeList groupCode="PROD_STOP_REASON_CD" var="codeProdStopReasonCd"/>
+								<c:forEach items="${codeProdStopReasonCd}" var="stopList">
+									<option value="${stopList.key}" <c:if test="${result.prodInfo.PROD_STOP_REASON_CD eq stopList.key }">selected="selected"</c:if> >${stopList.value }</option>
+								</c:forEach>
+							</select>
+                            <div style="width:100%; height:6px; border-width:0px; border-style:solid;border-color:blue;"></div>
+						</span>
+
+                        <textarea name="prodStopReason" id="prodStopReason" rows="4" style="width:100%" maxlength="650" ><c:out value="${result.prodInfo.PROD_STOP_REASON}" escapeXml="true"/></textarea>
+                    </td>
+                </tr>
+			</table>
+		</div>
+
+		<!-- tbl -->
+		<div class="tbl mt10">
+			<p class="tbl_tit"><img src="http://static.ssocio.net/admin/images/ico_admin.gif" alt="" />상품정보</p>
+			<table class="upd">
+				<colgroup>
+					<col style="width:8%" />
+					<col style="width:8%" />
+					<col style="width:14%" />
+					<col style="width:14%" />
+					<col style="width:14%" />
+					<col style="width:14%" />
+					<col style="width:14%" />
+					<col style="width:14%" />
+				</colgroup>
+				<tbody>
+					
+					<tr>
+						<th scope="row"  colspan="2">카테고리</th>
+						<td colspan="6">
+							<span class="select" style="width:200px">
+								<span id="regCtryTxt1" class="sel_txt"></span>
+								<select id="regCtryCd1" name="regCtryCd1" onchange="chgCtryCd1Box('reg', true);">
+									<option value="">대분류</option>
+								</select>
+							</span> 
+							<span class="select ml5" style="width:200px">
+								<span id="regCtryTxt2" class="sel_txt"></span>
+								<select id="regCtryCd2" name="regCtryCd2" onchange="chgCtryCd2Box('reg', true);">
+									<option value="">중분류</option>
+								</select>
+							</span>
+							<span class="select ml5" style="width:200px">
+								<span id="regCtryTxt3" class="sel_txt"></span>
+								<select id="regCtryCd3" name="regCtryCd3" onchange="makeBrandBox();">
+									<option value="">소분류</option>
+								</select>
+							</span>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"  colspan="2">브랜드</th>
+						<td colspan="6">
+							<span class="select" style="width:150px;">
+								<span id="brandTxt" class="sel_txt"></span>
+								<select id="brandCd" name="brandCd">
+									<option value="">브랜드 선택</option>
+								</select>
+							</span> 
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"  colspan="2">상품명</th>
+						<td colspan="6">
+							<input type="text" id="prodNm" name="prodNm" value='<c:out value="${result.prodInfo.PROD_NM}" escapeXml="true"/>' maxlength="50" style="width:500px" onkeyup="strChk(this,'50')" onkeydown="strChk(this,'50')"/> <span class="ml5">*상품명은 최대 50Byte까지 입력 가능 합니다.</span>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"  colspan="2">상품코드</th>
+						<td colspan="6">
+							<span class="ml5"> ${!empty result.prodInfo.PROD_CODE ? result.prodInfo.PROD_CODE : "-" } </span>
+						</td>
+					</tr>					
+					<tr  id="sellsharing7">
+						<th scope="row"  colspan="2">상품상태</th>
+						<td colspan="6">
+							<custom:codeList var="nprodGbCd" groupCode="NPROD_GB_CD" />
+							<c:forEach var="list" items="${nprodGbCd}" varStatus="status" end="3">
+								<span <c:if test="${ !status.first}">class="ml10"</c:if> >
+									<input type="radio" id="nprodGbCd${status.count}" name="nprodGbCd" value="${list.key}" <c:if test="${list.key==result.prodInfo.NPROD_GB_CD || status.first}">checked="checked"</c:if> />
+									<label for="nprodGbCd${status.count}">${list.value}</label>
+								</span>
+			                </c:forEach>
+						</td>
+					</tr>
+				<c:if test="${empty result.prodInfo.PROD_CODE || result.prodInfo.PROD_TYPE_CD == 3}">
+					<tr id="nanum1">
+						<th scope="row"  colspan="2">나눔 신청 기간</th>
+						<td colspan="6">
+							현재일 ~ 
+							<input type="text" id="freeShareEndDt" name="freeShareEndDt" value="${result.prodInfo.FREESHARE_END_DT}" readonly="readonly" class="calendar" style="width:82px" />
+						</td>
+					</tr>
+					<tr id="nanum2">
+						<th scope="row"  colspan="2">나눔 거래 성사 기준</th>
+						<td colspan="6">
+							<input type="radio" id="freeShareOkGbCd" name="freeShareOkGbCd" value="1" <c:if test="${'1' == result.prodInfo.FREESHARE_OK_GB_CD || result.prodInfo.FREESHARE_OK_GB_CD == null}">checked="checked"</c:if>/>
+							<label for="freeShareOkGbCd">신청자 중 판매자가 선택한 회원</label>
+						</td>
+					</tr>
+				</c:if>
+				<c:if test="${empty result.prodInfo.PROD_CODE || result.prodInfo.PROD_TYPE_CD == 2}">
+					<!-- 
+					<tr id="sharing1">
+						<th scope="row"  colspan="2">셰어링 기간</th>
+						<td colspan="6">
+							<input type="radio" id="periodY" name="periodYn" value="N" <c:if test="${empty result.prodInfo.SHARING_START_DT}">checked</c:if> /><label for="periodY">설정안함</label>
+							<span class="ml5"><input type="radio" id="periodN" name="periodYn" value="Y" <c:if test="${!empty result.prodInfo.SHARING_START_DT}">checked</c:if> /><label for="periodN">설정</label></span>
+							<span class="ml5">
+								<input type="text" id="sharingStartDt" name="sharingStartDt" value="${result.prodInfo.SHARING_START_DT}" readonly="readonly" class="calendar" style="width:82px" /> ~ 
+								<input type="text" id="sharingEndDt" name="sharingEndDt" value="${result.prodInfo.SHARING_END_DT}" readonly="readonly" class="calendar" style="width:82px" />
+							</span>
+						</td>
+					</tr>
+					 -->
+ 
+					<tr id="sharing3">
+						<th scope="row"  colspan="2">보증금</th>
+						<td colspan="6">
+							<div class="clear">
+								<span class="left"><input type="text" id="deposit" name="deposit" value="${result.prodInfo.DEPOSIT}" onkeyup="numberOnly(this);numberWithCommaObj(this);" onkeydown="numberOnly(this);numberWithCommaObj(this);"  style="width:150px" onblur="calMaxTerm()" maxlength="10"/> 원</span>
+								<span class="left" style="margin-left:20px;width:600px;"><span class="text_b">보증금은 구매자가 셰어링 주문시 결제되는 금액이며 셰어링 이용 후 상품 반납 완료시<br/>구매자는 결제 된 보증금에서 셰어링 이용 금액만큼 차감 되어 환불 됩니다</span></span>
+							</div> 
+						</td>
+					</tr>
+					<tr id="sharing4">
+						<th scope="row"  colspan="2">셰어링 금액 </th>
+						<td colspan="6">1일 <input type="text" id="sharingPrice" name="sharingPrice" value="${result.prodInfo.SHARING_PRICE}" onkeyup="numberOnly(this);numberWithCommaObj(this);" onkeydown="numberOnly(this);numberWithCommaObj(this);"  style="width:150px" onblur="calMaxTerm()" maxlength="10"/> 원 [셰어링 금액의 최소 입력 금액은 100원 입니다.]</td>
+					</tr>
+					<c:if test="${result.prodInfo.SELLER_CD != 2}">
+					<tr id="sharing5">
+						<th scope="row"  colspan="2">셰어링 최소 이용 기간</th>
+						<td colspan="6"><input type="text" id="sharingMinTerm" name="sharingMinTerm" value="${result.prodInfo.SHARING_MIN_TERM}" style="width:150px" onkeyup="numberOnly(this);"/> 일</td>
+					</tr>
+					</c:if>
+					<tr id="sharing6">
+						<th scope="row"  colspan="2">셰어링 최대 이용 기간</th>
+						<td colspan="6"><input type="text" id="sharingMaxTerm" name="sharingMaxTerm" value="${result.prodInfo.SHARING_MAX_TERM}" style="width:150px"  onkeyup="numberOnly(this);"   /> 일</td>
+					</tr>
+				</c:if>
+				<c:if test="${empty result.prodInfo.PROD_CODE || result.prodInfo.PROD_TYPE_CD == 1}">
+					<tr id="sellsharing5">
+						<th scope="row"  colspan="2">정상가</th>
+						<td colspan="6">
+							<input type="text" id="nrmPrce" name="nrmPrce" value="<fmt:formatNumber type="number"  groupingUsed="true" value="${result.prodInfo.NRM_PRCE}" />" onkeyup="numberOnly(this);numberWithCommaObj(this);" onkeydown="numberOnly(this);numberWithCommaObj(this);"  style="width:100px " maxlength="10" onblur="setDiscounted();"/> 원 [판매금액의 최소 입력 금액은 1원 입니다.]
+						</td>
+					</tr>
+					<tr id="sellsharing6">
+						<th scope="row"  colspan="2">판매가</th>
+						<td colspan="6">
+							<input type="text" id="sellPrce" name="sellPrce" value="<fmt:formatNumber type="number"  groupingUsed="true" value="${result.prodInfo.SELL_PRCE}" />" onkeyup="numberOnly(this);numberWithCommaObj(this);"  onkeydown="numberOnly(this);numberWithCommaObj(this);" style="width:100px" maxlength="10" onblur="setDiscounted();"/> 원 [판매금액의 최소 입력 금액은 1원 입니다.]<span class="ml5" id="DiscountRate"> </span>
+						</td>
+					</tr>
+				</c:if>
+					<tr id="sellsharing10">
+						<th scope="row" colspan="2">상품 수수료</th>
+						<td colspan="6">
+							<span><input type="radio" id="opt_charge1" name="taxUseYn" value="1" checked <c:if test="${'0' == result.prodInfo.PROD_TAX}">checked="checked"</c:if>/> <label for="opt_charge1">설정안함</label></span>
+							<span class="ml10"><input type="radio" id="opt_charge2" name="taxUseYn" value="2"  <c:if test="${'0' < result.prodInfo.PROD_TAX}">checked="checked"</c:if>/> <label for="opt_charge2">설정</label></span>
+							<input type="text" id="prodTax" name="prodTax" style="width:60px" value="${result.prodInfo.PROD_TAX}"  onkeyup="onlyNumDecimalInput(this);" maxlength=4 /> %
+						</td>
+					</tr>
+				<c:if test="${empty result.prodInfo.PROD_CODE || result.prodInfo.PROD_TYPE_CD == 1 || result.prodInfo.PROD_TYPE_CD == 2 || result.prodInfo.PROD_TYPE_CD == 5}">
+					<!-- <tr id="sellsharing1"> -->
+					<tr id="qtycnt">
+						<th scope="row" colspan="2" >판매수량</th>
+						<td colspan="6">
+							<input type="text" id="stockQty" name="stockQty" value='<fmt:formatNumber value="${result.prodInfo.STOCK_QTY - result.prodInfo.EXP_QTY}" type="number" />' onkeyup="numberOnly(this);numberWithCommaObj(this);" onblur="setStockQty();" style="width:100px" maxlength="6"/> 개 [최대 99,999개]
+						</td>
+					</tr>
+					<tr id="sellsharing2">
+						<th scope="row" rowspan="4">주문옵션</th>
+						<th scope="row" rowspan="2">부가상품형</th>
+						<td colspan="6">
+							<span><input type="radio" id="opt_rad1" name="opt_rad" value="N" checked <c:if test="${result.prodInfo.OPT_PROD_YN == 'N' }">checked="checked"</c:if> /> <label for="opt_rad1">미사용</label></span>
+							<span class="ml10"><input type="radio" id="opt_rad2" name="opt_rad" value="Y" <c:if test="${result.prodInfo.OPT_PROD_YN == 'Y' }">checked="checked"</c:if> /> <label for="opt_rad2">사용</label></span>
+							<a href="#" class="btn_g2 ml5" onclick="popup('/admin/common/orderOptPopup.do?prod_cd=${result.prodInfo.PROD_CODE}&op_gb_cd=10','주문옵션 설정','1120','760')"><span>주문옵션 설정</span></a>
+						</td>
+					</tr>
+					<tr id="sellsharing3">
+						<td colspan="6">
+							<p class="notice_info">※ 주문옵션 수정은 주문옵션 설정 페이지에서 가능합니다.</p>
+							<table class="infoTbl innerTbl v2" id="optionTable1">
+								<colgroup>
+									<col style="width:10%" />
+									<col style="width:20%" id="col1"/>
+									<col style="width:20%" id="col2"/>
+									<col style="width:20%" id="col3"/>
+									<col style="width:10%" />
+									<col style="width:10%" />
+									<col style="width:10%" />
+								</colgroup>
+								<thead id="optNameDiv">
+									
+								</thead>
+								<tbody id="optInfoDiv">
+									
+								</tbody>
+							</table>
+						</td>
+					</tr>
+					<tr id="sellsharing8">
+						<th scope="row"  rowspan="2">추가구성형  </th>
+						<td colspan="6">
+							<span><input type="radio" id="opt_rad3" name="opt_ext_rad" value="N" checked <c:if test="${result.prodInfo.OPT_PROD_EXT_YN == 'N' }">checked="checked"</c:if> /> <label for="opt_rad3">미사용</label></span>
+							<span class="ml10"><input type="radio" id="opt_rad4" name="opt_ext_rad" value="Y" <c:if test="${result.prodInfo.OPT_PROD_EXT_YN == 'Y' }">checked="checked"</c:if> /> <label for="opt_rad4">사용</label></span>
+							<a href="#" class="btn_g2 ml5" onclick="popup('/admin/common/orderOptPopup.do?prod_cd=${result.prodInfo.PROD_CODE}&op_gb_cd=20','주문옵션 설정','1120','760')"><span>주문옵션 설정</span></a>
+						</td>
+					</tr>
+					<tr id="sellsharing9">
+						<td colspan="6">
+							<p class="notice_info">※ 주문옵션 수정은 주문옵션 설정 페이지에서 가능합니다.</p>
+							<table class="infoTbl innerTbl v2" id="optionTable2">
+								<colgroup>
+									<col style="width:10%" />
+									<col style="width:20%" id="extCol1"/>
+									<col style="width:20%" id="extCol2"/>
+									<col style="width:20%" id="extCol3"/>
+									<col style="width:10%" />
+									<col style="width:10%" />
+									<col style="width:10%" />
+								</colgroup>
+								<thead id="optExtNameDiv">
+									
+								</thead>
+								<tbody id="optExtInfoDiv">
+									
+								</tbody>
+							</table>
+						</td>
+					</tr>
+				</c:if>
+
+					<tr>
+						<th scope="row" colspan="2">검색 키워드</th>
+						<td colspan="6">
+							<input type="text" id="keyword" name="keyword" value="${result.prodInfo.KEYWORD}" style="width:500px" onkeyup="strChk(this,'100')" onkeydown="strChk(this,'100')"/>
+							<span class="text_bl">* 검색 키워드는 , (콤마)로 구분 됩니다.</span>
+						</td>
+					</tr>
+				<c:if test="${empty result.prodInfo.PROD_CODE || result.prodInfo.PROD_TYPE_CD == 1 || result.prodInfo.PROD_TYPE_CD == 2}">	
+					<tr id="sellsharing4">
+						<th scope="row" colspan="2">부가세/면세상품</th>
+						<td colspan="6">
+							<span><input type="radio" id="txnOnY" name="txnOnYn" value="Y"/> <label for="txnOnY">과세상품</label></span>
+							<span class="ml10"><input type="radio" id="txnOnN" name="txnOnYn" value="N"/> <label for="txnOnN">면세상품</label></span>
+						</td>
+					</tr>
+				</c:if>
+				<c:if test="${empty result.prodInfo.PROD_CODE || result.prodInfo.PROD_TYPE_CD == 5}">
+					<tr id="rental1">
+						<th scope="row" colspan="2">렌탈약관</th>
+						<td colspan="6">
+							<span><input type="radio" id="agr_yn" name="agr_yn" value="N" <c:if test="${'N' == result.prodInfo.AGR_YN || '' == result.prodInfo.AGR_YN}">checked="checked"</c:if> checked onclick="rentalInfoDiv('N');"/> <label for="rad_rental1">사용안함</label></span>
+							<span class="ml10"><input type="radio" id="rad_rental2" name="agr_yn" value="Y" <c:if test="${'Y' == result.prodInfo.AGR_YN}">checked="checked"</c:if> onclick="rentalInfoDiv('Y');"/> <label for="rad_rental2">사용</label></span>
+						</td>
+					</tr>
+					<tr id="rental2">
+						<th scope="row" colspan="2">약관내용</th>
+						<td colspan="6">
+							<textarea name="agr" id="agr" rows="10" cols="162" >${result.prodInfo.AGR}</textarea>
+						</td>
+					</tr>
+				</c:if>
+					<tr id="productImg">
+						<th scope="row" colspan="2">메인 이미지</th>
+						<td class="tc active"><a href="javascript:setImg(1);" class="alink">메인 이미지</a><br/><span class="est">[필수]</span></td>
+						<!-- <td class="bl tc"><a href="javascript:setImg(2);" class="alink">메인 이미지컷</a><br/><span class="est">[필수]</span></td> -->
+						<td class="bl tc"><a href="javascript:setImg(2);" class="alink">추가 이미지1</a><br/><span class="est">[필수]</span></td>
+						<td class="bl tc"><a href="javascript:setImg(3);" class="alink">추가 이미지2</a></td>
+						<td class="bl tc"><a href="javascript:setImg(4);" class="alink">추가 이미지3</a></td>
+						<td class="bl tc"><a href="javascript:setImg(5);" class="alink">추가 이미지4</a></td>
+						<td class="bl tc"><a href="javascript:setImg(6);" class="alink">추가 이미지5</a></td>
+						<td></td>
+					</tr>
+					<tr>
+						<td colspan="8">
+							<table class="infoTbl">
+								<colgroup>
+									<col width="*" />
+									<col width="*" />
+								</colgroup>
+								<thead>
+									<tr>
+										<th scope="col" class="file_find">
+											<p>
+												<span class="text_bl">PC 상품 이미지 </span><span>(jpg, png 파일 확장자만 등록 가능 합니다)</span>
+												<span id="imgSpan21">
+													<a href="#" class="btn_w btn_add_img">파일찾기</a>
+													<input type="file" id="img_21" name="img_21" class="file_upload" onchange="preView(this, 'imgView_21');"/>
+												</span>
+												<!-- <span id="imgSpan12">
+													<a href="#" class="btn_w btn_add_img">파일찾기</a>
+													<input type="file" id="img_12" name="img_12" class="file_upload" onchange="preView(this, 'imgView_12');"/>
+												</span> -->
+												<span id="imgSpan22">
+													<a href="#" class="btn_w btn_add_img">파일찾기</a>
+													<input type="file" id="img_22" name="img_22" class="file_upload" onchange="preView(this, 'imgView_22');"/>
+												</span>
+												<span id="imgSpan23">
+													<a href="#" class="btn_w btn_add_img">파일찾기</a>
+													<input type="file" id="img_23" name="img_23" class="file_upload" onchange="preView(this, 'imgView_23');"/>
+												</span>
+												<span id="imgSpan24">
+													<a href="#" class="btn_w btn_add_img">파일찾기</a>
+													<input type="file" id="img_24" name="img_24" class="file_upload" onchange="preView(this, 'imgView_24');"/>
+												</span>
+												<span id="imgSpan25">
+													<a href="#" class="btn_w btn_add_img">파일찾기</a>
+													<input type="file" id="img_25" name="img_25" class="file_upload" onchange="preView(this, 'imgView_25');"/>
+												</span>
+												<span id="imgSpan26">
+													<a href="#" class="btn_w btn_add_img">파일찾기</a>
+													<input type="file" id="img_26" name="img_26" class="file_upload" onchange="preView(this, 'imgView_26');"/>
+												</span>
+											</p>
+										</th>
+										<th scope="col" class="file_find">
+											<p>
+												<span class="text_bl">모바일 상품 이미지 </span><span>(jpg, png 파일 확장자만 등록 가능 합니다)</span>
+												<span id="imgSpan11">
+													<a href="#" class="btn_w btn_add_img">파일찾기</a>
+													<input type="file" id="img_11" name="img_11" class="file_upload" onchange="preView(this, 'imgView_11');"/>
+												</span>
+												<!-- 
+												<span id="imgSpan22">
+													<a href="#" class="btn_w btn_add_img">파일찾기</a>
+													<input type="file" id="img_22" name="img_22" class="file_upload" onchange="preView(this, 'imgView_22');"/>
+												</span>
+												 -->
+												<span id="imgSpan12">
+													<a href="#" class="btn_w btn_add_img">파일찾기</a>
+													<input type="file" id="img_12" name="img_12" class="file_upload" onchange="preView(this, 'imgView_12');"/>
+												</span>
+												<span id="imgSpan13">
+													<a href="#" class="btn_w btn_add_img">파일찾기</a>
+													<input type="file" id="img_13" name="img_13" class="file_upload" onchange="preView(this, 'imgView_13');"/>
+												</span>
+												<span id="imgSpan14">
+													<a href="#" class="btn_w btn_add_img">파일찾기</a>
+													<input type="file" id="img_14" name="img_14" class="file_upload" onchange="preView(this, 'imgView_14');"/>
+												</span>
+												<span id="imgSpan15">
+													<a href="#" class="btn_w btn_add_img">파일찾기</a>
+													<input type="file" id="img_15" name="img_15" class="file_upload" onchange="preView(this, 'imgView_15');"/>
+												</span>
+												<span id="imgSpan16">
+													<a href="#" class="btn_w btn_add_img">파일찾기</a>
+													<input type="file" id="img_16" name="img_16" class="file_upload" onchange="preView(this, 'imgView_16');"/>
+												</span>
+											</p>
+										</th>
+									</tr>
+								</thead>
+								<tbody>
+									<tr class="bg_type">
+										<td><span class="text_bl" id="pcImgTitle">상품리스트 (000x000)</span></td>
+										<td><span class="text_bl" id="mobileImgTitle">상품리스트 (640x520)</span></td>
+									</tr>
+									<tr>
+										<td style="height:200px">
+											<span id="imgViewSpan21">
+												<img src="${result.imgInfo.imgGbCd21.PROD_IMG_URL == null ? 'http://static.ssocio.net/admin/images/imgView1.jpg' : result.imgInfo.imgGbCd21.PROD_IMG_URL}" id="imgView_21" width="200px" height="200px" alt="이미지영역" />
+												<a href="javascript:delPreviewImage('00', '21');" class="btn_img_del"><img src="http://static.ssocio.net/admin/images/btn_b_close.gif" alt="첨부이미지 삭제" /></a>
+											</span>
+											<%-- <span id="imgViewSpan22"><img src="${result.imgInfo.imgGbCd22.PROD_IMG_URL}" id="imgView_22" width="200px" height="200px" alt="이미지영역" /></span> --%>
+											<span id="imgViewSpan22">
+												<img src="${result.imgInfo.imgGbCd22.PROD_IMG_URL == null ? 'http://static.ssocio.net/admin/images/imgView2.jpg' : result.imgInfo.imgGbCd22.PROD_IMG_URL}" id="imgView_22" width="200px" height="200px" alt="이미지영역" />
+												<a href="javascript:delPreviewImage('00', '22');" class="btn_img_del"><img src="http://static.ssocio.net/admin/images/btn_b_close.gif" alt="첨부이미지 삭제" /></a>
+											</span>
+											<span id="imgViewSpan23">
+												<img src="${result.imgInfo.imgGbCd23.PROD_IMG_URL == null ? 'http://static.ssocio.net/admin/images/imgView3.jpg' : result.imgInfo.imgGbCd23.PROD_IMG_URL}" id="imgView_23" width="200px" height="200px" alt="이미지영역" />
+												<a href="javascript:delPreviewImage('00', '23');" class="btn_img_del"><img src="http://static.ssocio.net/admin/images/btn_b_close.gif" alt="첨부이미지 삭제" /></a>
+											</span>
+											<span id="imgViewSpan24">
+												<img src="${result.imgInfo.imgGbCd24.PROD_IMG_URL == null ? 'http://static.ssocio.net/admin/images/imgView4.jpg' : result.imgInfo.imgGbCd24.PROD_IMG_URL}" id="imgView_24" width="200px" height="200px" alt="이미지영역" />
+												<a href="javascript:delPreviewImage('00', '24');" class="btn_img_del"><img src="http://static.ssocio.net/admin/images/btn_b_close.gif" alt="첨부이미지 삭제" /></a>
+											</span>
+											<span id="imgViewSpan25">
+												<img src="${result.imgInfo.imgGbCd25.PROD_IMG_URL == null ? 'http://static.ssocio.net/admin/images/imgView5.jpg' : result.imgInfo.imgGbCd25.PROD_IMG_URL}" id="imgView_25" width="200px" height="200px" alt="이미지영역" />
+												<a href="javascript:delPreviewImage('00', '25');" class="btn_img_del"><img src="http://static.ssocio.net/admin/images/btn_b_close.gif" alt="첨부이미지 삭제" /></a>
+											</span>
+											<span id="imgViewSpan26">
+												<img src="${result.imgInfo.imgGbCd26.PROD_IMG_URL == null ? 'http://static.ssocio.net/admin/images/imgView6.jpg' : result.imgInfo.imgGbCd26.PROD_IMG_URL}" id="imgView_26" width="200px" height="200px" alt="이미지영역" />
+												<a href="javascript:delPreviewImage('00', '26');" class="btn_img_del"><img src="http://static.ssocio.net/admin/images/btn_b_close.gif" alt="첨부이미지 삭제" /></a>
+											</span>
+											
+											<input type="hidden" name="imgFileSeq_21" value="${result.imgInfo.imgGbCd21.FILE_SEQ}" />
+											<input type="hidden" name="imgFileSeq_22" value="${result.imgInfo.imgGbCd22.FILE_SEQ}" />
+											<input type="hidden" name="imgFileSeq_23" value="${result.imgInfo.imgGbCd23.FILE_SEQ}" />
+											<input type="hidden" name="imgFileSeq_24" value="${result.imgInfo.imgGbCd24.FILE_SEQ}" />
+											<input type="hidden" name="imgFileSeq_25" value="${result.imgInfo.imgGbCd25.FILE_SEQ}" />
+											<input type="hidden" name="imgFileSeq_26" value="${result.imgInfo.imgGbCd26.FILE_SEQ}" />
+											
+											<input type="hidden" name="imgFileOld_21" value="${result.imgInfo.imgGbCd21.FILE_SEQ}" />
+											<input type="hidden" name="imgFileOld_22" value="${result.imgInfo.imgGbCd22.FILE_SEQ}" />
+											<input type="hidden" name="imgFileOld_23" value="${result.imgInfo.imgGbCd23.FILE_SEQ}" />
+											<input type="hidden" name="imgFileOld_24" value="${result.imgInfo.imgGbCd24.FILE_SEQ}" />
+											<input type="hidden" name="imgFileOld_25" value="${result.imgInfo.imgGbCd25.FILE_SEQ}" />
+											<input type="hidden" name="imgFileOld_26" value="${result.imgInfo.imgGbCd26.FILE_SEQ}" />
+										</td>
+										<td style="height:200px">
+											<span id="imgViewSpan11">
+												<img src="${result.imgInfo.imgGbCd11.PROD_IMG_URL == null ? 'http://static.ssocio.net/admin/images/imgView1.jpg' : result.imgInfo.imgGbCd11.PROD_IMG_URL}" id="imgView_11" width="200px" height="200px" alt="이미지영역" />
+												<a href="javascript:delPreviewImage('00', '11');" class="btn_img_del"><img src="http://static.ssocio.net/admin/images/btn_b_close.gif" alt="첨부이미지 삭제" /></a>
+											</span>
+											<%-- <span id="imgViewSpan12"><img src="${result.imgInfo.imgGbCd12.PROD_IMG_URL}" id="imgView_12" width="200px" height="200px" alt="이미지영역" /></span> --%>
+											<span id="imgViewSpan12">
+												<img src="${result.imgInfo.imgGbCd12.PROD_IMG_URL == null ? 'http://static.ssocio.net/admin/images/imgView2.jpg' : result.imgInfo.imgGbCd12.PROD_IMG_URL}" id="imgView_12" width="200px" height="200px" alt="이미지영역" />
+												<a href="javascript:delPreviewImage('00', '12');" class="btn_img_del"><img src="http://static.ssocio.net/admin/images/btn_b_close.gif" alt="첨부이미지 삭제" /></a>
+											</span>
+											<span id="imgViewSpan13">
+												<img src="${result.imgInfo.imgGbCd13.PROD_IMG_URL == null ? 'http://static.ssocio.net/admin/images/imgView3.jpg' : result.imgInfo.imgGbCd13.PROD_IMG_URL}" id="imgView_13" width="200px" height="200px" alt="이미지영역" />
+												<a href="javascript:delPreviewImage('00', '13');" class="btn_img_del"><img src="http://static.ssocio.net/admin/images/btn_b_close.gif" alt="첨부이미지 삭제" /></a>
+											</span>
+											<span id="imgViewSpan14">
+												<img src="${result.imgInfo.imgGbCd14.PROD_IMG_URL == null ? 'http://static.ssocio.net/admin/images/imgView4.jpg' : result.imgInfo.imgGbCd14.PROD_IMG_URL}" id="imgView_14" width="200px" height="200px" alt="이미지영역" />
+												<a href="javascript:delPreviewImage('00', '14');" class="btn_img_del"><img src="http://static.ssocio.net/admin/images/btn_b_close.gif" alt="첨부이미지 삭제" /></a>
+											</span>
+											<span id="imgViewSpan15">
+												<img src="${result.imgInfo.imgGbCd15.PROD_IMG_URL == null ? 'http://static.ssocio.net/admin/images/imgView5.jpg' : result.imgInfo.imgGbCd15.PROD_IMG_URL}" id="imgView_15" width="200px" height="200px" alt="이미지영역" />
+												<a href="javascript:delPreviewImage('00', '15');" class="btn_img_del"><img src="http://static.ssocio.net/admin/images/btn_b_close.gif" alt="첨부이미지 삭제" /></a>
+											</span>
+											<span id="imgViewSpan16">
+												<img src="${result.imgInfo.imgGbCd16.PROD_IMG_URL == null ? 'http://static.ssocio.net/admin/images/imgView6.jpg' : result.imgInfo.imgGbCd16.PROD_IMG_URL}" id="imgView_16" width="200px" height="200px" alt="이미지영역" />
+												<a href="javascript:delPreviewImage('00', '16');" class="btn_img_del"><img src="http://static.ssocio.net/admin/images/btn_b_close.gif" alt="첨부이미지 삭제" /></a>
+											</span>
+											
+											<input type="hidden" name="imgFileSeq_11" value="${result.imgInfo.imgGbCd11.FILE_SEQ}" />
+											<input type="hidden" name="imgFileSeq_12" value="${result.imgInfo.imgGbCd12.FILE_SEQ}" />
+											<input type="hidden" name="imgFileSeq_13" value="${result.imgInfo.imgGbCd13.FILE_SEQ}" />
+											<input type="hidden" name="imgFileSeq_14" value="${result.imgInfo.imgGbCd14.FILE_SEQ}" />
+											<input type="hidden" name="imgFileSeq_15" value="${result.imgInfo.imgGbCd15.FILE_SEQ}" />
+											<input type="hidden" name="imgFileSeq_16" value="${result.imgInfo.imgGbCd16.FILE_SEQ}" />
+											
+											<input type="hidden" name="imgFileOld_11" value="${result.imgInfo.imgGbCd11.FILE_SEQ}" />
+											<input type="hidden" name="imgFileOld_12" value="${result.imgInfo.imgGbCd12.FILE_SEQ}" />
+											<input type="hidden" name="imgFileOld_13" value="${result.imgInfo.imgGbCd13.FILE_SEQ}" />
+											<input type="hidden" name="imgFileOld_14" value="${result.imgInfo.imgGbCd14.FILE_SEQ}" />
+											<input type="hidden" name="imgFileOld_15" value="${result.imgInfo.imgGbCd15.FILE_SEQ}" />
+											<input type="hidden" name="imgFileOld_16" value="${result.imgInfo.imgGbCd16.FILE_SEQ}" />
+										</td>
+									</tr>
+								</tbody>
+							</table>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row" rowspan="5" colspan="2">상품 상세</th>
+						<td colspan="4" class="bg_type">
+							<p class="text_bl">PC 상품 상세 설명</p>
+						</td>
+						<th class="bl">사용여부  </th>
+						<td><input type="radio" id="pcDtlUseYn1" name="pcDtlUseYn" checked="checked" value="Y"<c:if test="${result.prodInfo.PC_DTL_USE_YN == 'Y' }">checked="checked"</c:if>/><label for="">Y</label> <input type="radio" class="ml20" id="pcDtlUseYn2" name="pcDtlUseYn"  value="N"<c:if test="${result.prodInfo.PC_DTL_USE_YN == 'N' }">checked="checked"</c:if>/><label for="">N</label></td>
+					</tr>
+					<tr>
+						<td colspan="6">
+							<div class="edit_area">
+								<textarea name="prodPcDtl" id="prodPcDtl" rows="10" cols="162" placeholder="PC용 상품상세 설명을 입력하세요.">${result.prodInfo.PROD_PC_DTL}</textarea>
+							</div>
+						</td>
+					</tr>
+					<tr>
+						<td colspan="4" class="bg_type">
+							<p class="text_bl">모바일 상품 상세 설명 
+								<span class="ml20 text_g">
+								</span>
+							</p>
+						</td>
+						<th class="bl">사용여부 </th>
+						<td><input type="radio" id="mbDtlUseYn1" name="mbDtlUseYn"  value="Y"<c:if test="${result.prodInfo.MB_DTL_USE_YN == 'Y' }">checked="checked"</c:if>/><label for="">Y</label> <input type="radio" class="ml20" id="mbDtlUseYn2" name="mbDtlUseYn"  value="N"<c:if test="${result.prodInfo.MB_DTL_USE_YN == 'N' }">checked="checked"</c:if>/><label for="">N</label></td>
+					</tr>
+					<tr>
+						<td colspan="6">
+							<div class="edit_area">
+								<textarea name="prodMbDtl" id="prodMbDtl" rows="10" cols="162" placeholder="모바일용 상품상세 설명을 입력하세요.">${result.prodInfo.PROD_MB_DTL}</textarea>
+							</div>
+						</td>
+					</tr>
+					<tr>
+						<td colspan="6">
+							<table class="infoTbl">
+								<colgroup>
+									<col width="*" />
+								</colgroup>
+								<thead>
+									<tr>
+										<th scope="col" class="file_find">
+											<p>
+												<span class="text_bl">모바일 상품 상세 이미지 </span><span>(jpg, png 파일 확장자만 등록 가능 합니다)</span>
+												<span id="imgSpan20">
+													<a href="#" class="btn_w btn_add_img">파일찾기</a>
+													<input type="file" id="img_20" name="img_20" class="file_upload" onchange="preView(this, 'imgView_20');"/>
+												</span>
+											</p>
+										</th>
+									</tr>
+								</thead>
+								<tbody>
+									 
+									<tr>   
+										<td style="height:200px">              
+											<span id="imgViewSpan20"><img src="${result.imgInfo.imgGbCd20.PROD_IMG_URL}" id="imgView_20" width="200px" height="200px" alt="이미지영역" /></span>
+											<input type="hidden" name="imgFileSeq_20" value="${result.imgInfo.imgGbCd20.FILE_SEQ}" />
+											<input type="hidden" name="imgFileOld_20" value="${result.imgInfo.imgGbCd20.FILE_SEQ}" />
+											<a href="javascript:delPreviewImage('00', '20');" class="btn_img_del"><img src="http://static.ssocio.net/admin/images/btn_b_close.gif" alt="첨부이미지 삭제" /></a>
+										</td>
+									</tr>
+								</tbody>
+							</table>
+						</td>
+					</tr>
+					<c:if test="${empty result.prodInfo.PROD_CODE || result.prodInfo.PROD_TYPE_CD != 5}">
+					<tr id="p1"> 
+						<th scope="row" colspan="2">배송방식</th>
+						<td colspan="6">
+							<custom:codeList var="dlvWay" groupCode="DLV_WAY_CD" />
+							<c:forEach var="list" items="${dlvWay}" varStatus="status">
+								<span <c:if test="${ !status.first}">class="ml5"</c:if> >
+									<input type="radio" id="dlvWayCd${status.count}" name="dlvWayCd" value="${list.key}" <c:if test="${list.key==result.prodInfo.DLV_WAY_CD || status.first}">checked="checked"</c:if> onclick="checkDlvType('${status.count}');" />
+									<label for="dlvWayCd${status.count}">${list.value}</label>
+								</span>
+			                </c:forEach>
+						</td>
+					</tr>
+					 
+					<tr id="p2">
+						<th scope="row" colspan="2">택배사 선택</th>
+						<td colspan="6">
+							<span class="select" style="width:200px;">
+								<span class="sel_txt" id="dlvText"></span>
+								<select id="dlvCmpCd" name="dlvCmpCd" onchange="selectDlv();">
+									 <option value="">택배사 선택</option>
+								</select>
+							</span>
+						</td>
+					</tr>
+					<tr id="p3">
+						<th scope="row" colspan="2">출하지 선택</th>
+						<td colspan="6">
+							<div id="shipmentList" class="clear ship_place">
+								<a href="javascript:popupShipment();" class="btn_b left">출하지 선택</a>
+								<c:forEach var="list" items="${result.shipmentInfo}" varStatus="status">
+									<p class="s_place"><span>${list.GRP_NM}</span>
+									<input type="hidden" name="grpProdSeq" value="${list.GRP_PROD_SEQ}"/>
+									<a href="javascript:;" class="ml5 shipmentDel"><img src="http://static.ssocio.net/admin/images/btn_b_close.gif"></a></p>
+					            </c:forEach>
+							</div>
+						</td>
+					</tr>
+					<c:if test="${empty result.prodInfo.PROD_CODE || result.prodInfo.PROD_TYPE_CD == 1 || result.prodInfo.PROD_TYPE_CD == 2}">
+					<tr id="p4">
+						<th scope="row" colspan="2">배송비 설정</th>
+						<td colspan="6">
+							<table class="infoTbl innerTbl v2 mt10">
+								<colgroup>
+									<col style="width:5%" />
+									<col style="width:13%" />
+									<col style="width:52%" />
+									<col style="width:30%" />
+								</colgroup>
+								<thead>
+									<tr>
+										<th scope="col"></th>
+										<th scope="col">부담</th>
+										<th scope="col">배송비</th>
+										<th scope="col">묶음배송</th>
+									</tr>
+								</thead>
+								<tbody>
+									<tr>
+										<td>
+											<input type="radio" id="dlvPayGbCd1" name="dlvPayGbCd" value="1" onclick="doChkDlvPay(1)"/>
+										</td>
+										<td>판매자</td>
+										<c:if test="${empty result.prodInfo.DLV_PRCE }">
+										<c:set var="DLV_PRCE" value="0"/>
+										</c:if>
+										<td style="width:60%" class="dlvPayGbView" rowspan="2" >
+
+											<div style="width:100%;float:left;">
+												<div style="width:200px;height:30px;margin-bottom:3px; border-width:0px; border-style:solid;border-color:blue; " >
+        배송비   <input type="text" id="dlvPrce" name="dlvPrce" onkeyup="numberOnly(this);numberWithCommaObj(this)"   style="width:145px;text-align:right;"  value='<fmt:formatNumber type="number" groupingUsed="true" value="${result.prodInfo.DLV_PRCE}" />' /> 원
+                                                </div>                                               
+
+												<div id="dlvStandView" style="height:30px;width:100%;" class="tl">
+													<input type="checkbox" name="dlvStandYn" id="dlvStandYn" value="Y" <c:if test="${'Y' == result.prodInfo.DLV_STAND_YN}">checked</c:if> onclick="dlvStandYnChk()"> 조건부 무료
+													<input type="text" name="dlvStandAmt" id="dlvStandAmt" onkeyup="numberOnly(this);numberWithCommaObj(this)" value="<fmt:formatNumber type="number"  groupingUsed="true" value="${result.prodInfo.DLV_STAND_AMT}" />"  readonly="readonly" style="width:145px" class="ml5">원 이상 구매시 무료
+												</div>	
+												<div id="dlvStandView2" style="height:30px;width:100%;" class="tl">
+													
+												</div>			
+											</div>
+										</td>
+										<td rowspan="2">
+											<span class="select" style="width:200px;">
+												<span class="sel_txt"></span>
+												<select id="bndlDlvYn" name="bndlDlvYn">
+													<option value="Y" <c:if test="${'Y' == result.prodInfo.BNDL_DLV_YN}">selected="selected"</c:if> >묶음배송 가능</option>
+													<option value="N" <c:if test="${'N' == result.prodInfo.BNDL_DLV_YN}">selected="selected"</c:if> >묶음배송 불가</option>
+												</select>
+											</span>
+										</td>
+									</tr>
+									<tr>
+										<td><input type="radio" id="dlvPayGbCd2" name="dlvPayGbCd" value="2" onclick="doChkDlvPay(2)"/></td>
+										<td>구매자</td>
+									
+										<!-- 
+										<td id="dlvStandAmtP">
+											<input type="text" name="dlvStandAmt" id="dlvStandAmt" onkeyup="numberOnly(this);numberWithCommaObj(this)" value="<fmt:formatNumber type="number"  groupingUsed="true" value="${result.prodInfo.DLV_STAND_AMT}" />"  readonly="readonly">원 이상 구매시 무료
+										</td>
+										 -->
+									</tr>
+								</tbody>
+							</table>
+							<p class="mt10"><input type="checkbox" name="addDlv" id="addDlv" onclick="addDlvView();" <c:if test="${result.prodInfo.ADD_DLV_PRICE_1 > 0}">checked="checked"</c:if> ><label for="addDlv" > 제주/도서산간 추가배송비 설정 </label></p>
+							<table class="infoTbl innerTbl v2 mt10">
+								<colgroup>
+									<col style="width:10%" />
+									<col style="width:40%" />
+									<col style="width:10%" />
+									<col style="width:40%" />
+								</colgroup>
+								<tbody>
+									<tr>
+										<th scope="row">제주</th>
+										<td class="tr"><input type="text" id="addDlvPrice1" name="addDlvPrice1" style="width:145px;text-align:right"  value="<fmt:formatNumber type="number"  value="${result.prodInfo.ADD_DLV_PRICE_1}" />"  onkeyup="numberOnly(this);numberWithCommaObj(this);" readonly="readonly" /> 원</td>
+										<th scope="row">도서산간</th>
+
+										<td class="tr"><input type="text" id="addDlvPrice2" name="addDlvPrice2" style="width:145px;text-align:right"  value='<fmt:formatNumber type="number"  value="${result.prodInfo.ADD_DLV_PRICE_2}" />'   onkeyup="numberOnly(this);numberWithCommaObj(this);" readonly="readonly"  /> 원</td> 
+									</tr>
+								</tbody>
+							</table>
+						</td>
+					</tr>
+					<tr id="p5">
+						<th scope="row" colspan="2">배송가능지역</th>
+						<td colspan="3"><input type="text" style="width:400px" id="tradLoc1" value="${result.prodInfo.TRAD_LOC}" maxlength="20"/></td>
+						<th>배송비 설정</th>
+						<td colspan="2">
+                               <span><input type="radio"  name="dlvPayGbCd2" value="1"  checked="checked" <c:if test="${result.prodInfo.DLV_PAY_GB_CD =='1' }">checked="checked" </c:if>  /> <label for="">판매자부담</label></span>
+                               <span class="ml5"><input type="radio" name="dlvPayGbCd2" value="2" <c:if test="${result.prodInfo.DLV_PAY_GB_CD =='2' }">checked="checked" </c:if> /><label for="">구매자부담 [착불]</label></span>
+                        </td>
+					</tr>
+					<tr id="p6">
+						<th scope="row" colspan="2">거래희망지역</th>
+						<td colspan="6"><input type="text" style="width:500px" id="tradLoc2" value="${result.prodInfo.TRAD_LOC}" maxlength="20"/></td>
+					</tr>
+					<tr id="p7">
+						<th scope="row" colspan="2">배송가능지역</th>
+						<td colspan="6"><input type="text" style="width:400px" id="tradLoc3" value="${result.prodInfo.TRAD_LOC}" maxlength="20"/></td>
+					</tr>
+					</c:if>	 
+					</c:if>
+					<tr>
+						<th scope="row" colspan="2">상품정보고시</th>
+						<td colspan="6">
+								<span class="select" style="width:300px">
+									<span class="sel_txt"></span>
+									<select id="prodItemCode" name="prodItemCode" onchange="makeItemDtl();">
+										<option value="">선택</option>
+										<c:forEach var="list" items="${result.itemList}" varStatus="status">
+											<option value="${list.ITEM_CD}" <c:if test="${list.ITEM_CD == result.prodInfo.PROD_ITEM_CODE}">selected="selected"</c:if> >${list.ITEM_NM}</option>
+							            </c:forEach>
+									</select>
+								</span>
+								<span class="ml10"><input type="checkbox" id="showYnAll" onclick="clickShowYnAll();"><label for="showYnAll">모든 상품정보 '상세정보 별도 표기' 선택</label></span>
+							<table class="infoTbl innerTbl v3 mt10">
+								<colgroup>
+									<col style="width:17%" />
+									<col style="width:63%" />
+									<col style="width:20%" />
+								</colgroup>
+								<tbody id="itemDtlList"></tbody>
+							</table>
+							<div class="notifi_notice_area">
+								<p>* 전자상거래법(제13조2항) 및 공정위 상품정보제공고시에 의거하여 판매회원이 스스로의 책임으로 입력하여야 하는 사항입니다.</p>
+								<p>* 여러 상품(주된 상품에 부수되는 상품은 제외)을 추가선택으로 판매하는 경우에는 각 상품에 해당하는 정보를 모두 입력하여야 하며,<br/>
+								   	제공되는 입력란의 공간이 부족한 경우에는 상품설명에 직접 입력하셔도 무방합니다.
+								</p>
+							</div>
+						</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+		<!-- //tbl -->
+		<!-- bot_btn -->
+		<div class="bot_btn tc mt20">
+			<c:if test="${empty result.prodInfo.PROD_CODE}">
+				<a href="javascript: saveProdInfo();" class="btn_r" id="saveBtn">상품등록</a>
+			</c:if>
+			<c:if test="${!empty result.prodInfo.PROD_CODE}">
+				<a href="javascript: saveProdInfo();" class="btn_r" id="updateBtn">상품수정</a>
+			</c:if>
+<%--        <a href="javascript:goMmenu('/admin/prodMgr/selectProdList.do', '3');" class="btn_g2 ml10">취소</a> --%>
+			<a href="javascript: fn_Search()" class="btn_g2 ml10">취소</a>
+
+
+		</div>
+		<!-- //bot_btn -->
+	</div>
+	<input type="hidden" name="CELL0" id="CELL0"/>
+	<input type="hidden" name="CELL1" id="CELL1"/>
+	<input type="hidden" name="CELL2" id="CELL2"/>
+	<input type="hidden" name="CELL3" id="CELL3"/>
+	<input type="hidden" name="CELL4" id="CELL4"/>
+	<input type="hidden" name="CELL5" id="CELL5"/>
+	<input type="hidden" name="tradLoc" id="tradLoc" value="${result.prodInfo.TRAD_LOC}"/>
+	</form>
+	<!-- //inner -->
+	<!-- 2015-07-21 수정영역 끝 -->
+</div>
+<form id="excelFrm" name="excelFrm" method="post">
+	
+</form>
+<form id="popupFrm" name="popupFrm" method="post" >
+	<input type="hidden" id="popupMberSeq" name="mberSeq" value="1" />
+</form>
+<!-- //content -->
+
+
+<!-- 조회 리스트 조건들 -->
+<form id="searchFrm" name="searchFrm" method="post" style="width:0px;height:0px;" >
+	<input type="hidden" id="prodCode"      name="prodCode"           value="${searchParam.prodCode}"/>
+	<input type="hidden" id="searchCtryCd"  name="searchCtryCd"       value="${searchParam.searchCtryCd}" />
+	<input type="hidden" id="prodTypeNm"    name="prodTypeNm"         value="${searchParam.prodTypeNm}"/>
+
+	<input type="hidden" id="prodTypeCd"    name="prodTypeCd"         value=""/>
+	<input type="hidden" id="prodTypeCd"    name="prodTypeCd"         value=""/>
+	<input type="hidden" id="prodTypeCd"    name="prodTypeCd"         value=""/>
+	<input type="hidden" id="prodTypeCd"    name="prodTypeCd"         value=""/>
+
+	<input type="hidden" id="prodStatCd"    name="prodStatCd"         value=""/>
+	<input type="hidden" id="prodStatCd"    name="prodStatCd"         value=""/>
+	<input type="hidden" id="prodStatCd"    name="prodStatCd"         value=""/>
+	<input type="hidden" id="prodStatCd"    name="prodStatCd"         value=""/>
+
+	<input type="hidden" id="regFromDate"   name="regFromDate"        value="${searchParam.regFromDate}"/>
+	<input type="hidden" id="regToDate"     name="regToDate"          value="${searchParam.regToDate}"/>
+	<input type="hidden" id="searchDateGb"  name="searchDateGb"       value="${searchParam.searchDateGb}"/>
+	<input type="hidden" id="searchCtryCd1" name="searchCtryCd1"      value="${searchParam.searchCtryCd1}"/>
+	<input type="hidden" id="searchCtryCd2" name="searchCtryCd2"      value="${searchParam.searchCtryCd2}"/>
+                                                               
+	<input type="hidden" id="searchCtryCd3" name="searchCtryCd3"      value="${searchParam.searchCtryCd3}"/>
+	<input type="hidden" id="pageNo"        name="pageNo"             value="${searchParam.pageNo}"/>
+	<input type="hidden" id="displayCnt"    name="displayCnt"         value="${searchParam.displayCnt}"/>
+	<input type="hidden" id="searchTxtGb"   name="searchTxtGb"        value="${searchParam.searchTxtGb}"/>
+	<input type="hidden" id="searchText"    name="searchText"         value="${searchParam.searchText}"/>
+</form>
+

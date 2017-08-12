@@ -1,0 +1,227 @@
+package com.ssocio.sharing.controller.admin;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.ModelMap;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.servlet.ModelAndView;
+
+import com.ssocio.sharing.cmmn.util.LoggerUtil;
+import com.ssocio.sharing.cmmn.util.StringUtil;
+import com.ssocio.sharing.service.admin.AdminDivideOrderService;
+import com.ssocio.sharing.vo.admin.AdminSession;
+
+/**
+ * <pre>
+ * 주문관리 Controller
+ * 나눔 상품 주문 관리를 위한 Controller
+ * @author S.B.LEE
+ * @version
+ * @since 2015. 7. 16. 오후 2:38:05
+ * @see
+ * @History
+ * Date			|	author	| 변경 내용
+ * 2015. 7. 16.	|	S.B.LEE	|신규
+ * @비고
+ * </pre>
+ */
+@Controller
+public class AdminDivideOrderController extends AdminReferController {
+	// --------------------------------------------------------------------------
+	// # Log 설정
+	// --------------------------------------------------------------------------
+	private static final Logger logger = LoggerFactory.getLogger(AdminDivideOrderController.class);
+	
+	// --------------------------------------------------------------------------
+	// # Service 설정
+	// --------------------------------------------------------------------------
+	@Autowired
+	private AdminDivideOrderService adminDivideOrderService;
+	
+	/**
+	 * <pre>
+	 * 나눔 주문 내역 조회
+	 * 나눔 주문 내역 리스트를 조회합니다.
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 7. 16. 오후 4:53:56
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@RequestMapping("/admin/order/selectListDivOrder.do")
+	public ModelAndView selectListOrder(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("SELECT DIVIDE ORDER LIST START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		ModelAndView mav = new ModelAndView();
+		AdminSession session = (AdminSession) request.getSession().getAttribute("manager");
+		LoggerUtil.writeMap(inParam);
+		
+		try {
+			mav.addObject("list", adminDivideOrderService.selectListDivOrder(inParam));
+			mav.setViewName("admin/order/selectListDivOrder");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return mav;
+	}
+	
+	/**
+	 * <pre>
+	 * 엑셀 다운로드
+	 * 나눔 주문 내역 엑셀 다운로드
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @date 2015. 7. 16. 오후 5:36:06
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@RequestMapping("/admin/order/selectListDivOrdExcelDownload.do")
+	public ModelAndView selectListDivOrdExcelDownload(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) {
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("SELECT DIVIDE ORDER LIST EXCEL DOWNLOAD START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		ModelAndView mav = new ModelAndView();
+		mav.setViewName("excelDownloadView");
+		
+		AdminSession session = (AdminSession) request.getSession().getAttribute("manager");
+		LoggerUtil.writeMap(inParam);
+		ModelMap mm = new ModelMap();
+		
+		try {
+			String today = StringUtil.getCurrentDate();
+			response.setContentType("application/msexcel");
+			response.setHeader("Content-Disposition", "attachment; filename="
+				+ new String(("divide_order_list").getBytes("KSC5601"),"8859_1") +"_"+today+ ".xls");
+			
+			mm = adminDivideOrderService.selectListDivOrdExcel(inParam);
+			System.out.println(mm);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		String SheetName = "주문목록";
+		
+		List<String> excelTitle = new ArrayList<String>();
+		excelTitle.add("주문일시");
+		excelTitle.add("주문번호");
+		excelTitle.add("주문상품");
+		excelTitle.add("판매자ID");
+		excelTitle.add("결제수단");
+		excelTitle.add("주문상태");
+		excelTitle.add("배송비");
+		excelTitle.add("주문금액");
+		
+		List<String> CellName = new ArrayList<String>();
+		CellName.add("ORD_REG_DATE");
+		CellName.add("ORD_CD");
+		CellName.add("PROD_NM");
+		CellName.add("MBER_EMAIL");
+		CellName.add("SELT_GB_CD");
+		CellName.add("PROC_STAT_CD");
+		CellName.add("DLV_PRCE");
+		CellName.add("PROD_ORD_AMT");
+		
+		mav.addObject("SheetName", SheetName);
+		mav.addObject("excelTitle", excelTitle);
+		mav.addObject("CellName", CellName);
+		mav.addObject("excelList", mm.get("selectListDivOrdExcel"));
+		mav.addObject("param", inParam);
+		return mav;
+	}
+	
+	/**
+	 * <pre>
+	 * 나눔 주문 상세 내역 조회
+	 * 
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 7. 17. 오전 11:45:06
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@RequestMapping("/admin/order/selectDivOrderDtl.do")
+	public ModelAndView selectDivOrderDtl(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("SELECT DEVIDE ORDER DETAIL START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		ModelAndView mav = new ModelAndView();
+		AdminSession session = (AdminSession) request.getSession().getAttribute("manager");
+		LoggerUtil.writeMap(inParam);
+		String mSeller = session.getSELLER_CD(); 
+		String mVdrId  = session.getVDR_ID();
+		String mAdmId = session.getADM_ID();
+		try {
+			inParam.put("M_SELLER_CD", mSeller);
+			inParam.put("M_VDR_ID", mVdrId);
+			inParam.put("SS_ADM_ID", mAdmId);
+			mav.addObject("list", adminDivideOrderService.selectDivOrderDtl(inParam));
+			mav.setViewName("admin/order/selectDivOrderDtl");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return mav;
+	}
+	
+	/**
+	 * <pre>
+	 * 주문 상태 변경
+	 * 
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 7. 17. 오전 10:55:07
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@RequestMapping("/admin/order/updateDivOrderStat.do")
+	public ModelAndView updateDivOrderStat(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("SELECT UPDATE DIV ORDER STAT START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		ModelAndView mav = new ModelAndView();
+		String[] ordCode = request.getParameterValues("L_ORD_CD");
+		String[] prodCode = request.getParameterValues("L_PROD_CODE");
+		String[] procStatCd = request.getParameterValues("L_PROC_STAT_CD");
+		List<String> al = new ArrayList<String>();
+		List<String> al2 = new ArrayList<String>();
+		List<String> al3 = new ArrayList<String>();
+		for (int i = 0; i < procStatCd.length; i++) {
+			al.add(ordCode[i].toString());
+			al2.add(prodCode[i].toString());
+			al3.add(procStatCd[i].toString());
+		}
+		inParam.put("ORD_CD", al);
+		inParam.put("PROD_CODE", al2);
+		inParam.put("PROC_STAT_CD", al3);
+		mav.addObject("list", adminDivideOrderService.updateDivOrderDtl(inParam));
+		mav.setViewName("jsonView");
+		return mav;
+	}
+}

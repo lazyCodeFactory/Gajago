@@ -1,0 +1,1695 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/web/common/webJSTL.jsp"%>
+<%@ include file="/WEB-INF/views/web/common/CmmnJuso.jsp"%>
+
+<!-- [2015-11-03] document.doamin='ssocio.net' 추가를 위해 js include -->
+<script type="text/javascript" src="/js/web/webCommon.js"/></script>
+<script type="text/javascript" src="/js/web/ctry/auth.js"/></script>
+<script type="text/javascript" src="/js/web/ctry/product.js"/></script>
+<script type="text/javascript" src="/js/web/ctry/deliverySmart.js"/></script>
+<script type="text/javascript" src="/js/web/shar/selectAppli.js"></script>
+<script type="text/javascript">
+/* ======================================================================
+Function : 결제하기
+Return   : false
+========================================================================= */
+var authObj = null;
+var adultYn = false;
+var delivery = null;
+var isSubmit = true;
+var limit = 50;
+var cur = 0;
+var emailValidCk = false;
+
+$(document).ready(function(){
+	
+	authObj = new Auth(true, '', 'phonedivNew');
+	var age = '${age}';
+	
+// 	console.log("age : " + age);
+// 	console.log("adultYn : "+ adultYn);
+	
+	$("#STIP_CODE").val("${selectSharPordInfo.STIP_CODE}");
+	$("#OPEN_TYPE").val("${selectSharPordInfo.OPEN_TYPE}");
+
+	// 기본 배송지로 이용
+	$("#id_span_basedlvyn").hide();
+	var dlvRegSeq = '${dlv.REG_SEQ}';
+	if(dlvRegSeq.trim() != ''){
+		delivery = new Delivery(new Address(true, '${dlv.REG_SEQ}', '${dlv.DLV_NAME}', '${dlv.RCV_NM}', '${dlv.ZIP_CD}', '${dlv.JUSO_JIBEN}', '${dlv.JUSO_DORO}', '${dlv.JUSO_DTL}', '${dlv.RCV_TEL}', '${dlv.EXT_LAND_CD}'));
+		<c:forEach var="addr" items="${dlv.addrs}" varStatus="status">
+			var addr = new Address(false, '${addr.REG_SEQ}', '${addr.DLV_NAME}', '', '', '', '', '', '', '99');
+			delivery.addrs.push(addr);
+		</c:forEach>
+		$("#id_dlv_info_new").show();
+		$("#id_dlv_info_select").hide();
+		$("#id_tr_dlv").show();
+		
+		// SET 배송지명 입력 불가능
+		$("#P_DLV_NAME").val($("#P_REG_SEQ option:selected").text().replace("(기본배송지)", "")); 
+		$("input[id='P_ADD_DLV_YN']").prop("checked", false);
+		$("#id_tr_dlvname").hide();     
+	} else {
+		$("#id_dlv_info_new").hide();
+		
+		// SET 배송지명 입력 가능
+		$("#id_tr_dlvname").show();
+		$("#P_DLV_NAME").val(""); 
+		$("input[id='P_ADD_DLV_YN']").prop("checked", true);
+		$("input[id='P_UPT_DLV_YN']").prop("checked", false);
+		$("input[id='P_UPT_BASE_DLV_YN']").prop("checked", false);
+		
+		$("#id_dlv_info_select").show();
+		$("#id_dlv_info_select_btn").hide();
+		$("#id_tr_dlv").hide();
+	}
+	
+	//  배송 메모 글자수 체크
+	$('#P_DLV_MSG').keyup(function(e){
+		cur = getBytesLength($(this).val());
+		
+		if( cur <= limit ){
+			$(".byte").text(cur + '/' + limit);
+		} else {
+			alert("글자수가 " + limit + "Byte를 넘었습니다.");
+			$(this).val($(this).val().substring(0, limit));
+		}
+	});
+	
+	//  안심번호 체크 default check
+	$("input[id='P_SECU_NO_USE_YN']").prop("checked", true);
+	var focus = 0, blur = 0;
+	
+	//이메일 유효성 체크
+	$("#email").click(function(){
+		$('#email').unbind('click');
+		$("#email").blur(function(){
+			emailValidChk($("#email").val(), '1');
+		});
+	});
+});
+
+function clearDlv(flag){
+	// 기본 배송지로 이용
+	$("#id_span_basedlvyn").hide(); 
+	if(flag == 0){
+		$("#P_REG_SEQ").find("option").remove();
+		$("#P_RCV_NM").val("");
+		$("#P_ZIP_CD").val("");
+		$("#P_JUSO_JIBEN").val("");
+		$("#P_JUSO_DORO").val("");
+		$("#P_JUSO_DTL").val("");
+		$("#P_RCV_TEL").val("");      
+		
+		$("#id_dlv_info_new").hide();
+		
+		// Enable 새로운배송지 
+		$("#id_tr_dlvname").show();
+		$("input[id='P_ADD_DLV_YN']").prop("checked", true);
+		$("input[id='P_UPT_DLV_YN']").prop("checked", false);
+		$("input[id='P_UPT_BASE_DLV_YN']").prop("checked", false);
+		$("#DLV_NAME").val("");
+		
+		$("#id_dlv_info_select").show();
+		$("#id_tr_dlv").hide();
+		
+// 		displayAmount();
+	} else {
+		if( delivery != null ){
+			delivery.selectInfo(callbackDlv);
+			
+			$("#id_dlv_info_new").show();
+			
+			// Enable 새로운배송지 
+			$("input[id='P_ADD_DLV_YN']").prop("checked", false);
+			$("#id_tr_dlvname").hide();
+			
+			$("#id_dlv_info_select").hide();
+			$("#id_tr_dlv").show();
+		}
+	}
+}
+
+function changeRegSeq(regSeq){
+	if( delivery != null ){
+		delivery.change(regSeq, callbackChange);
+	}
+}
+
+/* ======================================================================
+Function : 우편번호 값 받아오는 함수
+Return   : 없음
+========================================================================= */
+function selAddr(gubun,addr,jiben_addr,road_addr){
+
+	$('.add_layer').hide(); 
+	$('#wrap div#container').show(); 
+// 	$('#id_tile_footer').show();
+	// 1.도로명 , 2.지번
+	 if(gubun == "1"){
+		 $("#zipCd").val(addr); // 우편번호    
+			$("#zipCode").val(addr); // 우편번호    
+			$("#jusoDoro").val(road_addr);
+			$("#juso").val(road_addr);
+			$("#jusoJiben").val(jiben_addr);
+	 }else if(gubun == "2"){
+			$("#zipCd").val(addr); // 우편번호    
+			$("#zipCode").val(addr); // 우편번호    
+			$("#jusoDoro").val(road_addr);
+			$("#juso").val(road_addr);
+			$("#jusoJiben").val(jiben_addr);
+	 }
+	
+	
+	popup_hide();
+}
+function selAddr(gubun, addr, jiben_addr, road_addr){
+	isPostBtn = true;
+	$('.add_layer').hide(); 
+	$('#wrap div#container').show(); 
+// 	$('#id_tile_footer').show();
+	// 1.도로명 , 2.지번
+	 if(gubun == "1"){
+		 $("#zipCd").val(addr); // 우편번호    
+			$("#P_ZIP_CD").val(addr); // 우편번호    
+			$("#P_JUSO_DORO").val(road_addr);
+			$("#P_JUSO_JIBEN").val(jiben_addr);
+	 }else if(gubun == "2"){
+		 $("#zipCd").val(addr); // 우편번호    
+			$("#P_ZIP_CD").val(addr); // 우편번호    
+			$("#P_JUSO_DORO").val(road_addr);
+			$("#P_JUSO_JIBEN").val(jiben_addr);
+	 }
+	
+	
+	
+	popup_hide();
+	
+}
+
+function maxLengthCheck(object){
+	if (object.value.length > object.maxLength){
+		object.value = object.value.slice(0, object.maxLength);
+	}
+}
+
+function callbackDlv(response){
+	// SET 배송지명
+	$("#P_DLV_NAME").val(response.dlvInfo.addrs[0].DLV_NAME); 
+	delivery.callback(false, response);
+}
+
+function callbackChange(response){
+	// SET 기본 배송지 이용 display
+	if("Y" == response.dlv.BASE_DLV_YN){
+		$("#id_span_basedlvyn").hide();
+	}else{
+		$("#id_span_basedlvyn").show();
+	}
+	
+	// SET 배송지명
+	$("#P_DLV_NAME").val(response.dlv.DLV_NAME);  
+	delivery.callback(true, response);
+}
+// 결제하기 버튼 이벤트
+function insertSharingOrder(){
+	popup_hide();
+	var extPrce = '${selectSharPordInfo.EXT_PRCE }';
+	
+	if (parseInt(extPrce) < parseInt($("#OLIVAR_PRCE").val())) {
+		alert("중고폰 매입 금액이 셰어링 금액보다 높을수 없습니다.");
+		return false;
+	}
+	
+// 	//스마트폰 셰어링 신청 정보 유효성 체크
+	if ( $("#COLOR_SEQ").val() == "") {
+		alert("색상을 선택하세요.");
+		return false;
+	}  
+	
+// 	else if ( $("#PAYPLAN_CODE").val() == "" ){
+// 		alert("요금제를 선택하세요.");
+// 		return false;
+// 	}
+	
+// 	//결제 약관 동의 여부 체크
+	if ( $("input:checkbox[name='payAgree']").length > $("input:checkbox[name='payAgree']:checked").length || $("input:checkbox[name='payAgree']:checked").is(":checked") == false ) {
+		alert("약관동의 체크 후 이용가능합니다.");
+		return;
+	}
+	
+// 	//신청자 이메일 입력 체크
+	if ($("#email").val() == "") {
+		alert("신청자 정보 이메일을 입력하세요.");
+		return;
+	}
+	
+// 	//신용카드 선택
+// // 	if($("#selectBank").val() == "") {
+// // 		alert("신용카드를 선택해주세요.");
+// // 		return;
+// // 	}
+	
+	if(!emailValid($("#email").val())){
+		$("#email").focus()
+		return;
+	}
+	
+	if(parseInt($("#AMT_PAY").val()) < 0 ){
+		alert("월 셰어링료는 0원 미만일 수 없습니다.\n중고 스마트폰 매입 신청 수량을 줄여주십시오.");
+		return;
+	}
+	
+	$.ajax({
+		type: 'post'
+		, async: true
+		, url: '/mobile/shar/selectMberInfo.do'
+		, contentType:"application/json; charset=UTF-8"
+		,  dataType:"json"
+		, success: function(data) {
+			if ( data.isLogin ) {
+				if( data.outParam.CNT == 0) {
+					auth = false;
+					if(confirm("상품 구매시 최초 1회에 한하여\n본인인증이 필요합니다.\n본인인증을 하지 않을 경우 상품구매가 불가합니다.")) {
+						$("#pMberInfo").show();
+						$("#btn_auth").show();
+						$("#P_MBER_PHONE").focus();
+						return;
+					} else {
+						alert("결제가 취소되었습니다.");
+						return;
+					}
+				} else {
+					auth = true;
+					$("#P_EMAIL").val($("#email").val());
+					ajaxPayment();
+					return;
+				}
+			} else {
+				alert("로그인 후 이용가능합니다.");
+				return;
+			}
+		}
+		, error: function(data, status, err) {
+		  alert('서버와의 통신이 실패했습니다.');
+		}
+	})
+}
+
+function olivarPopup(){
+	
+// 	document.domain = olivar_domain;
+
+
+
+// [KANG  2015-10-30] 앱의 상단바를 처리해주는 로직이지만, 웹뷰에서 다 해결하기로 했다고 하여 삭제 처리함. 
+// 	if ( '${sessionScope.APP}' == 'SSOCIO' ) {
+// 		document.location.replace("ssocio://web/topBarBlackShow");
+// 	}
+
+
+	// 동일 페이지에서 token을 두번 생성 하지 않도록 하기 위하여
+	// tokenid가 없을 경우만 tokenid 받도록 처리함
+	if ("" != $("#TOKENID").val() && null != $("#TOKENID").val())
+	{
+		
+		authObj.createEl('phonedivNew');
+		authObj.display();
+		
+		var form = document.iframeFrm;
+		form.target = "phonedivNew";
+		form.method = "post";
+		form.action = '<custom:codeTag groupCode="SITE_DEFAULT" code="OLIVAR_URL_DOMAIN"/>/danal/danal0101.do';
+		form.submit();
+
+
+// 		layerPopup2("iframe_phoneCredit", '<custom:codeTag groupCode="SITE_DEFAULT" code="OLIVAR_URL_DOMAIN"/>/danal/danal0101.do', document.iframeFrm);
+	} else {
+		//중고폰 매입 신청
+		$.ajax({
+			type: 'post'
+			, async: true
+			, url: '/mobile/shar/selectTokenId.do'
+			, data: $("#frm").serialize()
+			, success: function(data) {
+				// console.log(data.params.UP_BUY_CODE);
+				$("#TOKENID").val(data.params.UP_BUY_CODE);
+				$("#tokenid").val(data.params.UP_BUY_CODE);
+				//layerPopup("iframe_credit", '<custom:codeTag groupCode="SITE_DEFAULT" code="OLIVAR_URL_DOMAIN"/>/danal/danal0101.do?tokenid='+data.params.UP_BUY_CODE, document.iframeFrm);
+				//GET Param 제어
+				
+				authObj.createEl('phonedivNew');
+				authObj.display();
+				
+				var form = document.iframeFrm;
+				form.target = "phonedivNew";
+				form.method = "post";
+				form.action = '<custom:codeTag groupCode="SITE_DEFAULT" code="OLIVAR_URL_DOMAIN"/>/danal/danal0101.do';
+				form.submit();
+				
+// 				layerPopup2("iframe_phoneCredit", '<custom:codeTag groupCode="SITE_DEFAULT" code="OLIVAR_URL_DOMAIN"/>/danal/danal0101.do', document.iframeFrm);				
+			}
+			, error: function(data, status, err) {
+			  alert('서버와의 통신이 실패했습니다.');
+			}
+		});
+		
+	}
+}
+
+function emailValidChk(email, type){
+	$.ajax({
+		type: 'post'
+		, async: true
+		, url: '<custom:codeTag groupCode="SITE_DEFAULT" code="EMAIL_CHECK_URL"/>/IF_EMAIL/mailvalidcheck.php?email='+email
+		, data: ''
+		, success: function(data) {
+			if ( data == 'valid' ) {
+				console.log("유효한 이메일 ");
+				emailValidCk = true;
+				$("#emailErrMsg").hide();
+			} else {
+				console.log("유효한 하지 않는 이메일 ");
+				emailValidCk = false;
+// 				alert("유효하지 않은 이메일입니다.");
+				$("#emailErrMsg").show();
+				$("#emailErrMsg").find("td").text("유효하지 않은 이메일입니다.");
+				if(type == '2') {
+					$("#email").focus();
+				}
+			}
+			isEmailVal(data);
+		}
+		, error: function(data, status, err) {
+			alert('서버와의 통신이 실패했습니다.');
+		}
+	});
+}
+
+function isEmailVal(data){
+	if ( data == 'valid' ) {
+		emailValidCk = true;
+		$("#emailErrMsg").hide();
+	} else {
+		emailValidCk = false;
+		$("#emailErrMsg").show();
+		$("#emailErrMsg").find("td").text("유효하지 않은 이메일입니다.");
+	}
+}
+
+function appPopup(btnType){
+	var spList = "";
+	var popTitle = "";
+	var gubun = "";
+	var select = "";
+	if(btnType == 'color') {
+		popTitle = "색상";
+		gubun = "1";
+		select = $("#C_POP_SELECT").val();
+		<c:forEach items="${selectSpColor}" var="colorList" varStatus="status">
+			isLast = ${status.last};
+			if (isLast == false) {
+				spList += '{"ORDER_TYPE_NM":"${colorList.COLOR_NAME}", "ORDER_TYPE_CD":"${colorList.COLOR_SEQ}"},';
+			} else {
+				spList += '{"ORDER_TYPE_NM":"${colorList.COLOR_NAME}", "ORDER_TYPE_CD":"${colorList.COLOR_SEQ}"}';
+			}
+		</c:forEach>
+	} else if (btnType == 'openType') {
+		popTitle = "가입유형";
+		gubun = "2";
+		select = $("#O_POP_SELECT").val();
+		var isLast;
+		<custom:codeList groupCode="OPEN_TYPE" var="OPEN_TYPE"/>
+		<c:forEach items="${OPEN_TYPE}" var="list" varStatus="status">
+			isLast = ${status.last};
+			if(isLast == false) {
+				spList += '{"ORDER_TYPE_NM":"'+'${list.value}'+'", "ORDER_TYPE_CD":"'+'${list.key}'+'"},';
+			} else {
+				spList += '{"ORDER_TYPE_NM":"'+'${list.value}'+'", "ORDER_TYPE_CD":"'+'${list.key}'+'"}';
+			}
+		</c:forEach>
+	} else if (btnType == 'stipList') {
+		popTitle = "약정기간";
+		gubun = "3";
+		select = $("#S_POP_SELECT").val();
+		<c:forEach items="${selectSpStip}" var="spList" varStatus="status">
+			isLast = ${status.last};
+			if (isLast == false) {
+				spList += '{"ORDER_TYPE_NM":"'+'${spList.STIP_PERIOD}'+'", "ORDER_TYPE_CD":"'+'${spList.STIP_CODE}'+'"},';
+			} else {
+				spList += '{"ORDER_TYPE_NM":"'+'${spList.STIP_PERIOD}'+'", "ORDER_TYPE_CD":"'+'${spList.STIP_CODE}'+'"}';
+			}
+		</c:forEach>
+	} else if (btnType == 'payplanList') {
+		popTitle = "요금제";
+		gubun = "4";
+		select = $("#P_POP_SELECT").val();
+		<c:forEach items="${selectSpPayplan}" var="payList" varStatus="status">
+			isLast = ${status.last};
+			if (isLast == false) {
+				spList += '{"ORDER_TYPE_NM":"'+'${payList.PAYPLAN_NM}'+'", "ORDER_TYPE_CD":"'+'${payList.PAYPLAN_CODE}'+'"},';
+			} else {
+				spList += '{"ORDER_TYPE_NM":"'+'${payList.PAYPLAN_NM}'+'", "ORDER_TYPE_CD":"'+'${payList.PAYPLAN_CODE}'+'"}';
+			}
+		</c:forEach>
+	}
+	document.location.replace('SSOCIO://web/sharpopup?pop=['+spList+']&selected='+select+'&callback=sharInfo&gubun='+gubun+'&poptitle='+popTitle);
+}
+
+
+
+/* ======================================================================
+Function : 지원금 계산하기
+Return   : false
+========================================================================= */
+function getSupportFund(){
+	
+	if ( $("#PAYPLAN_CODE").val() != "" ) {
+		$.ajax({
+			type: 'post'
+			, async: true
+			, url: '/mobile/shar/selectSpSup.do'
+			, data: $("#frm").serialize()
+			, success: function(data) {
+				
+				// console.log(data);
+				var spSupPrce = "";
+				var makerFund = "";
+				var remainPrce = "";
+				var ext_prce = '${selectSharPordInfo.EXT_PRCE }';			// 출고가
+				var insuPrce = '${selectSharPordInfo.INSURANCE_PRCE }';		// 보험료
+				var servPrce = '${selectSharPordInfo.SERVICIZING_PRCE }';	// 서비사이징
+
+				var sharing_fee_prce = data.selectSpSup.SHARING_FEE_PRCE;	// 셰어링 수수료
+// 				var ssocio_fee_prce = data.selectSpSup.SSOCIO_FEE_PRCE;		// 쏘시오 수수료
+// 				var fee = Number(sharing_fee_prce) + Number(ssocio_fee_prce);		
+				var fee = Number(sharing_fee_prce);		
+				
+				
+				
+				
+				var totPrce = "";
+				var oliPrce = "";
+				var totPriceOfMonth = "";
+				// 추가할인이 있고, 공시지원금이 있고, 판매지원금이 있고
+				if (data.selectSpSup.SALE_DISC_PRCE != "" && data.selectSpSup.SALE_GSUPP_PRCE != "" && data.selectSpSup.SALE_SUPP_PRCE != "") {
+					makerFund = $("#MAKER_FUND").val();
+					remainPrce = $("#REMAIN_PRCE").val();
+					oliPrce = $("#OLIVAR_PRCE").val();
+					spSupPrce = Number(data.selectSpSup.SALE_DISC_PRCE) 					/* 추가할인 */
+								+ Number(data.selectSpSup.SALE_GSUPP_PRCE) 					/* 공시지원금 */
+								+ Number(data.selectSpSup.SALE_SUPP_PRCE)					/* 판매장려금 */
+								+ Number(data.selectSpSup.USE_PHONE_PRE_COMPENSATE_PRCE)	/* 중고폰 선보상 */
+								+ Number(data.selectSpSup.BUY_SALE_PRCE)					/* 구입 할인 */
+								;
+					
+					inSupPrce = Number(insuPrce)	/* 보험료 */
+								+ Number(servPrce)	/* 서비사이징 */
+								;
+					var totSsocioPrce = Number(spSupPrce) - Number(inSupPrce);
+
+					$("#SP_SUP_PRCE").text("(-)"+numberWithCommas(parseInt(totSsocioPrce))+"원");		//쏘시오할인금액
+					$("#FEE").text(numberWithCommas(parseInt(fee))+"원");	// 수수료
+					
+					totPrce = Number(ext_prce) 
+								- Number(totSsocioPrce) /* 지원금 전체 */
+								- Number(oliPrce)		/* 올리바 금액 */ 
+								+ fee;					/* 수수료 */
+					$("#TOT_AMT").val(totPrce);		// 최종금액
+					
+					totPriceOfMonth = Number(totPrce) / Number(data.selectSpSup.STIP_PERIOD);
+					$("#AMT_PAY").val(parseInt(totPriceOfMonth));
+					
+					$("#sharTotPrce").text("월 "+numberWithCommas(parseInt(totPriceOfMonth))+"원");
+				} else {
+					$("#sharTotPrce").text("월 "+numberWithCommas(parseInt(data.selectSpSup.SHARING_PRICE))+"원");
+				}
+// 				$("#TOT_AMT").val()
+			}
+			, error: function(data, status, err) {
+			  alert('서버와의 통신이 실패했습니다.');
+			}
+		});
+	}
+}
+
+// var paymentINfo = function (){
+	
+// 	this.totAmt = 0;
+// 	this.totAmtOfMonth = 0;
+// 	this.
+	
+// }
+
+/* ======================================================================
+Function : 중고폰 매입 완료
+Return   : false
+========================================================================= */
+function buy_complete(){
+	// console.log("buy_complete");
+	popupBack();
+// 	$("#phonediv").hide();popup_hide();
+// 	document.domain = origin_domain;
+	
+// 	$(".full_iframe").show();popup_hide
+// 	();
+// 	if ( '${sessionScope.APP}' == 'SSOCIO' ) {
+// 		document.location.replace("ssocio://web/topBarBlackHide");
+// 	}
+	$.ajax({
+		type: 'post'
+		, async: true
+		, url: '/mobile/shar/selectOlivarInfo.do'
+		, data: $("#frm").serialize()
+		, success: function(data) {
+			
+			if (data.outParam.olivarList.length > 0) {
+				$("#teGet li").remove();
+				$("#reter").addClass("point_p").text("신청완료");
+				
+				var list = data.outParam.olivarList;
+				for(var i =0; i < data.outParam.olivarList.length; i++ ) {
+					if ( i == data.outParam.olivarList.length ) {
+						$("#teGet").append('<li class="line"><span class="fl">'+list[i].MODEL+'</span> <span class="fr">'+numberWithCommas(parseInt(list[i].REAL_PRCE))+'원</span></li>');
+					} else {
+						$("#teGet").append('<li class=""><span class="fl">'+list[i].MODEL+'</span> <span class="fr">'+numberWithCommas(parseInt(list[i].REAL_PRCE))+'원</span></li>');
+					}
+				}
+				$("#teGet").append('<li><strong class="fl">중고 스마트폰 매입 금액</strong> <strong class="fr point_r">'+numberWithCommas(parseInt(list[0].SUM_REAL_PRCE))+'원</strong></li>');
+				$("#olivarPrce").text("(-)"+numberWithCommas(parseInt(list[0].SUM_REAL_PRCE))+"원");
+				$("#OLIVAR_PRCE").val(list[0].SUM_REAL_PRCE);
+			 	$('#olivarDesc').html("<p class='arrow'>신청완료</p>");
+				getSupportFund();
+			}else{
+				$("#teGet li").remove();
+				$('#olivarDesc').html("<p class='arrow'>미신청</p>");
+				$("#teGet").append('<li class="tc">중고 스마트폰 매입신청 정보가 없습니다./li>');
+				$("#olivarPrce").text("0원");
+				$("#OLIVAR_PRCE").val("0");
+				getSupportFund();
+			}
+		}
+		, error: function(data, status, err) {
+		  alert('서버와의 통신이 실패했습니다.');
+		}
+	});
+}
+
+function olivar_close(){
+	popupBack();
+}
+//스크립트 오류로 인한 주석 처리
+// function delBtnBack(){
+// 	<p class="title2"><strong>중고스마트폰 매입신청</strong><a href="#"><img src="../resources/images/btn_delete.png" alt="삭제"></a></p>
+
+
+// }
+/* ======================================================================
+Function : 신청자 정보 팝업 (APP)
+Return   : 
+========================================================================= */
+function sharInfo(seq, text, select, gubun){
+	
+	/*
+		gubun : 팝업 종류
+		text : 텍스트
+		seq : 
+	*/
+	
+	
+	if(gubun == '1') {
+		$("#color_fr").text(text);
+		$("#COLOR_SEQ").val(seq);
+		$("#C_POP_SELECT").val(seq);
+	} else if (gubun == '2') {
+		$("#open_fr").text(text);
+		$("#OPEN_TYPE").val(seq);
+		$("#O_POP_SELECT").val(seq);
+	} else if (gubun == '3') {
+		$("#stip_fr").text(text);
+		$("#STIP_CODE").val(seq);
+		$("#S_POP_SELECT").val(seq);
+		getSupportFund();
+	} else if (gubun == '4') {
+		$("#payplan_fr").text(text);
+		$("#PAYPLAN_CODE").val(seq);
+		$("#P_POP_SELECT").val(seq);
+		getSupportFund();
+	}
+}
+/* ======================================================================
+Function : 스마트폰 셰어링 신청 정보 선택
+Return   : false
+========================================================================= */
+function selectAppli(code){
+	
+	if(code == "c") {
+		$("#color_fr").text($(":radio[name='R_COLOR_SEQ']:checked").nextAll("label").text());
+		$("#COLOR_SEQ").val($(":radio[name='R_COLOR_SEQ']:checked").val())
+		if($("#COLOR_SEQ").val() == "") {
+			alert("색상을 선택하세요.");
+			return false;
+		}
+		popup_hide();
+	} else if (code == "o") {
+		$("#open_fr").text($(":radio[name='R_OPEN_TYPE']:checked").nextAll("label").text());
+		$("#OPEN_TYPE").val($(":radio[name='R_OPEN_TYPE']:checked").val());
+		if($("#OPEN_TYPE").val() == "") {
+			alert("가입유형을 선택하세요.");
+			return false;
+		}
+		popup_hide();
+	} else if (code == "s") {
+		$("#stip_fr").text($(":radio[name='R_STIP_CODE']:checked").nextAll("label").text());
+		$("#STIP_CODE").val($(":radio[name='R_STIP_CODE']:checked").val());
+		if($("#STIP_CODE").val() == "") {
+			alert("약정기간을 선택하세요.");
+			return false;
+		}
+		popup_hide();
+		getSupportFund();
+		
+	} 
+	
+	else if (code == "p") {
+		$("#payplan_fr").text($(":radio[name='R_PAYPLAN_CODE']:checked").nextAll("label").text());
+		$("#PAYPLAN_CODE").val($(":radio[name='R_PAYPLAN_CODE']:checked").val());
+		if($("#PAYPLAN_CODE").val() == "") {
+			alert("요금제을 선택하세요.");
+			return false;
+		}
+		popup_hide();
+		getSupportFund();
+	}
+	
+	$('.mask').remove();  
+	$('.popup').hide();  
+	$("body").removeClass("fixed");
+	$("body").css("overflow","");
+	return;
+	
+}
+
+
+/* ======================================================================
+Function : 본인인증 팝업
+Return   : CI, DI, NAME, IDEN
+========================================================================= */
+/*
+function userAuth(code){
+	//본인인증(다날) 팝업
+	if ($("#P_MBER_PHONE").val() == "") {
+		alert("휴대폰번호를 입력하세요.");
+		$("#P_MBER_PHONE").focus();
+		return;
+	}
+	layerPopup2("iframe_phoneCredit", "/mobile/common/nameConfPopup.do?MBER_PHONE="+$("#P_MBER_PHONE").val(), document.authFrm);
+}
+*/
+
+/* ======================================================================
+Function : 본인인증 결과 return function
+Return   : CI, DI, NAME, IDEN
+========================================================================= */
+function getAuth(ci, di, name, tid, birth, sex) {
+	
+// 	$("#phonediv").hide();popup_hide();
+//	$(".full_iframe").remove();
+
+// 	layerPopup2Close();
+
+	authObj.removeEl();
+	popup_hide();
+	$("body").css("overflow","");
+	
+	
+	$("#CI").val(ci);
+	$("#DI").val(di);
+	$("#SEX").val(sex);
+	$("#TID").val(tid);
+	$("#BIRTH").val(birth);
+	$("#MBER_NM").val(name);
+	$("#MBER_PHONE").val($("#P_MBER_PHONE").val());
+	$("#AUTH_YN").val("Y");
+	
+	$.ajax({
+		type: 'post'
+		, async: true
+		, url: '/mobile/shar/updateMberInfo.do'
+		, data: $("#frm").serialize()
+		, success: function(data) {
+			if (!data.isLogin) {
+				alert("로그인 후 이용 가능합니다.");
+				return;
+			} else {
+				setPayment(birth, sex);
+			}
+		}
+		, error: function(data, status, err) {
+		  alert('서버와의 통신이 실패했습니다.');
+		}
+	});
+}
+
+/* ======================================================================
+Function : 결제하기
+Return   : 
+========================================================================= */
+function setPayment(birth, sex){
+	
+	if ( birth != null && birth != "" ) {
+		
+		if ( age.check14(birth) < 0 ) {
+			alert("만 14세 미만의 회원은 상품구매가 불가능합니다.");
+			return
+		} else {
+			if(confirm("본인인증이 완료 되었습니다.\n선택하신 결제 방법을 통해 상품 주문을 계속 진행 하시겠습니까?")){
+				auth = true;
+				ajaxPayment();
+			} else {
+				alert("결제가 취소되었습니다.");
+			}
+		}
+		
+	} else {
+		alert("본인인증에 실패하였습니다.");
+	}
+}
+
+
+
+/* ======================================================================
+Function : 본인인증 팝업
+Return   : CI, DI, NAME, IDEN
+========================================================================= */
+function userAuth(code){
+	//본인인증(다날) 팝업
+	if ($("#P_MBER_PHONE").val() == "") {
+		alert("휴대폰번호를 입력하세요.");
+		$("#P_MBER_PHONE").focus();
+		return;
+	}
+
+	authObj.createEl('phonedivNew');
+	authObj.display();
+	
+	var form = document.authFrm;
+	form.target = "phonedivNew";
+	form.method = "post";
+	form.action = "/mobile/common/nameConfPopup.do?MBER_PHONE="+$("#MBER_PHONE").val();
+	form.submit();
+}
+
+
+
+
+
+/* ======================================================================
+Function : 신청자 이메일 정보 삭제
+Return   : 
+========================================================================= */
+function delEmail(){
+	$("#email").val("");
+	$("#email_del").hide();
+}
+
+
+var age = "0";
+
+function getAge(){
+	$.ajax({
+		type: 'post'
+		, async: false
+		, url: '/mobile/shar/getAge.do'
+		, success: function(data) {
+			age = data.age;
+			return data.age;
+		}
+		, error: function(data, status, err) {
+		  alert('서버와의 통신이 실패했습니다.');
+		}
+	});
+}
+
+/* ======================================================================
+Function : 결제시작 (빌키값 가져오기)
+Return   : 
+========================================================================= */
+function ajaxPayment(){
+	emailValidChk($("#email").val(), '2');
+	
+	if (!auth) {
+		alert("본인 인증 후 결제가 가능합니다.");
+		return;
+	}
+
+	
+	getAge();
+	adultYn = nvlInt(age, 0) >= 14 ? true : false;
+
+	
+	
+	// 나이 체크
+	if( adultYn == false ){
+		alert("14세 미만의 회원은 상품구매를 할 수 없습니다.");
+		return;
+	}
+	console.log($("#P_JUSO_JIBEN").val());
+	console.log($("#P_JUSO_DORO").val());
+	if( $("input:checkbox[id='P_ADD_DLV_YN']").is(":checked") == true ){
+		if( validate($("#P_DLV_NAME"), "배송지명", 0) == false ){ return;}
+	}
+	
+	if( validate($("#P_RCV_NM"), "수령인", 0) == false ){ return;}
+	if( validate($("#P_ZIP_CD"), "우편번호", 0) == false ){ return;}
+	if('${dlv.JUSO_DORO }' != ''){
+		if( validate($("#P_JUSO_DORO"), "주소", 0) == false ){ return;} 
+	} else {
+		if( validate($("#P_JUSO_JIBEN"), "주소", 0) == false ){ return;}
+	}
+	
+	if( validate($("#P_JUSO_DTL"), "상세 주소", 0) == false ){ return;}
+	if( validate($("#P_RCV_TEL"), "전화번호", 0) == false ){ return;}
+	
+	$("#RCV_NM").val($("#P_RCV_NM").val());
+	$("#ZIP_CD").val($("#P_ZIP_CD").val());
+	$("#JUSO_DORO").val($("#P_JUSO_DORO").val());
+	$("#JUSO_JIBEN").val($("#P_JUSO_JIBEN").val());
+	$("#JUSO_DTL").val($("#P_JUSO_DTL").val());
+	$("#RCV_TEL").val($("#P_RCV_TEL").val());
+	$("#RCV_HP").val($("#P_RCV_TEL").val());
+	$("#RCV_NM").val($("#P_RCV_NM").val());
+	$("#DLV_MSG").val($("#P_DLV_MSG").val());
+	$("#ADD_DLV_YN").val($("input[id='P_ADD_DLV_YN']").is(":checked") == true ? "Y" : "N");
+	$("#UPT_DLV_YN").val($("input[id='P_UPT_DLV_YN']").is(":checked") == true ? "Y" : "N");
+	$("#UPT_BASE_DLV_YN").val($("input[id='P_UPT_BASE_DLV_YN']").is(":checked") == true ? "Y" : "N");
+	$("#ADD_DLV_YN").val($("#P_ADD_DLV_YN").val());
+	$("#REG_SEQ").val($("#P_REG_SEQ").val());
+	$("#SECU_NO_USE_YN").val($("input:checkbox[id='P_SECU_NO_USE_YN']").is(":checked") == true ? "Y" : "N");
+	
+	if ($("#SECU_NO_USE_YN").val() == 'Y') {
+		$.ajax({
+			type: 'post',
+			async: true,
+			url: '/mobile/common/selectAnsimNo.do',
+			dataType : 'json', 
+			data: {"PHONE_NO" : $("#RCV_TEL").val(),
+				"USER_TYPE" : 'user'
+			},
+			success: function(data) {
+				var temp = JSON.parse(data.ansim);
+				$("#SECU_NO").val(temp.ansim_phone);
+			},
+			error: function(data, status, err) {
+			  alert('서버와의 통신이 실패했습니다.');
+			}
+		});
+	}
+	
+	$.ajax({
+		type: 'post'
+		, async: true
+		, url: '/mobile/shar/selectOrdInfoSeq.do'
+		, success: function(data) {
+			if (!data.isLogin) {
+				alert("로그인 후 이용 가능합니다.");
+				return;
+			} else {
+				$("#ORD_CD").val(data.ordCd);
+				$("#ID_ORDER").val(data.ordCd);
+				authObj.createEl('phonedivNew');
+				authObj.display();
+				$("#BUYR_MAIL").val($("#email").val());
+				var form = document.creditForm;
+				form.target = "phonedivNew";
+				form.method = "post";
+				form.action = "/mobile/issuebillkey/Ready.do";
+				form.submit();
+// 				layerPopup2("iframe_phoneCredit", "/mobile/issuebillkey/Ready.do", document.creditForm);
+
+
+			}
+		}
+		, error: function(data, status, err) {
+		  alert('서버와의 통신이 실패했습니다.');
+		}
+	});
+}
+
+/* ======================================================================
+Function : 스마트폰 셰어링 신청서 이메일발송
+Return   : 
+========================================================================= */
+function sendEmail(){
+	$.ajax({
+		type: 'post'
+		, async: true
+		, url: '/mobile/shar/procAppliEmail.do'
+		, data: $("#frm").serialize()
+		, success: function(data) {
+			if(data.retCode == "0000"){
+				//기획자에게 문구 정리 필요
+				alert("주문 완료되었습니다."); 
+				$("#frm").attr("action","/mobile/shar/selectComAppli.do").submit();
+			}else{
+				alert("이메일 전송을 실패하였습니다.");
+			}
+		}
+		, error: function(data, status, err) {
+		  alert('서버와의 통신이 실패했습니다.');
+		}
+	});
+}
+
+/* ======================================================================
+Function : 이메일 삭제버튼 숨김 EVENT
+Return   : 
+========================================================================= */
+function delImg(){
+
+	if ( $("#email").val().length > 0 ) {
+		$("#email_del").show();
+	} else {
+		$("#email_del").hide();
+	}
+}
+
+
+
+var phoneCreditIframe = function (divId){
+	
+	var html_code = '<iframe name="iframe_phoneCredit" src=""></iframe>';
+	var div_id = divId;
+	
+	this.create = function(){
+		$('#'+div_id).append(html_code);
+	}
+	
+	this.remove = function(){
+		$('#'+div_id).html("");
+	}
+};
+
+var divId = 'phonediv';
+var paymentFrame = new phoneCreditIframe(divId);
+
+
+
+/* ======================================================================
+Function : 결제 다음 버튼
+Return   : 
+========================================================================= */
+function popupNext(data){
+	
+	authObj.removeEl();			// [2015-11-05] 공통용으로 업그레이드
+	popup_hide();
+	
+// 	paymentFrame.remove();
+// 	$("#phonediv").show();popup_hide();
+// 	$("#phonediv").remove();
+	
+	if( data.RETURNCODE == '0000'){
+// 		sendEmail();
+		var payment = $("#AMT_PAY").val();	
+		
+		$("#AMOUNT_OF_MONTH").val(payment);
+		$("#ORDERID").val(data.ORDERID);
+		$("#USEREMAIL").val(data.USEREMAIL);
+		$("#USERID").val(data.USERID);
+		$("#BILLKEY").val(data.BILLKEY);
+		$("#USERNAME").val(data.USERNAME);
+		$("#USERPHONE").val(data.USERPHONE);
+		$("#USERIP").val(data.USERIP);
+		$("#PAYTID").val(data.TID);
+		$("#ITEMNAME").val(data.ITEMNAME);
+		$("#CARD_COMP_NM").val(data.CARD_COMP_NM);
+		
+		$("#RETURNCODE").val(data.RETURNCODE);
+		$("#RETURNMSG").val(data.RETURNMSG);
+
+		
+		$.ajax({
+			type: 'post'
+			, async: true
+			, url: '/mobile/shar/insertSharingOrder.do'
+			, data: $("#frm").serialize()
+			, success: function(data) {
+				if (!data.isLogin) {
+					alert("로그인 후 이용 가능합니다.");
+					return;
+				} else {
+					console.log("test" + data.outParam)
+					if(data.outParam > 0){
+						sendEmail();
+						
+					}else{
+						alert("주문을 실패하였습니다."); 
+						return;
+					}
+				
+				}
+			}
+			, error: function(data, status, err) {
+			  alert('서버와의 통신이 실패했습니다.');
+			}
+		});
+	}
+	else{
+		alert(data.RETURNMSG);
+	}
+}
+
+/* ======================================================================
+Function : 결제 이전 버튼
+Return   : 
+========================================================================= */
+function popupBack(msg){
+	
+	//layerPopup2Close();		// [2015-11-05] 사용하지 않음.
+	authObj.removeEl();			// [2015-11-05] 공통용으로 업그레이드
+	popup_hide();
+	$("body").css("overflow","");
+	if( !isNull(msg) ){
+		alert(msg);	
+	}
+}
+
+
+/* ======================================================================
+Function : 공통 팝업
+Return   : 
+========================================================================= */
+function layerPopup(target, url, formNm) {
+	
+	var documentHeight = $(window).height() - 60;
+	var documentWidth = $(window).width();
+// 	// console.log(documentWidth);
+	$(".full_iframe").show().find('iframe').css('height',  documentHeight+'px' );popup_show();
+	$(".full_iframe").css('top', '30px').css('left', '0').css('height', documentHeight+'px').css('width', documentWidth+'px' );
+	
+
+	target.src="about:blank";
+	var form = formNm;
+	form.target = target;
+	form.method = "post";
+	form.action = url;
+	form.submit();
+}
+
+
+
+function layerPopup2Close(){
+	$("#phonediv").remove();
+	$("#wrap").show();
+	popup_hide();
+}
+
+function layerPopup2(target, url, formNm) {
+	
+	var divHtml = '<div  id="phonediv" style="left: 0px; top: 0;  display: block; height: 100%; width: 100%">';
+	$("body").append(divHtml);
+	$("#wrap").hide();
+	
+	paymentFrame.remove();
+	paymentFrame.create();
+	
+	
+	
+	$("#phonediv").show().find('iframe');popup_show();
+	$("#phonediv").css("position","fixed")
+	$("#phonediv").attr("class","full_iframe");
+
+	target.src="about:blank";
+	var form = formNm;
+	form.target = target;
+	form.method = "post";
+	form.action = url;
+	form.submit();
+}
+function fnCheck(){
+	var totalLeng = $("#payAgreeUl input[name=payAgree]").length;
+	var chekLeng = $("#payAgreeUl input[name=payAgree]:checkbox:checked").length;
+	if(totalLeng == chekLeng){
+		document.getElementById("termsAll").checked = true;
+	}else{
+		document.getElementById("termsAll").checked = false;
+	}
+}
+function fnAllChk(){
+	var vChecked = document.getElementById("termsAll").checked;
+	$("#payAgreeUl input[name=payAgree]").each(function(){
+		$(this).prop("checked",vChecked );
+	});
+}
+</script>
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+
+        <div class="roc">
+        	<ul class="inner">
+            	<li><img src="http://static.ssocio.net/pc/img/common/section/roc_home.png" alt="홈"></li>
+                <li>스마트폰 셰어링</li>
+            </ul>
+        </div>
+        
+        <!-- inner -->
+		<div class="inner">
+			<h3 class="tit_cate mb20"><p>스마트폰 셰어링</p></h3>
+
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+	 <!-- container -->
+		<div id="container">
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>
+
+	<h3 class="title-bg">1. 스마트폰 셰어링 주문 상품 정보</h3>
+	<ul class="sha_sel">
+		<li><img src="<custom:codeTag code="DEFAULT_IMG_URL" groupCode="SITE_DEFAULT" />" alt="${selectSharPordInfo.FILE_URL }"></li>
+		<li><img src="<custom:codeTag code="DEFAULT_IMG_URL" groupCode="SITE_DEFAULT" />" alt="${selectSharPordInfo.TEL_FILE_URL }" width="55"></li>
+		<li><strong>${selectSharPordInfo.PROD_NM }</strong></li>
+		<li><span class="round"><custom:codeTag groupCode="SP_SIZE_GB_CD" code="${selectSharPordInfo.SP_SIZE_CD }"/></span></li>
+	</ul>
+
+	<div class="content">
+		<p class="title-bg">2. 스마트폰 셰어링 신청 정보</p>
+		<ul class="list list-bot">
+			<li onclick="olivarPopup();"><span class="fl">중고스마트폰 매입</span> <span class="fr" id="olivarDesc"><p class="arrow">미신청</p></span></li>
+
+<!-- 			<li> -->
+<%-- 				<c:choose> --%>
+<%-- 					<c:when test="${sessionScope.APP == 'SSOCIO' }"> --%>
+<!-- 						<p class="arrow" onclick="appPopup('openType'); return false;"> -->
+<!-- 							<span class="fl"> -->
+<!-- 								<a href="#">가입유형</a> -->
+<!-- 							</span> -->
+<!-- 							<span class="fr" id="open_fr">선택</span> -->
+<!-- 						</p> -->
+<%-- 					</c:when> --%>
+<%-- 					<c:otherwise> --%>
+<!-- 						<p class="arrow" onclick="$('.class').show();popup_show(); return false;"> -->
+<!-- 						<p class="arrow" > -->
+<!-- 							<span class="fl"> -->
+<!-- 								<a href="#">가입유형</a> -->
+<!-- 							</span> -->
+<!-- 							<span class="fr" id="open_fr">선택</span> -->
+<!-- 						</p> -->
+<%-- 					</c:otherwise> --%>
+<%-- 				</c:choose> --%>
+<!-- 			</li> -->
+			<li><span class="fl">가입유형</span><span class="fr" id="open_fr"><custom:codeTag groupCode="OPEN_TYPE" code="${selectSharPordInfo.OPEN_TYPE}"/> </span></li>
+		<c:forEach items="${selectSpStip}" var="stipList" varStatus="status">
+		<c:if test="${stipList.STIP_CODE  == selectSharPordInfo.STIP_CODE}">
+			<c:set var="totStipPeriod" value="${stipList.STIP_PERIOD}"></c:set>
+			<li><span class="fl">약정기간</span><span class="fr" id="open_fr">${stipList.STIP_PERIOD}개월</span></li>
+		</c:if>
+		</c:forEach>
+<!-- 			<li> -->
+<%-- 				<c:choose> --%>
+<%-- 					<c:when test="${sessionScope.APP == 'SSOCIO' }"> --%>
+<!-- 						<p class="arrow" onclick="appPopup('stipList'); return false;"> -->
+<!-- 							<span class="fl"> -->
+<!-- 								<a href="#">약정기간</a> -->
+<!-- 							</span> -->
+<!-- 							<span class="fr" id="stip_fr">선택</span> -->
+<!-- 						</p> -->
+<%-- 					</c:when> --%>
+<%-- 					<c:otherwise> --%>
+<!-- 						<p class="arrow" onclick="$('.pay').show();popup_show(); return false;"> -->
+<!-- 							<span class="fl"> -->
+<!-- 								<a href="#">약정기간</a> -->
+<!-- 							</span> -->
+<!-- 							<span class="fr" id="stip_fr">선택</span> -->
+<!-- 						</p> -->
+<%-- 					</c:otherwise> --%>
+<%-- 				</c:choose> --%>
+<!-- 			</li> -->
+						<li>
+				<c:choose>
+					<c:when test="${sessionScope.APP eq 'SSOCIO' }">
+						<p class="arrow" onclick="appPopup('color'); return false;">
+							<span class="fl">
+								<a href="#">색상</a>
+							</span>
+							<span class="fr" id="color_fr">선택</span>
+						</p>
+					</c:when>
+					<c:otherwise>
+						<p class="arrow" onclick="$('#color').show();popup_show(); return false;">
+							<span class="fl">
+								<a href="#">색상</a>
+							</span>
+							<span class="fr" id="color_fr">선택</span>
+						</p>
+					</c:otherwise>
+				</c:choose>
+			</li>
+			<li>
+				<c:choose>
+					<c:when test="${sessionScope.APP == 'SSOCIO' }">
+						<p class="arrow" onclick="appPopup('payplanList'); return false;">
+							<span class="fl">
+								<a href="#">요금제</a>
+							</span>
+							<span class="fr" id="payplan_fr">선택</span>
+						</p>
+					</c:when>
+					<c:otherwise>
+						<p class="arrow" onclick="$('.make').show();popup_show(); return false;">
+							<span class="fl">
+								<a href="#">요금제</a>
+							</span>
+							<span class="fr" id="payplan_fr">선택</span>
+						</p>
+					</c:otherwise>
+				</c:choose>
+			</li>
+		</ul>
+		
+		<c:if test="${selectOlivarYn.COM_CD_NM eq 'Y' }">
+			<p class="title-bg">3. 중고 스마트폰 매입 정보</p>
+			<ol class="list type2 lineb" id="teGet">
+				<li class="tc">중고 스마트폰 매입신청 정보가 없습니다.</li>
+			</ol>
+		</c:if>
+
+		<p class="title-bg linet">4. 스마트폰 셰어링 요금 정보</p>
+		<ol class="list type2">
+<%-- 			<li><span class="fl">출고가</span> <span class="fr"><fmt:formatNumber value="${selectSharPordInfo.EXT_PRCE }" pattern="#,###"/>원</span></li> --%>
+<!-- 			<li><span class="fl">지원금</span> <span class="fr" id="SP_SUP_PRCE">0원</span></li> -->
+<%-- 			<li><span class="fl">보험료</span> <span class="fr"><fmt:formatNumber value="${selectSharPordInfo.INSURANCE_PRCE }" pattern="#,###"/>원</span></li> --%>
+<%-- 			<li><span class="fl">서비사이징</span> <span class="fr"><fmt:formatNumber value="${selectSharPordInfo.SERVICIZING_PRCE }" pattern="#,###"/>원</span></li> --%>
+<!-- 			<li><span class="fl">중고 스마트폰 매입 할인</span> <span class="fr" id="olivarPrce">0원</span></li> -->
+<!-- 			<li><span class="fl">수수료</span> <span class="fr" id="FEE">0원</span></li> -->
+			
+			<li><span class="fl">스마트폰 출고가격</span> <span class="fr"><fmt:formatNumber value="${selectSharPordInfo.EXT_PRCE }" pattern="#,###"/>원</span></li>
+			<li><span class="fl">쏘시오 할인</span> <span class="fr" id="SP_SUP_PRCE">(-) <fmt:formatNumber value="${selectSharPordInfo.INSURANCE_PRCE + selectSharPordInfo.SERVICIZING_PRCE }" pattern="#,###"/>원</span></li>
+			<li><span class="fl">중고 스마트폰 매입 할인</span> <span class="fr" id="olivarPrce">0원</span></li>
+		</ol>
+		<div class="info-box lineb">
+			<p class="title tl">
+				<strong>스마트폰 셰어링 요금</strong>
+				<c:set value="${selectSharPordInfo.EXT_PRCE - (selectSharPordInfo.INSURANCE_PRCE + selectSharPordInfo.SERVICIZING_PRCE) }" var="TOT_AMT" />
+				<strong class="fr point_r" id="sharTotPrce">월 <fmt:formatNumber value="${TOT_AMT / totStipPeriod}" pattern="#,###"/>원</strong>
+			</p>
+			<p class="tl"><strong class="color_7">※ 스마트폰 셰어링 위약금 안내</strong></p>
+			<p class="tl"><span>스마트폰 셰어링 신청 후 중도 해지시 셰어링 이용기간에 따라 위약금이 발생 될 수 있으며, 스마트폰 셰어링 위약금은 이동통신사 위약금과 별도 청구 됩니다.</span></p>
+		</div>
+		
+		<p class="title-bg linet">5. 신청자 정보</p>
+		<div class="info-box no-boder">
+			<table class="tbl-data">
+				<colgroup>
+					<col width="100px">
+					<col width="*">
+				</colgroup>
+				<tbody>
+					<tr>
+						<td>이메일</td>
+						<td class="pd0">
+							<div class="input_text">
+							<c:choose>
+							<c:when test="${sessionScope.user.SSO_GB_CD eq 'FBO' ||  sessionScope.user.SSO_GB_CD eq 'KKO'}">
+								<input type="email" name="email" id="email" onkeyup="delImg();" placeholder="이메일 주소 입력">
+							</c:when>
+							<c:otherwise>
+								<input type="email" name="email" id="email" onkeyup="delImg();" value="${params.ORD_EMAIL }" placeholder="이메일 주소 입력">
+							</c:otherwise>							 
+							</c:choose>
+								<a href="javascript:delEmail()" id="email_del"><img src="http://static.ssocio.net/web/images/ico_del.png" alt="삭제"></a>
+							</div>
+						</td>
+					</tr>
+					<tr id="emailErrMsg" style="display:none; color: red;"><td colspan="2"></td></tr>
+					<tr id="pMberInfo" style="display:none;">
+						<td>휴대폰번호</td>
+						<td class="pd0">
+							<div class="input_text">
+								<input type="text" name="P_MBER_PHONE" id="P_MBER_PHONE" placeholder="휴대폰번호입력">
+							</div>
+						</td>
+					</tr>
+				</tbody>
+			</table>
+			<p class="tl mt10">
+				<span>* 회원님의 이메일로 스마트폰 셰어링 가입 안내 신청서가 전달됩니다.<br>* 실제
+					사용하는 이메일을 입력해 주세요.<br>* 입력하신 이메일 주소는 스마트폰 셰어링 가입 안내 신청서 수신
+					용도로만 사용 됩니다.
+				</span>
+			</p>
+		</div>
+		<div class="btn_enter" id="btn_auth" style="display:none"><a href="javascript:userAuth('${sessionScope.APP}');" class="btn_r">본인인증</a></div>
+		
+		<!-- 20151217 -->
+		<p class="title-bg linet" id="id_dlv_info_new">6. 배송지 정보 <a href="javascript:clearDlv(0);" class="btn_edit fr">새로입력</a></p>
+		<p class="title-bg linet" id="id_dlv_info_select">6. 배송지 정보 <a href="javascript:clearDlv(1);" class="btn_edit fr" id="id_dlv_info_select_btn">배송지 선택</a></p>
+		<div class="info-box no-boder">
+			<table class="tbl-data">
+				<colgroup>
+					<col width="100px">
+					<col width="*">
+				</colgroup>
+				<tbody>
+					<tr id="id_tr_dlv">
+						<th>배송지 선택</th>
+						<td class="pd5">
+							<select name="P_REG_SEQ" id="REG_SEQ" onchange="javascript:changeRegSeq(this.value);">
+								<c:forEach var="addr" items="${dlv.addrs }" varStatus="status">
+									<option value="${addr.REGS_SEQ }" <c:if test="${dlv.REGS_SEQ == addr.REGS_SEQ }">selected</c:if>><c:if test="${status.index == 0 }">(기본배송지)</c:if>${addr.DLV_NAME }</option>
+								</c:forEach>
+							</select>
+							<p class="mt5">
+								<span>
+									<input type="checkbox" name="P_UPT_DLV_YN" id="P_UPT_DLV_YN" value="Y">
+									<label for="P_UPT_DLV_YN"><span>선택된 배송지 정보 수정</span></label>
+								</span>
+							</p>
+							<p class="mt5">
+								<span id="id_span_basedlvyn">
+									<input type="checkbox" name="P_UPT_BASE_DLV_YN" id="P_UPT_BASE_DLV_YN" value="Y">
+									<label for="P_UPT_BASE_DLV_YN"><span>기본 배송지로 이용</span></label>
+								</span>
+							</p>
+						</td>
+					</tr>
+					<tr id="id_tr_dlvname">
+						<th>배송지명</th>
+						<td class="pd5">
+							<input type="text" name="P_DLV_NAME" id="P_DLV_NAME" maxlength="20" value="">
+							<p class="mt5">
+								<input type="checkbox" name="P_ADD_DLV_YN" id="P_ADD_DLV_YN" value="N">
+								<label for="P_ADD_DLV_YN"><span>새로운 배송지로 추가</span></label>
+							</p>
+						</td>
+					</tr>
+					<tr>
+						<th>수령인</th>
+						<td class="pd5"><input type="text" name="P_RCV_NM" id="P_RCV_NM" maxlength="20" value="${dlv.RCV_NM }"></td>
+					</tr>
+					<tr>
+						<th class="stop">배송지</th>
+						<td class="pd5">
+							<ul class="add">
+								<li><input type="text" name="P_ZIP_CD" id="P_ZIP_CD" value="${dlv.ZIP_CD }" class="fl" readonly> <a href="javascript:postShow();" class="btn_b fr" id="id_a_zipcd">우편번호</a></li>
+								<li>
+									<input type="hidden" name="P_JUSO_JIBEN" id="P_JUSO_JIBEN" value="${dlv.JUSO_JIBEN }" readonly>
+									<input type="text" name="P_JUSO_DORO" id="P_JUSO_DORO" value="${dlv.JUSO_DORO }" readonly>
+								</li>
+								<li>
+									<input type="text" name="P_JUSO_DTL" id="P_JUSO_DTL" value="${dlv.JUSO_DTL }" placeholder="상세 주소 입력">
+								</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<th>연락처</th>
+						<td class="pd5"><input type="number" name="P_RCV_TEL" id="P_RCV_TEL" value="${dlv.RCV_TEL }" onkeydown="this.value=this.value.replace(/[^0-9]/g,'')" onkeyup="this.value=this.value.replace(/[^0-9]/g,'')" onblur="this.value=this.value.replace(/[^0-9]/g,'')" max="999999999999" maxlength="12" oninput="maxLengthCheck(this)"><p class="mt5"><input type="checkbox" name="P_SECU_NO_USE_YN" id="P_SECU_NO_USE_YN" value="Y"> <label for="P_SECU_NO_USE_YN"><span>안심번호 이용</span></label></p></td>
+					</tr>
+					<tr>
+						<th class="vtop">배송메모</th>
+						<td class="pd5">
+							<p class="text_box">
+								<textarea name="P_DLV_MSG" id="P_DLV_MSG"></textarea>
+								<span class="byte">0/50</span>
+							</p>
+						</td>
+					</tr>
+				</tbody>
+			</table>
+		
+		</div>
+		<p class="title-bg linet">7. 결제 방법 선택</p>
+		<div class="info-box">
+			<p class="mb0">
+				<strong class="point_p">스마트폰 셰어링은 신용카드 결제만 가능 합니다.</strong>
+			</p>
+<!-- 			<table class="tbl-data"> -->
+<!-- 				<colgroup> -->
+<!-- 					<col width="100px"> -->
+<!-- 					<col width="*"> -->
+<!-- 				</colgroup> -->
+<!-- 				<tbody> -->
+<!-- 					<tr class="line"> -->
+<!-- 						<td>신용카드 선택</td> -->
+<!-- 						<td> -->
+<!-- 							<select id="selectBank" name="selectBank"> -->
+<!-- 								<option value="">선택</option> -->
+<%-- 								<custom:codeList groupCode="BANK_GB_CD" var="bList"/> --%>
+<%-- 								<c:forEach items="${bList }" var="bankList" varStatus="status"> --%>
+<%-- 									<option value="${bankList.key }">${bankList.value }</option> --%>
+<%-- 								</c:forEach> --%>
+<!-- 							</select> -->
+<!-- 						</td> -->
+<!-- 					</tr> -->
+<!-- 				</tbody> -->
+<!-- 			</table> -->
+<!-- 			<p class="tl mt10">현대M포인트 5% 청구할인 (구매건당 최대 5천원)</p> -->
+		</div>
+		<div class="faq-list">
+			<ul id="payAgreeUl">
+				<li class="article">
+					<p class="q"><input type="checkbox" name="payAgree" id="agree01" onclick="fnCheck();"> <a href="#a1" class="trigger no_arrow">매월 자동결제 되는 것에 동의 합니다.</a></p>
+				</li>
+				<li class="article">
+					<p class="q"><input type="checkbox" name="payAgree" id="agree02" onclick="fnCheck();"> <a href="#a1" class="trigger">스마트폰 셰어링 유의사항에 동의 합니다.</a></p>
+					<p class="a">
+						스마트폰 셰어링 유의사항<br/>
+						스마트폰 셰어링 요금은 신청하신 통신사 요금과 별개로 매월 지정하신 신용카드로 셰어링 요금이 청구 됩니다.<br/>
+						신용카드의 이용정지, 한도초과, 정보변경 등의 사유로 결제상태가 변경 될 경우, 셰어링 서비스가 일시 정지 될 수 있습니다.<br/>
+						셰어링 이용 중 고객 과실로 인한 파손,분실,훼손은 고객님께 부담됩니다.<br/>
+						스마트폰 셰어링 중도 해지시 별도  위약금이 발생 됩니다.
+					</p>
+				</li>
+				<li class="article">
+					<p class="q"><input type="checkbox" name="payAgree" id="agree03" onclick="fnCheck();"> <a href="#a1" class="trigger">개인정보 판매자 제공에 대한 동의</a></p>
+					<p class="a">
+					- 개인정보를 제공 받는자 : ㈜다날쏘시오<br>
+					- 개인정보를 제공받는 자의 개인정보 이용 목적 : 주문상품의 <br>
+					배송, 고객상담의불만처리<br>
+					- 제공하는 개인정보의 항목 : 성명, 주소, 연락처(안심번호 <br>
+					적용시 연락처는 안심번호로 제공)<br>
+					- 개인정보를 제공받는 자의 개인정보 보유 및 이용기간 : 이용목적달성시까지
+					제공정보는 주문처리 및 배송을 위한 목적으로만 사용됩니다.고객님께서는 동의를 거부하실 수 있으며, 거부하실 경우 거래가 제한되며 고객님의 정보는 판매자에게 제공되지 않습니다.
+					</p>
+				</li>
+				<li class="article">
+					<p class="q"><input type="checkbox" name="payAgree" id="agree04" onclick="fnCheck();"> <a href="#a1" class="trigger">개인정보 수집 및 이용동의</a></p>
+					<p class="a">
+						고객님께서는 아래 내용에 대하여 동의를 거부하실 수 있으며, 고부시 상품배송, 구매 및 결제가 제한됩니다.<br/>
+						- 수집이용 목적 : 대금 결제 서비스 제공<br/>
+						- 수집항목 : 시용카드 정보, 계좌정보<br/>
+						- 보유기간 : 결제 완료 후 5년
+					</p>
+				</li>
+				<li class="article">
+					<p class="q"><input type="checkbox" name="termsAll" id="termsAll" onClick="fnAllChk();"><a href="#a1" class="trigger no_arrow">약관에 모두 동의합니다.</a></p>
+				</li>
+			</ul>
+		</div>
+	</div>
+<!-- 	<div class="btn_enter"><a href="javascript:insertSharingOrder();" class="btn_r">결제하기</a></div> -->
+	<div class="btn_enter"><a   onclick="$('#paypopup').show();popup_show();"  class="btn_r">결제하기</a></div>
+	
+	
+<!-- 	!-- 신용카드 정기결제 안내 -->
+<div class="popup credit_pop" id="paypopup" style="display: none">
+	<p class="title">
+		<strong>신용카드 정기결제 안내</strong>
+		<a href="#" class="btn_close"><img src="http://static.ssocio.net/web/images/btn_layer_close.png" alt="닫기" /></a>
+	</p>
+    
+    <div class="pbox_03 credit_info">
+    	<p class="tc"><img src="http://static.ssocio.net/web/images/ico_nodata.png" alt=""></p>
+        <p class="tc mt10">
+        	신용카드 정기결제 등록 시<br/>
+        	카드 유효성 및 사용가능 여부 확인을 위해<br/>
+        	1,000원이 결제되며, 정상적으로 정기결제 등록 완료 후<br/>
+        	결제된 금액 1,000원은 자동으로 취소됩니다.
+        </p>
+    </div>
+    
+    <div class="bot_btn">
+    	<ul class="btn">
+        	<li><a href="javascript:insertSharingOrder();" class="btn_r">확인</a></li>
+        	<li><a href="javascript:popup_hide();" class="btn_b">취소</a></li>
+        </ul>
+    </div>
+</div>
+<!-- //이메일 인증 팝업-->
+
+	
+</div>
+<!-- //container -->
+
+<form id="frm" name="frm" method="post">
+	<input type="hidden" id="PROD_CODE" name="PROD_CODE" value="${params.PROD_CODE }" />
+	<input type="hidden" id="TELCOM_CODE" name="TELCOM_CODE" value="${params.TELCOM_CODE }" />
+	<input type="hidden" id="COLOR_SEQ" name="COLOR_SEQ" />
+	<input type="hidden" id="C_POP_SELECT" name="C_POP_SELECT" />
+	<input type="hidden" id="O_POP_SELECT" name="O_POP_SELECT" />
+	<input type="hidden" id="S_POP_SELECT" name="S_POP_SELECT" />
+	<input type="hidden" id="P_POP_SELECT" name="P_POP_SELECT" />
+	<input type="hidden" id="OPEN_TYPE" name="OPEN_TYPE" />
+	<input type="hidden" id="STIP_CODE" name="STIP_CODE" />
+	<input type="hidden" id="PAYPLAN_CODE" name="PAYPLAN_CODE" value="" />
+	<input type="hidden" id="P_EMAIL" name="P_EMAIL" />
+	<input type="hidden" id="ORD_CD" name="ORD_CD" />
+	<input type="hidden" id="TOKENID" name="TOKENID" />
+	<input type="hidden" id="TOT_AMT" name="TOT_AMT" value="${TOT_AMT }" />
+	<input type="hidden" id="REMAIN_PRCE" name="REMAIN_PRCE" value="${selectSharPordInfo.REMAIN_PRCE }" />
+	<input type="hidden" id="MAKER_FUND" name="MAKER_FUND" value="${selectSharPordInfo.MAKER_FUND }" />
+	<input type="hidden" id="OLIVAR_PRCE" name="OLIVAR_PRCE" value="" />
+	<input type="hidden" id="CI" name="CI" value="" />
+	<input type="hidden" id="DI" name="DI" value="" />
+	<input type="hidden" id="SEX" name="SEX" value="" />
+	<input type="hidden" id="TID" name="TID" value="" />
+	<input type="hidden" id="BIRTH" name="BIRTH" value="" />
+	<input type="hidden" id="MBER_NM" name="MBER_NM" value="" />
+	<input type="hidden" id="MBER_PHONE" name="MBER_PHONE" value="" />
+	<input type="hidden" id="AUTH_YN" name="AUTH_YN" value="N" />
+
+	<input type="hidden" id="ORDERID" name="ORDERID" />
+	<input type="hidden" id="USEREMAIL" name="USEREMAIL" />
+	<input type="hidden" id="USERID" name="USERID" />
+	<input type="hidden" id="BILLKEY" name="BILLKEY" />
+	<input type="hidden" id="USERNAME" name="USERNAME" />
+	<input type="hidden" id="USERPHONE" name="USERPHONE" />
+	<input type="hidden" id="USERIP" name="USERIP" />
+	<input type="hidden" id="TID" name="TID" />
+	<input type="hidden" id="ITEMNAME" name="ITEMNAME" />
+	<input type="hidden" id="ORDERID" name="ORDERID" />
+	<input type="hidden" id="OUTPUT_DATA" name="OUTPUT_DATA" />
+	<input type="hidden" id="AMOUNT_OF_MONTH" name="AMOUNT_OF_MONTH" />
+	<input type="hidden" id="CARD_COMP_NM" name="CARD_COMP_NM" />
+	
+	<input type="hidden" id="RETURNCODE" name="RETURNCODE" />
+	<input type="hidden" id="RETURNMSG" name="RETURNMSG" />
+
+	<!-- PAY RETURN 정보 -->
+	<input type="hidden" id="BILLKEY" name="BILLKEY" value="" />
+	<input type="hidden" id="PAYTID" name="PAYTID" value="" />
+
+	<!-- 배송 정보 -->
+	<input type="hidden" id="RCV_NM" name="RCV_NM" value="" />
+	<input type="hidden" id="ZIP_CD" name="ZIP_CD" value="" />
+	<input type="hidden" id="JUSO_DORO" name="JUSO_DORO" value="" />
+	<input type="hidden" id="JUSO_JIBEN" name="JUSO_JIBEN" value="" />
+	<input type="hidden" id="JUSO_DTL" name="JUSO_DTL" value="" />
+	<input type="hidden" id="RCV_TEL" name="RCV_TEL" value="" />
+	<input type="hidden" id="RCV_HP" name="RCV_HP" value="" />
+	<input type="hidden" id="DLV_MSG" name="DLV_MSG" value="" />
+	<input type="hidden" id="ADD_DLV_YN" name="ADD_DLV_YN" value="" />
+	<input type="hidden" id="UPT_DLV_YN" name="UPT_DLV_YN" value="" />
+	<input type="hidden" id="UPT_BASE_DLV_YN" name="UPT_BASE_DLV_YN" value="" />
+	<input type="hidden" id="ADD_DLV_YN" name="ADD_DLV_YN" value="" />
+	<input type="hidden" id="SECU_NO_USE_YN" name="SECU_NO_USE_YN" value="" />
+	<input type="hidden" id="REG_SEQ" name="REG_SEQ" value="" />
+	<input type="hidden" id="SECU_NO" name="SECU_NO" value="" />
+	
+</form>
+
+<form id="iframeFrm" name="iframeFrm" method="post">
+	<input type="hidden" id="frmTokenid" name="frmTokenid" />
+	<input type="hidden" id="tokenid" name="tokenid" />
+	<input type="hidden" id="device" name="device" />
+</form>
+
+<form id="authFrm" name="authFrm" method="post">
+	<input type="hidden" id="authPhone" name="authPhone" />
+</form>
+
+<form name="creditForm" id="creditForm" method="post">
+	<input type="hidden" name="BACK_URL" id="BACK_URL" value="popupBack"/>
+	<input type="hidden" name="NEXT_URL" id="NEXT_URL" value="popupNext"/>
+	<input type="hidden" name="AMT_PAY" id="AMT_PAY" value=""/>
+	<input type="hidden" name="BUYR_NAME" id="BUYR_NAME" value="${params.ORD_NM }"/>
+	<input type="hidden" name="BUYR_MAIL" id="BUYR_MAIL" value="${params.ORD_EMAIL }"/>
+	<input type="hidden" name="BUYR_TEL1" id="BUYR_TEL1" value="${params.ORD_PHONE }"/>
+	<input type="hidden" name="BUYR_ID" id="BUYR_ID" value="${params.ORD_EMAIL }"/>
+	<input type="hidden" name="BUYR_TEL2" id="BUYR_TEL2" value=""/>
+	<input type="hidden" name="NM_ITEM" id="NM_ITEM" value="${selectSharPordInfo.PROD_NM }"/>
+	<input type="hidden" name="ID_ORDER" id="ID_ORDER" value="${selectSharPordInfo.ORD_CD }"/>
+</form>
+
+<div class="popup mk2s" id="color" >
+	<p class="title">
+		<strong>색상선택</strong>
+	</p>
+	<ul class="select">
+		<c:forEach items="${selectSpColor }" var="colorList" varStatus="status">
+			<li><input type="radio" id="R_COLOR_SEQ_${status.count }" name="R_COLOR_SEQ" value="${colorList.COLOR_SEQ }"> <label for="R_COLOR_SEQ_${status.count }">${colorList.COLOR_NAME }</label></li>
+		</c:forEach>
+	</ul>
+	<div class="bot_btn">
+		<a href="javascript:selectAppli('c');" class="btn_r">선택</a>
+	</div>
+</div>
+
+<div class="popup class">
+	<p class="title">
+		<strong>가입유형</strong>
+	</p>
+	<ul class="select">
+		<custom:codeList groupCode="OPEN_TYPE" var="OPEN_TYPE"/>
+		<c:forEach items="${OPEN_TYPE}" var="list" varStatus="status">
+			<li><input type="radio" id="R_OPEN_TYPE_${status.count }" name="R_OPEN_TYPE" value="${list.key }" > <label for="R_OPEN_TYPE_${status.count }">${list.value }</label></li>
+		</c:forEach>
+	</ul>
+	<div class="bot_btn">
+		<a href="javascript:selectAppli('o');" class="btn_r">선택</a>
+	</div>
+</div>
+
+<div class="popup pay mk2s">
+	<p class="title">
+		<strong>약정기간</strong>
+	</p>
+	<ul class="select">
+		<c:forEach items="${selectSpStip}" var="stipList" varStatus="status">
+			<li><input type="radio" id="R_STIP_CODE_${status.count }" name="R_STIP_CODE" value="${stipList.STIP_CODE }"> <label for="R_STIP_CODE_${status.count}">${stipList.STIP_PERIOD }개월</label></li>
+		</c:forEach>
+	</ul>
+	<div class="bot_btn">
+		<a href="javascript:selectAppli('s');" class="btn_r">선택</a>
+	</div>
+</div>
+
+<div class="popup make mk2s">
+	<p class="title">
+		<strong>요금제 선택</strong>
+	</p>
+	<ul class="select">
+		<c:forEach items="${selectSpPayplan }" var="payplanList" varStatus="status">
+			<li><input type="radio" id="R_PAYPLAN_CODE_${status.count }" name="R_PAYPLAN_CODE" value="${payplanList.PAYPLAN_CODE }"> <label for="R_PAYPLAN_CODE_${status.count }">${payplanList.PAYPLAN_NM }</label></li>
+		</c:forEach>
+	</ul>
+	<div class="bot_btn">
+		<a href="javascript:selectAppli('p');" class="btn_r">선택</a>
+	</div>
+</div>
+<!-- <div class="layer_pay"> -->
+<!-- 	<iframe name="iframe_credit" src=""></iframe> -->
+<!-- </div> -->
+
+<div class="layer_confirm">
+	<iframe name="iframe_pop" src=""></iframe>
+</div>
+
+<div class="popup full_iframe">
+	<iframe name="iframe_credit" src=""></iframe>
+</div>
+
+
+
+<div class="popup full_iframe_auth">
+	<iframe name="iframe_credit_auth" src="" style="width:327px; height:452px;"></iframe>
+</div>
+
+
+<div  id="phonedivNew" style="left: 0px; top: 0;  display: block; height: 100%; width: 100%">
+</div>

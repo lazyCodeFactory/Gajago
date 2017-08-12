@@ -1,0 +1,595 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="SellerMyInfoMapper">
+	<!-- 로그인 ( SELECT SUM(S.POINT) AS POINT FROM POINT_USE_LOG S WHERE S.POINT_TYPE
+		= 'N' AND S.MBER_SEQ = <![CDATA[#{MBER_SEQ}]]> ) AS POINT -->
+	<select id="getMyInfoInfo" parameterType="HashMap" resultType="HashMap">
+SELECT AA.*
+     , FI1.FILE_URL AS MINI_BG_FILE_URL
+     , FI2.FILE_URL AS MINI_PROFILE_URL
+  FROM (
+       SELECT G.COM_CD_NM AS MBER_GB_CD_NM
+            , Z.MBER_GB_CD
+            , H.COM_CD_NM AS MBER_REG_GB_CD_NM
+            , Z.MBER_REG_GB_CD
+            , Z.MBER_NICK
+            , Z.MBER_PHONE
+            , Z.MBER_NM
+            , Z.MBER_EMAIL
+            , A.BANK_ACNT_NO
+            , A.BANK_NM
+            , A.ACNT_NM
+            , NVL(A.RATE, 0) AS RATE
+            , A.CMPNY_ZIP_CD
+            , A.CMPNY_JUSO_DORO
+            , A.CMPNY_JUSO_JIBEN
+            , A.CMPNY_JUSO_DTL
+            , B.EMAIL_AGREE_YN
+            , B.HP_AGREE_YN
+            , B.SELL_MBER_LEV_SEQ
+            , (
+              SELECT NVL(MBER_LEV_NM, '')
+                FROM MBER_LEV OO
+               WHERE OO.MBER_LEV_SEQ = B.SELL_MBER_LEV_SEQ
+            ) AS SELL_MBER_LEV_NM, C.MINI_SHOP_NM, C.MINI_SHOP_PATH, C.FILE_SEQ, C.MINI_PROFILE_SEQ, NVL(D.WARNING_CNT
+            , 0) AS WARNING_CNT, NVL(E.CPOINT
+            , 0) AS CPOINT, NVL(F.BOARD_SUSPECT_CNT
+            , 0) AS BOARD_SUSPECT_CNT
+         FROM MBER_INFO Z LEFT OUTER JOIN SELLER_INFO_CFG A ON Z.MBER_SEQ = A.MBER_SEQ
+                          LEFT OUTER JOIN MBER_DTL_INFO B ON Z.MBER_SEQ = B.MBER_SEQ
+                          LEFT OUTER JOIN MBER_MINI_SHOP_INFO C ON Z.MBER_SEQ = C.MBER_SEQ
+                          LEFT OUTER JOIN (/*판매자신고이력 */
+						       SELECT COUNT(SELELR_SUSPECT_SEQ) AS WARNING_CNT
+						            , SELLER_MBER_SEQ AS MBER_SEQ
+						         FROM SELLER_SUSPECT_INFO
+						        WHERE SELLER_MBER_SEQ = #{MBER_SEQ}
+						        GROUP BY SELLER_MBER_SEQ ) D ON Z.MBER_SEQ = D.MBER_SEQ LEFT OUTER JOIN (/*신용점수 */
+						       SELECT PLUS_SUM - MINUS_SUM AS CPOINT
+						            , MBER_SEQ
+						         FROM (
+						              SELECT NVL(SUM(CASE WHEN ADD_YN = 'Y' THEN CPOINT ELSE 0 END), 0) AS PLUS_SUM
+						                   , NVL(SUM(CASE WHEN ADD_YN = 'N' THEN CPOINT ELSE 0 END), 0) AS MINUS_SUM
+						                   , MAX(MBER_SEQ) AS MBER_SEQ
+						                FROM CRED_POINT
+						               WHERE MBER_SEQ = #{MBER_SEQ}
+						            ) ) E ON Z.MBER_SEQ = E.MBER_SEQ LEFT OUTER JOIN (/*판매자경고 */
+								       SELECT COUNT(SUSPECT_SEQ) AS BOARD_SUSPECT_CNT
+								            , MBER_SEQ
+								         FROM BOARD_SUSPECT_INFO
+								        WHERE MBER_SEQ = #{MBER_SEQ}
+								        GROUP BY MBER_SEQ ) F ON Z.MBER_SEQ = F.MBER_SEQ LEFT OUTER JOIN CODE G ON Z.MBER_GB_CD = G.COM_CD
+								          AND G.GRP_CD = 'MBER_GB_CD' LEFT OUTER JOIN CODE H ON Z.MBER_REG_GB_CD = H.COM_CD
+								          AND H.GRP_CD = 'MBER_REG_GB_CD'
+								        WHERE Z.MBER_SEQ = #{MBER_SEQ}
+     ) AA LEFT OUTER JOIN FILE_INFO FI1 ON AA.FILE_SEQ = FI1.FILE_SEQ LEFT OUTER JOIN FILE_INFO FI2 ON AA.MINI_PROFILE_SEQ = FI2.FILE_SEQ
+	</select>
+	<!-- 휴대폰변경 화면으로 이동 -->
+	<select id="getMyPhoneChangeForm" parameterType="HashMap"
+		resultType="HashMap">
+		SELECT M.MBER_PHONE
+		FROM MBER_INFO M
+		WHERE M.MBER_SEQ = <![CDATA[#{MBER_SEQ}]]>
+	</select>
+	<!-- 휴대폰번호변경 수정 -->
+	<update id="updateMyPhone">
+		UPDATE
+		MBER_INFO
+		SET
+		MBER_PHONE = <![CDATA[#{MBER_PHONE}]]>
+		WHERE MBER_SEQ = <![CDATA[#{MBER_SEQ}]]>
+	</update>
+	<!-- 계좌변경 화면으로 이동 -->
+	<select id="getMyAccountChangeForm" parameterType="HashMap"
+		resultType="HashMap">
+		SELECT M.ACNT_NM,
+		M.BANK_NM,
+		M.BANK_ACNT_NO
+		FROM SELLER_INFO_CFG M
+		WHERE M.MBER_SEQ = <![CDATA[#{MBER_SEQ}]]>
+	</select>
+	<!-- 계좌 수정 -->
+	<update id="updateMyAccount">
+		UPDATE SELLER_INFO_CFG
+		SET ACNT_NM = <![CDATA[#{ACNT_NM}]]>
+		,BANK_ACNT_NO = <![CDATA[#{BANK_ACNT_NO}]]>
+		,BANK_NM = <![CDATA[#{BANK_NM}]]>
+		WHERE MBER_SEQ = <![CDATA[#{MBER_SEQ}]]>
+	</update>
+	<!-- 비번변경 화면으로 이동 -->
+	<select id="getMyPwChangeForm" parameterType="HashMap"
+		resultType="HashMap">
+		SELECT M.SSO_GB_CD,
+		M.MBER_GB_CD,
+		M.MBER_REG_GB_CD,
+		M.MBER_EMAIL,
+		M.MBER_PASS
+		FROM MBER_INFO M
+		WHERE M.MBER_SEQ = <![CDATA[#{MBER_SEQ}]]>
+	</select>
+	<!-- 비밀번호 수정 -->
+	<update id="saveMyPwChange">
+		UPDATE
+		MBER_INFO
+		SET
+		MBER_PASS = <![CDATA[#{MBER_PASS}]]>
+		WHERE MBER_SEQ = <![CDATA[#{MBER_SEQ}]]>
+	</update>
+	<!-- 이메일 수신여부 변경 -->
+	<update id="changeRadioMail">
+		UPDATE
+		MBER_DTL_INFO
+		SET
+		EMAIL_AGREE_YN = <![CDATA[#{EMAIL_AGREE_YN}]]>
+		WHERE MBER_SEQ = <![CDATA[#{MBER_SEQ}]]>
+	</update>
+	<!-- SMS 수신여부 변경 -->
+	<update id="changeRadioSMS">
+		UPDATE
+		MBER_DTL_INFO
+		SET
+		HP_AGREE_YN = <![CDATA[#{HP_AGREE_YN}]]>
+		WHERE MBER_SEQ = <![CDATA[#{MBER_SEQ}]]>
+	</update>
+
+	<!-- 상품 현황 (미니샵) -->
+	<select id="selectProdStats" parameterType="HashMap" resultType="HashMap">
+	<!--
+		SELECT '합계' AS PROD_TYPE_CD_NM
+		,'' AS PROD_TYPE_CD
+		,COUNT(1) AS TOT_CNT
+		,NVL( SUM(DECODE(PROD_STAT_CD, '0', 1, 0)), 0 ) AS SALE_CNT
+		,NVL( SUM(DECODE(PROD_STAT_CD, '1', 1, 0)), 0 ) AS CLOSE_CNT
+		,NVL( SUM(DECODE(PROD_STAT_CD, '2', 1, 0)), 0 ) AS STOP_CNT
+		,NVL( SUM(DECODE(PROD_STAT_CD, '3', 1, 0)), 0 ) AS DELETE_CNT
+		FROM
+		PROD
+		WHERE
+		MBER_SEQ =#{MBER_SEQ}
+		UNION
+		SELECT (SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'PROD_TYPE_CD' AND
+		COM_CD = PI.PROD_TYPE_CD) AS PROD_TYPE_CD_NM
+		,PI.PROD_TYPE_CD
+		,COUNT(1) AS TOT_CNT
+		,NVL( SUM(DECODE(PI.PROD_STAT_CD, '0', 1, 0)), 0 ) AS SALE_CNT
+		,NVL( SUM(DECODE(PI.PROD_STAT_CD, '1', 1, 0)), 0 ) AS CLOSE_CNT
+		,NVL( SUM(DECODE(PI.PROD_STAT_CD, '2', 1, 0)), 0 ) AS STOP_CNT
+		,NVL( SUM(DECODE(PI.PROD_STAT_CD, '3', 1, 0)), 0 ) AS DELETE_CNT
+		FROM
+		PROD PI
+		WHERE
+		PI.MBER_SEQ = #{MBER_SEQ}
+		GROUP BY PI.PROD_TYPE_CD
+		ORDER BY PROD_TYPE_CD DESC -->
+
+	SELECT '합계' AS PROD_TYPE_CD_NM
+		,'' AS PROD_TYPE_CD
+		,COUNT(1) AS TOT_CNT
+		,NVL( SUM(DECODE(PROD_STAT_CD, '0', 1, 0)), 0 ) AS SALE_CNT
+		,NVL( SUM(DECODE(PROD_STAT_CD, '1', 1, 0)), 0 ) AS CLOSE_CNT
+		,NVL( SUM(DECODE(PROD_STAT_CD, '2', 1, 0)), 0 ) AS STOP_CNT
+		,NVL( SUM(DECODE(PROD_STAT_CD, '3', 1, 0)), 0 ) AS DELETE_CNT
+                    , 0 AS SEQ
+		FROM
+		PROD
+		WHERE
+		MBER_SEQ = #{MBER_SEQ}
+		UNION
+		SELECT PROD_TYPE_CD_NM, PROD_TYPE_CD_NM, TOT_CNT, SALE_CNT, CLOSE_CNT, STOP_CNT, DELETE_CNT, SEQ  FROM (
+		SELECT PROD_TYPE_CD_NM, PROD_TYPE_CD, SUM(TOT_CNT) AS TOT_CNT
+                         , SUM(SALE_CNT) AS SALE_CNT, SUM(CLOSE_CNT) AS CLOSE_CNT, SUM(STOP_CNT) AS STOP_CNT
+                         , SUM(DELETE_CNT) AS DELETE_CNT, MAX(SEQ) AS SEQ FROM (
+		SELECT (SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'PROD_TYPE_CD' AND
+		COM_CD = PI.PROD_TYPE_CD) AS PROD_TYPE_CD_NM
+		,PI.PROD_TYPE_CD
+		,COUNT(1) AS TOT_CNT
+		,NVL( SUM(DECODE(PI.PROD_STAT_CD, '0', 1, 0)), 0 ) AS SALE_CNT
+		,NVL( SUM(DECODE(PI.PROD_STAT_CD, '1', 1, 0)), 0 ) AS CLOSE_CNT
+		,NVL( SUM(DECODE(PI.PROD_STAT_CD, '2', 1, 0)), 0 ) AS STOP_CNT
+		,NVL( SUM(DECODE(PI.PROD_STAT_CD, '3', 1, 0)), 0 ) AS DELETE_CNT
+        , 1  AS SEQ
+		FROM
+		PROD PI
+		WHERE
+		PI.MBER_SEQ = #{MBER_SEQ}
+		GROUP BY PI.PROD_TYPE_CD
+                    UNION ALL
+                    select '판매' as PROD_TYPE_CD_NM,  '1' as PROD_TYPE_CD, 0 AS TOT_CNT, 0 AS SALE_CNT, 0 AS CLOSE_CNT, 0 AS STOP_CNT, 0 AS DELETE_CNT, 2 AS SEQ FROM DUAL
+                    <if test="MBER_GB_CD == 0">
+                    UNION ALL
+                    select '나눔' as PROD_TYPE_CD_NM,  '3' as PROD_TYPE_CD, 0 AS TOT_CNT, 0 AS SALE_CNT, 0 AS CLOSE_CNT, 0 AS STOP_CNT, 0 AS DELETE_CNT, 3 AS SEQ FROM DUAL
+                    </if>
+                    UNION ALL
+                    select '셰어링' as PROD_TYPE_CD_NM,  '2' as PROD_TYPE_CD, 0 AS TOT_CNT, 0 AS SALE_CNT, 0 AS CLOSE_CNT, 0 AS STOP_CNT, 0 AS DELETE_CNT, 4 AS SEQ FROM DUAL
+                    <if test="MBER_GB_CD == 1">
+                    UNION ALL
+                    select '렌탈' as PROD_TYPE_CD_NM,  '5' as PROD_TYPE_CD, 0 AS TOT_CNT, 0 AS SALE_CNT, 0 AS CLOSE_CNT, 0 AS STOP_CNT, 0 AS DELETE_CNT, 5 AS SEQ FROM DUAL
+                    </if>
+                    ) GROUP BY PROD_TYPE_CD_NM, PROD_TYPE_CD)
+                    ORDER BY SEQ ASC
+	</select>
+
+	<update id="updateMyInfo">
+		UPDATE
+		SELLER_INFO_CFG
+		SET
+		CMPNY_ZIP_CD = <![CDATA[#{CMPNY_ZIP_CD}]]>
+		, CMPNY_JUSO_DORO = <![CDATA[#{CMPNY_JUSO_DORO}]]>
+		, CMPNY_JUSO_JIBEN = <![CDATA[#{CMPNY_JUSO_JIBEN}]]>
+		, CMPNY_JUSO_DTL = <![CDATA[#{CMPNY_JUSO_DTL}]]>
+		WHERE MBER_SEQ = <![CDATA[#{MBER_SEQ}]]>
+	</update>
+
+	<update id="updateMberInfo">
+		UPDATE
+		MBER_INFO
+		SET
+		MBER_STAT_CD = '10'
+		<if test="CI != null and CI != ''">
+		, CI = <![CDATA[#{CI}]]>
+		</if>
+		<if test="MBER_NM != null and MBER_NM != ''">
+		 , MBER_NM = <![CDATA[#{MBER_NM}]]>
+		</if>
+		<if test="MBER_PHONE != null and MBER_PHONE != ''">
+		 , MBER_PHONE = <![CDATA[#{MBER_PHONE}]]>
+		</if>
+		<if test="DI != null and DI != ''">
+		, DI = <![CDATA[#{DI}]]>
+		</if>
+		<if test="SEX != null and SEX != ''">
+		, SEX = <![CDATA[#{SEX}]]>
+		</if>
+		<if test="TID != null and TID != ''">
+		, TID = <![CDATA[#{TID}]]>
+		</if>
+		<if test="BIRTH != null and BIRTH != ''">
+		, BIRTH = <![CDATA[#{BIRTH}]]>
+		</if>
+		WHERE MBER_SEQ = <![CDATA[#{MBER_SEQ}]]>
+	</update>
+
+	<update id="updateMberDtlInfo">
+		UPDATE
+		MBER_DTL_INFO
+		SET
+		EMAIL_AGREE_YN = <![CDATA[#{EMAIL_AGREE_YN}]]>
+		, HP_AGREE_YN = <![CDATA[#{HP_AGREE_YN}]]>
+		WHERE MBER_SEQ = <![CDATA[#{MBER_SEQ}]]>
+	</update>
+
+
+	<!-- 미니샵 팝업 -->
+	<select id="selectSuspectSearchCnt" parameterType="hashmap" resultType="int">
+
+		/* [2015-11-23][ROCOKANG] 판매 경고 조회 팝업 */
+		SELECT
+		COUNT(BOARD_SEQ) AS CNT
+		FROM
+		BOARD_SUSPECT_INFO
+		WHERE
+		MBER_SEQ = #{MBER_SEQ}
+
+		<if test="S_START_DATE != null and S_START_DATE != ''">
+   		AND TO_CHAR(REGIST_DT,'YYYY-MM-DD') BETWEEN #{S_START_DATE} AND #{S_END_DATE}
+		</if>
+
+		<if test="suspectGbCd != null and suspectGbCd != ''">
+			AND SUSPECT_GB_CD = #{suspectGbCd}
+		</if>
+	</select>
+
+
+
+	<select id="selectSuspectList" parameterType="hashmap"
+		resultType="hashmap">
+		<include refid="sellerCommonMapper.pagingHeader" />
+
+		/* [2015-11-23][ROCOAKNG] 판매경고 조회 */
+
+		SELECT
+		to_char(T1.REGIST_DT,'yyyy-MM-dd HH:mm') as REGIST_DT
+		,(SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'PROD_SUSPECT_GB_CD' AND COM_CD =T1.SUSPECT_GB_CD) AS SUSPECT_GB_CD
+		,nvl(T1.SUSPECT_REASON,'-')  	AS SUSPECT_REASON
+		,ROW_NUMBER() OVER(ORDER BY REGIST_DT DESC ) AS NO
+		FROM BOARD_SUSPECT_INFO T1
+		WHERE T1.MBER_SEQ = #{MBER_SEQ}
+
+		<if test="S_START_DATE != null and S_START_DATE != ''">
+   		AND TO_CHAR(T1.REGIST_DT,'YYYY-MM-DD') BETWEEN #{S_START_DATE} AND #{S_END_DATE}
+		</if>
+
+		<if test="suspectGbCd != null and suspectGbCd != ''">
+			AND T1.SUSPECT_GB_CD = #{suspectGbCd}
+		</if>
+
+		<include refid="sellerCommonMapper.pagingFooter" />
+	</select>
+
+
+	<select id="selectSellCreditSearchCnt" parameterType="hashmap"
+		resultType="int">
+		SELECT
+		COUNT(*) AS CNT
+		FROM CRED_POINT T1, PROD T2, PROD_IMG T3
+		WHERE T1.REL_CODE = T2.PROD_CODE
+		AND T2.PROD_CODE = T3.PROD_CODE
+		AND T3.PROD_IMG_GB_CD = 11
+		AND T1.MBER_SEQ = #{MBER_SEQ}
+		<if test="regToDate != '' and regFromDate != ''">
+			<if test="regToDate != null and regFromDate != null">
+				<!-- 기간 -->
+				AND (TO_DATE(#{regToDate})+1 > T1.REGIST_DT AND T1.REGIST_DT >=
+				TO_DATE(#{regFromDate}))
+			</if>
+		</if>
+
+		<if test="searchGbCd != null and searchGbCd != ''">
+			AND T1.CPOINT_REASON_CD = #{searchGbCd}
+		</if>
+
+		<if test="gubun != null and gubun != ''">
+			AND T1.ADD_YN IN
+			<foreach collection="gubun" item="cd" open="(" close=")" separator=",">
+					#{cd}
+			</foreach>
+		</if>
+		<if test="prodNm != null and prodNm != ''">
+			 AND UPPER(T2.PROD_NM) LIKE UPPER('%'||#{prodNm}||'%')
+		</if>
+	</select>
+
+
+	<select id="selectSellCreditList" parameterType="hashmap"
+		resultType="hashmap">
+		<include refid="sellerCommonMapper.pagingHeader" />
+		SELECT T1.REGIST_DT
+		,(CASE WHEN T1.ADD_YN = 'Y' THEN '지급'
+		WHEN T1.ADD_YN = 'N' THEN '차감'
+		ELSE 'N'
+		END) AS ADD_YN
+		,T1.CPOINT_REASON_CD
+
+		,T1.CPOINT AS JUMSU
+
+		,T3.PROD_IMG_URL
+		,T2.PROD_NM
+		,ROW_NUMBER() OVER(ORDER BY T1.REGIST_DT DESC ) AS NO
+		FROM CRED_POINT T1, PROD T2, PROD_IMG T3
+
+		WHERE T1.REL_CODE = T2.PROD_CODE
+		AND T2.PROD_CODE = T3.PROD_CODE
+		AND T3.PROD_IMG_GB_CD = 11
+		AND T1.MBER_SEQ = #{MBER_SEQ}
+		<if test="regToDate != '' and regFromDate != ''">
+			<if test="regToDate != null and regFromDate != null">
+				<!-- 기간 -->
+				AND (TO_DATE(#{regToDate})+1 > T1.REGIST_DT AND T1.REGIST_DT >=
+				TO_DATE(#{regFromDate}))
+			</if>
+		</if>
+
+		<if test="searchGbCd != null and searchGbCd != ''">
+			AND T1.CPOINT_REASON_CD = #{searchGbCd}
+		</if>
+
+		<if test="gubun != null and gubun != ''">
+			AND T1.ADD_YN IN
+			<foreach collection="gubun" item="cd" open="(" close=")" separator=",">
+					#{cd}
+			</foreach>
+		</if>
+		<if test="prodNm != null and prodNm != ''">
+			 AND UPPER(T2.PROD_NM) LIKE UPPER('%'||#{prodNm}||'%')
+		</if>
+		ORDER BY T1.REGIST_DT DESC
+		<include refid="sellerCommonMapper.pagingFooter" />
+	</select>
+
+	<select id="selectSellWarningCnt" parameterType="hashmap"
+		resultType="hashmap">
+		SELECT
+		(SELECT COUNT(SELELR_SUSPECT_SEQ) AS CNT FROM SELLER_SUSPECT_INFO WHERE
+		SELLER_SUSPECT_GB_CD = '10' AND SELLER_MBER_SEQ = #{MBER_SEQ}) AS
+		SELL_SUSPECT1,
+		(SELECT COUNT(SELELR_SUSPECT_SEQ) AS CNT FROM SELLER_SUSPECT_INFO WHERE
+		SELLER_SUSPECT_GB_CD = '20' AND SELLER_MBER_SEQ = #{MBER_SEQ}) AS
+		SELL_SUSPECT2,
+		(SELECT COUNT(SELELR_SUSPECT_SEQ) AS CNT FROM SELLER_SUSPECT_INFO WHERE
+		SELLER_SUSPECT_GB_CD = '30' AND SELLER_MBER_SEQ = #{MBER_SEQ}) AS
+		SELL_SUSPECT3,
+		(SELECT COUNT(SELELR_SUSPECT_SEQ) AS CNT FROM SELLER_SUSPECT_INFO WHERE
+		SELLER_SUSPECT_GB_CD = '40' AND SELLER_MBER_SEQ = #{MBER_SEQ}) AS
+		SELL_SUSPECT4,
+		(SELECT COUNT(SELELR_SUSPECT_SEQ) AS CNT FROM SELLER_SUSPECT_INFO WHERE
+		SELLER_SUSPECT_GB_CD = '50' AND SELLER_MBER_SEQ = #{MBER_SEQ}) AS
+		SELL_SUSPECT5,
+		(SELECT COUNT(SELELR_SUSPECT_SEQ) AS CNT FROM SELLER_SUSPECT_INFO WHERE
+		SELLER_SUSPECT_GB_CD = '60' AND SELLER_MBER_SEQ = #{MBER_SEQ}) AS
+		SELL_SUSPECT6,
+		(SELECT COUNT(SELELR_SUSPECT_SEQ) AS CNT FROM SELLER_SUSPECT_INFO WHERE
+		SELLER_SUSPECT_GB_CD = '70' AND SELLER_MBER_SEQ = #{MBER_SEQ}) AS
+		SELL_SUSPECT7,
+		(SELECT COUNT(SELELR_SUSPECT_SEQ) AS CNT FROM SELLER_SUSPECT_INFO WHERE
+		SELLER_MBER_SEQ = #{MBER_SEQ}) AS TOTAL_CNT
+		FROM
+		DUAL
+	</select>
+
+	<select id="selectSellWarningList" parameterType="hashmap"
+		resultType="hashmap">
+		<include refid="sellerCommonMapper.pagingHeader" />
+		SELECT
+		T1.REGIST_DT
+		,T1.SELLER_SUSPECT_GB_CD
+		,T2.PROD_NM
+		,T4.PROD_IMG_URL
+		,ROW_NUMBER() OVER(ORDER BY T1.REGIST_DT DESC ) AS NO
+		FROM SELLER_SUSPECT_INFO T1,
+		PROD T2, BOARD_INFO T3, PROD_IMG T4
+		WHERE
+		T2.PROD_CODE = T3.PROD_CODE
+		AND T4.PROD_CODE = T2.PROD_CODE
+		AND T3.BOARD_SEQ = T1.SELELR_SUSPECT_SEQ
+		AND T4.PROD_IMG_GB_CD =11
+		AND T1.SELLER_MBER_SEQ = #{MBER_SEQ}
+		<if test="regToDate != '' and regFromDate != ''">
+			<if test="regToDate != NULL and regFromDate != NULL">
+				<!-- 기간 -->
+				AND (TO_DATE(#{regToDate})+1 > T1.REGIST_DT AND T1.REGIST_DT >=
+				TO_DATE(#{regFromDate}))
+			</if>
+		</if>
+
+		<if test="suspectGbCd != null and suspectGbCd != ''">
+			AND T1.SELLER_SUSPECT_GB_CD = #{suspectGbCd}
+		</if>
+		ORDER BY T1.REGIST_DT DESC
+		<include refid="sellerCommonMapper.pagingFooter" />
+	</select>
+
+	<select id="selectWarning" parameterType="hashmap" resultType="int">
+		SELECT
+		COUNT(*) AS CNT
+		FROM
+		SELLER_SUSPECT_INFO
+		WHERE
+		SELLER_MBER_SEQ = #{MBER_SEQ}
+
+<!-- 		<if test="regToDate != null and regFromDate != null"> -->
+<!-- 			<if test="regToDate != '' and regFromDate != ''"> -->
+<!-- 				AND (TO_DATE(#{regToDate})+1 > REGIST_DT AND REGIST_DT >= -->
+<!-- 				TO_DATE(#{regFromDate})) -->
+<!-- 			</if> -->
+<!-- 		</if> -->
+
+		<if test="S_START_DATE != null and S_START_DATE != ''">
+   		AND TO_CHAR(REGIST_DT,'YYYY-MM-DD') BETWEEN #{S_START_DATE} AND #{S_END_DATE}
+		</if>
+
+
+
+		<if test="suspectGbCd != null and suspectGbCd != ''">
+			AND SELLER_SUSPECT_GB_CD = #{suspectGbCd}
+		</if>
+	</select>
+
+
+	<select id="selectMiniShopCnt" parameterType="String" resultType="int">
+		/* 미니샵 갯수 확인 */
+		SELECT COUNT(MINI_SHOP_PATH)
+		FROM MBER_MINI_SHOP_INFO
+		WHERE MINI_SHOP_PATH=#{miniShopPath}
+		  AND MBER_SEQ != #{mberSeq}
+	</select>
+
+
+
+
+	<resultMap id="selectNewSellWarningClobMap" type="hashmap">
+    <result property="SELLER_SUSPECT_SEQ"       column="SELLER_SUSPECT_SEQ"   	javaType="Integer" 	/>    <!-- 약관 -->
+    <result property="SELLER_MBER_SEQ"        	column="SELLER_MBER_SEQ"   		javaType="Integer" 	/>    <!-- 약관 -->
+    <result property="SELLER_SUSPECT_GB_CD"     column="SELLER_SUSPECT_GB_CD"   javaType="java.lang.String" 	/>    <!-- 약관 -->
+    <result property="MBER_SEQ"        			column="MBER_SEQ"   			javaType="Integer" 	/>    <!-- 약관 -->
+    <result property="SUSPECT_REASON"        	column="SUSPECT_REASON"   		javaType="String" 	jdbcType="CLOB"/>    <!-- 약관 -->
+    <result property="REGIST_DT"        		column="REGIST_DT"   			javaType="String" 	/>    <!-- 약관 -->
+    <result property="NO"        				column="NO"   					javaType="Integer" 	/>    <!-- 약관 -->
+
+
+    </resultMap>
+
+
+<select id="selectNewSellWarningList" parameterType="HashMap" resultMap="selectNewSellWarningClobMap">
+/* (new) 판매자 신고이력 리스트 조회 */
+
+		<include refid="sellerCommonMapper.pagingHeader" />
+
+ 		SELECT 	SELELR_SUSPECT_SEQ
+ 				,SELLER_MBER_SEQ
+ 				,SELLER_SUSPECT_GB_CD
+ 				,MBER_SEQ, nvl( SUSPECT_REASON , '-') AS SUSPECT_REASON
+ 				,TO_CHAR(REGIST_DT, 'YYYY-MM-DD HH24:MI') as REGIST_DT
+      	,ROW_NUMBER() OVER(ORDER BY REGIST_DT DESC ) AS NO
+	    from SELLER_SUSPECT_INFO
+	    where SELLER_MBER_SEQ =  #{MBER_SEQ}
+
+<!-- 		<if test="regToDate != '' and regFromDate != ''"> -->
+<!-- 			AND (TO_DATE(#{regToDate})+1 > REGIST_DT AND REGIST_DT >= -->
+<!-- 			TO_DATE(#{regFromDate})) -->
+<!-- 		</if> -->
+
+		<if test="S_START_DATE != null and S_START_DATE != ''">
+   		AND TO_CHAR(REGIST_DT,'YYYY-MM-DD') BETWEEN #{S_START_DATE} AND #{S_END_DATE}
+		</if>
+
+
+		<if test="suspectGbCd != null and suspectGbCd != ''">
+			AND SELLER_SUSPECT_GB_CD = #{suspectGbCd}
+		</if>
+
+		<include refid="sellerCommonMapper.pagingFooter" />
+
+</select>
+
+
+
+<select id="totalStatInfo" parameterType="HashMap" resultType="HashMap">
+	/* (new) 판매 경고 코드 total*/
+
+SELECT
+	(SELECT COUNT(SUSPECT_SEQ) AS CNT FROM BOARD_SUSPECT_INFO WHERE
+	SUSPECT_GB_CD = '10' AND MBER_SEQ = #{MBER_SEQ}) AS
+	SELL_SUSPECT1,
+	(SELECT COUNT(SUSPECT_SEQ) AS CNT FROM BOARD_SUSPECT_INFO WHERE
+	SUSPECT_GB_CD = '20' AND MBER_SEQ = #{MBER_SEQ}) AS
+	SELL_SUSPECT2,
+	(SELECT COUNT(SUSPECT_SEQ) AS CNT FROM BOARD_SUSPECT_INFO WHERE
+	SUSPECT_GB_CD = '30' AND MBER_SEQ = #{MBER_SEQ}) AS
+	SELL_SUSPECT3,
+	(SELECT COUNT(SUSPECT_SEQ) AS CNT FROM BOARD_SUSPECT_INFO WHERE
+	SUSPECT_GB_CD = '40' AND MBER_SEQ = #{MBER_SEQ}) AS
+	SELL_SUSPECT4,
+	(SELECT COUNT(SUSPECT_SEQ) AS CNT FROM BOARD_SUSPECT_INFO WHERE
+	SUSPECT_GB_CD = '50' AND MBER_SEQ = #{MBER_SEQ}) AS
+	SELL_SUSPECT5,
+	(SELECT COUNT(SUSPECT_SEQ) AS CNT FROM BOARD_SUSPECT_INFO WHERE
+	SUSPECT_GB_CD = '60' AND MBER_SEQ = #{MBER_SEQ}) AS
+	SELL_SUSPECT6,
+	(SELECT COUNT(SUSPECT_SEQ) AS CNT FROM BOARD_SUSPECT_INFO WHERE
+	SUSPECT_GB_CD = '70' AND MBER_SEQ = #{MBER_SEQ}) AS
+	SELL_SUSPECT7,
+	(SELECT COUNT(SUSPECT_SEQ) AS CNT FROM BOARD_SUSPECT_INFO WHERE
+	MBER_SEQ = #{MBER_SEQ}) AS TOTAL_CNT
+	FROM
+	DUAL
+
+</select>
+	<update id="updateMyminiInfoReg">
+	UPDATE MBER_MINI_SHOP_INFO
+	   SET MINI_SHOP_PATH = <![CDATA[#{miniShopPath}]]>
+	   	  , MINI_SHOP_NM  =  <![CDATA[#{miniShopNm}]]>
+	   	   <if test="MainfileSeq != null and MainfileSeq != ''">
+	   	  ,  MINI_PROFILE_SEQ = #{MainfileSeq}
+	   	  </if>
+	   	   <if test="BackgrdfileSeq != null and BackgrdfileSeq != ''">
+		  , FILE_SEQ = #{BackgrdfileSeq}
+	   	  </if>
+	      , UPDT_DT = SYSDATE
+	  WHERE MBER_SEQ = #{mberSeq}
+	</update>
+
+	<update id="updateMyminiInfoImgReg">
+	UPDATE MBER_MINI_SHOP_INFO
+		SET UPDT_DT = SYSDATE
+		<if test='profChk == "Del"'>
+		  , MINI_PROFILE_SEQ = null
+		</if>
+		<if test='bgChk == "Del"'>
+		  , FILE_SEQ = null
+		</if>
+	  WHERE MBER_SEQ = #{mberSeq}
+	</update>
+
+
+
+</mapper>

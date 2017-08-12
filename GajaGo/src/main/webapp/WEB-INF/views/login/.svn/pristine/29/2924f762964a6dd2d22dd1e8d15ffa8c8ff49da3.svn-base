@@ -1,0 +1,676 @@
+
+package com.ssocio.sharing.controller.mobile;
+
+import java.io.UnsupportedEncodingException;
+import java.util.HashMap;
+import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.ModelMap;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.servlet.ModelAndView;
+
+import com.google.gson.Gson;
+import com.ssocio.sharing.cmmn.util.CmmnCnst;
+import com.ssocio.sharing.cmmn.util.LoggerUtil;
+import com.ssocio.sharing.cmmn.util.PaymentUtil;
+import com.ssocio.sharing.service.web.MobilePaymentService;
+import com.ssocio.sharing.vo.web.Bank;
+import com.ssocio.sharing.vo.web.Phone;
+import com.ssocio.sharing.vo.web.SetlInfo;
+
+@Controller
+public class MobilePhoneController extends MobileReferController {
+
+	// --------------------------------------------------------------------------
+	// # Log 설정
+	// --------------------------------------------------------------------------
+	private static final Logger logger = LoggerFactory.getLogger(MobilePhoneController.class);
+
+	
+	// --------------------------------------------------------------------------
+	// # Service 설정
+	// --------------------------------------------------------------------------
+	@Autowired
+	private MobilePaymentService mobilePaymentService;
+		
+		
+	/**
+	 * <pre>
+	* 1. 메소드명 : phoneOrder
+	* 2. 작성일 : 2015. 9. 11. 오후 7:59:41
+	* 3. 작성자 : guitarhyo
+	* 4. 설명 : 계좌 이체  입력 페이지
+	 * </pre>
+	 * 
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 */
+	@RequestMapping("/mobile/phone/Order.do")
+	public ModelAndView phoneOrder(HttpServletRequest request, HttpServletResponse response,
+			@RequestParam Map<String, Object> inParam) throws Exception {
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("Order START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+		ModelAndView mw = new ModelAndView("web/phone/Order");
+		// mw.addObject("MBER_PHONE",inParam.get("MBER_PHONE"));
+
+		return mw;
+	}
+
+	/**
+	 * <pre>
+	* 1. 메소드명 : phoneReady
+	* 2. 작성일 : 2015. 9. 11. 오후 7:59:41
+	* 3. 작성자 : guitarhyo
+	* 4. 설명 : 상품 정보 가져와서 다날 호출
+	 * </pre>
+	 * 
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 */
+	@RequestMapping("/mobile/phone/Ready.do")
+	public ModelAndView phoneReady(HttpServletRequest request, HttpServletResponse response,
+			@RequestParam Map<String, Object> inParam) throws Exception {
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("Ready START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+
+		String ordCd = (String) inParam.get("ORD_CD");
+		int totAmt = mobilePaymentService.selectOrdInfo(ordCd);
+		
+		
+		
+		String paramIdOrder = ordCd;
+		String paramNmItem = (String) inParam.get("NM_ITEM");
+		String paramAmtPay = (String) inParam.get("AMT_PAY");
+		String paramBuyrName = (String) inParam.get("BUYR_NAME");
+		String paramBuyrMail = (String) inParam.get("BUYR_MAIL");
+
+		String paramByPassvalue = (String) inParam.get("BYPASSVALUE");
+
+
+		String curUrl = (String) request.getAttribute("INIT_URL");
+
+		Phone phone = new Phone();
+
+		response.setHeader("Pragma", "No-cache");
+		// request.setCharacterEncoding("euc-kr");
+
+		/********************************************************************************
+		 *
+		 * [ 전문 요청 데이터 ]
+		 * *********************************************************
+		 *
+		 ********************************************************************************/
+
+		/*** [ 필수 데이터 ] ************************************/
+		Map TransR = new HashMap();
+
+		/******************************************************
+		 ** 아래의 데이터는 고정값입니다.( 변경하지 마세요 ) Command : ITEMSEND2 SERVICE : TELEDIT
+		 * ItemType : Amount ItemCount : 1 OUTPUTOPTION : DEFAULT
+		 ******************************************************/
+		TransR.put("Command", "ITEMSEND2");
+		TransR.put("SERVICE", "TELEDIT");
+		TransR.put("ItemType", "Amount");
+		TransR.put("ItemCount", "1");
+		TransR.put("OUTPUTOPTION", "DEFAULT");
+
+		/******************************************************
+		 * ID : 다날에서 제공해 드린 ID( function 파일 참조 ) PWD : 다날에서 제공해 드린 PWD( function
+		 * 파일 참조 ) CPNAME : CP 명
+		 ******************************************************/
+		TransR.put("ID", CmmnCnst.PHONE_ID_MERCHANT);
+		TransR.put("PWD", CmmnCnst.PHONE_PW_MERCHANT);
+		String CPName = CmmnCnst.CP_NAME;
+
+		/******************************************************
+		 * ItemAmt : 결제 금액( function 파일 참조 ) - 실제 상품금액 처리시에는 Session 또는 DB를 이용하여
+		 * 처리해 주십시오. - 금액 처리 시 금액변조의 위험이 있습니다. ItemName : 상품명 ItemCode : 다날에서
+		 * 제공해 드린 ItemCode
+		 ******************************************************/
+		String ItemAmt = String.valueOf(totAmt) ;
+		String ItemName = paramNmItem;
+		String ItemCode = CmmnCnst.PHONE_ITEM_CODE;
+		String ItemInfo = phone.MakeItemInfo(ItemAmt, ItemCode, ItemName);
+
+		TransR.put("ItemInfo", ItemInfo);
+
+		/*** [ 선택 사항 ] **************************************/
+		/******************************************************
+		 * SUBCP : 다날에서 제공해드린 SUBCP ID USERID : 사용자 ID ORDERID : CP 주문번호
+		 * IsPreOtbill : 자동결제 여부(Y/N) AuthKey 수신 유무 (자동결제를 위한 AuthKey 수신이 필요한 경우
+		 * : Y) IsSubscript : 월 정액 가입 유무(Y/N) (월 정액 가입을 위한 첫 결제인 경우 : Y)
+		 ******************************************************/
+		// TransR.put( "SUBCP", "SUBCP" );
+		TransR.put("USERID", paramBuyrName);
+		TransR.put("ORDERID", paramIdOrder);
+		TransR.put("IsPreOtbill", "N");
+		TransR.put("IsSubscript", "N");
+
+		/********************************************************************************
+		 *
+		 * [ CPCGI에 HTTP POST로 전달되는 데이터 ] **************************************
+		 *
+		 ********************************************************************************/
+
+		/*** [ 필수 데이터 ] ************************************/
+		Map ByPassValue = new HashMap();
+
+		/******************************************************
+		 * BgColor : 결제 페이지 Background Color 설정 TargetURL : 최종 결제 요청 할 CP의 CPCGI
+		 * FULL URL BackURL : 에러 발생 및 취소 시 이동 할 페이지의 FULL URL IsUseCI : CP의 CI
+		 * 사용 여부( Y or N ) CIURL : CP의 CI FULL URL
+		 ******************************************************/
+		ByPassValue.put("BgColor", "00");
+		ByPassValue.put("TargetURL", curUrl + "/mobile/phone/CPCGI.do");
+		ByPassValue.put("BackURL", curUrl + "/mobile/phone/Cancel.do"); // 미완성
+		ByPassValue.put("IsUseCI", "N");
+		ByPassValue.put("CIURL", "http://localhost/Danal/Teledit/Mobile/images/logo.png");
+
+		/*** [ 선택 사항 ] **************************************/
+
+		/******************************************************
+		 * Email : 사용자 E-mail 주소 - 결제 화면에 표기 IsCharSet : CP의 Webserver Character
+		 * set
+		 ******************************************************/
+		ByPassValue.put("Email", paramBuyrMail);
+		ByPassValue.put("IsCharSet", CmmnCnst.CHAR_SET);
+
+		/******************************************************
+		 ** CPCGI에 POST DATA로 전달 됩니다.
+		 **
+		 ******************************************************/
+		ByPassValue.put("ByBuffer", paramByPassvalue);
+		ByPassValue.put("ByAnyName", "AnyValue");
+
+		
+		logger.info("###[ready][request]"+new Gson().toJson(TransR));
+		Map Res = phone.CallTeledit(TransR);
+		logger.info("###[ready][response]"+new Gson().toJson(Res));
+
+
+		if (Res.get("Result").equals("0")) {
+
+			String inputStr1 = phone.MakeFormInput(Res, new String[] { "Result", "ErrMsg" });
+			String inputStr2 = phone.MakeFormInput(ByPassValue, null);
+
+			ModelMap modelMap = new ModelMap();
+			modelMap.put("inputStr1", inputStr1);
+			modelMap.put("inputStr2", inputStr2);
+			modelMap.put("CPName", CPName);
+			modelMap.put("ItemName", ItemName);
+			modelMap.put("ItemAmt", ItemAmt);
+			modelMap.put("IsPreOtbill", TransR.get("IsPreOtbill"));
+			modelMap.put("CPNIsSubscriptame", TransR.get("IsSubscript"));
+
+			return new ModelAndView("web/phone/Ready", modelMap);
+
+		} else {
+
+			String Result = (String) Res.get("Result");
+			String ErrMsg = (String) Res.get("ErrMsg");
+			String BackURL = (String) ByPassValue.get("BackURL");
+			String IsUseCI = (String) ByPassValue.get("IsUseCI");
+			String CIURL = (String) ByPassValue.get("CIURL");
+			String BgColor = (String) ByPassValue.get("BgColor");
+
+			/*
+			 * Get CIURL
+			 */
+			String URL = phone.GetCIURL(IsUseCI, CIURL);
+
+			/*
+			 * Get BgColor
+			 */
+			BgColor = phone.GetBgColor(BgColor);
+			ModelMap modelMap = new ModelMap();
+
+			modelMap.put("RLT_CD", Result);
+			modelMap.put("RLT_MSG", ErrMsg);
+			modelMap.put("BackURL", BackURL);
+			modelMap.put("IsUseCI", IsUseCI);
+			modelMap.put("CIURL", CIURL);
+			modelMap.put("BgColor", BgColor);
+			modelMap.put("URL", URL);
+
+			return new ModelAndView("web/danal/paymentErrPopup", modelMap);
+		}
+
+	}
+
+	/**
+	 * <pre>
+	* 1. 메소드명 : phoneCPCGI
+	* 2. 작성일 : 2015. 9. 11. 오후 9:52:55
+	* 3. 작성자 : guitarhyo
+	* 4. 설명 :
+	 * </pre>
+	 * 
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 */
+	@RequestMapping("/mobile/phone/CPCGI.do")
+	public ModelAndView phoneCPCGI(HttpServletRequest request, HttpServletResponse response,
+			@RequestParam Map<String, Object> inParam) throws Exception {
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("phone CPCGI START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+		response.setHeader("Pragma", "No-cache");
+//		request.setCharacterEncoding("euc-kr");
+
+		Phone phone = new Phone();
+		ModelMap modelMap = new ModelMap();
+		boolean BillErr = false;
+
+		Map TransR = new HashMap();
+		Map Res = null;
+		Map Res2 = null;
+
+		/*
+		 * Get ServerInfo
+		 */
+		String ServerInfo = (String) request.getParameter("ServerInfo");
+
+		/*
+		 * NCONFIRM
+		 */
+		int nConfirmOption = 0;
+		TransR.put("Command", "NCONFIRM");
+		TransR.put("OUTPUTOPTION", "DEFAULT");
+		TransR.put("ServerInfo", ServerInfo);
+		TransR.put("IFVERSION", "V1.1.2");
+		TransR.put("ConfirmOption", Integer.toString(nConfirmOption));
+
+		/*
+		 * ConfirmOption이 1이면 CPID, AMOUNT 필수 전달
+		 */
+		if (nConfirmOption == 1) {
+			TransR.put("CPID", CmmnCnst.PHONE_ID_MERCHANT);
+			TransR.put("AMOUNT", phone.getAMOUNT());
+		}
+
+		
+		logger.info("###[cpcgi][request]"+new Gson().toJson(TransR));
+		Res = phone.CallTeledit(TransR);
+		logger.info("###[cpcgi][response]"+new Gson().toJson(Res));
+
+
+
+		if (Res.get("Result").equals("0")) {
+			/*
+			 * NBILL
+			 */
+			TransR.clear();
+
+			int nBillOption = 0;
+			TransR.put("Command", "NBILL");
+			TransR.put("OUTPUTOPTION", "DEFAULT");
+			TransR.put("ServerInfo", ServerInfo);
+			TransR.put("IFVERSION", "V1.1.2");
+			TransR.put("BillOption", Integer.toString(nBillOption));
+
+			Res2 = phone.CallTeledit(TransR);
+
+			logger.debug("REQ[");
+			LoggerUtil.writeMap(TransR);
+			logger.debug("]");
+			logger.debug("RES2[");
+			LoggerUtil.writeMap(Res2);
+			logger.debug("]");
+
+			if (Res2 == null || !Res2.get("Result").equals("0")) {
+				BillErr = true;
+				logger.debug("BillErr : " + BillErr);
+			}
+		}
+
+		if (Res.get("Result").equals("0") && Res2.get("Result").equals("0")) {
+			/**************************************************************************
+			 *
+			 * 결제 완료에 대한 작업 - AMOUNT, ORDERID 등 결제 거래내용에 대한 검증을 반드시 하시기 바랍니다.
+			 *
+			 **************************************************************************/
+			String inputStr1 = phone.MakeFormInputHTTP(request.getParameterMap(), null);
+			// String inputStr2 = phone.MakeFormInput(Res,new
+			// String[]{"Result","ErrMsg"});
+			// String inputStr3 = phone.MakeFormInput(Res2,new
+			// String[]{"Result","ErrMsg"});
+			
+			
+			// 1. 결제금액 확인
+			
+			String ordCd = (String) Res2.get("ORDERID");
+			
+			int totAmt = mobilePaymentService.selectOrdInfo(ordCd);
+			logger.debug((String)Res.get("AMT_PAY"));
+			
+			
+			logger.debug(""+totAmt);
+			if (   Integer.parseInt((String)inParam.get("ItemAmt")) != totAmt ){
+				
+				ModelMap modelMap2 = new ModelMap();
+				modelMap.put("RLT_CD", "XXXX");
+				modelMap.put("RLT_MSG", "정상적인 결제 건이 아닙니다.");
+				return  new ModelAndView("web/danal/paymentErrPopup",modelMap2);
+			}
+			
+			
+			
+			String RLT_CD = (String) Res2.get("Result");
+			String RLT_MSG = (String)  Res2.get("ErrMsg");
+			if (RLT_CD != null &&  RLT_CD.equals("0")) {
+				RLT_CD = "0000";
+				RLT_MSG = "success";
+			}
+			
+			
+			
+			SetlInfo ordVo = new SetlInfo();
+
+			ordVo.setOrdCd(ordCd);
+
+			ordVo.setTrdGbCd("10");
+			ordVo.setTrdNo((String)Res.get("TID"));
+			ordVo.setTrdAmt( Integer.parseInt((String)Res.get("AMOUNT")) );
+			ordVo.setRltCd((String) RLT_CD );
+			ordVo.setRltMsg((String) RLT_MSG );
+			ordVo.setCarrier((String) inParam.get("Carrier"));
+			ordVo.setDstAddr((String) inParam.get("DstAddr"));
+			ordVo.setSeltNm((String) inParam.get("buyr_name") );
+			logger.debug("ordVo : " + ordVo.toString());
+			
+			try{
+				/* 	
+				  	1. 주문정보 insert (ORD_SETL_INFO)
+				 	2. 주문정보 update (ORD_INFO)
+				 	3. 주문정보 update (ORD_PROD_INFO)
+				 	3. 포인트 사용내역 insert (POINT_USE_LOG)
+				 	4. 포인트 사용내역 update (MBER_INFO)
+				 */ 
+				mobilePaymentService.insertSetlInfo(ordVo);
+			} catch (Exception e ){
+				e.printStackTrace();
+				logger.error(e.toString());
+				logger.error("결제처리중 에러가 발생하여 결제 취소 처리 합니다.");
+				PaymentUtil.phoneTradeCancelAll(ordVo.getTrdNo());
+				modelMap.put("RLT_CD", "XXXX");
+				modelMap.put("RLT_MSG", "정상적인 결제 건이 아닙니다.<br>결제 취소 처리 되었습니다.");
+				return  new ModelAndView("web/danal/paymentErrPopup",modelMap);
+				
+			}
+			
+					
+			
+			
+			
+			
+			
+			String inputStr2 = phone.MakeFormInput(Res, null);
+			String inputStr3 = phone.MakeFormInput(Res2, null);
+			modelMap.put("inputStr1", inputStr1);
+			modelMap.put("inputStr2", inputStr2);
+			modelMap.put("inputStr3", inputStr3);
+
+			logger.debug("성공시 결과값");
+			LoggerUtil.writeMap(modelMap);
+
+			return new ModelAndView("web/phone/CPCGI", modelMap);
+		} else {
+			/**************************************************************************
+			 *
+			 * 결제 실패에 대한 작업
+			 *
+			 **************************************************************************/
+
+			if (BillErr)
+				Res = Res2;
+
+			String Result = (String) Res.get("Result");
+			String ErrMsg = (String) Res.get("ErrMsg");
+			String BackURL = (String) request.getParameter("BackURL");
+			String IsUseCI = (String) request.getParameter("IsUseCI");
+			String CIURL = (String) request.getParameter("CIURL");
+			String BgColor = (String) request.getParameter("BgColor");
+			/*
+			 * Get CIURL
+			 */
+			String URL = phone.GetCIURL(IsUseCI, CIURL);
+
+			/*
+			 * Get BgColor
+			 */
+			BgColor = phone.GetBgColor(BgColor);
+
+			modelMap.put("RLT_CD", Result);
+			modelMap.put("RLT_MSG", ErrMsg);
+			modelMap.put("BackURL", BackURL);
+			modelMap.put("IsUseCI", IsUseCI);
+			modelMap.put("CIURL", CIURL);
+			modelMap.put("BgColor", BgColor);
+			modelMap.put("URL", URL);
+
+			logger.debug("실패시 결과값");
+			LoggerUtil.writeMap(modelMap);
+			return new ModelAndView("web/danal/paymentErrPopup", modelMap);
+		}
+	}
+
+	/**
+	 * <pre>
+	* 1. 메소드명 : phoneSuccess
+	* 2. 작성일 : 2015. 9. 11. 오후 7:59:41
+	* 3. 작성자 : guitarhyo
+	* 4. 설명 : 계좌이체 Success 페이지
+	 * </pre>
+	 * 
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 */
+	@RequestMapping("/mobile/phone/Success.do")
+	public ModelAndView phoneSuccess(HttpServletRequest request, HttpServletResponse response,
+			@RequestParam Map<String, Object> inParam) throws Exception {
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("Success START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+
+		ModelMap modelMap = new ModelMap();
+
+		modelMap.put("ORD_CD", request.getParameter("ORDERID")); // 주문 번호
+		modelMap.put("TRD_GB_CD", 10); // 10 = 결제
+		modelMap.put("TRD_NO", request.getParameter("TID")); // 거래 번호
+		modelMap.put("TRD_AMT", request.getParameter("AMOUNT")); // 거래 금액
+
+
+		String RLT_CD = request.getParameter("Result");
+		String RLT_MSG = request.getParameter("ErrMsg");
+		if (RLT_CD.equals("0")) {
+			RLT_CD = "0000";
+			RLT_MSG = "success";
+		}
+
+		modelMap.put("RLT_CD", RLT_CD); // 결과코드
+		modelMap.put("RLT_MSG", RLT_MSG); // 리턴 메시지
+		modelMap.put("SETL_NM", request.getParameter("buyr_name")); // 결제자
+
+		modelMap.put("PAY_APPLY_DAY", request.getParameter("DATE")); // 결제일 ( ex
+																		// :
+																		// 20151005114000
+																		// )
+		modelMap.put("CARRIER", request.getParameter("Carrier")); // 통신사
+		modelMap.put("DSTADDR", request.getParameter("DstAddr")); // 결제 전화번호
+		
+		logger.info("[success][modelmap]"+new Gson().toJson(modelMap));
+
+		ModelAndView mw = new ModelAndView("web/phone/Success", modelMap);
+
+		/*
+		 * Phone phone = new Phone(); String IsUseCI =
+		 * (String)inParam.get("IsUseCI"); String CIURL =
+		 * (String)inParam.get("CIURL"); String BgColor =
+		 * (String)inParam.get("BgColor");
+		 * 
+		 * // Get CIURL String URL = phone.GetCIURL( IsUseCI,CIURL );
+		 * 
+		 * // Get BgColor BgColor = phone.GetBgColor( BgColor );
+		 * 
+		 * inParam.put("URL", URL); inParam.put("BgColor", BgColor);
+		 * mw.addObject(inParam);
+		 */
+
+		return mw;
+	}
+
+	/**
+	 * <pre>
+	* 1. 메소드명 : phoneCancel
+	* 2. 작성일 : 2015. 9. 11. 오후 7:59:41
+	* 3. 작성자 : guitarhyo
+	* 4. 설명 : 계좌이체 Cancel 페이지
+	 * </pre>
+	 * 
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 */
+	@RequestMapping("/mobile/phone/Cancel.do")
+	public ModelAndView phoneCancel(HttpServletRequest request, HttpServletResponse response,
+			@RequestParam Map<String, Object> inParam) throws Exception {
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("Cancel START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+		ModelAndView mw = new ModelAndView("web/phone/Cancel");
+		mw.addObject(inParam);
+
+		return mw;
+	}
+
+	/**
+	 * <pre>
+	* 1. 메소드명 : phoneTradeCancel
+	* 2. 작성일 : 2015. 9. 11. 오후 7:59:41
+	* 3. 작성자 : guitarhyo
+	* 4. 설명 : 계좌이체 Cancel 페이지
+	 * </pre>
+	 * 
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws UnsupportedEncodingException
+	 * @throws Exception
+	 */
+	@RequestMapping(value = "/mobile/phone/TradeCancel.do")
+	public ModelAndView phoneTradeCancel(HttpServletRequest request, HttpServletResponse response,
+			@RequestParam Map<String, Object> inParam) throws UnsupportedEncodingException {
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("phoneTradeCancel START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+
+		LoggerUtil.writeMap(inParam);
+
+		ModelMap modelMap = new ModelMap();
+
+		// response.setContentType("charset=UTF-8;");
+
+		Map<String, Object> REQ_DATA = new HashMap<String, Object>();
+
+		String O_TID = (String) inParam.get("O_TID");
+		String AMOUNT = (String) inParam.get("AMOUNT");
+		
+		if(O_TID == null || O_TID.equals("")){
+			Map RES_DATA = new HashMap();
+			RES_DATA.put("RETURNCODE", "XXXX");
+			RES_DATA.put("RETURNMSG", "필수 데이터 정보 누락 입니다 [O_TID]");
+			return new ModelAndView("jsonView", RES_DATA);
+		}
+
+		String CPID = CmmnCnst.KCREDIT_ID_MERCHANT;
+		String CPPWD = CmmnCnst.KCREDIT_PW_MERCHANT;
+
+		REQ_DATA.put("TID", O_TID);
+		REQ_DATA.put("ID", CPID);
+		REQ_DATA.put("PWD", CPPWD);
+		if(AMOUNT != null && !AMOUNT.equals("")){
+			REQ_DATA.put("AMOUNT", AMOUNT);
+		}
+		Phone phone = new Phone();
+
+		logger.info("[cancel][request]"+ new Gson().toJson(REQ_DATA));
+		Map RES_DATA = phone.CallTeleditCancel(REQ_DATA);
+		logger.info("[cancel][response]"+ new Gson().toJson(RES_DATA));
+
+
+		// 필수 결과코드 (휴대폰결제는 파라미터가 다른것들과 완전히 다르기 때문에 재 정의 해줌.)
+		Map RET_MAP = new HashMap();
+		RET_MAP.put("O_TID", RES_DATA.get("TID"));
+		RET_MAP.put("RETURNCODE", RES_DATA.get("Result"));
+		RET_MAP.put("RETURNMSG", RES_DATA.get("ErrMsg"));
+		RET_MAP.put("DT_CANCEL", RES_DATA.get("Date"));
+		modelMap.putAll(RET_MAP);
+
+		return new ModelAndView("jsonView", modelMap);
+	}
+
+
+	
+
+	/**
+	 * <pre>
+	* 1. 메소드명 : phoneCPCGI
+	* 2. 작성일 : 2015. 9. 11. 오후 9:52:55
+	* 3. 작성자 : guitarhyo
+	* 4. 설명 :
+	 * </pre>
+	 * 
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 */
+	@RequestMapping("/mobile/phone/t.do")
+	public ModelAndView phoneT(HttpServletRequest request, HttpServletResponse response,
+			@RequestParam Map<String, Object> inParam) throws Exception {
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("phone CPCGI START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+		response.setHeader("Pragma", "No-cache");
+//		request.setCharacterEncoding("euc-kr");
+
+		ModelMap modelMap = new ModelMap();
+		modelMap.put("RLT_CD", "XXXX");
+		modelMap.put("RLT_MSG", "정상적인 결제 건이 아닙니다.<br>결제 취소 처리 되었습니다.");
+		return new ModelAndView("web/danal/paymentErrPopup",modelMap);
+		
+	}
+}

@@ -1,0 +1,802 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="adminPerfMapper">
+<!--
+to_date(20150901)-1
+ -->
+	<!-- 검색조건 -->
+	<sql id="SearchPerf">
+		<!-- 판매날짜 -->
+		<if test="S_SALES_DATE != null and S_SALES_DATE != ''">
+			AND A.SALES_YYMMDD LIKE #{S_SALES_DATE} || '%'
+		</if>
+
+		<if test="S_CTRY != null and S_CTRY != '' and S_CTRY=='sel'">
+			<!-- 대분류 -->
+			<if test="searchCtryCd1 != null and searchCtryCd1 != ''">
+				AND A.CTRY1 = #{searchCtryCd1}
+			</if>
+
+			<!-- 중분류 -->
+			<if test="searchCtryCd2 != null and searchCtryCd2 != ''">
+				AND A.CTRY2 = #{searchCtryCd2}
+			</if>
+
+			<!-- 소분류 -->
+			<if test="searchCtryCd3 != null and searchCtryCd3 != ''">
+				AND A.CTRY3 = #{searchCtryCd3}
+			</if>
+		</if>
+
+		<!-- 조회기간 -->
+		<if test="(S_FROM_DATE != null and S_FROM_DATE != '') and (S_TO_DATE != null and S_TO_DATE != '')">
+			AND A.SALES_YYMMDD BETWEEN #{S_FROM_DATE} AND #{S_TO_DATE}
+		</if>
+
+		<!-- 판매구분 -->
+		<if test="prodTypeCd != null and prodTypeCd !=''">
+            AND A.PROD_TYPE_CD = ${prodTypeCd}
+		</if>
+	</sql>
+
+	<!-- 정렬기준 -->
+	<sql id="OrderByPerf">
+		<!-- 정렬기준(주문건수순) -->
+		<if test="S_SORT_BASE != null and S_SORT_BASE != '' and S_SORT_BASE == 'orderCnt'">
+           ORDER BY NVL(SUM(A.SALES_CNT), 0) DESC
+		</if>
+		<!-- 정렬기준(주문금액순) -->
+		<if test="S_SORT_BASE != null and S_SORT_BASE != '' and S_SORT_BASE == 'orderAmt'">
+           ORDER BY NVL(SUM(A.SALES_PRCE), 0) DESC
+		</if>
+	</sql>
+
+	<resultMap id="perfListMap" type="hashmap">
+	    <result property="NO"      		 	  column="NO" 	    		javaType="String"/>
+	    <result property="PROD_NM"       	  column="PROD_NM"     		javaType="String"/>
+		<result property="CTRY_NM"       	  column="CTRY_NM"     		javaType="String"/>
+		<result property="PROD_TYPE_NM"       column="PROD_TYPE_NM"   	javaType="String"/>
+		<result property="MBER_GB_CD_NM"      column="MBER_GB_CD_NM"   	javaType="String"/>
+		<result property="MBER_EMAIL"      	  column="MBER_EMAIL"   	javaType="String"/>
+	    <result property="SALES_YYMMDD"       column="SALES_YYMMDD"     javaType="String"/>
+	    <result property="REG_CNT1"           column="REG_CNT1"         javaType="String"/>
+	    <result property="SALES_CNT1"         column="SALES_CNT1"       javaType="String"/>
+	    <result property="SALES_PRCE1"        column="SALES_PRCE1"      javaType="String"/>
+	    <result property="REG_CNT2"           column="REG_CNT2"         javaType="String"/>
+	    <result property="SALES_CNT2"         column="SALES_CNT2"       javaType="String"/>
+	    <result property="SALES_PRCE2"        column="SALES_PRCE2"      javaType="String"/>
+	    <result property="REG_CNT3"           column="REG_CNT3"         javaType="String"/>
+	    <result property="SALES_CNT3"         column="SALES_CNT3"       javaType="String"/>
+	    <result property="SALES_PRCE3"        column="SALES_PRCE3"      javaType="String"/>
+	    <result property="REG_CNT4"           column="REG_CNT4"         javaType="String"/>
+	    <result property="SALES_CNT4"         column="SALES_CNT4"       javaType="String"/>
+	    <result property="SALES_PRCE4"        column="SALES_PRCE4"      javaType="String"/>
+	    <result property="REG_CNT_HAK"        column="REG_CNT_HAK"      javaType="String"/>
+	    <result property="SALES_CNT_HAK"      column="SALES_CNT_HAK"    javaType="String"/>
+	    <result property="SALES_PRCE_HAK"     column="SALES_PRCE_HAK"   javaType="String"/>
+	    <result property="SELL_PRCE"          column="SELL_PRCE"       	javaType="String"/>
+	    <result property="SALES_CNT"          column="SALES_CNT"       	javaType="String"/>
+	    <result property="SALES_PRCE"         column="SALES_PRCE"      	javaType="String"/>
+	</resultMap>
+
+<select id="selectListTimePerf" parameterType="hashmap" resultType="hashmap">
+
+    SELECT CASE WHEN HH_TIME = '-1' THEN '합계' ELSE NVL(A.SALES_YYMMDD, #{S_SALES_DATE} || HH_TIME) END AS SALES_YYMMDD
+         , CASE WHEN HH_TIME = '-1' THEN '1' ELSE '0' END AS SALES_YYMMDD_G
+         , NVL(A.SALES_CNT1, 0) AS SALES_CNT1 <!-- 판매상품 -->
+         , NVL(A.SALES_CNT2, 0) AS SALES_CNT2 <!-- 셰어링상품 -->
+         , NVL(A.SALES_CNT3, 0) AS SALES_CNT3 <!-- 나눔상품 -->
+         , NVL(A.SALES_CNT4, 0) AS SALES_CNT4 <!-- 렌트상품 -->
+         , NVL(A.SALES_PRCE1, 0) AS SALES_PRCE1
+         , NVL(A.SALES_PRCE2, 0) AS SALES_PRCE2
+         , NVL(A.SALES_PRCE3, 0) AS SALES_PRCE3
+         , NVL(A.SALES_PRCE4, 0) AS SALES_PRCE4
+         , NVL(A.SALES_CNT_HAK, 0) AS SALES_CNT_HAK
+         , NVL(A.SALES_PRCE_HAK, 0) AS SALES_PRCE_HAK
+	  FROM (
+			SELECT A.*
+    			 , CASE WHEN SALES_YYMMDD = '합계' THEN '-1' ELSE SUBSTR(SALES_YYMMDD, 9, 2) END AS MM_TIME
+	  		  FROM (
+					SELECT DECODE(GROUPING(A.SALES_YYMMDD), '1', '합계', A.SALES_YYMMDD) AS SALES_YYMMDD
+					     , GROUPING(A.SALES_YYMMDD) AS SALES_YYMMDD_G
+					     , NVL(SUM(DECODE(A.PROD_TYPE_CD, '1', A.SALES_CNT)), 0) AS SALES_CNT1
+					     , NVL(SUM(DECODE(A.PROD_TYPE_CD, '2', A.SALES_CNT)), 0) AS SALES_CNT2
+					     , NVL(SUM(DECODE(A.PROD_TYPE_CD, '3', A.SALES_CNT)), 0) AS SALES_CNT3
+					     , NVL(SUM(DECODE(A.PROD_TYPE_CD, '5', A.SALES_CNT)), 0) AS SALES_CNT4
+					     , NVL(SUM(DECODE(A.PROD_TYPE_CD, '1', A.SALES_PRCE)), 0) AS SALES_PRCE1
+					     , NVL(SUM(DECODE(A.PROD_TYPE_CD, '2', A.SALES_PRCE)), 0) AS SALES_PRCE2
+					     , NVL(SUM(DECODE(A.PROD_TYPE_CD, '3', A.SALES_PRCE)), 0) AS SALES_PRCE3
+					     , NVL(SUM(DECODE(A.PROD_TYPE_CD, '5', A.SALES_PRCE)), 0) AS SALES_PRCE4
+					     , NVL(SUM(A.SALES_CNT), 0) AS SALES_CNT_HAK
+					     , NVL(SUM(A.SALES_PRCE), 0) AS SALES_PRCE_HAK
+					  FROM SALES_DATE A
+					 WHERE 1=1
+					<include refid="SearchPerf" />
+					 GROUP BY ROLLUP (A.SALES_YYMMDD )
+					 ORDER BY GROUPING(A.SALES_YYMMDD) DESC, A.SALES_YYMMDD
+                    ) A
+              ) A, TEMP_TIME B
+		WHERE 1=1
+          AND A.MM_TIME(+) = B.HH_TIME
+          AND B.HH_TIME BETWEEN '-1' AND '23'
+        ORDER BY SALES_YYMMDD_G DESC, SALES_YYMMDD
+	</select>
+
+	<select id="selectListDayPerf" parameterType="hashmap" resultType="hashmap">
+
+    SELECT CASE WHEN HH_TIME = '-1' THEN '합계' ELSE NVL(A.SALES_YYMMDD, #{S_SALES_DATE} || HH_TIME) END AS SALES_YYMMDD
+         , CASE WHEN HH_TIME = '-1' THEN '1' ELSE '0' END AS SALES_YYMMDD_G
+         , NVL(A.SALES_CNT1, 0) AS SALES_CNT1 <!-- 판매상품 -->
+         , NVL(A.SALES_CNT2, 0) AS SALES_CNT2 <!-- 셰어링상품 -->
+         , NVL(A.SALES_CNT3, 0) AS SALES_CNT3 <!-- 나눔상품 -->
+         , NVL(A.SALES_CNT4, 0) AS SALES_CNT4 <!-- 렌트상품 -->
+         , NVL(A.SALES_PRCE1, 0) AS SALES_PRCE1
+         , NVL(A.SALES_PRCE2, 0) AS SALES_PRCE2
+         , NVL(A.SALES_PRCE3, 0) AS SALES_PRCE3
+         , NVL(A.SALES_PRCE4, 0) AS SALES_PRCE4
+         , NVL(A.SALES_CNT_HAK, 0) AS SALES_CNT_HAK
+         , NVL(A.SALES_PRCE_HAK, 0) AS SALES_PRCE_HAK
+	  FROM (
+			SELECT A.*
+    			 , CASE WHEN SALES_YYMMDD = '합계' THEN '-1' ELSE SUBSTR(SALES_YYMMDD, 7, 2) END AS MM_TIME
+	  		  FROM (
+    				 SELECT DECODE(GROUPING(SUBSTR(A.SALES_YYMMDD, 0, 8)), '1', '합계', SUBSTR(A.SALES_YYMMDD, 0, 8)) AS SALES_YYMMDD
+    				      , GROUPING(SUBSTR(A.SALES_YYMMDD, 0, 8)) AS SALES_YYMMDD_G
+    				      , NVL(SUM(DECODE(A.PROD_TYPE_CD, '1', A.SALES_CNT)), 0) AS SALES_CNT1
+    				      , NVL(SUM(DECODE(A.PROD_TYPE_CD, '2', A.SALES_CNT)), 0) AS SALES_CNT2
+    				      , NVL(SUM(DECODE(A.PROD_TYPE_CD, '3', A.SALES_CNT)), 0) AS SALES_CNT3
+    				      , NVL(SUM(DECODE(A.PROD_TYPE_CD, '5', A.SALES_CNT)), 0) AS SALES_CNT4
+    				      , NVL(SUM(DECODE(A.PROD_TYPE_CD, '1', A.SALES_PRCE)), 0) AS SALES_PRCE1
+    				      , NVL(SUM(DECODE(A.PROD_TYPE_CD, '2', A.SALES_PRCE)), 0) AS SALES_PRCE2
+    				      , NVL(SUM(DECODE(A.PROD_TYPE_CD, '3', A.SALES_PRCE)), 0) AS SALES_PRCE3
+    				      , NVL(SUM(DECODE(A.PROD_TYPE_CD, '5', A.SALES_PRCE)), 0) AS SALES_PRCE4
+    				      , NVL(SUM(A.SALES_CNT), 0) AS SALES_CNT_HAK
+    				      , NVL(SUM(A.SALES_PRCE), 0) AS SALES_PRCE_HAK
+					   FROM SALES_DATE A
+					  WHERE 1=1
+		 				<include refid="SearchPerf" />
+					  GROUP BY ROLLUP(SUBSTR(A.SALES_YYMMDD, 0, 8))
+					  ORDER BY GROUPING(SUBSTR(A.SALES_YYMMDD, 0, 8)) DESC, SUBSTR(A.SALES_YYMMDD, 0, 8)
+                    ) A
+              ) A, TEMP_TIME B
+		WHERE 1=1
+          AND A.MM_TIME(+) = B.HH_TIME
+          AND B.HH_TIME BETWEEN '-1' AND #{S_DAY}
+          AND B.HH_TIME NOT IN ('00')
+        ORDER BY SALES_YYMMDD_G DESC, SALES_YYMMDD
+
+	</select>
+
+	<select id="selectListMonthPerf" parameterType="hashmap" resultType="hashmap">
+
+    SELECT CASE WHEN HH_TIME = '-1' THEN '합계' ELSE NVL(A.SALES_YYMMDD, #{S_SALES_DATE} || HH_TIME) END AS SALES_YYMMDD
+         , CASE WHEN HH_TIME = '-1' THEN '1' ELSE '0' END AS SALES_YYMMDD_G
+         , NVL(A.SALES_CNT1, 0) AS SALES_CNT1 <!-- 판매상품 -->
+         , NVL(A.SALES_CNT2, 0) AS SALES_CNT2 <!-- 셰어링상품 -->
+         , NVL(A.SALES_CNT3, 0) AS SALES_CNT3 <!-- 나눔상품 -->
+         , NVL(A.SALES_CNT4, 0) AS SALES_CNT4 <!-- 렌트상품 -->
+		 , NVL(A.SALES_PRCE1, 0) AS SALES_PRCE1
+		 , NVL(A.SALES_PRCE2, 0) AS SALES_PRCE2
+		 , NVL(A.SALES_PRCE3, 0) AS SALES_PRCE3
+		 , NVL(A.SALES_PRCE4, 0) AS SALES_PRCE4
+		 , NVL(A.SALES_CNT_HAK, 0) AS SALES_CNT_HAK
+		 , NVL(A.SALES_PRCE_HAK, 0) AS SALES_PRCE_HAK
+	  FROM (
+			SELECT A.*
+	    		 , CASE WHEN SALES_YYMMDD = '합계' THEN '-1' ELSE SUBSTR(SALES_YYMMDD, 5, 2) END AS MM_TIME
+		  	  FROM ( SELECT DECODE(GROUPING(SUBSTR(A.SALES_YYMMDD, 0, 6)), '1', '합계', SUBSTR(A.SALES_YYMMDD, 0, 6)) AS SALES_YYMMDD
+		  				  , GROUPING(SUBSTR(A.SALES_YYMMDD, 0, 6)) AS SALES_YYMMDD_G
+		  				  , NVL(SUM(DECODE(A.PROD_TYPE_CD, '1', A.SALES_CNT)), 0) AS SALES_CNT1
+		  				  , NVL(SUM(DECODE(A.PROD_TYPE_CD, '2', A.SALES_CNT)), 0) AS SALES_CNT2
+		  				  , NVL(SUM(DECODE(A.PROD_TYPE_CD, '3', A.SALES_CNT)), 0) AS SALES_CNT3
+		  				  , NVL(SUM(DECODE(A.PROD_TYPE_CD, '5', A.SALES_CNT)), 0) AS SALES_CNT4
+		  				  , NVL(SUM(DECODE(A.PROD_TYPE_CD, '1', A.SALES_PRCE)), 0) AS SALES_PRCE1
+		  				  , NVL(SUM(DECODE(A.PROD_TYPE_CD, '2', A.SALES_PRCE)), 0) AS SALES_PRCE2
+		  				  , NVL(SUM(DECODE(A.PROD_TYPE_CD, '3', A.SALES_PRCE)), 0) AS SALES_PRCE3
+		  				  , NVL(SUM(DECODE(A.PROD_TYPE_CD, '5', A.SALES_PRCE)), 0) AS SALES_PRCE4
+		  				  , NVL(SUM(A.SALES_CNT), 0) AS SALES_CNT_HAK
+		  				  , NVL(SUM(A.SALES_PRCE), 0) AS SALES_PRCE_HAK
+					   FROM SALES_DATE A
+			  WHERE 1=1
+			    <include refid="SearchPerf" />
+			  GROUP BY ROLLUP(SUBSTR(A.SALES_YYMMDD, 0, 6))
+			  ORDER BY GROUPING(SUBSTR(A.SALES_YYMMDD, 0, 6)) DESC, SUBSTR(A.SALES_YYMMDD, 0, 6)
+			) A
+		) A, TEMP_TIME B
+	WHERE 1=1
+	  AND A.MM_TIME(+) = B.HH_TIME
+	  AND B.HH_TIME BETWEEN '-1' AND #{S_MONTH}
+	  AND B.HH_TIME NOT IN ('00')
+	ORDER BY SALES_YYMMDD_G DESC, SALES_YYMMDD
+	</select>
+
+	<select id="selectListTimePerfExcelDownload" parameterType="hashmap" resultMap="perfListMap">
+	SELECT CASE WHEN HH_TIME = '-1' THEN '합계' ELSE NVL(A.SALES_YYMMDD, #{S_SALES_DATE} || HH_TIME) END AS SALES_YYMMDD
+         , CASE WHEN HH_TIME = '-1' THEN '1' ELSE '0' END AS SALES_YYMMDD_G
+         , NVL(A.SALES_CNT1, 0 || '건') AS SALES_CNT1 <!-- 판매상품 -->
+         , NVL(A.SALES_CNT2, 0 || '건') AS SALES_CNT2 <!-- 셰어링상품 -->
+         , NVL(A.SALES_CNT3, 0 || '건') AS SALES_CNT3 <!-- 나눔상품 -->
+         , NVL(A.SALES_CNT4, 0 || '건') AS SALES_CNT4 <!-- 렌트상품 -->
+         , NVL(A.SALES_PRCE1, 0 || '원') AS SALES_PRCE1
+         , NVL(A.SALES_PRCE2, 0 || '원') AS SALES_PRCE2
+         , NVL(A.SALES_PRCE3, 0 || '원') AS SALES_PRCE3
+         , NVL(A.SALES_PRCE4, 0 || '원') AS SALES_PRCE4
+         , NVL(A.SALES_CNT_HAK, 0 || '건') AS SALES_CNT_HAK
+         , NVL(A.SALES_PRCE_HAK, 0 || '원') AS SALES_PRCE_HAK
+	  FROM (
+			SELECT A.*
+    			 , CASE WHEN SALES_YYMMDD = '합계' THEN '-1' ELSE SUBSTR(SALES_YYMMDD, 9, 2) END AS MM_TIME
+	  		  FROM (
+					SELECT DECODE(GROUPING(A.SALES_YYMMDD), '1', '합계', A.SALES_YYMMDD) AS SALES_YYMMDD
+					     , GROUPING(A.SALES_YYMMDD) AS SALES_YYMMDD_G
+						 , TO_CHAR( NVL(SUM(DECODE(A.PROD_TYPE_CD, '1', A.SALES_CNT)), 0) , '999,999,999,999,999') || '건' AS SALES_CNT1
+						 , TO_CHAR( NVL(SUM(DECODE(A.PROD_TYPE_CD, '2', A.SALES_CNT)), 0) , '999,999,999,999,999') || '건' AS SALES_CNT2
+						 , TO_CHAR( NVL(SUM(DECODE(A.PROD_TYPE_CD, '3', A.SALES_CNT)), 0) , '999,999,999,999,999') || '건' AS SALES_CNT3
+						 , TO_CHAR( NVL(SUM(DECODE(A.PROD_TYPE_CD, '5', A.SALES_CNT)), 0) , '999,999,999,999,999') || '건' AS SALES_CNT4
+						 , TO_CHAR( NVL(SUM(DECODE(A.PROD_TYPE_CD, '1', A.SALES_PRCE)), 0) , '999,999,999,999,999') || '원' AS SALES_PRCE1
+						 , TO_CHAR( NVL(SUM(DECODE(A.PROD_TYPE_CD, '2', A.SALES_PRCE)), 0) , '999,999,999,999,999') || '원' AS SALES_PRCE2
+						 , TO_CHAR( NVL(SUM(DECODE(A.PROD_TYPE_CD, '3', A.SALES_PRCE)), 0) , '999,999,999,999,999') || '원' AS SALES_PRCE3
+						 , TO_CHAR( NVL(SUM(DECODE(A.PROD_TYPE_CD, '5', A.SALES_PRCE)), 0) , '999,999,999,999,999') || '원' AS SALES_PRCE4
+						 , TO_CHAR( NVL(SUM(A.SALES_CNT), 0) , '999,999,999,999,999') || '건' AS SALES_CNT_HAK
+						 , TO_CHAR( NVL(SUM(A.SALES_PRCE), 0) , '999,999,999,999,999') || '원' AS SALES_PRCE_HAK
+					  FROM SALES_DATE A
+					 WHERE 1=1
+					<include refid="SearchPerf" />
+					 GROUP BY ROLLUP (A.SALES_YYMMDD )
+					 ORDER BY GROUPING(A.SALES_YYMMDD) DESC, A.SALES_YYMMDD
+                    ) A
+              ) A, TEMP_TIME B
+		WHERE 1=1
+          AND A.MM_TIME(+) = B.HH_TIME
+          AND B.HH_TIME BETWEEN '-1' AND '23'
+        ORDER BY SALES_YYMMDD_G DESC, SALES_YYMMDD
+	</select>
+
+	<select id="selectListDayPerfExcelDownload" parameterType="hashmap" resultMap="perfListMap">
+
+	SELECT CASE WHEN HH_TIME = '-1' THEN '합계' ELSE NVL(A.SALES_YYMMDD, #{S_SALES_DATE} || HH_TIME) END AS SALES_YYMMDD
+         , CASE WHEN HH_TIME = '-1' THEN '1' ELSE '0' END AS SALES_YYMMDD_G
+         , NVL(A.SALES_CNT1, 0 || '건') AS SALES_CNT1 <!-- 판매상품 -->
+         , NVL(A.SALES_CNT2, 0 || '건') AS SALES_CNT2 <!-- 셰어링상품 -->
+         , NVL(A.SALES_CNT3, 0 || '건') AS SALES_CNT3 <!-- 나눔상품 -->
+         , NVL(A.SALES_CNT4, 0 || '건') AS SALES_CNT4 <!-- 렌트상품 -->
+         , NVL(A.SALES_PRCE1, 0 || '원') AS SALES_PRCE1
+         , NVL(A.SALES_PRCE2, 0 || '원') AS SALES_PRCE2
+         , NVL(A.SALES_PRCE3, 0 || '원') AS SALES_PRCE3
+         , NVL(A.SALES_PRCE4, 0 || '원') AS SALES_PRCE4
+         , NVL(A.SALES_CNT_HAK, 0 || '건') AS SALES_CNT_HAK
+         , NVL(A.SALES_PRCE_HAK, 0 || '원') AS SALES_PRCE_HAK
+	  FROM (
+			SELECT A.*
+    			 , CASE WHEN SALES_YYMMDD = '합계' THEN '-1' ELSE SUBSTR(SALES_YYMMDD, 7, 2) END AS MM_TIME
+	  		  FROM (
+    				 SELECT DECODE(GROUPING(SUBSTR(A.SALES_YYMMDD, 0, 8)), '1', '합계', SUBSTR(A.SALES_YYMMDD, 0, 8)) AS SALES_YYMMDD
+    				      , GROUPING(SUBSTR(A.SALES_YYMMDD, 0, 8)) AS SALES_YYMMDD_G
+						 , TO_CHAR( NVL(SUM(DECODE(A.PROD_TYPE_CD, '1', A.SALES_CNT)), 0) , '999,999,999,999,999') || '건' AS SALES_CNT1
+						 , TO_CHAR( NVL(SUM(DECODE(A.PROD_TYPE_CD, '2', A.SALES_CNT)), 0) , '999,999,999,999,999') || '건' AS SALES_CNT2
+						 , TO_CHAR( NVL(SUM(DECODE(A.PROD_TYPE_CD, '3', A.SALES_CNT)), 0) , '999,999,999,999,999') || '건' AS SALES_CNT3
+						 , TO_CHAR( NVL(SUM(DECODE(A.PROD_TYPE_CD, '5', A.SALES_CNT)), 0) , '999,999,999,999,999') || '건' AS SALES_CNT4
+						 , TO_CHAR( NVL(SUM(DECODE(A.PROD_TYPE_CD, '1', A.SALES_PRCE)), 0) , '999,999,999,999,999') || '원' AS SALES_PRCE1
+						 , TO_CHAR( NVL(SUM(DECODE(A.PROD_TYPE_CD, '2', A.SALES_PRCE)), 0) , '999,999,999,999,999') || '원' AS SALES_PRCE2
+						 , TO_CHAR( NVL(SUM(DECODE(A.PROD_TYPE_CD, '3', A.SALES_PRCE)), 0) , '999,999,999,999,999') || '원' AS SALES_PRCE3
+						 , TO_CHAR( NVL(SUM(DECODE(A.PROD_TYPE_CD, '5', A.SALES_PRCE)), 0) , '999,999,999,999,999') || '원' AS SALES_PRCE4
+						 , TO_CHAR( NVL(SUM(A.SALES_CNT), 0) , '999,999,999,999,999') || '건' AS SALES_CNT_HAK
+						 , TO_CHAR( NVL(SUM(A.SALES_PRCE), 0) , '999,999,999,999,999') || '원' AS SALES_PRCE_HAK
+					   FROM SALES_DATE A
+					  WHERE 1=1
+		 				<include refid="SearchPerf" />
+					  GROUP BY ROLLUP(SUBSTR(A.SALES_YYMMDD, 0, 8))
+					  ORDER BY GROUPING(SUBSTR(A.SALES_YYMMDD, 0, 8)) DESC, SUBSTR(A.SALES_YYMMDD, 0, 8)
+                    ) A
+              ) A, TEMP_TIME B
+		WHERE 1=1
+          AND A.MM_TIME(+) = B.HH_TIME
+          AND B.HH_TIME BETWEEN '-1' AND #{S_DAY}
+          AND B.HH_TIME NOT IN ('00')
+        ORDER BY SALES_YYMMDD_G DESC, SALES_YYMMDD
+	</select>
+
+	<select id="selectListMonthPerfExcelDownload" parameterType="hashmap" resultMap="perfListMap">
+
+    SELECT CASE WHEN HH_TIME = '-1' THEN '합계' ELSE NVL(A.SALES_YYMMDD, #{S_SALES_DATE} || HH_TIME) END AS SALES_YYMMDD
+         , CASE WHEN HH_TIME = '-1' THEN '1' ELSE '0' END AS SALES_YYMMDD_G
+         , NVL(A.SALES_CNT1, 0 || '건') AS SALES_CNT1 <!-- 판매상품 -->
+         , NVL(A.SALES_CNT2, 0 || '건') AS SALES_CNT2 <!-- 셰어링상품 -->
+         , NVL(A.SALES_CNT3, 0 || '건') AS SALES_CNT3 <!-- 나눔상품 -->
+         , NVL(A.SALES_CNT4, 0 || '건') AS SALES_CNT4 <!-- 렌트상품 -->
+         , NVL(A.SALES_PRCE1, 0 || '원') AS SALES_PRCE1
+         , NVL(A.SALES_PRCE2, 0 || '원') AS SALES_PRCE2
+         , NVL(A.SALES_PRCE3, 0 || '원') AS SALES_PRCE3
+         , NVL(A.SALES_PRCE4, 0 || '원') AS SALES_PRCE4
+         , NVL(A.SALES_CNT_HAK, 0 || '건') AS SALES_CNT_HAK
+         , NVL(A.SALES_PRCE_HAK, 0 || '원') AS SALES_PRCE_HAK
+	  FROM (
+			SELECT A.*
+	    		 , CASE WHEN SALES_YYMMDD = '합계' THEN '-1' ELSE SUBSTR(SALES_YYMMDD, 5, 2) END AS MM_TIME
+		  	  FROM ( SELECT DECODE(GROUPING(SUBSTR(A.SALES_YYMMDD, 0, 6)), '1', '합계', SUBSTR(A.SALES_YYMMDD, 0, 6)) AS SALES_YYMMDD
+		  				  , GROUPING(SUBSTR(A.SALES_YYMMDD, 0, 4)) AS SALES_YYMMDD_G
+			, TO_CHAR( NVL(SUM(DECODE(A.PROD_TYPE_CD, '1', A.SALES_CNT)), 0) , '999,999,999,999,999') || '건' AS SALES_CNT1
+			, TO_CHAR( NVL(SUM(DECODE(A.PROD_TYPE_CD, '2', A.SALES_CNT)), 0) , '999,999,999,999,999') || '건' AS SALES_CNT2
+			, TO_CHAR( NVL(SUM(DECODE(A.PROD_TYPE_CD, '3', A.SALES_CNT)), 0) , '999,999,999,999,999') || '건' AS SALES_CNT3
+			, TO_CHAR( NVL(SUM(DECODE(A.PROD_TYPE_CD, '5', A.SALES_CNT)), 0) , '999,999,999,999,999') || '건' AS SALES_CNT4
+			, TO_CHAR( NVL(SUM(DECODE(A.PROD_TYPE_CD, '1', A.SALES_PRCE)), 0) , '999,999,999,999,999') || '원' AS SALES_PRCE1
+			, TO_CHAR( NVL(SUM(DECODE(A.PROD_TYPE_CD, '2', A.SALES_PRCE)), 0) , '999,999,999,999,999') || '원' AS SALES_PRCE2
+			, TO_CHAR( NVL(SUM(DECODE(A.PROD_TYPE_CD, '3', A.SALES_PRCE)), 0) , '999,999,999,999,999') || '원' AS SALES_PRCE3
+			, TO_CHAR( NVL(SUM(DECODE(A.PROD_TYPE_CD, '5', A.SALES_PRCE)), 0) , '999,999,999,999,999') || '원' AS SALES_PRCE4
+			, TO_CHAR( NVL(SUM(A.SALES_CNT), 0) , '999,999,999,999,999') || '건' AS SALES_CNT_HAK
+			, TO_CHAR( NVL(SUM(A.SALES_PRCE), 0) , '999,999,999,999,999') || '원' AS SALES_PRCE_HAK
+					   FROM SALES_DATE A
+			  WHERE 1=1
+			    <include refid="SearchPerf" />
+			  GROUP BY ROLLUP(SUBSTR(A.SALES_YYMMDD, 0, 6))
+			  ORDER BY GROUPING(SUBSTR(A.SALES_YYMMDD, 0, 6)) DESC, SUBSTR(A.SALES_YYMMDD, 0, 6)
+			) A
+		) A, TEMP_TIME B
+	WHERE 1=1
+	  AND A.MM_TIME(+) = B.HH_TIME
+	  AND B.HH_TIME BETWEEN '-1' AND #{S_MONTH}
+	  AND B.HH_TIME NOT IN ('00')
+	ORDER BY SALES_YYMMDD_G DESC, SALES_YYMMDD
+	</select>
+
+	<select id="selectListCtryPerf" parameterType="hashmap" resultType="hashmap">
+		SELECT B.*
+		  FROM (
+		       SELECT T.CTRY_G
+		            , T.CTRY1
+		            , T.CTRY2
+		            , T.CTRY3
+		            , DECODE(CTRY_G, '111', '합계', T.CTRY1_NM || '>' || T.CTRY2_NM || '>' || T.CTRY3_NM) AS CTRY_NM
+		            , T.SALES_CNT1
+		            , T.SALES_CNT2
+		            , T.SALES_CNT3
+		            , T.SALES_CNT4
+		            , T.SALES_PRCE1
+		            , T.SALES_PRCE2
+		            , T.SALES_PRCE3
+		            , T.SALES_PRCE4
+		            , T.SALES_CNT_HAK
+		            , T.SALES_PRCE_HAK
+		            , CASE WHEN CTRY_G = '111' THEN 1 ELSE ROW_NUMBER() OVER(ORDER BY T.CTRY1, T.CTRY2, T.CTRY3 DESC)+1 END AS NO
+		         FROM (
+		              SELECT GROUPING(A.CTRY1) || GROUPING(A.CTRY2) || GROUPING(A.CTRY3) AS CTRY_G
+		                   , A.CTRY1
+		                   , A.CTRY2
+		                   , A.CTRY3
+		                   , (SELECT CTRY_NM
+		                       FROM CTRY
+		                      WHERE CTRY_CD = A.CTRY1) AS CTRY1_NM
+		                   , (SELECT CTRY_NM
+		                       FROM CTRY
+		                      WHERE CTRY_CD = A.CTRY2) AS CTRY2_NM
+		                   , (SELECT CTRY_NM
+		                       FROM CTRY
+		                      WHERE CTRY_CD = A.CTRY3) AS CTRY3_NM
+		                   , NVL(SUM(DECODE(A.PROD_TYPE_CD, '1', A.SALES_CNT)), 0) AS SALES_CNT1
+		                   , NVL(SUM(DECODE(A.PROD_TYPE_CD, '2', A.SALES_CNT)), 0) AS SALES_CNT2
+		                   , NVL(SUM(DECODE(A.PROD_TYPE_CD, '3', A.SALES_CNT)), 0) AS SALES_CNT3
+		                   , NVL(SUM(DECODE(A.PROD_TYPE_CD, '5', A.SALES_CNT)), 0) AS SALES_CNT4
+		                   , NVL(SUM(DECODE(A.PROD_TYPE_CD, '1', A.SALES_PRCE)), 0) AS SALES_PRCE1
+		                   , NVL(SUM(DECODE(A.PROD_TYPE_CD, '2', A.SALES_PRCE)), 0) AS SALES_PRCE2
+		                   , NVL(SUM(DECODE(A.PROD_TYPE_CD, '3', A.SALES_PRCE)), 0) AS SALES_PRCE3
+		                   , NVL(SUM(DECODE(A.PROD_TYPE_CD, '5', A.SALES_PRCE)), 0) AS SALES_PRCE4
+		                   , NVL(SUM(A.SALES_CNT), 0) AS SALES_CNT_HAK
+		                   , NVL(SUM(A.SALES_PRCE), 0) AS SALES_PRCE_HAK
+		                FROM SALES_CTRY A
+		               WHERE 1=1
+				<include refid="SearchPerf" />
+		               GROUP BY ROLLUP (A.CTRY1, A.CTRY2, A.CTRY3 )
+		            ) T
+		        WHERE T.CTRY_G IN ('000' , '111' )
+		        ORDER BY T.CTRY_G DESC, T.CTRY1, T.CTRY2, T.CTRY3
+		     ) B
+		 ORDER BY NO ASC
+	</select>
+
+	<select id="selectCtryPerfSearchCnt" parameterType="hashmap" resultType="int">
+		SELECT
+                COUNT(1) AS CNT
+		FROM (
+		      SELECT
+		            GROUPING(A.CTRY1) || GROUPING(A.CTRY2) || GROUPING(A.CTRY3) AS CTRY_G,
+		            A.CTRY1,
+		            A.CTRY2,
+		            A.CTRY3,
+		            (SELECT CTRY_NM FROM CTRY WHERE CTRY_CD = A.CTRY1) AS CTRY1_NM,
+		            (SELECT CTRY_NM FROM CTRY WHERE CTRY_CD = A.CTRY2) AS CTRY2_NM,
+		            (SELECT CTRY_NM FROM CTRY WHERE CTRY_CD = A.CTRY3) AS CTRY3_NM,
+		            NVL(SUM(DECODE(A.PROD_TYPE_CD, '1', A.SALES_CNT)), 0) AS SALES_CNT1,
+		            NVL(SUM(DECODE(A.PROD_TYPE_CD, '2', A.SALES_CNT)), 0) AS SALES_CNT2,
+		            NVL(SUM(DECODE(A.PROD_TYPE_CD, '3', A.SALES_CNT)), 0) AS SALES_CNT3,
+		            NVL(SUM(DECODE(A.PROD_TYPE_CD, '5', A.SALES_CNT)), 0) AS SALES_CNT4,
+		            NVL(SUM(DECODE(A.PROD_TYPE_CD, '1', A.SALES_PRCE)), 0) AS SALES_PRCE1,
+		            NVL(SUM(DECODE(A.PROD_TYPE_CD, '2', A.SALES_PRCE)), 0) AS SALES_PRCE2,
+		            NVL(SUM(DECODE(A.PROD_TYPE_CD, '3', A.SALES_PRCE)), 0) AS SALES_PRCE3,
+		            NVL(SUM(DECODE(A.PROD_TYPE_CD, '5', A.SALES_PRCE)), 0) AS SALES_PRCE4,
+		            NVL(SUM(A.SALES_CNT), 0) AS SALES_CNT_HAK,
+              	    NVL(SUM(A.SALES_PRCE), 0) AS SALES_PRCE_HAK
+		      FROM SALES_CTRY A
+		      WHERE 1=1
+		      <include refid="SearchPerf" />
+		      GROUP BY ROLLUP(A.CTRY1, A.CTRY2, A.CTRY3)
+		) T
+		WHERE T.CTRY_G IN ('000', '111')
+		ORDER BY T.CTRY_G DESC, T.CTRY1, T.CTRY2, T.CTRY3
+	</select>
+
+	<select id="selectListCtryPerfExcelDownload" parameterType="hashmap" resultMap="perfListMap">
+		SELECT T.CTRY_G
+		     , T.CTRY1
+		     , T.CTRY2
+		     , T.CTRY3
+		     , DECODE(CTRY_G, '111', '합계', T.CTRY1_NM || '>' || T.CTRY2_NM || '>' || T.CTRY3_NM) AS CTRY_NM
+		     , TO_CHAR( T.SALES_CNT1 , '999,999,999,999,999') || '건' AS SALES_CNT1
+		     , TO_CHAR( T.SALES_CNT2 , '999,999,999,999,999') || '건' AS SALES_CNT2
+		     , TO_CHAR( T.SALES_CNT3 , '999,999,999,999,999') || '건' AS SALES_CNT3
+		     , TO_CHAR( T.SALES_CNT4 , '999,999,999,999,999') || '건' AS SALES_CNT4
+		     , TO_CHAR( T.SALES_PRCE1 , '999,999,999,999,999') || '원' AS SALES_PRCE1
+		     , TO_CHAR( T.SALES_PRCE2 , '999,999,999,999,999') || '원' AS SALES_PRCE2
+		     , TO_CHAR( T.SALES_PRCE3 , '999,999,999,999,999') || '원' AS SALES_PRCE3
+		     , TO_CHAR( T.SALES_PRCE4 , '999,999,999,999,999') || '원' AS SALES_PRCE4
+		     , TO_CHAR( T.SALES_CNT_HAK , '999,999,999,999,999') || '건' AS SALES_CNT_HAK
+		     , TO_CHAR( T.SALES_PRCE_HAK , '999,999,999,999,999') || '원' AS SALES_PRCE_HAK
+		FROM (
+		      SELECT
+		            GROUPING(A.CTRY1) || GROUPING(A.CTRY2) || GROUPING(A.CTRY3) AS CTRY_G,
+		            A.CTRY1,
+		            A.CTRY2,
+		            A.CTRY3,
+		            (SELECT CTRY_NM FROM CTRY WHERE CTRY_CD = A.CTRY1) AS CTRY1_NM,
+		            (SELECT CTRY_NM FROM CTRY WHERE CTRY_CD = A.CTRY2) AS CTRY2_NM,
+		            (SELECT CTRY_NM FROM CTRY WHERE CTRY_CD = A.CTRY3) AS CTRY3_NM,
+		            NVL(SUM(DECODE(A.PROD_TYPE_CD, '1', A.SALES_CNT)), 0) AS SALES_CNT1,
+		            NVL(SUM(DECODE(A.PROD_TYPE_CD, '2', A.SALES_CNT)), 0) AS SALES_CNT2,
+		            NVL(SUM(DECODE(A.PROD_TYPE_CD, '3', A.SALES_CNT)), 0) AS SALES_CNT3,
+		            NVL(SUM(DECODE(A.PROD_TYPE_CD, '5', A.SALES_CNT)), 0) AS SALES_CNT4,
+		            NVL(SUM(DECODE(A.PROD_TYPE_CD, '1', A.SALES_PRCE)), 0) AS SALES_PRCE1,
+		            NVL(SUM(DECODE(A.PROD_TYPE_CD, '2', A.SALES_PRCE)), 0) AS SALES_PRCE2,
+		            NVL(SUM(DECODE(A.PROD_TYPE_CD, '3', A.SALES_PRCE)), 0) AS SALES_PRCE3,
+		            NVL(SUM(DECODE(A.PROD_TYPE_CD, '5', A.SALES_PRCE)), 0) AS SALES_PRCE4,
+		            NVL(SUM(A.SALES_CNT), 0) AS SALES_CNT_HAK,
+                    NVL(SUM(A.SALES_PRCE), 0) AS SALES_PRCE_HAK
+		      FROM SALES_CTRY A
+		      WHERE 1=1
+		      <include refid="SearchPerf" />
+		      GROUP BY ROLLUP(A.CTRY1, A.CTRY2, A.CTRY3)
+		) T
+		WHERE T.CTRY_G IN ('000', '111')
+		ORDER BY T.CTRY_G DESC, T.CTRY1, T.CTRY2, T.CTRY3
+	</select>
+
+	<select id="selectListProdPerf" parameterType="hashmap" resultType="hashmap">
+		<include refid="adminCommonMapper.pagingHeader" />
+
+     SELECT A.*
+          , NVL((SELECT COUNT(PROD_CODE) FROM PROD_SUBMIT_INFO SI WHERE SI.PROD_CODE = A.PROD_CODE AND SI.PROD_TYPE_CD= A.PROD_TYPE_CD), 0) AS ACPT_CNT
+          <!-- PROD_TYPE_CODE 3 :나눔 5:렌탈 -->
+		FROM (
+		SELECT MAX(B.REGIST_DT) AS REGIST_DT,
+		      A.CTRY1,
+		      A.CTRY2,
+		      A.CTRY3,
+		      (SELECT CTRY_NM FROM CTRY WHERE CTRY_CD = A.CTRY1) ||'>'|| (SELECT CTRY_NM FROM CTRY WHERE CTRY_CD = A.CTRY2) ||'>'||
+		      (SELECT CTRY_NM FROM CTRY WHERE CTRY_CD = A.CTRY3) AS CTRY_NM,
+		      A.PROD_CD AS PROD_CODE,
+		      MAX(B.PROD_NM) AS PROD_NM,
+		      (SELECT PROD_IMG_URL FROM PROD_IMG WHERE PROD_CODE = A.PROD_CD AND PROD_IMG_GB_CD ='11') AS IMG_URL,
+		      MAX(B.SELLER_CD) AS SELLER_CD, A.PROD_TYPE_CD,
+              MAX((SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'MBER_GB_CD' AND COM_CD = C.MBER_GB_CD)) AS MBER_GB_CD_NM,
+              MAX(MBER_EMAIL) AS MBER_EMAIL,
+              MAX((SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'PROD_TYPE_CD' AND COM_CD = A.PROD_TYPE_CD)) AS PROD_TYPE_NM,
+              MAX(MBER_NM) AS MBER_NM,
+              C.MBER_SEQ,
+              <!-- NVL(MAX((SELECT SHARING_PRICE FROM PROD_SHARING G WHERE G.PROD_CODE = A.PROD_CD)), 0) AS SHARING_PRICE,  일사용료-->
+              NVL(MAX(SELL_PRCE), 0) AS SHARING_PRICE,
+              NVL(MAX((SELECT DEPOSIT FROM PROD_SHARING G WHERE G.PROD_CODE = A.PROD_CD)), 0) AS DEPOSIT, <!-- 쉐어링보증금-->
+              NVL(MAX(B.SELL_PRCE), 0) AS SELL_PRCE,
+		      NVL(SUM(A.SALES_CNT), 0) AS SALES_CNT,
+		      NVL(SUM(A.SALES_PRCE), 0) AS SALES_PRCE,
+		      ROW_NUMBER() OVER(ORDER BY A.PROD_CD DESC) AS NO
+		FROM SALES_PROD A, PROD B, MBER_INFO C
+		WHERE A.PROD_CD = B.PROD_CODE
+		  and B.MBER_SEQ = c.MBER_SEQ
+		<include refid="SearchPerf" />
+		<!-- 대분류 -->
+		<if test="searchCtryCd1 != null and searchCtryCd1 != ''">
+			AND A.CTRY1 = #{searchCtryCd1}
+		</if>
+
+		<!-- 중분류 -->
+		<if test="searchCtryCd2 != null and searchCtryCd2 != ''">
+			AND A.CTRY2 = #{searchCtryCd2}
+		</if>
+
+		<!-- 소분류 -->
+		<if test="searchCtryCd3 != null and searchCtryCd3 != ''">
+			AND A.CTRY3 = #{searchCtryCd3}
+		</if>
+		<if test="S_TEXT != null and S_TEXT != ''">
+			<!-- 상품명 -->
+			<if test="S_TXT_GB != null and S_TXT_GB != '' and S_TXT_GB == 1">
+	           AND B.PROD_NM LIKE '%'|| #{S_TEXT} ||'%'
+			</if>
+
+			<!-- 판매자 -->
+			<if test="S_TXT_GB != null and S_TXT_GB != '' and S_TXT_GB == 2">
+	           AND C.MBER_EMAIL LIKE '%'|| #{S_TEXT} ||'%'
+	        </if>
+
+		</if>
+		GROUP BY A.CTRY1, A.CTRY2, A.CTRY3, A.PROD_CD, A.PROD_TYPE_CD, C.MBER_SEQ
+		<include refid="OrderByPerf" />
+		) A
+		<include refid="adminCommonMapper.pagingFooter" />
+	</select>
+
+	<select id="selectProdPerfSearchCnt" parameterType="hashmap" resultType="int">
+		SELECT
+		      COUNT(1) AS CNT
+		FROM (
+		      SELECT
+		            A.PROD_CD AS PROD_CD
+			 FROM SALES_PROD A, PROD B, MBER_INFO C
+			 WHERE A.PROD_CD = B.PROD_CODE
+		       AND B.MBER_SEQ = c.MBER_SEQ
+			<include refid="SearchPerf" />
+			<!-- 대분류 -->
+			<if test="searchCtryCd1 != null and searchCtryCd1 != ''">
+				AND A.CTRY1 = #{searchCtryCd1}
+			</if>
+
+			<!-- 중분류 -->
+			<if test="searchCtryCd2 != null and searchCtryCd2 != ''">
+				AND A.CTRY2 = #{searchCtryCd2}
+			</if>
+
+			<!-- 소분류 -->
+			<if test="searchCtryCd3 != null and searchCtryCd3 != ''">
+				AND A.CTRY3 = #{searchCtryCd3}
+			</if>
+			<if test="S_TEXT != null and S_TEXT != ''">
+				<!-- 상품명 -->
+				<if test="S_TXT_GB != null and S_TXT_GB != '' and S_TXT_GB == 1">
+		           AND B.PROD_NM LIKE '%'|| #{S_TEXT} ||'%'
+				</if>
+
+				<!-- 판매자 -->
+				<if test="S_TXT_GB != null and S_TXT_GB != '' and S_TXT_GB == 2">
+		           AND C.MBER_EMAIL LIKE '%'|| #{S_TEXT} ||'%'
+		        </if>
+
+			</if>
+			GROUP BY A.CTRY1, A.CTRY2, A.CTRY3, A.PROD_CD, A.PROD_TYPE_CD, C.MBER_SEQ
+			<include refid="OrderByPerf" />
+		)
+	</select>
+
+	<select id="selectListProdPerfExcelDownload" parameterType="hashmap" resultMap="perfListMap">
+	SELECT TO_CHAR(REGIST_DT, 'yyyy-MM-dd HH:mm') AS REGIST_DT
+ 		 , REGIST_DT, CTRY1, CTRY2, CTRY3, CTRY_NM, PROD_CODE
+		 , PROD_NM, IMG_URL, PROD_TYPE_CD, PROD_TYPE_NM
+		 , '[' || MBER_GB_CD_NM || '] ' || MBER_NM || ' [' || MBER_EMAIL || ']' AS MBER_NM
+		 , MBER_SEQ, TO_CHAR( SHARING_PRICE , '999,999,999,999,999') || '원' AS SHARING_PRICE
+		 , TO_CHAR( DEPOSIT , '999,999,999,999,999') || '원' AS DEPOSIT
+		 , TO_CHAR( SELL_PRCE , '999,999,999,999,999') || '원' AS SELL_PRCE
+		 , TO_CHAR( SALES_CNT , '999,999,999,999,999') || '건' AS SALES_CNT
+		 , TO_CHAR( SALES_PRCE , '999,999,999,999,999') || '원' AS SALES_PRCE
+		 , NO
+         , TO_CHAR(NVL((SELECT COUNT(PROD_CODE)
+         				  FROM PROD_SUBMIT_INFO SI
+         				 WHERE SI.MBER_SEQ = A.MBER_SEQ
+         				   AND SI.PROD_TYPE_CD= A.PROD_TYPE_CD), 0), '999,999,999,999,999') || '건' AS ACPT_CNT<!-- PROD_TYPE_CODE 3 :나눔 5:렌탈 -->
+	  FROM (
+		SELECT MAX(B.REGIST_DT) AS REGIST_DT,
+		      A.CTRY1,
+		      A.CTRY2,
+		      A.CTRY3,
+		      (SELECT CTRY_NM FROM CTRY WHERE CTRY_CD = A.CTRY1) ||'>'|| (SELECT CTRY_NM FROM CTRY WHERE CTRY_CD = A.CTRY2) ||'>'||
+		      (SELECT CTRY_NM FROM CTRY WHERE CTRY_CD = A.CTRY3) AS CTRY_NM,
+		      A.PROD_CD AS PROD_CODE,
+		      MAX(B.PROD_NM) AS PROD_NM,
+		      (SELECT PROD_IMG_URL FROM PROD_IMG WHERE PROD_CODE = A.PROD_CD AND PROD_IMG_GB_CD ='11') AS IMG_URL,
+		      MAX(B.SELLER_CD) AS SELLER_CD, A.PROD_TYPE_CD,
+              MAX((SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'MBER_GB_CD' AND COM_CD = C.MBER_GB_CD)) AS MBER_GB_CD_NM,
+              MAX(MBER_EMAIL) AS MBER_EMAIL,
+              MAX((SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'PROD_TYPE_CD' AND COM_CD = A.PROD_TYPE_CD)) AS PROD_TYPE_NM,
+              MAX(MBER_NM) AS MBER_NM,
+              C.MBER_SEQ,
+              <!-- NVL(MAX((SELECT SHARING_PRICE FROM PROD_SHARING G WHERE G.PROD_CODE = A.PROD_CD)), 0) AS SHARING_PRICE,  일사용료-->
+              NVL(MAX(SELL_PRCE), 0) AS SHARING_PRICE,
+              NVL(MAX((SELECT DEPOSIT FROM PROD_SHARING G WHERE G.PROD_CODE = A.PROD_CD)), 0) AS DEPOSIT, <!-- 쉐어링보증금-->
+              NVL(MAX(B.SELL_PRCE), 0) AS SELL_PRCE,
+		      NVL(SUM(A.SALES_CNT), 0) AS SALES_CNT,
+		      NVL(SUM(A.SALES_PRCE), 0) AS SALES_PRCE,
+		      ROW_NUMBER() OVER(ORDER BY A.PROD_CD DESC) AS NO
+		 FROM SALES_PROD A, PROD B, MBER_INFO C
+		 WHERE A.PROD_CD = B.PROD_CODE
+	       AND B.MBER_SEQ = c.MBER_SEQ
+		<include refid="SearchPerf" />
+		<!-- 대분류 -->
+		<if test="searchCtryCd1 != null and searchCtryCd1 != ''">
+			AND A.CTRY1 = #{searchCtryCd1}
+		</if>
+
+		<!-- 중분류 -->
+		<if test="searchCtryCd2 != null and searchCtryCd2 != ''">
+			AND A.CTRY2 = #{searchCtryCd2}
+		</if>
+
+		<!-- 소분류 -->
+		<if test="searchCtryCd3 != null and searchCtryCd3 != ''">
+			AND A.CTRY3 = #{searchCtryCd3}
+		</if>
+		<if test="S_TEXT != null and S_TEXT != ''">
+			<!-- 상품명 -->
+			<if test="S_TXT_GB != null and S_TXT_GB != '' and S_TXT_GB == 1">
+	           AND B.PROD_NM LIKE '%'|| #{S_TEXT} ||'%'
+			</if>
+
+			<!-- 판매자 -->
+			<if test="S_TXT_GB != null and S_TXT_GB != '' and S_TXT_GB == 2">
+	           AND C.MBER_EMAIL LIKE '%'|| #{S_TEXT} ||'%'
+	        </if>
+
+		</if>
+		GROUP BY A.CTRY1, A.CTRY2, A.CTRY3, A.PROD_CD, A.PROD_TYPE_CD, C.MBER_SEQ
+		<include refid="OrderByPerf" />
+		) A
+	</select>
+
+	<select id="selectListMberPerf" parameterType="hashmap" resultType="hashmap">
+		<include refid="adminCommonMapper.pagingHeader" />
+     SELECT A.*
+          , NVL((SELECT COUNT(PROD_CODE) FROM PROD_SUBMIT_INFO SI WHERE SI.MBER_SEQ = A.MBER_SEQ AND SI.PROD_TYPE_CD= '3'), 0) AS ACPT_CNT3 <!-- PROD_TYPE_CODE 3 :나눔 -->
+          , NVL((SELECT COUNT(PROD_CODE) FROM PROD_SUBMIT_INFO SI WHERE SI.MBER_SEQ = A.MBER_SEQ AND SI.PROD_TYPE_CD= '5'), 0) AS ACPT_CNT4  <!--PROD_TYPE_CODE 5 :렌탈 -->
+	  FROM (
+		SELECT MAX((SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'MBER_GB_CD' AND COM_CD = B.MBER_GB_CD)) AS MBER_GB_CD_NM,
+		      MAX(B.MBER_NM) AS MBER_NM,
+		      MAX(B.MBER_EMAIL) AS MBER_EMAIL,
+			  A.MBER_SEQ,
+		      MAX(B.MBER_GB_CD) AS MBER_GB_CD,
+		      MAX(C.MINI_SHOP_NM) AS MINI_SHOP_NM,
+		      NVL(SUM(DECODE(A.PROD_TYPE_CD, '1', A.REG_CNT)), 0) AS REG_CNT1,
+		      NVL(SUM(DECODE(A.PROD_TYPE_CD, '2', A.REG_CNT)), 0) AS REG_CNT2,
+		      NVL(SUM(DECODE(A.PROD_TYPE_CD, '3', A.REG_CNT)), 0) AS REG_CNT3,
+		      NVL(SUM(DECODE(A.PROD_TYPE_CD, '5', A.REG_CNT)), 0) AS REG_CNT4,
+		      NVL(SUM(DECODE(A.PROD_TYPE_CD, '1', A.SALES_CNT)), 0) AS SALES_CNT1,
+		      NVL(SUM(DECODE(A.PROD_TYPE_CD, '2', A.SALES_CNT)), 0) AS SALES_CNT2,
+		      NVL(SUM(DECODE(A.PROD_TYPE_CD, '3', A.SALES_CNT)), 0) AS SALES_CNT3,
+		      NVL(SUM(DECODE(A.PROD_TYPE_CD, '5', A.SALES_CNT)), 0) AS SALES_CNT4,
+		      NVL(SUM(DECODE(A.PROD_TYPE_CD, '1', A.SALES_PRCE)), 0) AS SALES_PRCE1,
+		      NVL(SUM(DECODE(A.PROD_TYPE_CD, '2', A.SALES_PRCE)), 0) AS SALES_PRCE2,
+		      NVL(SUM(DECODE(A.PROD_TYPE_CD, '3', A.SALES_PRCE)), 0) AS SALES_PRCE3,
+		      NVL(SUM(DECODE(A.PROD_TYPE_CD, '5', A.SALES_PRCE)), 0) AS SALES_PRCE4,
+		      NVL(SUM(A.REG_CNT), 0) AS REG_CNT_HAK,
+		      NVL(SUM(A.SALES_CNT), 0) AS SALES_CNT_HAK,
+              NVL(SUM(A.SALES_PRCE), 0) AS SALES_PRCE_HAK,
+		      ROW_NUMBER() OVER(ORDER BY A.MBER_SEQ DESC) AS NO
+		FROM SALES_MBER A, MBER_INFO B, MBER_MINI_SHOP_INFO C
+		WHERE A.MBER_SEQ = B.MBER_SEQ
+		  AND B.MBER_SEQ = C.MBER_SEQ
+		<include refid="SearchPerf" />
+		<!-- 판매자ID -->
+		<if test="S_SALES_TEXT != null and S_SALES_TEXT != ''">
+           AND B.MBER_EMAIL LIKE '%'|| #{S_SALES_TEXT} ||'%'
+		</if>
+		<!-- 판매자명 -->
+		<if test="S_SALES_NAME != null and S_SALES_NAME != ''">
+           AND B.MBER_NM LIKE '%'|| #{S_SALES_NAME} ||'%'
+		</if>
+		<!-- 미니샵명 -->
+		<if test="S_MINI_SHOP_NAME != null and S_MINI_SHOP_NAME != ''">
+           AND C.MINI_SHOP_NM LIKE '%'|| #{S_MINI_SHOP_NAME} ||'%'
+		</if>
+
+		GROUP BY A.MBER_SEQ
+		<!-- 사용하지 않을예정
+		<include refid="OrderByPerf" />
+		-->
+		) A
+		<include refid="adminCommonMapper.pagingFooter" />
+	</select>
+
+	<select id="selectMberPerfSearchCnt" parameterType="hashmap" resultType="int">
+		SELECT
+				COUNT(1) AS CNT
+		FROM (
+				SELECT
+				      A.MBER_SEQ
+				FROM SALES_MBER A, MBER_INFO B, MBER_MINI_SHOP_INFO C
+				WHERE A.MBER_SEQ = B.MBER_SEQ
+				  AND B.MBER_SEQ = C.MBER_SEQ
+				<include refid="SearchPerf" />
+				<!-- 판매자ID -->
+				<if test="S_SALES_TEXT != null and S_SALES_TEXT != ''">
+		           AND B.MBER_EMAIL LIKE '%'|| #{S_SALES_TEXT} ||'%'
+				</if>
+				<!-- 판매자명 -->
+				<if test="S_SALES_NAME != null and S_SALES_NAME != ''">
+		           AND B.MBER_NM LIKE '%'|| #{S_SALES_NAME} ||'%'
+				</if>
+				<!-- 미니샵명 -->
+				<if test="S_MINI_SHOP_NAME != null and S_MINI_SHOP_NAME != ''">
+		           AND C.MINI_SHOP_NM LIKE '%'|| #{S_MINI_SHOP_NAME} ||'%'
+				</if>
+				GROUP BY A.MBER_SEQ
+		)
+	</select>
+
+	<select id="selectListMberPerfExcelDownload" parameterType="hashmap" resultMap="perfListMap">
+     SELECT  MBER_GB_CD_NM, MBER_NM, MBER_EMAIL, MBER_SEQ, MBER_GB_CD, MINI_SHOP_NM
+		  , TO_CHAR( REG_CNT1 , '999,999,999,999,999') || '건' AS REG_CNT1
+		  , TO_CHAR( REG_CNT2 , '999,999,999,999,999') || '건' AS REG_CNT2
+		  , TO_CHAR( REG_CNT3 , '999,999,999,999,999') || '건' AS REG_CNT3
+		  , TO_CHAR( REG_CNT4 , '999,999,999,999,999') || '건' AS REG_CNT4
+		  , TO_CHAR( SALES_CNT1 , '999,999,999,999,999') || '건' AS SALES_CNT1
+		  , TO_CHAR( SALES_CNT2 , '999,999,999,999,999') || '건' AS SALES_CNT2
+		  , TO_CHAR( SALES_CNT3 , '999,999,999,999,999') || '건' AS SALES_CNT3
+		  , TO_CHAR( SALES_CNT4 , '999,999,999,999,999') || '건' AS SALES_CNT4
+		  , TO_CHAR( SALES_PRCE1 , '999,999,999,999,999') || '원' AS SALES_PRCE1
+		  , TO_CHAR( SALES_PRCE2 , '999,999,999,999,999') || '원' AS SALES_PRCE2
+		  , TO_CHAR( SALES_PRCE3 , '999,999,999,999,999') || '원' AS SALES_PRCE3
+		  , TO_CHAR( SALES_PRCE4 , '999,999,999,999,999') || '원' AS SALES_PRCE4
+		  , TO_CHAR( REG_CNT_HAK , '999,999,999,999,999') || '건' AS REG_CNT_HAK
+		  , TO_CHAR( SALES_CNT_HAK , '999,999,999,999,999') || '건' AS SALES_CNT_HAK
+		  , TO_CHAR( SALES_PRCE_HAK , '999,999,999,999,999') || '건' AS SALES_PRCE_HAK
+		  , NO
+          , TO_CHAR(NVL((SELECT COUNT(PROD_CODE)
+                   		   FROM PROD_SUBMIT_INFO SI
+                          WHERE SI.MBER_SEQ = A.MBER_SEQ
+                            AND SI.PROD_TYPE_CD= '3'), 0), '999,999,999,999,999') || '건' AS ACPT_CNT3 <!-- PROD_TYPE_CODE 3 :나눔 -->
+          , TO_CHAR(NVL((SELECT COUNT(PROD_CODE)
+                   		   FROM PROD_SUBMIT_INFO SI
+                  		  WHERE SI.MBER_SEQ = A.MBER_SEQ
+                  			AND SI.PROD_TYPE_CD= '5'), 0), '999,999,999,999,999') || '건' AS ACPT_CNT4  <!--PROD_TYPE_CODE 5 :렌탈 -->
+          FROM (
+		SELECT MAX((SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'MBER_GB_CD' AND COM_CD = B.MBER_GB_CD)) AS MBER_GB_CD_NM,
+		      MAX(B.MBER_NM) AS MBER_NM,
+		      MAX(B.MBER_EMAIL) AS MBER_EMAIL,
+			  A.MBER_SEQ, <!-- 불필요삭제예정 -->
+		      MAX(B.MBER_GB_CD) AS MBER_GB_CD, <!-- 불필요삭제예정 -->
+		      MAX(C.MINI_SHOP_NM) AS MINI_SHOP_NM,
+		      NVL(SUM(DECODE(A.PROD_TYPE_CD, '1', A.REG_CNT)), 0) AS REG_CNT1,
+		      NVL(SUM(DECODE(A.PROD_TYPE_CD, '2', A.REG_CNT)), 0) AS REG_CNT2,
+		      NVL(SUM(DECODE(A.PROD_TYPE_CD, '3', A.REG_CNT)), 0) AS REG_CNT3,
+		      NVL(SUM(DECODE(A.PROD_TYPE_CD, '5', A.REG_CNT)), 0) AS REG_CNT4,
+		      NVL(SUM(DECODE(A.PROD_TYPE_CD, '1', A.SALES_CNT)), 0) AS SALES_CNT1,
+		      NVL(SUM(DECODE(A.PROD_TYPE_CD, '2', A.SALES_CNT)), 0) AS SALES_CNT2,
+		      NVL(SUM(DECODE(A.PROD_TYPE_CD, '3', A.SALES_CNT)), 0) AS SALES_CNT3,
+		      NVL(SUM(DECODE(A.PROD_TYPE_CD, '5', A.SALES_CNT)), 0) AS SALES_CNT4,
+		      NVL(SUM(DECODE(A.PROD_TYPE_CD, '1', A.SALES_PRCE)), 0) AS SALES_PRCE1,
+		      NVL(SUM(DECODE(A.PROD_TYPE_CD, '2', A.SALES_PRCE)), 0) AS SALES_PRCE2,
+		      NVL(SUM(DECODE(A.PROD_TYPE_CD, '3', A.SALES_PRCE)), 0) AS SALES_PRCE3,
+		      NVL(SUM(DECODE(A.PROD_TYPE_CD, '5', A.SALES_PRCE)), 0) AS SALES_PRCE4,
+		      NVL(SUM(A.REG_CNT), 0) AS REG_CNT_HAK,
+		      NVL(SUM(A.SALES_CNT), 0) AS SALES_CNT_HAK,
+              NVL(SUM(A.SALES_PRCE), 0) AS SALES_PRCE_HAK,
+		      ROW_NUMBER() OVER(ORDER BY A.MBER_SEQ DESC) AS NO
+		FROM SALES_MBER A, MBER_INFO B, MBER_MINI_SHOP_INFO C
+		WHERE A.MBER_SEQ = B.MBER_SEQ
+		  AND A.MBER_SEQ = C.MBER_SEQ
+		<include refid="SearchPerf" />
+		<!-- 판매자ID -->
+		<if test="S_SALES_TEXT != null and S_SALES_TEXT != ''">
+           AND B.MBER_EMAIL LIKE '%'|| #{S_SALES_TEXT} ||'%'
+		</if>
+		<!-- 판매자명 -->
+		<if test="S_SALES_NAME != null and S_SALES_NAME != ''">
+           AND B.MBER_NM LIKE '%'|| #{S_SALES_NAME} ||'%'
+		</if>
+		<!-- 미니샵명 -->
+		<if test="S_MINI_SHOP_NAME != null and S_MINI_SHOP_NAME != ''">
+           AND C.MINI_SHOP_NM LIKE '%'|| #{S_MINI_SHOP_NAME} ||'%'
+		</if>
+		GROUP BY A.MBER_SEQ
+		<!--
+		<include refid="OrderByPerf" />
+		-->
+		) A
+	</select>
+
+</mapper>

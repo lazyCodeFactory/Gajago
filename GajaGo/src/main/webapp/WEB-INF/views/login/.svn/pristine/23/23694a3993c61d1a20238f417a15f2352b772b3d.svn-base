@@ -1,0 +1,599 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/web/common/cmmnHead.jsp"%>
+<script type="text/javascript" src="http://static.ssocio.net/web/js/kakao.min.js"></script>
+<script src="//connect.facebook.net/ko_KR/all.js"></script>
+<script type="text/javascript">
+var SERIAL_KEY = "";
+var fbAppId = Const.FACEBOOK_APP_ID;
+var kkoAppId = Const.KAKAOTALK_APP_ID;
+var MAIN_URL = "/mobile/join/joinEmailView.do";
+
+$(document).ready(function() {
+	//공통 HEADER SETTING
+// 	header.type = 6;
+	header.type = 11;
+	header.title = "회원가입";
+	header.backUrl = "/mobile/join/joinView.do";
+	header.method = "GET";
+	initHeader();
+	//공통 FOOTER SETTING
+	displayFooter(false);
+	//APP TITLE
+	document.title = "회원가입";
+});
+
+function fnCheck()
+{
+	var opt;
+	opt = "<c:forEach var="list" items="${list.termsList}" varStatus="status">agrSeq${status.index }||</c:forEach>";
+	var aropt = opt.split("||");
+	var chkcount = 0;
+
+	for (var i = 0 ; i < aropt.length -1 ; i ++)
+	{
+		if ( document.getElementById("agrSeq"+i).checked == true ) chkcount ++;
+
+	}
+
+	if ( chkcount == aropt.length -1)
+	{
+		document.getElementById("termsAll").checked = true;
+	} else {
+		document.getElementById("termsAll").checked = false;
+	}
+}
+
+function fnAllChk()
+{
+	var opt;
+	opt = "<c:forEach var="list" items="${list.termsList}" varStatus="status">agrSeq${status.index }||</c:forEach>";
+	var aropt = opt.split("||");
+	var chkcount = 0;
+	var vChecked;
+	vChecked = document.getElementById("termsAll").checked;
+
+	for (var i = 0 ; i < aropt.length -1 ; i ++)
+	{
+		document.getElementById("agrSeq"+i).checked = vChecked ;
+
+	}
+}
+
+function required() {
+
+	var rtn = true;
+
+	$("input[name^=AGR_SEQ_VER]").each(function (idx) {
+		var cls = $(this).attr("class");
+		if (cls == "Y") {
+			var chk = $(this).is(":checked");
+			console.log("chk : " + chk);
+			if (!chk) {
+				alert("필수 약관에 대해 모두 동의해 주시길 바랍니다.");
+			//	alert($(this).parent().text() + "동의 바랍니다.");
+				rtn = false;
+				return false;
+			}
+		}
+	});
+	return rtn;
+}
+
+function goJoin(){
+
+	if(!required()){
+		return;
+	}
+
+	$("input[name^=AGR_SEQ_VER]").each( function () {
+		var chk = $(this).is(":checked");
+		if (!chk) {
+			var AGR_SEQ_VER_N = $("#AGR_SEQ_VER_N").val();
+			if (AGR_SEQ_VER_N == "") {
+				$("#AGR_SEQ_VER_N").val($(this).val());
+
+			} else {
+				$("#AGR_SEQ_VER_N").val(AGR_SEQ_VER_N+"/"+$(this).val());
+			}
+
+		}
+	});
+
+	var MBER_GB_CD = $("#MBER_GB_CD").val();
+	var url ="";
+	var SSO_GB_CD = $("#SSO_GB_CD").val();
+
+	if(SSO_GB_CD == "FBO"){
+// 		ajaxMberJoin();
+		if('${sessionScope.APP}' == 'SSOCIO'){
+			var data = '{"callback":"faceBookJoin"}';
+			document.location.replace("ssocio://web/facebookVerify?"+encodeURIComponent(data));
+		} else {
+			checkLoginState();
+		}
+	} else if (SSO_GB_CD == "KKO") {
+		if('${sessionScope.APP}' == 'SSOCIO'){
+			document.location.replace("ssocio://web/kakaoTalkVerify?{\"callback\":\"appKakaoTalkLogin\"}");
+		} else {
+			loginWithKakao();
+		}
+	} else {
+
+		if(MBER_GB_CD == 0 ){
+
+			url = "/mobile/join/joinEmailView.do";
+			frm.action = url;
+			frm.submit();
+
+		}else if(MBER_GB_CD == 1 ){
+
+			url = "/mobile/join/joinBizView.do";
+			frm.action = url;
+			frm.submit();
+
+		}
+
+	}
+}
+
+/* ======================================================================
+Function : facebook 로그인 상태 체크
+Return   : 없음
+========================================================================= */
+function checkLoginState() {
+	FB.getLoginStatus(function(response) {
+		statusChangeCallback(response);
+	});
+}
+
+/* ======================================================================
+Function : facebook 로그인
+Return   : 없음
+========================================================================= */
+function statusChangeCallback(response) {
+
+	if (response.status === 'connected') {
+		facebooklogin();
+	} else if (response.status === 'not_authorized') {
+		// The person is logged into Facebook, but not your app.
+		FB.login(function(response) {
+			if ( response.status == 'connected' ) {
+				facebooklogin();
+			}
+		}, {scope: 'email'});
+
+	} else {
+		//Facebook login popup
+		FB.login(function(response) {
+			if ( response.status == 'connected' ) {
+				facebooklogin();
+			} else {
+				alert("페이스북 로그인에 실패 하였습니다.");
+				return
+			}
+		}, {scope: 'email'});
+	}
+}
+
+// Load the SDK asynchronously
+(function(d, s, id) {
+	var js, fjs = d.getElementsByTagName(s)[0];
+	if (d.getElementById(id))
+		return;
+	js = d.createElement(s);
+	js.id = id;
+	js.src = "//connect.facebook.net/ko_KR/all.js";
+	fjs.parentNode.insertBefore(js, fjs);
+}(document, 'script', 'facebook-jssdk'));
+
+window.fbAsyncInit = function() {
+	FB.init({
+		appId : fbAppId,
+		status : true,
+		cookie : true, // enable cookies to allow the server to access
+		xfbml : true, // parse social plugins on this page
+		version : 'v2.5', // use version 2.2
+		oauth : true
+	});
+};
+
+function facebooklogin() {
+	//Facebook login api (email, name)
+	FB.api('/me?fields=name, email, picture', function(response) {
+
+		$("#fbEmail").val(response.email);
+		$("#SSO_MBER_ID").val(response.id);
+		$("#MBER_NICK").val( encodeURIComponent(response.name));
+// 		$("#PROFILE_IMAGE").val(encodeURIComponent(response.picture.data.url));
+		if (response.email == undefined || response.email == "") {
+			$("#fbEmail").val(response.id);
+		}
+		ajaxMberJoin();
+	}, {scope: 'email'});
+}
+
+//APP 페이스북 회원가입
+function faceBookJoin (str) {
+	var callbackData = JSON.parse(str);
+	$("#fbEmail").val(callbackData.email);
+	$("#SSO_MBER_ID").val(callbackData.id);
+	$("#MBER_NICK").val( encodeURIComponent(callbackData.name));
+	if ( $("#fbEmail").val() == "" || $("#fbEmail").val() == null ) {
+		$("#fbEmail").val(encodeURIComponent(callbackData.id));
+	}
+	ajaxMberJoin();
+}
+
+//사용할 앱의 JavaScript 키를 설정해 주세요.
+Kakao.init(kkoAppId);
+function loginWithKakao() {
+	// 로그인 창을 띄웁니다.
+	Kakao.Auth.login({
+		success: function(authObj) {
+			Kakao.API.request({
+				url: '/v1/user/me',
+				data: { secure_resource: true },
+				success: function(res) {
+// 	 		 				console.log(JSON.parse(JSON.stringify(res.properties.thumbnail_image)));
+					$("#SSO_MBER_ID").val(JSON.stringify(res.id));
+
+					if (JSON.stringify(res.properties) == 'undefined' || JSON.stringify(res.properties) == '' || JSON.stringify(res.properties) == undefined ) {
+						$("#MBER_NICK").val( encodeURIComponent("카카오 친구 쏘시오"));
+					} else {
+						$("#MBER_NICK").val( encodeURIComponent(JSON.parse(JSON.stringify(res.properties.nickname))));
+						$("#PROFILE_IMAGE").val(encodeURIComponent(JSON.parse(JSON.stringify(res.properties.profile_image))));
+					}
+					ajaxMberJoin();
+				},
+				fail: function(error) {
+					alert(error);
+					Kakao.API.request({
+						url: '/v1/user/unlink',
+						data: { secure_resource: true },
+						success: function(res) {},
+						fail: function(error) {}
+					});
+					return;
+				}
+			});
+		},
+		fail: function(err) {
+			alert("회원 가입에 실패하였습니다.");
+			console.log(err);
+			Kakao.API.request({
+				url: '/v1/user/unlink',
+				data: { secure_resource: true },
+				success: function(res) {},
+				fail: function(error) {}
+			});
+			return;
+		}
+	});
+}
+//APP 카카오톡 회원가입
+function appKakaoTalkLogin(str) {
+	var callbackData = JSON.parse(str);
+	$("#SSO_MBER_ID").val(callbackData.ID);
+	if (callbackData.nickName == 'undefined' || callbackData.nickName == '' || callbackData.nickName == undefined ) {
+		$("#MBER_NICK").val( encodeURIComponent("카카오 친구 쏘시오"));
+	} else {
+		$("#MBER_NICK").val( encodeURIComponent(callbackData.nickName));
+		$("#PROFILE_IMAGE").val(encodeURIComponent(callbackData.profileImage));
+	}
+	MBER_EMAIL = "";
+	MBER_PASS = "";
+	ajaxMberJoin('APP');
+}
+
+//페이스북, 카카오톡 회원가입
+function ajaxMberJoin(){
+
+	$.ajax({
+		type: 'post'
+		, async: true
+		, url: '/mobile/join/selectMberChk.do'
+		, data: $("#frm").serialize()
+		, success: function(data) {
+			if (data.selectMberChk == "0" && data.selectEamilChek == "0") {
+//					$("#frm").attr("action","/mobile/join/insertUserMber.do").submit();
+				$.ajax({
+					type: 'post'
+					, async: true
+					, url: '/mobile/join/insertSnsUserMber.do'
+					, data: $("#frm").serialize()
+					, success: function(data) {
+						if (data.count == "1") {
+							if ( '${sessionScope.APP}' == 'SSOCIO') {
+								document.location.replace('ssocio://web/notautologin?serial_key='+ data.SERIAL_KEY);
+// 								joinEvtPage("APP","N", data.SERIAL_KEY);
+							} else {
+								alert("회원가입이 완료되었습니다.");
+// 								joinEvtPage("WEB","N");
+								location.href = "/mobile/main/main.do";
+							}
+						} else {
+							alert("회원가입에 실패하였습니다.");
+						}
+						return;
+					}
+					, error: function(data, status, err) {
+						alert('서버와의 통신이 실패했습니다.');
+					}
+				});
+			} else if (data.selectMberChk == "1" && data.selectEamilChek == "0") {
+				alert("해당 ID는 이미 존재 합니다.");
+				if ( '${sessionScope.APP}' == 'SSOCIO') {
+					document.location.replace('ssocio://web/snsclear?{\"url\":\"/mobile/join/joinView.do\"}');
+				} else {
+					location.href="/mobile/join/joinView.do";
+				}
+				return;
+			} else if (data.selectMberChk == "0" && data.selectEamilChek == "1") {
+				alert("해당 이메일 주소는 이미 존재 합니다.");
+				if ( '${sessionScope.APP}' == 'SSOCIO') {
+					document.location.replace('ssocio://web/snsclear?{\"url\":\"/mobile/join/joinView.do\"}');
+				} else {
+					location.href="/mobile/join/joinView.do";
+				}
+				return;
+			} else {
+				alert("해당 ID는 이미 존재 합니다.");
+				if ( '${sessionScope.APP}' == 'SSOCIO') {
+					document.location.replace('ssocio://web/snsclear?{\"url\":\"/mobile/join/joinView.do\"}');
+				} else {
+					location.href="/mobile/join/joinView.do";
+				}
+				return;
+			}
+		}
+		, error: function(data, status, err) {
+			alert('서버와의 통신이 실패했습니다.');
+		}
+	});
+}
+
+function goPrePage () {
+
+	var url = "/mobile/join/joinView.do";
+	frm.action = url;
+	frm.submit();
+
+}
+
+function goAgrDesc (seq,ver) {
+	$("#AGR_SEQ").val(seq);
+	$("#AGR_SEQ_VER").val(ver);
+	url = "/mobile/join/termsViewDesc.do";
+	frm.action = url;
+	frm.method = "post";
+ 	frm.submit();
+}
+
+//EVENT
+function joinEvtPage(code, auto, SERIAL_KEY) {
+
+	$.ajax({
+		type : 'post',
+		async : true,
+		url : '/mobile/promo/evtApi.do?target=evt&evtName=join&isIng=Y',
+		success : function(data) {
+			if (data.result.success != 'undefind' || data.result.success != "") {
+				if (data.result.success.ISING == 'Y' && data.result.success.ISPOSSIBLE == 'Y') {
+					location.href = data.result.success[0].EVT_PAGE_URL+"?auto="+auto;
+				} else {
+					if ( code == "APP") {
+						if( auto == "Y"){
+							document.location.replace('ssocio://web/autologin?serial_key='+ SERIAL_KEY);
+						} else {
+							document.location.replace('ssocio://web/notautologin?serial_key='+ SERIAL_KEY);
+						}
+					} else {
+						location.href = MAIN_URL;
+					}
+				}
+			} else {
+				if ( code == "APP") {
+					if( auto == "Y"){
+						document.location.replace('ssocio://web/autologin?serial_key='+ SERIAL_KEY);
+					} else {
+						document.location.replace('ssocio://web/notautologin?serial_key='+ SERIAL_KEY);
+					}
+				} else {
+					location.href = MAIN_URL;
+				}
+			}
+		},
+		error : function(data, status, err) {
+			alert('서버와의 통신이 실패했습니다.');
+		}
+	});
+}
+</script>
+<form id="frm" name="frm" method="get" action="">
+<input type="hidden" name="AGR_SEQ_VER_N" id="AGR_SEQ_VER_N" value=""  />
+<input type="hidden" name="AGR_SEQ_VER" id="AGR_SEQ_VER" value=""  />
+<input type="hidden" name="SSO_GB_CD" id="SSO_GB_CD" value="${list.params.SSO_GB_CD }"  />
+<input type="hidden" name="MBER_GB_CD" id="MBER_GB_CD" value="${list.params.MBER_GB_CD }"  />
+<input type="hidden" name="MBER_REG_GB_CD" id="MBER_REG_GB_CD" value="${list.params.MBER_REG_GB_CD }"  />
+<input type="hidden" name="fbEmail" id="fbEmail" value="${list.params.fbEmail }"  />
+<input type="hidden" name="AGR_SEQ" id="AGR_SEQ" value=""  />
+<input type="hidden" name="SSO_MBER_ID" id="SSO_MBER_ID" value="${list.params.SSO_MBER_ID }"/>
+<input type="hidden" name="MBER_NICK" id="MBER_NICK" value="${list.params.MBER_NICK }"/>
+<input type="hidden" name="EMAIL_AGREE_YN" id="EMAIL_AGREE_YN" value=""/>
+<input type="hidden" name="PROFILE_IMAGE" id="PROFILE_IMAGE" value="${list.params.PROFILE_IMAGE }"/>
+<input type="hidden" name="JOIN_POINT" id="JOIN_POINT" value='<custom:codeTag groupCode="SITE_DEFAULT" code="JOIN_POINT"/>'/>
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+        <!-- PC회원가입 -->
+        <div class="roc">
+        	<ul class="inner">
+            	<li><img src="http://static.ssocio.net/pc/img/common/section/roc_home.png" alt="홈"></li>
+                <li>회원가입</li>
+                <li>개인 구매회원 가입</li>
+            </ul>
+        </div>
+
+        <!-- 개인 구매 회원가입 -->
+        <!-- inner -->
+		<div class="inner">
+			<h3 class="tit_cont"><img src="http://static.ssocio.net/pc/img/common/tit/join0001.png" alt="회원가입"> <p class="right"><img src="http://static.ssocio.net/pc/img/common/join/join_navi01.png" alt="1. 약관동의 및 회원정보 입력 > 2. 가입완료"></p></h3>
+
+           	<div class="join_area">
+               	<h4>약관동의 및 회원정보 입력</h4>
+                   <dl class="tbl terms">
+                   	<dt><input type="checkbox" id="termsAll" name="process" onClick="fnAllChk();"> <label for="termsAll">[전체동의] SSOCIO 회원가입 약관에 모두 동의 합니다.</label></dt>
+					<c:forEach var="list" items="${list.termsList}" varStatus="status">
+						<dd>
+							<input type="checkbox" id="agrSeq${status.index }" name="AGR_SEQ_VER[]" class="${list.AGR_MUST_YN }"  value="${list.AGR_SEQ},${list.AGR_VER}" onclick="fnCheck();"/>
+							<c:if test="${list.AGR_MUST_YN eq 'Y' }">[필수]</c:if>
+							<c:if test="${list.AGR_MUST_YN ne 'Y' }">[선택]</c:if>
+							${list.AGR_NAME_CD } </span> <a href="javascript:goAgrDesc('${list.AGR_SEQ }','${list.AGR_VER }');" class="btn_terms">약관보기</a>
+						</dd>
+					</c:forEach>
+                   </dl>
+
+                   <dl class="tbl" style="border-top:0">
+                   	<dt><strong>이메일 주소와 비밀번호를 입력해주세요.</strong></dt>
+                       <dd class="box">
+                       	<p><input type="text" class="val" id="MBER_EMAIL" name="MBER_EMAIL" value="" placeholder="이메일 주소 입력" maxlength="200"></p>
+                           <ul class="text mt15 mb10">
+                           	<li><strong>* 입력된 이메일은 SSOCIO 아이디로 사용 됩니다.</strong></li>
+                           	<li><strong>* 실제 사용하는 이메일을 입력해 주세요.</strong></li>
+                           	<li><strong>* 로그인 비밀번호 찾기 등의 회원관련 기능에 사용 됩니다.</strong></li>
+                           </ul>
+                       </dd>
+                       <dd class="box">
+                       	<p><input type="password" class="val" id="MBER_PASS" value="" name="MBER_PASS" maxlength="20" placeholder="비밀번호 입력"></p>
+                       	<p class="mt10"><input type="password" id="PASS_TEMP" value="" name="PASS_TEMP" maxlength="20" placeholder="비밀번호 입력 확인"></p>
+                           <p class="mt15 mb10"><strong>* 비밀번호는 영문/숫자 조합 8자리 이상으로 입력해주세요.</strong></p>
+                       </dd>
+                       <dd class="box bg last">
+                           <span><input id="EMAIL_AGREE_YN" name="EMAIL_AGREE_YN" type="checkbox" value="Y"> <label for="EMAIL_AGREE_YN"><strong>이벤트/쇼핑정보 이메일 수신에 동의합니다.</strong></label></span>
+                           <span class="ml50"><input id="HP_AGREE_YN" name="HP_AGREE_YN" type="checkbox" value="Y"> <label for="HP_AGREE_YN"><strong>이벤트/쇼핑정보 SMS 수신에 동의합니다. </strong></label></span>
+                       </dd>
+                   </dl>
+               </div>
+            <div class="btn_enter mt40">
+            	<a href="javascript:goJoin();" class="btn btn1">확인</a>
+            	<a href="javascript:goPrePage();" class="btn btn2 ml10">취소</a>
+            </div>
+
+        </div>
+        <!-- //inner -->
+        <!-- //개인 구매 회원가입 -->
+
+        <!-- 사업자 구매 회원가입 -->
+        <!-- inner -->
+		<div class="inner">
+
+			<h3 class="tit_cont"><img src="http://static.ssocio.net/pc/img/common/tit/join2000.png" alt="사업자 구매회원 가입"> <p class="right"><img src="http://static.ssocio.net/pc/img/common/join/join_navi01.png" alt="1. 약관동의 및 회원정보 입력 > 2. 가입완료"></p></h3>
+	        <!-- content -->
+	        <div class="content">
+            	<div class="join_area">
+                	<h4>약관동의 및 회원정보 입력</h4>
+
+                    <dl class="tbl">
+                    	<dt><input type="checkbox" id="all"> <label for="all">[전체동의] SSOCIO 회원가입 약관에 모두 동의 합니다.</label></dt>
+                        <dd><input type="checkbox" id="check01"> <label for="check01">[필수] SSOCIO 이용약관 동의</label> <a href="#" class="btn_terms">약관보기</a></dd>
+                        <dd><input type="checkbox" id="check02"> <label for="check02">[필수] 전자금융거래 이용약관 동의</label> <a href="#" class="btn_terms">약관보기</a></dd>
+                        <dd><input type="checkbox" id="check03"> <label for="check03">[필수] 개인정보 수집 및 이용 동의</label> <a href="#" class="btn_terms">약관보기</a></dd>
+                        <dd><input type="checkbox" id="check04"> <label for="check04">[선택] 개인정보 제3자 제공 동의</label> <a href="#" class="btn_terms">약관보기</a></dd>
+                        <dd><input type="checkbox" id="check05"> <label for="check05">[선택] 개인정보 취급위탁 동의</label> <a href="#" class="btn_terms">약관보기</a></dd>
+                        <dd class="mb10"><input type="checkbox" id="check06"> <label for="check06">[선택] SSOCIO 위치정보 이용약관 동의</label> <a href="#" class="btn_terms">약관보기</a></dd>
+                    </dl>
+
+                    <dl class="tbl">
+                    	<dt><strong>1. 사업자등록번호를 인증해주세요.</strong></dt>
+                        <dd class="box">
+                        	<div class="comp_form">
+                                <ul>
+                                	<li><input type="text" class="val" placeholder="사업자등록번호 입력 ('-' 없이 입력)"></li>
+                                	<li><input type="text" class="val" placeholder="회사명 입력"></li>
+                                	<li><input type="text" class="val" placeholder="대표자명 입력"></li>
+                                </ul>
+                                <p><a href="#" class="btn btn1">실명인증</a></p>
+                            </div>
+                            <ul class="text mt20 mb10">
+                            	<li><strong>* 대표자명은 최대 20자까지 입력 가능하며 한글/영문만 입력 가능합니다.</strong></li>
+                            	<li>
+                                    <strong>* 사업자 등록번호 인증이 되지 않을 경우, 아래 방법으로   확인하실 수 있습니다.</strong>
+                                    <ul class="ml12">
+                                        <li><strong>- 이메일 접수 : credit@nice.co.kr 로 사업자등록증 1부, 연락처 기재</strong></li>
+                                        <li class="ml10"><strong>※ 이메일 제목 : '사업자실명등록건' 으로 기재</strong></li>
+                                        <li><strong>- FAX 접수 : 02-2122-5040 로 사업자등록증 1부, 연락처 기재</strong></li>
+                                        <li><strong> - 전화 문의 : NICE평가정보㈜ 고객센터 (1588-2486)</strong></li>
+                                    </ul>
+                                </li>
+                            </ul>
+                        </dd>
+                    	<dt><strong>2. 이메일 주소와 비밀번호를 입력해주세요.</strong></dt>
+                        <dd class="box">
+                        	<p><input type="text" class="val" placeholder="이메일 주소 입력"></p>
+                            <ul class="text mt20 mb10">
+                            	<li><strong>* 입력된 이메일은 SSOCIO 아이디로 사용 됩니다.</strong></li>
+                            	<li><strong>* 실제 사용하는 이메일을 입력해 주세요.</strong></li>
+                            	<li><strong>* 로그인 비밀번호 찾기 등의 회원관련 기능에 사용 됩니다.</strong></li>
+                            </ul>
+                        </dd>
+                        <dd class="box">
+                        	<p><input type="password" class="val" placeholder="비밀번호 입력"></p>
+                        	<p class="mt10"><input type="password" class="val" placeholder="비밀번호 입력 확인"></p>
+                            <p class="mt14 mb10"><strong>* 비밀번호는 영문/숫자 조합 8자리 이상으로 입력해주세요.</strong></p>
+                        </dd>
+                        <dd class="box bg last">
+                            <span><input type="checkbox" id="check05" checked> <label for="check05"><strong>이벤트/쇼핑정보 이메일 수신에 동의합니다.</strong></label></span>
+                            <span class="ml50"><input type="checkbox" id="check06" checked> <label for="check06"><strong>이벤트/쇼핑정보 SMS 수신에 동의합니다. </strong></label></span>
+                        </dd>
+                    </dl>
+                </div>
+	            <div class="btn_enter mt40">
+	            	<a href="#" class="btn btn1">확인</a>
+	            	<a href="#" class="btn btn2 ml10">취소</a>
+	            </div>
+	        </div>
+	        <!-- //content -->
+        </div>
+        <!-- //inner -->
+        <!-- //사업자 구매 회원가입 -->
+
+
+	</c:when>
+	<c:otherwise>
+		<!-- 모바일 회원가입 -->
+		<!-- container -->
+		<div id="container">
+			<ul class="step">
+				<li class="active">약관동의</li>
+				<li>회원정보 입력</li>
+				<li>가입완료</li>
+			</ul>
+			<div class="content">
+				<ol class="list no-border">
+					<c:forEach var="list" items="${list.termsList}" varStatus="status">
+						<li>
+							<p class="arrow"><span class="fl">
+							<input type="checkbox" id="agrSeq${status.index }" name="AGR_SEQ_VER[]" class="${list.AGR_MUST_YN }"  value="${list.AGR_SEQ},${list.AGR_VER}" onclick="fnCheck();"/>
+							<c:if test="${list.AGR_MUST_YN eq 'Y' }">[필수]</c:if>
+							<c:if test="${list.AGR_MUST_YN ne 'Y' }">[선택]</c:if>
+							${list.AGR_NAME_CD } </span> <a href="javascript:goAgrDesc('${list.AGR_SEQ }','${list.AGR_VER }');" class="fr">약관보기</a></p>
+						</li>
+					</c:forEach>
+				</ol>
+			</div>
+			<p class="title">
+				<input type="checkbox" id="termsAll" name="process" onClick="fnAllChk();"/>
+				<label for="termsAll">[전체동의] SSOCIO 회원가입 약관에 모두 동의 합니다.</label>
+			</p>
+			<div class="btn_enter">
+				<ul>
+					<li><input type="button" class="btn_r-line" value="이전" title="이전" alt="이전" onclick="goPrePage();"></li>
+					<li><input type="button" class="btn_r" value="다음 " title="다음 " alt="다음 " onclick="goJoin();"></li>
+				</ul>
+			</div>
+		</div>
+		<!-- //container -->
+	</c:otherwise>
+</c:choose>
+
+</form>

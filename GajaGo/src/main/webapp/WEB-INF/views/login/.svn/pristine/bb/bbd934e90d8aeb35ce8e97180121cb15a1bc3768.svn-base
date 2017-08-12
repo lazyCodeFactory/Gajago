@@ -1,0 +1,948 @@
+<%@ page language="java" contentType="text/html; charset=utf-8"
+    pageEncoding="utf-8"%>
+<!-- 태그는 cmmnHead.jsp 에 선언함 -->
+<%@ include file="/WEB-INF/views/admin/common/cmmnHead.jsp"%>
+<script type="text/javascript">
+$(document).ready(function(){
+	//2015-07-13 추가
+	fixed_tbl_height();
+	prod_padding();
+	$('.calendar').datepicker({
+		showOn: "button",
+		buttonImage: "http://static.ssocio.net/admin/images/ico_calendar.gif",
+		buttonImageOnly: true
+	});
+	
+	// 레이어팝업 닫기
+	$(".lay_pop .btn_close").click(function(){
+		$(this).parents(".lay_pop").removeClass("on").css({"top":"50%","left":"50%"});
+		return false;
+	});
+	
+	// 레이어팝업 drag
+	$.fn.drag = function(){
+	var max_wd = $(document).width();
+	var max_ht = $(document).height(); 
+		$(this).find(".pop_header").mousedown(function(e){
+			var pop_wd = $(this).parent(".lay_pop").width();
+			var pop_ht = $(this).parent(".lay_pop").height();
+
+			$(this).data("clickPointX" , e.pageX - $(this).offset().left)
+			$(this).data("clickPointY" , e.pageY - $(this).offset().top);
+
+			$(this).mousemove(function(e){
+				var pop_top = e.pageY  - $(this).data("clickPointY");
+				var pop_left = e.pageX  - $(this).data("clickPointX");
+				if(pop_top <= 0){
+					pop_top = 0;
+				}else if(pop_top >= (max_ht-pop_ht)){
+					pop_top = (max_ht-pop_ht)-2;
+				}else if(pop_left <= 0){
+					pop_left = 0;
+				}else if(pop_left >= (max_wd-pop_wd)){
+					pop_left = (max_wd-pop_wd)-2;
+				};
+				$(".lay_pop").css({zIndex:1000});
+				$(this).parent(".lay_pop").css({
+					top:pop_top,
+					left:pop_left,
+					zIndex:10000
+				});
+			}).mouseup(function(){
+				$(".lay_pop").css({zIndex:1000});
+				$(this).parent(".lay_pop").css({zIndex:10000});
+				$(this).unbind("mousemove");
+			});
+		});
+	};
+	
+	/**
+	 * 레이어팝업
+	 */
+	function message_popup(){
+		var win_wd = $(window).width();
+		var win_height = $(window).height();
+		
+		// 선택 주문 취소
+		$("#brn_cncl").click(function(){
+			
+			if(!$("#chkProd tr").find('input[name=chkYn]').is(":checked")){
+				alert("선택된 상품이 없습니다.");
+				return false;
+			}
+			
+			var wd = $(".pop_ordCncl").width();
+			var wh = $(".pop_ordCncl").height();
+			$(".pop_ordCncl").css({"left":(win_wd - wd)/2,"top":(win_height - wh)/2}).addClass("on");
+			return false;
+		});
+		
+		$(".lay_pop").drag();
+	}message_popup();
+});
+
+/* ======================================================================
+Function : 리스트체크박스 처리
+Return   : 없음
+========================================================================= */
+$(document).ready(function(){
+	$("#allChk").click(function(){
+		if($(this).is(":checked")){
+			$("tbody input[name=chkYn]").attr("checked",true);
+		}else{
+			$("tbody input[name=chkYn]").attr("checked",false);
+		}
+	});
+	
+	//주문완료 처리
+	$("#brn_ord_com").click(function(){
+		$("td#ORD_STAT_CD").text("주문완료");
+		$("input[name=L_ORD_STAT_CD]").val('20');
+		$("input[name=L_PROC_STAT_CD]").val('21');
+		return false;
+	});
+	
+	//입금확인 처리
+	$("#brn_dsp_com").click(function(){
+		$("td#ORD_STAT_CD").text("입금확인");
+		$("input[name=L_ORD_STAT_CD]").val('10');
+		$("input[name=L_PROC_STAT_CD]").val('10');
+		return false;
+	});
+});
+
+/* ======================================================================
+Function : 선택 주문 취소
+Return   : 없음
+========================================================================= */
+function updateOrdCncl(url){
+	console.log( $("#CANC_REASON_CD").val());
+	if ( $("#CANC_REASON_CD").val() == null || $("#CANC_REASON_CD").val() == '' ) {
+		alert("구매취소사유를 선택해주세요.");
+		return false;
+	}
+	
+	if ( $("#CANC_REASON").val() == null || $("#CANC_REASON").val() == '' ) {
+		alert("상세 사유를 입력해주세요.");
+		return false;
+	}
+	
+	if(confirm("선택하신 상품을 주문취소 처리 하시겠습니까?")) {
+		var inputProdCode = new Array();
+		var inputProdSeq = new Array();
+		
+		$("#chkProd tr input[name=chkYn]").each(function(i){
+			var str = "";
+			var check = $(this).is(":checked");
+			if(check){
+				inputProdCode[i] = $(this).parents().find('input[name=L_PROD_CODE]').val();
+				inputProdSeq[i] = $(this).parents().find('input[name=L_PROD_SEQ]').val();
+			}
+		});
+		
+		$("#P_PROD_CODE").val(inputProdCode);
+		$("#P_PROD_SEQ").val(inputProdSeq);
+		$("#P_CANC_REASON_CD").val($("#CANC_REASON_CD").val());
+		$("#P_CANC_REASON").val($("#CANC_REASON").val());
+		$.ajax({
+			type: 'post'
+			, async: true
+			, url: url
+			, dataType:'json'
+			, data:  $("#frm").serialize()
+			, success: function(data) {
+ 				if (data.CNT == 0) {
+ 					alert("상품 주문 취소에 실패하였습니다.")
+ 				} else {
+ 					alert('주문취소가 완료 되었습니다.');
+ 					location.reload();
+ 				}
+			}
+			, error: function(data, status, err) {
+				alert('서버와의 통신이 실패했습니다.');
+			}
+		});
+	}
+}
+
+/* ======================================================================
+Function : 레이어 팝업 닫기
+Return   : 없음
+========================================================================= */
+function closePopup(){
+  $(".lay_pop").removeClass("on").css({"top":"50%","left":"50%"});
+}
+/* ======================================================================
+Function : 주문상태 처리
+Return   : 없음
+========================================================================= */
+function statProc(ordCd, prodCd, procStatCd, prodSeq, procTest, obj){
+	
+	var win_wd = $(window).width();
+	var win_height = $(window).height();
+	var statText = "";
+	var procText = "";
+	
+	if (procStatCd == "22") {
+		var wd = $(".pop_orderDlv").width();
+		var wh = $(".pop_orderDlv").height();
+		$(".pop_orderDlv").css({"left":(win_wd - wd)/2,"top":(win_height - wh)/2}).addClass("on");
+		statText = "배송완료";
+		procText = "배송중";
+		$("#L_PROC_STAT_CD").val('23');
+		$("input[name=L_ORD_STAT_CD]").val('40');
+		$("#P_PROC_STAT_CD").val('23');
+		$("#P_ORD_STAT_CD").val('40');
+		$(obj).parent().parent().find("td").eq(8).text(procText);
+		$(obj).parent().parent().find("td").eq(9).find("a").text(statText);
+	} else {
+		if(confirm("선택하신 상품을 "+procTest+" 처리 하시겠습니까?")){
+			if (procStatCd == "21") {
+				statText = "배송처리";
+				procText = "상품준비중";
+				$("input[name=L_PROC_STAT_CD]").val('22');
+				$("input[name=L_ORD_STAT_CD]").val('30');
+				$(obj).parent().parent().find("td").eq(8).text(procText);
+				$(obj).parent().parent().find("td").eq(9).find("a").text(statText);
+			} else if (procStatCd == "23") {
+				statText = "-";
+				procText = "배송완료";
+				$("#L_PROC_STAT_CD").val('23');
+				$("#L_ORD_STAT_CD").val('50');
+				$(obj).parent().parent().find("td").eq(8).text(procText);
+				$(obj).parent().parent().find("td").eq(9).text(statText);
+			}
+			
+			alert("선택하신 상품에 대한 주문내역이 "+procTest+" 상태로 변경 되었습니다.");
+		}
+	}
+	
+}
+
+/* ======================================================================
+Function : 선택 배송 처리
+Return   : 없음
+========================================================================= */
+function selectInvProc(){
+	
+	var win_wd = $(window).width();
+	var win_height = $(window).height();
+	
+	if(!$("#chkProd tr").find('input[name=chkYn]').is(":checked")){
+		alert("선택된 상품이 없습니다.");
+		return false;
+	}
+	
+	var wd = $(".pop_orderDlv").width();
+	var wh = $(".pop_orderDlv").height();
+	$(".pop_orderDlv").css({"left":(win_wd - wd)/2,"top":(win_height - wh)/2}).addClass("on");
+	
+}
+
+/* ======================================================================
+Function : 배송처리
+Return   : 없음
+========================================================================= */
+function insInvc(url){
+	
+	if(!dlvNvl()) return;
+	
+	var inputProdCode = new Array();
+	var inputProdSeq = new Array();
+	$("#chkProd tr input[name=chkYn]").each(function(i){
+		var str = "";
+		var check = $(this).is(":checked");
+		if(check){
+			inputProdCode[i] = $(this).parents().find('input[name=L_PROD_CODE]').val();
+			inputProdSeq[i] = $(this).parents().find('input[name=L_PROD_SEQ]').val();
+		}
+	});
+	
+	$("#chkProd tr").each(function(i){
+		var str = "";
+		var check = $(this).find("input[name=chkYn]").is(":checked");
+		if(check){
+			$(this).find("td").eq(8).text("배송중");
+			$(this).find("td").eq(9).find("a").text("배송완료");
+			$(this).find('input[name=L_PROC_STAT_CD]').val("23");
+		}
+		$("input[name=L_ORD_STAT_CD]").val('40');
+	});
+	
+	$("#P_PROD_CODE").val(inputProdCode);
+	$("#P_PROD_SEQ").val(inputProdSeq);
+	$("#P_DLV_CMP_CD").val($("#DLV_CMP_CD").val());
+	$("#P_INVC_NO").val($("#INVC_NO").val());
+	$(".lay_pop").removeClass("on").css({"top":"50%","left":"50%"});
+}
+
+/* ======================================================================
+Function : 배송지 정보 체크
+Return   : 없음
+========================================================================= */
+function dlvNvl(){
+
+	if ( $("#RCV_NM").val() == null || $("#RCV_NM").val() == "" ) {
+		alert("배송정보를 입력하세요.");
+		$("#RCV_NM").focus();
+		return false;
+	}
+
+	if ( $("#RCV_HP").val() == null || $("#HP").val() == "" ) {
+		alert("배송정보를 입력하세요.");
+		$("#HP").focus();
+		return false;
+	}
+
+	if ( $("#ZIP_CODE").val() == null || $("#ZIP_CODE").val() == "" ) {
+		alert("배송정보를 입력하세요.");
+		$("#JUSO_DTL").focus();
+		return false;
+	}
+
+	if ( $("#JUSO_ROAD").val() == null || $("#JUSO_ROAD").val() == "" ) {
+		alert("배송정보를 입력하세요.");
+		$("#JUSO_DTL").focus();
+		return false;
+	}
+
+	if ( $("#JUSO_DTL").val() == null || $("#JUSO_DTL").val() == "" ) {
+		alert("배송정보를 입력하세요.");
+		$("#JUSO_DTL").focus();
+		return false;
+	}
+	
+	return true;
+}
+
+/* ======================================================================
+Function : 확인
+Return   : 없음
+========================================================================= */
+function updateOrderStat() {
+// 	$("#frm").attr("action","/admin/order/selectTest.do").submit();
+	$.ajax({
+		type: 'post'
+		, async: true
+		, url: '/admin/order/updateOrderDtl.do'
+		, dataType:'json'
+		, data:  $("#frm").serialize()
+		, success: function(data) {
+			alert('정상적으로 변경되었습니다.');
+			location.reload();
+		}
+		, error: function(data, status, err) {
+			alert('서버와의 통신이 실패했습니다.');
+		}
+	});
+}
+
+/* ======================================================================
+Function : 우편번호 검색
+Return   : 없음
+========================================================================= */
+function getAddrInfo(zip_code,jiben_addr,road_addr) {
+	$("#ZIP_CODE").val(zip_code);
+	$("#JUSO_ROAD").val(road_addr);
+	$("#JUSO_JIBEN").val(jiben_addr);
+}
+</script>
+	<!-- content -->
+	<div id="content">
+		<!-- top_content -->
+		<div class="top_content">
+			<!-- location -->
+			<div class="location">
+				<ul class="clear">
+					<li class="first-child"><a href="#">주문관리</a></li>
+					<li><a href="#">주문조회</a></li>
+					<li><a href="#" class="current">상세</a></li>
+				</ul>
+			</div>
+			<!-- //location -->
+		</div>
+		<!-- //top_content -->
+		<form id="frm" name="frm" method="post">
+			<div class="inner">
+				<div class="tbl mt10">
+					<table class="upd type">
+						<colgroup>
+						<col style="width:10%" />
+						<col style="width:23%" />
+						<col style="width:10%" />
+						<col style="width:23%" />
+						<col style="width:10%" />
+						<col style="width:24%" />
+						</colgroup>
+						<tbody>
+						
+							<tr>
+								<th scope="row" >주문일시</th>
+								<td>${list.selectSetlDtl.ORD_REG_DATE}</td>
+								<th scope="row" class="bl">주문번호</th>
+								<td>${list.params.P_ORD_CD }</td>
+								<th scope="row" class="bl">판매채널</th>
+								<td>디비어디서가져오지?</td>
+							</tr>
+							<tr>
+								<th scope="row">주문자명</th>
+								<td><custom:codeTag code="${list.selectOrdMberInfo.MBER_NM}" groupCode="PROD_TYPE_CD" /></td>
+								<th scope="row" class="bl">주문자ID</th>
+								<td>${list.selectOrdMberInfo.MBER_EMAIL }</td>
+								<th scope="row" class="bl">휴대폰번호</th>
+								<td>${list.selectOrdMberInfo.MBER_PHONE }</td>
+							</tr>
+							
+						</tbody>
+					</table>
+				</div>
+				<div class="tbl mt10">
+					<p class="tbl_tit bb0"><img src="http://static.ssocio.net/admin/images/ico_admin.gif" alt="주문 상품 정보" />주문 상품 정보 ${list.params.P_PROD_TYPE_CD }</p>
+					<c:if test="${list.params.S_SELT_GB_CD eq 2 }">
+						<c:choose>
+							<c:when test="${list.selectOrderDtl[0].ORD_STAT_CD eq '10'}">
+								<a href="#" class="btn_r tbl_btn" id="brn_ord_com" style="right:294px">주문 완료 처리</a>
+							</c:when>
+							<c:when test="${list.selectOrderDtl[0].ORD_STAT_CD eq '20'}">
+								<a href="#" class="btn_r tbl_btn" id="brn_dsp_com" style="right:294px;">입금 확인 처리</a>
+							</c:when>
+						</c:choose>
+					</c:if>
+					<c:if test="${list.params.P_PROD_TYPE_CD ne 2 }">
+						<a href="javascript:selectInvProc('/admin/order/insertOrderInv.do');" class="btn_r tbl_btn" id="brn_dlv" style="right:152px">선택 배송 처리</a>
+					</c:if>
+					<a href="#" class="btn_r tbl_btn" id="brn_cncl">선택 주문취소</a>
+				</div>
+				<c:choose>
+					<c:when test="${list.params.P_PROD_TYPE_CD ne '2'}">
+						<!-- fixed_tbl_list -->
+						<div class="fixed_tbl_list">
+							<!-- thead -->
+							<div class="tbl thead" style="height:94px;width:1800px;">
+								<table class="list">
+									<colgroup>
+							<col style="width:2%" />
+							<col style="width:9%" />
+							<col style="width:*" />
+							<col style="width:5%" />
+							<col style="width:8%" />
+							<col style="width:5%" />
+							<col style="width:3%" />
+							<col style="width:5%" />
+							<col style="width:5%" />
+							<col style="width:5%" />
+							<col style="width:5%" />
+							<col style="width:5%" />
+							<col style="width:5%" />
+							<col style="width:5%" />
+							<col style="width:6%" />
+							<col style="width:10%" />
+									</colgroup>
+									<thead>	
+										<tr>
+								<th scope="col" rowspan="2" class="first"><input type="checkbox" id="" name="" /></th>
+								<th scope="col" rowspan="2">판매자ID</th>
+								<th scope="col" colspan="6" class="bdb">주문정보</th>
+								<th scope="col" rowspan="2">주문상태</th>
+								<th scope="col" rowspan="2">주문처리</th>
+								<th scope="col" rowspan="2">⑤상품금액<br/>[④]</th>
+								<th scope="col" rowspan="2">⑥쿠폰할인</th>
+								<th scope="col" rowspan="2">⑦포인트사용</th>
+								<th scope="col" rowspan="2">⑧배송비</th>
+								<th scope="col" rowspan="2">결제금액<br/>[①-②-③+④]</th>
+								<th scope="col" rowspan="2">결제수단</th>
+							</tr>
+							<tr>
+								<th scope="col">상품명</th>
+								<th scope="col">①판매가</th>
+								<th scope="col">옵션명</th>
+								<th scope="col">②옵션금액</th>
+								<th scope="col">③수량</th>
+								<th scope="col">④소계<br/>[①+②*③]</th>
+							</tr>
+									</thead>
+								</table>
+							</div>
+							<!-- //thead -->
+			
+							<!-- tbody -->
+								<div class="tbl tbody" style="top:97px;width:1800px;">
+								<table class="list">
+									<colgroup>
+							<col style="width:2%" />
+							<col style="width:9%" />
+							<col style="width:*" />
+							<col style="width:5%" />
+							<col style="width:8%" />
+							<col style="width:5%" />
+							<col style="width:3%" />
+							<col style="width:5%" />
+							<col style="width:5%" />
+							<col style="width:5%" />
+							<col style="width:5%" />
+							<col style="width:5%" />
+							<col style="width:5%" />
+							<col style="width:5%" />
+							<col style="width:6%" />
+							<col style="width:10%" />
+									</colgroup>
+									<tbody id="chkProd">
+										<c:forEach var="order" items="${list.selectOrderDtl }" varStatus="status">
+											<c:choose>
+												<c:when test="${order.NO eq '0' || order.NO eq '1'}">
+													<tr>
+														<input type="hidden" id="L_ORD_CD" name="L_ORD_CD" value="${order.ORD_CD }"/>
+														<input type="hidden" id="L_PROD_SEQ" name="L_PROD_SEQ" value="${order.PROD_SEQ }"/>
+														<input type="hidden" id="L_PROD_CODE" name="L_PROD_CODE" value="${order.PROD_CODE}"/>
+														<input type="hidden" id="L_PROC_STAT_CD" name="L_PROC_STAT_CD" value="${order.PROC_STAT_CD}"/>
+														<input type="hidden" id="L_ORD_STAT_CD" name="L_ORD_STAT_CD" value="${order.ORD_STAT_CD}"/>
+														<c:choose>
+															<c:when test="${order.PROC_STAT_CD ne '21' }">
+																<td class="first" rowspan="${order.MAX_OPT_SEQ }"><input type="checkbox" id="chkYn" name="chkYn" disabled="disabled" /></td>
+															</c:when>
+															<c:otherwise>
+																<td class="first" rowspan="${order.MAX_OPT_SEQ }"><input type="checkbox" id="chkYn" name="chkYn" /></td>
+															</c:otherwise>
+														</c:choose>
+														<td rowspan="${order.MAX_OPT_SEQ }">${order.SELLER_EMAIL}</td>
+														<td rowspan="${order.MAX_OPT_SEQ }"><span class="prod_name" style="width:300px">${order.PROD_NM }</span></td>
+														<td rowspan="${order.MAX_OPT_SEQ }"><fmt:formatNumber value="${order.ORD_QTY}" pattern="#,###" /></td>
+														<td rowspan="${order.MAX_OPT_SEQ }"><fmt:formatNumber value="${order.PROD_ORD_AMT}" pattern="#,###" /></td>
+														<td>${order.OPT_NM}</td>
+														<td><fmt:formatNumber value="${order.OPT_QTY}" pattern="#,###" /></td>
+														<td><fmt:formatNumber value="${order.OPT_PRCE}" pattern="#,###" /></td>
+														<td id="ORD_STAT_CD"><custom:codeTag groupCode="ORD_STAT_CD" code="${order.ORD_STAT_CD }"/></td>
+														<td>
+															<c:choose>
+																<c:when test="${order.ORD_STAT_CD eq '10' || order.ORD_STAT_CD eq '50' }">
+																	-
+																</c:when>
+																<c:when test="${order.ORD_STAT_CD eq '20' }">
+																	<a class="btn_w" onclick="statProc('${list.params.P_ORD_CD }','${order.PROD_CODE}','${order.PROC_STAT_CD}'
+																		,'${order.PROD_SEQ}', '<custom:codeTag groupCode="PROC_STAT_CD" code="${order.PROC_STAT_CD }"/>', this);" >상품준비중</a>
+																</c:when>
+																<c:when test="${order.ORD_STAT_CD eq '30' }">
+																	<a class="btn_w" onclick="statProc('${list.params.P_ORD_CD }','${order.PROD_CODE}','${order.PROC_STAT_CD}'
+																		,'${order.PROD_SEQ}', '<custom:codeTag groupCode="PROC_STAT_CD" code="${order.PROC_STAT_CD }"/>', this);" >배송처리</a>
+																</c:when>
+																<c:otherwise>
+																	<a class="btn_w" onclick="statProc('${list.params.P_ORD_CD }','${order.PROD_CODE}','${order.PROC_STAT_CD}'
+																		,'${order.PROD_SEQ}', '<custom:codeTag groupCode="PROC_STAT_CD" code="${order.PROC_STAT_CD }"/>', this);">
+																		<custom:codeTag groupCode="PROC_STAT_CD" code="${order.PROC_STAT_CD }"/>
+																	</a>
+																</c:otherwise>
+															</c:choose>
+														</td>
+														<td rowspan="${order.MAX_OPT_SEQ }"><fmt:formatNumber value="${order.SUM_ORD_PRCE }" pattern="#,###" /></td>
+														<td rowspan="${order.MAX_OPT_SEQ }"><fmt:formatNumber value="${order.SUM_OPT_PRCE }" pattern="#,###" /></td>
+														<td rowspan="${order.MAX_OPT_SEQ }"><fmt:formatNumber value="${order.DLV_PRCE}" pattern="#,###" /></td>
+														<td rowspan="${order.MAX_OPT_SEQ }">${order.ORD_QTY}</td>
+														<td rowspan="${order.MAX_OPT_SEQ }"><fmt:formatNumber value="${order.SUM_ORD_PRCE + order.SUM_OPT_PRCE + order.DLV_PRCE }" pattern="#,###" /></td>
+													</tr>
+												</c:when>
+												<c:otherwise>
+													<tr>
+														<td>${order.OPT_NM}</td>
+														<td><fmt:formatNumber value="${order.OPT_QTY}" pattern="#,###" /></td>
+														<td><fmt:formatNumber value="${order.OPT_PRCE}" pattern="#,###" /></td>
+														<td id="ORD_STAT_CD"><custom:codeTag groupCode="ORD_STAT_CD" code="${order.ORD_STAT_CD }"/></td>
+														<td>
+															<c:choose>
+																<c:when test="${order.ORD_STAT_CD eq '10' || order.ORD_STAT_CD eq '50' }">
+																	-
+																</c:when>
+																<c:when test="${order.ORD_STAT_CD eq '20' }">
+																	<a class="btn_w" onclick="statProc('${list.params.P_ORD_CD }','${order.PROD_CODE}','${order.PROC_STAT_CD}'
+																		,'${order.PROD_SEQ}', '<custom:codeTag groupCode="PROC_STAT_CD" code="${order.PROC_STAT_CD }"/>', this);" >상품준비중</a>
+																</c:when>
+																<c:when test="${order.ORD_STAT_CD eq '30' }">
+																	<a class="btn_w" onclick="statProc('${list.params.P_ORD_CD }','${order.PROD_CODE}','${order.PROC_STAT_CD}'
+																		,'${order.PROD_SEQ}', '<custom:codeTag groupCode="PROC_STAT_CD" code="${order.PROC_STAT_CD }"/>', this);" >배송처리</a>
+																</c:when>
+																<c:otherwise>
+																	<a class="btn_w" onclick="statProc('${list.params.P_ORD_CD }','${order.PROD_CODE}','${order.PROC_STAT_CD}'
+																		,'${order.PROD_SEQ}', '<custom:codeTag groupCode="PROC_STAT_CD" code="${order.PROC_STAT_CD }"/>', this);">
+																		<custom:codeTag groupCode="PROC_STAT_CD" code="${order.PROC_STAT_CD }"/>
+																	</a>
+																</c:otherwise>
+															</c:choose>
+														</td>
+													</tr>
+												</c:otherwise>
+											</c:choose>
+										</c:forEach>
+									</tbody>
+								</table>
+							</div>
+							<!-- //tbody -->
+						</div>
+						<!-- //fixed_tbl_list -->
+					</c:when>
+					<c:otherwise>
+						<!-- fixed_tbl_list -->
+						<div class="fixed_tbl_list">
+							<!-- thead -->
+							<div class="tbl thead" style="width:1800px;height:79px;">
+								<table class="list">
+									<colgroup>
+										<col style="width:3%" />
+										<col style="width:8%" />
+										<col style="width:10%" />
+										<col style="width:14%" />
+										<col style="width:3%" />
+										<col style="width:9%" />
+										<col style="width:8%" />
+										<col style="width:3%" />
+										<col style="width:9%" />
+										<col style="width:7%" />
+										<col style="width:5%" />
+										<col style="width:5%" />
+										<col style="width:5%" />
+										<col style="width:6%" />
+										<col style="width:5%" />
+									</colgroup>
+									<thead>	
+										<tr>
+											<th scope="col" rowspan="2" class="first"><input type="checkbox" id="" name="" /></th>
+											<th scope="col" rowspan="2">판매자ID</th>
+											<th scope="col" rowspan="2">셰어링 기간</th>
+											<th scope="col" colspan="6" class="bdb">주문상품</th>
+											<th scope="col" rowspan="2">셰어링 이용 금액(C)<br/>(A+B)</th>
+											<th scope="col" rowspan="2">배송비(D)</th>
+											<th scope="col" rowspan="2">쿠폰할인(E)</th>
+											<th scope="col" rowspan="2">보증금(F)</th>
+											<th scope="col" rowspan="2">보증금 반환금액<br/>[F-(C+D-E)]</th>
+											<th scope="col" rowspan="2">보증금<br/>반환일</th>
+										</tr>
+										<tr>
+											<th scope="col">상품명</th>
+											<th scope="col">수량</th>
+											<th scope="col">셰어링 금액(A)</th>
+											<th scope="col">옵션</th>
+											<th scope="col">수량</th>
+											<th scope="col">옵션금액(B)</th>
+										</tr>
+									</thead>
+								</table>
+							</div>
+							<!-- //thead -->
+			
+							<!-- tbody -->
+							<div class="tbl tbody" style="width:1800px;top:82px;">
+								<table class="list">
+									<colgroup>
+										<col style="width:3%" />
+										<col style="width:8%" />
+										<col style="width:10%" />
+										<col style="width:14%" />
+										<col style="width:3%" />
+										<col style="width:9%" />
+										<col style="width:8%" />
+										<col style="width:3%" />
+										<col style="width:9%" />
+										<col style="width:7%" />
+										<col style="width:5%" />
+										<col style="width:5%" />
+										<col style="width:5%" />
+										<col style="width:6%" />
+										<col style="width:5%" />
+									</colgroup>
+									<tbody>
+										<tr>
+											<td class="first"><input type="checkbox" id="" name="" /></td>
+											<td>munjisang@nate.com</td>
+											<td>
+												<div class="clear">
+													<p>2015-05-01 ~ 2015-05-08</p>
+													<p class="mt5">24개월</p>
+												</div>
+											</td>
+											<td>
+												상품명상품명상품명상품명상품명상품명상품명상품명상품명상품명상품명상품명상품명
+											</td>
+											<td>1</td>
+											<td class="tr">80,000<br/>(1일 10,000원 x 8일 x 1개)</td>
+											<td>옵션명옵션명옵션명옵션명옵션명옵션명옵션명</td>
+											<td>1</td>
+											<td class="tr">80,000<br/>(1일 10,000원 x 8일 x 1개)</td>
+											<td class="tr">80,000</td>
+											<td class="tr">9,500</td>
+											<td class="tr">10,500</td>
+											<td class="tr">10,500</td>
+											<td class="tr">16,000</td>
+											<td class="tr">2015-05-09</td>
+										</tr>
+										<tr>
+											<td class="first"><input type="checkbox" id="" name="" /></td>
+											<td>munjisang@nate.com</td>
+											<td>
+												<div class="clear">
+													<p>2015-05-01 ~ 2015-05-08</p>
+													<p class="mt5">24개월</p>
+												</div>
+											</td>
+											<td>
+												상품명상품명상품명상품명상품명상품명상품명상품명상품명상품명상품명상품명상품명
+											</td>
+											<td>1</td>
+											<td class="tr">80,000<br/>(1일 10,000원 x 8일 x 1개)</td>
+											<td>옵션명옵션명옵션명옵션명옵션명옵션명옵션명</td>
+											<td>1</td>
+											<td class="tr">80,000<br/>(1일 10,000원 x 8일 x 1개)</td>
+											<td class="tr">80,000</td>
+											<td class="tr">9,500</td>
+											<td class="tr">10,500</td>
+											<td class="tr">10,500</td>
+											<td class="tr">16,000</td>
+											<td class="tr">2015-05-09</td>
+										</tr>
+									</tbody>
+								</table>
+							</div>
+							<!-- //tbody -->
+						</div>
+						<!-- //fixed_tbl_list -->
+					</c:otherwise>
+				</c:choose>
+				
+				<!-- tbl -->
+				<div class="tbl mt10">
+					<p class="tbl_tit"><img src="http://static.ssocio.net/admin/images/ico_admin.gif" alt="" />결제 정보</p>
+					<table class="list">
+						<colgroup>
+							<col style="width:10%" />
+							<col style="width:10%" />
+							<col style="width:10%" /> 
+							<col style="width:10%" />
+							<col style="width:10%" />
+							<col style="width:10%" />
+							<col style="width:10%" />
+							<col style="width:13%" />
+							<col style="width:17%" />
+						</colgroup>
+						<thead>
+							<tr>
+								<th scope="col" colspan="4" class="first bdb">상품 주문금액</th>
+								<th scope="col" colspan="3" class="bdb">할인금액</th>
+								<th scope="col" rowspan="2">최종 결제금액[A-B]</th>
+								<th scope="col" rowspan="2">결제수단</th>
+							</tr>
+							<tr>
+								<th scope="col">상품 금액</th>
+								<th scope="col">옵션 금액</th>
+								<th scope="col">배송비</th>
+								<th scope="col">합계(A)</th>
+								<th scope="col">포인트</th>
+								<th scope="col">쿠폰</th>
+								<th scope="col">합계(B)</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td class="first"><fmt:formatNumber value="${list.selectSetlDtl.ORD_AMT }" pattern="#,###" /></td>
+								<td><fmt:formatNumber value="${list.selectSetlDtl.OPT_AMT }" pattern="#,###" /></td>
+								<td><fmt:formatNumber value="${list.selectSetlDtl.DLV_SELT_AMT }" pattern="#,###" /></td>
+								<td><fmt:formatNumber value="${list.selectSetlDtl.ORD_AMT + list.selectSetlDtl.OPT_AMT + list.selectSetlDtl.DLV_SETL_AMT }" pattern="#,###" /></td>
+								<td><fmt:formatNumber value="${list.selectSetlDtl.POINT_USE_AMT }" pattern="#,###" /></td>
+								<td><fmt:formatNumber value="${list.selectSetlDtl.CPN_USE_AMT }" pattern="#,###" /></td>
+								<td><fmt:formatNumber value="${list.selectSetlDtl.POINT_USE_AMT + list.selectSetlDtl.CPN_USE_AMT}" pattern="#,###" /></td>
+								<td><span class="text_r"><fmt:formatNumber value="${(list.selectSetlDtl.ORD_AMT + list.selectSetlDtl.OPT_AMT + list.selectSetlDtl.DLV_SETL_AMT) - (list.selectSetlDtl.POINT_USE_AMT + list.selectSetlDtl.CPN_USE_AMT)}" pattern="#,###" /></span></td>
+								<td><custom:codeTag groupCode="SELT_GB_CD" code="${list.selectSetlDtl.TRD_GB_CD }"/><br/>(입금자명 : ${list.selectSetlDtl.ORD_NM })</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+				<!-- //tbl -->
+				
+				<!-- tbl -->
+				<div class="tbl mt10">
+					<p class="tbl_tit"><img src="http://static.ssocio.net/admin/images/ico_admin.gif" alt="" />주문자 정보</p>
+					<table class="list">
+						<colgroup>
+							<col style="width:33%" />
+							<col style="width:*" /> 
+							<col style="width:33%" />
+						</colgroup>
+						<thead>
+							<tr>
+								<th scope="col" class="first">주문자ID</th>
+								<th scope="col">주문자명</th>
+								<th scope="col">휴대폰번호</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td class="first">[<custom:codeTag groupCode="MBER_GB_CD" code="${list.selectSetlDtl.MBER_GB_CD }"/>] ${list.selectSetlDtl.ORD_EMAIL }</td>
+								<td>${list.selectSetlDtl.ORD_NM }</td>
+								<td>${list.selectSetlDtl.ORD_HP }</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+				<!-- //tbl -->
+				
+				<!-- tbl -->
+				<div class="tbl mt10">
+					<p class="tbl_tit"><img src="http://static.ssocio.net/admin/images/ico_admin.gif" alt="" />배송정보</p>
+					<table class="upd">
+						<colgroup>
+							<col style="width:15%" />
+							<col style="width:35%" />
+							<col style="width:15%" />
+							<col style="width:35%" />
+						</colgroup>
+						<tbody>
+							<tr>
+								<th scope="row">이름</th>
+								<td><input type="text" id="RCV_NM" name="RCV_NM" value="${list.selectSetlDtl.RCV_NM }" placeholder="이름 입력" maxlength="30" style="width:200px" /></td>
+								<th scope="row" class="bl">연락처</th>
+								<td><input type="text" id="RCV_HP" name="RCV_HP" value="${list.selectSetlDtl.RCV_HP }" placeholder="연락처 입력 (- 제외)" maxlength="11" style="width:200px" /></td>
+							</tr>
+							<tr>
+								<th scope="row">주소</th>
+								<td colspan="3">
+									<p><input type="text" id="ZIP_CODE" name="ZIP_CODE" class="readonly" value="${list.selectSetlDtl.ZIP_CD }" style="width:150px" readonly="readonly"/> <a href="#" class="btn_addr ml5" onclick="popup('/admin/common/jusopopup.do','우편번호찾기','714','660');return false;"><span>우편번호</span></a></p>
+									<p class="mt5"><input type="text" id="JUSO_ROAD" name="JUSO_ROAD" class="readonly" value="${list.selectSetlDtl.JUSO_DORO }"  style="width:500px" readonly="readonly" /></p>
+									<p class="mt5"><input type="hidden" id="JUSO_JIBEN" name="JUSO_JIBEN" class="readonly" value="${list.selectSetlDtl.JUSO_JIBEN }" style="width:500px" readonly="readonly" /></p>
+									<p class="mt5"><input type="text" id="JUSO_DTL" name="JUSO_DTL" value="${list.selectSetlDtl.JUSO_DTL }" style="width:500px" /></p>
+								</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+				<!-- //tbl -->
+				
+				<!-- tbl -->
+				<div class="tbl mt10">
+					<p class="tbl_tit"><img src="http://static.ssocio.net/admin/images/ico_admin.gif" alt="" />주문관리 메모</p>
+					<div class="ship_info_area2">
+						<textarea cols="30" rows="5" class="textarea"></textarea>
+					</div>
+				</div>
+				<!-- //tbl -->
+				
+				<!-- bot_btn -->
+				<div class="bot_btn tc mt20">
+					<a href="javascript:updateOrderStat();" class="btn_r">확인</a>
+					<a href="#" class="btn_g2 ml10">취소</a>
+				</div>
+				<!-- //bot_btn -->
+			</div>
+			<input type="hidden" name="P_ORD_CD" id="P_ORD_CD" value="${list.params.P_ORD_CD }" />
+			<input type="hidden" name="P_PROD_CODE" id="P_PROD_CODE" />
+			<input type="hidden" name="P_PROD_NM" id="P_PROD_NM" />
+			<input type="hidden" name="P_PROD_SEQ" id="P_PROD_SEQ" />
+			<input type="hidden" name="CANC_CD" id="CANC_CD" />
+			<input type="hidden" name="P_CANC_REASON_CD" id="P_CANC_REASON_CD" />
+			<input type="hidden" name="P_CANC_REASON" id="P_CANC_REASON" />
+			<input type="hidden" name="P_DLV_CMP_CD" id="P_DLV_CMP_CD" />
+			<input type="hidden" name="P_INVC_NO" id="P_INVC_NO" />
+		</form>
+	</div>
+	
+	<!--주문취소팝업 -->
+	<form id="orderCncl" name="orderCncl" method="post">
+		<div class="lay_pop pop_ordCncl" style="width: 570px">
+			<!-- pop_header -->
+			<div class="pop_header">
+				<h1>주문취소</h1>
+				<a href="#" class="btn_close">
+					<img src="http://static.ssocio.net/admin/images/btn_layer_close.gif" alt="close" />
+				</a>
+			</div>
+			<!-- //pop_header -->
+	
+			<!-- pop_con -->
+			<div class="pop_con">
+				<!-- table -->
+				<table>
+					<colgroup>
+						<col width="160px" />
+						<col width="*" />
+					</colgroup>
+					<tbody>
+						<tr>
+							<th rowspan="3"><img src="http://static.ssocio.net/admin/images/blt_layer_th.gif" alt="" />메뉴명</th>
+							<td>
+								<select name="CANC_REASON_CD" id="CANC_REASON_CD">
+									<option value="">선택</option>
+									<option value="10">재고 부족</option>
+									<option value="20">구매자 요청</option>
+									<option value="30">기타</option>
+								</select>
+							</td>
+						</tr>
+						<tr>
+							<td><span>상세 사유를 입력해 주세요 (선택)</span></td>
+						</tr>
+						<tr>
+							<td><textarea id="CANC_REASON" name="CANC_REASON" rows="10" cols="60" placeholder="취소 상세 사유 입력 (최대 100자)" maxlength="100"></textarea> </td>
+						</tr>
+					</tbody>
+				</table>
+				<!-- //table -->
+	
+				<!-- btn_area -->
+				<div class="btn_area">
+					<a href="javascript:updateOrdCncl('/admin/order/updateOrdCncl.do');" class="btn_r">주문취소</a>
+					<a href="javascript:closePopup();" class="btn_g2">취소</a>
+				</div>
+				<!-- //btn_area -->
+			</div>
+			<!-- //pop_con -->
+		</div>
+	</form>
+	<!-- //주문취소팝업 -->
+	
+	<!--배송처리팝업 -->
+	<form id="orderDlv" name="orderDlv" method="post">
+		<div class="lay_pop pop_orderDlv" style="width: 570px; height:200px">
+			<!-- pop_header -->
+			<div class="pop_header">
+				<h1>배송처리</h1>
+				<a href="#" class="btn_close">
+					<img src="http://static.ssocio.net/admin/images/btn_layer_close.gif" alt="close" />
+				</a>
+			</div>
+			<!-- //pop_header -->
+			<div class="tbl">
+				<table class="upd">
+					<colgroup>
+						<col style="width:15%"/>
+						<col style="width:*"/>
+					</colgroup>
+					<tbody>
+						<tr>
+							<th scope="row">배송정보</th>
+							<td class="tl">
+								<span class="select" style="width:200px;">
+									<span class="sel_txt"></span>
+									<select name="DLV_CMP_CD" id="DLV_CMP_CD">
+										<option value="">선택</option>
+										<option value="1">CJ</option>
+									</select>
+								</span>
+								<input id="INVC_NO" name="INVC_NO" value="" placeholder="운송장 번호입력" style="width:200px; height:20px" />
+							</td>
+						</tr>
+						<tr>
+							<th scope="row">출고일</th>
+							<td class="tl">
+								<input type="text" id="EXP_DATE" name="EXP_DATE" class="calendar" style="width:82px" />
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			<!-- //tbl -->
+			<!-- bot_btn -->
+			<div class="bot_btn tc" style="top:10px">
+				<a href="javascript:insInvc('/admin/order/insertOrderInv.do');" class="btn_r">상품배송</a>
+				<a href="javascript:closePopup();" class="btn_g ml10">취소</a>
+			</div>
+			<!-- //bot_btn -->
+		</div>
+	</form>
+	<!-- //배송처리팝업 -->
+
+	<!-- //content -->

@@ -1,0 +1,506 @@
+<%
+	/*
+	 *	[구매회원용] 회원정보 정보조회
+	 */
+%>
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/web/common/cmmnHead.jsp"%>
+<title>SSOCIO</title>
+<script type="text/javascript">
+$(document).ready(function(){
+
+});
+
+/*
+ * *********************************************************************
+ * 회원 정보 수정
+ * *********************************************************************
+ */
+function goUpdate(){
+	if($("#CMPNY_ZIP_CD").val().length == 0  ){
+		alert("우편 번호를 등록 해주세요.");
+		return;
+	}
+
+	if($("#CMPNY_JUSO_DTL").val().length == 0  ){
+		alert("나머지 주소를 입력해주세요.");
+		return;
+	}
+
+	var options = {
+		//type : "POST",
+		url : "/seller/join/updateMyInfo.do",
+		success: function(data){
+			alert('수정되었습니다.');
+// 			alert("계좌번호 변경이 완료되었습니다.");
+// 			$('#updBank').hide();
+		},
+		error : function(request, status, error) {
+		   	alert("통신 오류가 발생 하였습니다. 잠시 후 다시 시도해 주세요"   + status  + " request [" + request  + "] error[" + error +"]");
+		}
+	};
+	$("#frm").ajaxSubmit(options);
+}
+
+/*
+ * *********************************************************************
+ * 패스워드 변경
+ * *********************************************************************
+ */
+function doPwChg(){
+	var engPw = /[a-zA-Z]/;	//비밀번호 유효성 영문
+	var numPw = /[0-9]/;	//비밀번호 유효성 숫자
+	var pattern3 = /[~!@#$%^&*()_+|<>?:{}]/;    //특수문자
+
+	var PASS = $("#MBER_PASS").val().trim();
+
+	if($("#MBER_PASS").val().length == 0  ){
+		alert("비밀번호를 입력해주세요.");
+		return;
+	}
+
+	if($("#MBER_PASS").val().length <  8  ){
+		alert("비밀번호는 반드시\n영문/숫자/특수문자 조합 8자리 이상으로\n입력해주세요.");
+		return;
+	}
+
+	if(!engPw.test(PASS) || !numPw.test(PASS) || !pattern3.test(PASS) ) {
+		alert('비밀번호는 반드시\n영문/숫자/특수문자 조합 8자리 이상으로\n입력해주세요.');
+		$("#MBER_PASS").focus();
+		return;
+	}
+
+	if($("#PASS_TEMP").val().length == 0  ){
+		alert("비밀번호 확인을 입력해주세요.");
+		return;
+	}
+
+	if($("#MBER_PASS").val() != $("#PASS_TEMP").val()){
+		alert("비밀번호가 일치하지 않습니다.");
+		return;
+	}
+
+	var options = {
+		//type : "POST",
+		url : "/seller/join/updatePwChg.do",
+		success: function(data){
+			alert("패스워드 변경이 완료되었습니다.");
+			$("#MBER_PASS").val("");
+			$("#PASS_TEMP").val("");
+			$('#updPw').hide();
+		},
+		error : function(request, status, error) {
+		   	alert("통신 오류가 발생 하였습니다. 잠시 후 다시 시도해 주세요"   + status  + " request [" + request  + "] error[" + error +"]");
+		}
+	};
+	$("#frm").ajaxSubmit(options);
+}
+
+/*
+ * *********************************************************************
+ * 전화번호 유효성 체크
+ * *********************************************************************
+ */
+function cfmValidate(){
+
+	$("#PHONE_CHECK").val("N");
+	var ph =  $("#ph").val();
+	var phVal = "";
+
+	if(ph.length < 10){
+		alert("휴대폰번호를 입력해주세요.");
+		$('#ph').focus();
+		return;
+	}
+
+	$("#MBER_PHONE").val(ph);
+
+	return true;
+
+}
+
+/*
+ * *********************************************************************
+ * 휴대 전화 인증 팝업
+ * *********************************************************************
+ */
+function confirmChek(){
+	if(!cfmValidate()){
+		return;
+	}
+	$('#ph').attr('disabled',false);
+	popup('/seller/common/nameConfPopup.do?MBER_PHONE='+$("#ph").val(),'popupFrm','1100','560');
+}
+
+/*
+ * *********************************************************************
+ * 전화 번호 인증 확인
+ * *********************************************************************
+ */
+function getAuth(ci, di, name, tid, birth, sex){
+
+	//$(".full_iframe_auth").show();popup_hide();
+	//$(".full_iframe_auth").remove();
+	$('#ph').attr('disabled',true);
+	$("#CI").val(ci);
+	$("#DI").val(di);
+	$("#MBER_NM").val(name);
+	$("#TID").val(tid);
+	$("#BIRTH").val(birth);
+	$("#SEX").val(sex);
+
+	$("#PHONE_CHECK").val("Y");
+	$('#phAuth').text('인증완료');
+	$('#phAuth').attr('onclick','return false');
+
+}
+
+
+/*
+ * *********************************************************************
+ * 계좌 번호 인증
+ * *********************************************************************
+ */
+ function accountChek() {
+
+	if(!accountValidate()){
+		return;
+	}
+
+	var strGbn = "1";
+	var strNm = $("#ACNT_NM").val();
+	var strBankCode =  $("#bank option:selected").val();
+	var strAccountNo = $("#BANK_ACNT_NO").val();
+	var bnkNm = $("#bank option:selected").text();
+	$("#BANK_NM").val(bnkNm);
+	var acntNm = $("#ACNT_NM").val();
+
+	$.ajax({
+	      type: 'post'
+	      , async: true
+	      , url: '/seller/common/acntConfirm.do'
+	      , dataType:'json'
+	      , data: {"strGbn":strGbn, "strNm":strNm, "strBankCode":strBankCode, "strAccountNo":strAccountNo, "acntNm":acntNm}
+	      , before: function() {
+		        loadingForm.showDialog();
+		      }
+	      , success: function(data) {
+
+	    	  if(data.resultCode == "0000"){
+				alert("계좌 인증이 완료되었습니다.");
+
+				var options = {
+						//type : "POST",
+						url : "/seller/join/updateMyAccount.do",
+						success: function(data){
+							alert("계좌번호 변경이 완료되었습니다.");
+							$('#updBank').hide();
+							location.reload();
+						},
+						error : function(request, status, error) {
+						   	alert("통신 오류가 발생 하였습니다. 잠시 후 다시 시도해 주세요"   + status  + " request [" + request  + "] error[" + error +"]");
+						}
+					};
+					$("#frm").ajaxSubmit(options);
+
+	    	  }else{
+				  alert(data.resultMsg);
+	    	  }
+
+
+	      }
+	      , complete: function() {
+		        loadingForm.hideDialog();
+		      }
+
+	      , error : function(request, status, error) {
+				alert("통신 오류가 발생 하였습니다. 잠시 후 다시 시도해 주세요");
+			}
+	    });
+}
+
+function accountValidate(){
+
+	var ACNT_NM = $("#ACNT_NM").val();
+	var BANK_ACNT_NO = $("#BANK_ACNT_NO").val();
+	var bank = $("#bank option:selected").val();
+
+	if(ACNT_NM.length == 0 ){
+		alert("예금주명을 입력해주세요.");
+		$('#ACNT_NM').focus();
+		return;
+	}
+
+	if(BANK_ACNT_NO.length == 0 ){
+		alert("계좌번호를 입력해주세요.");
+		$('#ACNT_NM').focus();
+		return;
+	}
+
+	if(bank == "N" ){
+		alert("은행을 선택해주세요.");
+		return;
+	}
+
+	return true;
+}
+
+function getAddrInfo(gubun,jiben_addr,road_addr,addr){
+
+	// 1.도로명 , 2.지번
+	//alert(gubun+" : 1 : "+addr+" 2: "+jiben_addr+" 3: "+road_addr);
+	//$("#CMPNY_ADDR_GB").val(gubun);
+	$("#CMPNY_ZIP_CD").val(gubun);
+	$("#CMPNY_JUSO_DORO").val(road_addr);
+	$("#CMPNY_JUSO_JIBEN").val(jiben_addr);
+	//$("#CMPNY_JUSO_DTL").val(road_addr);
+
+	//popup_hide();
+}
+
+
+
+
+function goBack(){
+	history.back(-1);
+}
+function goLoginPage(){
+	$("#frm").attr("action", "/seller/login.do").submit();
+}
+</script>
+
+<!-- 판매회원전환 -->
+<form id="chgsellerForm" name="chgsellerForm" method="post">
+	<input type="hidden" name="MBER_REG_GB_CD" id="MBER_REG_GB_CD" value="1" />
+	<input type="hidden" name="AGR_GB_CD" id="AGR_GB_CD" value="02,03" />
+	<input type="hidden" name="CALL" id="CALL" value="1" />
+</form>
+<!-- 메인 화면으로 이동 -->
+<form name="myPageForm" id="myPageForm" method="get">
+	<input type="hidden" name="r_user_name" id="r_user_name"/>
+</form>
+<!-- 비밀번호변경 화면으로 이동 -->
+<form name="myPwForm" id="myPwForm" method="get">
+	<input type="hidden" name="r_user_name" id="r_user_name"/>
+</form>
+<!-- 휴대폰 변경 화면으로 이동 -->
+<form name="myPhoneForm" id="myPhoneForm" method="get">
+	<input type="hidden" name="r_user_name" id="r_user_name"/>
+</form>
+<form name="frm" id="frm" method="post">
+<!-- 번호 인증 관련 START -->
+<input type="hidden" name="MBER_SEQ" id="MBER_SEQ"  value="${params.MBER_SEQ}" />
+<input type="hidden" name="MBER_PHONE" id="MBER_PHONE" value=""  />
+<input type="hidden" name="PHONE_CHECK" id="PHONE_CHECK" value="" />
+<!-- <input type="hidden" name="PHONE_TEMP" id="PHONE_TEMP" value="" /> -->
+<input type="hidden" name="CI" id="CI" value="" />
+<input type="hidden" name="DI" id="DI" value="" />
+<input type="hidden" name="MBER_NM" id="MBER_NM" value="" />
+<input type="hidden" name="TID" id="TID" value="" />
+<input type="hidden" name="BIRTH" id="BIRTH" value="" />
+<input type="hidden" name="SEX" id="SEX" value="" />
+<!-- 번호 인증 관련 END -->
+<!-- 계좌 인증 관련 START -->
+<input type="hidden" name="strGbn" id="strGbn" value=""  />
+<input type="hidden" name="strResId" id="strResId" value=""  />
+<input type="hidden" name="strNm" id="strNm" value=""  />
+<input type="hidden" name="strBankCode" id="strBankCode" value=""  />
+<input type="hidden" name="strAccountNo" id="strAccountNo" value=""  />
+<input type="hidden" name="BANK_NM" id="BANK_NM" value=""  />
+<!-- <input type="hidden" name="ACC_AUTHYN" id="ACC_AUTHYN" value="N"  /> -->
+
+<div id="content">
+	<!-- top_content -->
+	<div class="top_content">
+		<!-- location -->
+		<div class="location">
+			<ul class="clear">
+<!-- 				<li class="first-child"><a href="#">Home</a></li> -->
+<!-- 				<li><a href="#">마이페이지</a></li> -->
+<!-- 				<li><a href="#" class="current">회원정보</a></li> -->
+			</ul>
+		</div>
+		<!-- //location -->
+	</div>
+	<!-- //top_content -->
+
+	<!-- inner -->
+	<div class="inner">
+		<ul class="tab_type mt10">
+			<li class="on"><a href="/seller/join/chgMyInfo.do#">회원정보</a></li> <!-- [D] 해당 페이지 접속시 li class="on" 추가 -->
+<!-- 			<li><a href="/seller/join/chgMiniShop.do#">미니샵</a></li> -->
+		</ul>
+
+		<!-- tbl -->
+		<div class="tbl mt10">
+			<p class="tbl_tit"><img src="http://static.ssocio.net/seller/images/ico_seller.gif" alt="">회원정보</p>
+			<!-- upd -->
+			<table class="upd">
+				<colgroup>
+					<col style="width:13%">
+					<col style="width:*">
+					<col style="width:13%">
+					<col style="width:*">
+				</colgroup>
+				<tbody>
+					<tr>
+						<th scope="row">구분</th>
+						<td colspan="3">${result.myInfoInfo.MBER_GB_CD_NM } 판매회원</td>
+					</tr>
+					<tr>
+						<th scope="row">이름</th>
+						<td colspan="3">${result.myInfoInfo.MBER_NM }</td>
+<!-- 						<td colspan="3"> -->
+<%-- 							<input type="text" id="MBER_NAME" name="MBER_NAME" value="${result.myInfoInfo.MBER_NM }"> --%>
+<!-- 						</td> -->
+					</tr>
+					<tr>
+						<th scope="row">회원등급</th>
+						<td colspan="3">Level 1</td>
+					</tr>
+					<tr>
+						<th scope="row">이메일주소[ID]</th>
+						<td colspan="3">${result.myInfoInfo.MBER_EMAIL }</td>
+					</tr>
+					<tr>
+						<th scope="row">비밀번호</th>
+						<td colspan="3">
+	                        <p><a href="#none" class="btn_w btn_pass" onclick="$('#updPw').show();">비밀번호 변경</a></p>
+	                        <div class="tbl mt10" id="updPw" style="display:  none">
+	                            <table class="upd">
+	                                <colgroup>
+	                                    <col style="width:13%">
+	                                    <col style="width:*">
+	                                </colgroup>
+									<tbody>
+		                                <tr>
+		                                    <th scope="row">새로운 비밀번호</th>
+		                                    <td>
+		                                        <input type="password" id="MBER_PASS" name="MBER_PASS" style="width:282px">
+		                                    </td>
+		                                </tr>
+		                                <tr>
+		                                    <th scope="row">비밀번호 확인</th>
+		                                    <td>
+		                                        <input type="password" id="PASS_TEMP" name="PASS_TEMP" style="width:282px">
+												<a href="#none" class="btn_sr ml10" id="" onclick="doPwChg();">변경</a>
+		                                    </td>
+
+		                                </tr>
+									</tbody>
+	                           	</table>
+	                        </div><br>
+	                        <p>※ 비밀번호 특수문자는 ~!@#$%^&*()_+|<>?:{} 만 사용이 가능합니다.</p>
+	                    </td>
+					</tr>
+					<tr>
+						<th scope="row">휴대폰번호</th>
+						<td colspan="3">${result.myInfoInfo.MBER_PHONE } <a href="#none" class="btn_w ml20" onclick="$('#updPhone').show();">휴대폰번호 변경</a>
+							<div class="tbl mt10" id="updPhone" style="display:none">
+	                            <table class="upd">
+	                                <colgroup>
+	                                    <col style="width:13%">
+	                                    <col style="width:*">
+	                                </colgroup>
+									<tbody>
+		                                <tr>
+		                                    <th class="row">휴대폰인증</th>
+				                            <td>
+				                            	<p class="mb10">
+				                            		<input type="text" placeholder="휴대폰번호입력" id="ph" name="ph"  onkeydown="this.value=this.value.replace(/[^0-9]/g,'')" onkeyup="this.value=this.value.replace(/[^0-9]/g,'')"
+					                				onblur="this.value=this.value.replace(/[^0-9]/g,'')" maxlength="11" class="fl">
+				                            		<a href="#none" class="btn_bs" onclick="confirmChek();" id="phAuth">인증하기</a></p>
+				                                <p class="mb5">※ 쏘시오는 개정 정보통신망법 제23조에 따라 회원 가입시에는 주민등록번호를 수집하지 않습니다.</p>
+				                                <p class="mb5">※ 휴대폰 인증은 가입하시는 분 명의의 휴대폰으로만 인증이 가능합니다.(14세 미만 가입 불가)</p>
+				                                <p>※ 인증이 되지 않을 경우, 다날쏘시오 고객센터(1877-0101) 로 문의하시기 바랍니다.</p>
+				                            </td>
+		                                </tr>
+									</tbody>
+	                           	</table>
+	                        </div>
+                        </td>
+					</tr>
+					<tr>
+						<th scope="row">주소</th>
+						<td colspan="3">
+							<p><input type="text" id="CMPNY_ZIP_CD" name="CMPNY_ZIP_CD" style="width:300px" value="${result.myInfoInfo.CMPNY_ZIP_CD }" readonly="readonly"> <a href="#none" class="btn_b ml10" onclick="popup('/seller/common/jusopopup.do','우편번호찾기','714','660')">우편번호 찾기</a></p>
+							<p class="mt5"><input type="text" id="CMPNY_JUSO_DORO" name="CMPNY_JUSO_DORO" style="width:445px" value="${result.myInfoInfo.CMPNY_JUSO_DORO }" readonly="readonly"></p>
+							<p class="mt5"><input type="text" id="CMPNY_JUSO_DTL" name="CMPNY_JUSO_DTL" style="width:445px" value="${result.myInfoInfo.CMPNY_JUSO_DTL }"></p>
+							<input type="hidden" id="CMPNY_JUSO_JIBEN" name="CMPNY_JUSO_JIBEN">
+
+						</td>
+					</tr>
+					<tr>
+						<th scope="row" rowspan="2">계좌번호</th>
+						<td colspan="3">
+                            <p>${result.myInfoInfo.BANK_NM }[${result.myInfoInfo.ACNT_NM }] <a href="#none" class="btn_w ml20" onclick="$('#updBank').show();">계좌번호 변경</a></p>
+                        </td>
+					</tr>
+					<tr>
+						<td colspan="3">
+	                        <p>${result.myInfoInfo.BANK_ACNT_NO }</p>
+	                        <div class="tbl mt10" id="updBank" style="display:  none">
+	                            <table class="upd">
+	                                <colgroup>
+	                                    <col style="width:13%">
+	                                    <col style="width:*">
+	                                </colgroup>
+	                                <tbody><tr>
+	                                    <th scope="row">예금주명</th>
+	                                    <td><input type="text" id="ACNT_NM" name="ACNT_NM" style="width:300px;"></td>
+	                                </tr>
+	                                <tr>
+	                                    <th scope="row">은행선택</th>
+	                                    <td>
+	                                        <span class="select" style="width:316px;">
+	                                            <span class="sel_txt" style="width: 309px;">은행 선택</span>
+	                                            <select id="bank">
+                                                <custom:codeList var="bankGbCd" groupCode="BANK_GB_CD" />
+                                                <c:forEach var="list" items="${bankGbCd}" varStatus="status">
+                                                <option value="${list.key }">${list.value}</option>
+                                                </c:forEach>
+                                            </select>
+	                                        </span>
+	                                    </td>
+	                                </tr>
+	                                <tr>
+	                                    <th scope="row">계좌번호</th>
+	                                    <td>
+											<input type="text" placeholder="계좌번호 입력" id="BANK_ACNT_NO" name="BANK_ACNT_NO" style="width:300px" onkeydown="this.value=this.value.replace(/[^0-9]/g,'')" onkeyup="this.value=this.value.replace(/[^0-9]/g,'')"
+		                					onblur="this.value=this.value.replace(/[^0-9]/g,'')" maxlength="20">
+											<a href="#none" class="btn_sr ml10" onclick="accountChek();">변경</a>
+										</td>
+	                                </tr>
+	                            </tbody></table>
+	                        </div>
+	                    </td>
+					</tr>
+					<tr>
+						<th scope="row">이메일 수신 동의</th>
+						<td class="tc">
+							<input type="radio" id="e_agree" name="EMAIL_AGREE_YN" value="Y" <c:if test="${result.myInfoInfo.EMAIL_AGREE_YN eq 'Y'}">checked="checked"</c:if> /> <label for="e_agree1">동의</label>
+							<input type="radio" id="e_agree" name="EMAIL_AGREE_YN" value="N" class="ml20" <c:if test="${result.myInfoInfo.EMAIL_AGREE_YN ne 'Y' }">checked="checked"</c:if> /> <label for="e_agree2">동의안함</label>
+						</td>
+						<th scope="row" class="bl">SMS 수신 동의</th>
+						<td class="tc">
+							<input type="radio" id="s_agree" name="HP_AGREE_YN" value="Y" <c:if test="${result.myInfoInfo.HP_AGREE_YN eq 'Y'}">checked="checked"</c:if> /> <label for="s_agree1">동의</label>
+							<input type="radio" id="s_agree" name="HP_AGREE_YN" value="N" class="ml20" <c:if test="${result.myInfoInfo.HP_AGREE_YN ne 'Y'}">checked="checked"</c:if> /> <label for="s_agree2">동의안함</label>
+						</td>
+					</tr>
+				</tbody>
+			</table>
+			<!-- //upd -->
+		</div>
+		<!-- //tbl -->
+
+		<!-- btm_btn_area -->
+		<div class="btm_btn_area mt20">
+			<a href="javascript:goUpdate();" class="btn_r">수정</a>
+<!-- 			<a href="javascript:goBack();" class="btn_g2 ml10">취소</a> -->
+			<a href="javascript:goLoginPage();" class="btn_g2 ml10">로그인페이지</a>
+		</div>
+		<!-- //btm_btn_area -->
+	</div>
+	<!-- //inner -->
+</div>
+</form>

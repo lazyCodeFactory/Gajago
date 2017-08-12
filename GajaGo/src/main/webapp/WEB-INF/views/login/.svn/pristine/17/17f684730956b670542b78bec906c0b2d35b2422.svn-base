@@ -1,0 +1,252 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/web/common/cmmnHead.jsp"%>
+<script type="text/javascript" src="/js/web/cart.js" ></script> <!-- 장바구니용 js -->
+<script type="text/javascript">
+
+	var regData = '${regData}';
+	var mainYn = '${params.mainYn }';
+	
+	//ready
+	$(document).ready(function(){
+		
+		$("#regData").val(regData);
+		
+		// title 및 back 버튼 url set		
+		document.title = "상품 등록";
+// 		header.type	= 6;
+		header.type	= 4;
+		header.title = "상품 등록";
+		header.method = "POST";
+		if (mainYn == "Y") {
+			header.backUrl = "/mobile/main/main.do";
+		}
+		else {
+			header.backUrl = "/mobile/salemanage/main.do";
+		}
+		header.callback = headerCallback; // 장바구니용 callback
+		header.form = $("#form");
+		initHeader();
+
+		// 뒤로가기 를 공통 제어를 쓰지 않고 재정의함
+		var data = JSON.parse(regData);
+		$("#id_btn_back").unbind('click');
+		$(".btn_back").click(function(event){
+			event.preventDefault();
+			location.href=data.refUrl;
+		});
+		
+		
+		displayFooter(false);
+		
+		// 배송비 keyup event
+		$("#dlvPrceView").bind('keyup input', function() {
+			proc.numberWithCommas(this);
+			proc.dlvPrceKeyup();
+		});
+		
+		// 제휴 택배의 경우 배송비 처리
+		proc.assDlvPrce('${dlvWayCd}', '${dlvCmpCd}');
+		
+	});
+
+	// page 이동
+	var page = {
+			
+		// 다음 페이지 이동
+		goNextPage : function () {
+			//alert문구 추가 
+			if(!$("#btnNext").hasClass("btn_r")) {
+				alert("배송비를 입력해 주세요");
+				return;
+			}
+			// 금액
+			$("#dlvPrce").val(Number($("#dlvPrceView").val().replace(/,/g, "")));
+			
+			var url = "/mobile/salemanage/procInsertProdSell.do";
+			form.action = url;
+			form.submit();
+			
+		},
+		
+		// 이전 페이지 이동
+		goPrePage : function () {
+			
+			$("#movePage").val("4");
+			$("#moveBack").val("Y");
+			var url = "/mobile/salemanage/procInsertProdSell.do";
+			form.action = url;
+			form.submit();
+			
+		}
+			
+	};
+	
+	// script 처리 모음
+	var proc = {
+			
+		// 금액 keyup
+		numberWithCommas : function (obj) {
+			var len = $(obj).val().length;
+			var maxLen = $(obj).attr("maxLength");
+			// 글자수 제한
+			if (len > maxLen) {
+				$(obj).val($(obj).val().slice(0,maxLen));
+			}
+			
+			numberOnly(obj);
+			var val = $(obj).val();
+			$(obj).val(numberWithCommas(val));
+		},
+			
+		// keyup event
+		dlvPrceKeyup : function () {
+			proc.procBtnNext();
+		},
+			
+		// 배송비 입력
+		procBtnNext : function () {
+			
+			var len = $("#dlvPrceView").val().length;
+			if (len > 0) {
+				// 버튼 활성화
+				//$("#btnNext").attr("disabled",false);
+				$("#btnNext").removeClass("btn_b");
+				$("#btnNext").addClass("btn_r");
+			}
+			else {
+				// 버튼 비활성화
+				//$("#btnNext").attr("disabled",true);
+				$("#btnNext").removeClass("btn_r");
+				$("#btnNext").addClass("btn_b");
+			}
+			
+		},
+		
+		// 제휴택배 배송비 처리
+		assDlvPrce : function (dlvWayCd, dlvCmpCd) {
+			
+			if (dlvWayCd == '1') {
+				
+				$.ajax({
+					type: "post",
+					async: true,
+					url: "/mobile/salemanage/selectRelDlvInfo.do",
+					dataType:"json",
+					data:  {
+							dlvCmpCd : dlvCmpCd
+							},
+					success: function(data) {
+						
+						if (data.dlvMap != null) {
+							$("#dlvPrceView").val(numberWithCommas(data.dlvMap.DLV_AMT)).attr("readOnly",true);
+							$("#extLandCd_10").val(numberWithCommas(data.dlvMap.DLV_AMT_JEJU)).attr("readOnly",true);
+							$("#extLandCd_20").val(numberWithCommas(data.dlvMap.DLV_AMT_DOSE)).attr("readOnly",true);
+							proc.procBtnNext();
+						}
+						
+					},
+					error: function(data, status, err) {
+						alert("통신에 실패하였습니다. 다시 시도해 주세요.");
+						btnFlag = true;
+					}
+				});
+				
+			}
+			
+		}
+			
+	};
+	
+</script>
+
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+		<div class="roc">
+			<ul class="inner">
+				<li><img src="http://static.ssocio.net/pc/img/common/section/roc_home.png" alt="홈"></li>
+				<li>판매관리</li>
+			</ul>
+		</div>
+		<jsp:include page="../common/sale_top.jsp" flush="false" />
+		<div class="mype_s_tit">
+			<p>상품등록</p>
+		</div>
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+		<!-- container -->
+		<div id="container">
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>
+
+
+<form id="form" name="form" method="post" action="">
+	<input type="hidden" id="movePage" name="movePage" value="6" />
+	<input type="hidden" id="regData" name="regData" value="" />
+	<input type="hidden" id="moveBack" name="moveBack" value="" />
+	<input type="hidden" id="mainYn" name="mainYn" value="${params.mainYn }" />
+	<input type="hidden" id="dlvPrce" name="dlvPrce" value="" />
+		<div class="completed">
+        	<p class="percent"><strong>90% Completed</strong></p>
+            <div class="bar"><p style="width:90%"></p></div>
+        </div>
+		<div class="contents pic_reg">
+			<p class="purc-title"><strong>배송비</strong>를 입력해 주세요</p>
+			<div class="tbl type4">
+				<table class="tbl-data">
+					<colgroup>
+                        <col width="100px">
+                        <col width="*">
+                        <col width="20px">
+                    </colgroup>
+                    <tbody>
+						<tr>
+							<th>배송비<br/><span>(최소 1원)</span></th>
+							<td class="pd5">
+								<input type="text" id="dlvPrceView" name="" value="" maxlength="13" pattern="[0-9]*" class="numType" style="text-align:right !important;" autocomplete="off" />
+							</td>
+							<td class="tr">원</td>
+						</tr>
+						<custom:codeList var="extLandCd" groupCode="EXT_LAND_CD" />
+						<c:forEach var="list" items="${extLandCd}" varStatus="status">
+							<tr>
+								<th>${list.value}</th>
+								<td class="pd5">
+									<input type="text" id="extLandCd_${list.key }" name="extLandCd_${list.key }" value="" maxlength="13" pattern="[0-9]*" oninput="javascript:proc.numberWithCommas(this);" class="numType" style="text-align:right !important;" autocomplete="off" />
+								</td>
+								<td class="tr">원</td>
+							</tr>
+		                </c:forEach>
+					</tbody>
+				</table>
+			</div>
+			<div class="btn_enter">
+				<ul>
+					<li>
+						<input type="button" class="btn_b-line" onClick="javascript:page.goPrePage();" value="이전" title="이전" alt="이전" />
+					</li>
+					<li>
+						<input type="button" class="btn_b" id="btnNext"  onClick="javascript:page.goNextPage();" value="다음" title="다음" alt="다음" />
+					</li>
+				</ul>
+			</div>
+		</div>
+</form>
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+		<jsp:include page="../common/sale_bottom.jsp" flush="false" />
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+		    </div>
+		    <!-- //container -->
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>

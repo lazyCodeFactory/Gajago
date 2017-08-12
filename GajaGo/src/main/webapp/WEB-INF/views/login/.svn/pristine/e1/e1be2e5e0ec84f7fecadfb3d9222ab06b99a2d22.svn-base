@@ -1,0 +1,322 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/web/common/cmmnHead.jsp"%>
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="utf-8"> 
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="format-detection" content="telephone=no">
+    <title>쏘시오 런칭기념 이벤트</title>
+	<link rel="stylesheet" type="text/css" href="http://static.ssocio.net/web/css/ssocio.css?365">
+    <link rel="stylesheet" type="text/css" href="http://static.ssocio.net/event/event_20151104/css/event_20151104.css">
+    <script src="http://dev.mobile.ssocio.net/js/web/jquery-2.1.4.min.js?365"></script>
+    <script src="http://static.ssocio.net/web/js/common.js?365"></script>
+    <script src="http://static.ssocio.net/web/js/mobile.common.js?365"></script>
+  	<script src="http://static.ssocio.net/web/js/cdn.js"></script>
+	<script>
+	
+	$("#header_title").text("이벤트");
+	
+	$(document).ready(function(){
+		
+		$(".search_list").hide();
+		//$("#header_title").text("이벤트");
+		$("#id_btn_back").click( function () {
+			var historyNum = document.referrer.indexOf('login.do') >= 0 ? -2 : -1;
+			history.go(historyNum);
+		});
+		
+		var notPC = "/Android|Mobile|iP(hone|od|ad)|BlackBerry|IEMobile|Kindle|NetFront|Silk-Accelerated|(hpw|web)OS|Fennec|Minimo|Opera M(obi|ini)|Blazer|Dolfin|Dolphin|Skyfire|Zune/";
+		//var userAgent = navigator.userAgent.toLowerCase();		
+		
+		if(!navigator.userAgent.match(notPC)){
+			alert("앱에서 참여 가능합니다.");
+			onSuccess();
+			return;
+		}
+		
+		var mobileInfo = new Array('Android', 'iPhone', 'iPod', 'BlackBerry', 'Windows CE', 'SAMSUNG', 'LG', 'MOT', 'SonyEricsson');
+		for (var info in mobileInfo){
+		    if (navigator.userAgent.match(mobileInfo[info]) != null){
+
+		    	var check = $.cookie('LAYER_APP');
+		    	if ('${sessionScope.APP}' != 'SSOCIO') { 
+		    		if("LAYER_APP" != check){ 
+		    			var str ='<div class="popup layer_app" style="display: none;">';
+		    			str += '<p><img src="http://static.ssocio.net/web/images/app_link01.png" alt="처음만나는 서비스 SHARING PORTAL"></p>';
+		    			if(navigator.userAgent.match(mobileInfo[info]) == 'iPhone' || navigator.userAgent.match(mobileInfo[info])  == 'iPod'){
+		    				str += '<p><a href="danalssocio://" class="link_app"  data-app-scheme="danalssocio://" data-appstore-url="https://itunes.apple.com/kr/app/id1047545424?mt=8"><img src="http://static.ssocio.net/web/images/app_link02.png" alt="SSOCIO 앱으로 보기"></a></p>';
+		    			}else{
+		    				str += '<p><a href="intent://#Intent;scheme=danalssociomain;package=com.danalssocio.ssocio;end" data-app-intent="intent://#Intent;scheme=danalssociomain;package=com.danalssocio.ssocio;end" data-search-keyword="쏘시오앱"><img src="http://static.ssocio.net/web/images/app_link02.png" alt="SSOCIO 앱으로 보기"></a></p>';
+		    			}
+		    			str += '<p><a href="javascript:;" onclick="layerAppClose();"><img src="http://static.ssocio.net/web/images/app_link03.png" alt="모바일웹으로 보기"></a></p></div>';
+		    			$('header').append(str);
+		    			try {
+		    				$('.layer_app').show();popup_show();
+						} catch (e) {
+							console.log("LAYER_APP error");
+						}
+		    		}
+		    	}
+		        break;
+		    }
+		}
+			
+	});
+	
+	function layerAppClose(){
+		$.cookie('LAYER_APP', 'LAYER_APP',{ expires: 180, path: '/' });
+
+		$('.layer_app').hide();popup_hide();
+		$('.layer_app').remove();
+	}
+	
+		function goInsert(){			
+			
+		 if('${sessionScope.APP}' != 'SSOCIO'){//앱이 아니면
+				msg = "앱에서 참여 가능합니다. 참여 하시겠습니까?"
+			    if (confirm(msg)!=0) {
+			       	 startApp();
+			    } else {
+			    	onSuccess();
+				}
+				return;
+			}
+			  
+			var joinUserNm = $.trim($("#joinUserNm").val());
+			var joinUserPhone = $.trim($("#joinUserPhone").val().replace(/-/g,""));
+			var evtName = "join";
+			
+			//이름
+			if(!joinUserNm.length>0){
+				alert("이름을 입력해 주세요.");
+				$("#joinUserNm").focus();
+				return;
+			}
+			
+			//휴대폰 번호
+			if(!joinUserPhone.length>0){
+				alert("휴대폰 번호를 입력해 주세요.");
+				$("#joinUserPhone").focus();
+				return;
+			
+			}else{
+				
+				var regExp = /^01([0|1|6|7|8|9]?)-?([0-9]{3,4})-?([0-9]{4})$/ ;
+				if ( !regExp.test( joinUserPhone ))  {
+					alert("휴대폰 번호 형식이 올바르지 않습니다.");
+					$("#joinUserPhone").focus();
+				      return;
+				}
+			}
+			
+			//약관
+			if(!$("input:checkbox[id='agree']").is(":checked")){
+				alert("정보 이용 약관에 동의해 주세요");
+				return;
+			}
+			
+			$.ajax({
+			    type: 'post'
+			    , async: true
+				, url: '/mobile/promo/insertjoinevt.do'
+				, dataType:'json'
+				, data:{"joinUserNm" : joinUserNm, "joinUserPhone" : joinUserPhone, "evtName" : evtName }
+				, success: function(data) {
+					
+					if(data.result.success != null){ //success
+						 alert(data.result.success);
+						//alert("응모 완료! 선착순 당첨자에 한해 매주 수요일 일괄 경품 지급!");
+						onSuccess();
+					}
+					
+					if(data.result.error != null){
+						alert(data.result.error); //error
+						if (data.result.error.indexOf('로그인') > -1) { //로그인 정보가 없을 경우
+							goLogin(); 
+						} else {
+							onSuccess();
+						}
+					}
+				}
+				, error: function(data, status, err) {
+				      alert('서버와의 통신이 실패했습니다.');
+				      onSuccess();
+				    }
+				});
+			}
+			
+		function goPrivacy() {
+			location.href = "/mobile/promo/evtPopup.do?evtNm=privacy";
+		}
+		
+		function onSuccess() {
+			location.href = "/mobile/main/main.do";
+		}
+
+		function goLogin() {
+			location.href = "/mobile/main/login.do";
+		}		
+		
+		function goAppDown(){
+			location.href = "http://static.ssocio.net/mobile/upgrade_.html";
+		}
+		
+		function onlyNumber(event){
+			event = event || window.event;
+			var keyID = (event.which) ? event.which : event.keyCode;
+			if ( (keyID >= 48 && keyID <= 57) || (keyID >= 96 && keyID <= 105) || keyID == 8 || keyID == 46 || keyID == 37 || keyID == 39 ) 
+				return;
+			else
+				return false;
+		}
+		function removeChar(event) {
+			event = event || window.event;
+			var keyID = (event.which) ? event.which : event.keyCode;
+			if ( keyID == 8 || keyID == 46 || keyID == 37 || keyID == 39 ) 
+				return;
+			else
+				event.target.value = event.target.value.replace(/[^0-9]/g, "");
+		}
+		
+	</script>
+	
+	<style>
+		.hidden{display:none}
+		/*popup*/
+		#popup_area{position:absolute; left:0px; top:0px;  z-index: 1000; width:100%; height:100%; max-height:100%; min-height:100%; background:url(http://static.ssocio.net/event/event_20151104/images/bg_popup.png) repeat 0 0;}
+		#popup_area .popup_box{width:286px; height:200px; padding:20px;  position:absolute; left:50%; margin-left:-163px; top:25%; background:#fff;}
+		#popup_area .popup_box p{text-align:center}
+		#popup_area .popup_box img{width:100%;}
+		
+		.check_area input[type='checkbox']{height:100% !important; background-color:#fff; width:100% !important; border:1px solid #ccc !important; box-sizing:border-box; display:inline-block !important;}
+		.check_area input[type='checkbox']:checked{background:url(http://static.ssocio.net/event/event_20151104/images/checkbox_on.png) no-repeat; background-size:100% 100%;}
+		.check_area input[type='checkbox']:checked:after{content:' ';display:none;}
+		.check_area input[type='checkbox']+label{margin-left:5px}
+		
+		
+		#evnet_20151104{width:100%; position:relative}
+		#evnet_20151104 .ev_midd{width:100%; box-sizing: border-box; -moz-box-sizing: border-box; -webkit-box-sizing: border-box; position:relative}
+		    .ev_con02{padding:15% 7% 5% 7%; background:#f5f5f5 url(http://static.ssocio.net/event/event_20151104/images/con_midd01.png) no-repeat 0 0; background-size:100%; overflow:hidden}
+		    .ev_con02 .write_box{position:relative; float:left; width:78%;}
+		    .ev_con02 .write_box ul{/*151109 delete padding-right:2%;*/ overflow:hidden}
+		    .ev_con02 .write_box ul li{padding-bottom:2%; overflow:hidden; clear:both}
+		    .ev_con02 .write_box ul li label{float:left; width:19%; height:30px; text-indent:-1000em; }/*151113 edit*/
+		    .ev_con02 .write_box ul li label.label_name{background:url(http://static.ssocio.net/event/event_20151104/images/txt_name.png )no-repeat center 50%; background-size:98%;}
+		    .ev_con02 .write_box ul li label.label_tel{background:url(http://static.ssocio.net/event/event_20151104/images/txt_tel.png )no-repeat center 50%; background-size:98%;}
+		    .ev_con02 .write_box ul li span{float:left; width:80%}
+		    
+		    .ev_con02 .deco{float:right; right:7%; width:20%; top:26%;}
+		    .ev_con02 .deco img{width:100%}
+		    .ev_con02 .tip{padding-top:5%}
+		    .ev_con02 .write_box .txt img , .ev_con02 .tip img{width:100%}
+		    .ev_con02 .write_box ul li input.event_input{background:#fff; padding:5px 13px; height:30px; line-height:30px; font-size:1em; width:100%; box-sizing:border-box; border:0px !important}/*151113 edit*/
+		    .ev_con02 .write_box ul li input[type='number'].event_input{background: #fff; padding: 5px 13px; height: 30px; line-height: 100%; font-size: 1em; width: 100%; box-sizing: border-box; border: 0px !important;}/*151113 edit*/
+		    .ev_con03{padding:0% 7% 5% 7%; background:#f5f5f5;}
+		    .ev_con03 .check_area{position:absolute; top:0%; right:7%; width:4%; height:11.5%; min-width:15px; min-height:15px;}
+		    .ev_con03 .btn_event{margin-top:5%}
+		    
+		#evnet_20151104 .ev_con01 p img{width:100%}
+		#evnet_20151104 .ev_con03 p img{width:100%}
+		
+		#evnet_20151104 .ev_con04 p img{width:100%}
+		/* 20151112 add */
+		#evnet_20151104 address{text-align:left; margin:0 10px; font-style:normal; margin-bottom:5px; color:#777;}
+		#evnet_20151104 .event_footer{margin-top:15px}
+		#evnet_20151104 address p{font-size:10px !important; text-align:center}
+		#evnet_20151104 address a{vertical-align:top !important; color:#777; font-size:10px !important;}
+		#evnet_20151104 address span.strong{font-weight:bold; color:#b4b4b4; font-size:10px !important;}
+		#evnet_20151104 address .fonttype{color:#b4b4b4;}
+	</style>
+	
+</head>
+
+<body>
+<section id="evnet_20151104">
+    
+     <!-- event visual -->
+	<div class="ev_con01">
+         <p class="top_vis"><img src="http://static.ssocio.net/event/event_20151104/images/con_top.png" alt="내용참고01"></p>
+         <div class="hidden" title="내용참고01">
+             <p>쏘시오 런칭기념 </p>
+             <p>회원가입 프로모션</p>
+             <p>지금 쏘시오 회원가입 즉시!<br>스타벅스 더블샷 100%증정<br>(매일 선착순1만명)</p>
+         </div>
+     </div>
+     
+     <!-- 이용약관동의 체크박스 -->
+     <div class="ev_con02 ev_midd">
+         <p class="hidden">100% 경품받기"</p>
+
+         <div class="write_box">
+             <ul>
+                 <li><p class="txt"><img src="http://static.ssocio.net/event/event_20151104/images/txt_tit.png" alt="경품 수령을 위해 고객님의 정보를 입력해주세요."></p></li>
+                 <li> 
+                     <p>
+                         <label for="evnetname" class="label_name">이름</label>
+                         <span><input type="text" id="joinUserNm" name="joinUserNm" placeholder="" class="event_input"></span>
+                     </p>
+                 </li>
+                  <li>
+                     <p>
+                         <label for="evnettel" class="label_tel">전화번호</label>
+                       <span><input type="number" name="joinUserPhone" id="joinUserPhone" value="" class="event_input" placeholder="'-'없이 입력해 주세요" onkeydown="this.value=this.value.replace(/[^0-9]/g,'')" onkeyup="this.value=this.value.replace(/[^0-9]/g,'')" onblur="this.value=this.value.replace(/[^0-9]/g,'')" maxlength="11"></span>                    
+                     </p>
+                 </li>
+             </ul>
+             
+             <p class="tip"><img src="http://static.ssocio.net/event/event_20151104/images/txt_tip.png" alt="내용참고02"></p>
+             <ul class="hidden" title="내용참고02">
+               <li>● 입력하신 정보는 본인 확인 및 이벤트 경품 배송 용도로만 사용되며, 고객 문의 처리를 위해 일정 기간 동안 보관 된 후 폐기 됩니다.</li>
+               <li>● 잘못된 정보 입력으로 발송 된 경품에 대해서는 재발송이 되지 않으니 정확한 정보를 입력해주세요.</li>  
+             </ul>
+         </div>
+         
+          <div class="deco">
+             <p class="txt"><img src="http://static.ssocio.net/event/event_20151104/images/deco_img.png" alt="can"></p>
+         </div>
+     </div>
+     
+     <div class="ev_con03 ev_midd">
+         <div class="check_type">
+            <p><img src="http://static.ssocio.net/event/event_20151104/images/con_midd02.png" alt="약관동의, 쏘시오 회원가입 이벤트에 응모하기에 앞서 입력한 정보를 경품 배송정보로 이용하는 것에 동의 합니다. "></p>
+            <div class="check_area">
+                <input type="checkbox" id="agree" name="agree"><label for="agree"><span class="hidden">약관동의</span></label>
+            </div>
+			<!-- 20151112 add -->
+			<p class="btn_detail"><a href="javascript:goPrivacy();" target="_blank" title="약관내용 자세히 보기 새창 이동"><img src="http://static.ssocio.net/event/event_20151104/images/btn_detail.png" alt="자세히 보기" /></a></p>
+            <p class="btn_event"><a href="javascript:goInsert();"><img src="http://static.ssocio.net/event/event_20151104/images/btn_event.png" alt="이벤트 응모하기"></a></p>
+			
+			
+         </div>
+     </div>
+     
+     <!-- 20151111 edit  -->
+     <div class="ev_con04">
+         <p><img src="http://static.ssocio.net/event/event_20151104/images/con_bottom.png" alt="내용참고3"></p>
+         <ul class="hidden" title="내용참고3">
+			<li>● 해당 이벤트는 회원 가입 후 응모회원에 한하여 100%경품 증정 이벤트 입니다.(일 선착순 1만명)</li>
+			<li>● 이벤트 기간:  2015년 11월 13일 - 11월 30일 </li>
+			<li>● 매일 선착순 1만명에게 전 주 응모된 내역에 따라 매주 수요일 경품이 발송됩니다.</li>
+			<li>● 입력한 휴대폰 번호로 발송이 되며 잘못된 정보로 인한 경품 재발송은 불가합니다.</li>
+			<li>● 본 이벤트는 당사 사정에 따라 임의로 변경될 수 있습니다. </li>
+			<li>● 통신사 정책에 따라 수신이 되지 않을 경우 고객센터로 문의주세요.</li>
+			<li>● 해당 이벤트는 '개인회원'에 한해 응모 가능합니다.(사업자회원 응모 불가)</li>
+			<li>● 쏘시오 고객센터 : 1877-0101(평일 09:00~18:00 / 토,일,공휴일 휴무)</li>
+         </ul>
+     </div>
+	 <!-- 20151112 add -->
+	 <div class="event_footer">
+	 	<address>
+	 		<p>(우)13591 경기도 성남시 분당구 황새울로360번길 42, 분당스퀘어 16층 </p>
+			<p>사업자번호: 438-88-00066 </p>
+			<p>통신판매업신고: 2015-경기성남-1758 | <a href="http://ftc.go.kr/info/bizinfo/communicationList.jsp" target="_blank" title="새창으로 이동"  class="fonttype">사업자 정보 확인</a></p>
+			<p>개인 정보 관리 책임자 : 이종복 | Tel. <a href="tel:1877-0101" title="전화통화">1877-0101</a></p>
+			<p class="mt10 mb20 tc"><span class="strong">Copyright 2015 by Danalssocio Co., Ltd. All rights reserved.</span></p> 
+	 	</address>
+	 </div>
+     
+</section>
+</form>
+
+</body></html>

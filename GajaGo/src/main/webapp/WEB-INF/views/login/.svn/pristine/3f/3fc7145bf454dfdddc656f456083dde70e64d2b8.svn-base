@@ -1,0 +1,133 @@
+package com.ssocio.sharing.service.admin;
+
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+import javax.servlet.http.HttpSession;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.ui.ModelMap;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.multipart.MultipartHttpServletRequest;
+
+import com.ssocio.sharing.cmmn.admin.util.CommonUtil;
+import com.ssocio.sharing.cmmn.util.CmmnCnst;
+import com.ssocio.sharing.cmmn.util.LoggerUtil;
+import com.ssocio.sharing.cmmn.util.StringUtil;
+import com.ssocio.sharing.dao.admin.AdminPurcDao;
+import com.ssocio.sharing.vo.admin.AdminSession;
+import com.ssocio.sharing.vo.admin.PageNavigation;
+
+/**
+ * <pre>
+ * 스마트폰 매입 가격 관리
+ * 스마트폰 매입 가격 관리를 위한 SERVICE
+ * @author S.B.LEE
+ * @version
+ * @since 2015. 7. 10. 오후 2:56:18
+ * @see
+ * @History
+ * Date			|	author	| 변경 내용
+ * 2015. 7. 10.	|	S.B.LEE	|신규
+ * @비고
+ * </pre>
+ */
+@Service
+public class AdminPurcServiceImpl extends AdminReferServiceImpl implements AdminPurcService {
+	// --------------------------------------------------------------------------
+	// # Log 설정
+	// --------------------------------------------------------------------------
+	private static final Logger logger = LoggerFactory.getLogger(AdminPurcServiceImpl.class);
+
+	// --------------------------------------------------------------------------
+	// # DAO 설정
+	// --------------------------------------------------------------------------
+	@Resource(name="adminPurcDao")
+	private AdminPurcDao adminPurcDao;
+	
+	/**
+	 * <pre>
+	 * 스마트폰 매입 가격 관리
+	 * 스마트폰 매입 가격 관리 리스트를 조회합니다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 7. 10. 오후 2:55:01
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.service.admin
+	 * </pre>
+	 */
+	@Override
+	public ModelMap selectListPurc(Map<String, Object> inParam) throws Exception {
+		logger.debug("AdminPurcServiceImpl.selectListPurc [Start]");
+		ModelMap mm = new ModelMap();
+		try {
+			//페이지번호
+			int nowPage = StringUtil.nvlInt((String)inParam.get("PAGE_NO"), 1);
+			int rowCnt	= CmmnCnst.ADM_LIST_SIZE;
+			inParam.put("S_ROW_CNT", rowCnt);
+			
+			String today = StringUtil.getCurrentDate();
+			inParam.put("S_END_DATE", StringUtil.nvl((String)inParam.get("S_END_DATE"), today));
+			
+			SimpleDateFormat format = new SimpleDateFormat("yyyyMMdd");
+			Calendar cal = Calendar.getInstance();
+			cal.add(Calendar.DATE, -7);
+			inParam.put("S_START_DATE", StringUtil.nvl((String)inParam.get("S_START_DATE"), format.format(cal.getTime())));
+			
+			LoggerUtil.writeMap(inParam);
+			
+			int rowTotal = adminPurcDao.selectListPurcCount(inParam); //전체 Row Count
+			
+			PageNavigation pageNav= new PageNavigation(nowPage, rowTotal, rowCnt, CmmnCnst.ADM_BLOCK_SIZE);
+			mm.put("PAGE_NO", nowPage);
+			mm.put("pageNav", pageNav);
+			inParam.put("START_ROW", pageNav.getStartRow());
+			inParam.put("END_ROW", pageNav.getEndRow());
+			
+			mm.put("selectListPurc",adminPurcDao.selectListPurc(inParam));
+			mm.put("params", inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+	
+	@Override
+	public ModelMap insertPurcExcel(MultipartHttpServletRequest inParam) throws Exception {
+		logger.debug("AdminPurcServiceImpl.selectListPurc [Start]");
+		ModelMap mm = new ModelMap();
+		
+		HttpSession session = inParam.getSession();
+		AdminSession sessionVO = (AdminSession)session.getAttribute("manager");
+		
+		MultipartFile excelFile = inParam.getFile("I_UPLOAD_FILE");
+		System.out.println(excelFile);
+		int uploadCount = 0;
+		try {
+			List<Map<String, Object>> excelData = CommonUtil.getOldExcelList(excelFile);
+			String prodID="";
+			for(Map<String, Object> rowData:excelData){
+				String pdId = (String) rowData.get("CELL0");
+				if(pdId == null || pdId.equals("")){
+					break;
+				}
+				uploadCount++;
+				LoggerUtil.writeMap(rowData);
+				rowData.put("LOGIN_ADM_ID", sessionVO.getADM_ID());//등록회원ID, 수정회원ID
+				
+			}
+			mm.put("excelList", excelData);
+			mm.put("uploadCount", uploadCount);
+		} catch (Exception e) {
+			// TODO: handle exception
+		}
+		
+		return mm;
+	}
+}

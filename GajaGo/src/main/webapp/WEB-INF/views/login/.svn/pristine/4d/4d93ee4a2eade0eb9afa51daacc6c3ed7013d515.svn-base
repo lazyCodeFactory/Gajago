@@ -1,0 +1,136 @@
+/* ======================================================================
+Function : 카테고리 초기화
+Return   : 없음
+========================================================================= */
+function initCtry(ctryStr, ctryCd){
+	
+	var ctryCd1 = ctryCd.substring(0,4)+'000000000000';
+	var ctryCd2 = ctryCd.substring(0,8)+'00000000';
+	var ctryCd3 = ctryCd.substring(0,12)+'0000';
+	
+	//대분류 초기화
+	makeCtryBox('1', '', ctryStr, ctryCd1);
+	
+	//중분류 초기화
+	if(ctryCd1 != null && ctryCd1 != '' && ctryCd1 != '000000000000'){
+		makeCtryBox('2', ctryCd1, ctryStr, ctryCd2);
+	}
+	//소분류 초기화
+	if(ctryCd2 != null && ctryCd2 != '' && ctryCd2 != '00000000'){
+		makeCtryBox('3', ctryCd2, ctryStr, ctryCd3);
+	}
+}
+
+/* ======================================================================
+Function : 대분류 카테고리 변경
+Return   : 없음
+========================================================================= */
+function chgCtryCd1Box(ctryStr){
+	if ($('#'+ctryStr+'CtryCd1').val() == null || $('#'+ctryStr+'CtryCd1').val() == "") {
+		$('#'+ctryStr+'CtryCd2').empty();
+		$('#'+ctryStr+'CtryCd2').html('<option value="">중분류를 선택해 주세요</option>');
+		$('#'+ctryStr+'CtryCd3').empty();
+		$('#'+ctryStr+'CtryCd3').html('<option value="">소분류를 선택해 주세요</option>');
+	}
+	else {
+		$('#'+ctryStr+'CtryCd3').empty();
+		$('#'+ctryStr+'CtryCd3').html('<option value="">소분류를 선택해 주세요</option>');
+		makeCtryBox('2', $('#'+ctryStr+'CtryCd1').val(), ctryStr, '');
+	}
+}
+
+/* ======================================================================
+Function : 중분류 카테고리 변경
+Return   : 없음
+========================================================================= */
+function chgCtryCd2Box(ctryStr){
+	if ($('#'+ctryStr+'CtryCd2').val() == null || $('#'+ctryStr+'CtryCd2').val() == "") {
+		$('#'+ctryStr+'CtryCd3').empty();
+		$('#'+ctryStr+'CtryCd3').html('<option value="">소분류를 선택해 주세요</option>');
+	}
+	else {
+		makeCtryBox('3', $('#'+ctryStr+'CtryCd2').val(), ctryStr, '');
+	}
+}
+
+/* ======================================================================
+Function : 선택한 최종카테고리코드를 리턴한다
+Return   : 카테고리코드
+========================================================================= */
+function getCtryCd(ctryStr){
+	var ctryCd = '';
+	var ctryCd1 = $('#'+ctryStr+'CtryCd1').val().substring(0,4);
+	var ctryCd2 = $('#'+ctryStr+'CtryCd2').val().substring(4,8);
+	var ctryCd3 = $('#'+ctryStr+'CtryCd3').val().substring(8,12);
+	
+	if(ctryCd1 == null || ctryCd1 == '' ){
+		if(ctryStr == 'search'){
+			return '';
+		}else{
+			alert('카테고리를 선택해 주십시요.');
+			$('#regCtryCd1').focus();
+			return '';
+		}
+	}else{
+		ctryCd += ctryCd1;
+	}
+	if(ctryCd2 == null || ctryCd2 == ''){
+		ctryCd += '0000';
+	}else{
+		ctryCd += ctryCd2;
+	}
+	if(ctryCd3 == null || ctryCd3 == ''){
+		ctryCd += '0000';
+	}else{
+		ctryCd += ctryCd3;
+	}
+	ctryCd += '0000';
+	
+	return ctryCd;
+}
+
+/* ======================================================================
+Function : 카테고리 셀렉트박스 생성
+Return   : 없음
+========================================================================= */
+function makeCtryBox(lvlSeq, parentCtryCd, ctryStr, selectedCtryCd){  
+	$.ajax({
+	    type: 'post'
+	    , async: true
+	    , url: '/admin/prodMgr/selectCtryList.do'
+	    , data: {"lvlSeq":lvlSeq, "parentCtryCd":parentCtryCd, "viewYn":"Y"}
+	    , success: function(data) {
+	    	var ctryList = data.ctryList;
+	    	//초기화
+	    	if(lvlSeq == '1'){
+				$('#'+ctryStr+'CtryCd1').empty();
+				$('#'+ctryStr+'CtryTxt1').text('대분류');
+				$('#'+ctryStr+'CtryCd1').html('<option value="">대분류</option>');
+			}else if(lvlSeq == '2'){
+				$('#'+ctryStr+'CtryCd2').empty();
+				$('#'+ctryStr+'CtryTxt2').text('중분류');
+				$('#'+ctryStr+'CtryCd2').html('<option value="">중분류</option>');
+			}else if(lvlSeq == '3'){
+				$('#'+ctryStr+'CtryCd3').empty();
+				$('#'+ctryStr+'CtryTxt3').text('소분류');
+				$('#'+ctryStr+'CtryCd3').html('<option value="">소분류</option>');
+			}
+	    	
+			if(ctryList.length > 0){
+				for(var i=0; i<ctryList.length; i++){
+					var html = '<option value="' +ctryList[i].CTRY_CD+ '" ';
+					
+					if(selectedCtryCd != '' && ctryList[i].CTRY_CD == selectedCtryCd){
+						html += 'selected="selected"';
+						$('#'+ctryStr+'CtryTxt'+lvlSeq).text(ctryList[i].CTRY_NM);
+					}
+					html += ' >' +ctryList[i].CTRY_NM+ '</option>';
+					$('#'+ctryStr+'CtryCd'+lvlSeq).append(html);
+				}
+			}
+	    }
+	    , error: function(data, status, err) {
+	      alert('서버와의 통신이 실패했습니다.');
+	    }
+	});
+}

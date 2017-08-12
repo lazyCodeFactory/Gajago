@@ -1,0 +1,300 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="webBuyDivideMapper">
+
+	<sql id="buyPagingHeader">
+		SELECT * FROM (
+	</sql>
+
+	<sql id="buyPagingFooter">
+		)
+		WHERE RNUM <![CDATA[>=]]> #{START_ROW}
+		AND RNUM <![CDATA[<=]]> #{END_ROW}
+	</sql>
+
+	<select id="selectListDivideReqHist" parameterType="hashmap" resultType="hashmap">
+		<include refid="buyPagingHeader" />
+		SELECT
+		       ROWNUM AS RNUM,
+		       T.ORD_CD,
+		       T.PROD_SEQ,
+		       T.PROD_CODE,
+		       T.PROD_NM,
+		       T.IMG_URL,
+		       T.REQ_DT,
+		       T.MBER_SEQ,
+		       T.MBER_NM,
+		       T.ZIP_CODE,
+		       T.DORO_ADDR,
+		       T.BAS_ADDR,
+		       T.DTL_ADDR,
+		       T.CONTACT,
+		       T.ANSIM_YN,
+		       T.SHIP_MEMO,
+		       T.EMAIL,
+		       T.CALLTIME,
+		       T.REQ_MEMO,
+		       T.PROC_STAT_CD,
+		       T.PROC_STAT_NM,
+           	   T.FREESHARE_START_DT,
+           	   T.FREESHARE_END_DT,
+           	   T.DLV_WAY_CD,
+           	   (SELECT BOARD_SEQ FROM BOARD_INFO WHERE BOARD_TYPE_CD=70 AND MBER_SEQ=T.MBER_SEQ AND PROD_CODE=T.PROD_CODE AND ROWNUM = 1) AS BOARD_SEQ
+		FROM (
+		      SELECT
+		            D.ORD_CD,
+		            D.PROD_SEQ,
+		            A.PROD_CODE,
+		            B.PROD_NM,
+		            (SELECT PROD_IMG_URL FROM PROD_IMG WHERE PROD_CODE = A.PROD_CODE AND PROD_IMG_GB_CD ='11') AS IMG_URL,
+		            (CASE WHEN A.PROC_STAT_CD = '97'
+		                  THEN TO_CHAR(A.REGIST_DT, 'YYYY-MM-DD HH24:MI')
+		                  ELSE TO_CHAR(D.REGIST_DT, 'YYYY-MM-DD HH24:MI')
+		             END) AS REQ_DT,
+		            (CASE WHEN A.PROC_STAT_CD = '97'
+		                  THEN A.REGIST_DT
+		                  ELSE D.REGIST_DT
+		             END) AS REGIST_DT,
+		            A.MBER_SEQ,
+		            C.MBER_NM,
+		            A.PROD_TYPE_CD,
+		            A.ZIP_CD AS ZIP_CODE,
+		            A.JUSO_DORO AS DORO_ADDR,
+		            A.JUSO_JIBEN AS BAS_ADDR,
+		            A.JUSO_DTL AS DTL_ADDR,
+		            A.TEL AS CONTACT,
+		            A.ANSIM_YN,
+		            A.MEMO AS SHIP_MEMO,
+		            A.EMAIL,
+		            A.CALLTIME,
+		            A.REQ_MEMO,
+		            (CASE WHEN D.PROC_STAT_CD = '22' OR D.PROC_STAT_CD = '23'
+		                  THEN D.PROC_STAT_CD
+		                  ELSE A.PROC_STAT_CD
+		              END) AS PROC_STAT_CD,
+		             (CASE WHEN D.PROC_STAT_CD = '22' OR D.PROC_STAT_CD = '23'
+		                   THEN (SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'PROC_STAT_CD' AND COM_CD = D.PROC_STAT_CD)
+		                   ELSE (SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'PROC_STAT_CD' AND COM_CD = A.PROC_STAT_CD)
+		              END) AS PROC_STAT_NM,
+                	TO_CHAR(B.REGIST_DT, 'YYYY-MM-DD') AS FREESHARE_START_DT,
+                	TO_CHAR(B.FREESHARE_END_DT, 'YYYY-MM-DD') AS FREESHARE_END_DT,
+                	B.DLV_WAY_CD
+		      FROM PROD_SUBMIT_INFO A,
+		           PROD B,
+		           MBER_INFO C,
+		           ORD_PROD_INFO D
+		      WHERE A.PROD_CODE = B.PROD_CODE
+		      AND A.MBER_SEQ = C.MBER_SEQ
+		      AND A.PROD_CODE = D.PROD_CODE(+)
+		      AND A.MBER_SEQ = #{S_MBER_SEQ}
+		      AND A.PROD_TYPE_CD = '3'
+		      AND D.PROD_TYPE_CD(+) = '3'
+		      AND A.PROC_STAT_CD IN ('22', '23', '95', '96', '97')
+		    ORDER BY REQ_DT DESC  
+		) T
+		WHERE 1=1
+
+		<!-- 조회기간 -->
+		<if test="S_SEARCH_PERI != null and S_SEARCH_PERI != ''">
+		<!-- 기존 프로그램의 영향도 때문에 주석만 처리 해놓음
+			<if test="S_SEARCH_PERI == '1W'">
+				AND T.REGIST_DT >= TO_DATE(TO_CHAR(SYSDATE- 7, 'YYYYMMDD'), 'YYYYMMDD')
+			</if>
+
+			<if test="S_SEARCH_PERI == '1M'">
+				AND T.REGIST_DT >= TO_DATE(TO_CHAR(ADD_MONTHS(SYSDATE, -1), 'YYYYMMDD'), 'YYYYMMDD')
+			</if>
+
+			<if test="S_SEARCH_PERI == '2M'">
+				AND T.REGIST_DT >= TO_DATE(TO_CHAR(ADD_MONTHS(SYSDATE, -2), 'YYYYMMDD'), 'YYYYMMDD')
+			</if> -->
+
+			<if test="S_SEARCH_PERI == '3M'">
+				AND T.REGIST_DT >= TO_DATE(TO_CHAR(ADD_MONTHS(SYSDATE, -3), 'YYYYMMDD'), 'YYYYMMDD')
+			</if>
+
+			<if test="S_SEARCH_PERI == '6M'">
+				AND T.REGIST_DT >= TO_DATE(TO_CHAR(ADD_MONTHS(SYSDATE, -6), 'YYYYMMDD'), 'YYYYMMDD')
+			</if>
+
+			<if test="S_SEARCH_PERI == '1Y'">
+				AND T.REGIST_DT >= TO_DATE(TO_CHAR(ADD_MONTHS(SYSDATE, -12), 'YYYYMMDD'), 'YYYYMMDD')
+			</if>
+
+<!-- 기존 프로그램의 영향도 때문에 주석만 처리 해놓음
+			<if test="S_SEARCH_PERI == '2Y'">
+				AND T.REGIST_DT >= TO_DATE(TO_CHAR(ADD_MONTHS(SYSDATE, 12*-2), 'YYYYMMDD'), 'YYYYMMDD')
+			</if>
+
+			<if test="S_SEARCH_PERI == '3Y'">
+				AND T.REGIST_DT >= TO_DATE(TO_CHAR(ADD_MONTHS(SYSDATE, 12*-3), 'YYYYMMDD'), 'YYYYMMDD')
+			</if>-->
+		</if>
+
+		<!-- 주문상태 -->
+		<if test="S_PROC_STAT_CD != null and S_PROC_STAT_CD != ''">
+            AND T.PROC_STAT_CD = #{S_PROC_STAT_CD}
+		</if>
+
+		<!-- 상품명 -->
+		<if test="S_PROD_NM != null and S_PROD_NM != ''">
+            AND T.PROD_NM LIKE '%'|| #{S_PROD_NM} ||'%'
+		</if>
+        ORDER BY T.REQ_DT DESC          
+		<include refid="buyPagingFooter" />
+	</select>
+
+	<select id="selectListDivideReqHistTotCnt" parameterType="hashmap" resultType="int">
+		SELECT
+		       COUNT(1) AS TOT_CNT
+		FROM (
+		      SELECT
+		            D.ORD_CD,
+		            D.PROD_SEQ,
+		            A.PROD_CODE,
+		            B.PROD_NM,
+		            (CASE WHEN A.PROC_STAT_CD = '97'
+		                  THEN A.REGIST_DT
+		                  ELSE D.REGIST_DT
+		             END) AS REGIST_DT,
+		            A.MBER_SEQ,
+		            A.PROD_TYPE_CD,
+		            (CASE WHEN D.PROC_STAT_CD = '22' OR D.PROC_STAT_CD = '23'
+		                  THEN D.PROC_STAT_CD
+		                  ELSE A.PROC_STAT_CD
+		              END) AS PROC_STAT_CD
+		      FROM PROD_SUBMIT_INFO A,
+		           PROD B,
+		           MBER_INFO C,
+		           ORD_PROD_INFO D
+		      WHERE A.PROD_CODE = B.PROD_CODE
+		      AND A.MBER_SEQ = C.MBER_SEQ
+		      AND A.PROD_CODE = D.PROD_CODE(+)
+		      AND A.MBER_SEQ = #{S_MBER_SEQ}
+		      AND A.PROD_TYPE_CD = '3'
+		      AND D.PROD_TYPE_CD(+) = '3'
+		        AND A.PROC_STAT_CD IN ('22', '23', '95', '96', '97')
+		) T
+		WHERE 1=1
+			<!-- 조회기간 -->
+		<if test="S_SEARCH_PERI != null and S_SEARCH_PERI != ''">
+		<!-- 기존 프로그램의 영향도 때문에 주석만 처리 해놓음
+			<if test="S_SEARCH_PERI == '1W'">
+				AND T.REGIST_DT >= TO_DATE(TO_CHAR(SYSDATE- 7, 'YYYYMMDD'), 'YYYYMMDD')
+			</if>
+
+			<if test="S_SEARCH_PERI == '1M'">
+				AND T.REGIST_DT >= TO_DATE(TO_CHAR(ADD_MONTHS(SYSDATE, -1), 'YYYYMMDD'), 'YYYYMMDD')
+			</if>
+
+			<if test="S_SEARCH_PERI == '2M'">
+				AND T.REGIST_DT >= TO_DATE(TO_CHAR(ADD_MONTHS(SYSDATE, -2), 'YYYYMMDD'), 'YYYYMMDD')
+			</if> -->
+
+			<if test="S_SEARCH_PERI == '3M'">
+				AND T.REGIST_DT >= TO_DATE(TO_CHAR(ADD_MONTHS(SYSDATE, -3), 'YYYYMMDD'), 'YYYYMMDD')
+			</if>
+
+			<if test="S_SEARCH_PERI == '6M'">
+				AND T.REGIST_DT >= TO_DATE(TO_CHAR(ADD_MONTHS(SYSDATE, -6), 'YYYYMMDD'), 'YYYYMMDD')
+			</if>
+
+			<if test="S_SEARCH_PERI == '1Y'">
+				AND T.REGIST_DT >= TO_DATE(TO_CHAR(ADD_MONTHS(SYSDATE, -12), 'YYYYMMDD'), 'YYYYMMDD')
+			</if>
+
+			<!-- 기존 프로그램의 영향도 때문에 주석만 처리 해놓음
+			<if test="S_SEARCH_PERI == '2Y'">
+				AND T.REGIST_DT >= TO_DATE(TO_CHAR(ADD_MONTHS(SYSDATE, 12*-2), 'YYYYMMDD'), 'YYYYMMDD')
+			</if>
+
+			<if test="S_SEARCH_PERI == '3Y'">
+				AND T.REGIST_DT >= TO_DATE(TO_CHAR(ADD_MONTHS(SYSDATE, 12*-3), 'YYYYMMDD'), 'YYYYMMDD')
+			</if>-->
+		</if>
+
+		<!-- 주문상태 -->
+		<if test="S_PROC_STAT_CD != null and S_PROC_STAT_CD != ''">
+            AND T.PROC_STAT_CD = #{S_PROC_STAT_CD}
+		</if>
+
+		<!-- 상품명 -->
+		<if test="S_PROD_NM != null and S_PROD_NM != ''">
+            AND T.PROD_NM LIKE '%'|| #{S_PROD_NM} ||'%'
+		</if>
+		ORDER BY T.ORD_CD DESC
+
+	</select>
+
+	<select id="selectListDivideReqProd" parameterType="hashmap" resultType="hashmap">
+			SELECT
+		           D.ORD_CD,
+		           D.PROD_SEQ,
+		           A.PROD_CODE,
+		           B.PROD_NM,
+		           (SELECT PROD_IMG_URL FROM PROD_IMG WHERE PROD_CODE = A.PROD_CODE AND PROD_IMG_GB_CD ='11') AS IMG_URL,
+		           (CASE WHEN A.PROC_STAT_CD = '97'
+		                 THEN TO_CHAR(A.REGIST_DT, 'YYYY-MM-DD HH24:MI')
+		                 ELSE TO_CHAR(D.REGIST_DT, 'YYYY-MM-DD HH24:MI')
+		            END) AS REQ_DT,
+		           (CASE WHEN A.PROC_STAT_CD = '97'
+		                 THEN A.REGIST_DT
+		                 ELSE D.REGIST_DT
+		            END) AS REGIST_DT,
+		           A.MBER_SEQ,
+		           C.MBER_NM,
+		           A.RCV_NM,
+		           A.PROD_TYPE_CD,
+		           A.ZIP_CD AS ZIP_CODE,
+		           A.JUSO_DORO AS DORO_ADDR,
+		           A.JUSO_JIBEN AS BAS_ADDR,
+		           A.JUSO_DTL AS DTL_ADDR,
+		           A.TEL AS CONTACT,
+		           A.ANSIM_YN,
+		           A.MEMO AS SHIP_MEMO,
+		           A.EMAIL,
+		           A.CALLTIME,
+		           A.REQ_MEMO,
+		           (CASE WHEN D.PROC_STAT_CD = '22' OR D.PROC_STAT_CD = '23'
+		                 THEN D.PROC_STAT_CD
+		                 ELSE A.PROC_STAT_CD
+		             END) AS PROC_STAT_CD,
+		            (CASE WHEN D.PROC_STAT_CD = '22' OR D.PROC_STAT_CD = '23'
+		                  THEN (SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'PROC_STAT_CD' AND COM_CD = D.PROC_STAT_CD)
+		                  ELSE (SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'PROC_STAT_CD' AND COM_CD = A.PROC_STAT_CD)
+		             END) AS PROC_STAT_NM,
+		            (CASE WHEN M.MINI_SHOP_NM IS NULL
+				       THEN C1.MBER_NM
+				       ELSE M.MINI_SHOP_NM
+				  END) AS MINI_SHOP_NM,
+				 <!--(SELECT FILE_URL FROM FILE_INFO WHERE FILE_SEQ = M.FILE_SEQ) AS MINI_SHOP_PATH,  -->
+				 (SELECT FILE_URL FROM FILE_INFO WHERE FILE_SEQ = M.MINI_PROFILE_SEQ) AS MINI_SHOP_PATH,
+				  C1.MBER_PHONE,
+				  TO_CHAR(B.REGIST_DT, 'YYYY-MM-DD') AS FREESHARE_START_DT,
+          		  TO_CHAR(B.FREESHARE_END_DT, 'YYYY-MM-DD') AS FREESHARE_END_DT,
+          		  B.DLV_WAY_CD,
+          		  (SELECT BOARD_SEQ FROM BOARD_INFO WHERE BOARD_TYPE_CD=70 AND MBER_SEQ=A.MBER_SEQ AND PROD_CODE=A.PROD_CODE AND ROWNUM = 1) AS BOARD_SEQ
+		     FROM PROD_SUBMIT_INFO A,
+		          PROD B,
+		          MBER_INFO C,
+		          MBER_INFO C1,
+		          ORD_PROD_INFO D,
+		          MBER_MINI_SHOP_INFO M
+		     WHERE A.PROD_CODE = B.PROD_CODE
+		     AND A.MBER_SEQ = C.MBER_SEQ
+		     AND B.MBER_SEQ = C1.MBER_SEQ
+		     AND A.PROD_CODE = D.PROD_CODE(+)
+		     AND B.MBER_SEQ = M.MBER_SEQ(+)
+		     AND A.PROD_TYPE_CD = '3'
+		     AND D.PROD_TYPE_CD(+) = '3'
+		     <!-- 상품코드 -->
+			 <if test="S_PROD_CD != null and S_PROD_CD != ''">
+			       AND A.PROD_CODE = #{S_PROD_CD}
+			 </if>
+			 <!-- 회원일련번호 -->
+			 <if test="S_MBER_SEQ != null and S_MBER_SEQ != ''">
+			       AND A.MBER_SEQ = #{S_MBER_SEQ}
+			 </if>
+	</select>
+</mapper>

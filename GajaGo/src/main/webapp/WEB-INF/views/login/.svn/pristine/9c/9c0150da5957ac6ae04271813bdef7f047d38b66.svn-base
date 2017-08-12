@@ -1,0 +1,519 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/web/common/cmmnHead.jsp"%>
+<%@ include file="/WEB-INF/views/web/common/CmmnJuso.jsp"%>
+
+<!-- [2015-11-03] document.doamin='ssocio.net' 추가를 위해 js include -->
+<script type="text/javascript" src="/js/web/webCommon.js"/></script>
+<script type="text/javascript" src="/js/web/ctry/auth.js"/></script>
+<script type="text/javascript">
+
+var authYn = false;
+var auth = null;
+var delivery = null;
+var adultYn = false;
+
+$(document).ready(function() {
+	uagentLow = navigator.userAgent.toLocaleLowerCase();
+
+	if( '${sessionScope.APP}' == 'SSOCIO'){
+	    if (uagentLow.search("android") > -1) {
+	  	  var data = '{"callback":"ssociMobile"}';
+			  document.location.replace('ssocio://web/PHONENUMBER?'+encodeURIComponent(data));
+	    } else if (uagentLow.search("iphone") > -1) {
+	//         location.replace("https://itunes.apple.com/kr/app/id1047545424?mt=8");
+	    }
+	}
+
+	//공통 HEADER SETTING
+	header.type = 11;
+	if('${params.MBER_SEQ }' != ''){
+		header.title = "회원전환";
+	} else {
+		header.title = "회원가입";
+	}
+	header.backUrl = "/mobile/join/sellTermsViewComm.do";
+	header.method = "GET";
+	initHeader();
+	//공통 FOOTER SETTING
+	displayFooter(false);
+	//APP TITLE
+	if('${params.MBER_SEQ }' != ''){
+		document.title = "회원전환";
+	} else {
+		document.title = "회원가입";
+	}
+
+	$("#MINI_SHOP_PATH").val($("#MBER_EMAIL").val());
+
+	if($("#confirmYn").val() == 'Y'){ // 전화번호 인증되어 있으면 감춘다.
+		$("#divPhone").hide();
+		$("#titlePhone").hide();
+		$("#titleNumThree").text("2. 판매자 계좌번호를 입력해주세요.");
+	}
+
+	auth = new Auth(authYn, '', 'phonediv');
+
+
+	// 상품명 keyup event
+	$("#ph").bind('keyup input', function() {
+
+		var len = $("#ph").val().length;
+		var maxLen = $("#ph").attr("maxlength");
+
+		// 글자수 제한
+		if (len > maxLen) {
+			$("#ph").val($("#ph").val().slice(0,maxLen));
+		}
+
+	});
+
+	// 상품명 keyup event
+	$("#MINI_SHOP_PATH").on('keyup', function() {
+		var len = $("#MINI_SHOP_PATH").val().length;
+		var maxLen = $("#MINI_SHOP_PATH").attr("maxlength");
+
+		// 글자수 제한
+		if (len > maxLen) {
+			$("#MINI_SHOP_PATH").val($("#MINI_SHOP_PATH").val().slice(0,maxLen));
+		}
+	}).on("focusout", function(){
+
+		if($(this).val() != "" && $(this).val() != null){
+			if(!ext_checkMiniShopPath($(this).val())){
+				alert("판매 ID 주소에 한글과 특수 문자는 입력하실 수 없습니다.");
+				$(this).val("");
+				$(this).focus();
+			}
+		}
+
+	});
+
+
+
+
+	$('#MINI_SHOP_PATH').focus(function(){
+    	$('#tooltip02').show();
+    }).blur(function(){
+    	$('#tooltip02').hide();
+    });
+
+
+});
+
+//미니샵 경로 체크
+function ext_checkMiniShopPath (str) {
+	var pattern = /^[0-9A-Za-z,.,@]*$/;
+	//var pattern = /^[0-9A-Za-z,:,/,.,-,@]*$/;
+	if (!pattern.test(str)) {
+		return false;
+	}
+	return true;
+}
+
+function cfmValidate(){
+
+	$("#PHONE_CHECK").val("N");
+	var ph =  $("#ph").val();
+	var phVal = "";
+
+	if(ph.length < 10){
+		alert("휴대폰번호를 입력해주세요.");
+		$('#ph').focus();
+		return;
+	}else{
+		phVal = ph.substring(0,3);
+	}
+
+	if(phVal == "010"){
+		if(ph.length < 11){
+			alert("휴대폰번호를 입력해주세요.");
+			$('#ph').focus();
+			return;
+		}
+		$("#PHONE_TEMP").val(ph);
+		ph = ph.substring(0,3)+"-"+ph.substring(3,7)+"-"+ph.substring(7,11);
+		$("#MBER_PHONE").val(ph);
+	}else if(phVal == "011" || phVal == "016" || phVal == "017" || phVal == "018" || phVal == "019"){
+		if(phVal.length == 10){
+			$("#PHONE_TEMP").val(ph);
+			ph = ph.substring(0,3)+"-"+ph.substring(3,6)+"-"+ph.substring(6,10);
+			$("#MBER_PHONE").val(ph);
+		}else{
+			$("#PHONE_TEMP").val(ph);
+			ph = ph.substring(0,3)+"-"+ph.substring(3,7)+"-"+ph.substring(7,11);
+			$("#MBER_PHONE").val(ph);
+		}
+	}else{
+		alert("휴대폰번호를 입력해주세요.");
+		$('#ph').focus();
+		return;
+	}
+
+	return true;
+
+}
+
+/* ======================================================================
+Function : 본인인증 팝업
+Return   : CI, DI, NAME, IDEN
+========================================================================= */
+function userAuth(code){
+	//본인인증(다날) 팝업
+	if(!cfmValidate()){
+		return;
+	}
+
+
+	auth.createEl('iframe_phoneCredit');
+	auth.display();
+
+	var form = document.authFrm;
+	form.target = "iframe_phoneCredit";
+	form.method = "post";
+	form.action = "/mobile/common/nameConfPopup.do?MBER_PHONE="+$("#ph").val();
+	form.submit();
+}
+
+
+function getAuth(ci, di, name, tid, birth, sex){
+	auth.removeEl();
+
+	$(".full_iframe_auth").show();popup_hide();
+	$(".full_iframe_auth").remove();
+	$('#ph').attr('disabled',true);
+	$("#CI").val(ci);
+	$("#DI").val(di);
+	$("#MBER_NM").val(name);
+	$("#ACNT_NM").val(name);
+	$("#TID").val(tid);
+	$("#BIRTH").val(birth);
+	$("#SEX").val(sex);
+
+	$("#PHONE_CHECK").val("Y");
+	//$('#ph').attr('disabled',true);
+	adultYn = isAdult(birth, 14);
+}
+
+//[2015-11-01] 취소버튼 이벤트 추가
+function popupBack(msg){
+	auth.removeEl();
+	if( !isNull(msg) ){
+		alert(msg);
+	}
+}
+
+
+function validate(){
+
+	var MINI_SHOP_PATH = $("#MINI_SHOP_PATH").val();
+	var PHONE_CHECK = $("#PHONE_CHECK").val();
+	var confirmYn = $("#confirmYn").val();
+	var ACNT_NM = $("#ACNT_NM").val();
+	var BANK_ACNT_NO = $("#BANK_ACNT_NO").val();
+	var bank = $("#bank option:selected").val();
+	var engPw = /[a-zA-Z]/;	//비밀번호 유효성 영문
+	var numPw = /[0-9]/;	//비밀번호 유효성 숫자
+
+	if(MINI_SHOP_PATH.length == 0 ){
+		alert("판매 ID 주소를 입력해주세요.");
+		$('#MINI_SHOP_PATH').focus();
+		return;
+	}
+
+	if(MINI_SHOP_PATH.length <= 3){
+		alert('판매 ID는 영문/숫자 4자리 이상으로\n입력해주세요.');
+		$('#MINI_SHOP_PATH').focus();
+		return;
+	}
+
+	if(confirmYn == 'N' || confirmYn == ''){
+		if(PHONE_CHECK == "" ){
+			alert("휴대폰번호를 인증해주세요.");
+			$('#PHONE_CHECK').focus();
+			return;
+		}
+
+		if(PHONE_CHECK == "N" ){
+			alert("휴대폰번호가 일치하지 않습니다.");
+			$('#ph').attr('disabled',false);
+			$('#PHONE_CHECK').focus();
+			return;
+		}
+	}
+
+
+
+	if(ACNT_NM.length == 0 ){
+		alert("예금주명을 입력해주세요.");
+		$('#ACNT_NM').focus();
+		return;
+	}
+
+	if(BANK_ACNT_NO.length == 0 ){
+		alert("계좌번호를 입력해주세요.");
+		$('#ACNT_NM').focus();
+		return;
+	}
+
+	if(bank == "N" ){
+		alert("은행을 선택해주세요.");
+		return;
+	}
+	return true;
+}
+
+function del () {
+	 $("#MINI_SHOP_NM").val("");
+}
+
+var ch = false;
+
+function accountChek() {
+
+
+	if(!validate()){
+		return;
+	}
+
+	$("#MBER_PHONE").val($("#PHONE_TEMP").val());
+	var MINI_SHOP_PATH = $("#MINI_SHOP_PATH").val();
+	var miniFlag = "Y";
+	$.ajax({
+	      type: 'post'
+	      , async: true
+	      , url: '/mobile/join/selectShopChek.do'
+	      , dataType:'json'
+	      , data: {"MINI_SHOP_PATH":MINI_SHOP_PATH}
+	      , before: function() {
+		        loadingForm.showDialog();
+		      }
+	      , success: function(data) {
+
+		    	  if(Number(data.selectShopChek) > 0){
+		    		  alert("해당 판매 ID 주소는 이미 존재합니다.");
+		    		  $('#MINI_SHOP_PATH').focus();
+		    		  miniFlag = "N";
+		    		  return ;
+		    	  }
+
+	    	  }
+	      , complete: function() {
+		        loadingForm.hideDialog();
+		      }
+
+	      , error : function(request, status, error) {
+				alert("통신 오류가 발생 하였습니다. 잠시 후 다시 시도해 주세요");
+			}
+	    });
+
+	if(miniFlag == "N"){
+		return false;
+	}
+
+	$("#strGbn").val(1);
+	$("#strNm").val($("#ACNT_NM").val());
+
+	var bank = $("#bank option:selected").val();
+
+	$("#strBankCode").val(bank);
+
+	$("#strAccountNo").val($("#ACNT_NM").val());
+
+	var strGbn = "1";
+	var strNm = $("#ACNT_NM").val();
+	var strBankCode =  $("#bank option:selected").val();
+	var strAccountNo = $("#BANK_ACNT_NO").val();
+	$("#BANK_NM").val($("#bank option:selected").text());
+
+	$.ajax({
+	      type: 'post'
+	      , async: true
+	      , url: '/mobile/common/acntConfirm.do'
+	      , dataType:'json'
+	      , data: {"strGbn":strGbn, "strNm":strNm, "strBankCode":strBankCode, "strAccountNo":strAccountNo}
+	      , before: function() {
+		        loadingForm.showDialog();
+		      }
+	      , success: function(data) {
+
+	    	  if(data.resultCode == "0000"){
+	    		  $("#frm").attr("action","/mobile/join/updateSellerMber.do").submit();
+	    	  }else{
+				  alert(data.resultMsg);
+	    	  }
+
+
+	      }
+	      , complete: function() {
+		        loadingForm.hideDialog();
+		      }
+
+	      , error : function(request, status, error) {
+				alert("통신 오류가 발생 하였습니다. 잠시 후 다시 시도해 주세요");
+			}
+	    });
+}
+
+function ssociMobile(arg){
+	var phoneNumber = $("#ph").val();
+
+	//arg = "0"+arg.substr(arg.indexOf('082'), arg.length);
+	arg = arg.replace("+82", "0");
+
+
+	if( (phoneNumber==null)||(phoneNumber=='')){
+		$("#ph").val(arg);
+	}
+}
+
+</script>
+
+
+<form id="frm" name="frm" method="post" action="">
+<input type="hidden" name="SSO_GB_CD" id="SSO_GB_CD" value="${params.SSO_GB_CD }"  />
+<input type="hidden" name="MBER_GB_CD" id="MBER_GB_CD" value="${params.MBER_GB_CD }"  />
+<input type="hidden" name="MBER_REG_GB_CD" id="MBER_REG_GB_CD" value="${params.MBER_REG_GB_CD }"  />
+<c:forEach var="list" items="${params.AGR_SEQ_VER}" varStatus="status">
+	<input type="hidden" id="agrSeq${status.index }" name="AGR_SEQ_VER[]" value="${list}" />
+</c:forEach>
+<input type="hidden" name="AGR_SEQ_VER_N" id="AGR_SEQ_VER_N" value="${params.AGR_SEQ_VER_N }"  />
+<input type="hidden" name="AGR_GB_CD" id="AGR_GB_CD" value=""  />
+<input type="hidden" name="CALL" id="CALL" value="${params.CALL }"  />
+<input type="hidden" name="MBER_PHONE" id="MBER_PHONE" value=""  />
+<input type="hidden" name="MBER_SEQ" id="MBER_SEQ" value="${params.MBER_SEQ}"  />
+<input type="hidden" name="MBER_EMAIL" id="MBER_EMAIL" value="${params.MBER_EMAIL}"  />
+<input type="hidden" name="confirmYn" id="confirmYn" value="${params.confirmYn.MBER_PHONE}"  />
+<input type="hidden" name="CI" id="CI" value="" />
+<input type="hidden" name="DI" id="DI" value="" />
+<input type="hidden" name="MBER_NM" id="MBER_NM" value="" />
+<input type="hidden" name="TID" id="TID" value="" />
+<input type="hidden" name="BIRTH" id="BIRTH" value="" />
+<input type="hidden" name="SEX" id="SEX" value="" />
+<input type="hidden" name="BANK_NM" id="BANK_NM" value=""  />
+<input type="hidden" name="ACC_AUTHYN" id="ACC_AUTHYN" value=""  />
+<input type="hidden" name="CALL_BACK" id="CALL_BACK" value="${params.CALL_BACK }"  />
+<input type="hidden" name="strGbn" id="strGbn" value=""  />
+<input type="hidden" name="strResId" id="strResId" value=""  />
+<input type="hidden" name="strNm" id="strNm" value=""  />
+<input type="hidden" name="strBankCode" id="strBankCode" value=""  />
+<input type="hidden" name="strAccountNo" id="strAccountNo" value=""  />
+<input type="hidden" name="PHONE_CHECK" id="PHONE_CHECK" value="" />
+<input type="hidden" name="PHONE_TEMP" id="PHONE_TEMP" value="" />
+
+    <!-- container -->
+	<div id="container">
+        <ul class="step">
+        	<li>약관동의</li>
+        	<li class="active">회원정보 입력</li>
+        	<li>가입완료</li>
+        </ul>
+        <p class="title">1. 판매 ID를 입력해 주세요.</p>
+        <div class="content type">
+        	<ul class="sbox01">
+                <li>
+                	<div class="inner_bx">
+<!--                         <span class="fl type"><input type="text" readonly="readonly" value = "http://mall.ssocio.com"  disabled="disabled"></span> -->
+                        <!--
+                        <span class="fr type"><input type="text"onClick="$('#tooltip02').toggle();" placeholder="미니샵 주소 입력" id="MINI_SHOP_PATH" name="MINI_SHOP_PATH" maxlength="20" value="ddrsbram22"></span> -->
+                        <span class="type"><input type="text"onClick="$('#tooltip02').toggle();" placeholder="판매 ID 입력" id="MINI_SHOP_PATH" name="MINI_SHOP_PATH" maxlength="20" value=""></span>
+                    </div>
+                    <!-- 툴팁 2 -->
+                    <div id="tooltip02" class="tooltip" onClick="$('#tooltip02').hide();">
+                        <p class="arrow"></p>
+                        <p class="box"><strong>판매 ID 주소를 입력해 주세요.</strong><br>예) danalssocio, ssocio, hellossocio, ssocio99</p>
+                    </div>
+                </li>
+                <li class="text line-dot">
+                    <p>* 판매 ID는 영문/숫자 4자리 이상 설정가능합니다.</p>
+                </li>
+        	</ul>
+        </div>
+
+		<p class="title" id="titlePhone">2. 휴대폰 본인인증이 필요합니다.</p>
+	        <div class="content type" id="divPhone">
+	        	<ul class="sbox01">
+	                <li>
+	                    <table class="tbl-data">
+	                        <colgroup>
+	                            <col width="*">
+	                            <col width="100px">
+	                        </colgroup>
+	                        <tbody>
+	                            <tr>
+	                                <td class="pd5">
+	                                <!--
+	                                	<input type="text" placeholder="휴대폰번호입력 ('-' 없이 입력)" id="ph" name="ph" value="01029151620" onkeyup="numberOnly(this);" maxlength="11">  -->
+	                                	<input type="text" placeholder="휴대폰번호입력 ('-' 없이 입력)" id="ph" name="ph" value="" onkeyup="numberOnly(this);" maxlength="11">
+	                                </td>
+	                                <td class="tr pd5">
+	                                    <!-- 활성 -->
+	                                    <a href="#none" id="ch" onclick="userAuth('${sessionScope.APP}');" class="send btn_b">본인인증하기</a>
+	                                </td>
+	                            </tr>
+	                        </tbody>
+	                    </table>
+	                </li>
+	                <li class="text">
+	                	<p class="txt-type">* 휴대폰번호 입력시 (-)는 제외하고 입력해 주세요.</p>
+	                	<p class="txt-type">* 쏘시오는 개정 정보통신망법 제23조에 따라 회원 가입시 주민등록번호를 수집하지 않습니다.</p>
+	                	<p class="txt-type">* 휴대폰 인증은 본인 명의의 휴대폰으로만 인증이 가능합니다.<br/>(14세 미만 가입 불가)</p>
+	                	<p class="txt-type">* 인증이 되지 않을 경우, 다날쏘시오 고객센터(1877-0101)로 문의하시기 바랍니다. </p>
+	                </li>
+	            </ul>
+	        </div>
+
+        <p class="title" id="titleNumThree">3. 판매자 계좌번호를 입력해주세요.</p>
+       <div class="content type">
+        	<div class="sbox01">
+                <table class="tbl-data">
+                    <colgroup>
+                        <col width="100px">
+                        <col width="*">
+                    </colgroup>
+                    <tbody>
+                        <tr>
+                            <th>예금주명</th>
+                            <!--
+                            <td class="pd5"><input type="text" id="ACNT_NM" name="ACNT_NM" maxlength="30" value="김동규"></td> -->
+                            <td class="pd5"><input type="text" id="ACNT_NM" name="ACNT_NM" maxlength="30" value=""></td>
+                        </tr>
+                        <tr>
+                            <th>은행선택</th>
+                            <td class="pd5">
+                                <select id="bank">
+                                    <option value="N">선택</option>
+                                    <custom:codeList var="bankGbCd" groupCode="BANK_GB_CD" />
+									<c:forEach var="list" items="${bankGbCd}" varStatus="status">
+										<option value="${list.key }">${list.value }</option>
+					                </c:forEach>
+                                </select>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>계좌번호</th><!--
+                            <td class="pd5"><input type="text" placeholder="계좌번호 입력(-제외)" id="BANK_ACNT_NO" name="BANK_ACNT_NO" onkeyup="numberOnly(this);" maxlength="20" value="10011652003504"></td> -->
+                            <td class="pd5"><input type="text" placeholder="계좌번호 입력(-제외)" id="BANK_ACNT_NO" name="BANK_ACNT_NO" onkeyup="numberOnly(this);" maxlength="20" value=""></td>
+                        </tr>
+                    </tbody>
+                </table>
+                <p class="txt-type">* 계좌번호 입력시 (-)는 제외하고 입력해주세요.</p>
+            </div>
+            <ul class="list-check">
+	        	<li><input id="EMAIL_AGREE_YN" name="EMAIL_AGREE_YN" type="checkbox" value="Y" checked> <label>이벤트/쇼핑정보 이메일 수신에 동의합니다.</label></li>
+	        	<li><input id="HP_AGREE_YN" name="HP_AGREE_YN" type="checkbox" value="Y" checked> <label>이벤트/쇼핑정보 SMS 수신에 동의합니다. </label></li>
+	        </ul>
+        </div>
+
+        <div class="btn_enter"><a href="#" onclick="javascript:accountChek();" class="btn_r">가입완료</a></div>
+    </div>
+    <!-- //container -->
+    <div class="popup full_iframe_auth">
+	<iframe name="iframe_credit_auth" src="" style="width:327px; height:452px;"></iframe>
+</div>
+</form>
+<form id="authFrm" name="authFrm" method="post">
+	<input type="hidden" id="authPhone" name="authPhone" />
+</form>
+<div  id="phonediv" style="left: 0px; top: 0;  display: block; height: 100%; width: 100%">
+</div>
+

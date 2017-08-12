@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="adminMenuMapper">
+	<!-- 메뉴 리스트 조회 -->
+	<select id="selectListMenu" resultType="hashmap">
+		SELECT MENU_CD
+			 , PARENT_MENU_CD
+			 , LVL_SEQ
+			 , SORT_SEQ
+			 , MENU_NM
+			 , LINK_ADDR
+			 , VIEW_YN
+			 , REGIST_DT
+			 , UPDT_DT 
+		  FROM MENU_INFO_CFG
+		 WHERE LVL_SEQ = '1'
+		 ORDER BY SORT_SEQ ASC
+	</select>
+	
+	<!-- 하위메뉴 리스트 조회 -->
+	<select id="selectListSubMenu" parameterType="hashmap" resultType="hashmap">
+		SELECT MENU_CD
+			 , PARENT_MENU_CD
+			 , LVL_SEQ
+			 , SORT_SEQ
+			 , MENU_NM
+			 , LINK_ADDR
+			 , VIEW_YN
+			 , REGIST_DT
+			 , UPDT_DT 
+		  FROM MENU_INFO_CFG
+		 WHERE PARENT_MENU_CD = <![CDATA[#{MENU_CD}]]>
+		 ORDER BY SORT_SEQ ASC
+	</select>
+	
+	<!-- 대메뉴 추가 -->
+	<insert id="insertMenuReg" parameterType="hashmap">
+		INSERT INTO MENU_INFO_CFG (
+			MENU_CD
+			 , LVL_SEQ
+			 , SORT_SEQ
+			 , MENU_NM
+			 , LINK_ADDR
+			 , VIEW_YN
+			 , REGIST_DT
+			 , UPDT_DT
+		) VALUES (
+			SEQ_MENU_CD.NEXTVAL
+			 , 1
+			 , (SELECT MAX(SORT_SEQ) FROM MENU_INFO_CFG) + 1
+			 , <![CDATA[#{MENU_NM}]]>
+			 , <![CDATA[#{LINK_ADDR}]]>
+			 , <![CDATA[#{VIEW_YN}]]>
+			 , SYSDATE
+			 , SYSDATE
+		)
+	</insert>
+	
+	<!-- 하위메뉴 추가 -->
+	<insert id="insertSubMenuReg" parameterType="hashmap">
+		INSERT INTO MENU_INFO_CFG (
+			MENU_CD
+			 , PARENT_MENU_CD
+			 , LVL_SEQ
+			 , SORT_SEQ
+			 , MENU_NM
+			 , LINK_ADDR
+			 , VIEW_YN
+			 , REGIST_DT
+			 , UPDT_DT
+		) VALUES (
+			SEQ_MENU_CD.NEXTVAL
+			 , <![CDATA[#{PARENT_MENU_CD}]]>
+			 , 2
+			 , ( SELECT CASE WHEN COUNT(*) = 0 THEN 1 
+						ELSE MAX(SORT_SEQ) + 1 END
+				  FROM MENU_INFO_CFG WHERE PARENT_MENU_CD = <![CDATA[#{PARENT_MENU_CD}]]>)
+			 , <![CDATA[#{MENU_NM}]]>
+			 , <![CDATA[#{LINK_ADDR}]]>
+			 , <![CDATA[#{VIEW_YN}]]>
+			 , SYSDATE
+			 , SYSDATE
+		)
+	</insert>
+	
+	<!-- 메뉴수정 -->
+	<update id="updateMenuReg" parameterType="hashmap">
+		UPDATE MENU_INFO_CFG
+		   SET MENU_NM = <![CDATA[#{MENU_NM}]]> 
+			 , LINK_ADDR = <![CDATA[#{LINK_ADDR}]]>
+			 , VIEW_YN = #{VIEW_YN}
+			 , UPDT_DT = SYSDATE
+		 WHERE MENU_CD = #{UPDATE_MENU_CD}
+	</update>
+	
+	<!-- 대메뉴삭제 -->
+	<delete id="deleteMainMenuReg" parameterType="hashmap">
+		DELETE FROM MENU_INFO_CFG
+		 WHERE MENU_CD = #{MENU_CD}
+			OR PARENT_MENU_CD = #{MENU_CD}
+	</delete>
+	
+	<!-- 하위메뉴삭제 -->
+	<delete id="deleteSubMenuReg" parameterType="hashmap">
+		DELETE FROM MENU_INFO_CFG
+		 WHERE MENU_CD = #{MENU_CD}
+	</delete>
+	
+	<!-- 정렬순서 변경 -->
+	<update id="updateSortSeq" parameterType="hashmap">
+		UPDATE MENU_INFO_CFG
+		   SET SORT_SEQ = #{I_SORT}
+		 WHERE MENU_CD = #{I_MENU_CD}
+	</update>
+	
+	<!-- 노출여부 변경  -->
+	<update id="updateViewYnReg" parameterType="hashmap">
+		UPDATE MENU_INFO_CFG
+		   SET VIEW_YN = #{VIEW_YN}
+			 , UPDT_DT = SYSDATE
+		 WHERE MENU_CD = #{MENU_CD}
+	</update>
+	
+		<update id="updateViewLowYnReg" parameterType="hashmap">
+		UPDATE MENU_INFO_CFG
+		   SET VIEW_YN = #{VIEW_YN}
+			 , UPDT_DT = SYSDATE
+		 WHERE PARENT_MENU_CD = #{MENU_CD}
+	</update>
+</mapper>

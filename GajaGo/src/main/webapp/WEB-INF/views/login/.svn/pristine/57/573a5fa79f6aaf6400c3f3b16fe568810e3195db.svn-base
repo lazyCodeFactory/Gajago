@@ -1,0 +1,1573 @@
+package com.ssocio.sharing.service.web;
+
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+import javax.servlet.http.Cookie;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpSession;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.ui.ModelMap;
+import org.springframework.web.multipart.MultipartFile;
+
+import com.lambdaworks.redis.RedisConnection;
+import com.ssocio.sharing.cmmn.admin.util.FileUtil;
+import com.ssocio.sharing.cmmn.dao.CommonDao;
+import com.ssocio.sharing.cmmn.util.CmmnCnst;
+import com.ssocio.sharing.cmmn.util.LoggerUtil;
+import com.ssocio.sharing.cmmn.util.Redis;
+import com.ssocio.sharing.cmmn.util.StringUtil;
+import com.ssocio.sharing.cmmn.web.util.WebMobilePaging;
+import com.ssocio.sharing.dao.web.AppCommonDao;
+import com.ssocio.sharing.dao.web.MobileInterestDao;
+import com.ssocio.sharing.dao.web.MobileMyRecentProductDao;
+import com.ssocio.sharing.dao.web.MobileMyWishDao;
+import com.ssocio.sharing.dao.web.WebBoardDao;
+import com.ssocio.sharing.dao.web.WebCtryDao;
+import com.ssocio.sharing.dao.web.WebMainDao;
+import com.ssocio.sharing.dao.web.WebMainEtcDao;
+import com.ssocio.sharing.dao.web.WebSmartPhoneDao;
+import com.ssocio.sharing.vo.admin.PageNavigation;
+import com.ssocio.sharing.vo.web.HeaderVO;
+import com.ssocio.sharing.vo.web.WebSession;
+
+import net.sf.json.JSONObject;
+
+/**
+ * <pre>
+ * APP INTRO
+ * APP INTRO
+ * @author J.S.LEE
+ * @version
+ * @since 2015. 8. 25. 오후 4:26:13
+ * @see
+ * @History
+ * Date			|	author	| 변경 내용
+ * 2015. 8. 25.	|	J.S.LEE	|신규
+ * @비고
+ * </pre>
+ */
+@Service
+public class AppCommonServiceImpl implements AppCommonService {
+
+	/* ========================================================================= */
+	/* # Log 설정ㅇㅇㅇ
+	/* ========================================================================= */
+	private static final Logger logger = LoggerFactory.getLogger(AppCommonServiceImpl.class);
+
+
+	@Resource(name="appCommonDao")
+	private AppCommonDao appCommonDao;
+
+	@Resource(name="webMainDao")
+	private WebMainDao webMainDao;
+
+
+	@Resource(name="commonDao")
+	private CommonDao commonDao;
+
+
+	@Resource(name="webSmartPhoneDao")
+	private WebSmartPhoneDao webSmartPhoneDao;
+
+	@Resource(name="mobileMyRecentProductDao")
+	private MobileMyRecentProductDao mobileMyRecentProductDao;
+
+	@Resource(name="mobileMyWishDao")
+	private MobileMyWishDao mobileMyWishDao;
+
+	@Resource(name = "mobileInterestDao")
+	private MobileInterestDao mobileInterestDao;
+
+	@Resource(name="webBoardDao")
+	private WebBoardDao webBoardDao;
+
+	/* 2.약관 동의(변경), 3.이용정지 안내, 4.판매회원 가입 반려 안내 */
+	@Resource(name="webMainEtcDao")
+	private WebMainEtcDao webMainEtcDao;
+
+	@Resource(name="webCtryDao")
+	private WebCtryDao webCtryDao;
+	/**
+	 * <pre>
+	 * 최신버전 체크,메인팝업
+	 * 최신버전 체크,메인팝업
+	 * @param headerObj
+	 * @param bodyParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 8. 25. 오후 4:26:10
+	 * @author LeeJinSe
+	 * @see com.ssocio.sharing.service.web.AppCommonService#appIntroCheck(com.ssocio.sharing.vo.web.HeaderVO, java.util.Map)
+	 * @비고
+	 *
+	 * </pre>
+	*/
+	@Override
+	public Map<String, Object> appIntroCheck(HeaderVO headerObj, Map<String, Object> bodyParam , HttpServletRequest request) throws Exception {
+		Map<String, Object> outData   = new HashMap<String, Object>();
+		Map<String, Object> inParam  = new HashMap<String, Object>();
+		Map<String, Object> versionInfo  = new HashMap<String, Object>();
+		Map<String, Object> usrdefaultinfo  = new HashMap<String, Object>();
+		int chC = 0;
+
+
+		inParam.put("NOT_IN_NOTI_GB_CD", CmmnCnst.cmmn30);
+		//공지사항, 약관동의 , 가입반려, 회원전환 관련 팝업 중에서 하나라도 존재 할경우 //////
+		List<Map<String, Object>> noticeList = (List<Map<String, Object>>)webBoardDao.selectMainNoticeList(inParam);
+		try {
+			inParam.put("UUID", headerObj.getUuid());
+			inParam.put("OS_GUBUN", headerObj.getOs_gubun());
+			inParam.put("APP_VERSION", headerObj.getApp_version());
+			versionInfo = appCommonDao.selectAppVersionChk(inParam);
+			if(null != versionInfo){
+				String nowver = headerObj.getApp_version();
+				String dbver = (String) versionInfo.get("VER");
+
+				nowver = nowver.replace(".", "");
+				dbver = dbver.replace(".", "");
+
+				int novernum = Integer.parseInt(nowver);
+				int dbvernum = Integer.parseInt(dbver);
+				logger.info("#$@#$@#$@#$@#$@#$#@@#$@#$");
+				System.out.println("nowver :" + nowver);
+				System.out.println("dbver :" + dbver);
+				if(novernum < dbvernum){
+					outData.put("UPDATE_FLAG", "Y");
+					outData.put("UPD_YN", versionInfo.get("UPD_YN"));
+					outData.put("UPD_URL", versionInfo.get("UPD_URL"));
+				}else{
+					outData.put("UPDATE_FLAG", "N");
+				}
+
+//				outData = verChkfunc(headerObj,nowver,dbver,versionInfo);
+			}else{
+				outData.put("UPDATE_FLAG", "N");
+			}
+			//app에서 intro 수정 되면 삭제할 예정
+			if(null != headerObj.getSerial_key() && 0 < headerObj.getSerial_key().length()){
+				String Serial_key = headerObj.getSerial_key();
+				logger.debug("SERIAL_KEY :::::::::::::" + Serial_key );
+				//자동로그인일 경우
+				if(!"".equals(Serial_key)){
+					inParam.put("SERIAL_KEY", Serial_key);
+					Integer Cnt = commonDao.getMberInfo(inParam);
+					if(Cnt > 0){
+						WebSession webSession = new WebSession();
+						HttpSession session = request.getSession();
+						outData.put("login_yn_flag", true);
+						webSession = appCommonDao.introSessionSet(inParam);
+						webSession.setSERIAL_KEY(Serial_key);
+						webSession.setLogin(true);
+						session.setAttribute("user", webSession);
+						outData.put("MBER_SEQ",String.valueOf(webSession.getMBER_SEQ()));
+						inParam.put("MBER_SEQ",String.valueOf(webSession.getMBER_SEQ()));
+						inParam.put("MBER_GB_CD",String.valueOf(webSession.getMBER_GB_CD()));
+						inParam.put("MBER_REG_GB_CD",String.valueOf(webSession.getMBER_REG_GB_CD()));
+						List<Object> termsAgree = webMainEtcDao.termsAgree(inParam);
+						Map<String, Object> useingStop = webMainEtcDao.useingStop(inParam);
+						Map<String, Object> sellerGuide = webMainEtcDao.sellerGuide(inParam);
+						logger.debug("termsAgree ::::::::::::::::::::::::: " + termsAgree.size());
+						logger.debug("noticeList ::::::::::::::::::::::::: " + noticeList.size());
+						//공지사항이 존재
+						if(noticeList.size() > 0){
+							// 공지사항은 존재 O , 약관동의 X 가입반려 X 판매회원 전환 X
+							if(termsAgree != null && termsAgree.size() > 0 ){
+								logger.info("#######################  공지사항 O 약관동의 O   #####################################");
+								outData.put("popurl", "/mobile/inf/appintropopUp.do");
+							}else{
+								logger.info(" ####################### 공지사항 O 약관동의 X ####################### ");
+								if(useingStop != null){
+									logger.info(" ####################### 공지사항 O 약관동의 X 이용정지 O   ####################### ");
+									outData.put("popurl", "/mobile/inf/appintropopUp.do");
+								}else{
+									if(sellerGuide != null){
+										logger.info(" ####################### 공지사항 O 약관동의 X 이용정지 X 회원전환 O   ####################### ");
+										outData.put("popurl", "/mobile/inf/appintropopUp.do");
+									}else{
+										outData.put("popurl", popCheck(request,inParam,"Notice"));
+									}
+								}
+							}
+						// 공지사항은 존재 X 
+						}else{
+							if(0 < termsAgree.size() ){
+								logger.info("#######################  공지사항 X 약관동의 O   #####################################");
+								outData.put("popurl", "/mobile/inf/appintropopUp.do");
+							}else{
+								if(null != useingStop){
+									logger.info(" ####################### 공지사항 X 약관동의 X 이용정지 O   ####################### ");
+									outData.put("popurl", "/mobile/inf/appintropopUp.do");
+								}else{
+									if(null != sellerGuide){
+										logger.info(" ####################### 공지사항 X 약관동의 X 이용정지 X 회원전환 O   ####################### ");
+										outData.put("popurl", "/mobile/inf/appintropopUp.do");
+									}else{
+										logger.info(" ####################### 공지사항 X 약관동의 X 이용정지 X 회원전환 X   ####################### ");
+										outData.put("popurl", "");
+									}
+								}
+							}
+						}
+					}else{
+						if(0 < noticeList.size()){
+							logger.info("2 :공지사항 O ::::: 약관동의 X ::::: 가입반려 X ::::: 판매회원 전환 X ");
+							outData.put("popurl", popCheck(request,inParam,"Notice"));
+						}else{
+							logger.info("2: 공지사항 X ::::: 약관동의 X ::::: 가입반려 X ::::: 판매회원 전환 X ");
+							outData.put("popurl","");
+						}
+						outData.put("login_yn_flag", false);
+					}
+
+				}else{
+
+					if(0 < noticeList.size()){
+						logger.info("3 :공지사항 O ::::: 약관동의 X ::::: 가입반려 X ::::: 판매회원 전환 X ");
+						outData.put("popurl", popCheck(request,inParam,"Notice"));
+					}else{
+						logger.info("3: 공지사항 X ::::: 약관동의 X ::::: 가입반려 X ::::: 판매회원 전환 X ");
+						outData.put("popurl","");
+					}
+					outData.put("login_yn_flag", false);
+				}
+
+			}else{
+
+				if(0 < noticeList.size()){
+					logger.info("4 :공지사항 O ::::: 약관동의 X ::::: 가입반려 X ::::: 판매회원 전환 X ");
+					outData.put("popurl", popCheck(request,inParam,"Notice"));
+				}else{
+					logger.info("4 : 공지사항 X ::::: 약관동의 X ::::: 가입반려 X ::::: 판매회원 전환 X ");
+					outData.put("popurl","");
+				}
+				outData.put("login_yn_flag", false);
+			}
+
+			appCommonDao.insertAlarmReg(inParam);
+
+		} catch (Exception e) {
+			throw e;
+		}
+
+		return outData;
+	}
+
+
+	private String popCheck(HttpServletRequest request,
+			Map<String, Object> inParam, String gubun) throws Exception {
+		int chC = 0;
+	//공지사항, 약관동의 , 가입반려, 회원전환 관련 팝업 중에서 하나라도 존재 할경우 //////
+	List<Map<String, Object>> noticeList = (List<Map<String, Object>>)webBoardDao.selectMainNoticeList(inParam);
+	String url = "";
+	if("Notice".equals(gubun)){
+			Cookie[] cookies = request.getCookies();
+
+			if (cookies != null) {
+			    for (Cookie cookie : cookies) {
+
+			    	logger.debug("cookie.getName():"+cookie.getName());
+			    	logger.debug("cookie.getValue():"+cookie.getValue());
+			    	logger.debug("cookie.getPath():"+cookie.getPath());
+			    	logger.debug("cookie.getComment():"+cookie.getComment());
+			    	logger.debug("cookie.getDomain():"+cookie.getDomain());
+			    	logger.debug("cookie.getVersion():"+cookie.getVersion());
+			    	String BOARD_SEQ = "";
+			    	for(int i=0;i<noticeList.size();i++){
+			    		logger.debug("BOARD_SEQ:"+noticeList.get(i).get("BOARD_SEQ"));
+			    		BOARD_SEQ = noticeList.get(i).get("BOARD_SEQ").toString();
+			    		if( ("notice_"+BOARD_SEQ).equals(cookie.getName()) && "rangs".equals(cookie.getValue())){
+				        	logger.debug("일치합니다. rangs");
+				        	chC++;
+				        }else if( ("notice_"+BOARD_SEQ).equals(cookie.getName()) && "done".equals(cookie.getValue())){
+				        	logger.debug("일치합니다. done");
+				        	chC++;
+				        }
+			    	}
+			    }
+			}
+			logger.info("chC :::::::::::::::::::: " + chC);
+			logger.info("noticeList.size() :::::::::::::::::::: " + noticeList.size());
+			if(chC == noticeList.size()){
+				url = "";
+			}else{
+				url = "/mobile/inf/appintropopUp.do";
+			}
+		}
+		return url;
+	}
+
+
+
+
+	@Override
+	public Map<String, Object> loginchk(HttpServletRequest request,HeaderVO headerObj, Map<String, Object> inParam) throws Exception {
+		Map<String, Object> usrdefaultinfo  = new HashMap<String, Object>();
+		Map<String, Object> usrDtlInfo  = new HashMap<String, Object>();
+		Map<String, Object> MberChkinfo  = new HashMap<String, Object>();
+		Map<String, Object> outData   = new HashMap<String, Object>();
+		inParam.put("NOT_IN_NOTI_GB_CD", CmmnCnst.cmmn30);
+		List<Map<String, Object>> noticeList = (List<Map<String, Object>>)webBoardDao.selectMainNoticeList(inParam);
+
+		//mber_seq,MBER_REG_GB_CD 값 가져오기
+		usrdefaultinfo = appCommonDao.getUerdefaultinfo(inParam);
+		int cnt = 0;
+//		int mberSeq = Integer.parseInt(usrdefaultinfo.getMber_seq());
+		if(null != usrdefaultinfo){
+			//유저 상세 정보 가져오기
+			inParam.put("UUID", headerObj.getUuid());
+			inParam.put("MBER_SEQ", usrdefaultinfo.get("MBER_SEQ"));
+			inParam.put("MBER_GB_CD",usrdefaultinfo.get("MBER_GB_CD"));
+			inParam.put("MBER_REG_GB_CD",usrdefaultinfo.get("MBER_REG_GB_CD"));
+
+			logger.info("MBER_REG_GB_CD ::::::::::::: " + inParam.get("MBER_REG_GB_CD"));
+			usrDtlInfo = appCommonDao.getUerDtlinfo(inParam);
+			outData.put("CartCnt", appCommonDao.SelectCntMyNewCar(inParam));
+			//본인 인증 여부 확인
+			// mber_phone 이 존재 하면 본인인증 유저
+			if(!usrDtlInfo.containsKey("MBER_PHONE")){
+				usrDtlInfo.put("MBER_PHONE", "");
+			}
+			outData.put("sharInfo", appCommonDao.selectMypageSharInfo((String)inParam.get("MBER_SEQ")));
+
+//			inParam.put("MBER_GB_CD", usrdefaultinfo.getMBER_GB_CD());				// 개인, 사업자
+//			inParam.put("MBER_REG_GB_CD", usrdefaultinfo.getMBER_REG_GB_CD());		// 판매자, 구매자
+			outData.put("sharCnt", webMainDao.selectSharCnt(Integer.parseInt((String)usrdefaultinfo.get("MBER_SEQ"))));
+			List<Object> termsAgree = webMainEtcDao.termsAgree(inParam);
+			Map<String, Object> useingStop = webMainEtcDao.useingStop(inParam);
+			Map<String, Object> sellerGuide = webMainEtcDao.sellerGuide(inParam);
+			logger.debug("termsAgree ::::::::::::::::::::::::: " + termsAgree.size());
+			logger.debug("noticeList ::::::::::::::::::::::::: " + noticeList.size());
+			//공지사항이 존재
+			if(noticeList.size() > 0){
+				// 공지사항은 존재 O , 약관동의 X 가입반려 X 판매회원 전환 X
+				if(0 < termsAgree.size() ){
+					logger.info("#######################  공지사항 O 약관동의 O   #####################################");
+					outData.put("popurl", "/mobile/inf/appintropopUp.do");
+				}else{
+					logger.info(" ####################### 공지사항 O 약관동의 X ####################### ");
+					if(null != useingStop){
+						logger.info(" ####################### 공지사항 O 약관동의 X 이용정지 O   ####################### ");
+						outData.put("popurl", "/mobile/inf/appintropopUp.do");
+					}else{
+						if(null != sellerGuide){
+							logger.info(" ####################### 공지사항 O 약관동의 X 이용정지 X 회원전환 O   ####################### ");
+							outData.put("popurl", "/mobile/inf/appintropopUp.do");
+						}else{
+							logger.info(" ####################### 공지사항 O 약관동의 X 이용정지 X 회원전환 X   ####################### ");
+							outData.put("popurl", popCheck(request,inParam,"Notice"));
+						}
+					}
+				}
+			// 공지사항은 존재 X
+			}else{
+				if(0 < termsAgree.size() ){
+					logger.info("#######################  공지사항 X 약관동의 O   #####################################");
+					outData.put("popurl", "/mobile/inf/appintropopUp.do");
+				}else{
+					if(null != useingStop){
+						logger.info(" ####################### 공지사항 X 약관동의 X 이용정지 O   ####################### ");
+						outData.put("popurl", "/mobile/inf/appintropopUp.do");
+					}else{
+						if(null != sellerGuide){
+							logger.info(" ####################### 공지사항 X 약관동의 X 이용정지 X 회원전환 O   ####################### ");
+							outData.put("popurl", "/mobile/inf/appintropopUp.do");
+						}else{
+							logger.info(" ####################### 공지사항 X 약관동의 X 이용정지 X 회원전환 X   ####################### ");
+							outData.put("popurl", "");
+						}
+					}
+				}
+			}
+
+			outData.put("user_info", usrDtlInfo);
+
+			logger.info("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+			logger.debug("UUID : " + headerObj.getUuid());
+			logger.debug("MBER_SEQ : " + usrdefaultinfo.get("MBER_SEQ"));
+			logger.info("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+
+			appCommonDao.updateAlarmReg(inParam);
+			appCommonDao.updateMberConDevReg(inParam);
+
+		}else{
+			headerObj.setRet_cd("F99999");
+			headerObj.setRet_msg("SESSION_OUT");
+		}
+
+
+		return outData;
+	}
+
+
+	/**
+	 * <pre>
+	 * 메인 화면
+	 * 메인 화면
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 8. 31. 오후 4:11:23
+	 * @author LeeJinSe
+	 * @see com.ssocio.sharing.service.web.AppCommonService#selectListMainPlan()
+	 * @비고
+	 *
+	 * </pre>
+	*/
+	@Override
+	public ModelMap selectListMainPlan(HttpServletRequest request, HeaderVO headerObj) throws Exception {
+		ModelMap mm = new ModelMap();
+		List<Map<String,Object>> bannerList = null;
+		int retHeigt=0;
+
+		// 주석 처리, postman에서 사용
+//		headerObj = new HeaderVO();
+//		headerObj.setScreen("1200x600");
+
+		String[] DeviceScreenArr = headerObj.getScreen().split("x");
+		int deviceWidth = Integer.parseInt(DeviceScreenArr[0]);
+		int imgWidth = 0;
+		int imgHeight = 0;
+
+		Redis redis = null;
+		try {
+			redis = Redis.getInstance();
+		} catch ( Exception e ) {
+			e.printStackTrace();
+		}
+
+		String agent = request.getHeader("User-Agent").toLowerCase();
+		String reqHost = request.getHeader("Host");
+
+		try {
+			//	메인전시 기획전 목록 조회
+			List<Map<String, Object>> planList = new ArrayList<Map<String, Object>>();
+			try {
+				RedisConnection<String, String> redisConnection = redis.getRedisClient("0");
+				JSONObject obj = new JSONObject();
+				if ( redisConnection.get(redis.getREDIS_HOST_SPLIT_PK() + "planList") != null && !redisConnection.get(redis.getREDIS_HOST_SPLIT_PK() + "planList").trim().equalsIgnoreCase("") ) {
+					String planListStr = redisConnection.get(redis.getREDIS_HOST_SPLIT_PK() + "planList");
+					if (agent.indexOf("mobileapp") >=0  && agent.indexOf("1.0.") >=0 && agent.indexOf("ios") >=0 && reqHost.indexOf("vip-m.ssocio.com") >= 0 ) {
+						planListStr = planListStr.replaceAll("http:\\/\\/m", "http:\\/\\/vip-m");
+					}
+					obj.put(redis.getREDIS_HOST_SPLIT_PK() + "planList", planListStr);
+					Map<String, Object> objMap = Redis.ssocioToMap(obj);
+					planList = (List<Map<String, Object>>) objMap.get(redis.getREDIS_HOST_SPLIT_PK() + "planList");
+				} else {
+					planList = webMainDao.selectListAppMainPlan();
+				}
+			} catch ( Exception e ) {
+				e.printStackTrace();
+				planList = webMainDao.selectListAppMainPlan();
+			}
+//			List<Map<String, Object>> planList = webMainDao.selectListAppMainPlan();
+//			logger.debug("planList" + planList);
+
+			for(Map<String, Object> plan : planList){
+				int index = 0;
+				List<Map<String, Object>> ContDataList = new ArrayList<Map<String, Object>>();
+
+				String planCd = (String)plan.get("PLAN_CD");
+				
+				//	기획전에 따른 컨텐츠 템플릿 조회
+//				List<Map<String, Object>> templateContDataList = appCommonDao.selectListPlanTemplateContent(planCd);
+				List<Map<String, Object>> templateContDataList = new ArrayList<Map<String, Object>>();
+				try {
+					RedisConnection<String, String> redisConnection = redis.getRedisClient("0");
+					JSONObject obj = new JSONObject();
+					if ( redisConnection.get(redis.getREDIS_HOST_SPLIT_PK() + "templateContDataList_" + planCd) != null  && !redisConnection.get(redis.getREDIS_HOST_SPLIT_PK() + "templateContDataList_" + planCd).trim().equalsIgnoreCase("") ) {
+						String templateStr = redisConnection.get(redis.getREDIS_HOST_SPLIT_PK() + "templateContDataList_" + planCd);
+						if (agent.indexOf("mobileapp") >=0  && agent.indexOf("1.0.") >=0 && agent.indexOf("ios") >=0 && reqHost.indexOf("vip-m.ssocio.com") >= 0 ) {
+							templateStr = templateStr.replaceAll("http:\\/\\/m", "http:\\/\\/vip-m");
+						}
+						obj.put(redis.getREDIS_HOST_SPLIT_PK() + "templateContDataList_" + planCd, templateStr);
+						Map<String, Object> objMap = Redis.ssocioToMap(obj);
+						templateContDataList = (List<Map<String, Object>>) objMap.get(redis.getREDIS_HOST_SPLIT_PK() + "templateContDataList_" + planCd);
+					} else {
+						templateContDataList = appCommonDao.selectListPlanTemplateContent(planCd);
+					}
+				} catch ( Exception e ) {
+					e.printStackTrace();
+					templateContDataList = appCommonDao.selectListPlanTemplateContent(planCd);
+				}
+				
+				/* 
+				 * add main renewal api (seongjoon@danalssocio.com) 
+				 */
+				Map<String, Object> inParam = new HashMap<String, Object>();
+				Map<String, Object> checkWish = new HashMap<String, Object>();
+				List<Map<String, Object>> checkWishedList = new ArrayList<Map<String, Object>>();
+				try {
+					if ( headerObj.getMber_seq() != null && !headerObj.getMber_seq().trim().equalsIgnoreCase("")) {
+						inParam.put("MBER_SEQ", headerObj.getMber_seq());
+						checkWishedList = this.checkWishedList(inParam);
+					}
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+				
+				if ( checkWishedList != null && checkWishedList.size() > 0 ) {
+					for ( int cwl = 0; cwl < checkWishedList.size(); cwl++ ) {
+						Map<String, Object> tempMap = checkWishedList.get(cwl);
+						if ( tempMap.get("PROD_CODE") != null) {
+							String tProdCode = String.valueOf(tempMap.get("PROD_CODE"));
+							checkWish.put(tProdCode, tProdCode);
+						}
+					}
+				}
+				
+				plan = NewSharingList(checkWish, inParam, plan);
+				
+				try {
+					for (Map<String, Object> templateContData : templateContDataList) {
+						if ( templateContData.get("PROD_CODE") != null ) {
+							templateContData.put("WISHED", checkWish.get(String.valueOf(templateContData.get("PROD_CODE"))) == null ? "F" : "T" );
+							if ( templateContData.get("KEYWORD") != null && !String.valueOf(templateContData.get("KEYWORD")).trim().equalsIgnoreCase("")) {
+								String keyword = String.valueOf(templateContData.get("KEYWORD"));
+//								keyword = "#" + keyword.replaceAll(" , ", ",").replaceAll(" ,", ",").replaceAll(", ", ",").replaceAll(",", " #");
+								keyword = "#" + keyword.replaceAll("/(\\s*,)|(,\\s*)|(,)/g", " #");
+								templateContData.put("KEYWORD", keyword);
+							}
+						}
+					}
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+				/* 
+				 * // add main renewal api (seongjoon@danalssocio.com) 
+				 */
+				
+				
+				
+				templateContDataList = ImgSizeCheckFnc(templateContDataList,headerObj);
+				for( Map<String, Object> contMapData : templateContDataList){
+//					logger.info("contMapData : " + contMapData);
+					ContDataList.add(index, contMapData);
+					index++;
+				}	//	template
+				//	기획전에 따른 배너 조회
+//				bannerList = webMainDao.selectListPlanBanner(planCd);
+				bannerList = new ArrayList<Map<String, Object>>();
+				try {
+					RedisConnection<String, String> redisConnection = redis.getRedisClient("0");
+					JSONObject obj = new JSONObject();
+					if ( redisConnection.get(redis.getREDIS_HOST_SPLIT_PK() + "bannerList_" + planCd) != null && !redisConnection.get(redis.getREDIS_HOST_SPLIT_PK() + "bannerList_" + planCd).trim().equalsIgnoreCase("") ) {
+						String bannerStr = redisConnection.get(redis.getREDIS_HOST_SPLIT_PK() + "bannerList_" + planCd);
+						if (agent.indexOf("mobileapp") >=0  && agent.indexOf("1.0.") >=0 && agent.indexOf("ios") >=0 && reqHost.indexOf("vip-m.ssocio.com") >= 0 ) {
+							bannerStr = bannerStr.replaceAll("http:\\/\\/m", "http:\\/\\/vip-m");
+						}
+						obj.put(redis.getREDIS_HOST_SPLIT_PK() + "bannerList_" + planCd, bannerStr);
+						Map<String, Object> objMap = Redis.ssocioToMap(obj);
+						bannerList = (List<Map<String, Object>>) objMap.get(redis.getREDIS_HOST_SPLIT_PK() + "bannerList_" + planCd);
+					} else {
+						bannerList = webMainDao.selectListPlanBanner(planCd);
+					}
+				} catch ( Exception e ) {
+					e.printStackTrace();
+					bannerList = webMainDao.selectListPlanBanner(planCd);
+				}
+
+				for(int i=0; i< bannerList.size(); i++){
+					bannerList.get(i).put("MOVE_URL", bannerList.get(i).get("MOVE_URL"));
+					imgWidth= (int)bannerList.get(i).get("FILE_WIDTH");
+					imgHeight=(int)bannerList.get(i).get("FILE_HEIGH");
+					retHeigt = (deviceWidth * imgHeight)/imgWidth;
+					bannerList.get(i).put("CONVERT_HEIGH",retHeigt);
+//					}
+				}	//	banner
+				logger.info("ContDataList :::::::::: " + ContDataList);
+				plan.put("bannerList", bannerList);
+				plan.put("prodList", ContDataList);
+			}	// plan
+
+			mm.put("planList", planList);
+			mm.put("footerList", appCommonDao.selectListHitCtry());
+//			mm.put("largeCtryList", webCtryDao.selectListCtry("", CmmnCnst.CTRY_TYPE_LARGE));
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+	
+	
+	@Override
+	public List<Map<String, Object>> checkWishedList(Map<String, Object> inParam) {
+		return appCommonDao.checkWishedList(inParam);
+	}
+	
+	@Override
+	public Map<String, Object> NewSharingList(Map<String, Object> checkWish, Map<String, Object> inParam, Map<String, Object> plan) {
+		Redis redis = null;
+		try {
+			redis = Redis.getInstance();
+		} catch ( Exception e ) {
+			e.printStackTrace();
+		}
+		
+		try {
+			// wish 여부 확인
+			List<Map<String, Object>> popularSharing = new ArrayList<Map<String, Object>>();
+			List<Map<String, Object>> popularSharingDetail = new ArrayList<Map<String, Object>>();
+			List<Map<String, Object>> latestSharingList = new ArrayList<Map<String, Object>>();
+			String today = String.valueOf(plan.get("TODAY_YN"));
+			if (today.trim().equalsIgnoreCase("Y") 
+//					&& ( redis.getREDIS_HOST_SPLIT_PK().trim().equalsIgnoreCase("DEV_") 
+//							|| redis.getREDIS_HOST_SPLIT_PK().trim().equalsIgnoreCase("STG_")) 
+					) {
+				try {
+					RedisConnection<String, String> redisConnection = redis.getRedisClient("0");
+					JSONObject obj = new JSONObject();
+					if ( redisConnection.get(redis.getREDIS_HOST_SPLIT_PK() + "popularSharing") != null && !redisConnection.get(redis.getREDIS_HOST_SPLIT_PK() + "popularSharing").trim().equalsIgnoreCase("") ) {
+						String planListStr = redisConnection.get(redis.getREDIS_HOST_SPLIT_PK() + "popularSharing");
+						obj.put(redis.getREDIS_HOST_SPLIT_PK() + "popularSharing", planListStr);
+						Map<String, Object> objMap = Redis.ssocioToMap(obj);
+						popularSharing = (List<Map<String, Object>>) objMap.get(redis.getREDIS_HOST_SPLIT_PK() + "popularSharing");
+					} else {
+						popularSharing = appCommonDao.popularSharing(null);
+					}
+				} catch ( Exception e ) {
+					e.printStackTrace();
+					popularSharing = appCommonDao.popularSharing(null);
+				}
+				
+				Map<String, Object> popularMap = new HashMap<String, Object>();
+				
+				StringBuffer prod_codes = new StringBuffer();
+				for (int si = 0; si < popularSharing.size(); si++ ) {
+					Map<String, Object> sharing = popularSharing.get(si);
+					String sPROD_CODE = String.valueOf(sharing.get("PROD_CODE"));
+					int WHSH_COUNT = Integer.parseInt(String.valueOf(sharing.get("WISH_COUNT")));
+//					int sMBER_SEQ = Integer.parseInt(String.valueOf(sharing.get("MBER_SEQ")));
+					popularMap.put(sPROD_CODE, WHSH_COUNT);
+					prod_codes.append("'");
+					prod_codes.append(sPROD_CODE);
+					prod_codes.append("'");
+					if ( si < popularSharing.size() - 1 ) {
+						prod_codes.append(","); 
+					}
+				}
+				
+				inParam.put("prod_codes", String.valueOf(prod_codes));
+				try {
+					RedisConnection<String, String> redisConnection = redis.getRedisClient("0");
+					JSONObject obj = new JSONObject();
+					if ( redisConnection.get(redis.getREDIS_HOST_SPLIT_PK() + "popularSharingDetail") != null && !redisConnection.get(redis.getREDIS_HOST_SPLIT_PK() + "popularSharingDetail").trim().equalsIgnoreCase("") ) {
+						String planListStr = redisConnection.get(redis.getREDIS_HOST_SPLIT_PK() + "popularSharingDetail");
+						obj.put(redis.getREDIS_HOST_SPLIT_PK() + "popularSharingDetail", planListStr);
+						Map<String, Object> objMap = Redis.ssocioToMap(obj);
+						popularSharingDetail = (List<Map<String, Object>>) objMap.get(redis.getREDIS_HOST_SPLIT_PK() + "popularSharingDetail");
+					} else {
+						popularSharingDetail = appCommonDao.popularSharingDetail(inParam);
+					}
+				} catch ( Exception e ) {
+					e.printStackTrace();
+					popularSharingDetail = appCommonDao.popularSharingDetail(inParam);
+				}
+				
+				for (Map<String, Object> sharingDetail : popularSharingDetail) {
+					String mber_email = "";
+					if (sharingDetail.get("MBER_EMAIL") != null) {
+						mber_email = String.valueOf(sharingDetail.get("MBER_EMAIL"));
+//						if (mber_email.indexOf("@") == -1 ) {
+//							if (mber_email.length() > 3) {
+//								mber_email = mber_email.substring(0, mber_email.length() - 4) + "***";
+//							} else if (mber_email.length() > 2) {
+//								mber_email = mber_email.substring(0, 1) + "*";
+//							} else {
+//								mber_email = "*";
+//							}
+//						} else {
+//							String email_domain = mber_email.split("@")[1];
+//							mber_email = mber_email.split("@")[0];
+//							if (mber_email.length() > 3) {
+//								mber_email = mber_email.substring(0, mber_email.length() - 4) + "***";
+//							} else if (mber_email.length() > 2) {
+//								mber_email = mber_email.substring(0, 1) + "*";
+//							} else {
+//								mber_email = "*";
+//							}
+//							mber_email = mber_email + "@" + email_domain;
+//						}
+						int maskLen = 3;
+						if (mber_email.indexOf("@") == -1 ) {
+							if (mber_email.length() > maskLen) {
+								mber_email = mber_email.replaceAll("(?<=.{3}).(?=[^*]*?)", "*"); 
+							}
+							else {
+								mber_email = mber_email.replaceAll("(?<=.{1}).(?=[^*]*?)", "*");
+							}
+							// mber_email = mber_email.replaceAll("(?<=.{3}).(?=[^*]*?)", "*"); 
+						} else {
+							String[] emailSplt = mber_email.split("@");
+							String[] emailSplt2 = emailSplt[1].split("\\.");
+							String fstMasked = "";
+							String secMasked = "";
+							
+							// 이메일 계정 masking
+							if (emailSplt[0].length() > maskLen) {
+								fstMasked = emailSplt[0].replaceAll("(?<=.{3}).(?=[^*]*?)", "*"); 
+							}
+							else {
+								fstMasked = emailSplt[0].replaceAll("(?<=.{1}).(?=[^*]*?)", "*");
+							}
+							
+							// 이메일 도메인 마스킹
+							if (emailSplt2[0].length() > maskLen) {
+								secMasked = emailSplt2[0].replaceAll("(?<=.{3}).(?=[^*]*?)", "*"); 
+							}
+							else {
+								secMasked = emailSplt2[0].replaceAll("(?<=.{1}).(?=[^*]*?)", "*");
+							}
+							for (int i = 1 ; i < emailSplt2.length ; i++) {
+								secMasked = secMasked + "." + emailSplt2[i];
+							}
+							mber_email = fstMasked+"@"+secMasked;
+						}
+					} 
+					
+//					logger.info(String.valueOf(popularMap.get(String.valueOf(sharingDetail.get("PROD_CODE")))));
+					
+					sharingDetail.put("MBER_EMAIL", mber_email);
+					sharingDetail.put("WISHED", checkWish.get(String.valueOf(sharingDetail.get("PROD_CODE"))) == null ? "F" : "T" );
+					sharingDetail.put("WISH_COUNT", popularMap.get(String.valueOf(sharingDetail.get("PROD_CODE"))) == null ? "0" : popularMap.get(String.valueOf(sharingDetail.get("PROD_CODE"))));
+					
+					if ( sharingDetail.get("KEYWORD") != null && !String.valueOf(sharingDetail.get("KEYWORD")).trim().equalsIgnoreCase("")) {
+						String keyword = String.valueOf(sharingDetail.get("KEYWORD"));
+//						keyword = "#" + keyword.replaceAll(" , ", ",").replaceAll(" ,", ",").replaceAll(", ", ",").replaceAll(",", " #");
+						keyword = "#" + keyword.replaceAll("/(\\s*,)|(,\\s*)|(,)/g", " #");
+						sharingDetail.put("KEYWORD", keyword);
+					}
+				}
+				
+				try {
+					RedisConnection<String, String> redisConnection = redis.getRedisClient("0");
+					JSONObject obj = new JSONObject();
+					if ( redisConnection.get(redis.getREDIS_HOST_SPLIT_PK() + "latestSharingList") != null && !redisConnection.get(redis.getREDIS_HOST_SPLIT_PK() + "latestSharingList").trim().equalsIgnoreCase("") ) {
+						String planListStr = redisConnection.get(redis.getREDIS_HOST_SPLIT_PK() + "latestSharingList");
+						obj.put(redis.getREDIS_HOST_SPLIT_PK() + "latestSharingList", planListStr);
+						Map<String, Object> objMap = Redis.ssocioToMap(obj);
+						latestSharingList = (List<Map<String, Object>>) objMap.get(redis.getREDIS_HOST_SPLIT_PK() + "latestSharingList");
+					} else {
+						latestSharingList = appCommonDao.latestSharingList(null);
+					}
+				} catch ( Exception e ) {
+					e.printStackTrace();
+					latestSharingList = appCommonDao.latestSharingList(null);
+				}
+				
+				for(Map<String, Object> latestSharing : latestSharingList) {
+					if ( latestSharing.get("TERM") != null && !String.valueOf(latestSharing.get("TERM")).trim().equalsIgnoreCase("F") ) {
+						double term = Double.parseDouble(String.valueOf(latestSharing.get("TERM")));
+						if (term < 0) {
+							term = 0;
+						} else if (term > 1) {
+							term = 1;
+						} 
+						latestSharing.put("TERM", String.valueOf(term * 100));
+					} else {
+						latestSharing.put("TERM", "F");
+					}
+				}
+				plan.put("popularSharing", popularSharingDetail);
+				plan.put("latestSharingList", latestSharingList);
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return plan;
+	}
+
+	public static List<Map<String, Object>> ImgSizeCheckFnc(List<Map<String, Object>> templateContDataList, HeaderVO headerObj) {
+		// PLAN_TPL_GB_CD
+		// 10:카드형
+		// 20: 대칭형
+
+		String[] DeviceScreenArr = headerObj.getScreen().split("x");
+		int deviceHeigh = Integer.parseInt(DeviceScreenArr[1]);
+		int previmgHeight = 0;
+		int imgWidth = 0;
+		int imgHeight = 0;
+		String PlanTplGbCd ="";
+		String PlanViewGbCd = "";
+		int retHeigt = 0;
+		int index = 0;
+		int index2 = 0;
+		int preindex = 0;
+		int deviceWidth = Integer.parseInt(DeviceScreenArr[0]);
+		int halfdeviceWidth = Integer.parseInt(DeviceScreenArr[0])/2;
+		Map<String, Object> PrevcontMapData = new HashMap<String,Object>();
+		// 카드형  -> 디바이스 가로 : 디바이스 세로 = 이미지가로 : 이미지 세로
+		//     -> deviceWidth : x = imgWidth : imgHeight
+		//     -> app으로 전달될  높이  : (deviceWidth * imgHeight )/ imgWidth
+		List<Map<String, Object>> templateContDataList2 = new ArrayList<Map<String, Object>>();
+		for( Map<String, Object> contMapData : templateContDataList){
+			PlanTplGbCd = (String) contMapData.get("PLAN_TPL_GB_CD");
+			PlanViewGbCd = (String) contMapData.get("PLAN_VIEW_GB_CD");
+			imgWidth= (int) contMapData.get("FILE_WIDTH");
+			imgHeight = (int)contMapData.get("FILE_HEIGH");
+			logger.debug("OriginImgWidth : " + imgWidth);
+			logger.debug("OriginImgHeigh : " + imgHeight);
+			//카드형일 경우
+			if("10".equals(PlanTplGbCd)){
+				System.out.println(imgWidth);
+				retHeigt = (deviceWidth * imgHeight)/imgWidth;
+				contMapData.put("FILE_WIDTH", deviceWidth);
+				contMapData.put("FILE_HEIGH", retHeigt);
+				templateContDataList2.add(index,contMapData);
+			//대칭형 일경우
+			}else if("20".equals(PlanTplGbCd)){
+				System.out.println(imgWidth);
+				retHeigt = (halfdeviceWidth * imgHeight)/imgWidth;
+				//대칭형일시 왼쪽에 출력되는 content 셋팅
+				if(index2 % 2 == 0){
+					contMapData.put("FILE_WIDTH", halfdeviceWidth);
+					contMapData.put("FILE_HEIGH", retHeigt);
+					PrevcontMapData = contMapData;
+					templateContDataList2.add(index,contMapData);
+					// 양 옆의 이미지 높이 사이즈를 비교 하기 위해 저장
+					previmgHeight = retHeigt;
+					System.out.println("previmgHeight : " +previmgHeight);
+					preindex = index;
+					index2++;
+				}else{
+					System.out.println("retHeigt : " +retHeigt);
+					System.out.println("previmgHeight : " +previmgHeight);
+					//왼쪽 사진보다 큰사이즈 일경우
+					if(retHeigt > previmgHeight){
+						System.out.println("뒤에값이 더 높음");
+						PrevcontMapData.put("FILE_HEIGH", retHeigt);
+						contMapData.put("FILE_WIDTH", halfdeviceWidth);
+						contMapData.put("FILE_HEIGH", retHeigt);
+						templateContDataList2.set(preindex, PrevcontMapData);
+						templateContDataList2.add(index,contMapData);
+					}else if(retHeigt <= previmgHeight){
+						contMapData.put("FILE_WIDTH", halfdeviceWidth);
+						contMapData.put("FILE_HEIGH", previmgHeight);
+						templateContDataList2.add(index,contMapData);
+					}
+					index2++;
+				}
+			}else if("30".equals(PlanTplGbCd)){
+				retHeigt = (deviceWidth * imgHeight)/imgWidth;
+				contMapData.put("FILE_WIDTH", deviceWidth);
+				contMapData.put("FILE_HEIGH", retHeigt);
+				templateContDataList2.add(index,contMapData);
+			}
+			index++;
+		}
+		return templateContDataList2;
+	}
+
+
+	/**
+	 * <pre>
+	 * 기획전 상세 데이터
+	 * 기획전 상세 데이터
+	 * @param bodyParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 9. 7. 오후 2:32:24
+	 * @author LeeJinSe
+	 * @see com.ssocio.sharing.service.web.AppCommonService#selectPlaninfo(java.util.Map)
+	 * @비고
+	 *
+	 * </pre>
+	*/
+	@Override
+	public ModelMap selectPlaninfo(HeaderVO headerObj,Map<String, Object> bodyParam)throws Exception {
+		ModelMap mm = new ModelMap();
+		List<Map<String,Object>> bannerList = null;
+		int retHeigt=0;
+		String[] DeviceScreenArr = headerObj.getScreen().split("x");
+		int deviceWidth = Integer.parseInt(DeviceScreenArr[0]);
+		int imgWidth = 0;
+		int imgHeight = 0;
+		try {
+			//	메인전시 기획전 목록 조회
+
+				String planCd = (String)bodyParam.get("PLAN_CD");
+				logger.info("@#$@#$@#$@#$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
+				System.out.println(planCd);
+				logger.info("@#$@#$@#$@#$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
+				//	기획전에 따른 배너 조회
+
+//				기획전에 따른 배너 조회
+				bannerList = webMainDao.selectListPlanBanner(planCd);
+				for(int i=0; i< bannerList.size(); i++){
+					bannerList.get(i).put("MOVE_URL", bannerList.get(i).get("MOVE_URL"));
+					imgWidth= (int)bannerList.get(i).get("FILE_WIDTH");
+					imgHeight=(int)bannerList.get(i).get("FILE_HEIGH");
+					retHeigt = (deviceWidth * imgHeight)/imgWidth;
+					bannerList.get(i).put("CONVERT_HEIGH",retHeigt);
+					String FILE_URL = (String) bannerList.get(i).get("FILE_URL");
+					//CDN 서버에 이미지가 업로드가 안된 경우
+//					if(null != FILE_URL&& "" != FILE_URL){
+//						if(FILE_URL.startsWith("/upload")){
+//							bannerList.get(i).put("FILE_URL", commonImgUrl+FILE_URL);
+//						}
+//					}
+				}	//	banner
+
+				mm.put("bannerList", bannerList);
+				//	기획전에 따른 컨텐츠 템플릿 조회
+				List<Map<String, Object>> templateContDataList = appCommonDao.selectListPlanTemplateContent((String)bodyParam.get("PLAN_CD"));
+				templateContDataList = ImgSizeCheckFnc(templateContDataList,headerObj);
+				mm.put("prodList", templateContDataList);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+
+
+	/**
+	 * <pre>
+	 * 유저이미지 변경하기
+	 * 유저이미지 변경하기
+	 * @param headerObj
+	 * @param imageUpload
+	 * @param user
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 9. 8. 오후 5:24:07
+	 * @author LeeJinSe
+	 * @see com.ssocio.sharing.service.web.AppCommonService#updateUserImgReg(com.ssocio.sharing.vo.web.HeaderVO, org.springframework.web.multipart.MultipartFile, com.ssocio.sharing.vo.web.WebSession)
+	 * @비고
+	 *
+	 * </pre>
+	*/
+	@Override
+	public ModelMap updateUserImgReg(HeaderVO headerObj,
+			MultipartFile imageUpload, Map<String, Object> bodyParam) throws Exception {
+		logger.info("@@@@@@@@@@@@@ updateUserImgReg Service IN @@@@@@@@@@@@@");
+		Map<String,Object> inParam = new HashMap<String,Object>();
+		Map<String,Object> VoData = new HashMap<String,Object>();
+		ModelMap mm = new ModelMap();
+		int cnt = 0;
+//		IMG_GUBUN = P,M
+		// P : 개인
+		// M : 미니샵회원
+		String imgGubun = (String) bodyParam.get("IMG_GUBUN");
+
+
+		inParam.put("MBER_SEQ", bodyParam.get("MBER_SEQ"));
+		inParam.put("DEFAULT_IMG_YN", bodyParam.get("DEFAULT_IMG_YN"));
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.debug("inParam : " +inParam);
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		if("P".equals(imgGubun)){
+			if("Y".equals(bodyParam.get("DEFAULT_IMG_YN"))){
+				VoData = appCommonDao.getUerdefaultinfo(inParam);
+				if(null != VoData.get("MBER_IMG")){
+					inParam.put("MBER_FILE_SEQ", VoData.get("MBER_IMG"));
+					appCommonDao.deleteFileinfo(inParam);
+				}
+				inParam.put("FILE_SEQ", 0);
+			}else{
+				if(imageUpload != null && imageUpload.getSize() > 0){
+					String fileSeq = "";
+					Map<String, Object> fileInfo = FileUtil.saveMultipartFile(imageUpload);//파일 저장
+					fileSeq =  appCommonDao.insertFile(fileInfo);
+					inParam.put("FILE_SEQ", fileSeq);
+					mm.put("FILE_URL", fileInfo.get("I_FILE_URL"));
+				}
+			}
+			cnt = appCommonDao.updateUserImgReg(inParam);
+		}else if("M".equals(imgGubun)){
+			if("Y".equals(bodyParam.get("DEFAULT_IMG_YN"))){
+				VoData = appCommonDao.getMyminiShopInfo(inParam);
+				if(null !=VoData.get("FILE_SEQ")){
+					inParam.put("MINISHOP_FILE_SEQ", VoData.get("FILE_SEQ"));
+					appCommonDao.deleteMiniShopFileinfo(inParam);
+				}
+				inParam.put("FILE_SEQ", 0);
+			}else{
+				if(imageUpload != null && imageUpload.getSize() > 0){
+					String fileSeq = "";
+					Map<String, Object> fileInfo = FileUtil.saveMultipartFile(imageUpload);//파일 저장
+					fileSeq =  appCommonDao.insertFile(fileInfo);
+					inParam.put("FILE_SEQ", fileSeq);
+					mm.put("FILE_URL", fileInfo.get("I_FILE_URL"));
+				}
+
+			}
+			cnt = appCommonDao.updateMyMiniShopImgReg(inParam);
+		}
+
+
+		if(cnt < 0){
+			headerObj.setSvc_cd("F00001");
+			headerObj.setRet_msg("실패");
+		}
+
+
+
+		return mm;
+	}
+
+
+	/**
+	 * <pre>
+	 * 전체상품 삭제
+	 * 전체상품 삭제
+	 * @param user
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 9. 10. 오후 9:03:55
+	 * @author LeeJinSe
+	 * @see com.ssocio.sharing.service.web.AppCommonService#deleteALLMyLately(com.ssocio.sharing.vo.web.WebSession)
+	 * @비고
+	 *
+	 * </pre>
+	*/
+	@Override
+	public int deleteALLMyLately(HeaderVO headerObj) throws Exception {
+		Map<String, Object> inParam = new HashMap<String,Object>();
+		inParam.put("MBER_SEQ", headerObj.getMber_seq());
+		return appCommonDao.deleteALLMyLately(inParam);
+	}
+
+
+	/**
+	 * <pre>
+	 * 스마폰 쉐어링 주문상품 관련 정보 가져오기
+	 * 스마폰 쉐어링 주문상품 관련 정보 가져오기
+	 * @param bodyParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 9. 11. 오후 11:13:22
+	 * @author LeeJinSe
+	 * @see com.ssocio.sharing.service.web.AppCommonService#selectSpOrdinfo(java.util.Map)
+	 * @비고
+	 *
+	 * </pre>
+	*/
+	@Override
+	public ModelMap selectSpOrdinfo(Map<String, Object> bodyParam)
+			throws Exception {
+		ModelMap mm = new ModelMap();
+		mm.put("TelList", webSmartPhoneDao.selectListTelcom(bodyParam));
+		mm.put("ColorList", webSmartPhoneDao.selectSpColor(bodyParam));
+		mm.put("StipList", webSmartPhoneDao.selectSpStip(bodyParam));
+		mm.put("PayList", webSmartPhoneDao.selectSpPayplan(bodyParam));
+		mm.put("JoinTypeList", appCommonDao.selectJoinType());
+
+		return mm;
+	}
+
+
+	@Override
+	public String selectSiteDefault() throws Exception {
+		logger.info(" selectSiteDefault Service IN");
+		return appCommonDao.selectSiteDefault();
+	}
+
+
+	@Override
+	public Map<String, Object> selectMypushInfo(Map<String, Object> bodyParam)
+			throws Exception {
+		logger.info(" selectMypushInfo Service IN");
+		System.out.println(bodyParam);
+		return appCommonDao.selectMypushInfo(bodyParam);
+	}
+
+
+	@Override
+	public Object updateMypushInfo(Map<String, Object> bodyParam)
+			throws Exception {
+		logger.info(" updateMypushInfo Service IN");
+		System.out.println(bodyParam);
+		return appCommonDao.updateMypushInfo(bodyParam);
+	}
+
+
+	/**
+	 * <pre>
+	 * 최근본 상품
+	 * 최근본 상품
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 9. 19. 오후 5:24:03
+	 * @author LeeJinSe
+	 * @see com.ssocio.sharing.service.web.AppCommonService#getMyLatelyGoodsInfo(java.util.Map)
+	 * @비고
+	 *
+	 * </pre>
+	*/
+	@Override
+	public List<Map<String, Object>> getMyLatelyGoodsInfo(
+			Map<String, Object> inParam) throws Exception {
+
+		List<Map<String, Object>> resultList = null;
+		try {
+			// 30일이 지난 최근본상품은 삭제처리한다.
+			Integer latelyStatus = mobileMyRecentProductDao.deleteMyLately30(inParam);
+			logger.debug("latelyStatus:"+latelyStatus);
+
+			// S 페이징 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+			int LAST_SEQ = Integer.parseInt((String)inParam.get("PAGE_NO")) * 20;
+			int FIRST_SEQ = LAST_SEQ - 20;
+			inParam.put("FIRST_SEQ", FIRST_SEQ);
+			inParam.put("LAST_SEQ", LAST_SEQ);
+			logger.debug("FIRST_SEQ	:["+inParam.get("FIRST_SEQ")+"]");
+			logger.debug("LAST_SEQ	:["+inParam.get("LAST_SEQ")+"]");
+			// E 페이징	>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+			// 조회
+			resultList = mobileMyRecentProductDao.getMyLatelyGoodsInfo(inParam);
+		}catch (Exception e) {
+			throw e;
+		}
+		return resultList;
+	}
+
+
+	@Override
+	public int deleteMyLately(HeaderVO headerObj, Map<String, Object> bodyParam) throws Exception {
+		bodyParam.put("MBER_SEQ", headerObj.getMber_seq());
+		Integer adrStatus = 0;
+		try {
+			adrStatus = mobileMyRecentProductDao.deleteMyLately(bodyParam);
+			logger.debug("adrStatus:"+adrStatus);
+		}catch (Exception e) {
+			throw e;
+		}
+		return adrStatus;
+	}
+
+
+	@Override
+	public LinkedHashMap<String, Object> detailMyWishList(
+			Map<String, Object> inParam, HeaderVO headerObj) throws Exception {
+		ModelMap mm = new ModelMap();
+		int mberSeq = Integer.parseInt(headerObj.getMber_seq());
+		logger.debug("mberSeq:"+mberSeq);
+		inParam.put("MBER_SEQ", mberSeq);
+		// S 페이징 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+
+		int LAST_SEQ = Integer.parseInt((String)inParam.get("PAGE_NO")) * 20;
+		int FIRST_SEQ = LAST_SEQ - 20;
+			inParam.put("FIRST_SEQ", FIRST_SEQ);
+			inParam.put("LAST_SEQ", LAST_SEQ);
+			logger.debug("FIRST_SEQ	:["+inParam.get("FIRST_SEQ")+"]");
+			logger.debug("LAST_SEQ	:["+inParam.get("LAST_SEQ")+"]");
+		// E 페이징	>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+		try {
+			mm.put("myWishDtl", mobileMyWishDao.detailMyWishList(inParam));
+		}catch (Exception e) {
+			throw e;
+		}
+		return mm;
+	}
+
+
+	/**
+	 * <pre>
+	 * 위시리스트 개별 삭제
+	 * 위시리스트 개별 삭제
+	 * @param bodyParam
+	 * @param user
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 9. 21. 오후 4:19:18
+	 * @author LeeJinSe
+	 * @see com.ssocio.sharing.service.web.AppCommonService#deleteMyWishProd(java.util.Map, com.ssocio.sharing.vo.web.WebSession)
+	 * @비고
+	 *
+	 * </pre>
+	*/
+	@Override
+	public ModelMap deleteMyWishProd(Map<String, Object> inParam, HeaderVO headerObj)
+			throws Exception {
+		ModelMap mm = new ModelMap();
+		int mberSeq = Integer.parseInt(headerObj.getMber_seq());
+		logger.debug("mberSeq:"+mberSeq);
+		inParam.put("REG_SEQ", inParam.get("REG_SEQ").toString());
+		inParam.put("MBER_SEQ", mberSeq);
+		inParam.put("WISH_SEQ", inParam.get("WISH_SEQ").toString() );
+
+
+		Integer adrStatus = 0;
+		String msg = "";
+		try {
+			adrStatus = mobileMyWishDao.deleteMyWishProd(inParam);
+			logger.debug("adrStatus:"+adrStatus);
+			if(adrStatus  > 0){
+
+				mm.put("rtnCd", "S");
+			}else{
+				mm.put("rtnCd", "F");
+			}
+		}catch (Exception e) {
+			throw e;
+		}
+		return mm;
+	}
+
+
+	/**
+	 * <pre>
+	 * 위시상품 전체 삭제
+	 * 위시상품 전체 삭제
+	 * @param inParam
+	 * @param headerObj
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 9. 21. 오후 7:59:04
+	 * @author LeeJinSe
+	 * @see com.ssocio.sharing.service.web.AppCommonService#deleteMyWishProdAll(java.util.Map, com.ssocio.sharing.vo.web.HeaderVO)
+	 * @비고
+	 *
+	 * </pre>
+	*/
+	@Override
+	public ModelMap deleteMyWishProdAll(Map<String, Object> inParam,
+			HeaderVO headerObj) throws Exception {
+		ModelMap mm = new ModelMap();
+		int mberSeq = Integer.parseInt(headerObj.getMber_seq());
+		logger.debug("mberSeq:"+mberSeq);
+		inParam.put("MBER_SEQ",mberSeq);
+		inParam.put("WISH_SEQ", inParam.get("WISH_SEQ").toString());
+
+
+		Integer adrStatus = 0;
+		String msg = "";
+		try {
+			adrStatus = mobileMyWishDao.deleteMyWishProdAll(inParam);
+			logger.debug("adrStatus:"+adrStatus);
+			if(adrStatus  > 0){
+
+				mm.put("rtnCd", "S");
+			}else{
+				mm.put("rtnCd", "F");
+			}
+		}catch (Exception e) {
+			throw e;
+		}
+		return mm;
+	}
+
+
+	@Override
+	public Object selectTagList(HeaderVO headerObj) throws Exception {
+		String mberSeq = String.valueOf((headerObj.getMber_seq()));
+		return mobileInterestDao.wishList(mberSeq);
+	}
+
+
+	@Override
+	public ModelMap selectInterest(Map<String, Object> inParam, HeaderVO headerObj) throws Exception {
+		List<Map<String,Object>> listTag = new ArrayList<Map<String,Object>>();
+		ModelMap  mm = new ModelMap();
+		String mberSeq = headerObj.getMber_seq();
+
+		String tag = String.valueOf(inParam.get("TAG"));
+		if(0 <  tag.length() && null != tag){
+			mm.put("prodList", mobileInterestDao.tagSelectProd(tag));
+		}else{
+			List<Map<String, Object>> list = mobileInterestDao.wishList(mberSeq);
+
+			for(Map<String,Object> data : list){
+				logger.debug((String)data.get("TAG"));
+			}
+
+			mm.put("prodList", mobileInterestDao.selectInterest(list));
+		}
+
+
+		mm.put("tagList", mobileInterestDao.wishList(mberSeq));
+
+		return mm;
+	}
+
+	@Override
+	public List<Map<String, Object>> selectInterestList(Map<String, Object> inParam, HeaderVO headerObj) throws Exception {
+
+		logger.debug("aaaaaaaaaaaaaaaaaa1 ");
+		// S 페이징 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+		int	LAST_SEQ = Integer.parseInt((String)inParam.get("PAGE_NO")) * 20;
+		logger.debug("aaaaaaaaaaaaaaaaaa2 :" + LAST_SEQ);
+		int FIRST_SEQ = LAST_SEQ - 20;
+		logger.debug("aaaaaaaaaaaaaaaaaa3 ");
+		inParam.put("FIRST_SEQ", FIRST_SEQ);
+		inParam.put("LAST_SEQ", LAST_SEQ);
+		logger.debug("FIRST_SEQ	:["+inParam.get("FIRST_SEQ")+"]");
+		logger.debug("LAST_SEQ	:["+inParam.get("LAST_SEQ")+"]");
+		// E 페이징	>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+		logger.debug("aaaaaaaaaaaaaaaaaa4 ");
+		List<Map<String, Object>> resultList = null;
+		String mberSeq = headerObj.getMber_seq();
+		String tag = String.valueOf(inParam.get("TAG"));
+		logger.debug("aaaaaaaaaaaaaaaaaa5 "+tag);
+		if(0 <  tag.length() && tag.length() < 2 && null != tag){
+			resultList = mobileInterestDao.tagSelectProd(tag);
+		}else{
+			List<Map<String, Object>> list = mobileInterestDao.wishList(mberSeq);
+
+			for(Map<String,Object> data : list){
+				logger.debug((String)data.get("TAG"));
+			}
+			inParam.put("list", list);
+			resultList = mobileInterestDao.selectInterestList(inParam);
+		}
+
+		inParam.put("tagList", mobileInterestDao.wishList(mberSeq));
+
+		return resultList;
+	}
+
+	@Override
+	public List<Map<String, Object>> tagSelectInterestList(Map<String, Object> inParam, HeaderVO headerObj) throws Exception {
+
+		// S 페이징 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+		int	LAST_SEQ = Integer.parseInt((String)inParam.get("PAGE_NO")) * 20;
+		int FIRST_SEQ = LAST_SEQ - 20;
+		inParam.put("FIRST_SEQ", FIRST_SEQ);
+		inParam.put("LAST_SEQ", LAST_SEQ);
+		logger.debug("FIRST_SEQ	:["+inParam.get("FIRST_SEQ")+"]");
+		logger.debug("LAST_SEQ	:["+inParam.get("LAST_SEQ")+"]");
+		// E 페이징	>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+		List<Map<String, Object>> resultList = null;
+		String mberSeq = headerObj.getMber_seq();
+		String tag = String.valueOf(inParam.get("TAG"));
+		inParam.put("MBER_SEQ", mberSeq);
+		inParam.put("TAG", tag);
+		resultList = mobileInterestDao.tagSelectProdList(inParam);
+
+		inParam.put("tagList", mobileInterestDao.wishList(mberSeq));
+
+		return resultList;
+	}
+
+	@Override
+	public int SelectCntMyNewCar(HeaderVO headerObj) throws Exception {
+		Map<String, Object> inParam = new HashMap<String, Object>();
+		inParam.put("MBER_SEQ", headerObj.getMber_seq());
+		int Cnt = 0;
+		if(null !=  headerObj.getMber_seq()){
+			Cnt = appCommonDao.SelectCntMyNewCar(inParam);
+		}
+		return Cnt;
+	}
+
+
+	/**
+	 * <pre>
+	 * 이미지 등록 (상품)
+	 * 이미지 등록 (상품)
+	 * @param imageUpload
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 10. 27. 오후 5:53:10
+	 * @author J.S.LEE
+	 * @see @see com.ssocio.sharing.service.web.AppCommonService#insertProdImg(org.springframework.web.multipart.MultipartFile)
+	 * </pre>
+	 */
+	@Override
+	public ModelMap insertProdImg(MultipartFile imageUpload, Map<String, Object> inParam) throws Exception {
+		ModelMap mm = new ModelMap();
+
+		//삭제할 이미지 SEQ가 있을시
+		if( inParam.get("SEQ") != null && !"".equals(inParam.get("SEQ"))){
+			inParam.put("MBER_FILE_SEQ", inParam.get("SEQ"));
+			appCommonDao.deleteFileinfo(inParam);
+		}
+
+
+		if(imageUpload != null && imageUpload.getSize() > 0){
+			String fileSeq = "";
+			Map<String, Object> fileInfo = FileUtil.saveMultipartFile(imageUpload);//파일 저장
+			fileSeq =  appCommonDao.insertFile(fileInfo);
+			mm.put("FILE_SEQ", fileSeq);
+			mm.put("FILE_URL", fileInfo.get("I_FILE_URL"));
+		}
+		return mm;
+	}
+
+
+	/**
+	 * <pre>
+	 * 스마트폰 셰어링 리스트
+	 * 스마트폰 셰어링 리스트
+	 * @param bodyParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 11. 8. 오후 4:48:14
+	 * @author S.B.LEE
+	 * @see @see com.ssocio.sharing.service.web.AppCommonService#selectListShar(java.util.Map)
+	 * </pre>
+	 */
+	@Override
+	public ModelMap selectListShar(HeaderVO headerObj,Map<String, Object> inParam)
+			throws Exception {
+
+		logger.debug("[WebSmartPhoneService.selectListShar]");
+		String[] DeviceScreenArr = headerObj.getScreen().split("x");
+		int deviceWidth = Integer.parseInt(DeviceScreenArr[0]);
+		ModelMap mm = new ModelMap();
+		int imgWidth = 0;
+		int imgHeight = 0;
+		int retHeigt =0;
+		try {
+			//페이지번호
+			int nowPage = StringUtil.nvlInt((String)inParam.get("PAGE_NO"), 1);
+			int rowCnt	= StringUtil.nvlInt((String)inParam.get("S_ROW_CNT"), CmmnCnst.MOBILE_LIST_SIZE);
+			inParam.put("S_ROW_CNT", rowCnt);
+
+			LoggerUtil.writeMap(inParam);
+			int rowTotal = webSmartPhoneDao.selectListSharCount(inParam);
+//			페이징 클래스 initialize
+			WebMobilePaging pageNav = new WebMobilePaging(rowTotal, nowPage, CmmnCnst.MOBILE_LIST_SIZE);
+
+//			PageNavigation pageNav= new PageNavigation(nowPage, rowTotal, rowCnt, CmmnCnst.MOBILE_BLOCK_SIZE);
+
+			mm.put("PAGE_NO", nowPage);
+			mm.put("pageNav", pageNav);
+			inParam.put("START_ROW", pageNav.getStartContent());
+			inParam.put("END_ROW", pageNav.getEndContent());
+
+			//	메인전시 기획전 목록 조회
+			List<Map<String, Object>> prodList = webSmartPhoneDao.selectListShar(inParam);
+
+			for(Map<String, Object> prod : prodList){
+				imgWidth=  ((BigDecimal)prod.get("FILE_WIDTH")).intValue();
+				imgHeight = ((BigDecimal)prod.get("FILE_HEIGH")).intValue();
+				//카드형일 경우
+					retHeigt = (deviceWidth * imgHeight)/imgWidth;
+					logger.debug("DB FILE_HEIGH :::::: " + imgHeight);
+					logger.debug("RET FILE_HEIGH :::::: " + retHeigt);
+					prod.put("FILE_HEIGH", retHeigt);
+
+			}
+
+			mm.put("outParam", prodList) ;
+			mm.put("Telcom", webSmartPhoneDao.selectListTelcom(inParam)) ;
+			mm.put("params", inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+
+
+	@Override
+	public Map<String, Object> selectCtryinfo(String guBun) throws Exception {
+		return appCommonDao.selectCtryinfo(guBun);
+	}
+
+
+	@Override
+	public void updatePushinfo(Map<String, Object> inParam) throws Exception {
+		// TODO Auto-generated method stub
+		appCommonDao.updatePushinfo(inParam);
+	}
+
+
+	@Override
+	public ModelMap insertProdImgV2(MultipartFile imageUpload[], Map<String, Object> inParam) throws Exception {
+		ModelMap mm = new ModelMap();
+		
+		List<Map<String,Object>> list = new ArrayList<Map<String,Object>>();
+		
+		//삭제할 이미지 SEQ가 있을시
+		if( inParam.get("SEQ") != null && !"".equals(inParam.get("SEQ"))){
+			inParam.put("MBER_FILE_SEQ", inParam.get("SEQ"));
+			appCommonDao.deleteFileinfo(inParam);
+		}
+
+		logger.debug("멀티파트 : "+Arrays.toString(imageUpload));
+		
+		for (MultipartFile multipartFile : imageUpload) {
+			logger.debug("imageUpload getContentType " + multipartFile.getContentType());
+			logger.debug("imageUpload size " + multipartFile.getSize());
+			logger.debug("imageUpload name " + multipartFile.getOriginalFilename());
+			
+			
+			if(multipartFile.getSize() == 0){
+				logger.debug("파일의 크기가 0임");
+				continue;
+			}
+			
+			
+			String fileSeq = "";
+			Map<String, Object> fileInfo = FileUtil.saveMultipartFile(multipartFile);//파일 저장
+			fileSeq =  appCommonDao.insertFile(fileInfo);
+			Map<String,Object> map = new HashMap<String, Object>();
+			map.put("FILE_SEQ", fileSeq);
+			map.put("FILE_URL", fileInfo.get("I_FILE_URL"));
+			list.add(map);
+		}
+		mm.put("list", list);
+		return mm;
+	}
+
+	/*
+	 * 메인 기획전 renewal api 추가.
+	 * seongjoon@danalssocio.com
+	 */
+
+	@Override
+	public List<Map<String, Object>> popularSharing(Map<String, Object> inParam) throws Exception {
+		// TODO Auto-generated method stub
+		List<Map<String, Object>> popularSharing = appCommonDao.popularSharing(null);
+		return popularSharing;
+	}
+
+
+	@Override
+	public List<Map<String, Object>> popularSharingDetail(Map<String, Object> inParam) throws Exception {
+		// TODO Auto-generated method stub
+		List<Map<String, Object>> popularSharing = this.popularSharing(inParam);
+		Map<String, Object> popularMap = new HashMap<String, Object>();
+		
+		StringBuffer prod_codes = new StringBuffer();
+		for (int si = 0; si < popularSharing.size(); si++ ) {
+			Map<String, Object> sharing = popularSharing.get(si);
+			String sPROD_CODE = String.valueOf(sharing.get("PROD_CODE"));
+			int WHSH_COUNT = Integer.parseInt(String.valueOf(sharing.get("WISH_COUNT")));
+			popularMap.put(sPROD_CODE, WHSH_COUNT);
+			prod_codes.append("'");
+			prod_codes.append(sPROD_CODE);
+			prod_codes.append("'");
+			if ( si < popularSharing.size() - 1 ) {
+				prod_codes.append(","); 
+			}
+		}
+		
+		inParam.put("prod_codes", String.valueOf(prod_codes));
+		List<Map<String, Object>> popularSharingDetail = appCommonDao.popularSharingDetail(inParam);
+		
+		for (Map<String, Object> sharingDetail : popularSharingDetail) {
+			sharingDetail.put("WISH_COUNT", popularMap.get(String.valueOf(sharingDetail.get("prod_code"))));							
+		}
+		
+		return popularSharingDetail;
+	}
+
+
+	@Override
+	public List<Map<String, Object>> latestSharingList(Map<String, Object> inParam) throws Exception {
+		// TODO Auto-generated method stub
+		List<Map<String, Object>> latestSharingList = appCommonDao.latestSharingList(null);
+		return latestSharingList;
+	}
+}

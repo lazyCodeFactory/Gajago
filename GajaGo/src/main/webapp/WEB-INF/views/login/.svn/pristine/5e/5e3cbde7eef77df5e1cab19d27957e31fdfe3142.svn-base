@@ -1,0 +1,248 @@
+/**<pre>
+ * 1. Project Name : SSOCIO
+ * 2. Package Name : com.ssocio.sharing.service.admin
+ * 3. File Name	   : AdminPerfServiceImpl.java
+ * 4. Date		   : 오후 4:05 2015-08-07
+ * 5. Author	   : H.M.Yang
+ * 6. Note		   : 
+ * </pre>
+ */
+package com.ssocio.sharing.service.admin;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+import javax.servlet.http.HttpSession;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.ui.ModelMap;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.multipart.MultipartHttpServletRequest;
+import org.springframework.web.servlet.ModelAndView;
+
+import com.ssocio.sharing.cmmn.admin.util.CommonUtil;
+import com.ssocio.sharing.cmmn.admin.util.FileUtil;
+import com.ssocio.sharing.cmmn.util.CmmnCnst;
+import com.ssocio.sharing.cmmn.util.LoggerUtil;
+import com.ssocio.sharing.cmmn.util.StringUtil;
+import com.ssocio.sharing.dao.admin.AdminPointDao;
+import com.ssocio.sharing.vo.admin.AdminSession;
+import com.ssocio.sharing.vo.admin.PageNavigation;
+
+/**
+ * <pre>
+ * 포인트 서비스 인터페이스
+ * 포인트 처리를 위한 서비스 인터페이스
+ * @author H.M.Yang
+ * @version 
+ * @since 2015. 8. 17. 오후 2:52:00
+ * @see 
+ * @History 
+ *  Date          |    author    | 변경내용  
+ *	2015. 8. 17.  |    H.M.Yang  | 신규 
+ * @Todo
+ * </pre>
+ */
+@Service
+public class AdminPointServiceImpl implements AdminPointService {
+	
+	// --------------------------------------------------------------------------
+	// # Log 설정
+	// --------------------------------------------------------------------------
+	private static final Logger logger = LoggerFactory.getLogger(AdminPointServiceImpl.class);
+
+	// --------------------------------------------------------------------------
+	// # DAO 설정
+	// --------------------------------------------------------------------------
+	@Resource(name="adminPointDao")
+	private AdminPointDao adminPointDao;
+	
+	/**
+	 * <pre>
+	 * 포인트 기간별 조회
+	 * 포인트 기간별 조회 합니다.
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 17. 오후 2:52:00
+	 * @author H.M.Yang
+	 * @see com.ssocio.sharing.service.admin
+	 * </pre>
+	 */
+	public ModelMap selectListPeriPoint(Map<String, Object> paramDto) throws Exception {
+		ModelMap mm = new ModelMap();
+		
+		// 검색총건수
+		int rowTotal = adminPointDao.selectPeriPointSearchCnt(paramDto);
+		
+		// 페이지설정
+		int nowPage = StringUtil.nvlInt((String)paramDto.get("PAGE_NO"), 1);
+		int rowCnt	= StringUtil.nvlInt((String)paramDto.get("S_DISPLAY_CNT"), CmmnCnst.ADM_LIST_SIZE);;
+		paramDto.put("S_DISPLAY_CNT", rowCnt);
+		
+		PageNavigation pageNav= new PageNavigation(nowPage, rowTotal, rowCnt, CmmnCnst.ADM_BLOCK_SIZE);
+		mm.put("PAGE_NO", nowPage);
+		mm.put("pageNav", pageNav);
+		paramDto.put("START_ROW", pageNav.getStartRow());
+		paramDto.put("END_ROW", pageNav.getEndRow());
+
+		mm.put("pointList", adminPointDao.selectListPeriPoint(paramDto));
+		mm.put("pointTotSum", adminPointDao.selectPeriPointTotSum(paramDto));
+		return mm;
+	}
+	
+	/**
+	 * <pre>
+	 * 포인트 회원별 조회
+	 * 포인트 회원별 조회 합니다.
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 17. 오후 2:52:00
+	 * @author H.M.Yang
+	 * @see com.ssocio.sharing.service.admin
+	 * </pre>
+	 */
+	public ModelMap selectListMberPoint(Map<String, Object> paramDto) throws Exception {
+		ModelMap mm = new ModelMap();
+
+		// 검색총건수
+		int rowTotal = adminPointDao.selectMberPointSearchCnt(paramDto);
+		
+		// 페이지설정
+		int nowPage = StringUtil.nvlInt((String)paramDto.get("PAGE_NO"), 1);
+		int rowCnt	= StringUtil.nvlInt((String)paramDto.get("S_DISPLAY_CNT"), CmmnCnst.ADM_LIST_SIZE);;
+		paramDto.put("S_DISPLAY_CNT", rowCnt);
+		
+		PageNavigation pageNav= new PageNavigation(nowPage, rowTotal, rowCnt, CmmnCnst.ADM_BLOCK_SIZE);
+		mm.put("PAGE_NO", nowPage);
+		mm.put("pageNav", pageNav);
+		paramDto.put("START_ROW", pageNav.getStartRow());
+		paramDto.put("END_ROW", pageNav.getEndRow());
+
+		mm.put("pointList", adminPointDao.selectListMberPoint(paramDto));
+		mm.put("pointTotSum", adminPointDao.selectMberPointTotSum(paramDto));
+		return mm;
+	}
+	
+	/**
+	 * <pre>
+	 * 포인트 회원별 지급(차감)
+	 * 포인트 회원별 지급(차감) 합니다.
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 17. 오후 2:52:00
+	 * @author H.M.Yang
+	 * @see com.ssocio.sharing.service.admin
+	 * </pre>
+	 */
+	public void saveMberPoint(Map<String, Object> paramDto) throws Exception{
+		String sMberSeq = adminPointDao.selectMberSeqPoint(paramDto);
+		paramDto.put("I_MBER_SEQ", sMberSeq);
+		adminPointDao.insertMberPoint(paramDto);
+		adminPointDao.updateMberPoint(paramDto);
+	}
+	
+	/**
+	 * <pre>
+	 * 포인트 일괄 처리 엑셀 업로드
+	 * 포인트 일괄 처리 엑셀 업로드
+	 * @param paramDto
+	 * @return 
+	 * @exception 
+	 * @date 2015. 8. 17. 오후 2:52:00
+	 * @author H.M.Yang
+	 * @비고
+	 * 
+	 * </pre>
+	 */
+	@Override
+	public ModelMap uploadPointExcel(MultipartHttpServletRequest paramDto) throws Exception {
+		ModelMap mm = new ModelMap();
+		HttpSession session = paramDto.getSession();
+		AdminSession sessionVO = (AdminSession)session.getAttribute("manager");
+		
+		MultipartFile excelFile = paramDto.getFile("I_UPLOAD_FILE");
+		int nUploadCount = 0;
+		try {
+			List<Map<String, Object>> excelData = CommonUtil.getOldExcelList(excelFile);
+			String sMberSeq = null;
+			for(Map<String, Object> rowData:excelData){
+				sMberSeq = (String) rowData.get("CELL0");
+				if(sMberSeq == null || sMberSeq.equals("")){
+					break;
+				}
+				nUploadCount++;
+				LoggerUtil.writeMap(rowData);
+			}
+			mm.put("excelList", excelData);
+			mm.put("uploadCount", nUploadCount);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+	
+	/**
+	 * <pre>
+	 * 포인트 일괄 저장
+	 * 포인트 일괄 저장 합니다.
+	 * @param paramDto
+	 * @return 
+	 * @exception 
+	 * @date 2015. 8. 17. 오후 2:52:00
+	 * @author H.M.Yang
+	 * @비고
+	 * 
+	 * </pre>
+	 */
+	@Override
+	public ModelMap savePointExcel(Map<String, Object> paramDto) throws Exception {
+		ModelMap mm = new ModelMap();
+		try {
+
+			String cell0Array = (String)paramDto.get("CELL0");
+			String cell1Array = (String)paramDto.get("CELL1");
+			String cell2Array = (String)paramDto.get("CELL2");
+			String cell3Array = (String)paramDto.get("CELL3");
+			String cell4Array = (String)paramDto.get("CELL4");
+			
+			String CELL0[] = cell0Array.split(",");
+			String CELL1[] = cell1Array.split(",");
+			String CELL2[] = cell2Array.split(",");
+			String CELL3[] = cell3Array.split(",");
+			String CELL4[] = cell4Array.split(",");
+			
+			String sMberSeq;
+			int uploadCnt = 0;
+			
+			for(int i=0; i<CELL0.length; i++) {
+				paramDto.put("S_ID_TEXT", CELL0[i]);
+				sMberSeq = adminPointDao.selectMberSeqPoint(paramDto);
+				
+				paramDto.put("I_MBER_SEQ", sMberSeq);
+				paramDto.put("I_POINT", CELL1[i]);
+				paramDto.put("I_CHG_REASON", CELL2[i]);
+				paramDto.put("I_POINT_CD", CELL3[i]);
+				paramDto.put("I_POINT_TYPE", CELL4[i]);
+				
+				uploadCnt++;
+				adminPointDao.insertMberPoint(paramDto);
+				
+				if(uploadCnt == 100) {
+					break;
+				}
+			}
+			mm.put("uploadCnt", uploadCnt);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+}

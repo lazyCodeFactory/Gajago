@@ -1,0 +1,1020 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="adminCpnMapper">
+
+	<select id="selectListCpnCount"  parameterType="HashMap" resultType="int">
+    	SELECT 
+    		COUNT(1) AS TOTAL_COUNT 
+    	FROM CPN_INFO
+   		<where>
+	    	1=1
+	        AND
+	        TO_CHAR(REGIST_DT, 'YYYYMMDD') BETWEEN #{S_START_DATE} AND #{S_END_DATE}
+	        AND INFLOW_ROUTE_CPN_YN = 'N'
+	        <if test="ISSUE_CD != null and ISSUE_CD!= ''">
+				AND ISSUE_CD = #{ISSUE_CD}
+		  	</if>	      
+		  	<if test="CPN_NM != null and CPN_NM!= ''">
+				AND CPN_NM LIKE '%' || #{CPN_NM} || '%'
+		  	</if>
+		  	<if test="issueMth != null and issueMth != ''">
+		    	AND ISSUE_MTH IN
+		    	<foreach collection="issueMth" item="cd" open="(" close=")" separator=",">
+		  			#{cd}
+		  		</foreach>
+		  	</if>
+		  	
+		  	<if test="cpnGbCd != null and cpnGbCd != ''">
+		  		AND CPN_GB_CD IN
+		  		<foreach collection="cpnGbCd" item="cd" open="(" close=")" separator=",">
+		  			#{cd}
+		  		</foreach>
+		  	
+		  	</if>	
+		    AND CPN_GRP_CD IN(
+		    	 SELECT CPN_GRP_CD 
+		    	 FROM CPN_USE_CHAN 
+		    	 WHERE 1=1 
+		    	 <if test="cpnUseCd != null and cpnUseCd != ''">
+		    	 AND CPN_CHAN_CD IN
+		    	 <foreach collection="cpnUseCd" item="cd" open="(" close=")" separator=",">
+		  			#{cd}
+		  		 </foreach>
+		  		</if>
+		    )	
+	     </where>
+    </select>
+
+	<select id="selectListCpn" parameterType="hashmap" resultType="hashmap">
+	 <include refid="adminCommonMapper.pagingHeader" />
+		 SELECT  ROW_NUMBER() OVER(ORDER BY A.REGIST_DT DESC ) AS NO 
+	          , DECODE( (SELECT count(*) FROM CPN_USE_CHAN t1 WHERE t1.CPN_GRP_CD = A.CPN_GRP_CD AND CPN_CHAN_CD = '10') , 0 ,NULL, ( SELECT D.COM_CD_NM FROM CODE D WHERE D.GRP_CD = 'CPN_CHAN_CD' AND D.COM_CD = '10')  ) CHAN1 
+	          , DECODE( (SELECT count(*) FROM CPN_USE_CHAN t1 WHERE t1.CPN_GRP_CD = A.CPN_GRP_CD AND CPN_CHAN_CD = '20') , 0 ,NULL, ( SELECT D.COM_CD_NM FROM CODE D WHERE D.GRP_CD = 'CPN_CHAN_CD' AND D.COM_CD = '20')  ) CHAN2
+	          , DECODE( (SELECT count(*) FROM CPN_USE_CHAN t1 WHERE t1.CPN_GRP_CD = A.CPN_GRP_CD AND CPN_CHAN_CD = '30') , 0 ,NULL, ( SELECT D.COM_CD_NM FROM CODE D WHERE D.GRP_CD = 'CPN_CHAN_CD' AND D.COM_CD = '30')  ) CHAN3
+	          , DECODE( (SELECT count(*) FROM CPN_USE_CHAN t1 WHERE t1.CPN_GRP_CD = A.CPN_GRP_CD AND CPN_CHAN_CD = '40') , 0 ,NULL, ( SELECT D.COM_CD_NM FROM CODE D WHERE D.GRP_CD = 'CPN_CHAN_CD' AND D.COM_CD = '40')  ) CHAN4
+	          ,TO_CHAR(A.REGIST_DT, 'YYYY-MM-DD HH24:MI') AS REGIST_DT 
+	          ,A.CPN_NM 
+	          ,A.CPN_GRP_CD 
+	          ,A.CPN_ISSUE_TGT_GB_CD 
+	          ,A.CPN_USE_GB_CD  
+	          ,A.EXP_DAY 
+	          ,A.EXP_CHK
+	          ,A.ISSUE_CD
+	           , DECODE(A.ISSUE_CD,'A','전체','지정회원') AS ISSUE_CD_NM 
+	          ,TO_CHAR(A.EXP_START_DT, 'YYYY-MM-DD') AS EXP_START_DT 
+	          ,TO_CHAR(A.EXP_END_DT, 'YYYY-MM-DD') AS EXP_END_DT 
+	          ,A.TOT_CPN_ISSUE_QTY 
+	          ,A.CPN_ISSUE_MTH_CD 
+	          , ( SELECT COUNT(*) FROM MBER_CPN_INFO C WHERE A.CPN_GRP_CD = C.CPN_GRP_CD AND USE_YN = 'Y' ) AS CPN_USE_CNT 
+	          , ( SELECT COUNT(*) FROM MBER_CPN_INFO C WHERE A.CPN_GRP_CD = C.CPN_GRP_CD ) AS CPN_ISSUE_CNT 
+	          ,( SELECT D.COM_CD_NM FROM CODE D WHERE D.GRP_CD = 'CPN_GB_CD' AND A.CPN_GB_CD = D.COM_CD ) AS CPN_GRP_CD_NM
+	          ,A.ISSUE_MTH 
+	          , DECODE(A.ISSUE_MTH,'A','발급대기','B','발급중','C','발급중지') AS ISSUE_MTH_NM 
+		FROM CPN_INFO A
+		
+		  <where>
+		  	1=1
+		    AND
+		  	TO_CHAR(A.REGIST_DT, 'YYYYMMDD') BETWEEN #{S_START_DATE} AND #{S_END_DATE}    
+		  	AND A.INFLOW_ROUTE_CPN_YN = 'N'
+		  	<if test="ISSUE_CD != null and ISSUE_CD!= ''">
+				AND A.ISSUE_CD = #{ISSUE_CD}
+		  	</if>		  
+		  	<if test="CPN_NM != null and CPN_NM!= ''">
+				AND CPN_NM LIKE '%' || #{CPN_NM} || '%'
+		  	</if>
+		  	<if test="issueMth != null and issueMth != ''">
+		    	AND ISSUE_MTH IN
+		    	<foreach collection="issueMth" item="cd" open="(" close=")" separator=",">
+		  			#{cd}
+		  		</foreach>
+		  	</if>
+		  	
+		  	<if test="cpnGbCd != null and cpnGbCd != ''">
+		  		AND A.CPN_GB_CD IN
+		  		<foreach collection="cpnGbCd" item="cd" open="(" close=")" separator=",">
+		  			#{cd}
+		  		</foreach>
+		  	
+		  	</if>	
+		    AND A.CPN_GRP_CD IN(
+		    	 SELECT CPN_GRP_CD 
+		    	 FROM CPN_USE_CHAN 
+		    	 WHERE 1=1 
+		    	 <if test="cpnUseCd != null and cpnUseCd != ''">
+		    	 AND CPN_CHAN_CD IN
+		    	 <foreach collection="cpnUseCd" item="cd" open="(" close=")" separator=",">
+		  			#{cd}
+		  		 </foreach>
+		  		</if>
+		    )		  	
+		 </where> 
+		  ORDER BY A.REGIST_DT DESC
+	 <include refid="adminCommonMapper.pagingFooter" />	  
+	</select>
+	
+	
+	<select id="selectCpnDtl" parameterType="String" resultType="hashmap">
+	 SELECT TO_CHAR(REGIST_DT, 'YYYY-MM-DD HH24:MI') AS REGIST_DT        
+			,TO_CHAR(UPDT_DT, 'YYYY-MM-DD HH24:MI') AS UPDT_DT            
+			 , DECODE( (SELECT count(*) FROM CPN_USE_CHAN t1 WHERE t1.CPN_GRP_CD = A.CPN_GRP_CD AND CPN_CHAN_CD = '10') , 0 ,NULL, ( SELECT D.COM_CD FROM CODE D WHERE D.GRP_CD = 'CPN_CHAN_CD' AND D.COM_CD = '10')  ) CHAN1 
+	         , DECODE( (SELECT count(*) FROM CPN_USE_CHAN t1 WHERE t1.CPN_GRP_CD = A.CPN_GRP_CD AND CPN_CHAN_CD = '20') , 0 ,NULL, ( SELECT D.COM_CD FROM CODE D WHERE D.GRP_CD = 'CPN_CHAN_CD' AND D.COM_CD = '20')  ) CHAN2
+	         , DECODE( (SELECT count(*) FROM CPN_USE_CHAN t1 WHERE t1.CPN_GRP_CD = A.CPN_GRP_CD AND CPN_CHAN_CD = '30') , 0 ,NULL, ( SELECT D.COM_CD FROM CODE D WHERE D.GRP_CD = 'CPN_CHAN_CD' AND D.COM_CD = '30')  ) CHAN3
+	         , DECODE( (SELECT count(*) FROM CPN_USE_CHAN t1 WHERE t1.CPN_GRP_CD = A.CPN_GRP_CD AND CPN_CHAN_CD = '40') , 0 ,NULL, ( SELECT D.COM_CD FROM CODE D WHERE D.GRP_CD = 'CPN_CHAN_CD' AND D.COM_CD = '40')  ) CHAN4
+			, ( SELECT COUNT(*) FROM MBER_CPN_INFO C WHERE A.CPN_GRP_CD = C.CPN_GRP_CD AND USE_YN = 'Y' ) AS CPN_USE_CNT 
+      		, ( SELECT COUNT(*) FROM MBER_CPN_INFO C WHERE A.CPN_GRP_CD = C.CPN_GRP_CD ) AS CPN_ISSUE_CNT 
+      		,( SELECT D.COM_CD_NM FROM CODE D WHERE D.GRP_CD = 'CPN_GB_CD' AND A.CPN_GB_CD = D.COM_CD ) AS CPN_GRP_CD_NM
+		    ,A.CPN_NM     
+       		,A.CPN_GB_CD 
+			,A.CPN_GRP_CD
+        	,A.TOT_CPN_ISSUE_QTY           
+		    ,A.CERT_CNT  
+         	, TO_CHAR(A.CERT_START_DT, 'YYYY-MM-DD') AS CERT_START_DT  
+        	, TO_CHAR(A.CERT_END_DT, 'YYYY-MM-DD') AS CERT_END_DT  
+		    ,A.DANAL_BURDEN 
+          	,A.MARKET_BURDEN 
+		    ,A.CPN_DTL    		  
+		    ,A.BNFIT_CHK
+		    ,A.BNFIT_DSCNT_PRCE 
+		    ,A.BNFIT_DSCNT_RATE 
+		    ,A.BNFIT_MAX_DSCNT_PRCE 
+		    ,A.PROD_PRCE 
+            ,A.EXP_CHK 
+            , TO_CHAR(A.EXP_START_DT, 'YYYY-MM-DD') AS EXP_START_DT  
+            , TO_CHAR(A.EXP_END_DT, 'YYYY-MM-DD') AS EXP_END_DT  
+            ,A.EXP_DAY 
+            ,A.CPN_USE_CD 
+            ,A.CPN_ISSUE_TGT_GB_CD 
+            ,A.ISSUE_CD 
+              , DECODE(A.ISSUE_CD,'A','전체','지정회원') AS ISSUE_CD_NM 
+            ,A.DUPL_USE_YN 
+            ,A.ISSUE_MTH 
+            , DECODE(A.ISSUE_MTH,'A','발급대기','B','발급중','C','발급중지') AS ISSUE_MTH_NM 
+            ,A.DELY_FREE_CHK
+            ,A.DELY_DSCNT_PRCE
+		FROM CPN_INFO A
+		WHERE CPN_GRP_CD = #{cpnGrpCd}		
+	</select>
+	
+	
+	<select id="selectCpnMarket" parameterType="String" resultType="hashmap">
+		SELECT B.MBER_SEQ
+		      ,E.CMPNY_NM
+		      ,D.MINI_SHOP_NM
+		      ,C.MBER_EMAIL
+		      ,E.SELLER_CD
+		FROM CPN_INFO A, CPN_MARKET_INFO B , MBER_INFO C, MBER_MINI_SHOP_INFO D, SELLER_INFO_CFG E
+		WHERE A.CPN_GRP_CD =#{cpnGrpCd}
+		AND A.CPN_GRP_CD = B.CPN_GRP_CD
+		AND B.MBER_SEQ = C.MBER_SEQ
+		AND B.MBER_SEQ = D.MBER_SEQ
+		AND B.MBER_SEQ = E.MBER_SEQ
+	</select>
+	
+	<select id="selectCpnProd" parameterType="String" resultType="hashmap">
+		
+		SELECT T1.REGIST_DT
+		      ,T2.PROD_CODE	
+		      ,T2.PROD_NM
+		      ,T2.PROD_TYPE_CD
+		      ,T2.SELL_PRCE      
+		      ,T3.MBER_SEQ
+		      ,T3.MBER_EMAIL         
+		      ,(SELECT A.PROD_IMG_URL FROM PROD_IMG A , CODE B WHERE B.GRP_CD = 'PROD_IMG_GB_CD' AND B.COM_CD = '11' AND  A.PROD_IMG_GB_CD = B.COM_CD AND T2.PROD_CODE = A.PROD_CODE  ) AS PROD_IMG_URL    
+		      ,(SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'PROD_TYPE_CD' AND COM_CD = T2.PROD_TYPE_CD) AS PROD_TYPE_CD_NM
+		FROM CPN_USE_PROD T1 ,PROD T2 , MBER_INFO T3
+		WHERE T1.CPN_GRP_CD = #{cpnGrpCd}
+		AND T1.PROD_CODE = T2.PROD_CODE
+		AND T2.MBER_SEQ = T3.MBER_SEQ
+		
+	</select>
+	
+	<select id="selectCpnCtry" parameterType="String" resultType="hashmap">
+		SELECT T2.CTRY_CD
+		      ,T1.STEP1_CD      		     
+	          , DECODE(STEP2_CD, STEP1_CD , '' ,STEP2_CD ) AS STEP2_CD
+	          , DECODE(STEP3_CD, STEP2_CD , '' ,STEP3_CD ) AS STEP3_CD
+		      ,(SELECT CTRY_NM FROM CTRY WHERE CTRY_CD = STEP1_CD) AS STEP1_NM
+		      ,(SELECT CTRY_NM FROM CTRY WHERE CTRY_CD = STEP2_CD) AS STEP2_NM
+		      ,(SELECT CTRY_NM FROM CTRY WHERE CTRY_CD = STEP3_CD) AS STEP3_NM
+		FROM (
+		    SELECT A.CTRY_CD
+         		  , A.CTRY_CD AS STEP3_CD		     
+		          , substr(A.CTRY_CD,1,4)||'000000000000' AS STEP1_CD     
+		          , substr(A.CTRY_CD,1,8)||'00000000' AS STEP2_CD              
+		    FROM CTRY A
+		) T1 , PROD_CPN_CTRY T2
+		WHERE T2.CPN_GRP_CD = #{cpnGrpCd}	 
+		AND T1.CTRY_CD = T2.CTRY_CD
+	</select>
+	
+	<select id="selectCpnPlan" parameterType="String" resultType="hashmap">
+		SELECT A.PLAN_CD
+		      ,B.PLAN_NM
+		FROM CPN_USE_PLAN A , PLAN_INFO B
+		WHERE CPN_GRP_CD = #{cpnGrpCd}
+		AND A.PLAN_CD = B.PLAN_CD
+	</select>
+	
+	<select id="selectPlanList" resultType="hashmap">
+		SELECT PLAN_CD AS TOT_PLAN_CD
+   			 ,PLAN_NM AS TOT_PLAN_NM
+		FROM PLAN_INFO
+		WHERE VIEW_YN = 'Y'
+	</select>
+	
+	
+	<select id="selectMarketList" resultType="hashmap">
+		SELECT A.MBER_SEQ AS TOT_MBER_SEQ
+		      ,D.CMPNY_NM AS TOT_CMPNY_NM
+		      ,B.MINI_SHOP_NM AS TOT_MINI_SHOP_NM
+		      ,A.MBER_EMAIL AS TOT_MBER_EMAIL
+		      ,D.SELLER_CD AS TOT_SELLER_CD
+		FROM  MBER_INFO A, MBER_MINI_SHOP_INFO B, SELLER_INFO_CFG D, CODE E
+		WHERE A.MBER_SEQ = B.MBER_SEQ
+		AND A.MBER_SEQ = D.MBER_SEQ
+		AND E.GRP_CD = 'MBER_REG_GB_CD'
+		AND E.COM_CD = '1'
+		AND A.MBER_REG_GB_CD = E.COM_CD
+	</select>
+	
+	<select id="selectProdCnt" resultType="int">
+		
+		SELECT COUNT(1) AS TOT_PROD_CNT
+		FROM (
+		    SELECT CTRY_CD
+		          , CTRY_CD AS STEP3_CD		     
+		          , substr(CTRY_CD,1,4)||'000000000000' AS STEP1_CD     
+		          , substr(CTRY_CD,1,8)||'00000000' AS STEP2_CD              
+		    FROM CTRY
+		) T1 , PROD T2 , MBER_INFO T3
+		WHERE T1.CTRY_CD = T2.CTRY_CD
+		AND T2.MBER_SEQ = T3.MBER_SEQ 
+	</select> 
+	
+	<select id="selectMarket" parameterType="String" resultType="hashmap" >
+		SELECT A.MBER_SEQ 
+		      ,D.CMPNY_NM 
+		      ,B.MINI_SHOP_NM 
+		      ,A.MBER_EMAIL 
+		      ,D.SELLER_CD 
+		FROM  MBER_INFO A, MBER_MINI_SHOP_INFO B, SELLER_INFO_CFG D, CODE E		
+		WHERE D.CMPNY_NM LIKE '%' || #{cmpnyNm} || '%'
+		AND A.MBER_SEQ = B.MBER_SEQ
+		AND A.MBER_SEQ = D.MBER_SEQ
+		AND E.GRP_CD = 'MBER_REG_GB_CD'
+		AND E.COM_CD = '1'
+		AND A.MBER_REG_GB_CD = E.COM_CD 
+	</select>
+	
+	<select id="selectCpnUseList" parameterType="hashmap" resultType="hashmap">
+	 <include refid="adminCommonMapper.pagingHeader" />
+	 
+	 	SELECT ROW_NUMBER() OVER(ORDER BY B.REGIST_DT DESC ) AS NO 
+		      ,B.MBER_SEQ
+		      ,C.MBER_EMAIL         
+		      ,B.REGIST_DT
+		      ,A.EXP_START_DT
+		      ,A.EXP_END_DT	        
+		      ,B.USE_YN               
+		      ,B.USE_DATE    
+		      ,(SELECT PROD_NM FROM PROD WHERE B.PROD_CODE = PROD_CODE) AS PROD_NM 
+		      ,(SELECT D.PROD_IMG_URL FROM PROD_IMG D ,CODE E WHERE E.GRP_CD = 'PROD_IMG_GB_CD' AND E.COM_CD = '11' AND  D.PROD_IMG_GB_CD = E.COM_CD AND D.PROD_CODE = B.PROD_CODE  ) AS PROD_IMG_URL
+		 FROM CPN_INFO A, MBER_CPN_INFO B ,MBER_INFO C
+		 <where>
+		 	1=1 
+		 	AND	A.CPN_GRP_CD =  #{cpnGrpCd}
+		 	AND A.CPN_GRP_CD = B.CPN_GRP_CD  
+			AND B.MBER_SEQ = C.MBER_SEQ
+			<if test="registDt != null and registDt != ''">
+		  		AND TO_CHAR(B.REGIST_DT, 'YYYYMMDD') = #{registDt}			  		
+		  	</if>
+		  	<if test="mberEmail != null and mberEmail != ''">
+		  		AND C.MBER_EMAIL LIKE '%' || #{mberEmail} || '%'
+		  	</if>	
+		  	<if test="useYn != null and useYn != ''">
+		    	AND B.USE_YN IN
+		    	<foreach collection="useYn" item="cd" open="(" close=")" separator=",">
+		  			#{cd}
+		  		 </foreach>
+		  	</if>	 
+		 </where>	
+		
+		ORDER BY B.REGIST_DT DESC
+	 
+	 <include refid="adminCommonMapper.pagingFooter" />	  
+	</select> 
+	 
+	 
+	 <select id="selectCpnUseListCount"  parameterType="HashMap" resultType="int">
+    	SELECT COUNT(B.MBER_SEQ) AS TOTAL_COUNT 
+		FROM CPN_INFO A, MBER_CPN_INFO B ,MBER_INFO C
+   		<where>
+		 	1=1
+		 	AND	A.CPN_GRP_CD =  #{cpnGrpCd}
+		 	AND A.CPN_GRP_CD = B.CPN_GRP_CD  
+			AND B.MBER_SEQ = C.MBER_SEQ
+			<if test="registDt != null and registDt != ''">
+		  		AND TO_CHAR(B.REGIST_DT, 'YYYYMMDD') = #{registDt}			  		
+		  	</if>
+		  	<if test="mberEmail != null and mberEmail != ''">
+		  		AND C.MBER_EMAIL LIKE '%' || #{mberEmail} || '%'
+		  	</if>	
+		  	<if test="useYn != null and useYn != ''">
+		    	AND B.USE_YN IN
+		    	<foreach collection="useYn" item="cd" open="(" close=")" separator=",">
+		  			#{cd}
+		  		 </foreach>
+		  	</if>	 
+		 </where>
+    </select>
+    
+    
+    <delete id="deleteUse"  parameterType="HashMap" >
+    
+    	DELETE MBER_CPN_INFO
+    	WHERE CPN_GRP_CD = #{cpnGrpCd}	 
+    	<if test="mberSeq != null and mberSeq != ''">
+		 	AND MBER_SEQ IN
+		   	<foreach collection="mberSeq" item="cd" open="(" close=")" separator=",">
+				#{cd}
+			 </foreach>
+		</if>
+    	    
+    </delete>
+    
+    
+    <select id="selectTotUseList"  parameterType="HashMap" resultType="hashmap" >
+      <include refid="adminCommonMapper.pagingHeader" />  	
+    	
+    	SELECT ROW_NUMBER() OVER(ORDER BY A.REGIST_DT DESC ) AS NO
+    		  , A.MBER_SEQ      
+		      , TO_CHAR(A.REGIST_DT, 'YYYY-MM-DD HH24:MI') AS REGIST_DT  
+		      , A.MBER_EMAIL
+		      , A.MBER_GB_CD
+		      , (SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'MBER_GB_CD' AND COM_CD = A.MBER_GB_CD) AS MBER_GB_CD_NM
+		      , A.JOIN_CHAN_CD
+		      , (SELECT COM_CD_NM FROM CODE WHERE GRP_CD ='JOIN_CHAN_CD' AND COM_CD = A.JOIN_CHAN_CD) AS JOIN_CHAN_CD_NM
+		      , NULL AS LAST_ACC_DT
+		FROM MBER_INFO A 
+		<where>
+		  	1=1
+		  	<if test='dateChk == "A"'>
+		  		AND TO_CHAR(A.REGIST_DT, 'YYYYMMDD') BETWEEN #{S_START_DATE} AND #{S_END_DATE}
+		  	</if>	
+		  	<if test='dateChk == "B"'>
+		  		AND TO_CHAR(A.LAST_ACC_DT, 'YYYYMMDD') BETWEEN #{S_START_DATE} AND #{S_END_DATE}
+		  	</if>	
+		  	<if test="mberEmail != null and mberEmail != ''">
+		  		AND A.MBER_EMAIL LIKE '%' || #{mberEmail} || '%'
+		  	</if>	
+		  	<if test="mberGbCd != null and mberGbCd != ''">
+		    	AND A.MBER_GB_CD IN
+		    	<foreach collection="mberGbCd" item="cd" open="(" close=")" separator=",">
+		  			#{cd}
+		  		 </foreach>
+		  	</if>			  
+		  	<if test="joinChal != null and joinChal != ''">
+		    	AND A.JOIN_CHAN_CD IN
+		    	<foreach collection="joinChal" item="cd" open="(" close=")" separator=",">
+		  			#{cd}
+		  		 </foreach>
+		  	</if>		  	
+		</where>  	
+	
+    	
+     <include refid="adminCommonMapper.pagingFooter" />	  	    
+    </select>
+    
+    <select id="selectTotUseListCount"  parameterType="HashMap" resultType="int">
+    	SELECT 
+    		COUNT(A.MBER_SEQ) AS TOTAL_COUNT 
+    	FROM MBER_INFO A
+   		<where>
+		  	1=1
+		  	<if test='dateChk == "A"'>
+		  		AND TO_CHAR(A.REGIST_DT, 'YYYYMMDD') BETWEEN #{S_START_DATE} AND #{S_END_DATE}
+		  	</if>	
+		  	<if test='dateChk == "B"'>
+		  		AND TO_CHAR(A.LAST_ACC_DT, 'YYYYMMDD') BETWEEN #{S_START_DATE} AND #{S_END_DATE}
+		  	</if>	
+		  	<if test="mberEmail != null and mberEmail != ''">
+		  		AND A.MBER_EMAIL LIKE '%' || #{mberEmail} || '%'
+		  	</if>	
+		  	<if test="mberGbCd != null and mberGbCd != ''">
+		    	AND A.MBER_GB_CD IN
+		    	<foreach collection="mberGbCd" item="cd" open="(" close=")" separator=",">
+		  			#{cd}
+		  		 </foreach>
+		  	</if>			  
+		  	<if test="joinChal != null and joinChal != ''">
+		    	AND A.JOIN_CHAN_CD IN
+		    	<foreach collection="joinChal" item="cd" open="(" close=")" separator=",">
+		  			#{cd}
+		  		 </foreach>
+		  	</if>		  	
+		</where>  	
+    </select>
+    
+    <select id="selectCpnUseListAll" parameterType="hashmap" resultType="hashmap">
+	 
+	 	SELECT ROW_NUMBER() OVER(ORDER BY T1.REGIST_DT DESC ) AS NO 
+		      ,T1.MBER_SEQ
+		      ,T1.MBER_EMAIL		     
+		      ,TO_CHAR(T1.REGIST_DT, 'YYYY-MM-DD HH24:MI') AS REGIST_DT  
+		      ,TO_CHAR(T1.EXP_START_DT, 'YYYY-MM-DD') AS EXP_START_DT  		 
+		      ,TO_CHAR(T1.EXP_END_DT, 'YYYY-MM-DD') AS EXP_END_DT  		             		    
+		      ,T1.USE_YN
+		      ,T1.PROD_CODE		      
+		      ,TO_CHAR(T1.USE_DATE, 'YYYY-MM-DD HH24:MI') AS USE_DATE  
+		      ,T1.PROD_IMG_URL
+		      ,T1.PROD_NM
+		FROM(
+		
+		    SELECT B.MBER_SEQ
+		          ,C.MBER_EMAIL		         
+		          ,B.REGIST_DT      
+		          ,A.EXP_START_DT
+		          ,A.EXP_END_DT	        
+		          ,B.USE_YN      
+		          ,D.PROD_CODE           
+		          ,B.USE_DATE    
+		          ,(SELECT F.PROD_IMG_URL FROM PROD_IMG F , CODE G WHERE G.GRP_CD = 'PROD_IMG_GB_CD' AND G.COM_CD = '11' AND  F.PROD_IMG_GB_CD = G.COM_CD AND F.PROD_CODE = B.PROD_CODE  ) AS PROD_IMG_URL
+		          ,D.PROD_NM
+		    FROM CPN_INFO A, MBER_CPN_INFO B, MBER_INFO C,PROD D 
+		    WHERE A.CPN_GRP_CD = B.CPN_GRP_CD
+		    AND A.CPN_GRP_CD =  #{cpnGrpCd}	 
+		    AND B.MBER_SEQ = C.MBER_SEQ
+		    AND B.PROD_CODE = D.PROD_CODE
+		    
+		    UNION 
+		    
+		    SELECT B.MBER_SEQ
+		          ,C.MBER_EMAIL
+		          ,B.REGIST_DT
+		          ,A.EXP_START_DT
+		          ,A.EXP_END_DT	        
+		          ,B.USE_YN      
+		          ,NULL AS PROD_CODE           
+		          ,B.USE_DATE
+		          , NULL AS PROD_IMG_URL
+		          ,NULL AS PROD_NM
+		    FROM CPN_INFO A, MBER_CPN_INFO B, MBER_INFO C
+		    WHERE A.CPN_GRP_CD = B.CPN_GRP_CD
+		    AND A.CPN_GRP_CD =  #{cpnGrpCd}	 
+		    AND B.MBER_SEQ = C.MBER_SEQ
+		    AND B.PROD_CODE IS NULL
+		    
+		)T1
+	  	
+		
+		ORDER BY T1.REGIST_DT DESC
+	 
+	
+	</select> 
+	
+	<select id="selectTotProdList" parameterType="hashmap"  resultType="hashmap">
+		
+		 <include refid="adminCommonMapper.pagingHeader" />
+			SELECT T2.PROD_CODE	
+			      ,T2.PROD_NM
+			      ,T2.PROD_TYPE_CD
+			      ,T2.REGIST_DT
+			      ,T3.MBER_SEQ
+			      ,T3.MBER_EMAIL
+			      ,T1.STEP1_CD  
+			      , DECODE(STEP2_CD, STEP1_CD , '' ,STEP2_CD ) AS STEP2_CD
+			      , DECODE(STEP3_CD, STEP2_CD , '' ,STEP3_CD ) AS STEP3_CD
+			      ,(SELECT CTRY_NM FROM CTRY WHERE CTRY_CD = STEP1_CD) AS STEP1_NM
+			      ,(SELECT CTRY_NM FROM CTRY WHERE CTRY_CD = STEP2_CD) AS STEP2_NM
+			      ,(SELECT CTRY_NM FROM CTRY WHERE CTRY_CD = STEP3_CD) AS STEP3_NM
+			      ,(SELECT A.PROD_IMG_URL FROM PROD_IMG A , CODE B WHERE B.GRP_CD = 'PROD_IMG_GB_CD' AND B.COM_CD = '11' AND  A.PROD_IMG_GB_CD = B.COM_CD AND T2.PROD_CODE = A.PROD_CODE  ) AS PROD_IMG_URL
+			      , ROW_NUMBER() OVER(ORDER BY T2.REGIST_DT DESC ) AS NO 
+			FROM (
+			    SELECT CTRY_CD
+			          , CTRY_CD AS STEP3_CD		     
+			          , substr(CTRY_CD,1,4)||'000000000000' AS STEP1_CD     
+			          , substr(CTRY_CD,1,8)||'00000000' AS STEP2_CD              
+			    FROM CTRY
+			) T1 , PROD T2 , MBER_INFO T3
+			    
+		    <where>  
+		    
+			    1=1  
+			    AND T1.CTRY_CD = T2.CTRY_CD
+				AND T2.MBER_SEQ = T3.MBER_SEQ
+				<if test="prodNm != null and prodNm != ''">
+			  		AND T2.PROD_NM LIKE '%' || #{prodNm} || '%'
+			  	</if>	
+			  	<if test="prodTypeCd != null and prodTypeCd != ''">
+			  		AND T2.PROD_TYPE_CD = #{prodTypeCd} 
+			  	</if>	
+			  	<if test="mberEmail != null and mberEmail != ''">
+			  		AND T3.MBER_EMAIL LIKE '%' || #{mberEmail} || '%'
+			  	</if>	
+			  	<if test="step1Cd != null and step1Cd != ''">
+			  		AND T1.STEP1_CD = #{step1Cd} 
+			  	</if>	
+			  	<if test="step2Cd != null and step2Cd != ''">
+			  		AND T1.STEP2_CD = #{step2Cd} 
+			  	</if>	
+			  	<if test="step3Cd != null and step3Cd != ''">
+			  		AND T1.STEP3_CD = #{step3Cd} 
+			  	</if>	
+			  	
+		    </where>
+		    
+		    ORDER BY T2.REGIST_DT DESC
+		<include refid="adminCommonMapper.pagingFooter" />	  	
+		
+		
+	</select>
+	
+	<select id="selectTotProdListCount" parameterType="hashmap" resultType="int">
+	
+		SELECT COUNT(1)
+		FROM (
+		    SELECT CTRY_CD
+		          , CTRY_CD AS STEP3_CD		     
+		          , substr(CTRY_CD,1,4)||'000000000000' AS STEP1_CD     
+		          , substr(CTRY_CD,1,8)||'00000000' AS STEP2_CD              
+		    FROM CTRY
+		) T1 , PROD T2 , MBER_INFO T3
+		    
+	    <where>  	    
+		    1=1  
+		    AND T1.CTRY_CD = T2.CTRY_CD
+			AND T2.MBER_SEQ = T3.MBER_SEQ
+		    <if test="prodNm != null and prodNm != ''">
+		  		AND T2.PROD_NM LIKE '%' || #{prodNm} || '%'
+		  	</if>	
+		  	<if test="prodTypeCd != null and prodTypeCd != ''">
+		  		AND T2.PROD_TYPE_CD = #{prodTypeCd} 
+		  	</if>	
+		  	<if test="mberEmail != null and mberEmail != ''">
+		  		AND T3.MBER_EMAIL LIKE '%' || #{mberEmail} || '%'
+		  	</if>	
+		  	<if test="step1Cd != null and step1Cd != ''">
+		  		AND T1.STEP1_CD = #{step1Cd} 
+		  	</if>	
+		  	<if test="step2Cd != null and step2Cd != ''">
+		  		AND T1.STEP2_CD = #{step2Cd} 
+		  	</if>	
+		  	<if test="step3Cd != null and step3Cd != ''">
+		  		AND T1.STEP3_CD = #{step3Cd} 
+		  	</if>	
+	  	
+	    </where>
+	
+	</select>
+    
+    
+    <select id="selectChanCode" parameterType="hashmap" resultType="hashmap">
+    
+    	SELECT COM_CD 
+    	FROM CODE 
+    	WHERE GRP_CD = #{cpnChanCd} 
+    
+    </select>
+    
+    <delete id="deleteCpnChan" parameterType="String" >
+    
+    	DELETE  
+    	FROM CPN_USE_CHAN 
+    	WHERE CPN_GRP_CD = #{cpnGrpCd}	 
+    
+    </delete>
+    
+    <insert id="insertCpnChan" parameterType="hashmap">
+    
+    	INSERT INTO CPN_USE_CHAN 
+		(CPN_GRP_CD,CPN_CHAN_CD,REGIST_DT,UPDT_DT)
+		VALUES
+		(#{cpnGrpCd}, #{cpnChanCd} , SYSDATE,SYSDATE)
+    
+    </insert>
+    
+    
+     <delete id="deleteCpnMarket" parameterType="String" >
+    
+    	DELETE  
+    	FROM CPN_MARKET_INFO 
+    	WHERE CPN_GRP_CD = #{cpnGrpCd}	 
+    
+    </delete>
+    
+     <insert id="insertCpnMarket" parameterType="hashmap">
+    
+    	INSERT INTO CPN_MARKET_INFO 
+		(CPN_GRP_CD,MBER_SEQ,REGIST_DT,UPDT_DT)
+		VALUES
+		(#{cpnGrpCd}, #{mberSeq} , SYSDATE,SYSDATE)
+    
+    </insert>
+    
+    <delete id="deleteCpnProd" parameterType="String" >
+    
+    	DELETE  
+    	FROM CPN_USE_PROD 
+    	WHERE CPN_GRP_CD = #{cpnGrpCd}	 
+    
+    </delete>
+    
+    <delete id="deleteCpnCtry" parameterType="String" >
+    
+    	DELETE  
+    	FROM PROD_CPN_CTRY 
+    	WHERE CPN_GRP_CD = #{cpnGrpCd}	 
+    
+    </delete>
+    
+    <delete id="deleteCpnPlan" parameterType="String" >
+    
+    	DELETE  
+    	FROM CPN_USE_PLAN 
+    	WHERE CPN_GRP_CD = #{cpnGrpCd}	 
+    
+    </delete>
+    
+    
+     <insert id="insertCpnProd" parameterType="hashmap">
+    
+    	INSERT INTO CPN_USE_PROD 
+		(CPN_GRP_CD,PROD_CODE,REGIST_DT,UPDT_DT)
+		VALUES
+		(#{cpnGrpCd}, #{prodCode} , SYSDATE,SYSDATE)
+    
+    </insert>
+    
+     <insert id="insertCpnCtry" parameterType="hashmap">
+    
+    	INSERT INTO PROD_CPN_CTRY 
+		(CPN_GRP_CD,CTRY_CD,REGIST_DT,UPDT_DT)
+		VALUES
+		(#{cpnGrpCd}, #{ctryCd} , SYSDATE,SYSDATE)
+    
+    </insert>
+    
+     <insert id="insertCpnPlan" parameterType="hashmap">
+    
+    	INSERT INTO CPN_USE_PLAN 
+		(CPN_GRP_CD,PLAN_CD,REGIST_DT,UPDT_DT)
+		VALUES
+		(#{cpnGrpCd}, #{planCd} , SYSDATE,SYSDATE)
+    
+    </insert>
+    
+    
+    <delete id="deleteCpnMber" parameterType="String" >
+    
+    	DELETE  
+    	FROM MBER_CPN_INFO 
+    	WHERE CPN_GRP_CD = #{cpnGrpCd}	 
+    	AND USE_YN = 'N'
+    
+    </delete>
+    
+      
+     <insert id="insertCpnMber" parameterType="hashmap">
+    
+    	INSERT INTO MBER_CPN_INFO
+		(CPN_GRP_CD, MBER_SEQ, USE_YN, USE_DATE, DOWN_DATE, CPN_NO, REGIST_DT, UPDT_DT,PROD_CODE)
+		VALUES
+		(#{cpnGrpCd}, #{mberSeq}, 'N',NULL,NULL,NULL,SYSDATE,NULL,NULL)
+
+    </insert>
+    
+     <select id="selectCpnMber" parameterType="String" resultType="hashmap">
+    
+    	SELECT MBER_SEQ 
+    	FROM MBER_CPN_INFO 
+    	WHERE CPN_GRP_CD = #{cpnChanCd} 
+    	AND USE_YN = 'Y'
+    
+    </select>
+       
+    <update id="updateCpnInfo" parameterType="hashmap" >
+    	UPDATE CPN_INFO SET
+			    CPN_NM = #{cpnNm} 
+			    ,CPN_DTL =#{cpnDtl}         
+			    ,BNFIT_DSCNT_PRCE= #{bnfitDscntPrce} 
+			    ,BNFIT_DSCNT_RATE= #{bnfitDscntRate} 
+			    ,BNFIT_MAX_DSCNT_PRCE= #{bnfitMaxDscntPrce} 			       
+			    ,EXP_START_DT= DECODE(#{expStartDt} ,'', NULL , NULL , NULL ,TO_DATE(#{expStartDt}  ,'YYYYMMDD') )		
+			    ,EXP_END_DT= DECODE(#{expEndDt} ,'', NULL , NULL , NULL ,TO_DATE(#{expEndDt}  ,'YYYYMMDD') )		
+			    ,EXP_DAY= #{expDay} 
+			    ,CPN_ISSUE_TGT_GB_CD=#{cpnIssueTgtGbCd}     
+			    ,UPDT_DT =SYSDATE
+			    ,CERT_CNT= #{certCnt}			  
+			    ,CERT_START_DT= DECODE(#{certStartDt} ,'', NULL , NULL , NULL ,TO_DATE(#{certStartDt}  ,'YYYYMMDD') )		
+			    ,CERT_END_DT= DECODE(#{certEndDt} ,'', NULL , NULL , NULL ,TO_DATE(#{certEndDt}  ,'YYYYMMDD') )				    	    
+			    ,PROD_PRCE= #{prodPrce} 			   
+			    ,EXP_CHK=#{expChk} 
+			    ,CPN_USE_CD=#{cpnUseCd} 
+			    ,ISSUE_CD=#{issueCd} 
+			    ,DUPL_USE_YN=#{duplUseYn} 
+			    ,DANAL_BURDEN= #{danalBurDen}
+			    ,MARKET_BURDEN= #{marketBurDen}			   
+			    ,BNFIT_CHK=#{bnfitChk} 
+			    ,DELY_FREE_CHK=#{delyFreeChk} 
+			    ,DELY_DSCNT_PRCE=#{delyDscntPrce} 				
+		WHERE CPN_GRP_CD =  #{cpnGrpCd} 
+    </update>
+    
+    
+    <select id="selectCpnUse" parameterType="String" resultType="hashmap">
+    	SELECT MBER_SEQ     
+		FROM MBER_CPN_INFO 
+		WHERE CPN_GRP_CD = #{cpnGrpCd} 
+    </select>
+    
+    
+    <insert id="insertCpnInfo" parameterType="hashmap">
+    
+    
+    	INSERT INTO CPN_INFO
+		(
+			CPN_GRP_CD, CPN_NM, CPN_DTL, BNFIT_DSCNT_PRCE, BNFIT_DSCNT_RATE
+			,BNFIT_MAX_DSCNT_PRCE ,EXP_START_DT ,EXP_END_DT ,EXP_DAY , CPN_ISSUE_TGT_GB_CD
+			,REGIST_DT , CERT_CNT,CERT_START_DT ,CERT_END_DT ,PROD_PRCE
+			,EXP_CHK ,CPN_USE_CD ,ISSUE_CD ,DUPL_USE_YN ,DANAL_BURDEN
+			, MARKET_BURDEN, BNFIT_CHK,DELY_FREE_CHK ,DELY_DSCNT_PRCE ,ISSUE_MTH
+			, CPN_GB_CD , CERT_CPN_CNT , INFLOW_ROUTE_CPN_YN
+		)
+		VALUES
+		(
+			 #{cpnGrpCd} ,#{cpnNm} ,#{cpnDtl}  ,#{bnfitDscntPrce}  ,#{bnfitDscntRate} 
+			,#{bnfitMaxDscntPrce} ,DECODE(#{expStartDt} ,'', NULL , NULL , NULL ,TO_DATE(#{expStartDt}  ,'YYYYMMDD') ) ,DECODE(#{expEndDt} ,'', NULL , NULL , NULL ,TO_DATE(#{expEndDt}  ,'YYYYMMDD') )	 ,#{expDay}  , #{cpnIssueTgtGbCd} 
+			,SYSDATE ,#{certCnt},DECODE(#{certStartDt} ,'', NULL , NULL , NULL ,TO_DATE(#{certStartDt}  ,'YYYYMMDD') ) ,DECODE(#{certEndDt} ,'', NULL , NULL , NULL ,TO_DATE(#{certEndDt}  ,'YYYYMMDD') ) ,#{prodPrce} 
+			,#{expChk} ,#{cpnUseCd} ,#{issueCd} ,#{duplUseYn} ,#{danalBurDen}
+			,#{marketBurDen} ,#{bnfitChk} ,#{delyFreeChk} ,#{delyDscntPrce} ,'10' 
+			, #{cpnGbCd} ,#{certCpnCnt} , #{inflowRouteCpnYn}
+		)
+
+    </insert>
+    
+    <select id="selectPrintCpnNo" parameterType="String" resultType="String">
+    	SELECT CPN_NO     
+		FROM PRINT_CPN_INFO 
+    </select>
+    
+    
+    
+    <insert id="insertCpnPrint" parameterType="hashmap">
+    
+    	INSERT INTO PRINT_CPN_INFO
+		(CPN_NO, CPN_GRP_CD, REGIST_DT, UPDT_DT)
+		VALUES
+		(
+			#{cpnNo}, #{cpnGrpCd} ,SYSDATE ,NULL
+		)
+
+    </insert>
+    
+    <select id="selectPrintCpnNoList" parameterType="hashmap" resultType="hashmap">
+    	<include refid="adminCommonMapper.pagingHeader" />
+    	 
+    	 	SELECT CPN_NO 
+    	 		,ROW_NUMBER() OVER(ORDER BY REGIST_DT DESC ) AS NO 
+			FROM PRINT_CPN_INFO 
+			<where>
+		  	1=1
+		  	AND CPN_GRP_CD =  #{CPN_GRP_CD} 
+		    <if test="CPN_NO != null and CPN_NO!= ''">
+				AND CPN_NO LIKE '%' || #{CPN_NO} || '%'
+		  	</if>
+		    </where>
+    	 
+    	<include refid="adminCommonMapper.pagingFooter" />
+    </select>
+    
+    
+    <select id="selectPrintCpnNoCount" parameterType="hashmap" resultType="int">
+    	
+   	 
+   	 	SELECT COUNT(1) AS TOTAL_COUNT    	 	
+		FROM PRINT_CPN_INFO 
+		<where>
+	  	1=1
+	  	AND CPN_GRP_CD =  #{CPN_GRP_CD} 
+	    <if test="CPN_NO != null and CPN_NO!= ''">
+			AND CPN_NO LIKE '%' || #{CPN_NO} || '%'
+	  	</if>
+	    </where>
+   	     	
+    </select>
+    
+     <select id="selectPrintCpnNoAll" parameterType="hashmap" resultType="hashmap">
+    	
+   	 
+   	 	SELECT CPN_NO 	
+   	 		,ROW_NUMBER() OVER(ORDER BY REGIST_DT DESC ) AS NO 
+		FROM PRINT_CPN_INFO 
+		WHERE
+	  	CPN_GRP_CD =  #{CPN_GRP_CD} 	   
+   	     	
+    </select>
+    
+    
+    <update id="updateCpnIssueMth" parameterType="hashmap" >
+    	UPDATE CPN_INFO SET
+			    ISSUE_MTH = #{issueMth}
+			    <if test='issueMth == "20"'>
+			    ,ISSUE_DT= SYSDATE
+			    </if> 			    
+			    ,UPDT_DT= SYSDATE			  			
+		WHERE CPN_GRP_CD =  #{cpnGrpCd} 
+    </update>
+    
+    
+     <select id="selectCpnSeq" resultType="String">
+    	SELECT TO_CHAR(SYSDATE, 'YYYYMMDD')||LPAD(SEQ_CPN_INFO.NEXTVAL,8,0) AS CPN_GRP_CD	
+    	FROM DUAL
+   	 </select>
+   	 
+   	 
+	<insert id="insertInflowRouteInfo" parameterType="hashmap">
+		INSERT INTO INFLOW_ROUTE_INFO
+		(INFLOW_ROUTE_CD, CPN_GRP_CD, INFLOW_ROUTE_GB_CD, REGIST_DT, UPDT_DT , INFLOW_ROUTE_NM, INFLOW_ROUTE_URL, INFLOW_ROUTE_USE_YN, INFLOW_ROUTE_URL_MATCH)
+		VALUES
+		(
+		TO_CHAR(SYSDATE, 'YYYYMMDD')||LPAD(SEQ_INFLOW_ROUTE.NEXTVAL,8,0)
+		,#{cpnGrpCd}		
+		,#{inflowRouteGbCd}		
+		,SYSDATE
+		,NULL
+		,#{inflowRouteNm}		
+		,#{inflowRouteUrl}		
+		,'N'
+		,#{inflowRouteUrlMatch}		
+		)
+	</insert>   	 
+	
+	
+	<select id="selectInflowRouteInfo" parameterType="hashmap" resultType="hashmap">
+	 <include refid="adminCommonMapper.pagingHeader" />
+	 
+	 	SELECT A.BNFIT_CHK
+		      ,A.BNFIT_DSCNT_PRCE
+		      ,A.BNFIT_DSCNT_RATE
+		      ,A.BNFIT_MAX_DSCNT_PRCE
+		      ,A.PROD_PRCE		     
+		      , TO_CHAR(A.EXP_START_DT, 'YYYY-MM-DD') AS EXP_START_DT  
+              , TO_CHAR(A.EXP_END_DT, 'YYYY-MM-DD') AS EXP_END_DT  
+		      ,A.EXP_DAY
+		      ,A.CPN_GRP_CD
+		      ,TO_CHAR(A.REGIST_DT, 'YYYY-MM-DD HH24:MI') AS REGIST_DT 
+		      ,B.INFLOW_ROUTE_NM
+		      ,B.INFLOW_ROUTE_URL
+		      ,B.INFLOW_ROUTE_USE_YN
+		      , ROW_NUMBER() OVER(ORDER BY A.REGIST_DT DESC ) AS NO
+		FROM CPN_INFO A, INFLOW_ROUTE_INFO B
+		<where>
+	    	1=1
+	        AND
+	        A.CPN_GRP_CD = B.CPN_GRP_CD
+	        <if test='dateChk == "A"'>
+				AND TO_CHAR(A.REGIST_DT, 'YYYYMMDD') BETWEEN #{S_START_DATE} AND #{S_END_DATE}
+			</if>	
+			<if test='dateChk == "B"'>
+				AND TO_CHAR(A.EXP_START_DT, 'YYYYMMDD') = #{S_START_DATE}
+				AND TO_CHAR(A.EXP_END_DT, 'YYYYMMDD') = #{S_END_DATE}
+			</if>
+			<if test='inflowRouteSerchCd == "10"'>
+				<if test="serchNm != null and serchNm != ''">
+		  			AND B.INFLOW_ROUTE_NM LIKE '%' || #{serchNm} || '%'
+		  		</if>					
+			</if>	
+			<if test='inflowRouteSerchCd == "20"'>
+				<if test="serchNm != null and serchNm != ''">
+		  			AND B.INFLOW_ROUTE_NM LIKE '%' || #{serchNm} || '%'
+		  		</if>	
+			</if>	
+			<if test="inflowRouteUseYn != null and inflowRouteUseYn != ''">
+				AND B.INFLOW_ROUTE_USE_YN IN
+				<foreach collection="inflowRouteUseYn" item="cd" open="(" close=")" separator=",">
+					#{cd}
+				</foreach>
+			</if>	
+		</where>
+	
+		 ORDER BY A.REGIST_DT DESC
+	 
+	 <include refid="adminCommonMapper.pagingFooter" />	  
+	</select> 
+	 
+	 
+	 <select id="selectInflowRouteInfoCount" parameterType="hashmap" resultType="int">
+	 
+	 	SELECT COUNT(1)
+		FROM CPN_INFO A, INFLOW_ROUTE_INFO B
+		<where>
+	    	1=1
+	        AND
+	        A.CPN_GRP_CD = B.CPN_GRP_CD
+	        <if test='dateChk == "A"'>
+				AND TO_CHAR(A.REGIST_DT, 'YYYYMMDD') BETWEEN #{S_START_DATE} AND #{S_END_DATE}
+			</if>	
+			<if test='dateChk == "B"'>
+				AND TO_CHAR(A.EXP_START_DT, 'YYYYMMDD') = #{S_START_DATE}
+				AND TO_CHAR(A.EXP_END_DT, 'YYYYMMDD') = #{S_END_DATE}
+			</if>
+			<if test='inflowRouteSerchCd == "10"'>
+				<if test="serchNm != null and serchNm != ''">
+		  			AND B.INFLOW_ROUTE_NM LIKE '%' || #{serchNm} || '%'
+		  		</if>	
+			</if>	
+			<if test='inflowRouteSerchCd == "20"'>
+				<if test="serchNm != null and serchNm != ''">
+		  			AND B.INFLOW_ROUTE_NM LIKE '%' || #{serchNm} || '%'
+		  		</if>	
+			</if>	
+			<if test="inflowRouteUseYn != null and inflowRouteUseYn != ''">
+				AND B.INFLOW_ROUTE_USE_YN IN
+				<foreach collection="inflowRouteUseYn" item="cd" open="(" close=")" separator=",">
+					#{cd}
+				</foreach>
+			</if>	
+		</where>
+	 
+	 </select>
+	 
+	 
+	 <select id="selectInflowRouteDtl" parameterType="String" resultType="hashmap">
+	 
+	 	SELECT A.BNFIT_CHK
+		      ,A.BNFIT_DSCNT_PRCE
+		      ,A.BNFIT_DSCNT_RATE
+		      ,A.BNFIT_MAX_DSCNT_PRCE
+		      ,A.PROD_PRCE		     
+		      , TO_CHAR(A.EXP_START_DT, 'YYYY-MM-DD') AS EXP_START_DT  
+		      , TO_CHAR(A.EXP_END_DT, 'YYYY-MM-DD') AS EXP_END_DT  
+		      ,A.EXP_DAY
+		      ,A.CPN_GRP_CD
+		      ,TO_CHAR(A.REGIST_DT, 'YYYY-MM-DD HH24:MI') AS REGIST_DT 
+		      ,TO_CHAR(A.UPDT_DT, 'YYYY-MM-DD HH24:MI') AS UPDT_DT 
+		      ,B.INFLOW_ROUTE_NM
+		      ,B.INFLOW_ROUTE_URL
+		      ,B.INFLOW_ROUTE_USE_YN
+		      ,B.INFLOW_ROUTE_URL_MATCH
+		      ,A.DUPL_USE_YN
+		      ,A.CPN_ISSUE_TGT_GB_CD
+		      ,A.CPN_USE_CD
+		      , DECODE( (SELECT count(*) FROM CPN_USE_CHAN t1 WHERE t1.CPN_GRP_CD = A.CPN_GRP_CD AND CPN_CHAN_CD = '10') , 0 ,NULL, ( SELECT D.COM_CD FROM CODE D WHERE D.GRP_CD = 'CPN_CHAN_CD' AND D.COM_CD = '10')  ) CHAN1 
+		      , DECODE( (SELECT count(*) FROM CPN_USE_CHAN t1 WHERE t1.CPN_GRP_CD = A.CPN_GRP_CD AND CPN_CHAN_CD = '20') , 0 ,NULL, ( SELECT D.COM_CD FROM CODE D WHERE D.GRP_CD = 'CPN_CHAN_CD' AND D.COM_CD = '20')  ) CHAN2
+		      , DECODE( (SELECT count(*) FROM CPN_USE_CHAN t1 WHERE t1.CPN_GRP_CD = A.CPN_GRP_CD AND CPN_CHAN_CD = '30') , 0 ,NULL, ( SELECT D.COM_CD FROM CODE D WHERE D.GRP_CD = 'CPN_CHAN_CD' AND D.COM_CD = '30')  ) CHAN3
+		      , DECODE( (SELECT count(*) FROM CPN_USE_CHAN t1 WHERE t1.CPN_GRP_CD = A.CPN_GRP_CD AND CPN_CHAN_CD = '40') , 0 ,NULL, ( SELECT D.COM_CD FROM CODE D WHERE D.GRP_CD = 'CPN_CHAN_CD' AND D.COM_CD = '40')  ) CHAN4
+		FROM CPN_INFO A, INFLOW_ROUTE_INFO B
+		WHERE A.CPN_GRP_CD = #{cpnGrpCd}		
+		AND A.CPN_GRP_CD = B.CPN_GRP_CD
+	 
+	 </select>
+	 
+	 
+	 <update id="updateCpnInfoUrl" parameterType="hashmap" >
+	 
+	 	UPDATE CPN_INFO SET 
+		        UPDT_DT = sysdate
+		        ,BNFIT_CHK = #{bnfitChk}        
+		        ,BNFIT_DSCNT_PRCE = #{bnfitDscntPrce}        		     
+		        ,BNFIT_DSCNT_RATE = #{bnfitDscntRate}        
+		        ,BNFIT_MAX_DSCNT_PRCE = #{bnfitMaxDscntPrce}        
+		        ,PROD_PRCE = #{prodPrce}        
+		        ,EXP_START_DT= DECODE(#{expStartDt} ,'', NULL , NULL , NULL ,TO_DATE(#{expStartDt}  ,'YYYYMMDD') )		
+				,EXP_END_DT= DECODE(#{expEndDt} ,'', NULL , NULL , NULL ,TO_DATE(#{expEndDt}  ,'YYYYMMDD') )	      
+		        ,CPN_USE_CD = #{cpnUseCd}        
+		        ,CPN_ISSUE_TGT_GB_CD = #{cpnIssueTgtGbCd}     		         
+		        ,DUPL_USE_YN = #{duplUseYn}        
+		WHERE  CPN_GRP_CD =  #{cpnGrpCd}  
+	 
+	 </update>
+	 
+	 
+	 <update id="updateInflowRoute" parameterType="hashmap" >
+	 
+	 	UPDATE INFLOW_ROUTE_INFO SET
+		        UPDT_DT = sysdate    
+		        ,INFLOW_ROUTE_USE_YN = #{inflowRouteUseYn}        
+		WHERE  CPN_GRP_CD =  #{cpnGrpCd}
+	 
+	 </update>
+	 
+	 <delete id="deleteCpnInfoUrl" parameterType="String" >
+	 
+	 	DELETE CPN_INFO 
+	 	WHERE CPN_GRP_CD = #{cpnGrpCd}     
+	 	
+	 </delete>
+	 
+	 <delete id="deleteInflowRouteInfo" parameterType="String" >
+	 
+	 	DELETE INFLOW_ROUTE_INFO 
+	 	WHERE CPN_GRP_CD = #{cpnGrpCd}     
+	 	
+	 </delete>
+	 
+    
+	 
+
+</mapper>

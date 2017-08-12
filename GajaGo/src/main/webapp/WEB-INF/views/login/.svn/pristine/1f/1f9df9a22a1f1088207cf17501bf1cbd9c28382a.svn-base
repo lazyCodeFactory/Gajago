@@ -1,0 +1,816 @@
+var MBER_EMAIL = "";
+var MBER_PASS = "";
+var SNS_INIT = "";
+var SNS_MBER_ID = "";
+var MBER_AUTO_LOGIN = false;
+var MBER_ID_SAVE = false;
+
+// 모바일 메인 페이지 URL이 중복되어 있어 전역 변수로 선언함.(WOOK.KIM)
+var MAIN_URL = "/mobile/main/main.do";
+var SELL_URL = "/mobile/join/sellTermsView.do";
+var SERIAL_KEY = "";
+var fbAppId = Const.FACEBOOK_APP_ID;
+var kkoAppId = Const.KAKAOTALK_APP_ID;
+var OS_GUBUN = "";
+var APP_VERSION = "";
+$(document).ready(function() {
+	
+	// 공통 HEADER SETTING
+	header.type = 6;
+	header.title = "로그인";
+	header.backUrl = MAIN_URL;
+	header.method = "GET";
+	initHeader();
+	// 공통 FOOTER SETTING
+	displayFooter(false);
+	// APP TITLE
+	document.title = "로그인";
+
+	// 하단 layer 삭제
+	if ('${sessionScope.APP}' == 'SSOCIO') {
+		document.location.replace('ssocio://web/hideDetailBottomView');
+	}
+
+	if ($.cookie("MBER_ID_SAVE") == 'true') {
+		$("#MBER_EMAIL").val($.cookie('MBER_ID'));
+		$("input:checkbox[name=id_save]").prop("checked", "checked");
+	}
+
+	// 자동로그인 체크 시 자동로그인 처리
+	if ($.cookie("MBER_AUTO_LOGIN") == 'true') {
+		$("#MBER_EMAIL").val($.cookie('MBER_EMAIL'));
+		$("#MBER_PASS").val($.cookie('MBER_PASS'));
+		$("input:checkbox[name=autologin]").prop("checked", "checked");
+		isLogin();
+	}
+	
+	
+	$("#MBER_EMAIL").keypress(function (evt) {
+        if (evt.keyCode == 13) {
+           evt.returnValue = false;
+           evt.preventDefault();
+           return false;
+        }
+     });
+	
+	$("#MBER_PASS").keypress(function (evt) {
+        if (evt.keyCode == 13) {
+           evt.returnValue = false;
+           evt.preventDefault();
+           return false;
+        }
+     });
+
+	
+	
+	
+	
+	
+});
+/****************************************************************
+ * 엔터 검색
+ ****************************************************************/
+//enterReturnKey = function(e) {
+//	if(e.keyCode==13 && e.srcElement.type != 'textarea') {
+//		isLogin();
+//	}
+//};
+
+/*
+ * ======================================================================
+ * Function : 로그인 Return : 없음
+ * ======================================================================
+ */
+function isLogin(call, initType, retUrl) {
+	this.MBER_EMAIL = $("#MBER_EMAIL").val();
+	this.MBER_PASS = $("#MBER_PASS").val();
+	
+	if (!emailValid(this.MBER_EMAIL)) return false;
+
+	if (this.MBER_PASS == "") {
+		alert("비밀번호를 입력해주세요.");
+		$("#MBER_PASS").focus();
+		return;
+	}
+
+	if (retUrl == undefined) {
+		retUrl = "";
+	}
+	
+	$.ajax({
+		type: 'post'
+		, async: true
+		, url: '/mobile/common/selectUseStat.do'
+		, dataType:'json'
+		, data: {"MBER_EMAIL":MBER_EMAIL}
+		, success: function(data) {
+			  // 이용정지 회원
+			if(data.result > 0){
+				$("#frmLogon").attr("action", "/mobile/main/selectMainNotice.do").submit();
+			}else{
+				callbackIsLogin(call, initType, retUrl);
+			}
+		}
+		, error : function(request, status, error) {
+			alert('서버와의 통신이 실패했습니다.');
+			return;
+		}
+	}); 
+}
+
+//	response.data or ERR	
+function callbackIsLogin(call, initType, retUrl){
+	this.MBER_EMAIL = $("#MBER_EMAIL").val();
+	this.MBER_PASS = $("#MBER_PASS").val();
+	this.MBER_AUTO_LOGIN = $("input:checkbox[name=autologin]").is(":checked");
+	this.MBER_ID_SAVE = $("input:checkbox[name=id_save]").is(":checked");
+	$.ajax({
+		type : 'post',
+		async : true,
+		url : '/mobile/common/setLogin.do',
+		data : $("#frmLogon").serialize(),
+		success : function(data) {
+			if (data.FAIL_CNT > 4) {
+				alert("고객님께서는 사용자 암호 5회 입력 오류가 등록 되었습니다.\n비밀번호 찾기를 통하여 비밀번호를 재발급 받으시기 바랍니다.");
+				return false;
+			} else if (data.result) {
+//				alert("OS :"+data.OS_GUBUN );
+//				alert("APP_VERSION :"+data.APP_VERSION);
+				
+				if (data.MBER_STAT_CD == '99') {
+					alert("탈퇴한 아이디로 로그인 불가합니다.");
+					return;
+				} 
+				// 이메일 인증
+				if (data.MBER_STAT_CD == "40") {
+					$('.pbox_03 .tc strong').text($('#MBER_EMAIL').val());
+					// 안드로이드에서 UI 깨짐 현상이 발생 하여. 0.5초 후 팝업이 발생 하도록 수정
+					setTimeout(function(){
+						$('.email_conf').show();popup_show();
+					}, 500);
+					return;
+				} else if (data.MBER_STAT_CD == '99') {
+					alert("입력하신 정보와 일치하는 아이디가 없습니다.");
+					return;
+				} else if (data.MBER_STAT_CD == '20' || data.MBER_STAT_CD == '22') {
+					alert("회원님께서 가입하신 아이디는 관리자에 의해서 판매회원 가입이 거절 되었습니다.");
+					return;
+				}  else if (data.FAIL_CNT > 4) {
+					alert("고객님께서는 사용자 암호 5회 입력 오류가 등록 되었습니다.\n비밀번호 찾기를 통하여 비밀번호를 재발급 받으시기 바랍니다.");
+					return ;
+				}  else if (data.MBER_STAT_CD == '') {
+					alert("재가입 후 진행해주세요.");
+					return;
+				}
+				
+				var autologin = $("input:checkbox[name=autologin]").is(":checked");
+				var saveId = $("input:checkbox[name=id_save]").is(":checked");
+				
+				// 쿠폰정보 update
+				getCpnInfo();
+				
+				// mobile web에서 들어왔는지 App에서 들어왔는지 확인
+				if (initType == 'SSOCIO') {
+					OS_GUBUN = data.OS_GUBUN;
+					APP_VERSION = data.APP_VERSION;
+						
+					if (data.MBER_STAT_CD == "10") {
+						SERIAL_KEY = data.SERIAL_KEY;
+					} else {
+						SERIAL_KEY = "";
+					}
+					
+					//아이디 저장
+					if (saveId) {
+						setIdCookie('MBER_ID', 'MBER_ID_SAVE');
+					} else {
+						removeIdCookie('MBER_ID', 'MBER_ID_SAVE');
+					}
+					
+					//serial_key : APP 에서 자동로그인일 경우 여부 사용
+					if (autologin) {
+						setCookie('MBER_EMAIL', 'MBER_PASS', '');
+//						joinEvtPage("APP", "Y", SERIAL_KEY);
+						joinEvtPage("APP", "Y", SERIAL_KEY, OS_GUBUN, APP_VERSION, call);
+					} else {
+//						alert(OS_GUBUN);
+//						alert(APP_VERSION);
+						removeCookie('MBER_EMAIL', 'MBER_PASS', 'MBER_AUTO_LOGIN');
+//						joinEvtPage("APP", "N", SERIAL_KEY);
+						joinEvtPage("APP", "N", SERIAL_KEY, OS_GUBUN, APP_VERSION, call);
+					}
+					
+					
+				} else {
+					
+					
+					if (autologin) {
+						setCookie('MBER_EMAIL', 'MBER_PASS', 'MBER_AUTO_LOGIN');
+					} else {
+						removeCookie('MBER_EMAIL', 'MBER_PASS', 'MBER_AUTO_LOGIN');
+					}
+
+					if (saveId) {
+						setIdCookie('MBER_ID', 'MBER_ID_SAVE');
+					} else {
+						removeIdCookie('MBER_ID', 'MBER_ID_SAVE');
+					}
+					if (call == 1) {
+						if (sellerCheck(call)) {
+							if (cmpnyCheck()) {
+								
+								$("#frmLogon").attr("action", "/mobile/join/sellTermsView.do").submit();
+							} else {
+								alert("사업자 판매자 전환은 모바일에서 불가능합니다.");
+								location.replace(MAIN_URL);
+							}
+						} else {
+							alert("이미 판매회원으로 등록된 계정입니다.");
+							location.replace(MAIN_URL);
+						}
+						
+					} else { // 로그인 후 return Url로 이동
+						if (retUrl == "") {
+							
+							joinEvtPage();
+//							location.href = MAIN_URL;
+						} else {
+							if (retUrl.substring(0, 7) == "http://") { //URL이 정상적이지 않을 경우. 페이지 이동 막기
+								alert("비정상적인 접근입니다.");
+								return;
+							} else {
+								
+								location.replace(retUrl);
+								
+							}
+						}
+					}
+				}
+			}  else {
+				removeCookie('MBER_EMAIL', 'MBER_PASS', 'MBER_AUTO_LOGIN');
+				$("#MBER_PASS").val("");
+				$("#MBER_PASS").focus();
+				alert("존재하지 않는 아이디이거나\n비밀번호가 틀립니다.");
+			}
+		},
+		error : function(data, status, err) {
+			alert('서버와의 통신이 실패했습니다.');
+		}
+	});
+}
+
+/*
+ * ======================================================================
+ * Function : facebook 로그인 Return : 없음
+ * =========================================================================
+ */
+function statusChangeCallback(response, retUrl) {
+	// 페이스북 로그인 여부 체크
+	if (response.status === 'connected') { //페이스북 로그인
+		facebooklogin();
+	} else if (response.status === 'not_authorized') {
+		// The person is logged into Facebook, but not your app.
+		FB.login(function(response) {
+			if ( response.status == 'connected' ) {
+				facebooklogin();
+			}
+		});
+	} else { //페이스북 미로그인
+		// Facebook login popup
+		FB.login(function(response) {
+			
+			//facebook connected 
+			if( response.status === 'connected' ) {
+				facebooklogin()
+			} else {
+				//alert("페이스북 로그인에 실패하였습니다.");
+			}
+			
+		}, {scope : 'email'});
+	}
+}
+
+/*
+ * ======================================================================
+ * Function : facebook 로그인 상태 체크 Return : 없음
+ * =========================================================================
+ */
+function checkLoginState(code, retUrl) {
+	if (code == 'SSOCIO') {
+		document.location.replace("ssocio://web/facebookVerify?{\"callback\":\"appFacebookLogin\"}");
+	} else {
+		FB.getLoginStatus(function(response) {
+			statusChangeCallback(response, retUrl);
+		});
+	}
+}
+
+window.fbAsyncInit = function() {
+	FB.init({
+		appId : fbAppId,
+		status : true,
+		cookie : true, // enable cookies to allow the server to access
+		xfbml : true, // parse social plugins on this page
+		version : 'v2.5', // use version 2.2
+		oauth : true
+	});
+};
+
+// Load the SDK asynchronously
+//(function(d, s, id) {
+//	var js, fjs = d.getElementsByTagName(s)[0];
+//	if (d.getElementById(id))
+//		return;
+//	js = d.createElement(s);
+//	js.id = id;
+//	js.src = "//connect.facebook.net/ko_KR/all.js";
+//	fjs.parentNode.insertBefore(js, fjs);
+//}(document, 'script', 'facebook-jssdk'));
+
+function facebooklogin() {
+	//Facebook login api (email, name)
+	FB.api('/me?fields=name, email, picture', function(response) {
+
+//		$("input:checkbox[id=autologin]").removeAttr("checked");
+		this.MBER_EMAIL = "";
+		this.MBER_PASS = "";
+		
+		$("#fbEmail").val(response.email);
+		$("#MBER_NICK").val(response.name);
+		$("#SSO_MBER_ID").val(response.id);
+//		$("#PROFILE_IMAGE").val(encodeURIComponent(response.picture.data.url));
+		ajaxFacebook();
+		
+	}, {scope : 'email'});
+}
+
+function ajaxFacebook(){
+	
+	this.SNS_MBER_ID = $("#SSO_MBER_ID").val();
+	this.SNS_INIT = "FBO";
+	
+	$.ajax({
+		type : 'post',
+		async : true,
+		url : '/mobile/common/setFacebookLogin.do',
+		data : $("#frmLogon").serialize(),
+		success : function(data) {
+
+			if (data.MBER_STAT_CD == '99') {
+				alert("입력하신 정보와 일치하는 아이디가 없습니다.");
+				return;
+			} else if (data.MBER_STAT_CD == '20' || data.MBER_STAT_CD == '22') {
+				alert("회원님께서 가입하신 아이디는 관리자에 의해서 판매회원 가입이 거절 되었습니다.");
+				return;
+			} else if (data.MBER_STAT_CD == '30') {
+				 $("#frmLogon").attr("action", "/mobile/main/selectMainNotice.do").submit();
+			} else if (data.MBER_STAT_CD == '') {
+				alert("재가입 후 진행해주세요.");
+				return;
+			}
+			
+			var autologin = $("input:checkbox[name=autologin]").is(":checked");
+			
+			if (data.result) {
+				if (data.MBER_STAT_CD == "10") {
+					SERIAL_KEY = data.SERIAL_KEY;
+				} else {
+					SERIAL_KEY = "";
+				}
+				MBER_AUTO_LOGIN = autologin;
+				
+				if (autologin) {
+					setSnsCookie('SNS_INIT', 'SNS_MBER_ID', 'MBER_AUTO_LOGIN');
+				} else {
+					removeSnsCookie('SNS_INIT', 'SNS_MBER_ID', 'MBER_AUTO_LOGIN')
+				}
+//				removeCookie('MBER_EMAIL', 'MBER_PASS', 'MBER_AUTO_LOGIN');
+//				document.location.replace('ssocio://web/notautologin?serial_key='+ SERIAL_KEY);
+//				joinEvtPage("WEB");
+				location.replace(MAIN_URL);
+			} else {
+				alert("회원가입이 필요 합니다.");
+				$('#SSO_GB_CD').val("FBO");		// 카카오톡
+				$('#MBER_GB_CD').val("0");		// 개인가입
+				$('#MBER_REG_GB_CD').val("0");	// 구매가입
+				$('#AGR_GB_CD1').val("01");		// 구매가입
+				$('#AGR_GB_CD2').val("03");		// 공통구매가입
+				var url = "/mobile/join/termsView.do";
+				frmLogon.action = url;
+				frmLogon.submit();
+			}
+		},
+		error : function(data, status, err) {
+			alert('서버와의 통신이 실패했습니다.');
+		}
+	});
+}
+
+//APP 페이스북 요청시.
+function appFacebookLogin(str) {
+	
+//	$("input:checkbox[id=autologin]").removeAttr("checked");
+	var callbackData = JSON.parse(str);
+	this.MBER_EMAIL = "";
+	this.MBER_PASS = "";
+	$("#fbEmail").val(callbackData.email);
+	$("#SSO_MBER_ID").val(callbackData.id);
+	$("#MBER_NICK").val( encodeURIComponent(callbackData.name));
+	$.ajax({
+		type : 'post',
+		async : true,
+		url : '/mobile/common/setFacebookLogin.do',
+		data : $("#frmLogon").serialize(),
+		success : function(data) {
+			
+			var autologin = $("input:checkbox[name=autologin]").is(":checked");
+			
+			if (data.result) {
+				if (data.MBER_STAT_CD == "10") {
+					SERIAL_KEY = data.SERIAL_KEY;
+					MBER_AUTO_LOGIN = autologin;
+				} else {
+					SERIAL_KEY = "";
+				}
+				
+				if (autologin) {
+					setSnsCookie('SNS_INIT', 'SNS_MBER_ID', '');
+					document.location.replace('ssocio://web/autologin?serial_key='+ SERIAL_KEY);
+//					joinEvtPage("APP", "Y", SERIAL_KEY);
+				} else {
+					removeSnsCookie('SNS_INIT', 'SNS_MBER_ID', 'MBER_AUTO_LOGIN');
+					document.location.replace('ssocio://web/notautologin?serial_key='+ SERIAL_KEY);
+//					joinEvtPage("APP", "N", SERIAL_KEY);
+				}
+				
+//				removeCookie('MBER_EMAIL', 'MBER_PASS', 'MBER_AUTO_LOGIN');
+//				document.location.replace('ssocio://web/notautologin?serial_key=' + SERIAL_KEY);
+			} else {
+				alert("회원가입이 필요 합니다.");
+				$('#SSO_GB_CD').val("FBO");		// 카카오톡
+				$('#MBER_GB_CD').val("0");		// 개인가입
+				$('#MBER_REG_GB_CD').val("0");	// 구매가입
+				$('#AGR_GB_CD1').val("01");		// 구매가입
+				$('#AGR_GB_CD2').val("03");		// 공통구매가입
+				var url = "/mobile/join/termsView.do";
+				frmLogon.action = url;
+				frmLogon.submit();
+			}
+		},
+		error : function(data, status, err) {
+			alert('서버와의 통신이 실패했습니다.');
+		}
+	});
+}
+
+function sellerCheck(callVal) {
+
+	var call = callVal;
+	var bool = false;
+	$.ajax({
+		type : 'post',
+		async : false,
+		url : '/mobile/join/sellerCheck.do',
+		dataType : 'json',
+		data : {
+			"call" : call
+		},
+		before : function() {
+			// loadingForm.showDialog();
+		},
+		success : function(data) {
+//			if (Number(data.result) > 1) {
+			if (Number(data.result.selectSellerChek) > 0) {
+				bool = false;
+			} else {
+				bool = true;
+			}
+			
+		},
+		complete : function() {
+			// loadingForm.hideDialog();
+		},
+		error : function(request, status, error) {
+			alert("통신 오류가 발생 하였습니다. 잠시 후 다시 시도해 주세요");
+		}
+	});
+	return bool;
+}
+
+function cmpnyCheck() {
+
+	var call = "1";
+	var bool = false;
+
+	$.ajax({
+		type : 'post',
+		async : false,
+		url : '/mobile/join/cmpnyCheck.do',
+		dataType : 'json',
+		data : {
+			"call" : call
+		},
+		before : function() {
+			// loadingForm.showDialog();
+		},
+		success : function(data) {
+
+			if (Number(data.result.selectSellerChek) > 0) {
+//			if (Number(data.result) > 1) {
+				bool = false;
+			} else {
+				bool = true;
+			}
+		},
+		complete : function() {
+			// loadingForm.hideDialog();
+		},
+		error : function(request, status, error) {
+			lert("통신 오류가 발생 하였습니다. 잠시 후 다시 시도해 주세요");
+		}
+	});
+	return bool;
+}
+
+function getCpnInfo() {
+	this.MBER_EMAIL = $("#MBER_EMAIL").val();
+	$.ajax({
+		type : 'post',
+		async : true,
+		url : '/mobile/cpnPoint/insertCpn.do',
+		dataType : 'json',
+		data : {
+			"MBER_EMAIL" : MBER_EMAIL
+		},
+		before : function() {
+			// loadingForm.showDialog();
+		},
+		success : function(data) {
+
+		},
+		complete : function() {
+			// loadingForm.hideDialog();
+		},
+		error : function(request, status, error) {
+			alert("통신 오류가 발생 하였습니다. 잠시 후 다시 시도해 주세요");
+		}
+	});
+}
+
+//회원 가입 이메일 발송
+function authMailSend(){
+	$.ajax({
+		type : 'post',
+		async : true,
+		url : '/mobile/common/procAuthEmail.do',
+		data : $("#frmLogon").serialize(),
+		success : function(data) {
+			alert("회원님께서 가입하신 이메일 주소로 인증메일이 재전송 되었습니다.");
+		},
+		error : function(data, status, err) {
+			alert('서버와의 통신이 실패했습니다.');
+		}
+	});
+	popup_hide();
+}
+
+function goToMain(){
+	popup_hide();
+	location.replace(MAIN_URL);
+}
+
+/*
+ * ======================================================================
+ * Function : 카카오톡 로그인
+ * Return   : 없음
+ * =========================================================================
+ */
+//사용할 앱의 JavaScript 키를 설정해 주세요.
+Kakao.init(kkoAppId);
+function loginWithKakao(code, retUrl) {
+	
+	if ( code == "SSOCIO" ) {
+		document.location.replace("ssocio://web/kakaoTalkVerify?{\"callback\":\"appKakaoTalkLogin\"}");
+	} else {
+		
+		// 로그인 창을 띄웁니다.
+		Kakao.Auth.login({
+			success: function(authObj) {
+				Kakao.API.request({
+					url: '/v1/user/me',
+					success: function(res) {
+//		 				console.log(JSON.parse(JSON.stringify(res.properties.thumbnail_image)));
+						$("#SSO_MBER_ID").val(JSON.stringify(res.id));
+						if (JSON.stringify(res.properties) == 'undefined' || JSON.stringify(res.properties) == '' || JSON.stringify(res.properties) == undefined ) {
+							$("#MBER_NICK").val( encodeURIComponent("카카오 친구 쏘시오"));
+						} else {
+							$("#MBER_NICK").val( encodeURIComponent(JSON.parse(JSON.stringify(res.properties.nickname))));
+							$("#PROFILE_IMAGE").val(encodeURIComponent(JSON.parse(JSON.stringify(res.properties.profile_image))));
+						}
+						this.MBER_EMAIL = "";
+						this.MBER_PASS = "";
+						ajaxKakao('WEB');
+					},
+					fail: function(error) {
+						console.log(JSON.stringify(error));
+						alert("서버 통신 중 오류가 발생하였습니다.\n잠시 후 이용해 주세요.");
+						return;
+					}
+				});
+			},
+			fail: function(err) {
+				alert("서버 통신 중 오류가 발생하였습니다.\n잠시 후 이용해 주세요.");
+				return;
+			}
+		});
+	}
+
+}
+
+function appKakaoTalkLogin(str) {
+	
+	var callbackData = JSON.parse(str);
+	$("#SSO_MBER_ID").val(callbackData.ID);
+	MBER_EMAIL = "";
+	MBER_PASS = "";
+	ajaxKakao('APP');
+}
+
+function ajaxKakao(code) {
+	
+	this.SNS_MBER_ID = $("#SSO_MBER_ID").val();
+	this.SNS_INIT = "KKO";
+	
+	$.ajax({
+		type : 'post',
+		async : true,
+		url : '/mobile/common/setKakaoLogin.do',
+		data : $("#frmLogon").serialize(),
+		success : function(data) {
+
+			if (data.MBER_STAT_CD == '99') {
+				alert("입력하신 정보와 일치하는 아이디가 없습니다.");
+				return;
+			} else if (data.MBER_STAT_CD == '20' || data.MBER_STAT_CD == '22') {
+				alert("회원님께서 가입하신 아이디는 관리자에 의해서 판매회원 가입이 거절 되었습니다.");
+				return;
+			} else if (data.MBER_STAT_CD == '30') {
+				 $("#frmLogon").attr("action", "/mobile/main/selectMainNotice.do").submit();
+			} else if (data.MBER_STAT_CD == '') {
+				alert("재가입 후 진행해주세요.");
+				return;
+			}
+			
+			var autologin = $("input:checkbox[name=autologin]").is(":checked");
+
+			if (data.result) {
+				
+				SERIAL_KEY = data.SERIAL_KEY;
+				MBER_AUTO_LOGIN = autologin;
+				if (code == "APP") {
+					if (autologin) {
+						setSnsCookie('SNS_INIT', 'SNS_MBER_ID', '');
+						document.location.replace('ssocio://web/autologin?serial_key='+ SERIAL_KEY);
+//						joinEvtPage("APP", "Y", SERIAL_KEY);
+					} else {
+//						removeSnsCookie('SNS_INIT', 'SNS_MBER_ID', 'MBER_AUTO_LOGIN');
+						document.location.replace('ssocio://web/notautologin?serial_key='+ SERIAL_KEY);
+//						joinEvtPage("APP", "N", SERIAL_KEY);
+					}
+					
+				} else {
+					if (autologin) {
+						setSnsCookie('SNS_INIT', 'SNS_MBER_ID', 'MBER_AUTO_LOGIN');
+					} else {
+						removeSnsCookie('SNS_INIT', 'SNS_MBER_ID', 'MBER_AUTO_LOGIN')
+					}
+					
+					joinEvtPage("WEB"); 
+//					return;
+//					location.href = MAIN_URL;
+					
+				}
+				
+			} else {
+				alert("회원가입이 필요 합니다.");
+				$('#SSO_GB_CD').val("KKO");		// 카카오톡
+				$('#MBER_GB_CD').val("0");		// 개인가입
+				$('#MBER_REG_GB_CD').val("0");	// 구매가입
+				$('#AGR_GB_CD1').val("01");		// 구매가입
+				$('#AGR_GB_CD2').val("03");		// 공통구매가입
+				var url = "/mobile/join/termsView.do";
+				frmLogon.action = url;
+				frmLogon.submit();
+			}
+		},
+		error : function(data, status, err) {
+			alert('서버와의 통신이 실패했습니다.');
+			Kakao.API.request({
+				url: '/v1/user/unlink',
+				data: { secure_resource: true },
+				success: function(res) {},
+				fail: function(error) {}
+			});
+		}
+	});
+}
+
+// EVENT
+// function joinEvtPage(code, auto, SERIAL_KEY) {
+function joinEvtPage(code, auto, SERIAL_KEY, OS_GUBUN, APP_VERSION, call) {
+	$.ajax({
+		type : 'post',
+		async : true,
+		url : '/mobile/promo/evtApi.do?target=evt&evtName=join&isIng=Y',
+		success : function(data) {
+			if (data.result.success != 'undefind' || data.result.success != "") {
+				if (data.result.success.ISING == 'Y' && data.result.success.ISPOSSIBLE == 'Y') {
+					location.replace(data.result.success[0].EVT_PAGE_URL+"?auto="+auto);
+				} else {
+					if ( code == "APP") {
+						if( auto == "Y"){
+							
+							if(OS_GUBUN == "AND" && APP_VERSION > "1.0.6" && call == 1){
+								document.location.replace('ssocio://web/autologin2?{"serial_key":"'+SERIAL_KEY+'","call":"'+call+'" }');
+							}else if(OS_GUBUN == "AND" && APP_VERSION > "1.0.6" && call != 1 ){
+								document.location.replace('ssocio://web/autologin2?{"serial_key":"'+SERIAL_KEY+'"}');
+							}else if(OS_GUBUN == "AND" && APP_VERSION <= "1.0.6"){
+								document.location.replace('ssocio://web/autologin?serial_key='+ SERIAL_KEY);
+							}else if(OS_GUBUN == "IOS" && APP_VERSION > "1.0.2" && call == 1){
+								document.location.replace('ssocio://web/autologin2?{"serial_key":"'+SERIAL_KEY+'","call":"'+call+'" }');
+							}else if(OS_GUBUN == "IOS" && APP_VERSION > "1.0.2" && call != 1 ){
+								document.location.replace('ssocio://web/autologin2?{"serial_key":"'+SERIAL_KEY+'"}');
+							}else if(OS_GUBUN == "IOS" && APP_VERSION <= "1.0.2"){
+								document.location.replace('ssocio://web/autologin?serial_key='+ SERIAL_KEY);
+							}
+//							document.location.replace('ssocio://web/autologin?serial_key='+ SERIAL_KEY);
+							
+						} else {
+							
+							if(OS_GUBUN == "AND" && APP_VERSION > "1.0.6" && call == 1){
+								document.location.replace('ssocio://web/notautologin2?{"serial_key":"'+SERIAL_KEY+'","call":"'+call+'" }');
+							}else if(OS_GUBUN == "AND" && APP_VERSION > "1.0.6" && call != 1){
+								document.location.replace('ssocio://web/notautologin2?{"serial_key":"'+SERIAL_KEY+'"}');
+							}else if(OS_GUBUN == "AND" && APP_VERSION <= "1.0.6"){
+								document.location.replace('ssocio://web/notautologin?serial_key='+ SERIAL_KEY);
+							}else if(OS_GUBUN == "IOS" && APP_VERSION > "1.0.2" && call == 1){
+								document.location.replace('ssocio://web/notautologin2?{"serial_key":"'+SERIAL_KEY+'","call":"'+call+'" }');
+							}else if(OS_GUBUN == "IOS" && APP_VERSION > "1.0.2" && call != 1){
+								document.location.replace('ssocio://web/notautologin2?{"serial_key":"'+SERIAL_KEY+'"}');
+							}else if(OS_GUBUN == "IOS" && APP_VERSION <= "1.0.2"){
+								document.location.replace('ssocio://web/notautologin?serial_key='+ SERIAL_KEY);
+							}
+//							document.location.replace('ssocio://web/notautologin?serial_key='+ SERIAL_KEY);
+						}
+					} else {
+						location.replace(MAIN_URL);
+					}
+				}
+			} else {
+				if ( code == "APP") {
+					if( auto == "Y"){
+						
+						if(OS_GUBUN == "AND" && APP_VERSION > "1.0.6" && call == 1){
+							document.location.replace('ssocio://web/autologin2?{"serial_key":"'+SERIAL_KEY+'","call":"'+call+'" }');
+						}else if(OS_GUBUN == "AND" && APP_VERSION > "1.0.6" && call != 1 ){
+							document.location.replace('ssocio://web/autologin2?{"serial_key":"'+SERIAL_KEY+'"}');
+						}else if(OS_GUBUN == "AND" && APP_VERSION <= "1.0.6"){
+							document.location.replace('ssocio://web/autologin?serial_key='+ SERIAL_KEY);
+						}else if(OS_GUBUN == "IOS" && APP_VERSION > "1.0.2" && call == 1){
+							document.location.replace('ssocio://web/autologin2?{"serial_key":"'+SERIAL_KEY+'","call":"'+call+'" }');
+						}else if(OS_GUBUN == "IOS" && APP_VERSION > "1.0.2" && call != 1){
+							document.location.replace('ssocio://web/autologin2?{"serial_key":"'+SERIAL_KEY+'"}');
+						}else if(OS_GUBUN == "IOS" && APP_VERSION <= "1.0.2"){
+							document.location.replace('ssocio://web/autologin?serial_key='+ SERIAL_KEY);
+						}
+//						document.location.replace('ssocio://web/autologin?serial_key='+ SERIAL_KEY);
+						
+					} else {
+						
+						if(OS_GUBUN == "AND" && APP_VERSION > "1.0.6" && call == 1){
+							document.location.replace('ssocio://web/notautologin2?{"serial_key":"'+SERIAL_KEY+'","call":"'+call+'" }');
+						}else if(OS_GUBUN == "AND" && APP_VERSION > "1.0.6" && call != 1){
+							document.location.replace('ssocio://web/notautologin2?{"serial_key":"'+SERIAL_KEY+'"}');
+						}else if(OS_GUBUN == "AND" && APP_VERSION <= "1.0.6"){
+							document.location.replace('ssocio://web/notautologin?serial_key='+ SERIAL_KEY);
+						}else if(OS_GUBUN == "IOS" && APP_VERSION > "1.0.2" && call == 1){
+							document.location.replace('ssocio://web/notautologin2?{"serial_key":"'+SERIAL_KEY+'","call":"'+call+'" }');
+						}else if(OS_GUBUN == "IOS" && APP_VERSION > "1.0.2" && call != 1){
+							document.location.replace('ssocio://web/notautologin2?{"serial_key":"'+SERIAL_KEY+'"}');
+						}else if(OS_GUBUN == "IOS" && APP_VERSION <= "1.0.2"){
+							document.location.replace('ssocio://web/notautologin?serial_key='+ SERIAL_KEY);
+						}
+//						document.location.replace('ssocio://web/notautologin?serial_key='+ SERIAL_KEY);
+						
+					}
+				} else {
+					location.replace(MAIN_URL);
+				}
+			}
+		},
+		error : function(data, status, err) {
+			alert('서버와의 통신이 실패했습니다.');
+		}
+	});
+
+}

@@ -1,0 +1,503 @@
+/**<pre>
+ * 1. Project Name : SSOCIO
+ * 2. Package Name : com.ssocio.sharing.controller.admin
+ * 3. File Name	   : AdminPerfController.java
+ * 4. Date		   : 오후 4:05 2015-08-07
+ * 5. Author	   : H.M.Yang
+ * 6. Note		   :
+ * </pre>
+ */
+package com.ssocio.sharing.controller.admin;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.servlet.ModelAndView;
+
+import com.ssocio.sharing.cmmn.admin.util.CommonUtil;
+import com.ssocio.sharing.cmmn.util.CmmnCnst;
+import com.ssocio.sharing.cmmn.util.DateUtil;
+import com.ssocio.sharing.cmmn.util.ExcelDownloadView;
+import com.ssocio.sharing.cmmn.util.LoggerUtil;
+import com.ssocio.sharing.dao.admin.AdminCodeDao;
+import com.ssocio.sharing.service.admin.AdminPerfService;
+
+/**
+ * <pre>
+ * 실적관리 Controller
+ * 실적관리 위한 Controller
+ * @author H.M.Yang
+ * @version
+ * @since 2015. 8. 7. 오후 4:05:00
+ * @see
+ * @History
+ *  Date          |    author    | 변경내용
+ *	2015. 8. 7.   |    H.M.Yang  | 신규
+ * @Todo
+ * </pre>
+ */
+@Controller
+public class AdminPerfController extends AdminReferController {
+	// --------------------------------------------------------------------------
+	// # Log 설정
+	// --------------------------------------------------------------------------
+	private static final Logger logger = LoggerFactory.getLogger(AdminPerfController.class);
+
+	// --------------------------------------------------------------------------
+	// # Service 설정
+	// --------------------------------------------------------------------------
+	@Autowired
+	private AdminPerfService adminPerfService;
+
+	@Resource(name="adminCodeDao")
+	private AdminCodeDao adminCodeDao;
+
+	public static final String LOCAL_PROD_TYPE_SELL			= "판매";		//	1
+	public static final String LOCAL_PROD_TYPE_SHARE		= "셰어링";	//	2
+	public static final String LOCAL_PROD_TYPE_FREESHARE	= "나눔";		//	3
+	public static final String LOCAL_PROD_TYPE_SMART		= "스마트셰어링";//	4
+	public static final String LOCAL_PROD_TYPE_RENT			= "렌트";		//	5
+
+	/**
+	 * <pre>
+	 * 실적관리 기간별 조회
+	 * 실적관리 기간별 조회 합니다.
+	 * @param request
+	 * @param response
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 7. 오후 4:05:00
+	 * @author H.M.Yang
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@RequestMapping("/admin/perf/selectListPeriPerf.do")
+	public ModelAndView selectListPeriPerf(HttpServletRequest request, HttpServletResponse response
+			, @RequestParam Map<String, Object> paramDto) throws Exception {
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(paramDto);
+		try {
+//			if("list".equals(paramDto.get("ACTION"))) {
+				mav.addObject("list", adminPerfService.selectListPeriPerf(paramDto));
+//			}
+
+			mav.addObject("searchParam", paramDto);
+			mav.setViewName("admin/perf/selectListPeriPerf");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return mav;
+	}
+
+	/**
+	 * <pre>
+	 * 실적관리 기간별 엑셀 다운로드
+	 * 실적관리 기간별 조회 결과를 엑셀파일로 다운로드 합니다.
+	 * @param request
+	 * @param response
+	 * @param paramDto
+	 * @return
+	 * @exception
+	 * @date 2015. 8. 7. 오후 4:05:00
+	 * @author H.M.Yang
+	 * @비고
+	 *
+	 * </pre>
+	 */
+	@RequestMapping("/admin/perf/selectListPeriPerfExcelDownload.do")
+	public ModelAndView selectListPeriPerfExcelDownload(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> paramDto)
+	{
+		ModelAndView mav = new ModelAndView("excelDownloadView");
+		String todate = null;
+		try {
+
+			todate = DateUtil.toDateString("yyyy.MM.dd");
+			response.setContentType("application/msexcel");
+			response.setHeader("Content-Disposition"
+					, CommonUtil.getDisposition("SSOCIO기간별실적관리_" + todate + ".xls", CommonUtil.check_browser(request)));
+
+			String SheetName = "실적관리 기간";
+
+			List<String> excelTitle = new ArrayList<String>();
+			excelTitle.add("기간");
+			excelTitle.add("판매 주문건수");
+			excelTitle.add("판매 주문금액");
+			excelTitle.add("세어링 주문건수");
+			excelTitle.add("세어링 주문금액");
+			excelTitle.add("나눔 주문건수");
+			excelTitle.add("나눔 주문금액");
+			excelTitle.add("렌탈 주문건수");
+			excelTitle.add("렌탈 주문금액");
+			excelTitle.add("합계 주문건수");
+			excelTitle.add("합계 주문금액");
+
+			List<String> CellName = new ArrayList<String>();
+			CellName.add("SALES_YYMMDD"); // 기간
+			CellName.add("SALES_CNT1"); // 판매 주문건수
+			CellName.add("SALES_PRCE1"); // 판매 주문금액
+			CellName.add("SALES_CNT2"); // 세어링 주문건수
+			CellName.add("SALES_PRCE2"); // 세어링 주문금액
+			CellName.add("SALES_CNT3"); // 나눔 주문건수
+			CellName.add("SALES_PRCE3"); // 나눔 주문금액
+			CellName.add("SALES_CNT4"); // 스마트폰 주문건수
+			CellName.add("SALES_PRCE4"); // 스마트폰 주문금액
+			CellName.add("SALES_CNT_HAK"); // 합계 주문건수
+			CellName.add("SALES_PRCE_HAK"); // 합계 주문금액
+
+			mav.addObject("SheetName", SheetName);
+			mav.addObject("excelTitle", excelTitle);
+			mav.addObject("CellName", CellName);
+
+			mav.addObject("excelList", adminPerfService.selectListPeriPerfExcelDownload(paramDto));
+			mav.addObject("param", paramDto);
+
+		} catch (Exception e) {e.printStackTrace();}
+	    return mav;
+	}
+
+	/**
+	 * <pre>
+	 * 실적관리 카테고리 조회
+	 * 실적관리 카테고리 조회 합니다.
+	 * @param request
+	 * @param response
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 7. 오후 4:05:00
+	 * @author H.M.Yang
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@RequestMapping("/admin/perf/selectListCtryPerf.do")
+	public ModelAndView selectListCtryPerf(HttpServletRequest request
+			, HttpServletResponse response
+			, @RequestParam Map<String, Object> paramDto) throws Exception {
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(paramDto);
+
+		try {
+//			if("list".equals(paramDto.get("ACTION"))) {
+				mav.addObject("list", adminPerfService.selectListCtryPerf(paramDto));
+//			}
+			mav.addObject("searchParam", paramDto);
+			mav.setViewName("admin/perf/selectListCtryPerf");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return mav;
+	}
+
+	/**
+	 * <pre>
+	 * 실적관리 카테고리 엑셀 다운로드
+	 * 실적관리 카테고리 조회 결과를 엑셀파일로 다운로드 합니다.
+	 * @param request
+	 * @param response
+	 * @param paramDto
+	 * @return
+	 * @exception
+	 * @date 2015. 8. 7. 오후 4:05:00
+	 * @author H.M.Yang
+	 * @비고
+	 *
+	 * </pre>
+	 */
+	@RequestMapping("/admin/perf/selectListCtryPerfExcelDownload.do")
+	public ModelAndView selectListCtryPerfExcelDownload(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> paramDto)
+	{
+
+
+		ModelAndView mav = new ModelAndView("excelDownloadView");
+
+		String todate = "";
+
+		try {
+
+			todate = DateUtil.toDateString("yyyy.MM.dd");
+
+			response.setContentType("application/msexcel");
+			response.setHeader("Content-Disposition", CommonUtil.getDisposition("SSOCIO_카테고리별실적_" + todate + ".xls", CommonUtil.check_browser(request)));
+
+			String SheetName = "실적관리 카테고리";
+
+			List<String> excelTitle = new ArrayList<String>();
+			excelTitle.add("카테고리");
+			excelTitle.add("판매 주문건수");
+			excelTitle.add("판매 주문금액");
+			excelTitle.add("세어링 주문건수");
+			excelTitle.add("세어링 주문금액");
+			excelTitle.add("나눔 주문건수");
+			excelTitle.add("나눔 주문금액");
+			excelTitle.add("렌탈 주문건수");
+			excelTitle.add("렌탈 주문금액");
+			excelTitle.add("합계 주문건수");
+			excelTitle.add("합계 주문금액");
+
+			List<String> CellName = new ArrayList<String>();
+			CellName.add("CTRY_NM"); // 카테고리
+			CellName.add("SALES_CNT1"); // 판매 주문건수
+			CellName.add("SALES_PRCE1"); // 판매 주문금액
+			CellName.add("SALES_CNT2"); // 세어링 주문건수
+			CellName.add("SALES_PRCE2"); // 세어링 주문금액
+			CellName.add("SALES_CNT3"); // 나눔 주문건수
+			CellName.add("SALES_PRCE3"); // 나눔 주문금액
+			CellName.add("SALES_CNT4"); // 렌탈 주문건수
+			CellName.add("SALES_PRCE4"); // 렌탈 주문금액
+			CellName.add("SALES_CNT_HAK"); // 합계 주문건수
+			CellName.add("SALES_PRCE_HAK"); // 합계 주문금액
+
+			mav.addObject("SheetName", SheetName);
+			mav.addObject("excelTitle", excelTitle);
+			mav.addObject("CellName", CellName);
+
+			mav.addObject("excelList", adminPerfService.selectListCtryPerfExcelDownload(paramDto));
+			mav.addObject("param", paramDto);
+
+		} catch (Exception e) {e.printStackTrace();}
+	    return mav;
+	}
+
+	/**
+	 * <pre>
+	 * 실적관리 상품별 조회
+	 * 실적관리 상품별 조회 합니다.
+	 * @param request
+	 * @param response
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 7. 오후 4:05:00
+	 * @author H.M.Yang
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@RequestMapping("/admin/perf/selectListProdPerf.do")
+	public ModelAndView selectListProdPerf(HttpServletRequest request, HttpServletResponse response
+			, @RequestParam Map<String, Object> paramDto
+			, @RequestParam(value="S_PROD_TYPE_CD", required=false) String prodTypeCd) throws Exception {
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(paramDto);
+		paramDto.put("prodTypeCd", prodTypeCd);
+		try {
+//			if("list".equals(paramDto.get("ACTION"))) {
+				mav.addObject("list", adminPerfService.selectListProdPerf(paramDto));
+//			}
+
+			mav.addObject("searchParam", paramDto);
+			mav.setViewName("admin/perf/selectListProdPerf");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return mav;
+	}
+
+	/**
+	 * <pre>
+	 * 실적관리 상품별 엑셀 다운로드
+	 * 실적관리 상품별 조회 결과를 엑셀파일로 다운로드 합니다.
+	 * @param request
+	 * @param response
+	 * @param paramDto
+	 * @return
+	 * @exception
+	 * @date 2015. 8. 7. 오후 4:05:00
+	 * @author H.M.Yang
+	 * @비고
+	 *
+	 * </pre>
+	 */
+	@RequestMapping("/admin/perf/selectListProdPerfExcelDownload.do")
+	public ModelAndView selectListProdPerfExcelDownload(HttpServletRequest request, HttpServletResponse response
+			, @RequestParam Map<String, Object> paramDto
+			, @RequestParam(value="S_PROD_TYPE_CD", required=false) String prodTypeCd)
+	{
+		ModelAndView mav = new ModelAndView("excelDownloadView");
+		paramDto.put("prodTypeCd", prodTypeCd);
+		List<String> excelTitle = new ArrayList<String>();
+		List<String> CellName = new ArrayList<String>();
+		String todate = "";
+		String fileName = null;
+		try {
+			todate = DateUtil.toDateString("yyyy.MM.dd");
+			response.setContentType("application/msexcel");
+
+
+			String SheetName = "상품별실적관리";
+
+			excelTitle.add("등록일시");
+			excelTitle.add("상품명");
+			excelTitle.add("카테고리");
+			excelTitle.add("판매자");
+
+			CellName.add("REGIST_DT"); // 등록일시
+			CellName.add("PROD_NM"); // 상품명
+			CellName.add("CTRY_NM"); // 카테고리명
+			CellName.add("MBER_NM"); //판매자
+
+			if(CmmnCnst.PROD_TYPE_SELL == Integer.parseInt(prodTypeCd)){ //	판매상품
+				fileName = LOCAL_PROD_TYPE_SELL;
+				excelTitle.add("판매가");
+				excelTitle.add("주문건수");
+				excelTitle.add("주문금액");
+
+				CellName.add("SELL_PRCE"); // 판매가
+				CellName.add("SALES_CNT"); // 총주문건수
+				CellName.add("SALES_PRCE"); // 총주문금액
+			}else if(CmmnCnst.PROD_TYPE_SHARE == Integer.parseInt(prodTypeCd)){//	셰어링상품
+				fileName = LOCAL_PROD_TYPE_SHARE;
+				excelTitle.add("판매가[보증금]");
+				excelTitle.add("일사용료");
+				excelTitle.add("주문건수");
+				excelTitle.add("주문금액");
+
+				CellName.add("SELL_PRCE"); // 판매가[보증금]
+				CellName.add("SHARING_PRICE"); // 일사용료
+				CellName.add("SALES_CNT"); // 총주문건수
+				CellName.add("SALES_PRCE"); // 총주문금액
+			}else if(CmmnCnst.PROD_TYPE_RENT == Integer.parseInt(prodTypeCd) // // 렌트상품
+					|| CmmnCnst.PROD_TYPE_FREESHARE == Integer.parseInt(prodTypeCd)){ //나눔
+
+				fileName = CmmnCnst.PROD_TYPE_RENT == Integer.parseInt(prodTypeCd) ? LOCAL_PROD_TYPE_RENT : LOCAL_PROD_TYPE_FREESHARE;
+				excelTitle.add("싱청건수");
+				CellName.add("ACPT_CNT"); // 신청건수
+			}
+
+			mav.addObject("SheetName", SheetName);
+			mav.addObject("excelTitle", excelTitle);
+			mav.addObject("CellName", CellName);
+
+			mav.addObject("excelList", adminPerfService.selectListProdPerfExcelDownload(paramDto));
+			mav.addObject("param", paramDto);
+
+			response.setHeader("Content-Disposition", CommonUtil.getDisposition("SSOCIO_상품별실적관리_"+ fileName +"_"+ todate + ".xls", CommonUtil.check_browser(request)));
+
+		} catch (Exception e) {e.printStackTrace();}
+	    return mav;
+	}
+
+	/**
+	 * <pre>
+	 * 실적관리 판매회원별 조회
+	 * 실적관리 판매회원별 조회 합니다.
+	 * @param request
+	 * @param response
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 7. 오후 4:05:00
+	 * @author H.M.Yang
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@RequestMapping("/admin/perf/selectListMberPerf.do")
+	public ModelAndView selectListMberPerf(HttpServletRequest request, HttpServletResponse response
+			, @RequestParam Map<String, Object> paramDto
+			, @RequestParam(value="S_MBER_GB_CD", required=false) String[] mberGbCd) throws Exception {
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(paramDto);
+		paramDto.put("mberGbCd", mberGbCd);
+
+		try {
+//			if("list".equals(paramDto.get("ACTION"))) {
+				mav.addObject("list", adminPerfService.selectListMberPerf(paramDto));
+//			}
+			mav.addObject("searchParam", paramDto);
+			mav.setViewName("admin/perf/selectListMberPerf");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return mav;
+	}
+
+	/**
+	 * <pre>
+	 * 실적관리 판매회원별 엑셀 다운로드
+	 * 실적관리 판매회원별 조회 결과를 엑셀파일로 다운로드 합니다.
+	 * @param request
+	 * @param response
+	 * @param paramDto
+	 * @return
+	 * @exception
+	 * @date 2015. 8. 7. 오후 4:05:00
+	 * @author H.M.Yang
+	 * @비고
+	 *
+	 * </pre>
+	 */
+	@RequestMapping("/admin/perf/selectListMberPerfExcelDownload.do")
+	public ModelAndView selectListMberPerfExcelDownload(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> paramDto)
+	{
+		ModelAndView mav = new ModelAndView("excelDownloadView");
+		String todate = "";
+		try {
+
+			todate = DateUtil.toDateString("yyyy.MM.dd");
+			response.setContentType("application/msexcel");
+			response.setHeader("Content-Disposition"
+					, CommonUtil.getDisposition("SSOCIO_판매자별실적관리_" + todate + ".xls", CommonUtil.check_browser(request)));
+
+			String SheetName = "실적관리 판매회원별";
+
+			List<String> excelTitle = new ArrayList<String>();
+			excelTitle.add("회원구분");
+			excelTitle.add("판매자명");
+			excelTitle.add("판매자ID");
+			excelTitle.add("미니샵명");
+			excelTitle.add("판매 상품등록");
+			excelTitle.add("판매 주문건수");
+			excelTitle.add("판매 주문금액");
+			excelTitle.add("세어링 상품등록");
+			excelTitle.add("세어링 주문건수");
+			excelTitle.add("세어링 주문금액");
+			excelTitle.add("나눔 상품등록");
+			excelTitle.add("나눔 신청건수");
+			excelTitle.add("나눔 주문건수");
+			excelTitle.add("렌탈 상품등록");
+			excelTitle.add("렌탈 신청건수");
+
+			List<String> CellName = new ArrayList<String>();
+			CellName.add("MBER_GB_CD_NM"); // 회원구분
+			CellName.add("MBER_NM"); // 판매자명
+			CellName.add("MBER_EMAIL"); // 판매자ID
+			CellName.add("MINI_SHOP_NM"); // 미니샵명
+			CellName.add("REG_CNT1"); // 판매 상품등록
+			CellName.add("SALES_CNT1"); // 판매 주문건수
+			CellName.add("SALES_PRCE1"); // 판매 주문금액
+			CellName.add("REG_CNT2"); // 세어링 상품등록
+			CellName.add("SALES_CNT2"); // 세어링 주문건수
+			CellName.add("SALES_PRCE2"); // 세어링 주문금액
+			CellName.add("REG_CNT3"); // 나눔 상품등록
+			CellName.add("ACPT_CNT3"); // 나눔 신청건수
+			CellName.add("SALES_PRCE3"); // 나눔 주문건수
+			CellName.add("REG_CNT4"); // 렌탈 상품등록
+			CellName.add("ACPT_CNT4"); // 렌탈 신청건수
+
+
+			mav.addObject("SheetName", SheetName);
+			mav.addObject("excelTitle", excelTitle);
+			mav.addObject("CellName", CellName);
+
+			mav.addObject("excelList", adminPerfService.selectListMberPerfExcelDownload(paramDto));
+			mav.addObject("param", paramDto);
+
+		} catch (Exception e) {e.printStackTrace();}
+	    return mav;
+	}
+}

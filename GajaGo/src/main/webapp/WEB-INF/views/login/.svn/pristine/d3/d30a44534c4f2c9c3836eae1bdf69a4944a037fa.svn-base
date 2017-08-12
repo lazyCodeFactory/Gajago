@@ -1,0 +1,212 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/web/common/cmmnHead.jsp"%> 
+<script type="text/javascript" src="/js/web/cart.js" ></script> <!-- 장바구니용 js -->
+<script type="text/javascript">
+
+	var rtnMsg = '${rtnMsg}';
+	var limit = 500;
+	var cur = 0;
+
+	//ready
+	$(document).ready(function(){
+		
+		// title 및 back 버튼 url set	
+		document.title = "상품문의";
+// 		header.type	= 6;
+		header.type	= 4;
+		header.title = "상품문의";
+		header.method = "POST";
+		header.backUrl = "/mobile/salemanage/selectListProdQna.do";
+		header.callback = headerCallback; // 장바구니용 callback
+		header.form = $("#form");
+		initHeader();
+		
+		displayFooter(false);
+		
+		// 상품문의 답변 keyup event
+		$("#ansContents").bind('keyup input', function() {
+			proc.procAnsContentsLen();
+		});
+		
+		proc.procAnsContentsLen();
+		
+		// 답변등록 후 message
+		if (rtnMsg != null && rtnMsg != "") {
+			alert(rtnMsg);
+		}
+		
+	});
+	
+	// 페이지 관련
+	var page = {
+			
+		// 답변등록
+		updateProdQna : function () {
+			
+			// 유효성
+			if (!validation.saveValidation()) {
+				return false;
+			}
+			
+			// confirm
+			if (!confirm("답변을 등록하시겠습니까?")) {
+				return;
+			}
+			
+			var url = "/mobile/salemanage/updateProdQna.do";
+			$.ajax({
+			    type: 'post'
+			    , async: true
+			    , dataType:'json'
+			    , url: url
+			    , data: $("#form").serialize()
+			    , success: function(data) {
+			    	
+			    	var rtnMsg = data.rtnMsg;
+			    	
+			    	alert(rtnMsg);
+			    	
+			    	location.href = "/mobile/salemanage/selectListProdQna.do";
+			    }
+			    , error: function(data, status, err) {
+			      alert('서버와의 통신이 실패했습니다.');
+			    }
+			});
+			
+		}
+			
+	};
+	
+	// 유효성체크
+	var validation = {
+			
+		saveValidation : function () {
+			
+			var ansContents = $("#ansContents").val();
+			if (ansContents == null || ansContents == "") {
+				alert("상품문의 답변을 입력해주세요.");
+				$("#ansContents").focus();
+				return false;
+			}
+			
+			return true;
+			
+		}
+			
+	};
+	
+	// 처리
+	var proc = {
+			
+		// 답변 길이
+		procAnsContentsLen : function () {
+			cur = getBytesLength($("#ansContents").val());
+			
+			if( cur <= limit ){
+				$("#spanLen").text(cur + '/' + limit);
+			}
+			else{
+				alert("글자수가 " + limit + "Byte를 넘었습니다.");
+				$("#ansContents").val($("#ansContents").val().substring(0, limit));
+			}
+			
+		}
+			
+	};
+
+</script>
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+		<div class="roc">
+			<ul class="inner">
+				<li><img src="http://static.ssocio.net/pc/img/common/section/roc_home.png" alt="홈"></li>
+				<li>판매관리</li>
+			</ul>
+		</div>
+		<jsp:include page="../common/sale_top.jsp" flush="false" />
+		<div class="mype_s_tit">
+			<p>배송신청</p>
+		</div>
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+		<!-- container -->
+		<div id="container">
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>
+
+<form id="form" name="form" method="get" action="">
+	<input type="hidden" id="boardSeq" name="boardSeq" value="${qnaDtl.BOARD_SEQ }" />
+		<div class="tbl type2">
+            <table class="tbl-data">
+            	<colgroup>
+                	<col width="90px">
+                	<col width="*">
+                </colgroup>
+                <tbody>
+                	<tr>
+                    	<th>상품명</th>
+                        <td>${qnaDtl.PROD_NM }</td>
+                    </tr>
+                	<tr>
+                    	<th>문의자</th>
+                        <td>${qnaDtl.MBER_EMAIL }</td>
+                    </tr>
+                    <tr>
+                    	<th>문의 유형</th>
+                        <td>${qnaDtl.COM_CD_NM }</td>
+                    </tr>
+                    <tr>
+                    	<th>문의 제목</th>
+                        <td>${qnaDtl.TITLE }</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <p class="title">문의내용</p>
+        <div class="content">
+            <ul class="sbox01">
+                <li>
+                	<div class="text_box">
+                        <textarea readOnly="readOnly">${qnaDtl.CONTENTS }</textarea>
+                    </div>
+                </li>
+            </ul>
+        </div>
+        
+        <p class="title">문의답변</p>
+        <div class="content">
+            <ul class="sbox01">
+                <li>
+                	<div class="text_box">
+                        <textarea id="ansContents" name="ansContents" maxLength="500">${qnaDtl.ANS_CONTENTS }</textarea>
+                        <span class="byte" id="spanLen"></span>
+                    </div>
+                </li>
+            </ul>
+            <p class="txt_type2">* 최대 500자리까지 입력 가능 합니다.</p>
+        </div>
+        
+        <div class="btn_enter">
+            <a href="javascript:page.updateProdQna();" class="btn_r">답변등록</a></li>
+        </div>
+</form>
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+		<jsp:include page="../common/sale_bottom.jsp" flush="false" />
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+		    </div>
+		    <!-- //container -->
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>

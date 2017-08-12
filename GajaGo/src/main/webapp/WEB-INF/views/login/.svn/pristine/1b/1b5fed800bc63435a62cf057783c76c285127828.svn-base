@@ -1,0 +1,298 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="adminUserMapper">
+	<!-- 검색조건 -->
+	<sql id="condition">  
+	    <!-- 시작일자-->
+	    <if test="S_START_DATE != null and S_START_DATE != ''">
+	      AND REGIST_DT <![CDATA[>=]]> TO_DATE(#{S_START_DATE},'YYYYMMDDHH')
+	    </if>
+	    <!-- 끝일자-->
+	    <if test="S_END_DATE != null and S_END_DATE != ''">
+	      AND REGIST_DT <![CDATA[<=]]> TO_DATE(#{S_END_DATE},'YYYYMMDDHH') + 0.99999
+	    </if>
+	    <!-- 담당자명-->
+	    <if test="P_ADM_NM != null and P_ADM_NM != ''" >
+	      AND ADM_NM LIKE '%' || #{P_ADM_NM} || '%'
+	    </if>
+	    <!-- 구분-->
+	    <if test="P_AUTH_CD != null and P_AUTH_CD != ''">
+	      AND AUTH_CD = #{P_AUTH_CD}
+	    </if>
+	    <!-- 상태-->
+	    <if test="P_USE_YN != null and P_USE_YN != ''">
+	      AND USE_YN = #{P_USE_YN}
+	    </if>
+	</sql>
+	
+	<!-- 상세 조회 -->
+	<select id="selectUser" parameterType="HashMap" resultType="HashMap">
+		/*adminUserMapper.selectUser*/
+		SELECT 
+			  ADM_ID		<!-- 관리자ID -->
+			, ADM_PSSWD		<!-- 비밀번호 -->
+			, ADM_GB        <!-- 관리자구분 -->
+			, ADM_NM        <!-- 관리자명 -->
+			, AUTH_CD       <!-- 권한코드 -->
+			, (SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'AUTH_CD' AND COM_CD = AUTH_CD)  AUTH_NM 	<!-- 권한명 -->
+			, HP            <!-- 휴대폰번호 -->
+			, EMAIL         <!-- 이메일 -->
+			, RM            <!-- 비고 -->
+			, TEL           <!-- 전화번호 -->
+			, USE_YN        <!-- 사용여부 -->
+			, REGIST_DT     <!-- 등록일시 -->
+			, UPDT_DT       <!-- 수정일시 -->
+		 FROM 
+		  	  ADM_INFO_CFG
+		 WHERE 
+		      ADM_ID = #{ADM_ID}
+	</select>
+	
+	<!-- 리스트 조회 -->
+	<select id="selectListUser" parameterType="HashMap" resultType="HashMap">
+	<include refid="adminCommonMapper.pagingHeader" />
+		/*adminUserMapper.selectListUser*/
+		SELECT 
+			  ADM_ID		<!-- 관리자ID -->
+			, ADM_PSSWD		<!-- 비밀번호 -->
+			, ADM_GB        <!-- 관리자구분 -->
+			, ADM_NM        <!-- 관리자명 -->
+			, AUTH_CD       <!-- 권한코드 -->
+	        , (SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'AUTH_CD' AND COM_CD = AUTH_CD)  AUTH_NM 	<!-- 권한명 -->
+			, HP            <!-- 휴대폰번호 -->
+			, EMAIL         <!-- 이메일 -->
+			, RM            <!-- 비고 -->
+			, TEL           <!-- 전화번호 -->
+			, USE_YN        <!-- 사용여부 -->
+			, CASE WHEN USE_YN = 'Y' THEN '사용중'
+             	   WHEN USE_YN = 'N' THEN '사용중지'
+                   END USE_YN_NM
+			, REGIST_DT     <!-- 등록일시 -->
+			, UPDT_DT       <!-- 수정일시 -->
+			, ROW_NUMBER() OVER(ORDER BY REGIST_DT ASC) AS NUM 	<!-- 역순 ROWNUM   -->
+			, ROW_NUMBER() OVER(ORDER BY REGIST_DT DESC ) AS NO
+		FROM 
+			  ADM_INFO_CFG
+		<where>
+			<include refid="condition"/>
+		</where>
+		ORDER BY NUM DESC
+	<include refid="adminCommonMapper.pagingFooter" />
+	</select>
+	
+	<!-- 리스트 카운트 조회 -->
+	<select id="selectListUserCount" parameterType="HashMap" resultType="int">
+		/*adminUserMapper.selectListUserCount*/
+	    SELECT COUNT(1) AS TOTAL_COUNT
+	      FROM ADM_INFO_CFG
+	    <where>
+			<include refid="condition"/>
+		</where>
+	</select>
+  
+	<!-- 유저 등록 -->
+	<insert id="insertUserReg" parameterType="hashmap">
+		/*adminUserMapper.insertUserReg*/
+		INSERT INTO ADM_INFO_CFG (
+			 ADM_ID			<!-- 관리자ID --> 
+			, ADM_PSSWD     <!-- 비밀번호 -->  
+			, ADM_GB        <!-- 관리자구분 --> 
+			, ADM_NM        <!-- 관리자명 -->  
+			, AUTH_CD       <!-- 권한코드 -->  
+			, HP            <!-- 휴대폰번호 --> 
+			, EMAIL         <!-- 이메일 -->   
+			, RM            <!-- 비고 -->    
+			, TEL           <!-- 전화번호 -->  
+			, USE_YN        <!-- 사용여부 -->  
+			, REGIST_DT     <!-- 등록일시 -->  
+			, UPDT_DT       <!-- 수정일시 -->  
+			 )VALUES(
+			  #{ADM_ID}
+			, #{ADM_PSSWD}
+			, #{ADM_GB}
+			, #{ADM_NM}
+			, #{AUTH_CD}
+			, #{HP}
+			, #{EMAIL}
+			, #{RM}
+			, #{TEL}
+			, #{USE_YN}
+			, SYSDATE
+			, SYSDATE
+			 )
+	</insert>
+	
+	<!-- 유저 수정 -->
+	<update id="updateUserReg" parameterType="hashmap">
+		/*adminUserMapper.updateUserReg*/
+		 UPDATE ADM_INFO_CFG
+		 SET 
+			  ADM_GB 	= #{ADM_GB}     <!-- 관리자구분 --> 
+			, ADM_NM 	= #{ADM_NM}     <!-- 관리자명 -->  
+			, AUTH_CD 	= #{AUTH_CD}    <!-- 권한코드 -->  
+		
+			, EMAIL 	= #{EMAIL}      <!-- 이메일 -->   
+			, RM 		= #{RM}         <!-- 비고 -->    
+			, TEL 		= #{TEL}        <!-- 전화번호 -->  
+			, USE_YN 	= #{USE_YN}     <!-- 사용여부 -->  
+			, UPDT_DT 	= SYSDATE       <!-- 수정일시 -->  
+		 WHERE                            
+			  ADM_ID = #{ADM_ID}		<!-- 관리자ID -->
+	</update>
+	
+		<update id="updateHeaderUserReg" parameterType="hashmap">
+
+		 UPDATE ADM_INFO_CFG
+		 SET 
+		   ADM_PSSWD = #{ADM_PSSWD}	<!-- 비밀번호 -->
+			, ADM_NM 	= #{ADM_NM}     <!-- 관리자명 -->  
+			, EMAIL 	= #{EMAIL}      <!-- 이메일 -->    
+			, TEL 		= #{TEL}        <!-- 전화번호 -->  
+				, HP 		= #{HP}         <!-- 휴대폰번호 --> 
+			, FAIL_CNT  = 0				<!-- 실패횟수 -->   
+			, UPDT_DT 	= SYSDATE       <!-- 수정일시 -->  
+		 WHERE                            
+			  ADM_ID = #{ADM_ID}		<!-- 관리자ID -->
+	</update>
+	
+	<!-- 비밀번호 수정 -->
+	<update id="updateUserPwReg" parameterType="hashmap">
+		/*adminUserMapper.updateUserPwReg*/
+		 UPDATE ADM_INFO_CFG
+		 SET 
+			  ADM_PSSWD = #{ADM_PSSWD}	<!-- 비밀번호 -->
+			, FAIL_CNT  = 0				<!-- 실패횟수 -->   
+			, UPDT_DT 	= SYSDATE		<!-- 수정일시 -->	
+		 WHERE
+			  ADM_ID = #{ADM_ID}
+	</update>
+  
+	<!-- 유저히스토리 등록 -->
+	<insert id="insertUserHistReg" parameterType="hashmap">
+		/*adminUserMapper.insertUserHistReg*/
+		INSERT INTO ADM_CHG_HIST (
+				  PROC_DATE			
+				, REG_SEQ           
+				, WORK_GB           
+				
+				, ADM_ID            
+				, ADM_PSSWD         
+				, ADM_GB            
+				, ADM_NM            
+				, AUTH_CD           
+				, HP                
+				, EMAIL             
+				, RM                
+				, TEL               
+				, USE_YB            
+				
+				, MENU_CD           
+				, REGIST_DT         
+			 )
+				SELECT 
+					  TO_CHAR(SYSDATE, 'YYYYMMDD')
+					, (SELECT NVL(MAX(REG_SEQ), 0) + 1 FROM ADM_CHG_HIST WHERE PROC_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD'))
+					, #{WORK_GB}
+					, ADM_ID		
+					, ADM_PSSWD		
+					, ADM_GB        
+					, ADM_NM        
+					, AUTH_CD       
+					, HP            
+					, EMAIL         
+					, RM            
+					, TEL           
+					, USE_YN        
+					, #{MENU_CD}
+					, SYSDATE
+				FROM 
+				  	  ADM_INFO_CFG
+				WHERE 
+				      ADM_ID = #{ADM_ID}
+	</insert>
+	
+	<!-- 메뉴 리스트 조회 -->
+	<select id="selectListMenu" parameterType="HashMap" resultType="HashMap">
+		/*adminUserMapper.selectListMenu*/
+		 SELECT 
+		 		A.*
+		 	  , CASE WHEN B.MENU_CD IS NOT NULL THEN 'Y' ELSE 'N' END USE_YN
+		 FROM
+		 	(
+			 SELECT 
+			 	  A.MENU_CD			<!-- 메뉴코드 -->
+				, A.PARENT_MENU_CD    <!-- 상위메뉴코드 -->
+				, A.LVL_SEQ           <!-- 레벨일련번호 -->
+				, A.SORT_SEQ          <!-- 정렬순서 -->
+				, A.MENU_NM           <!-- 메뉴명 -->
+				, A.LINK_ADDR         <!-- 링크주소 -->
+				, A.VIEW_YN           <!-- 노출여부 -->
+				, A.REGIST_DT         <!-- 등록일시 -->
+				, A.UPDT_DT           <!-- 수정일시 -->
+				, CASE WHEN A.LVL_SEQ = '2' AND A.SORT_SEQ = (SELECT MIN(SORT_SEQ) FROM MENU_INFO_CFG WHERE PARENT_MENU_CD = A.PARENT_MENU_CD AND VIEW_YN = 'Y') THEN 'S' END S_FLAG	 <!-- 서브메뉴 시작포인트 -->
+				, CASE WHEN A.LVL_SEQ = '2' AND A.SORT_SEQ = (SELECT MAX(SORT_SEQ) FROM MENU_INFO_CFG WHERE PARENT_MENU_CD = A.PARENT_MENU_CD AND VIEW_YN = 'Y') THEN 'E' END E_FLAG	 <!-- 서브메뉴 끝포인트 -->
+		     FROM 
+		     	  MENU_INFO_CFG A
+			 WHERE 1 = 1
+			 AND A.VIEW_YN = 'Y'
+			 START WITH   A.PARENT_MENU_CD IS NULL
+			 CONNECT BY PRIOR A.MENU_CD = A.PARENT_MENU_CD
+			 ORDER SIBLINGS BY   A.PARENT_MENU_CD ASC, A.SORT_SEQ ASC
+			) A,
+			(
+				SELECT MENU_CD 
+				FROM	AUTH_INFO_CFG
+				WHERE	ADM_ID = #{ADM_ID}
+			) B
+		WHERE A.MENU_CD = B.MENU_CD(+)
+	</select>
+	
+	<!-- 메뉴권한정보 수정 -->
+  <insert id="insertMenuAuth" parameterType="hashmap">
+  	/*adminUserMapper.insertMenuAuth*/
+      INSERT INTO AUTH_INFO_CFG
+     (
+     		  ADM_ID	<!-- 체크요망 -->
+            , MENU_CD   <!-- 메뉴코드 -->	
+			, AUTH_CD   <!-- 권한코드 -->
+			, RM        <!-- 비고 -->
+			, DEL_YN    <!-- 삭제여부 -->
+			, REGIST_DT <!-- 등록일시 -->
+			, UPDT_DT   <!-- 수정일시 -->
+     )
+     VALUES
+     (
+              #{ADM_ID}	<!-- 체크요망 -->
+            , #{MENU_CD}
+            , #{AUTH_CD}
+            , #{RM}
+            , #{DEL_YN}
+            , SYSDATE
+            , SYSDATE
+     )
+  </insert>
+  
+  <!-- 메뉴권한정보 삭제 -->
+  <delete id="deleteMenuAuth" parameterType="hashmap">
+  	/*adminUserMapper.deleteMenuAuth*/
+	DELETE FROM AUTH_INFO_CFG WHERE ADM_ID = #{ADM_ID }
+  </delete>
+	
+  <!-- 유저정보 삭제 -->
+  <delete id="deleteUser" parameterType="hashmap">
+  	/*adminUserMapper.deleteUser*/
+	DELETE FROM ADM_INFO_CFG WHERE ADM_ID = #{ADM_ID }
+  </delete>
+  
+  <!-- 비밀번호 확인 -->
+	<select id="selectPwdChk" parameterType="HashMap" resultType="int">
+		/*adminUserMapper.selectPwdChk*/
+	    SELECT COUNT(1) AS TOTAL_COUNT
+	      FROM ADM_INFO_CFG
+	    WHERE
+			  ADM_ID = #{ADM_ID}
+		AND   ADM_PSSWD = #{ADM_PSSWD}
+	</select>
+  
+	
+</mapper>

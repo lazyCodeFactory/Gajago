@@ -1,0 +1,185 @@
+<%
+	/*
+	 *	[판매회원용] 계좌변경 
+	 */
+%>
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/web/common/cmmnHead.jsp"%>		
+<script type="text/javascript">
+	$(document).ready(function(){
+		header.type	= 2;	// ( 0 : 타이틀영역만존재, 1 : 검색HEADER, 2 : SELECT TYPE HEADER, 3 : AD MENU TYPE HEADER, 4 : SUB TYPE HEADER )
+		header.title = "계좌 변경";	document.title = "계좌 변경";
+		header.method = "GET";
+		header.backUrl = "/mobile/myInfo/getMyInfoInfo.do";
+		header.form = '';	// $("#form");
+		header.callback = '';	//showAddWishCtry;
+		initHeader();
+	});
+	/*
+ 	 *	계좌정보 인증 처리
+ 	 */
+	saveAccount = function(){
+		// 예금주명
+		var acntNm = $("#acntNmS").val();
+		if( (acntNm==null)||(acntNm=='') ){
+			alert("예금주명을 입력해주세요."); return;
+		}else{
+			$("#saveAccountForm #ACNT_NM").val(acntNm);
+		}
+		// 은행명
+		var bankNm = $("#bankNmS option:selected").text();
+		var bankCd = $("#bankNmS option:selected").val();
+		if( (bankNm=='선택')||(bankNm==null)||(bankNm=='') ){
+			alert("은행명을 입력해주세요."); return;
+		}else{
+			$("#saveAccountForm #BANK_NM").val(bankNm);
+		}
+		// 계좌번호
+		var bankAcntNo = $("#bankAcntNoS").val();
+		if( (bankAcntNo==null)||(bankAcntNo=='') ){
+			alert("계좌번호을 입력해주세요."); return;
+		}else{
+			$("#saveAccountForm #BANK_ACNT_NO").val(bankAcntNo);
+		}
+		// 계좌번호 유효성체크
+		var strGbn = "1";
+		$.ajax({
+	      type: 'post'
+	      , async: true
+	      , url: '/mobile/common/acntConfirm.do'
+	      , dataType:'json'
+	      , data: {"strGbn":strGbn, "strNm":acntNm, "strBankCode":bankCd, "strAccountNo":bankAcntNo}
+	      , before: function() {
+		        loadingForm.showDialog();
+		      }
+	      , success: function(data) {
+	    	  
+	    	  if(data.resultCode == "0000"){
+					var url = '/mobile/myInfo/updateMyAccount.do';
+					$.ajax({
+					    url 	: url,
+					    data 	: $("#saveAccountForm").serialize(),//{'aprsTypeCd':arg},
+					    type 	: "post",
+					    dataType: 'json',
+					    success : function(result) {
+					    	alert("계좌번호가 변경되었습니다.");
+					    	// 회원정보 변경.
+					    	$("#myInfoForm").attr("action", '/mobile/myInfo/getMyInfoInfo.do');
+							$("#myInfoForm").submit(); 
+					    },
+					    error : function(request, status, error) {
+							//통신 에러 발생시 처리
+							alert("통신 오류가 발생 하였습니다. 잠시 후 다시 시도해 주세요"   + status.toString()  + " request [" + request.toString()  + "] error[" + error.toString() +"]");
+						}
+					});
+	    	  }else{	    		  
+				  alert(data.resultMsg);
+	    	  }
+	    	  
+	    	  
+	      }	      
+	      , complete: function() {
+		        loadingForm.hideDialog();
+		      }
+	     
+	      , error : function(request, status, error) {
+				alert("통신 오류가 발생 하였습니다. 잠시 후 다시 시도해 주세요");
+			}
+	    }); 		
+	};
+</script>
+</head>
+<body>
+<!-- 계좌번호 저장 		//-->
+<form name="saveAccountForm" id="saveAccountForm" method="get">
+	<input type='hidden' id='ACNT_NM' 		name='ACNT_NM' 		/>
+	<input type='hidden' id='BANK_NM' 		name='BANK_NM' 		/>
+	<input type='hidden' id='BANK_ACNT_NO' 	name='BANK_ACNT_NO' />
+</form>
+<!-- 이전페이지로 이동 	//-->
+<form name="myInfoForm" id="myInfoForm" method="get">
+	<input type='hidden' id='ACNT_NM' 		name='ACNT_NM' 		/>
+</form>
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+		<div class="roc">
+			<ul class="inner">
+				<li><img src="http://static.ssocio.net/pc/img/common/section/roc_home.png" alt="홈"></li>
+				<li>마이페이지</li>
+				<li>계좌변경</li>
+			</ul>
+		</div>
+		<jsp:include page="../common/mype_top.jsp" flush="false" />
+		<div class="mype_s_tit">
+			<p>계좌변경</p>
+		</div>
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+		<div id="">
+		
+			<!-- container -->
+			<div id="container">
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>
+
+        <div class="content">
+             <div class="sbox03">
+                <table class="tbl-data">
+                    <colgroup>
+                        <col width="35%">
+                        <col width="*">
+                    </colgroup>
+                    <tbody>
+                        <tr>
+                            <th>예금주명</th>
+                            <td class="pd5"><input type="text" id='acntNmS' name='acntNmS' value='${result.myAccountInfo.ACNT_NM }'  maxlength='10'></td>
+                        </tr>
+                        <tr>
+                            <th>은행선택</th>
+                            <td class="pd5">                                
+                                <select id="bankNmS" name='bankNmS'>
+                                    <option value="N">선택</option>
+                                    <custom:codeList var="bankGbCd" groupCode="BANK_GB_CD" />
+									<c:forEach var="list" items="${bankGbCd}" varStatus="status">
+										<option value="${list.key }" <c:if test="${result.myAccountInfo.BANK_NM eq list.value }">selected</c:if> >${list.value }</option>
+					                </c:forEach>
+                                </select>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>계좌번호</th>
+                            <td class="pd5">
+                            	<input type="number" id='bankAcntNoS' name='bankAcntNoS' value='${result.myAccountInfo.BANK_ACNT_NO }' placeholder="계좌번호 입력(-제외)" onkeydown="this.value=this.value.replace(/[^0-9]/g,'')" onkeyup="this.value=this.value.replace(/[^0-9]/g,'')" onblur="this.value=this.value.replace(/[^0-9]/g,'')" maxlength="20">
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+       	</div>
+		<div class="btn_enter">
+            <a href="javascript:saveAccount();" class="btn_r">확인</a>
+        </div>
+
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+		<jsp:include page="../common/mype_bottom.jsp" flush="false" />
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+		    </div>
+		    <!-- //container -->
+		</div>
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>
+
+</body>
+</html>

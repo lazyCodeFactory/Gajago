@@ -1,0 +1,207 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/web/common/cmmnHead.jsp"%>
+<script type="text/javascript" src="/js/web/cart.js" ></script> <!-- 장바구니용 js -->
+<script type="text/javascript">
+
+	var limit = 1000;
+	var cur = 0;
+	var mainYn = '${params.mainYn }';
+	var regData = '${regData}';
+	
+	//ready
+	$(document).ready(function(){
+		
+		// title 및 back 버튼 url set		
+		document.title = "상품 등록";
+// 		header.type	= 6;
+		header.type	= 4;
+		header.title = "상품 등록";
+		header.method = "POST";
+		if (mainYn == "Y") {
+			header.backUrl = "/mobile/main/main.do";
+		}
+		else {
+			header.backUrl = "/mobile/salemanage/main.do";
+		}
+		header.callback = headerCallback; // 장바구니용 callback
+		header.form = $("#form");
+		initHeader();
+		
+		// 뒤로가기 를 공통 제어를 쓰지 않고 재정의함
+		var data = JSON.parse(regData);
+		$("#id_btn_back").unbind('click');
+		$(".btn_back").click(function(event){
+			event.preventDefault();
+			location.href=data.refUrl;
+		});
+		
+		displayFooter(false);
+		
+		// 상품설명 keyup event
+		$("#prodDtl").bind('keyup input', function() {
+			proc.prodDtlKeyup();
+		});
+		
+		$("#regData").val('${regData}');
+		// init
+		var data = JSON.parse('${regData}');
+		if (data.prodDtl != null && data.prodDtl != '') {
+			$("#prodDtl").val(data.prodDtl.replace(/<br\/>/g, '\r\n'));
+		}
+		proc.procBtnNext();
+		proc.procProdDtlLen();
+		
+	});
+
+	// page 이동
+	var page = {
+			
+		goNextPage : function (flag) {
+			if(!$("#btnNext").hasClass("btn_r")) {
+				alert("상품 설명을 입력해주세요.");
+				return;
+			}
+			$("#prodTypeCd").val(flag);
+			
+			var prodDtl = $("#prodDtl").val();
+			prodDtl = prodDtl.replace(/'|"/g, '&quot;');
+			$("#prodDtl").val(prodDtl);
+			
+			var url = "/mobile/salemanage/procInsertProdComm.do";
+			form.action = url;
+			form.submit();
+			
+		},
+		
+		// 이전 페이지 이동
+		goPrePage : function () {
+			
+			$("#movePage").val("5");
+			$("#moveBack").val("Y");
+			var url = "/mobile/salemanage/procInsertProdComm.do";
+			form.action = url;
+			form.submit();
+			
+		}
+			
+	};
+	
+	// script 처리 모음
+	var proc = {
+			
+		// 상품명 keyup
+		prodDtlKeyup : function () {
+			proc.procBtnNext();
+			proc.procProdDtlLen();
+		},
+		
+		// 다음 버튼 활성화 비활성화
+		procBtnNext : function () {
+			var len = $("#prodDtl").val().length;
+			if (len > 0) {
+				// 버튼 활성화
+			//	$("#btnNext").attr("disabled",false);
+				$("#btnNext").removeClass("btn_b");
+				$("#btnNext").addClass("btn_r");
+			}
+			else {
+				// 버튼 비활성화
+			//	$("#btnNext").attr("disabled",true);
+				$("#btnNext").removeClass("btn_r");
+				$("#btnNext").addClass("btn_b");
+			}
+		},
+		
+		// 상품명 글자수 spanLen
+		procProdDtlLen : function () {
+			
+			cur = getBytesLength($("#prodDtl").val());
+			
+			if( cur <= limit ){
+				$("#spanLen").text(cur + '/' + limit);
+			}
+			else{
+				alert("글자수가 " + limit + "Byte를 넘었습니다.");
+				var dtl = assertMsg(limit, $("#prodDtl").val());
+				$("#prodDtl").val(dtl);
+				cur = getBytesLength($("#prodDtl").val());
+				$("#spanLen").text(cur + '/' + limit);
+			}
+			
+		}
+			
+	};
+
+</script>
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+		<div class="roc">
+			<ul class="inner">
+				<li><img src="http://static.ssocio.net/pc/img/common/section/roc_home.png" alt="홈"></li>
+				<li>판매관리</li>
+			</ul>
+		</div>
+		<jsp:include page="../common/sale_top.jsp" flush="false" />
+		<div class="mype_s_tit">
+			<p>주문취소</p>
+		</div>
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+		<!-- container -->
+		<div id="container">
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>
+
+
+<form id="form" name="form" method="post" action="">
+	<input type="hidden" id="movePage" name="movePage" value="7" />
+	<input type="hidden" id="regData" name="regData" value="" />
+	<input type="hidden" id="moveBack" name="moveBack" value="" />
+	<input type="hidden" id="mainYn" name="mainYn" value="${params.mainYn }" />
+
+		<div class="completed">
+        	<p class="percent"><strong>40% Completed</strong></p>
+            <div class="bar"><p style="width:40%"></p></div>
+        </div>
+        <div class="contents pic_reg">
+        	<p class="purc-title"><strong>상품 설명</strong>을 입력해주세요.</p>
+        	<ul class="sbox08">
+				<li>
+					<div class="text_box">
+						<textarea id="prodDtl" name="prodDtl"></textarea>
+						<span class="byte" id="spanLen"></span>
+					</div>
+				</li>
+			</ul>
+			<div class="btn_enter">
+				<ul>
+					<li>
+						<input type="button" class="btn_b-line" onClick="javascript:page.goPrePage();" value="이전" title="이전" alt="이전" />
+					</li>
+					<li>
+						<input type="button" class="btn_b" id="btnNext" onClick="javascript:page.goNextPage();" value="다음" title="다음" alt="다음" />
+					</li>
+				</ul>
+			</div>
+        </div>
+
+</form>
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+		<jsp:include page="../common/sale_bottom.jsp" flush="false" />
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+		    </div>
+		    <!-- //container -->
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>

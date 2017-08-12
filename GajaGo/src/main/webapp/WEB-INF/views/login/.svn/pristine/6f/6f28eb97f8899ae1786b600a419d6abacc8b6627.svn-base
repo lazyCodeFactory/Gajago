@@ -1,0 +1,317 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/admin/common/cmmnHead.jsp"%>
+
+<link rel="stylesheet" type="text/css" href="http://static.ssocio.net/admin/css/owl.carousel.css"/>
+<link rel="stylesheet" type="text/css" href="http://static.ssocio.net/admin/css/owl.theme.css"/>
+<script type="text/javascript" src="http://static.ssocio.net/admin/js/owl.carousel.js"></script>
+
+<script src="http://static.ssocio.net/admin/js/moment-with-langs.min.js"></script>
+<link rel="stylesheet" type="text/css" href="http://static.ssocio.net/admin/css/jquery.calendarPicker.css"/>
+<script type="text/javascript" src="http://static.ssocio.net/admin/js/jquery.calendarPicker.js"></script>
+
+<style>
+
+</style>
+
+<script type="text/javascript">
+	$(document).ready(function() {
+		// 저장 버튼 액션
+		$('#insert').click(function() {
+			console.log('INSERT');
+			var regdate = $('.calendar').find('.selected').attr('date-id');
+			var regtime = $('#regtime').val();
+			var mark = $('#mark').val();
+			var selection = $('#selection').val();
+			var url_link = $('#url_link').val();
+			var no = $('#no').val();
+			
+			var no = $('#no').val(); 
+			if (!no) {
+				if (!confirm('입력 하시겠습니까?')) {
+					return false;
+				}
+			} else {
+				if (!confirm('수정 하시겠습니까?')) {
+					return false;
+				}
+			}
+			
+			var params = {
+				"regdate" : regdate,
+				"regtime" : regtime,
+				"mark" : mark,
+				"selection" : selection,
+				"url_link" : url_link,
+				"admin_id" : "ssocio_manager",
+				"no" : no
+			};
+			
+			var url = "/admin/search/searchboxinsert.do"
+			$.ajax({	
+				type : "POST",
+				url : url,	
+				data : params,	
+				success : function(args){
+					if (!no) {
+						alert('입력되었습니다.');
+					} else {
+						alert('수정되었습니다.');
+					}
+					init();
+					console.log("success");
+					console.log(args);	
+					location.reload();
+				}
+			});
+			
+		});
+
+		// 삭제 버튼 액션
+		$('#delete').click(function() {
+			console.log('DELETE');
+			var no = $('#no').val(); 
+			if (!no) {
+				alert('검색어가 선택되지 않았습니다.');
+				return false;
+			} else {
+				if (!confirm('삭제하시겠습니까?')) {
+					return false;
+				}
+			}
+			
+			var params = {
+					"no" : no,
+					"admin_id" : "ssocio_manager"
+			};
+			var url = "/admin/search/searchboxdelete.do"
+				$.ajax({	
+					type : "POST",
+					url : url,	
+					data : params,	
+					success : function(args){
+						init();
+						alert('삭제되었습니다.');
+						location.reload();
+						console.log("success");
+						console.log(args);	
+					}, 
+					error:function(e){
+						alert(e.responseText);
+					}
+				});
+		});
+		
+		// 초기화 버튼 액션
+		$('#init').click(function() {
+			init();
+		});
+		
+		var dateSelector=$("#range-calendar").calendarPicker({
+		  years:1,
+		  months:2,
+		  days:7,
+		  useWheel:false,
+		  showDayArrows:true,
+		  callback:function(cal){
+			init();
+			var params = {
+						"regdate" : moment(cal.currentDate).format('YYYYMMDD')
+				};
+				
+				console.log(params);
+				var url = "/admin/search/searchboxmanagebyjson.do"
+				$.ajax({	
+					type : "POST",
+					url : url,	
+					data : params,
+					dataType: 'json',
+					headers: { 
+				        'Accept': 'application/json',
+				        'Content-Type': 'application/x-www-form-urlencoded' 
+				    },
+					success : function(args){
+						makeListContents(args.list)
+					}, 
+					error:function(e){
+						console.log(e.responseText);
+					}
+				});
+				
+				return false;
+			}
+		});
+		
+	});
+	
+	function init() {
+		$('#regtime').val('None').change();
+		$('#mark').val('');
+		$('#selection').val('None').change();
+		$('#url_link').val('');
+		$('#no').val('');
+	}
+	
+	function goNo(no, regtime, mark, selection, url_link) {
+		console.log(no);
+		console.log(regtime);
+		console.log(mark);
+		console.log(selection);
+		console.log(url_link);
+		
+		$('#regtime').val(regtime).change();
+		$('#mark').val(mark);
+		$('#selection').val(selection).change();
+		$('#url_link').val(( url_link && url_link != 'undefined' ? url_link : ''));
+		$('#no').val(no);
+	}
+	
+	function makeListContents(list) {
+		$('#no').val('');
+		$('#listContents').html('');
+		var html = '';
+		for(var i = 0; i < 24; i++){
+		html += '<tr>';
+		html += '	<td class="nolineL">';
+		html += 				( i< 10 ? "0" + i : i) + ' ~ ' + ( i + 1 < 10 ? "0" + (i + 1) : i + 1);
+		html += '</td>';
+		html += '<td class="nolineL" id="list_' + ( i< 10 ? "0" + i : i) + '">';
+		html += '</td>';
+		html += '</tr>';
+		}
+		$('#listContents').html(html);
+		
+		var tempMark = '';
+		for(var i = 0; i < list.length; i++) {
+			var content = list[i];
+			tempMark = '';
+			tempMark = 'javascript:goNo(\'' + content.NO + '\', \''+ content.REGTIME + '\', \'' + content.MARK + '\', \'' + content.SELECTION + '\', \'' + content.URL_LINK + '\')';
+			$("#list_" + content.REGTIME ).append( $('<a>').attr('href', tempMark).text( content.MARK + ', '));
+			console.log(tempMark);
+		}
+	}
+	
+</script>
+
+<form id="frm" method="post" name="frm">
+	<input type="hidden" id="regdate" name="regdate" >
+</form>
+
+
+<!-- content -->
+<div id="content">
+	<!-- top_content -->
+	<div class="top_content">
+		<!-- location -->
+		<div class="location">
+			<ul class="clear">
+				<li class="first-child"><a href="#">Home</a></li>
+				<li><a href="#">서비스 관리</a></li>
+				<li><a href="#" class="current">검색창 관리</a></li>
+			</ul>
+		</div>
+		<!-- //location -->
+	</div>
+	<!-- //top_content -->
+	
+	<div class="inner">
+		
+           <p class="tr mt10"><a href="#" class="btn_r">검색창 문구 등록</a></p>
+           <div id="range-calendar">
+             <!-- <div class="item"><a href="#">7월 21(월) <br />등록 (10)</a></div>
+             <div class="item"><a href="#">7월 21(화) <br />등록 (10)</a></div>
+             <div class="item"><a href="#">7월 21(수) <br />등록 (10)</a></div>
+             <div class="item"><a href="#">7월 21(목) <br />등록 (10)</a></div>
+             <div class="item"><a href="#">7월 21(금) <br />등록 (10)</a></div>
+             <div class="item"><a href="#">7월 21(토) <br />등록 (10)</a></div>
+             <div class="item"><a href="#">7월 21(일) <br />등록 (10)</a></div>
+             <div class="item"><a href="#">7월 21(월) <br />등록 (10)</a></div>
+             <div class="item"><a href="#">7월 21(화) <br />등록 (10)</a></div>
+             <div class="item"><a href="#">7월 21(화) <br />등록 (10)</a></div>
+             <div class="item"><a href="#">7월 21(화) <br />등록 (10)</a></div>
+             <div class="item"><a href="#">7월 21(화) <br />등록 (10)</a></div> -->
+           </div>
+		<!-- tbl -->
+		<div class="tbl mt20">
+			<!-- insert -->
+			<table class="list">
+				<colgroup>
+					<col style="width:15%" />
+					<col style="width:25%" />
+					<col style="width:*" />
+					<col style="width:15%" />
+				</colgroup>
+				<thead>	
+					<tr>
+						<th scope="col">시간</th>
+						<th scope="col">검색창 표기</th>
+						<th scope="col">연결페이지</th>
+						<th scope="col"></th>
+					</tr>
+				</thead>
+				<tbody>
+					<!-- 반복 -->
+					<tr>
+						<td class="nolineL">
+							<span class="select" style="width:100px;">
+								<span class="sel_txt" style="width: 70px;">시간대 선택</span>
+								<select id="regtime">
+									<option value="None">선택</option>
+									<% for(int i = 0; i < 24; i++){ %>
+									<option value="<%= ( i< 10 ? "0" + i : i) %>"><%= ( i< 10 ? "0" + i : i) %> ~ <%= ( i + 1 < 10 ? "0" + (i + 1) : i + 1) %></option>
+									<% } %>
+								</select>
+							</span>
+						</td>
+						<td class="nolineL">
+							<input type="text" style="width:90%;" id="mark"/>
+						</td>
+						<td class="tl">
+							<span class="select" style="width:120px;">
+								<span class="sel_txt" style="width: 73px;">선택</span>
+								<select id="selection">
+									<option value="None">선택</option>
+									<option value="s">검색결과 페이지</option>
+									<option value="u">URL 입력</option>
+								</select>
+							</span>
+							<input type="text" class="ml10" style="width:60%" id="url_link"/>
+							<input type="hidden" id="no"/>
+						</td>
+						<td>
+							<div class="btn_area" style="border-bottom:0px">
+								<a href="#" class="btn_r" style="width:50px" id="insert">저장</a>
+								<a href="#" class="btn_r" style="width:50px" id="delete">삭제</a>
+								<a href="#" class="btn_r" style="width:50px" id="init">초기화</a>
+							</div>
+						</td>
+					</tr>
+				</tbody>
+			</table>
+			<!-- //insert -->
+		</div>
+		<!-- //tbl -->
+		
+		<div class="tbl mt20">
+			<!-- list -->
+			<table class="list">
+				<colgroup>
+					<col style="width:10%" />
+					<col style="width:*" />
+				</colgroup>
+				<thead>	
+					<tr>
+						<th scope="col">시간</th>
+						<th scope="col">검색창 표기</th>
+					</tr>
+				</thead>
+				<tbody id='listContents'>
+					<!-- 반복 -->
+					
+				</tbody>
+			</table>
+			<!-- //list -->
+		</div>
+		
+	</div>
+</div>
+<!-- //content -->

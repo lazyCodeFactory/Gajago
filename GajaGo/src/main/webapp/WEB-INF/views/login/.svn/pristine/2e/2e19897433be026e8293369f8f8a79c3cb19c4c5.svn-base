@@ -1,0 +1,1569 @@
+<%@ page language="java" contentType="text/html; charset=utf-8"
+    pageEncoding="utf-8"%>
+<script type="text/javascript" src="http://static.ssocio.net/admin/js/ctry/ctry.js"></script>
+<!-- 태그는 cmmnHead.jsp 에 선언함 -->
+<%@ include file="/WEB-INF/views/admin/common/cmmnHead.jsp"%>
+<script type="text/javascript">
+
+    var CPN_GB_CD = '${list.selectCpnDtl.CPN_GB_CD}';                           // 쿠폰종류
+    var BNFIT_CHK = '${list.selectCpnDtl.BNFIT_CHK}';                           // 혜택
+    var EXP_CHK = '${list.selectCpnDtl.EXP_CHK}';                               // 유효기간
+    var CPN_ISSUE_TGT_GB_CD = '${list.selectCpnDtl.CPN_ISSUE_TGT_GB_CD}';       // 쿠폰사용대상
+    var CPN_USE_CD = '${list.selectCpnDtl.CPN_USE_CD}';                         // 사용채널
+    var DELY_FREE_CHK = '${list.selectCpnDtl.DELY_FREE_CHK}';                   // 혜택
+    var MARKET_BURDEN = '${list.selectCpnDtl.MARKET_BURDEN }';                  // 할인율
+    var ISSUE_CD = '${list.selectCpnDtl.ISSUE_CD}';                             // 발급대상
+    
+    var ISSUE_MTH = '${list.selectCpnDtl.ISSUE_MTH}';                           // 발급여부
+    
+    var saveFlag = true;                                                        // 중복저장 방지용
+
+    $(document).ready(function(){
+        // 달력
+        $('.calendar').datepicker({
+          showOn: "button",
+          buttonImage: "http://static.ssocio.net/admin/images/ico_calendar.gif",
+          buttonImageOnly: true
+        }); 
+        
+        init();
+        
+        // event
+        // 혜택 변경
+        $('[name=BNFIT_CHK]').change(function(){
+            $('.coupon_bf').attr('disabled',true);
+            $(this).parent().siblings('td').find('.coupon_bf').attr('disabled',false);
+        });
+        
+        // 혜택 변경
+        $("[name=DELY_FREE_CHK]").change( function () {
+            var val = $(this).val();
+            if (val == 'A') {
+                $("input[name=DELY_DSCNT_PRCE]").attr("disabled", true);
+            }
+            else {
+                $("input[name=DELY_DSCNT_PRCE]").attr("disabled", false);
+            }
+        });
+        
+        // 유효기간 변경
+        $('[name=EXP_CHK]').change(function(){
+            var val = $(this).val();
+            if (val == 'A') {
+                $('.expA').attr('disabled',false);
+                $('.expB').attr('disabled',true);
+            }
+            else {
+                $('.expA').attr('disabled',true);
+                $('.expB').attr('disabled',false);
+            }
+        });
+        
+        // 쿠폰 사용대상 변경
+        $('[name=CPN_ISSUE_TGT_GB_CD]').change(function(){
+            var cu_id = $(this).attr('id');
+            $('.coupon_user_bx').css({'display':'none'});
+            $('.'+cu_id).css({'display':'block'});
+            
+            if ($(this).val() == 'B') {
+                if (CPN_ISSUE_TGT_GB_CD == 'B') {
+                    $("#TR_PROD_LIST").show();
+                    $(".cpn_use").attr('rowspan','2');
+                }
+                else {
+                    if ($("cpnProd").val() == "") {
+                        $("#TR_PROD_LIST").hide();
+                        $(".cpn_use").attr('rowspan','1');
+                    }
+                    else {
+                        $("#TR_PROD_LIST").show();
+                        $(".cpn_use").attr('rowspan','2');
+                    }
+                }
+            }
+            else {
+                $(".cpn_use").attr('rowspan','1');
+                $("#TR_PROD_LIST").hide();
+            }
+            
+        });
+        
+        // 발급대상 변경
+        $('[name=ISSUE_CD]').change(function(){
+            var cu_id = $(this).attr('id');
+            
+            if(cu_id == 'issueCdB'){
+                $('.mem_find').css({'display':'block'});
+//              $("#divCpnUseCnt").show();
+                $("#divFileSearch").show();
+                $("#aCpnUseCnt").show();
+                $("#aTotUseCnt").hide();
+            }else{
+                $('.mem_find').css({'display':'none'});
+//              $("#divCpnUseCnt").hide();
+                $("#divFileSearch").hide();
+                $("#aCpnUseCnt").hide();
+                $("#aTotUseCnt").show();
+            }
+            
+        });
+        
+        // 사용채널 변경
+        $(".cpnUseCd").change( function () {
+            var val = $(this).val();
+            if (val == 'A') {
+                $("input[name^=CPN_USE_CD_CHNL]").attr("disabled", true);
+                $("input[name^=CPN_USE_CD_CHNL]").each( function (idx) {
+                    $(this).attr("checked", false);
+                });
+            }
+            else {
+                $("input[name^=CPN_USE_CD_CHNL]").attr("disabled", false);
+            }
+        });
+        
+        // 카테고리 삭제
+        $(document).on("click", ".aCtry", function () {
+            liCtryRemove(this);
+        });
+        
+        // 기획전 삭제
+        $(document).on("click", ".aPlan", function () {
+            liPlanRemove(this);
+        });
+        
+        // 상품금액제한
+        $("#prodPrce").keyup(function () {
+            var prodPrce = $("#prodPrce").val().replace(/,/g, "");
+            $("#prodPrce").val(numberWithCommas(prodPrce));
+        });
+        $("#prodPrce").blur(function () {
+            var prodPrce = $("#prodPrce").val().replace(/,/g, "");
+            $("#prodPrce").val(numberWithCommas(prodPrce));
+        });
+        
+        // 혜택 - 배송비할인금액
+        $("#delyDscntPrce").keyup(function () {
+            var delyDscntPrce = $("#delyDscntPrce").val().replace(/,/g, "");
+            $("#delyDscntPrce").val(numberWithCommas(delyDscntPrce));
+        });
+        $("#delyDscntPrce").blur(function () {
+            var delyDscntPrce = $("#delyDscntPrce").val().replace(/,/g, "");
+            $("#delyDscntPrce").val(numberWithCommas(delyDscntPrce));
+        });
+        
+        // 혜택 - 상품할인금액
+        $("#bnfitDscntPrce").keyup(function () {
+            var bnfitDscntPrce = $("#bnfitDscntPrce").val().replace(/,/g, "");
+            $("#bnfitDscntPrce").val(numberWithCommas(bnfitDscntPrce));
+        });
+        $("#bnfitDscntPrce").blur(function () {
+            var bnfitDscntPrce = $("#bnfitDscntPrce").val().replace(/,/g, "");
+            $("#bnfitDscntPrce").val(numberWithCommas(bnfitDscntPrce));
+        });
+        $("#bnfitMaxDscntPrce").keyup(function () {
+            var bnfitMaxDscntPrce = $("#bnfitMaxDscntPrce").val().replace(/,/g, "");
+            $("#bnfitMaxDscntPrce").val(numberWithCommas(bnfitMaxDscntPrce));
+        });
+        $("#bnfitMaxDscntPrce").blur(function () {
+            var bnfitMaxDscntPrce = $("#bnfitMaxDscntPrce").val().replace(/,/g, "");
+            $("#bnfitMaxDscntPrce").val(numberWithCommas(bnfitMaxDscntPrce));
+        });
+        $("#bnfitDscntRate").keyup(function () {
+            numberOnly($(this));
+            var bnfitDscntRate = $(this).val();
+            if (bnfitDscntRate > 100) {
+                bnfitDscntRate = 100;
+            }
+            $("#bnfitDscntRate").val(bnfitDscntRate);
+        });
+        $("#bnfitDscntRate").blur(function () {
+            numberOnly($(this));
+            var bnfitDscntRate = $(this).val();
+            if (bnfitDscntRate > 100) {
+                bnfitDscntRate = 100;
+            }
+            $("#bnfitDscntRate").val(bnfitDscntRate);
+        });
+        
+        prod_padding();
+        
+        //카테고리 초기화
+        initCtry('reg', '');
+        
+        // 발급중일 경우
+        if (ISSUE_MTH == "20") {
+            $("input").not("[type=hidden]").attr("disabled", true);
+            $("select").attr("disabled", true);
+            $("a").each( function (idx) {
+                var aId = $(this).attr("id");
+                if (aId != "btnIssueMthB" && aId != "btnCancel") {
+                    $(this).removeAttr("href");
+                }
+            });
+        }
+        
+    });
+
+    // 화면 초기화 load 시 호출
+    function init() {
+        
+        // 혜택
+        if (DELY_FREE_CHK == 'A') {
+            $("input[name=DELY_DSCNT_PRCE]").attr("disabled", true);
+        }
+        else {
+            $("input[name=DELY_DSCNT_PRCE]").attr("disabled", false);
+        }
+        
+        // 쿠폰타입
+        $('.coupon_bf').attr('disabled',true);
+        $("[name=BNFIT_CHK][value='"+BNFIT_CHK+"']").parent().siblings('td').find('.coupon_bf').attr('disabled',false);
+        
+        // 쿠폰사용대상
+        $("input[name=CPN_ISSUE_TGT_GB_CD][value="+CPN_ISSUE_TGT_GB_CD+"]").attr("checked", true);
+        var cu_id = $("input[name=CPN_ISSUE_TGT_GB_CD][value="+CPN_ISSUE_TGT_GB_CD+"]").attr('id');
+        $('.coupon_user_bx').css({'display':'none'});
+        $('.'+cu_id).css({'display':'block'});
+        
+        if (CPN_ISSUE_TGT_GB_CD == 'B') {
+            $("#TR_PROD_LIST").show();
+        }
+        
+        // 유효기간
+        if (EXP_CHK == 'A') {
+            $('.expA').attr('disabled',false);
+            $('.expB').attr('disabled',true);
+        }
+        else {
+            $('.expA').attr('disabled',true);
+            $('.expB').attr('disabled',false);
+        }
+        
+        // 사용채널
+        if (CPN_USE_CD == 'A') {
+            $("input[name^=CPN_USE_CD_CHNL]").attr("disabled", true);
+            $("input[name^=CPN_USE_CD_CHNL]").each( function (idx) {
+                $(this).attr("checked", false);
+            });
+        }
+        else {
+            $("input[name^=CPN_USE_CD_CHNL]").attr("disabled", false);
+        }
+        
+        // 발급대상
+        if (ISSUE_CD == 'B') {
+//          $("#divCpnUseCnt").show();
+            $("#divFileSearch").show();
+            
+            $('.mem_find').css({'display':'block'});
+            $("#aCpnUseCnt").show();
+            $("#aTotUseCnt").hide();
+        }
+        else {
+            $("#aCpnUseCnt").hide();
+            $("#aTotUseCnt").show();
+        }
+        
+        setTrDisplay();
+        
+    }
+    
+    function setTrDisplay () {
+        /*
+         * 쿠폰 종류에 따른 display 변경
+         * 10 = 상품할인쿠폰
+         * 20 = 배송비쿠폰
+         * 30 = 신규가입쿠폰
+         * 40 = 첫구매쿠폰
+         * 50 = 인쇄배포용쿠폰
+         */
+        if (CPN_GB_CD != null && CPN_GB_CD != '') {
+            if (CPN_GB_CD == '10') {
+                $("#TR_BNFIT_2").show();
+                $("#TR_PROD_PRCE").show();
+                $("#TR_EXP_DT").show();
+                $("#TR_CPN_USE_CD").show();
+                $("#TR_CPN_USE").show();
+                $("#TR_ISSUE").show();
+                $("#TR_DUPL_USE").show();
+                
+                if (CPN_ISSUE_TGT_GB_CD == 'B') {
+                    $(".cpn_use").attr('rowspan','2');
+                }
+                else {
+                    $(".cpn_use").attr('rowspan','1');
+                }
+            }
+            else if (CPN_GB_CD == '20') {
+                $("#TR_BNFIT_1").show();
+                $("#TR_EXP_DT").show();
+                $("#TR_CPN_USE_CD").show();
+                $("#TR_CPN_USE").show();
+                $("#TR_ISSUE").show();
+                $("#TR_DUPL_USE").show();
+            }
+            else if (CPN_GB_CD == '30' || CPN_GB_CD == '40') {
+                $("#TR_BNFIT_2").show();
+                $("#TR_PROD_PRCE").show();
+                $("#TR_EXP_DT").show();
+                $("#TR_CPN_USE_CD").show();
+                $("#TR_CPN_USE").show();
+                $("#TR_DUPL_USE").show();
+                
+                if (CPN_ISSUE_TGT_GB_CD == 'B') {
+                    $(".cpn_use").attr('rowspan','2');
+                }
+                else {
+                    $(".cpn_use").attr('rowspan','1');
+                }
+                
+            }
+            else if (CPN_GB_CD == '50') {
+                $("#TR_CERT").show();
+                $("#TR_CERT_DT").show();
+                $("#TR_BNFIT_2").show();
+                $("#TR_PROD_PRCE").show();
+                $("#TR_EXP_DT").show();
+                $("#TR_CPN_USE_CD").show();
+                $("#TR_CPN_USE").show();
+            }
+        }
+    }
+    
+    // 카테고리 추가
+    function categoryAdd() {
+        
+        var regCtryCd1 = $("#regCtryCd1 option:selected").text();
+        var regCtryCd2 = $("#regCtryCd2 option:selected").text();
+        var regCtryCd3 = $("#regCtryCd3 option:selected").text();
+        var ctryIdx1 = $("#regCtryCd1 option").index($("#regCtryCd1 option:selected"));
+        var ctryIdx2 = $("#regCtryCd2 option").index($("#regCtryCd2 option:selected"));
+        var ctryIdx3 = $("#regCtryCd3 option").index($("#regCtryCd3 option:selected"));
+        var crtyVal1 = $("#regCtryCd1 option:selected").val();
+        var crtyVal2 = $("#regCtryCd2 option:selected").val();
+        var crtyVal3 = $("#regCtryCd3 option:selected").val();
+        var ctryHtml = "";
+        var ctryFlag = true;
+        
+        if (ctryIdx1 > 0) {
+            $(".liCtry").each( function (idx) {
+                var liId = $(this).attr("id");
+                var ctVal;
+                if (crtyVal3 != null && crtyVal3 != "") {
+                    ctVal = crtyVal3;
+                }
+                else {
+                    if (crtyVal2 != null && crtyVal2 != "") {
+                        ctVal = crtyVal2;
+                    }
+                    else {
+                        ctVal = crtyVal1;
+                    }
+                }
+                if (liId == ctVal) {
+                    ctryFlag = false;
+                }
+            });
+            
+            if (ctryFlag) {
+                
+                ctryHtml += '<li class="';
+                ctryHtml += crtyVal1+""+crtyVal2+""+crtyVal3;
+                ctryHtml += ' liCtry" id="';
+                if (crtyVal3 != null && crtyVal3 != "") {
+                    ctryHtml += crtyVal3;
+                }
+                else if ((crtyVal3 == null || crtyVal3 == "") && (crtyVal2 != null && crtyVal2 != "")) {
+                    ctryHtml += crtyVal2;
+                }
+                else {
+                    ctryHtml += crtyVal1;
+                }
+                ctryHtml += '" style="display:flex;">';
+                ctryHtml += '<a class="aCtry">';
+                ctryHtml += '<img src="http://static.ssocio.net/admin/images/btn_minus.gif" alt="쿠폰사용 대상 삭제">';
+                ctryHtml += '</a><span class="ml5" style="margin-top:7px !important;"> ';
+                if (crtyVal3 != null && crtyVal3 != "") {
+                    ctryHtml += regCtryCd1;
+                    ctryHtml += ' > ';
+                    ctryHtml += regCtryCd2;
+                    ctryHtml += ' > ';
+                    ctryHtml += regCtryCd3;
+                }
+                else if ((crtyVal3 == null || crtyVal3 == "") && (crtyVal2 != null && crtyVal2 != "")) {
+                    ctryHtml += regCtryCd1;
+                    ctryHtml += ' > ';
+                    ctryHtml += regCtryCd2;
+                }
+                else {
+                    ctryHtml += regCtryCd1;
+                }
+                ctryHtml += '</span>';
+                ctryHtml += '</li>';
+                
+                $("#ulCategory").append(ctryHtml);
+            }
+            
+        }
+        
+    }
+    
+    // 카테고리 삭제
+    function liCtryRemove(obj) {
+        $(obj).parent("li").remove();
+    }
+    
+    // 기획전 등록
+    function planAdd() {
+        
+        var selPlan = $("#selPlan option:selected").text();
+        var selIdx = $("#selPlan option").index($("#selPlan option:selected"));
+        var selVal = $("#selPlan option:selected").val();
+        var planHtml = "";
+        var planFlag = true;
+                
+        if (selIdx > 0) {
+            $(".liPlan").each( function (idx) {
+                var liClass = $(this).attr("class");
+                if (liClass.indexOf(selVal) > -1 ) {
+                    planFlag = false;
+                }
+            });
+            
+            if (planFlag) {
+                planHtml += '<li class="';
+                planHtml += selVal;
+                planHtml += ' liPlan" id="';
+                planHtml += selVal;
+                planHtml += '" style="display:flex;">';
+                planHtml += '<a class="aPlan">';
+                planHtml += '<img src="http://static.ssocio.net/admin/images/btn_minus.gif" alt="기획전 대상 삭제">';
+                planHtml += '</a><span class="ml5" style="margin-top:7px !important;"> ';
+                planHtml += selPlan;
+                planHtml += '</span>';
+                planHtml += '</li>';
+                $("#ulPlan").append(planHtml);
+            }
+            
+        }
+        
+    }
+    
+    // 기획전 삭제
+    function liPlanRemove(obj) {
+        $(obj).parent("li").remove();
+    }
+    
+    // 판매자 리스트 조회
+    function getMarketList() {
+        
+        var send1 = "";
+        var send2 = "";
+        $(".pMarket").each( function (idx) {
+            var id = $(this).attr("id");
+            var txt = $(this).html();
+            if (send1 == "" && send2 == "") {
+                send1 = id;
+                send2 = txt;
+            }
+            else {
+                send1 = send1 + "," + id;
+                send2 = send2 + "," + txt;
+            }
+        });
+        
+        $("#marketSender1").val(send1);
+        $("#marketSender2").val(send2);
+        $("#sendMarketBurden").val(MARKET_BURDEN);
+        
+        var url = "/admin/cpn/selectCpnMarketList.do";
+        var width = "1044";
+        var height = "530";
+        var left = screen.width;
+        var top = (screen.height/2) - (height/2);
+        window.open('', 'popupForm','width=' + width + ', height=' + height + ', screenY=' + top + ', screenX=' + left + ',toolbar=no, menubar=no, scrollbars=yes, resizeable=no');
+        $("#form").attr("action", url).attr("target", "popupForm").submit();
+        
+    }
+    
+    // 판매자 리스트 set
+    function setMarketList(id, txt, flag) {
+        
+        var mktHtml = "";
+        if (flag) {
+            $("#marketList").empty();
+        }
+        mktHtml += "<p class='pMarket' id='";
+        mktHtml += id;
+        mktHtml += "'>";
+        mktHtml += txt;
+        mktHtml += "</p>";
+        $("#marketList").append(mktHtml);
+        
+    }
+    
+    // 할인금액 부담율
+    function setBurden(marketburden) {      
+        
+        if (marketburden == null || marketburden == '' || marketburden == 0 || marketburden < 0) {
+            marketburden = 0;
+        }
+        
+        var danalBurden = 100 - marketburden;
+        
+        $("#spanMktBurden").text(marketburden);
+        $("#spanDnlBurden").text(danalBurden);
+        
+    }
+    
+    // 지정회원 조회
+    function getCpnUse() {
+        
+        var url = "/admin/cpn/selectTotUseList.do";
+        var width = "1044";
+        var height = "600";
+        var left = screen.width;
+        var top = (screen.height/2) - (height/2);
+        window.open('', 'popupForm','width=' + width + ', height=' + height + ', screenY=' + top + ', screenX=' + left + ',toolbar=no, menubar=no, scrollbars=yes, resizeable=no');
+        $("#form").attr("action", url).attr("target", "popupForm").submit();
+    
+    }
+    
+    // 지정회원 설정
+    function setCpnUse(val) {
+        
+        // 저장시 보낼 지정회원
+        if (val != null && val != "") {
+            if ($("#mberSeqNew").val() == null || $("#mberSeqNew").val() == "") {
+                $("#mberSeqNew").val(val);
+            }
+            else {
+                var temp = $("#mberSeqNew").val() + "," + val;
+                $("#mberSeqNew").val(temp);
+            }
+        }
+        
+        // 지정된 회원 수
+        var oldCnt = 0;
+        var newCnt = 0;
+        if ($("#mberSeqOld").val() != null && $("#mberSeqOld").val() != "") {
+            oldCnt = $("#mberSeqOld").val().split(/,/g).length;
+        }
+        if ($("#mberSeqNew").val() != null && $("#mberSeqNew").val() != "") {
+            newCnt = $("#mberSeqNew").val().split(/,/g).length;
+        }
+        
+        $("#cpnUseCnt").html(numberWithCommas(oldCnt+newCnt));
+        
+    }
+    
+    // 쿠폰발급 및 발급중지
+    function setIssueMth(flag) {
+        
+        // B : 쿠폰발급 , C : 발급중지
+        $("#issueMth").val(flag);
+    
+        if (saveFlag) {
+            
+            saveFlag = false;
+            
+            $("#form").attr("action","/admin/cpn/updateCpnIssueMth.do").attr("target", "").submit();
+        }
+    
+    }
+    
+    // 상품 조회
+    function getProdList() {
+        
+        var url = "/admin/cpn/selectTotProdList.do";
+        var width = "1044";
+        var height = "800";
+        var left = screen.width;
+        var top = (screen.height/2) - (height/2);
+        window.open('', 'popupForm','width=' + width + ', height=' + height + ', screenY=' + top + ', screenX=' + left + ',toolbar=no, menubar=no, scrollbars=yes, resizeable=no');
+        $("#form").attr("action", url).attr("target", "popupForm").submit();
+        
+    }
+    
+    // 상품 set
+    function setProdList(innerHtml, cnt, prodCode) {
+        
+        $("#TR_PROD_LIST").show();
+        $(".cpn_use").attr('rowspan','2');
+        
+        $("#prodBody").append(innerHtml);
+        $("#spanCpnProdCnt").html(cnt);
+        $("#prodCode").val(prodCode);
+    }
+    
+    // 상품삭제 
+    function delProd(cd) {
+        
+        // table tr 삭제
+        $("tr[id$="+cd+"]").remove();
+
+        // hidden 에 있는 PROD_CODE 삭제
+        var prodCodeSplt = new Array();
+        prodCodeSplt = $("#prodCode").val().split(/,/g);
+        var newProdCode = "";
+        for (var i = 0 ; i < prodCodeSplt.length ; i++) {
+            if (cd != prodCodeSplt[i]) {
+                if (newProdCode == "") {
+                    newProdCode = prodCodeSplt[i];
+                }
+                else {
+                    newProdCode = newProdCode + "," + prodCodeSplt[i];
+                }
+            }
+        }
+        
+        $("#prodCode").val(newProdCode);
+        if ($("#prodCode").val() == null || $("#prodCode").val() == "") {
+            $("#spanCpnProdCnt").text("0");
+        }
+        else {
+            prodCodeSplt = $("#prodCode").val().split(/,/g);
+            $("#spanCpnProdCnt").text(numberWithCommas(prodCodeSplt.length));
+        }
+        
+    }
+    
+    // 쿠폰 수정 저장
+    function updateCpn() {
+
+        // updateCpnInfo.do
+        if (!confirm("저장 하시겠습니까?")) {
+            return;
+        }
+        
+        // List
+        setListHidden();
+        
+        // validation
+        if (!updateValidation()) {
+            return;
+        }
+        
+        
+        if (saveFlag) {
+            
+            saveFlag = false;
+            
+            // 날짜 - 제거
+            $("[name=CERT_START_DT]").val($("[name=CERT_START_DT").val().replace(/\-/ig, ''));
+            $("[name=CERT_END_DT]").val($("[name=CERT_END_DT]").val().replace(/\-/ig, ''));
+            $("[name=EXP_START_DT]").val($("[name=EXP_START_DT]").val().replace(/\-/ig, ''));
+            $("[name=EXP_END_DT]").val($("[name=EXP_END_DT]").val().replace(/\-/ig, ''));
+            
+            // 금액 , 제거 bnfitMaxDscntPrce
+            $("#bnfitMaxDscntPrce").val($("#bnfitMaxDscntPrce").val().replace(/,/g, ''));
+            $("#prodPrce").val($("#prodPrce").val().replace(/,/g, ''));
+            $("#bnfitDscntPrce").val($("#bnfitDscntPrce").val().replace(/,/g, ''));
+            $("#delyDscntPrce").val($("#delyDscntPrce").val().replace(/,/g, ''));
+            
+            $("#form").attr("action","/admin/cpn/updateCpnInfo.do").attr("target", "").submit();
+            
+        }
+        
+    }
+    
+    // validation check
+    function updateValidation() {
+        
+        // 쿠폰명
+        var cpnNm = $("#cpnNm").val();
+        if (cpnNm == null || cpnNm == "") {
+            alert("쿠폰명을 입력하세요.");
+            $("#cpnNm").focus();
+            return false;
+        }       
+        
+        // 쿠폰설명
+        var cpnDtl = $("#cpnDtl").val();
+        if (cpnDtl == null || cpnDtl == "") {
+            alert("쿠폰설명을 입력하세요.");
+            $("#cpnDtl").focus();
+            return false;
+        }
+        
+        // 인증기간제한
+        if (CPN_GB_CD == '50') {
+            var certStartDt = $("#certStartDt").val();
+            var certEndDt = $("#certEndDt").val();
+            if (certStartDt == null || certStartDt == "") {
+                alert("인증기간 제한 시작일을 입력하세요.");
+                $("#certStartDt").focus();
+                return false;
+            }
+            if (certEndDt == null || certEndDt == "") {
+                alert("인증기간 제한 종료일을 입력하세요.");
+                $("#certEndDt").focus();
+                return false;
+            }
+            if (certStartDt.replace(/\-/ig, '') > certEndDt.replace(/\-/ig, '')) {
+                alert("인증기간 제한 시작일은 종료일보다 클수 없습니다.");
+                $("#certStartDt").focus();
+                return false;
+            }
+        }
+        
+        // 배송비쿠폰
+        if (CPN_GB_CD == '20') {
+            // 혜택 1
+            var delyFreeChk = $("input[name=DELY_FREE_CHK]:checked").val();
+            var delyDscntPrce = $("#delyDscntPrce").val();
+            if (delyFreeChk == null || delyFreeChk == "") {
+                alert("혜택을 선택하세요.");
+                $("#delyFreeChkA").focus();
+                return false;
+            }
+            if (delyFreeChk == "B" && (delyDscntPrce == null || delyDscntPrce == "")) {
+                alert("배송비할인 금액을 입력하세요.");
+                $("#delyDscntPrce").val();
+                return false;
+            }
+        }
+        
+        // 배송비쿠폰을 제외한 나머지
+        if (CPN_GB_CD != '20') {
+            
+            // 혜택 2
+            var bnfitChk = $("input[name=BNFIT_CHK]:checked").val();
+            var bnfitDscntPrce = $("#bnfitDscntPrce").val();
+            var bnfitDscntRate = $("#bnfitDscntRate").val();
+            var bnfitMaxDscntPrce = $("#bnfitMaxDscntPrce").val();
+            if (bnfitChk == null || bnfitChk == "") {
+                alert("혜택을 선택하세요.");
+                $("#bnfitChkA").focus();
+                return false;
+            }
+            if (bnfitChk == "A" && (bnfitDscntPrce == null || bnfitDscntPrce == "")) {
+                alert("상품할인 금액을 입력하세요.");
+                $("#bnfitDscntPrce").focus();
+                return false;
+            }
+            if (bnfitChk == "B") {
+                if (bnfitDscntRate == null || bnfitDscntRate == "") {
+                    alert("상품할인율을 입력하세요.");
+                    $("#bnfitDscntRate").focus();
+                    return false;
+                }
+                if (bnfitMaxDscntPrce == null || bnfitMaxDscntPrce == "") {
+                    alert("상품최대할인 금액을 입력하세요.");
+                    $("#bnfitMaxDscntPrce").focus();
+                    return false;
+                }
+            }
+            
+            // 상품금액 제한 
+            var prodPrce = $("#prodPrce").val();
+            if (prodPrce == null || prodPrce == "") {
+                alert("상품금액 제한을 입력하세요.");
+                $("#prodPrce").focus();
+                return false;
+            }
+            
+            // 쿠폰사용 대상
+            var cpnIssueTgtGb = $("input[name=CPN_ISSUE_TGT_GB_CD]:checked").val();
+            var prodCode = $("#prodCode").val();
+            var cpnCtry = $("#cpnCtry").val();
+            var cpnPlan = $("#cpnPlan").val();
+            if (cpnIssueTgtGb == null || cpnIssueTgtGb == "") {
+                alert("쿠폰사용 대상을 선택해 주세요.");
+                $("#totProd").focus();
+                return false;
+            }
+            if (cpnIssueTgtGb == "B" && (prodCode == null || prodCode == "")) {
+                alert("선택된 상품목록이 없습니다. 상품을 선택해 주세요.");
+                $("#spProd").focus();
+                return false;
+            }
+            if (cpnIssueTgtGb == "C" && (cpnCtry == null || cpnCtry == "")) {
+                alert("선택된 카테고리가 없습니다. 카테고리를 선택해 주세요.");
+                $("#spCtry").focus();
+                return false;
+            }
+            if (cpnIssueTgtGb == "D" && (cpnPlan == null || cpnPlan == "")) {
+                alert("선택된 기획전이 없습니다. 기획전을 선택해 주세요.");
+                $("#spPlan").focus();
+                return false;
+            }
+            
+        }
+        
+        // 유효기간
+        var expChk = $("input[name=EXP_CHK]:checked").val();
+        var expStartDt = $("#expStartDt").val();
+        var expEndDt = $("#expEndDt").val();
+        var expDay = $("#expDay").val();
+        if (expChk == null || expChk == "") {
+            alert("유효기간 구분을 선택하세요.");
+            $("expChkA").focus();
+            return false;
+        }
+        if (expChk == "A") {
+            if (expStartDt == null || expStartDt == "") {
+                alert("유효기간 시작일을 입력하세요.");
+                $("#expStartDt").focus();
+                return false;
+            }
+            if (expEndDt == null || expEndDt == "") {
+                alert("유효기간 종료일을 입력하세요.");
+                $("#expEndDt").focus();
+                return false;
+            }
+            if (expStartDt.replace(/\-/ig, '') > expEndDt.replace(/\-/ig, '')) {
+                alert("유효기간 시작일은 종료일보다 클수 없습니다.");
+                $("#expStartDt").focus();
+                return false;
+            }
+        }
+        if (expChk == "B" && (expDay == null || expDay == "")) {
+            alert("유효기간일을 입력하세요.");
+            $("#expDay").focus();
+            return false;
+        }
+        
+        // 사용채널
+        var cpnUseCd = $("input[name=CPN_USE_CD]:checked").val();
+        var cpnUseCdChnlCnt = $("input[name^=CPN_USE_CD_CHNL]:checked").length;
+        if (cpnUseCd == null || cpnUseCd == "") {
+            alert("사용채널 전체여부를 선택해 주세요.");
+            $("#cpnUseCdA").focus();
+            return false;
+        }
+        if (cpnUseCd == "B" && cpnUseCdChnlCnt <= 0) {
+            alert("사용채널을 선택해 주세요.");
+            $("#android").focus();
+            return false;
+        }
+        
+        // 발급대상
+        if (CPN_GB_CD == '10' || CPN_GB_CD == '20') {
+            var issueCd = $("input[name=ISSUE_CD]:checked").val();
+            var mberSeqNew = $("#mberSeqNew").val();
+            if (issueCd == null || issueCd == "") {
+                alert("발급대상 전체 여부를 선택해 주세요.");
+                $("#issueCdA").focus();
+                return false;
+            }
+            if (issueCd == "B" && (mberSeqNew == null || mberSeqNew == "")) {
+                alert("선택된 지정회원이 없습니다.");
+                $("#issueCdB").focus();
+                return false;
+            }
+        }
+        
+        // 중복사용
+        if (CPN_GB_CD != '50') {
+            var duplUseYn = $("input[name=DUPL_USE_YN]:checked").val();
+            if (duplUseYn == null || duplUseYn == "") {
+                alert("중복사용 여부를 선택해 주세요.");
+                $("#duplY").focus();
+                return false;
+            }
+        }
+        
+        return true;
+        
+    }
+    
+    // 각 리스트 data hidden 에 담기
+    function setListHidden() {
+        
+        // 쿠폰 할인금액 부담율
+        $("#danalBurden").val($("#spanDnlBurden").text());
+        $("#marketBurden").val($("#spanMktBurden").text());
+        
+        // 사업자 판매회원 목록 hidden 에 만들기
+        var mberSeqMarket = "";
+        $(".pMarket").each( function (idx) {
+            var marketId = $(this).attr("id");
+            if (mberSeqMarket == "") {
+                mberSeqMarket = marketId;
+            }
+            else {
+                mberSeqMarket = mberSeqMarket + "," + marketId;
+            }
+        });
+        $("#mberSeqMarket").val(mberSeqMarket);
+        
+        // 카테고리 목록 hidden 에 만들기
+        var cpnCtry = "";
+        $(".aCtry").each( function (idx) {
+            var ctryId = $(this).parent("li").attr("id");
+            if (cpnCtry == "") {
+                cpnCtry = ctryId;
+            }
+            else {
+                cpnCtry = cpnCtry + "," + ctryId;
+            }
+        });
+        $("#cpnCtry").val(cpnCtry);
+        
+        // 기획전 목록 hidden 에 만들기
+        var cpnPlan = "";
+        $(".aPlan").each( function (idx) {
+            var planId = $(this).parent("li").attr("id");
+            if (cpnPlan == "") {
+                cpnPlan = planId;
+            }
+            else {
+                cpnPlan = cpnPlan + "," + planId;
+            }
+        });
+        $("#cpnPlan").val(cpnPlan);
+        
+        // 발급대상
+        var mberSeqOld = $("#mberSeqOld").val().split(/,/g);
+        var mberSeqNew = $("#mberSeqNew").val().split(/,/g);
+        var mberSeqExcel = $("#mberSeqExcel").val().split(/,/g);
+        var mberSeqTot = "";
+        
+        // 신규 등록할 지정회원 만들기 - 회원 조회로 추가 시
+        if (mberSeqNew != null && mberSeqNew != "") {
+            for (var i = 0 ; i < mberSeqNew.length ; i++) {
+                if (mberSeqTot == null || mberSeqTot == "") {
+                    mberSeqTot = mberSeqNew[i];
+                }
+                else {
+                    mberSeqTot = mberSeqTot + "," + mberSeqNew[i];
+                }
+            }
+        }
+        
+        // 신규 등록할 지정회원 만들기 - Excel로 추가 시
+        if (mberSeqExcel != null && mberSeqExcel != "") {
+            for (var j = 0 ; j < mberSeqExcel.length ; j++) {
+                var flag = true;
+                for (var k = 0 ; k < mberSeqNew.length ; k++) {
+                    if (mberSeqExcel[j] == mberSeqNew[k]) {
+                        flag = false;
+                    }
+                }
+                
+                for (var l = 0 ; l < mberSeqOld.length ; l++) {
+                    if (mberSeqExcel[j] == mberSeqOld[l]) {
+                        flag = false;
+                    }
+                }
+                
+                if (flag) {
+                    if (mberSeqTot == null || mberSeqTot == "") {
+                        mberSeqTot = mberSeqExcel[j];
+                    }
+                    else {
+                        mberSeqTot = mberSeqTot + "," + mberSeqExcel[j];
+                    }
+                } 
+            }
+        }
+        
+        $("#mberSeqTotal").val(mberSeqTot);
+    
+    }
+    
+    // 엑셀업로드
+    function excelUpload() {
+        
+        var url = "/admin/cpn/excelPopOpen.do";
+        var width = "710";
+        var height = "190";
+        var left = screen.width;
+        var top = (screen.height/2) - (height/2);
+        window.open('', 'popupForm','width=' + width + ', height=' + height + ', screenY=' + top + ', screenX=' + left + ',toolbar=no, menubar=no, scrollbars=yes, resizeable=no');
+        $("#form").attr("action", url).attr("target", "popupForm").submit();
+        
+    }
+    
+    // 엑셀 업로드 data 담기
+    function addExcel (data, cnt) {
+        $("#mberSeqExcel").val(data);
+        $("#excelCnt").text(numberWithCommas(cnt));
+    }
+    
+    // 인쇄배포용 쿠폰 인증번호 보기
+    function selectCertNum() {
+        
+        var url = "/admin/cpn/selectPrintCpnNoList.do";
+        var width = "640";
+        var height = "650";
+        var left = screen.width;
+        var top = (screen.height/2) - (height/2);
+        window.open('', 'popupForm','width=' + width + ', height=' + height + ', screenY=' + top + ', screenX=' + left + ',toolbar=no, menubar=no, scrollbars=yes, resizeable=no');
+        $("#form").attr("action", url).attr("target", "popupForm").submit();
+        
+    }
+    
+    // 인쇄배포용 쿠폰 인증번호 excelDown
+    function excelCertNum() {
+        $("#form").attr("action","/admin/cpn/printCpnExcel.do").attr("target", "").submit();
+    }
+    
+</script>
+
+<!-- content -->
+<form id="form" name="form" method="post" action="">
+    <div id="content">
+    
+        <input type="hidden" id="marketSender1" name="marketSender1" value="" />
+        <input type="hidden" id="marketSender2" name="marketSender2" value="" />
+        <input type="hidden" id="sendMarketBurden" name="marketBurden" value="" />
+        <input type="hidden" id="issueMth" name="ISSUE_MTH" value="" />
+        <input type="hidden" id="cpnGrpCd" name="CPN_GRP_CD" value="${list.selectCpnDtl.CPN_GRP_CD }" /> 
+        <input type="hidden" id="cpnProdCnt" name="" value="${fn:length(list.cpnProd) }" />
+        <input type="hidden" id="mberSeqMarket" name="MBER_SEQ_MARKET" value="" />
+        <input type="hidden" id="cpnCtry" name="CPN_CTRY" value="" />
+        <input type="hidden" id="cpnPlan" name="CPN_PLAN" value="" />
+        <input type="hidden" id="danalBurden" name="DANAL_BURDEN" value="" />
+        <input type="hidden" id="marketBurden" name="MARKET_BURDEN" value="" />
+        <input type="hidden" id="issueCdOld" name="ISSUE_CD_OLD" value="${list.selectCpnDtl.ISSUE_CD }" />
+        
+        <!-- top_content -->
+        <div class="top_content">
+            <!-- location -->
+    
+            <div class="location">
+                <ul class="clear">
+                    <li class="first-child"><a href="/admin/main.do">Home</a></li>
+                    <li><a href="/admin/plan/selectListPlan.do">프로모션/쿠폰</a></li>
+                    <li><a href="/admin/cpn/selectCpnView.do">쿠폰</a></li>
+                    <li><a class="current">조회</a></li>
+                </ul>
+            </div>
+            <!-- //location -->
+        </div>
+        <!-- //top_content -->
+        
+        <div class="inner">
+            <!-- tbl -->
+            <div class="tbl mt20">
+                <table class="upd">
+                    <colgroup>
+                        <col style="width:17%" />
+                        <col style="width:16%" />
+                        <col style="width:16%" />
+                        <col style="width:16%" />
+                        <col style="width:16%" />
+                        <col style="width:16%" />
+                    </colgroup>
+                    <tbody>
+                        <tr>
+                            <th scope="row">
+                                등록일시
+                            </th>
+                            <td>
+                                ${list.selectCpnDtl.REGIST_DT }
+                            </td>
+                            <th scope="row" class="bl">
+                                수정일시
+                            </th>
+                            <td>
+                                ${list.selectCpnDtl.UPDT_DT }
+                            </td>
+                            <th scope="row" class="bl">
+                                쿠폰종류
+                            </th>
+                            <td>
+                                ${list.selectCpnDtl.CPN_GRP_CD_NM }
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">
+                                발급건수
+                            </th>
+                            <td>
+                                <fmt:formatNumber value="${list.selectCpnDtl.TOT_CPN_ISSUE_QTY }" type="number" />건
+                            </td>
+                            <th scope="row" class="bl">
+                                사용건수
+                            </th>
+                            <td>
+                                <fmt:formatNumber value="${list.selectCpnDtl.CPN_USE_CNT }" type="number" />건
+                            </td>
+                            <th scope="row" class="bl">
+                                발급여부
+                            </th>
+                            <td>
+                                <span>
+                                    <c:choose>
+                                        <c:when test="${list.selectCpnDtl.ISSUE_MTH eq '10' }">
+                                            발급대기
+                                        </c:when>
+                                        <c:when test="${list.selectCpnDtl.ISSUE_MTH eq '20' }">
+                                            발급중
+                                        </c:when>
+                                        <c:when test="${list.selectCpnDtl.ISSUE_MTH eq '30' }">
+                                            발급중지
+                                        </c:when>
+                                        <c:otherwise>
+                                            -
+                                        </c:otherwise>
+                                    </c:choose>
+                                </span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <!-- //tbl -->
+            
+            <!-- tbl -->
+            <div class="tbl mt20">
+                <p class="tbl_tit">쿠폰 할인금액 부담</p>
+                <table class="upd type">
+                    <colgroup>
+                        <col style="width:15%" />
+                        <col style="width:12%" />
+                        <col style="width:*" />
+                        <col style="width:12%" />
+                        <col style="width:20%" />
+                    </colgroup>
+                    <tbody>
+                        <tr>
+                            <th scope="row" rowspan="2">
+                                할인금액 부담율
+                            </th>
+                            <th scope="row">
+                                다날쏘시오
+                            </th>
+                            <th scope="row" colspan="2">
+                                <p class="posr">
+                                    사업자 판매회원 <a href="javascript:getMarketList();" class="btn_g buyer_sel"><span>판매자선택</span></a>
+                                </p>
+                            </th>
+                            <th scope="row">
+                                쿠폰 할인 적용 가능 상품
+                            </th>
+                        </tr>
+                        <tr>
+                            <td>
+                                <span id="spanDnlBurden">${list.selectCpnDtl.DANAL_BURDEN }</span>%
+                            </td>
+                            <td class="tl" id="marketList">
+                                <c:forEach var="market" items="${list.cpnMarket }" varStatus="status">
+                                    <p class="pMarket" id="${market.MBER_SEQ }">${market.CMPNY_NM } | ${market.MINI_SHOP_NM } (${market.MBER_EMAIL })</p>
+                                </c:forEach>
+                            </td>
+                            <td>
+                                <span id="spanMktBurden">${list.selectCpnDtl.MARKET_BURDEN }</span>%
+                            </td>
+                            <td>선택된 사업자 판매회원 모든상품</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <!-- //tbl -->
+            
+            <!-- tbl -->
+            <div class="tbl mt20">
+                <p class="tbl_tit">쿠폰정보</p>
+                <table class="upd type">
+                    <colgroup>
+                        <col style="width:12%" />
+                        <col style="width:*" />
+                        <col style="width:12%" />
+                        <col style="width:*" />
+                    </colgroup>
+                    <tbody>
+                        <tr>
+                            <th scope="row">쿠폰명</th>
+                            <td class="tl">
+                                <input type="text" id="cpnNm" name="CPN_NM" maxLength="100" style="width:300px" value="${list.selectCpnDtl.CPN_NM }" />
+                            </td>
+                            <th scope="row" class="bl">쿠폰설명</th>
+                            <td class="tl">
+                                <input type="text" id="cpnDtl" name="CPN_DTL" style="width:300px" maxLength="1000" value="${list.selectCpnDtl.CPN_DTL }" />
+                            </td>
+                        </tr>
+                        <tr id="TR_BNFIT_1" style="display:none;">
+                            <th scope="row">혜택</th>
+                            <td colspan="3" class="tl">
+                                <span>
+                                    <input type="radio" id="delyFreeChkA" name="DELY_FREE_CHK" value="A" <c:if test="${list.selectCpnDtl.DELY_FREE_CHK == 'A' }">checked</c:if> />
+                                    <label for="delyFreeChkA">배송비 무료</label>
+                                </span>
+                                <span class="ml20">
+                                    <input type="radio" id="delyFreeChkB" name="DELY_FREE_CHK" value="B" <c:if test="${list.selectCpnDtl.DELY_FREE_CHK == 'B' }">checked</c:if> />
+                                    <label for="delyFreeChkB">배송비 
+                                        <input type="text" id="delyDscntPrce" name="DELY_DSCNT_PRCE" style="width:100px" maxLength="17" value="<fmt:formatNumber value="${list.selectCpnDtl.DELY_DSCNT_PRCE }" type="number" />" disabled="disabled" /> 원 할인
+                                    </label>
+                                </span>
+                            </td>
+                        </tr>
+                        <tr id="TR_CERT" style="display:none;">
+                            <th scope="row">인증번호</th>
+                            <td class="tl" colspan="3">
+                                랜덤한 인증번호 100개 자동생성 
+                                <a href="javascript:selectCertNum();" class="btn_w ml5"><span>인증번호 보기</span></a>
+                                <a href="javascript:excelCertNum();" class="btn_excel ml5"><span>엑셀 다운로드</span></a>
+                            </td>
+                        </tr>
+                        <tr id="TR_CERT_DT" style="display:none;">
+                            <th scope="row">인증 기간 제한</th>
+                            <td colspan="3" class="tl">
+                                <label for="period_type">
+                                    <input type="text" id="certStartDt" name="CERT_START_DT" readOnly class="calendar" style="width:82px" value="${list.selectCpnDtl.CERT_START_DT }" /> ~ 
+                                    <input type="text" id="certEndDt" name="CERT_END_DT" readOnly class="calendar" style="width:82px" value="${list.selectCpnDtl.CERT_END_DT }" />
+                                </label>
+                            </td>
+                        </tr>
+                        <tr id="TR_BNFIT_2" style="display:none;">
+                            <th scope="row">혜택</th>
+                            <td colspan="3">
+                                <table class="infoTbl innerTbl">
+                                    <colgroup>
+                                        <col style="width:15%" />
+                                        <col style="width:*" />
+                                        <col style="width:30%" />
+                                    </colgroup>
+                                    <thead>
+                                        <tr>
+                                            <th scope="col">쿠폰종류</th>
+                                            <th scope="col">할인금액</th>
+                                            <th scope="col">기준</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td>
+                                                <input type="radio" id="bnfitChkA" name="BNFIT_CHK" value="A" <c:if test="${list.selectCpnDtl.BNFIT_CHK == 'A' }">checked</c:if> />
+                                                <label for="bnfitChkA">상품할인(금액)</label>
+                                            </td>
+                                            <td>
+                                                <input type="text" id="bnfitDscntPrce" name="BNFIT_DSCNT_PRCE" maxLength="17" class="coupon_bf" style="width:300px" value='<fmt:formatNumber value="${list.selectCpnDtl.BNFIT_DSCNT_PRCE }" type="number" />' /> 원 할인
+                                            </td>
+                                            <td class="tl">입력된 금액만큼 상품 할인</td>
+                                        </tr>
+                                        <tr>
+                                            <td>
+                                                <input type="radio" id="bnfitChkB" name="BNFIT_CHK" value="B" <c:if test="${list.selectCpnDtl.BNFIT_CHK == 'B' }">checked</c:if> />
+                                                <label for="bnfitChkB">상품할인(%)</label>
+                                            </td>
+                                            <td>
+                                                1 개의 상품에 대해 <input type="text" id="bnfitDscntRate" name="BNFIT_DSCNT_RATE" maxLength="3" class="coupon_bf" style="width:50px" disabled="disabled" value="${list.selectCpnDtl.BNFIT_DSCNT_RATE }" /> %, 
+                                                최대 <input type="text" id="bnfitMaxDscntPrce" name="BNFIT_MAX_DSCNT_PRCE" class="coupon_bf" maxLength="17" style="width:50px" disabled="disabled" value='<fmt:formatNumber value="${list.selectCpnDtl.BNFIT_MAX_DSCNT_PRCE }" type="number" />' /> 원 할인
+                                            </td>
+                                            <td class="tl">입력된 비율(%)만큼 상품할인<br/>단, 수량 1개 기준 입력된 최대금액 초과 할인 불가</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </td>
+                        </tr>
+                        <tr id="TR_PROD_PRCE" style="display:none;">
+                            <th scope="row">상품금액 제한</th>
+                            <td colspan="3" class="tl">
+                                상품금액이 <input type="text" id="prodPrce" name="PROD_PRCE" style="width:100px" maxLength="17" value='<fmt:formatNumber value="${list.selectCpnDtl.PROD_PRCE }" type="number" />' /> 원 이상이면 사용 가능
+                            </td>
+                        </tr>
+                        <tr id="TR_EXP_DT" style="display:none;">
+                            <th scope="row">유효기간</th>
+                            <td colspan="3" class="tl">
+                                <input type="radio" id="expChkA" name="EXP_CHK" value="A" <c:if test="${list.selectCpnDtl.EXP_CHK == 'A' }">checked</c:if> /> 
+                                <label for="period_type">
+                                    <input type="text" id="expStartDt" name="EXP_START_DT" class="calendar expA" style="width:82px" readOnly value="${list.selectCpnDtl.EXP_START_DT }" /> ~ 
+                                    <input type="text" id="expEndDt" name="EXP_END_DT" class="calendar expA" style="width:82px" readOnly value="${list.selectCpnDtl.EXP_END_DT }" />
+                                </label>
+                                <input type="radio" id="expChkB" name="EXP_CHK" value="B" class="ml30" <c:if test="${list.selectCpnDtl.EXP_CHK == 'B' }">checked</c:if>/> 
+                                <label for="period_type2">
+                                    발급일로부터 <input type="text" id="expDay" name="EXP_DAY" maxLength="3" style="width:80px" class="expB" value="${list.selectCpnDtl.EXP_DAY }" /> 일 동안 사용가능
+                                </label>
+                            </td>
+                        </tr>
+                        <tr id="TR_CPN_USE_CD" style="display:none;">
+                            <th scope="row">사용채널</th>
+                            <td colspan="3" class="tl">
+                                <span>
+                                    <input type="radio" id="cpnUseCdA" name="CPN_USE_CD" class="cpnUseCd" value="A" <c:if test="${list.selectCpnDtl.CPN_USE_CD == 'A' }">checked</c:if> />
+                                    <label for="cpnUseCdA">전체 채널</label>
+                                </span>
+                                <span class="ml5">
+                                    <input type="radio" id="cpnUseCdB" name="CPN_USE_CD" class="cpnUseCd" value="B" <c:if test="${list.selectCpnDtl.CPN_USE_CD == 'B' }">checked</c:if> />
+                                    <label for="cpnUseCdB">채널 선택</label>
+                                </span>
+                                <c:forEach var="code" items="${list.cpnChanCd }" varStatus="codeStatus">
+                                    <span class="ml5">
+                                        <input type="checkbox" id="${code.COM_CD_NM }" name="CPN_USE_CD_CHNL[]" value="${code.COM_CD }" 
+                                            <c:if test="${list.selectCpnDtl.CHAN1 == code.COM_CD }">checked</c:if> 
+                                            <c:if test="${list.selectCpnDtl.CHAN2 == code.COM_CD }">checked</c:if> 
+                                            <c:if test="${list.selectCpnDtl.CHAN3 == code.COM_CD }">checked</c:if> 
+                                            <c:if test="${list.selectCpnDtl.CHAN4 == code.COM_CD }">checked</c:if> 
+                                        />
+                                        <label for="${code.COM_CD_NM }">${code.COM_CD_NM }</label>
+                                    </span>
+                                </c:forEach>
+                            </td>
+                        </tr>
+                        <tr id="TR_CPN_USE" style="display:none;">
+                            <th scope="row" class="cpn_use" rowspan="2">쿠폰사용 대상</th>
+                            <td colspan="3" class="tl">
+                                <table class="infoTbl innerTbl v2">
+                                    <colgroup>
+                                        <col style="width:25%" />
+                                        <col style="width:25%" />
+                                        <col style="width:25%" />
+                                        <col style="width:25%" />
+                                    </colgroup>
+                                    <thead>
+                                        <tr>
+                                            <th scope="row">
+                                                <input type="radio" id="totProd" name="CPN_ISSUE_TGT_GB_CD" value="A" />
+                                                <label for="totProd">전체상품에 쿠폰사용 가능</label>
+                                            </th>
+                                            <th scope="row">
+                                                <input type="radio" id="spProd" name="CPN_ISSUE_TGT_GB_CD" value="B" />
+                                                <label for="spProd">특정 상품에서만 사용가능</label>
+                                            </th>
+                                            <th scope="row">
+                                                <input type="radio" id="spCtry" name="CPN_ISSUE_TGT_GB_CD" value="C" />
+                                                <label for="spCtry">특정 카테고리에서만 사용 가능</label>
+                                            </th>
+                                            <th scope="row">
+                                                <input type="radio" id="spPlan" name="CPN_ISSUE_TGT_GB_CD" value="D" />
+                                                <label for="spPlan">특정 기획전에서만 사용 가능</label>
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td colspan="4">
+                                                <div class="coupon_user_bx totProd">
+                                                    <span>쿠폰 할인금액 부담에서 선택된 사업자 판매회원의 모든 상품에서만 쿠폰 할인 적용이 가능 합니다.</span>
+                                                </div>
+                                                <div class="coupon_user_bx spProd tl">
+                                                    <a href="javascript:getProdList();" class="btn_w"><span>상품조회</span></a>
+                                                    <span class="ml5"><fmt:formatNumber value="${list.selectCpnDtl.TOT_PROD_CNT }" type="number" />개의 상품에서 쿠폰 사용이 가능합니다.</span>
+                                                </div>
+                                                <div class="coupon_user_bx spCtry tl">
+                                                    <div>
+                                                        <span class="select" style="width:160px">
+                                                            <span id="regCtryTxt1" class="sel_txt"></span>
+                                                            <select id="regCtryCd1" name="regCtryCd1" onchange="chgCtryCd1Box('reg');">
+                                                                <option value="">대분류</option>
+                                                            </select>
+                                                        </span> 
+                                                        <span class="select ml5" style="width:160px">
+                                                            <span id="regCtryTxt2" class="sel_txt"></span>
+                                                            <select id="regCtryCd2" name="regCtryCd2" onchange="chgCtryCd2Box('reg');">
+                                                                <option value="">중분류</option>
+                                                            </select>
+                                                        </span>
+                                                        <span class="select ml5" style="width:160px">
+                                                            <span id="regCtryTxt3" class="sel_txt"></span>
+                                                            <select id="regCtryCd3" name="regCtryCd3">
+                                                                <option value="">소분류</option>
+                                                            </select>
+                                                        </span>
+                                                        <a href="javascript:categoryAdd();" class="btn_r ml5"><span>쿠폰 카테고리 등록</span></a>
+                                                    </div>
+                                                    <ul class="lst_coupon_user" id="ulCategory">
+                                                        <c:forEach var="cpnCtry" items="${list.cpnCtry }" varStatus="status">
+                                                            <li class="${cpnCtry.CTRY_CD } liCtry" id="${cpnCtry.CTRY_CD }" style="display:flex">
+                                                                <a class="aCtry">
+                                                                    <img src="http://static.ssocio.net/admin/images/btn_minus.gif" alt="쿠폰사용 대상 삭제">
+                                                                </a>
+                                                                <span class="ml5" style="margin-top:7px !important;">
+                                                                    <c:choose>
+                                                                        <c:when test="${cpnCtry.STEP3_CD != null and STEP3_CD != '' }">
+                                                                            ${cpnCtry.STEP1_NM } > ${cpnCtry.STEP2_NM } > ${cpnCtry.STEP3_NM }
+                                                                        </c:when>
+                                                                        <c:otherwise>
+                                                                            <c:choose>
+                                                                                <c:when test="${cpnCtry.STEP2_CD != null and STEP2_CD != '' }">
+                                                                                    ${cpnCtry.STEP1_NM } > ${cpnCtry.STEP2_NM }
+                                                                                </c:when>
+                                                                                <c:otherwise>
+                                                                                    ${cpnCtry.STEP1_NM }
+                                                                                </c:otherwise>
+                                                                            </c:choose>
+                                                                        </c:otherwise>
+                                                                    </c:choose>
+                                                                </span>
+                                                            </li>
+                                                        </c:forEach>
+                                                    </ul>
+                                                </div>
+                                                <div class="coupon_user_bx spPlan tl">
+                                                    <div>
+                                                        <span class="select" style="width:480px;">
+                                                            <span class="sel_txt"></span>
+                                                            <select id="selPlan">
+                                                                <option value="">기획전 선택</option>
+                                                                <c:forEach var="plan" items="${list.planList }" varStatus="status">
+                                                                    <option value="${plan.TOT_PLAN_CD }">${plan.TOT_PLAN_NM }</option>
+                                                                </c:forEach>
+                                                            </select>
+                                                        </span>
+                                                        <a href="javascript:planAdd();" class="btn_r ml5"><span>기획전 등록</span></a>
+                                                    </div>
+                                                    <ul class="lst_coupon_user" id="ulPlan">
+                                                        <c:forEach var="cpnPlan" items="${list.cpnPlan }" varStatus="status">
+                                                            <li class="${cpnPlan.PLAN_CD } liPlan" id="${cpnPlan.PLAN_CD }" style="display:flex">
+                                                                <a class="aPlan">
+                                                                    <img src="http://static.ssocio.net/admin/images/btn_minus.gif" alt="기획전 삭제">
+                                                                </a>
+                                                                <span class="ml5" style="margin-top:7px !important;">${cpnPlan.PLAN_NM }</span>
+                                                            </li>
+                                                        </c:forEach>
+                                                    </ul>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </td>
+                        </tr>
+                        <tr id="TR_PROD_LIST" style="display:none;">
+                            <td colspan="3">
+                                <p class="coupon_user_tot">총 <span id="spanCpnProdCnt"><fmt:formatNumber value="${fn:length(list.cpnProd) }" type="number" /></span> 개</p>
+                                <table class="infoTbl innerTbl v2">
+                                    <colgroup>
+                                        <col style="width:*" />
+                                        <col style="width:10%" />
+                                        <col style="width:15%" />
+                                        <col style="width:20%" />
+                                        <col style="width:10%" />
+                                    </colgroup>
+                                    <thead>
+                                        <tr>
+                                            <th scope="col">상품명</th>
+                                            <th scope="col">판매구분</th>
+                                            <th scope="col">판매가격</th>
+                                            <th scope="col">판매자</th>
+                                            <th scope="col">삭제</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="prodBody">
+                                        <c:forEach var="prod" items="${list.cpnProd }" varStatus="status">
+                                            <tr id="tr${prod.PROD_CODE }">
+                                                <td class="tl">
+                                                    <div class="thumbnail_bx">
+                                                        <img src="${prod.PROD_IMG_URL }" alt="상품 이미지">
+                                                        <span class="prod_name" style="width:250px">${prod.PROD_NM }</span>
+                                                    </div>
+                                                </td>
+                                                <td>${prod.PROD_TYPE_CD_NM }</td>
+                                                <td><fmt:formatNumber value="${prod.SELL_PRCE }" type="number" />원</td>
+                                                <td>${prod.MBER_EMAIL }</td>
+                                                <td><a href="javascript:delProd('${prod.PROD_CODE }');" class="btn_r"><span>삭제</span></a></td>
+                                            </tr>
+                                        </c:forEach>
+                                    </tbody>
+                                </table>
+                            </td>
+                        </tr>
+                        <tr id="TR_ISSUE" style="display:none;">
+                            <th scope="row" class="issue_tit">발급대상</th>
+                            <td colspan="3" class="tl">
+                                <div class="clear">
+                                    <div class="left mt5">
+                                        <span>
+                                            <input type="radio" id="issueCdA" name="ISSUE_CD" value="A" <c:if test="${list.selectCpnDtl.ISSUE_CD == 'A' }">checked</c:if> />
+                                            <label for="issueCdA">전체회원</label>
+                                        </span>
+                                        <span class="ml5">
+                                            <input type="radio" id="issueCdB" class="spc_mem" name="ISSUE_CD" value="B" <c:if test="${list.selectCpnDtl.ISSUE_CD == 'B' }">checked</c:if> />
+                                            <label for="issueCdB">지정회원</label>
+                                        </span>
+                                    </div>
+                                    <div class="right mt5" id="divCpnUseCnt">
+                                        <a class="alink" id="aCpnUseCnt" style="display:none;">지정회원 <span id="cpnUseCnt"><fmt:formatNumber value="${fn:length(list.cpnUse) }" type="number" /></span>명</a>
+                                        <a class="alink" id="aTotUseCnt" style="display:none;">전체회원 <fmt:formatNumber value="${fn:length(list.cpnUse) }" type="number" />명</a>
+                                    </div>
+                                </div>
+                                <div class="mem_find">
+                                    <a href="javascript:getCpnUse();" class="btn_r"><span>회원조회</span></a>
+                                    <a href="javascript:excelUpload();" class="btn_r"><span>지정회원(엑셀업로드)</span></a>
+                                    <span class="ml5"> <span id="excelCnt"></span>명의 회원이 선택 되었습니다.</span>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr id="TR_DUPL_USE" style="display:none;">
+                            <th scope="row">중복사용</th>
+                            <td colspan="3" class="tl">
+                                <span>
+                                    <input type="radio" id="duplY" name="DUPL_USE_YN" value="Y" <c:if test="${list.selectCpnDtl.DUPL_USE_YN == 'Y' }">checked</c:if> />
+                                    <label for="duplY">중복사용 가능</label>
+                                </span>
+                                <span class="ml5">
+                                    <input type="radio" id="duplN" name="DUPL_USE_YN" value="N" <c:if test="${list.selectCpnDtl.DUPL_USE_YN == 'N' }">checked</c:if> />
+                                    <label for="duplN">중복사용 불가</label>
+                                </span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <!-- //tbl -->
+            
+            <!-- bot_btn -->
+            <div class="bot_btn tc mt20">
+                <c:choose>
+                    <c:when test="${list.selectCpnDtl.ISSUE_MTH eq '10'}">
+                        <a href="javascript:setIssueMth('20');" class="btn_r">쿠폰 발급</a>
+                        <a href="javascript:updateCpn();" class="btn_r ml10">확인</a>
+                    </c:when>
+                    <c:when test="${list.selectCpnDtl.ISSUE_MTH eq '20' }">
+                        <a href="javascript:setIssueMth('30');" id="btnIssueMthB" class="btn_r">발급중지</a>
+                    </c:when>
+                </c:choose>
+                
+                <c:if test="${list.dtlFlag == 'A' }">
+                    <a href="javascript:history.go(-1);" id="btnCancel" class="btn_g2 ml10">취소</a>
+                </c:if>
+                <c:if test="${list.dtlFlag == 'B' }">
+                    <a href="javascript:history.go(-2);" id="btnCancel" class="btn_g2 ml10">취소</a>
+                </c:if>
+            </div>
+            <!-- //bot_btn -->
+            
+        </div>
+    </div>
+    
+    <!-- 지정회원 추가시 비교할 기존지정회원목록 -->
+    <div style="display:none;" id="divCpnUse">
+        <c:if test="${fn:length(list.cpnUse) > 0}">
+            <c:set var="mberSeq" value="" />
+            <c:forEach var="list" items="${list.cpnUse}" varStatus="status">
+                <c:choose>
+                    <c:when test="${status.index == 0 }">
+                        <c:set var="mberSeq" value="${list.MBER_SEQ }" />
+                    </c:when>
+                    <c:otherwise>
+                        <c:set var="mberSeq" value="${mberSeq },${list.MBER_SEQ }" />
+                    </c:otherwise>
+                </c:choose>
+            </c:forEach>                                
+        </c:if>
+        
+        <input type="hidden" id="mberSeqOld" name="MBER_SEQ_OLD" value="${mberSeq }" />
+        <input type="hidden" id="mberSeqNew" name="MBER_SEQ_NEW" value="" />
+        <input type="hidden" id="mberSeqExcel" name="MBER_SEQ_EXCEL" value="" />
+        <input type="hidden" id="mberSeqTotal" name="MBER_SEQ_TOTAL" value="" />
+        
+    </div>
+    <!-- 지정회원 추가 시 비교할 기존지정회원목록 -->
+    
+    <!-- 상품 추가 시 비교할 기존상품목록 -->
+    <div style="display:none;" id="divProd">
+        <c:if test="${fn:length(list.cpnProd) > 0}">
+            <c:set var="prodCode" value="" />
+            <c:forEach var="list" items="${list.cpnProd}" varStatus="status">
+                <c:choose>
+                    <c:when test="${status.index == 0 }">
+                        <c:set var="prodCode" value="${list.PROD_CODE }" />
+                    </c:when>
+                    <c:otherwise>
+                        <c:set var="prodCode" value="${prodCode },${list.PROD_CODE }" />
+                    </c:otherwise>
+                </c:choose>
+            </c:forEach>                                
+        </c:if>
+        
+        <input type="hidden" id="prodCode" name="PROD_CODE" value="${prodCode }" />
+        
+    </div>
+    <!-- 상품 추가 시 비교할 기존상품목록 -->
+    
+</form>

@@ -1,0 +1,1771 @@
+package com.ssocio.sharing.controller.mobile;
+
+import java.beans.Encoder;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.io.UnsupportedEncodingException;
+import java.net.URL;
+import java.net.URLEncoder;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.servlet.http.Cookie;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
+
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpResponse;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.entity.StringEntity;
+import org.apache.http.impl.client.HttpClientBuilder;
+import org.apache.http.util.EntityUtils;
+import org.json.simple.JSONObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.ModelMap;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.servlet.ModelAndView;
+
+import com.mysql.jdbc.log.LogUtils;
+import com.ssocio.sharing.cmmn.admin.util.HttpUrlConnectionUtil;
+import com.ssocio.sharing.cmmn.security.SSOCIO_AES256Cipher;
+import com.ssocio.sharing.cmmn.service.CommonService;
+import com.ssocio.sharing.cmmn.util.CmmnCnst;
+import com.ssocio.sharing.cmmn.util.JsonUtil;
+import com.ssocio.sharing.cmmn.util.LoggerUtil;
+import com.ssocio.sharing.cmmn.util.StringUtil;
+import com.ssocio.sharing.cmmn.web.util.WebCommonUtil;
+import com.ssocio.sharing.service.web.AppCommonService;
+import com.ssocio.sharing.service.web.MobileJoinService;
+import com.ssocio.sharing.service.web.MobileSetupService;
+import com.ssocio.sharing.service.web.WebCommonService;
+import com.ssocio.sharing.service.web.WebMainService;
+import com.ssocio.sharing.vo.web.HeaderVO;
+import com.ssocio.sharing.vo.web.WebSession;
+import com.ssocio.sharing.vo.web.function;
+
+import common.CompCheck;
+
+@Controller
+public class MobileCommonController extends MobileReferController {
+
+	// --------------------------------------------------------------------------
+	// # Log 설정
+	// --------------------------------------------------------------------------
+	private static final Logger logger = LoggerFactory.getLogger(MobileCommonController.class);
+
+	// --------------------------------------------------------------------------
+	// # Service 설정
+	// --------------------------------------------------------------------------
+	@Autowired
+	private WebCommonService webCommonService;
+
+	@Autowired
+	private CommonService commonService;
+
+	//인트로
+	@Autowired
+	private AppCommonService appCommonService;
+
+	//회원탈퇴 처리
+	@Autowired
+	private MobileSetupService mobileSetupService;
+
+	@Autowired
+	private WebMainService webMainService;
+
+	@Autowired
+	private MobileJoinService mobileJoinService;
+
+
+
+
+	@RequestMapping("/mobile/inf/appintropopUp.do")
+	public ModelAndView appintropopUp(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam ) throws Exception{
+	logger.info("☆★☆★☆★☆★☆★☆★☆MOBILE main START☆★☆★☆★☆★☆★☆★☆");
+	logger.info("################################################################");
+	logger.info("#### main.do	이진세 ");
+	logger.info("################################################################");
+		ModelAndView mav = new ModelAndView();
+		WebSession session = (WebSession)request.getSession().getAttribute("user");
+		if(WebCommonUtil.isLogin(request)){
+			inParam.put("MBER_SEQ", session.getMBER_SEQ());
+		}
+		ModelMap main = webMainService.procMain(inParam,session);
+		logger.debug("main:"+main);
+		if( main != null){
+			logger.debug("1.main - main:["+main+"]");
+			String ETC_SKIP_YN  = "N";
+			if(inParam.get("ETC_SKIP_YN")!=null){
+				ETC_SKIP_YN = StringUtil.nvl(inParam.get("ETC_SKIP_YN").toString()).trim();
+			}
+			logger.debug("1.main - ETC_SKIP_YN:["+ETC_SKIP_YN+"]");
+			logger.debug("ETC_SKIP_YN:["+ETC_SKIP_YN+"]");
+			if( (main.get("notice") != null)||(main.get("termsAgree") != null)||(main.get("useingStop") != null)||(main.get("sellerGuide") != null) ){
+				logger.debug(" S 작업자 : shkim ");
+				if(!"Y".equals(ETC_SKIP_YN) ){
+						if( (main.get("notice")!=null)||(main.get("termsAgree")==null)||(main.get("useingStop")== null)||(main.get("sellerGuide")== null) ){	// 1건만 공지사항만 존재할경우
+							logger.debug("####### 공지사항만 존재합니다:"+main.get("notice"));
+							List<Map<String, Object>> noticeList = (List<Map<String, Object>>)main.get("notice");
+							logger.debug("######## 공지사항만 존재합니다:"+noticeList.size());	// 4.공지사항
+							int termsAgreeInt = 0;
+							if(main.get("termsAgree")!=null){
+								List<Map<String, Object>> termsAgree = (List<Map<String, Object>>)main.get("termsAgree");
+								termsAgreeInt = termsAgree.size();
+							}
+
+
+							// 쿠키에서 존재하면 공지사항 제거.
+							// 총 건수가 1건이면서 공지사항이면 찾아서 숨긴다.
+							inParam.put("cookiesYn", "N");
+							Cookie[] cookies = request.getCookies();
+							int chC = 0;
+							if (cookies != null) {
+							    for (Cookie cookie : cookies) {
+
+							    	logger.debug("cookie.getName():"+cookie.getName());
+							    	logger.debug("cookie.getValue():"+cookie.getValue());
+							    	String BOARD_SEQ = "";
+							    	for(int i=0;i<noticeList.size();i++){
+							    		logger.debug("BOARD_SEQ:"+noticeList.get(i).get("BOARD_SEQ"));
+							    		BOARD_SEQ = noticeList.get(i).get("BOARD_SEQ").toString();
+							    		if( ("notice_"+BOARD_SEQ).equals(cookie.getName()) && "rangs".equals(cookie.getValue())){
+								        	logger.debug("일치합니다. rangs");
+								        	chC++;
+								        	mav.addObject("noticeCookie"		, BOARD_SEQ);
+								        }else if( ("notice_"+BOARD_SEQ).equals(cookie.getName()) && "done".equals(cookie.getValue())){
+								        	logger.debug("일치합니다. done");
+								        	chC++;
+								        	mav.addObject("noticeCookie"		, BOARD_SEQ);
+								        }
+							    	}
+							    }
+							}
+							logger.debug("chC:"+chC+" , noticeList.size():"+noticeList.size()+" , termsAgree.size():"+termsAgreeInt );
+							if(chC == noticeList.size()){
+								logger.debug("쿠키값이 공지사항에 포함되므로 전체 공지사항은 보이지 않음");
+								logger.debug("useingStop		:"+main.get("useingStop"));
+								logger.debug("sellerGuide		:"+main.get("sellerGuide"));
+								logger.debug("termsAgree.size()	:"+termsAgreeInt);
+								// 이용정지 안내,판매회원반려가 존재하는지 확인한다.
+								if((main.get("useingStop") != null)||(main.get("sellerGuide") != null)||(termsAgreeInt >0)){
+									logger.debug("공지사항 제외! 약관동의,이용정지,판매회원반려 존재");
+									mav.setViewName("web/board/selectMainNotice");
+									//mav.addObject("notice"		, main.get("notice"));		// 4.공지사항
+									mav.addObject("termsAgree"	, main.get("termsAgree"));	// 3.약관 동의(변경)
+									mav.addObject("useingStop"	, main.get("useingStop"));	// 1.이용정지 안내
+									mav.addObject("sellerGuide"	, main.get("sellerGuide"));	// 2.판매회원 가입 반려 안내
+								}else{
+									logger.debug("모두제외(공지사항,약관동의,이용정지,판매회원반려)");
+//									mav.setViewName("web/main/mainSelectListPlan");
+//									mav.addObject("result", webMainService.selectListMainPlan());
+								}
+							}else{
+								mav.setViewName("web/board/selectMainNotice");
+								mav.addObject("notice"		, main.get("notice"));		// 4.공지사항
+								mav.addObject("termsAgree"	, main.get("termsAgree"));	// 3.약관 동의(변경)
+								mav.addObject("useingStop"	, main.get("useingStop"));	// 1.이용정지 안내
+								mav.addObject("sellerGuide"	, main.get("sellerGuide"));	// 2.판매회원 가입 반려 안내
+							}
+
+						}else{
+							/*
+							 * 1.공지사항				notice NOTICE
+							 * [로그인되어 있지 않으면 제외]2.약관 동의(변경)			termsAgree TERMS_AGREE
+							 * 3.이용정지 안내			useingStop USEING_STOP
+							 * 4.판매회원 가입 반려 안내 	sellerGuide SELLER_GUIDE
+							 */
+							logger.debug("1-1.main 최초 메인조회시 4가지 중 하나가 포함됨");
+							mav.setViewName("web/board/selectMainNotice");
+							mav.addObject("notice"		, main.get("notice"));		// 4.공지사항
+							mav.addObject("termsAgree"	, main.get("termsAgree"));	// 3.약관 동의(변경)
+							mav.addObject("useingStop"	, main.get("useingStop"));	// 1.이용정지 안내
+							mav.addObject("sellerGuide"	, main.get("sellerGuide"));	// 2.판매회원 가입 반려 안내
+						}
+				}else{
+					logger.debug("[처리후 메인으로 이동시 사용]1.공지사항/2.약관 동의(변경)/3.이용정지 안내/4.판매회원 가입 반려 안내");
+//					mav.setViewName("web/main/mainSelectListPlan");
+//					mav.addObject("result", webMainService.selectListMainPlan());
+				}
+				logger.debug(" E 작업자 : shkim ");
+			} else {
+//				mav.setViewName("web/main/mainSelectListPlan");
+//				mav.addObject("result", webMainService.selectListMainPlan());
+			}
+		} else{
+			logger.debug("2.main");
+//			mav.setViewName("web/main/mainSelectListPlan");
+//			mav.addObject("result", webMainService.selectListMainPlan());
+		}
+
+		return mav;
+	}
+
+
+
+	/**
+	 * <pre>
+	 * AppIntro
+	 * AppIntro
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 8. 25. 오후 11:27:36
+	 * @author LeeJinSe
+	 * @see com.ssocio.sharing.controller.app
+	 * @비고
+	 *
+	 * </pre>
+	*/
+	@RequestMapping("/mobile/inf/intro.do")
+	public ModelAndView loginSet(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam ) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("@@@@ /app/inf/intro.do IN @@@@@");
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		HeaderVO headerObj = (HeaderVO) request.getAttribute("header");
+		Map<String, Object> outData   = new HashMap<String, Object>();
+		Map<String, Object> resultData   = new HashMap<String, Object>();
+		Map<String, Object> bodyParam = (Map<String, Object>) request.getAttribute("body");
+		System.out.println(bodyParam);
+		try{
+			outData = appCommonService.appIntroCheck(headerObj,bodyParam,request);
+//			ComCookieCheck(request);
+			resultData = RetSettMethod(request,headerObj,outData);
+		}catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		logger.info("resultData : " + resultData.toString());
+
+		return new ModelAndView("jsonView", resultData);
+	}
+
+	public  Map<String, Object> RetSettMethod(HttpServletRequest request,HeaderVO headerObj, Map<String, Object> outData) throws Exception{
+
+		Map<String, Object> resultData   = new HashMap<String, Object>();
+		 String json="";
+		 outData.put("header", headerObj);
+		 String Str= "";
+		 json = JsonUtil.getJsonStringfromMap(outData);
+		 //api test 를 위해 구분 해놈
+		if(null != request.getParameter("ENCODE_YN")){
+			try {
+				resultData.put("ret_data", URLEncoder.encode(json, "UTF-8"));
+			} catch (UnsupportedEncodingException e) {
+				e.printStackTrace();
+			}
+		}else{
+
+			Str = SSOCIO_AES256Cipher.setAesMsg(json);
+			Str = URLEncoder.encode(Str, "UTF-8");
+				resultData.put("ret_data", Str);
+		}
+
+		return resultData;
+
+	}
+	/**
+	 * <pre>
+	 * 설명
+	 * 설명
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 14. 오후 6:15:10
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/common/setLogin.do")
+	public ModelAndView setLogin(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception {
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("MOBILE SET LOGIN START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+		ModelAndView mav = new ModelAndView("jsonView");
+		String lowerEmail = ((String)inParam.get("MBER_EMAIL")).toLowerCase();
+		inParam.put("MBER_EMAIL", lowerEmail);
+		mav.addObject("OS_GUBUN", ""); // IOS, AND
+		mav.addObject("APP_VERSION", "");
+
+		try {
+			if(inParam != null){
+
+				if( "AND".equals((String)request.getHeader("x_app_name")) ) {
+					logger.info("##########################################################################################OS_GUBUN :" + ((String)request.getHeader("x_app_name")));
+					mav.addObject("OS_GUBUN", "AND");
+					mav.addObject("APP_VERSION", (String)request.getHeader("x_app_version"));
+					logger.info("##########################################################################################x_app_version :" + ((String)request.getHeader("x_app_version")));
+				} else if ( "IOS".equals((String)request.getHeader("x_app_name")) ) {
+					mav.addObject("OS_GUBUN", "IOS");
+					mav.addObject("APP_VERSION", (String)request.getHeader("x_app_version"));
+				} else if( "AND".equals((String)request.getSession().getAttribute("X_APP_NAME_2")) ) {
+					logger.info("##########################################################################################X_APP_NAME_2 :" + (String)request.getSession().getAttribute("X_APP_NAME_2"));
+					mav.addObject("OS_GUBUN", "AND");
+					String X_APP_VERSION_2 = (String)request.getSession().getAttribute("X_APP_VERSION_2");
+					logger.info("##########################################################################################X_APP_VERSION_2 :" + (String)request.getSession().getAttribute("X_APP_VERSION_2"));
+					mav.addObject("APP_VERSION", X_APP_VERSION_2);
+				} else if( "IOS".equals((String)request.getSession().getAttribute("X_APP_NAME_2")) ) {
+					mav.addObject("OS_GUBUN", "IOS");
+					String X_APP_VERSION_2 = (String)request.getSession().getAttribute("X_APP_VERSION_2");
+					mav.addObject("APP_VERSION", X_APP_VERSION_2);
+				}
+
+				//자동 로그인 체크 여부 확인
+				Cookie[] cookies = request.getCookies();
+				for (int i = 0; i < cookies.length; i++) {
+					if (("MBER_AUTO_LOGIN").equals(cookies[i].getName()) ) {
+						if (("true").equals(cookies[i].getValue())){
+							inParam.put("MBER_AUTO_LOGIN", true);
+						} else {
+							inParam.put("MBER_AUTO_LOGIN", false);
+						}
+					}
+				}
+
+				WebSession webSession = webCommonService.setLogin(inParam);
+				int failCnt = webCommonService.getFailCnt(inParam);
+				if(failCnt >4){
+					mav.addObject("FAIL_CNT", webSession.getFAIL_CNT()+1);
+				}
+				else if(webSession != null && webSession.getLogin()){
+					mav.addObject("result", webSession.getLogin());
+					mav.addObject("MBER_STAT_CD", webSession.getMBER_STAT_CD());
+					mav.addObject("SERIAL_KEY", webSession.getSERIAL_KEY());
+					mav.addObject("FAIL_CNT", webSession.getFAIL_CNT());
+					HttpSession session  = request.getSession();
+					if ( ("40").equals(webSession.getMBER_STAT_CD()) || ("99").equals(webSession.getMBER_STAT_CD()) || ("20").equals(webSession.getMBER_STAT_CD())
+							|| ("22").equals(webSession.getMBER_STAT_CD()) || ("30").equals(webSession.getMBER_STAT_CD()) || ("").equals(webSession.getMBER_STAT_CD())) {
+						session.setAttribute("user", null);
+					} else {
+						session.setAttribute("user", webCommonService.setLogin(inParam));
+						if (inParam != null && inParam.get("MBER_AUTO_LOGIN") != null && (boolean)inParam.get("MBER_AUTO_LOGIN") ) {
+							for (int j = 0; j < cookies.length; j++) {
+								if (("MBER_PASS").equals(cookies[j].getName()) ) {
+									cookies[j].setValue(webSession.getMBER_PASS());
+									cookies[j].setPath("/mobile");
+									cookies[j].setMaxAge(60*60*24*60);
+								}
+								response.addCookie(cookies[j]);
+							}
+						}
+					}
+
+					inParam.put("MBER_SEQ", webSession.getMBER_SEQ());
+
+					if(CmmnCnst.cmmnN.equals(webMainService.insLoginfoDupChk(inParam))){
+						webMainService.updateConnCnt(inParam);
+					    inParam.put("CON_GB", StringUtil.nvl((String)request.getSession().getAttribute("conGbCd"), ""));
+					    inParam.put("CON_IP", StringUtil.nvl((String)request.getRemoteAddr(), ""));
+
+						// 접속시간 update
+					    webMainService.updateLastLoginDt(inParam);
+
+						// 접속이력 테이블 insert
+					    webMainService.insertConnLog(inParam);
+					}
+				}
+
+//				mav.addObject("FAIL_CNT", webSession.getFAIL_CNT());
+//				if(failCnt >4){
+//					mav.addObject("FAIL_CNT", webSession.getFAIL_CNT());
+//				}
+			}
+
+
+
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mav;
+	}
+
+
+
+	@RequestMapping("/mobile/common/selectUseStat.do")
+	public ModelAndView selectUseStat(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception {
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("MOBILE selectUseStat START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+		ModelAndView mav = new ModelAndView("jsonView");
+		int result=0;
+		String lowerEmail = ((String)inParam.get("MBER_EMAIL")).toLowerCase();
+		inParam.put("MBER_EMAIL", lowerEmail);
+		try {
+
+			result = webCommonService.selectUseStat(inParam);
+
+			mav.addObject("result", result);
+
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mav;
+	}
+
+
+
+
+	/**
+	 * <pre>
+	 * 설명
+	 * 설명
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 14. 오후 6:15:10
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/common/checkPass.do")
+	public ModelAndView checkPass(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception {
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("MOBILE checkPass START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+		ModelAndView mav = new ModelAndView("jsonView");
+		try {
+			if(inParam != null){
+				int retCode = webCommonService.checkPass(inParam);
+				mav.addObject("retCode", retCode);
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mav;
+	}
+
+	/**
+	 * <pre>
+	 * 설명
+	 * 설명
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 18. 오후 9:01:49
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/common/setFacebookLogin.do")
+	public ModelAndView setFacebookLogin(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception {
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("MOBILE SET LOGIN START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+		ModelAndView mav = new ModelAndView("jsonView");
+		try {
+			if(inParam != null){
+				WebSession webSession = webCommonService.setFacebookLogin(inParam);
+				if(webSession != null && webSession.getLogin()){
+					mav.addObject("result", true);
+					mav.addObject("MBER_STAT_CD", webSession.getMBER_STAT_CD());
+					mav.addObject("SERIAL_KEY", webSession.getSERIAL_KEY());
+					HttpSession session  = request.getSession();
+					session.setAttribute("user", webCommonService.setFacebookLogin(inParam));
+				}
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mav;
+	}
+
+	/**
+	 * <pre>
+	 * 설명
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 10. 22. 오후 9:31:47
+	 * @author user
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/common/setKakaoLogin.do")
+	public ModelAndView setKakaoLogin(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception {
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("MOBILE SET KAKAO LOGIN START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+		ModelAndView mav = new ModelAndView("jsonView");
+		try {
+			if(inParam != null){
+				WebSession webSession = webCommonService.setKakaoLogin(inParam);
+				if(webSession != null && webSession.getLogin()){
+					mav.addObject("result", true);
+					mav.addObject("MBER_STAT_CD", webSession.getMBER_STAT_CD());
+					mav.addObject("SERIAL_KEY", webSession.getSERIAL_KEY());
+					HttpSession session  = request.getSession();
+					session.setAttribute("user", webCommonService.setKakaoLogin(inParam));
+				}
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mav;
+	}
+
+	/**
+	 * <pre>
+	 * 아이디 찾기
+	 * 개인 회원 아이디 찾기
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 16. 오후 4:44:13
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/help/procFindId.do")
+	public ModelAndView procFindId(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception {
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("MOBILE FIND ID VIEW START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+		inParam.put("isFindId", true);
+		return new ModelAndView("web/help/procFindId", inParam);
+	}
+
+	/**
+	 * <pre>
+	 * 아이디 찾기
+	 * 사업자 회원 아이디 찾기
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 18. 오후 1:49:03
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/help/procFindIdBusi.do")
+	public ModelAndView procFindIdBusi(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception {
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("MOBILE FIND ID BUSINESS START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+		inParam.put("isFindIdBusi", true);
+		return new ModelAndView("web/help/procFindIdBusi", inParam);
+	}
+
+	/**
+	 * <pre>
+	 * 아이디 찾기
+	 * 개인회원 아이디 찾기 결과 화면
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 17. 오전 10:55:45
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/help/selectFindId.do")
+	public ModelAndView selectFindId(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception {
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("MOBILE SELECT FIND ID REG START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		ModelMap outParam = new ModelMap();
+		LoggerUtil.writeMap(inParam);
+		try {
+			outParam = webCommonService.selectFindId(inParam);
+			boolean isFindId = (boolean) outParam.get("isFindId");
+			if (!isFindId) {
+				response.sendRedirect(response.encodeRedirectURL("/mobile/help/procFindId.do?getFindId="+isFindId));
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return new ModelAndView("web/help/selectFindId", outParam);
+	}
+
+	/**
+	 * <pre>
+	 * 아이디 찾기
+	 * 사업자 회원 아이디 찾기
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 18. 오후 1:50:04
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/help/selectFindIdBusi.do")
+	public ModelAndView procFindIdBusiReg(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception {
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("MOBILE SELECT FIND ID BUSINESS START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+		ModelMap outParam = new ModelMap();
+		try {
+			outParam = webCommonService.procFindIdBusiReg(inParam);
+			boolean isFindIdBusi = (boolean) outParam.get("isFindIdBusi");
+			if (!isFindIdBusi) {
+				response.sendRedirect(response.encodeRedirectURL("/mobile/help/procFindIdBusi.do?getFindIdBusi="+isFindIdBusi));
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return new ModelAndView("web/help/selectFindIdBusi", outParam);
+	}
+
+	/**
+	 * <pre>
+	 * 비밀번호 찾기
+	 * 개인회원 비밀번호 찾기
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 17. 오전 11:09:38
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/help/procFindPw.do")
+	public ModelAndView procFindPw(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception {
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("MOBILE FIND PASSWORD START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+		return new ModelAndView("web/help/procFindPw");
+	}
+
+	/**
+	 * <pre>
+	 * 비밀번호 찾기
+	 * 사업자 비밀번호 찾기 화면
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 20. 오전 12:05:31
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/help/procFindPwBusi.do")
+	public ModelAndView procFindPwBusi(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception {
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("MOBILE FIND PASSWORD BUSINESS START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+		return new ModelAndView("web/help/procFindPwBusi");
+	}
+
+	/**
+	 * <pre>
+	 * 비밀번호 찾기
+	 * 개인회원 비밀번호 찾기 처리
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 17. 오후 1:25:10
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/help/procFindPwReg.do")
+	public ModelAndView procFindPwReg(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception {
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("MOBILE PROD FIND PASSWORD REG START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+		ModelMap outParam = new ModelMap();
+		try {
+			outParam = webCommonService.procFindPwReg(inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return new ModelAndView("jsonView", outParam);
+	}
+
+	@RequestMapping("/mobile/help/procFindPwBusiReg.do")
+	public ModelAndView procFindPwBusiReg(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception {
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("MOBILE PROD FIND PASSWORD REG START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+		ModelMap outParam = new ModelMap();
+		try {
+			outParam = webCommonService.procFindPwBusiReg(inParam);
+			System.out.println("outParam : "+outParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return new ModelAndView("jsonView", outParam);
+	}
+
+	@RequestMapping("/mobile/help/selectFindPw.do")
+	public ModelAndView selectFindPw(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception {
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("MOBILE SELECT FIND PW START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+
+		Map<String, Object> emailParam = new HashMap<String, Object>();
+		String temp_pw = "";
+
+		try{
+
+			temp_pw = webCommonService.makePw(inParam);
+
+			String innerHtml = "<html>";
+			emailParam.put("gubun", "join_auth");
+			emailParam.put("from_email", "ssocio@rocomo.com");
+			emailParam.put("from_nm", "SSOCIO");
+			emailParam.put("to_email", inParam.get("P_MBER_EMAIL"));
+			emailParam.put("to_nm", inParam.get("P_MBER_EMAIL"));
+
+			emailParam.put("ishtml", "Y");
+			emailParam.put("subject", "[SSOCIO]가입 완료 안내");
+			emailParam.put("msg", innerHtml);
+			emailParam.put("tplcode", "JOIN_LOST_PWD");
+			emailParam.put("req_site", "www");
+			emailParam.put("tmppwd", temp_pw);
+			HttpUrlConnectionUtil hcu = new HttpUrlConnectionUtil();
+			hcu.sendEmail(mobileJoinService.selectsiteIFUrl(), "POST", emailParam);
+
+		}catch(Exception e){
+			e.printStackTrace();
+		}
+
+		return new ModelAndView("web/help/selectFindPw", inParam);
+
+	}
+
+	/**
+	 * <pre>
+	 * 대중소 분류별 카테고리 리스트정보 조회
+	 * 대중소 분류별 카테고리 리스트정보를 조회합니다.
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 19. 오후 5:30:29
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/common/selectCtryList.do")
+	public ModelAndView selectCtryList(@RequestParam Map<String, Object> inParam) throws Exception	{
+		ModelAndView mav = new ModelAndView("jsonView");
+		try {
+			mav.addObject("ctryList", webCommonService.selectCtryList(inParam).get("ctryList"));
+
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mav;
+	}
+
+	/**
+	 * <pre>
+	 * 계좌 인증 모듈
+	 *
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 26. 오후 9:08:31
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/common/acntConfirm.do")
+	public ModelAndView acntConfirm(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception	{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("ACNT CONFIRM START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+		request.setCharacterEncoding("euc-kr");
+		SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd");
+		ModelMap mm = new ModelMap();
+
+		//##################################################
+		//###### ▣ 회원사 ID 설정	- 계약시에 발급된 회원사 ID를 설정하십시오. ▣
+		//###### ▣ 회원사 PW 설정	- 계약시에 발급된 회원사 PASSWORD를 설정하십시오. ▣
+		//###### ▣ 조회사유  설정		- 10:회원가입 20:기존회원가입 30:성인인증 40:비회원확인 90:기타사유 ▣
+		//###### ▣ 개인/사업자 설정	- 1:개인 2:사업자 ▣
+		//##################################################
+
+		String niceUid = CmmnCnst.NICE_UID;				// 나이스평가정보에서 고객사에 부여한 구분 id
+		String svcPwd  = CmmnCnst.SVC_PWD;					// 나이스평가정보에서 고객사에 부여한 서비스 이용 패스워드
+		String inq_rsn = CmmnCnst.INQ_RSN;					// 조회사유 - 10:회원가입 20:기존회원가입 30:성인인증 40:비회원확인 90:기타사유
+		String service = CmmnCnst.ACNT_SERVICE;			//서비스구분 1=계좌소유주확인 2=계좌성명확인 3=계좌유효성확인
+		String svcGbn = CmmnCnst.SVC_GBN;					//업무구분(전문참조)
+		String strGbn  = (String)inParam.get("strGbn")==null?"":(String)inParam.get("strGbn");						// 1 : 개인, 2: 사업자
+		String strResId = (String)inParam.get("strResId")==null?"":(String)inParam.get("strResId");					//주민번호(사업자 번호,법인번호)
+		String strNm = (String)inParam.get("strNm")==null?"":(String)inParam.get("strNm");							//계좌소유주명
+		String strBankCode = (String)inParam.get("strBankCode")==null?"":(String)inParam.get("strBankCode");		//은행코드(전문참조)
+		String strAccountNo = (String)inParam.get("strAccountNo")==null?"":(String)inParam.get("strAccountNo");		//계좌번호
+		String svc_cls = (String)inParam.get("svc_cls")==null?"":(String)inParam.get("svc_cls");					//내-외국인구분
+		String strOrderNo = sdf.format(new Date()) + (Math.round(Math.random() * 10000000000L) + "");				//주문번호 : 매 요청마다 중복되지 않도록 유의
+
+		String result = webCommonService.acntConfirm(niceUid, svcPwd, service, strGbn, strResId, strNm, strBankCode, strAccountNo, svcGbn, strOrderNo, svc_cls, inq_rsn);
+		String[] results = result.split("\\|");
+		String resultCode = results[1];
+		mm.put("resultOrderNo", results[0]);
+		mm.put("resultCode", results[1]);
+		mm.put("resultMsg", commonService.bankErrMsg(resultCode));
+		return new ModelAndView("jsonView", mm);
+	}
+
+	/**
+	 * <pre>
+	 * 법인 실명 확인
+	 *
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 26. 오후 10:50:21
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/common/compChkSec.do")
+	public ModelAndView compChkSec(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception	{
+		CompCheck cmp = new CompCheck();
+		ModelMap mm = new ModelMap();
+		String SITEID = CmmnCnst.SITEID;
+		String SITEPW = CmmnCnst.SITEPW;
+
+		LoggerUtil.writeMap(inParam);
+
+		if((!inParam.get("sCompCode").equals("")) && (!inParam.get("sCompName").equals(""))) {
+			String result = "";
+			cmp.setChkName((String)inParam.get("sCompName"));
+			result = cmp.setCompCode((String)inParam.get("sCompCode")+SITEPW);
+
+			if(result.equals("0")) {
+				cmp.setSiteCode(SITEID);
+				cmp.setTimeOut(30000);
+				result = cmp.getRtn().trim();
+			}
+			mm.put("result", result);
+			logger.info("인증결과 : [" + result + "]");
+		} else {
+			mm.put("result", "9999");
+		}
+
+		return new ModelAndView("jsonView", mm);
+	}
+
+	/**
+	 * <pre>
+	 * 개인 실명 인증
+	 *
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 28. 오후 1:00:01
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/common/nameConfPopup.do")
+	public ModelAndView nameConfirm(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception	{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("NAME CONFIRM START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+
+		response.setHeader("Pragma", "No-cache");
+		request.setCharacterEncoding("euc-kr");
+
+		function fn = new function();
+		ModelMap modelMap = new ModelMap();
+
+		modelMap.put("documentDomain", CmmnCnst.COMM_DOMAIN);
+
+
+		/********************************************************************************
+		*
+		* 다날 본인인증
+		*
+		* - 인증 요청 페이지
+		*	CP인증 및 기타 정보 전달
+		*
+		* 인증 시스템 연동에 대한 문의사항이 있으시면 서비스개발팀으로 연락 주십시오.
+		* DANAL Commerce Division Technique supporting Team
+		* EMail : tech@danal.co.kr
+		*
+		********************************************************************************/
+
+		/********************************************************************************
+		 *
+		 * [ 전문 요청 데이터 ] *********************************************************
+		 *
+		 ********************************************************************************/
+
+		/***[ 필수 데이터 ]************************************/
+		Map TransR = new HashMap();
+
+		/******************************************************
+		 ** 아래의 데이터는 고정값입니다.( 변경하지 마세요 )
+		 * TXTYPE       : ITEMSEND
+		 * SERVICE		: UAS
+		 * AUTHTYPE		: 36
+		 ******************************************************/
+		TransR.put( "TXTYPE", "ITEMSEND" );
+		TransR.put( "SERVICE", "UAS" );
+		TransR.put( "AUTHTYPE", "36" );
+
+		/******************************************************
+		 *  CHARSET
+		 ******************************************************/
+		TransR.put( "CHARSET", fn.getCHARSET() );
+
+		/******************************************************
+		 *  CPID	: 다날에서 제공해 드린 ID( function 파일 참조 )
+		 *  CPPWD	: 다날에서 제공해 드린 PWD( function 파일 참조 )
+		 ******************************************************/
+		TransR.put( "CPID", fn.getID() );
+		TransR.put( "CPPWD", fn.getPWD() );
+
+		/***[ 선택 사항 ]**************************************/
+		/******************************************************
+		 * USERID       : 사용자 ID
+		 * ORDERID      : CP 주문번호
+		 * TARGETURL    : 인증 완료 시 이동 할 페이지의 FULL URL
+		 * AGELIMIT		: 서비스 사용 제한 나이 설정( 가맹점 필요 시 사용 )
+		 ******************************************************/
+		String MBER_PHONE	  	= (String)request.getParameter("MBER_PHONE");
+		TransR.put( "USERID", "USERID" );
+		TransR.put( "ORDERID", "ORDERID" );
+		TransR.put( "IsDstAddr", MBER_PHONE);
+
+		TransR.put( "TARGETURL", request.getAttribute("INIT_URL")+"/mobile/common/cpcgi.do" );
+		// TransR.put( "AGELIMIT", "019" );
+
+		/********************************************************************************
+		 *
+		 * [ CPCGI에 HTTP POST로 전달되는 데이터 ] **************************************
+		 *
+		 ********************************************************************************/
+
+		/***[ 필수 데이터 ]************************************/
+		Map ByPassValue = new HashMap();
+
+		/******************************************************
+		 * BgColor      : 인증 페이지 Background Color 설정
+		 * BackURL      : 에러 발생 및 취소 시 이동 할 페이지의 FULL URL
+		 * IsUseCI      : CP의 CI 사용 여부( Y or N )
+		 * CIURL        : CP의 CI FULL URL
+		 * IsCharSet	: charset 지정( EUC-KR:deault, UTF-8 )
+		 ******************************************************/
+		ByPassValue.put( "BgColor", "00" );
+		ByPassValue.put( "BackURL", request.getAttribute("INIT_URL")+"/mobile/common/backUrl.do" );
+		ByPassValue.put( "IsUseCI", "N" );
+		ByPassValue.put( "CIURL", "http://static.ssocio.net/web/images/danal/common_logo_danal.gif" );
+		ByPassValue.put( "IsCharSet", "UTF-8" );
+		ByPassValue.put( "IsDstAddr", MBER_PHONE);
+
+		/***[ 선택 사항 ]**************************************/
+		/******************************************************
+		 ** CPCGI에 POST DATA로 전달 됩니다.
+		 **
+		 ******************************************************/
+		ByPassValue.put( "ByBuffer", "This value bypass to CPCGI Page") ;
+		ByPassValue.put( "ByAnyName", "AnyValue" );
+
+		for(int i=0 ; i<TransR.size() ; i++){
+			TransR.get(i);
+		}
+
+		Map Res = fn.CallTrans( TransR );
+
+		/******************************************************
+		 ** true일경우 웹브라우져에 debugging 메시지를 출력합니다.
+		 ******************************************************/
+		logger.debug("REQ[" + fn.data2str(TransR) + "]<BR>");
+		logger.debug("RES[" + fn.data2str(Res) + "]<BR>");
+		logger.debug("RETURNCODE[" +  Res.get("RETURNCODE") + "]<BR>");
+		ModelAndView mw = null;
+		if( Res.get("RETURNCODE").equals("0000") ) {
+			String inputStr1 = fn.MakeFormInput(Res,new String[]{"RETURNCODE","RETURNMSG"});
+			String inputStr2 = fn.MakeFormInput(ByPassValue, null);
+
+			modelMap.put("inputStr1", inputStr1);
+			modelMap.put("inputStr2", inputStr2);
+			modelMap.put("MBER_PHONE", inParam.get("MBER_PHONE"));
+
+			return new ModelAndView("web/danal/nameConfPopup", modelMap);
+
+		} else {
+			String RETURNCODE		= (String)Res.get("RETURNCODE");
+			String RETURNMSG		= (String)Res.get("RETURNMSG");
+			boolean AbleBack	= false;
+			String BackURL		= (String)ByPassValue.get("BackURL");
+			String IsUseCI		= (String)ByPassValue.get("IsUseCI");
+			String CIURL		= (String)ByPassValue.get("CIURL");
+			String BgColor		= (String)ByPassValue.get("BgColor");
+			/*
+			 * Get CIURL
+			 */
+			String URL = fn.GetCIURL( (String)ByPassValue.get("IsUseCI"), (String)ByPassValue.get("CIURL") );
+
+			/*
+			 * Get BgColor
+			 */
+
+			modelMap.put("RETURNCODE", RETURNCODE);
+			modelMap.put("RETURNMSG", RETURNMSG);
+			modelMap.put("BackURL", BackURL);
+			modelMap.put("IsUseCI", IsUseCI);
+			modelMap.put("CIURL", CIURL);
+			modelMap.put("BgColor", BgColor);
+			modelMap.put("URL", URL);
+
+			BgColor = fn.GetBgColor( (String)ByPassValue.get("BgColor") );
+
+			return  new ModelAndView("web/danal/Error",modelMap);
+		}
+
+
+	}
+
+	/**
+	 * <pre>
+	 * 개인 실명 인증
+	 * 리턴 URL
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 28. 오후 1:00:12
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+//	@ResponseBody
+	@RequestMapping("/mobile/common/backUrl.do")
+	public ModelAndView backUrl(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception	{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("NAME CONFIRM BACK URL START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+
+
+		// [kang] iframe 크로스도메인 해결을 위해 도메인 삽입
+		ModelMap modelMap = new ModelMap();
+		modelMap.put("documentDomain", CmmnCnst.COMM_DOMAIN);
+
+
+		return new ModelAndView("web/danal/BackURL", modelMap);
+
+
+//		return "<script>javascript:parent.popupBack();</script>";
+	}
+
+	/**
+	 * <pre>
+	 * 개인 실명 인증
+	 *
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 28. 오후 1:00:26
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/common/cpcgi.do")
+	public ModelAndView cpcgi(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception	{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("NAME CONFIRM CPCGI START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+		function fn = new function();
+		ModelMap modelMap = new ModelMap();
+
+		response.setHeader("Pragma", "No-cache");
+		request.setCharacterEncoding("euc-kr");
+
+		/********************************************************************************
+		*
+		* 다날 본인인증
+		*
+		* - 인증 확인 페이지
+		*	인증 확인 및 기타 정보 수신
+		*
+		* 인증 시스템 연동에 대한 문의사항이 있으시면 서비스개발팀으로 연락 주십시오.
+		* DANAL Commerce Division Technique supporting Team
+		* EMail : tech@danal.co.kr
+		*
+		********************************************************************************/
+
+		boolean BillErr = false;
+
+		Map TransR = new HashMap();
+		Map Res = null;
+
+		String TID = (String)request.getParameter("TID");
+
+		/*
+		 * - CONFIRMOPTION
+		 *		0 : NONE( default )
+		 *		1 : CPID 및 ORDERID 체크
+		 * - IDENOPTION
+		 * 0 : 생년월일(6자리) 및 성별 IDEN 필드로 Return (ex : 1401011)
+		 * 1 : 생년월일(8자리) 및 성별 별개 필드로 Return (연동 매뉴얼 참조. ex : DOM=20140101&SEX=1)
+		 */
+		int nConfirmOption = 1;
+		int nIdenOption = 1;
+		TransR.put( "TXTYPE", "CONFIRM" );
+		TransR.put( "CHARSET", fn.getCHARSET() );
+		TransR.put( "TID", TID );
+		TransR.put( "CONFIRMOPTION", nConfirmOption );
+		TransR.put( "IDENOPTION", nIdenOption );
+
+		/*
+		 * nConfirmOption이 1이면 CPID, ORDERID 필수 전달
+		 */
+		if( nConfirmOption == 1 )
+		{
+			TransR.put( "CPID", fn.getID() );
+			TransR.put( "ORDERID", fn.getORDERID() );
+		}
+
+		Res = fn.CallTrans( TransR );
+
+		/******************************************************
+		 ** true일경우 웹브라우져에 debugging 메시지를 출력합니다.
+		 ******************************************************/
+		logger.debug("REQ[" + fn.data2str(TransR) + "]<BR>");
+		logger.debug("RES[" + fn.data2str(Res) + "]<BR>");
+
+		if( Res.get("RETURNCODE").equals("0000") ) {
+			/**************************************************************************
+			 *
+			 * 인증성공에 대한 작업
+			 *
+			 **************************************************************************/
+
+			String inputStr1 =  fn.MakeFormInputHTTP(request.getParameterMap(),"TID");
+			String inputStr2 =  fn.MakeFormInput(Res,new String[]{"RETURNCODE","RETURNMSG"});
+
+			modelMap.put("inputStr1", inputStr1);
+			modelMap.put("inputStr2", inputStr2);
+
+			return new ModelAndView("web/danal/CPCGI", modelMap);
+
+		} else {
+			/**************************************************************************
+			 *
+			 * 인증실패에 대한 작업
+			 *
+			 **************************************************************************/
+
+			String RETURNCODE	  	= (String)Res.get("RETURNCODE");
+			String RETURNMSG	  	= (String)Res.get("RETURNMSG");
+			boolean AbleBack	= false;
+			String BackURL	  	= (String)request.getParameter("BackURL");
+			String IsUseCI	  	= (String)request.getParameter("IsUseCI");
+			String CIURL	   	= (String)request.getParameter("CIURL");
+			String BgColor	  	= (String)request.getParameter("BgColor");
+			/*
+			 * Get CIURL
+			 */
+			String URL = fn.GetCIURL( IsUseCI,CIURL );
+
+			/*
+			 * Get BgColor
+			 */
+			BgColor = fn.GetBgColor( BgColor );
+
+			modelMap.put("RETURNCODE", RETURNCODE);
+			modelMap.put("RETURNMSG", RETURNMSG);
+			modelMap.put("BackURL", BackURL);
+			modelMap.put("IsUseCI", IsUseCI);
+			modelMap.put("CIURL", CIURL);
+			modelMap.put("BgColor", BgColor);
+			modelMap.put("URL", URL);
+
+			return new ModelAndView("web/danal/error", modelMap);
+		}
+
+	}
+
+	/**
+	 * <pre>
+	 * 개인 실명 인증
+	 *
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 28. 오후 1:03:19
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/common/success.do")
+	public ModelAndView Success(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception	{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("NAME CONFIRM SUCCESS START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+		ModelMap mm = new ModelMap();
+		mm.put("documentDomain", CmmnCnst.COMM_DOMAIN);
+		try {
+			mm.put("params", inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return new ModelAndView("web/danal/successPopup", mm);
+	}
+
+	@RequestMapping("/mobile/common/paymentErr.do")
+	public ModelAndView paymentErr(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception	{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("NAME CONFIRM SUCCESS START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+		ModelMap mm = new ModelMap();
+		mm.put("documentDomain", CmmnCnst.COMM_DOMAIN);
+		try {
+			mm.put("params", inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return new ModelAndView("web/danal/paymentErrPopup", mm);
+	}
+
+
+
+	/**
+	 * <pre>
+	 * 우편번호 검색 공통
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 9. 8. 오전
+	 * @author KHN
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+
+	@RequestMapping("/mobile/common/getPostList.do")
+	public void getPostList(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+
+		LoggerUtil.writeMap(inParam);
+		try {
+
+			String currentPage=  (String) inParam.get("currentPage");
+			String countPerPage= (String) inParam.get("countPerPage");
+			String confmKey=  (String) inParam.get("confmKey");
+			String keyword =  (String) inParam.get("searchKeyword");
+			logger.debug("@@@@@@@@@@@@@@@@@ SND DATA @@@@@@@@@@@@@@@@@@@@@@@@");
+			logger.debug("currentPage : " + currentPage);
+			logger.debug("countPerPage : " + countPerPage);
+			logger.debug("confmKey : " + confmKey);
+			logger.debug("keyword : " + keyword);
+
+//			int currentPageInt = 1;
+			int countPerPageInt = 20;
+
+			if(currentPage != null && !"".equals(currentPage) ){
+				if(countPerPage != null && !"".equals(countPerPage) ){
+//					currentPageInt = Integer.parseInt(currentPage);
+					countPerPageInt = Integer.parseInt(countPerPage);
+				}
+
+			}
+
+
+			logger.debug("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+			String apiUrl = "http://www.juso.go.kr/addrlink/addrLinkApi.do?currentPage="+currentPage+"&countPerPage="+countPerPageInt+"&keyword="+URLEncoder.encode(keyword,"UTF-8")+"&confmKey="+confmKey;
+			URL url = new URL(apiUrl);
+	    	BufferedReader br = new BufferedReader(new InputStreamReader(url.openStream(),"UTF-8"));
+	    	StringBuffer sb = new StringBuffer();
+	    	String tempStr = null;
+	    	while(true){
+	    		tempStr = br.readLine();
+	    		if(tempStr == null) break;
+	    		sb.append(tempStr);
+	    	}
+	    	logger.debug("sb.toString() : " + sb.toString());
+	    	br.close();
+	    	response.setCharacterEncoding("UTF-8");
+			response.setContentType("text/xml");
+			response.getWriter().write(sb.toString());
+
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+
+	@RequestMapping({"/mobile/setLogout.do", "", ""})
+	public String setLogout(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception {
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("SET LOGOUT START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		try {
+			HttpSession session  = request.getSession();
+			session.removeAttribute("user");//세션 삭제
+			Cookie[] cookies = request.getCookies();
+			for (int i = 0; i < cookies.length; i++) {
+				if (("MBER_ID_SAVE").equals(cookies[i].getName()) || ("MBER_ID").equals(cookies[i].getName()) ) {
+					if (("true").equals(cookies[i].getValue())){
+						continue;
+					}
+				} else {
+					cookies[i].setMaxAge(0);                 //쿠키 유지기간을 0으로함
+					cookies[i].setPath("/mobile");                    //쿠키 접근 경로 지정
+					response.addCookie(cookies[i]);
+				}
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return "redirect:/mobile/main/login.do";
+	}
+
+	/**
+	 * <pre>
+	 * 테스트용페이지
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 9. 8. 오전
+	 * @author KHN
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/test/testMobile.do")
+	public ModelAndView testMobile(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception {
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("MOBILE test VIEW START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+		return new ModelAndView("web/common/testMobile");
+	}
+	/**
+	 * <pre>
+	 * app 로그아웃 처리
+	 * app 로그아웃 처리
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 9. 21. 오후 4:07:31
+	 * @author LeeJinSe
+	 * @see com.ssocio.sharing.controller.mobile
+	 * @비고
+	 *
+	 * </pre>
+	*/
+	@RequestMapping("/mobile/inf/AppLogout.do")
+	public ModelAndView AppsetLogout(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception {
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("@@@@ /app/inf/AppLogout.do IN @@@@@");
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		HeaderVO headerObj = (HeaderVO) request.getAttribute("header");
+		Map<String, Object> outData   = new HashMap<String, Object>();
+		Map<String, Object> resultData   = new HashMap<String, Object>();
+		Map<String, Object> bodyParam = (Map<String, Object>) request.getAttribute("body");
+		System.out.println(bodyParam);
+		try {
+			inParam.put("UUID", headerObj.getUuid());
+			appCommonService.updatePushinfo(inParam);
+			HttpSession session  = request.getSession();
+			session.removeAttribute("user");//세션 삭제
+//			Cookie[] cookies = request.getCookies();
+//			for (int i = 0; i < cookies.length; i++) {
+//				if (("MBER_ID_SAVE").equals(cookies[i].getName()) || ("MBER_ID").equals(cookies[i].getName()) ) {
+//					if (("true").equals(cookies[i].getValue())){
+//						continue;
+//					}
+//				} else {
+//					cookies[i].setMaxAge(0);                 //쿠키 유지기간을 0으로함
+//					cookies[i].setPath("/mobile");                    //쿠키 접근 경로 지정
+//					response.addCookie(cookies[i]);
+//				}
+//			}
+		 outData.put("rtnCd","S");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		resultData = RetSettMethod(request,headerObj,outData);
+		return new ModelAndView("jsonView",resultData);
+	}
+
+	/**
+	 * <pre>
+	 * user_info check
+	 * user_info check
+	 * @param request
+	 * @param response
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 9. 15. 오후 7:54:11
+	 * @author LeeJinSe
+	 * @see com.ssocio.sharing.controller.app
+	 * @비고
+	 *
+	 * </pre>
+	*/
+	//마이페이지 호출할때
+	//leftmenu
+	@RequestMapping("/mobile/inf/usrinfochk.do")
+	public ModelAndView usrinfochk(HttpServletRequest request, HttpServletResponse response) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("@@@@ /app/inf/usrinfochk.do IN @@@@@");
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		HeaderVO headerObj = (HeaderVO) request.getAttribute("header");
+		Map<String, Object> outData   = new HashMap<String, Object>();
+		 Map<String, Object> resultData   = new HashMap<String, Object>();
+		 Map<String, Object> inParam   = new HashMap<String, Object>();
+
+		try{
+			String serial_key = headerObj.getSerial_key();
+			inParam.put("SERIAL_KEY", serial_key);
+			outData = appCommonService.loginchk(request,headerObj,inParam);
+
+			logger.info("1111111mber_seq-->" + outData.get("MBER_SEQ"));
+//			ComCookieCheck(request);
+			resultData = RetSettMethod(request,headerObj,outData);
+		}catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return new ModelAndView("jsonView", resultData);
+	}
+	/**
+	 * <pre>
+	 * 회원탈퇴처리
+	 * 회원탈퇴처리
+	 * @param request
+	 * @param response
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 9. 18. 오후 12:54:46
+	 * @author LeeJinSe
+	 * @see com.ssocio.sharing.controller.app
+	 * @비고
+	 *
+	 * </pre>
+	*/
+	@RequestMapping("/mobile/inf/appMberOut.do")
+	public ModelAndView Appmberout(HttpServletRequest request, HttpServletResponse response) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("@@@@ /app/inf/updateMberOut.do IN @@@@@");
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		HeaderVO headerObj = (HeaderVO) request.getAttribute("header");
+		 Map<String, Object> resultData   = new HashMap<String, Object>();
+		 ModelMap outData = new ModelMap();
+			Map<String, Object> bodyParam = (Map<String, Object>) request.getAttribute("body");
+			String retCd = "";
+		try {
+			bodyParam.put("MBER_SEQ", headerObj.getMber_seq());
+			int ret = mobileSetupService.selectOrdCnt(bodyParam);
+			logger.info("Ord Cnt ::::::::: " + ret);
+			if(0 < ret){
+				retCd = "OF";
+				outData.put("rtnCd","OF");
+				outData.put("moveUrl","/mobile/buy/selectBuyMain.do");
+			}
+			if("1".equals((String)bodyParam.get("MBER_REG_GB_CD"))){//판매자일경우 판매중인것
+				ret = mobileSetupService.selectSellerCnt(bodyParam);
+				logger.info("seller Cnt ::::::::: " + ret);
+				if(0 < ret){
+					retCd = "SF";
+					outData.put("rtnCd","SF");
+					outData.put("moveUrl","/mobile/salemanage/main.do");
+				}
+			}
+			if("SF" != retCd && "OF" != retCd){
+				ret = mobileSetupService.updateMberOut(bodyParam);
+				if(ret > 0){
+					outData.put("rtnCd","S");
+					outData.put("moveUrl","");
+				}else{
+					outData.put("rtnCd","F");
+				}
+
+				HttpSession session  = request.getSession();
+				session.removeAttribute("user");//세션 삭제
+//				Cookie[] cookies = request.getCookies();
+//				for (int i = 0; i < cookies.length; i++) {
+//					cookies[i].setMaxAge(0);                 //쿠키 유지기간을 0으로함
+//					cookies[i].setPath("/mobile");                    //쿠키 접근 경로 지정
+//					response.addCookie(cookies[i]);
+//				}
+			}
+			resultData = RetSettMethod(request,headerObj,outData);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return new ModelAndView("jsonView",resultData);
+	}
+
+	/**
+	 * <pre>
+	 * 회원가입 이메일 발송
+	 *
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 10. 7. 오후 3:28:23
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/common/procAuthEmail.do")
+	public ModelAndView procAuthEmail(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("PROC AUTH EMAIL START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		ModelMap mm = new ModelMap();
+		Map<String, Object> emailParam = new HashMap<String, Object>();
+
+		LoggerUtil.writeMap(inParam);
+		String temp_case="";
+
+
+		try {
+
+			temp_case = mobileJoinService.selectUserInfo(inParam);
+
+			if("1".equals(temp_case)){		// 개인 구매
+				temp_case = "JOIN_PER_BUYER";
+
+			}else if("2".equals(temp_case)){	// 사업자 구매
+				temp_case = "JOIN_COMP_BUYER";
+
+			}else if("3".equals(temp_case)){	// 개인 판매
+				temp_case = "JOIN_PER_SELLER";
+
+			}else if("4".equals(temp_case)){	// 사업자 판매
+				temp_case = "JOIN_COMP_SELLER ";
+
+			}
+
+			String innerHtml = "<html>";
+			emailParam.put("gubun", "join_auth");
+			emailParam.put("from_email", "ssocio@rocomo.com");
+			emailParam.put("from_nm", "SSOCIO");
+			emailParam.put("to_email", inParam.get("MBER_EMAIL"));
+			emailParam.put("to_nm", inParam.get("MBER_EMAIL"));
+
+			emailParam.put("ishtml", "Y");
+			emailParam.put("subject", "[SSOCIO]가입 완료 안내");
+			emailParam.put("msg", innerHtml);
+			emailParam.put("tplcode", temp_case);
+			emailParam.put("req_site", "www");
+			emailParam.put("tmppwd", "");
+			HttpUrlConnectionUtil hcu = new HttpUrlConnectionUtil();
+			hcu.sendEmail(mobileJoinService.selectsiteIFUrl(), "POST", emailParam);
+
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return new ModelAndView("jsonView", mm);
+	}
+
+	@RequestMapping("/mobile/privacy/mainPrivacy.do")
+	public ModelAndView privacy(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		ModelMap mm = new ModelMap();
+
+		LoggerUtil.writeMap(inParam);
+
+		String gubun = (String) inParam.get("gubun");
+		String str = "";
+		if("0".equals(gubun)){
+			str = "web/privacy/person";
+		}else if("1".equals(gubun)){
+			str = "web/privacy/termagree";
+		}else if("2".equals(gubun)){
+			str = "web/privacy/privacy";
+		}else if("3".equals(gubun)){
+			str = "web/privacy/protect";
+		}
+
+		return new ModelAndView(str);
+	}
+
+	@SuppressWarnings("unchecked")
+	@RequestMapping("/mobile/common/selectAnsimNo.do")
+	public ModelAndView selectAnsimNo(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		LoggerUtil.writeMap(inParam);
+
+		ModelAndView mav = new ModelAndView("jsonView");
+
+		WebSession session = (WebSession)request.getSession().getAttribute("user");
+
+		String url = webCommonService.getAnsimUrl();
+		//	로컬에서 개발시...
+		//String url = "http://sso-api.ssocio.net:30080/IF_ANSIM/getAnsim.html";
+		HttpClient httpClient = HttpClientBuilder.create().build();
+		try {
+			logger.info("ansim no URL = " + url);
+
+			HttpPost httpPost = new HttpPost(url);
+
+			JSONObject json = new JSONObject();
+	        json.put("mber_seq", session.getMBER_SEQ());
+	        json.put("phone", (String)inParam.get("PHONE_NO"));
+	        json.put("user_type", (String)inParam.get("USER_TYPE"));
+	        StringEntity params = new StringEntity(json.toJSONString());
+
+	        logger.info("StringEntity = " + params.toString());
+	        httpPost.addHeader("content-type", "application/json");
+	        httpPost.addHeader("Accept","application/json");
+	        httpPost.setEntity(params);
+
+	        HttpResponse httpResponse = httpClient.execute(httpPost);
+
+	        mav.addObject("ansim", EntityUtils.toString(httpResponse.getEntity()));
+
+	        httpPost.abort();
+	    }catch (Exception e) {
+	    	logger.warn(e.getMessage());
+	    }
+
+
+		return mav;
+	}
+
+
+
+	@RequestMapping(value="/mobile/common/selectExtLand.do")
+	public ModelAndView selectExtLand(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆MOBILE selectExtLand END☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+
+		ModelAndView mav = new ModelAndView("jsonView");
+		Map<String, Object> map = webCommonService.selectExtLand((String)inParam.get("PROD_CODE"), (String)inParam.get("ZIP_CD"));
+		mav.addObject("data", map == null ? "" : map);
+
+		logger.info("☆★☆★☆★☆★☆★☆★☆MOBILE selectExtLand END☆★☆★☆★☆★☆★☆★☆");
+
+		return mav;
+	}
+
+
+
+	@SuppressWarnings("unchecked")
+	@RequestMapping("/mobile/common/shareImg.do")
+	public ModelAndView shareImg(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("/mobile/common/shareImg.do" );
+		LoggerUtil.writeMap(inParam);
+
+		ModelAndView mav = new ModelAndView("jsonView");
+
+		String url = webCommonService.selectShareUrl();
+
+		HttpClient httpClient = HttpClientBuilder.create().build();
+		try {
+			logger.info("shareImg no URL = " + url);
+
+			HttpPost httpPost = new HttpPost(url);
+
+			JSONObject json = new JSONObject();
+	        json.put("seq", (String)inParam.get("fileSeq"));
+	        json.put("type_cd", (String)inParam.get("type_cd"));
+	        json.put("prod_code", (String)inParam.get("prod_code"));
+	        StringEntity params = new StringEntity(json.toJSONString());
+
+	        logger.info("StringEntity = " + params.toString());
+	        httpPost.addHeader("content-type", "application/json");
+	        httpPost.addHeader("Accept","application/json");
+	        httpPost.setEntity(params);
+
+	        HttpResponse httpResponse = httpClient.execute(httpPost);
+
+	        mav.addObject("shareImg", EntityUtils.toString(httpResponse.getEntity()));
+
+	        httpPost.abort();
+	    }catch (Exception e) {
+	    	logger.warn(e.getMessage());
+	    }
+
+
+		return mav;
+	}
+
+	@RequestMapping("/mobile/common/goLinkPopup.do")
+	public ModelAndView golink(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("@@@@ /mobile/sns/golink.do IN @@@@@");
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		ModelMap modelMap = new ModelMap();
+		try{
+			String encUrl =(String) inParam.get("appUrl");
+			encUrl = URLEncoder.encode(encUrl, "UTF-8");
+			String snsType = (String) inParam.get("snsType");
+
+			if("kakaolinkmini".equals(snsType)){
+				modelMap.put("schemeLink","web/kakaolink?appurl="+encUrl+"&type="+(String) inParam.get("type")+"&prodcode="+(String) inParam.get("prodcode"));
+			}else{
+				modelMap.put("schemeLink","web/kakaolink?appurl="+encUrl+"&type="+(String) inParam.get("type"));
+			}
+
+
+		}catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return new ModelAndView("web/common/goLinkPopup", modelMap);
+	}
+}

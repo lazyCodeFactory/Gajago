@@ -1,0 +1,1456 @@
+/**
+ * 
+ */
+package com.ssocio.sharing.controller.mobile;
+
+import java.net.URLEncoder;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
+
+import org.apache.http.HttpResponse;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.entity.StringEntity;
+import org.apache.http.impl.client.HttpClientBuilder;
+import org.apache.http.util.EntityUtils;
+import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.ModelMap;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.servlet.ModelAndView;
+
+import com.ssocio.sharing.cmmn.admin.util.HttpUrlConnectionUtil;
+import com.ssocio.sharing.cmmn.util.CmmnCnst;
+import com.ssocio.sharing.cmmn.util.LoggerUtil;
+import com.ssocio.sharing.cmmn.util.StringUtil;
+import com.ssocio.sharing.service.web.MobileJoinService;
+import com.ssocio.sharing.service.web.MobileMyAdrService;
+import com.ssocio.sharing.service.web.WebCommonService;
+import com.ssocio.sharing.service.web.WebSmartPhoneService;
+import com.ssocio.sharing.vo.web.WebSession;
+
+/**
+ * <pre>
+ * 스마트폰 셰어링
+ * 스마트폰 셰어링 Controller
+ * @author S.B.LEE
+ * @version
+ * @since 2015. 8. 19. 오후 1:16:22
+ * @see
+ * @History
+ * Date			|	author	| 변경 내용
+ * 2015. 8. 19.	|	SEOKBAE	|신규
+ * @비고
+ * </pre>
+ */
+@Controller
+public class MobileSmartPhoneController extends MobileReferController {
+	// --------------------------------------------------------------------------
+	// # Log 설정
+	// --------------------------------------------------------------------------
+	private static final Logger logger = LoggerFactory.getLogger(MobileSmartPhoneController.class);
+	
+	// --------------------------------------------------------------------------
+	// # Service 설정
+	// --------------------------------------------------------------------------
+	@Autowired
+	private WebSmartPhoneService webSmartPhoneService;
+	
+	@Autowired
+	private WebCommonService webCommonService;
+	
+	@Autowired
+	private MobileJoinService mobileJoinService;
+	
+	@Autowired
+	private MobileMyAdrService mobileMyAdrService;
+	
+	/**
+	 * <pre>
+	 * 교환, 반품 , 해지 , 쉐어링 확정 버튼 클릭시 체크 
+	 * 설명
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 12. 15. 오후 3:32:13
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/shar/selectChkCrtn.do")
+	public ModelAndView selectListOrdAjax(HttpServletRequest request, HttpServletResponse response
+				, @RequestParam Map<String, Object> inParam
+				) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("SELECT saveSmartSharingOrderCancel START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		ModelAndView mav = new ModelAndView();
+		mav.setViewName("jsonView");
+		LoggerUtil.writeMap(inParam);
+		if(request.getSession().getAttribute("user")==null){
+			String returnUrl = "/mobile/shar/selectSharOrdProd.do?";
+			return new ModelAndView("redirect:/mobile/main/login.do"+"?ret="+URLEncoder.encode(returnUrl,"UTF-8"));
+		}else{
+			mav.addAllObjects(webSmartPhoneService.selectChkCrtn(inParam));
+			
+		}
+		
+		return mav;
+}
+	
+	/**
+	 * <pre>
+	 * 스마트폰 셰어링 페이징 처리 
+	 * 스마트폰 셰어링 페이징 처리 
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 11. 10. 오후 10:37:48
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/shar/selectListOrdAjax.do")
+	public ModelAndView selectListOrdAjax(HttpServletRequest request, HttpServletResponse response
+				, @RequestParam Map<String, Object> inParam
+				, @RequestParam(value="S_PROC_STAT_CD", required=false) String[] procArray) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("SELECT saveSmartSharingOrderCancel START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		ModelAndView mav = new ModelAndView();
+		mav.setViewName("jsonView");
+		LoggerUtil.writeMap(inParam);
+		HttpSession session = request.getSession();
+		WebSession webSession = (WebSession)session.getAttribute("user");
+		if(request.getSession().getAttribute("user")==null){
+			String returnUrl = "/mobile/shar/selectSharOrdProd.do?";
+			return new ModelAndView("redirect:/mobile/main/login.do"+"?ret="+URLEncoder.encode(returnUrl,"UTF-8"));
+		}else{
+			mav.addObject("result", webSmartPhoneService.selectListOrdAjax(inParam));
+			
+		}
+		
+		return mav;
+	}
+	
+	
+	
+	
+	
+
+	/**
+	 * <pre>
+	 * 이메일 재발송 하기 
+	 * 이메일 재발송 하기 
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 11. 10. 오후 10:37:48
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/shar/sndreMail.do")
+	public ModelAndView sndreMail(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam ) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("SELECT saveSmartSharingOrderCancel START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		ModelAndView mav = new ModelAndView();
+		mav.setViewName("jsonView");
+		Map<String, Object> emailParam = new HashMap<String, Object>();
+		LoggerUtil.writeMap(inParam);
+		HttpSession session = request.getSession();
+		WebSession webSession = (WebSession)session.getAttribute("user");
+		if (webSession != null) {
+			String innerHtml = "<html>"
+					+ "<p>SSOCIO 신청서 EMAIL</p>"
+					+ "<a href='http://www.naver.com'>신청</a>"
+					+ "</html>";
+			
+			//신청서 이메일 발송
+			emailParam.put("from_email", "ssocio@rocomo.com");
+			emailParam.put("from_nm", "SSOCIO");
+			emailParam.put("to_email", inParam.get("P_EMAIL"));
+			emailParam.put("to_nm", webSession.getMBER_NM());
+			emailParam.put("ishtml", "Y");
+			emailParam.put("subject", "[SSOCIO]스마트폰 셰어링 신청 안내");
+			emailParam.put("msg", innerHtml);
+			emailParam.put("gubun", "join_auth");
+			emailParam.put("tplcode", "JOIN_SMARTSHARE");
+			emailParam.put("ord_cd", inParam.get("S_ORD_CD"));
+			emailParam.put("prod_code", inParam.get("S_PROD_CD"));
+			String siteDeafault = mobileJoinService.selectsiteIFUrl();
+//			emailParam.put("msg", URLEncoder.encode(inParam.get("test").toString(), "UTF-8"));
+			HttpUrlConnectionUtil hcu = new HttpUrlConnectionUtil();
+			hcu.sendEmail(siteDeafault, "POST", emailParam);
+		}
+		return mav;
+	}
+	
+	
+	/**
+	 * <pre>
+	 * 스마트폰 셰어링 주문 취소 등록 
+	 * 스마트폰 셰어링 주문 취소 등록 
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 11. 10. 오후 7:12:01
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/shar/saveSharingOrderCancel.do")
+	public ModelAndView saveSmartSharingOrderCancel(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam ) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("SELECT saveSmartSharingOrderCancel START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(inParam);
+		try {
+			mav.setViewName("jsonView");
+			mav.addObject("result", webSmartPhoneService.saveSmartSharingOrderCancel(inParam));
+			mav.addObject("searchParam", inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mav;
+	}
+	/**
+	 * <pre>
+	 * 스마트폰 셰어링 배송조회 
+	 * 스마트폰 셰어링 배송조회 
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 11. 4. 오후 9:43:19
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/shar/selectSharShipView.do")
+	public ModelAndView selectSharShipView(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam ) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("SELECT selectSharShipView START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(inParam);
+		try {
+			mav.setViewName("web/shar/selectShipView");
+			mav.addObject("list", webSmartPhoneService.selectSharShipView(inParam));
+			mav.addObject("searchParam", inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mav;
+	}
+	
+	/**
+	 * <pre>
+	 * 스마트폰 재고 확인 
+	 * 스마트폰 재고 확인 
+	 * @param request
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 19. 오후 3:10:44
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/shar/CheckSharWaitCnt.do")
+	public ModelAndView CheckSharWaitCnt(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam ) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("SELECT SMART PHONE SHARING LIST START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		ModelMap mm = new ModelMap();
+		LoggerUtil.writeMap(inParam);
+		try {
+			mm.put("chkCnt", webSmartPhoneService.CheckSharWaitCnt(inParam));
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return new ModelAndView("jsonView", mm);
+	}
+	
+	/**
+	 * <pre>
+	 * 스마트폰 셰어링 리스트
+	 * 스마트폰 셰어링 판매 상품 리스트 조회
+	 * @param request
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 19. 오후 3:10:44
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/shar/selectListShar.do")
+	public ModelAndView selectListShar(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam ) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("SELECT SMART PHONE SHARING LIST START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		ModelMap mm = new ModelMap();
+		LoggerUtil.writeMap(inParam);
+		try {
+			String telcomArray = (String)inParam.get("TELCOM_CODE");
+			if (telcomArray != null && telcomArray != "") {
+				String[] result = telcomArray.split(",");
+				inParam.put("TELCOM_CODE", result);
+				String apllChk_YN = (String)inParam.get("apllChk_YN");
+				if (result.length > 1 ) {
+					inParam.put("TELCOM_NM", "통신사");
+				}
+				if(null != apllChk_YN  && "Y".equals(apllChk_YN)){
+					inParam.put("TELCOM_NM", "전체");
+				}
+				
+			}
+			mm =  webSmartPhoneService.selectListShar(inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return new ModelAndView("web/shar/selectListShar", mm);
+	}
+	
+	/**
+	 * <pre>
+	 * 스마트폰 셰어링 리스트
+	 * 스마트폰 정렬 및 통신사 검색
+	 * @param request
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 27. 오후 2:44:31
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/shar/selectListSharAdd.do")
+	public ModelAndView selectListSharAdd(HttpServletRequest request, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("SELECT SMART PHONE SHARING LIST START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		ModelMap mm = new ModelMap();
+		LoggerUtil.writeMap(inParam);
+		try {
+			mm =  webSmartPhoneService.selectListShar(inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return new ModelAndView("jsonView", mm);
+	}
+	
+	/**
+	 * <pre>
+	 * 스마트폰 세어링 상품 상세
+	 * 스마트폰 세어링 상품 상세 정보 조회
+	 * @param request
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 27. 오후 2:45:26
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/shar/selectSharDtl.do")
+	public ModelAndView selectShar(HttpServletRequest request, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("SELECT SMART PHONE SHARING DEAIL START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		ModelMap mm = new ModelMap();
+		LoggerUtil.writeMap(inParam);
+		HttpSession session = request.getSession();
+		WebSession webSession = (WebSession)session.getAttribute("user");
+		try {
+			mm =  webSmartPhoneService.selectSharDtl(inParam,webSession);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		//공유하기 기능의 이미지때문에 호출 함 scdn 필요
+		try {
+			HttpClient httpClient = HttpClientBuilder.create().build();
+			String url = webCommonService.selectShareUrl();
+			
+			logger.info("shareImg no URL = " + url);
+
+			HttpPost httpPost = new HttpPost(url);
+//			"${result.prodInfo.KAKAO_FILE_SEQ }","type_cd" : "${result.prodInfo.PROD_TYPE_CD }","prod_code" : "${result.prodInfo.PROD_CODE }"
+			JSONObject json = new JSONObject();
+			Map<String, Object> prodInfo = new HashMap<String, Object>();
+			prodInfo = (Map<String, Object>) mm.get("sharProdDtl");
+	        json.put("seq",prodInfo.get("FILE_SEQ"));
+	        json.put("type_cd",prodInfo.get("4"));
+	        json.put("prod_code",prodInfo.get("PROD_CODE"));
+	        StringEntity params = new StringEntity(json.toJSONString());
+
+	        logger.info("StringEntity = " + params.toString());
+	        httpPost.addHeader("content-type", "application/json");
+	        httpPost.addHeader("Accept","application/json");
+	        httpPost.setEntity(params);
+
+	        HttpResponse httpResponse = httpClient.execute(httpPost);
+	        String shareImg = EntityUtils.toString(httpResponse.getEntity());
+
+	        JSONParser parser = new JSONParser();
+			JSONObject jsonString = (JSONObject)parser.parse(shareImg);
+
+			logger.debug("json : " + jsonString.get("url"));
+			logger.debug("json : " + jsonString.get("error"));
+
+			String targetUrl = (String)jsonString.get("url");
+			mm.put("shareImgUrl", targetUrl);
+
+	        String ogNm = (String) prodInfo.get("PROD_NM") == null ? "" : (String) prodInfo.get("PROD_NM");
+	        mm.put("ogNm", ogNm);
+	        
+	        String ogInitUrl = request.getRequestURI() == null ? "" : request.getRequestURI();
+	        mm.put("ogInitUrl", ogInitUrl);
+	        
+	        httpPost.abort();
+	    }catch (Exception e) {
+	    	e.printStackTrace();
+
+	    }
+		
+		return new ModelAndView("web/shar/selectSharDtl", mm);
+	}
+	
+	
+	
+	/**
+	 * <pre>
+	 * 스마트폰 셰어링 신청
+	 * 스마트폰 셰어링 신청 정보 입력
+	 * @param request
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 9. 1. 오후 5:12:32
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/shar/selectAppli.do")
+	public ModelAndView selectApply(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("SELECT SMART PHONE SHARING DEAIL START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		ModelMap mm = new ModelMap();
+		LoggerUtil.writeMap(inParam);
+		
+		try {
+			HttpSession session = request.getSession();
+			WebSession webSession = (WebSession)session.getAttribute("user");
+			if ( webSession == null) {
+
+			} else {
+				inParam.put("ORD_EMAIL", webSession.getMBER_EMAIL());
+				inParam.put("ORD_NM", webSession.getMBER_NM());
+				inParam.put("ORD_PHONE", webSession.getMBER_PHONE());
+				inParam.put("MBER_SEQ", webSession.getMBER_SEQ());
+				
+				
+				mm =  webSmartPhoneService.selectAppli(inParam);
+				
+				logger.debug("CmmnCnst.COMM_DOMAIN : " + CmmnCnst.COMM_DOMAIN);
+				
+				// [kang] iframe 크로스도메인 해결을 위해 도메인 삽입
+				mm.put("documentDomain", CmmnCnst.COMM_DOMAIN);
+				
+			}
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return new ModelAndView("web/shar/selectAppli", mm);
+	}
+	
+	/**
+	 * <pre>
+	 * 나이 
+	 * @param request
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 27. 오후 2:45:26
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/shar/getAge.do")
+	public ModelAndView getAge(HttpServletRequest request, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("getAge START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		ModelMap mm = new ModelMap();
+		LoggerUtil.writeMap(inParam);
+		HttpSession session = request.getSession();
+		WebSession webSession = (WebSession)session.getAttribute("user");
+		try {
+			int age = webSmartPhoneService.getAge(webSession.getMBER_SEQ());
+			
+			logger.debug("age : " + age);
+			
+			mm.put("age", age);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return new ModelAndView("jsonView", mm);
+	}
+	
+	/**
+	 * <pre>
+	 * 스마트폰 셰어링 신청
+	 * 스마트폰 셰어링 지원금
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 9. 14. 오후 11:00:24
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/shar/selectSpSup.do")
+	public ModelAndView selectSpSup(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("SELECT SMART PHONE SUPPORT FUND START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		ModelMap mm = new ModelMap();
+		
+		LoggerUtil.writeMap(inParam);
+		try {
+			mm =  webSmartPhoneService.selectSpSup(inParam);
+			logger.debug("mm.toString() : " + mm.toString());
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return new ModelAndView("jsonView", mm);
+	}
+	
+	/**
+	 * <pre>
+	 * 스마트폰 셰어링 신청
+	 * 중고폰 매입 TOKENID 생성
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 9. 8. 오후 8:01:16
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/shar/selectTokenId.do")
+	public ModelAndView selectTokenId(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("SELECT TOKEN ID START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		ModelMap mm = new ModelMap();
+		Map<String, Object> tokenidYn = new HashMap<String, Object>();
+		Map<String, String> data = new HashMap<String, String>(); 
+		Map<String, Object> userInfo = new HashMap<String, Object>();
+		Map<String, Object> selectOlivarUrl = new HashMap<String, Object>();
+		Map<String, Object> selectRetUrl = new HashMap<String, Object>();
+		
+		try {
+			HttpSession session = request.getSession();
+			WebSession webSession = (WebSession)session.getAttribute("user");
+			
+			if (webSession != null) {
+				
+				inParam.put("MBER_SEQ", webSession.getMBER_SEQ());
+				HttpUrlConnectionUtil hcu = new HttpUrlConnectionUtil();
+				
+				userInfo = (Map<String, Object>) webSmartPhoneService.selectUpUserInfo(inParam).get("userInfo");
+				selectOlivarUrl = (Map<String, Object>) webSmartPhoneService.selectUpUserInfo(inParam).get("selectOlivarUrl");
+				selectRetUrl = (Map<String, Object>) webSmartPhoneService.selectUpUserInfo(inParam).get("selectRetUrl");
+				
+				//insert시 생성된 tokenid값이 inParam에 저장됨.
+				mm.put("outParam", webSmartPhoneService.insertTokenId(inParam));
+				mm.put("params", inParam);
+				logger.debug("#######################################################");
+				logger.debug(inParam.get("UP_BUY_CODE").toString());
+				logger.debug("retUrl ::::::" + (String)selectRetUrl.get("RETURL"));
+				logger.debug("#######################################################");
+				data.put("tokenid", inParam.get("UP_BUY_CODE").toString());
+//				data.put("phone", (String)userInfo.get("MBER_PHONE"));
+//				data.put("addr", (String)userInfo.get("JUSO_DORO")+(String)userInfo.get("JUSO_DTL"));
+				data.put("name", (String)userInfo.get("MBER_NM"));
+//				data.put("post_no", (String)userInfo.get("ZIP_CD"));
+				data.put("returl", (String)selectRetUrl.get("RETURL"));
+				data.put("email", (String)userInfo.get("MBER_EMAIL"));
+				data.put("phone", "");
+				data.put("addr", "");
+				//data.put("name", "");
+				data.put("post_no", "");
+
+/*				if ( data.get("phone").equals(null)) data.put("phone", "");
+				if ( data.get("addr").equals(null)) data.put("addr", "");
+				if ( data.get("name").equals(null)) data.put("name", "");
+				if ( data.get("email").equals(null)) data.put("email", "");
+				if ( data.get("name").equals(null)) data.put("name", "");
+				*/
+				
+				tokenidYn = hcu.callHttpURLConnection3((String)selectOlivarUrl.get("COM_CD_NM")+"/danal/danalRest0101.do", "POST", data);
+			}
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return new ModelAndView("jsonView", mm);
+	}
+	
+	/**
+	 * <pre>
+	 * 스마트폰 셰어링 신청
+	 * 중고폰 매입
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 9. 8. 오후 8:00:51
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/shar/selectOlivarInfo.do")
+	public ModelAndView selectOlivarInfo(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("SELECT OLIVAR INFO START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		ModelMap mm = new ModelMap();
+		LoggerUtil.writeMap(inParam);
+		try {
+			mm.put("outParam", webSmartPhoneService.selectOlivarInfo(inParam));
+			mm.put("params", inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return new ModelAndView("jsonView", mm);
+	}
+	
+	@RequestMapping("/mobile/shar/updateMberInfo.do")
+	public ModelAndView updateMberInfo(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("UPDATE MBER INFO START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		ModelMap mm = new ModelMap();
+		LoggerUtil.writeMap(inParam);
+		HttpSession session = request.getSession();
+		WebSession webSession = (WebSession)session.getAttribute("user");
+		try {
+			
+			inParam.put("MBER_SEQ", webSession.getMBER_SEQ());
+			int outCnt =webSmartPhoneService.updateMberInfo(inParam);
+			
+			//최초 인증시 포인트 지급 2015-11-20
+			if(outCnt > 0){
+				 webCommonService.updateMberPoint(inParam);
+			}
+			
+			mm.put("outParam", outCnt);
+			mm.put("isLogin", webSession.getLogin());
+			mm.put("params", inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return new ModelAndView("jsonView", mm);
+	}
+	
+	/**
+	 * <pre>
+	 * 본인인증 여부 확인
+	 * 
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 9. 8. 오후 2:56:46
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/shar/selectMberInfo.do")
+	public ModelAndView selectMberInfo(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("SELECT MBER INFO START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		ModelMap mm = new ModelMap();
+		LoggerUtil.writeMap(inParam);
+		try {
+			HttpSession session = request.getSession();
+			WebSession webSession = (WebSession)session.getAttribute("user");
+			
+			if (webSession != null) {
+				inParam.put("MBER_SEQ", webSession.getMBER_SEQ());
+				mm.put("outParam", webSmartPhoneService.selectMberInfo(inParam).get("outParam"));
+				mm.put("isLogin", webSession.getLogin());
+			} else {
+				mm.put("isLogin", false);
+			}
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return new ModelAndView("jsonView", mm);
+	}
+	
+	/**
+	 * <pre>
+	 * 주문번호조회
+	 * 스마트폰 셰어링 주문 번호 조회
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 10. 1. 오전 1:57:28
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/shar/selectOrdInfoSeq.do")
+	public ModelAndView selectOrdInfoSeq(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("SELECT SMART SHARING ORD CODE START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		ModelMap mm = new ModelMap();
+		LoggerUtil.writeMap(inParam);
+		try {
+			HttpSession session = request.getSession();
+			WebSession webSession = (WebSession)session.getAttribute("user");
+			if (webSession != null) {
+				mm.put("ordCd", webSmartPhoneService.selectOrdInfoSeq(inParam));
+				mm.put("isLogin", webSession.getLogin());
+			} else {
+				mm.put("isLogin", false);
+			}
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return new ModelAndView("jsonView", mm);
+	}
+	
+	/**
+	 * <pre>
+	 * 스마트폰 셰어링 신청
+	 * 스마트폰 셰어링 신청하기
+	 * @param request
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 9. 1. 오후 9:16:50
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/shar/insertSharingOrder.do")
+	public ModelAndView insertSharingOrder(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("INSERT SMART PHONE SHARING INFO START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		ModelMap mm = new ModelMap();
+		Map<String, Object> emailParam = new HashMap<String, Object>();
+		LoggerUtil.writeMap(inParam);
+		try {
+			HttpSession session = request.getSession();
+			WebSession webSession = (WebSession)session.getAttribute("user");
+			logger.debug(webSession.toString());;
+			if (webSession != null) {
+				inParam.put("MBER_SEQ", webSession.getMBER_SEQ());
+				inParam.put("ORD_NM", webSession.getMBER_NM());
+				inParam.put("ORD_TEL", webSession.getMBER_PHONE());
+				inParam.put("ORD_EMAIL", webSession.getMBER_EMAIL());
+				inParam.put("SESS_ID", request.getSession().getId());
+				
+				inParam.put("TRD_GB_CD", "10");		// 거래 구분 코드가 구매는 무조건 10이라고 함. 공통코드가 있다면 변경 해 줄것.
+				
+				// 배송지 관리 PARAM 설정
+				inParam.put("ADDR_JIBEN", StringUtil.nvl((String)inParam.get("JUSO_JIBEN"), ""));
+				inParam.put("ADDR_DORO", StringUtil.nvl((String)inParam.get("JUSO_DORO"), ""));
+				inParam.put("ADDR_DTL", StringUtil.nvl((String)inParam.get("JUSO_DTL"), ""));
+				
+				// SET 기본 배송지로 이용 여부 
+				String uptBaseDlvYn = StringUtil.nvl((String)inParam.get("UPT_BASE_DLV_YN"), "N");
+				String addBaseDlvYn = StringUtil.nvl((String)inParam.get("ADD_BASE_DLV_YN"), "N");
+
+				if("Y".equals(uptBaseDlvYn) || "Y".equals(addBaseDlvYn)){
+					inParam.put("BASE_DLV_YN", "Y");
+				}else{
+					inParam.put("BASE_DLV_YN", "N");
+				}
+				
+				// 배송지 추가
+				if("Y".equals(StringUtil.nvl((String)inParam.get("ADD_DLV_YN"), "N"))){
+					mobileMyAdrService.insertMyAdrInfoReq(inParam, webSession);
+				}
+
+				// 기존 배송지 정보 수정
+				if("Y".equals(StringUtil.nvl((String)inParam.get("UPT_DLV_YN"), "N"))){
+					mobileMyAdrService.updateMyAdrInfoReq(inParam, webSession);
+				}
+
+				// 기본 배송지로 이용
+				if(! ("".equals(StringUtil.nvl((String)inParam.get("REG_SEQ"), "")))){
+					mobileMyAdrService.updatemyBaseAdrReg(inParam, webSession);
+				}
+				
+				mm.put("outParam", webSmartPhoneService.insertSharingOrder(inParam));
+				
+				mm.put("params", inParam);
+				mm.put("isLogin", webSession.getLogin());
+				
+			} else {
+				mm.put("isLogin", false);
+			}
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return new ModelAndView("jsonView", mm);
+	}
+	
+	/**
+	 * <pre>
+	 * 스마트폰 셰어링 신청
+	 * 스마트폰 셰어링 신청서 이메일 전송
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 9. 9. 오후 6:16:44
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/shar/procAppliEmail.do")
+	public ModelAndView procAppliEmail(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("PROC APPLICATION EMAIL START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		ModelMap mm = new ModelMap();
+		Map<String, Object> emailParam = new HashMap<String, Object>();
+		LoggerUtil.writeMap(inParam);
+		
+		try {
+			HttpSession session = request.getSession();
+			WebSession webSession = (WebSession)session.getAttribute("user");
+			if (webSession != null) {
+				String innerHtml = "<html>"
+						+ "<p>SSOCIO 신청서 EMAIL</p>"
+						+ "<a href='http://www.naver.com'>신청</a>"
+						+ "</html>";
+				
+				//신청서 이메일 발송
+				emailParam.put("from_email", "ssocio@rocomo.com");
+				emailParam.put("from_nm", "SSOCIO");
+				emailParam.put("to_email", inParam.get("P_EMAIL"));
+				emailParam.put("to_nm", webSession.getMBER_NM());
+				emailParam.put("ishtml", "Y");
+				emailParam.put("subject", "[SSOCIO]스마트폰 셰어링 신청 안내");
+				emailParam.put("msg", innerHtml);
+				emailParam.put("gubun", "join_auth");
+				emailParam.put("tplcode", "JOIN_SMARTSHARE");
+				emailParam.put("ord_cd", inParam.get("ORD_CD"));
+				emailParam.put("prod_code", inParam.get("PROD_CODE"));
+				String siteDeafault = mobileJoinService.selectsiteIFUrl();
+//				emailParam.put("msg", URLEncoder.encode(inParam.get("test").toString(), "UTF-8"));
+				HttpUrlConnectionUtil hcu = new HttpUrlConnectionUtil();
+				hcu.sendEmail(siteDeafault, "POST", emailParam);
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return new ModelAndView("jsonView", mm);
+	}
+	
+	/**
+	 * <pre>
+	 * 스마트폰 셰어링
+	 * 스마트폰 셰어링 완료
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 9. 18. 오후 7:34:38
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/shar/selectComAppli.do")
+	public ModelAndView selectComAppli(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("SELECT COM APPLICATION START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		ModelMap mm = new ModelMap();
+		LoggerUtil.writeMap(inParam);
+		try {
+			mm =  webSmartPhoneService.selectComAppli(inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return new ModelAndView("web/shar/selectComAppli", mm);
+	}
+	
+	/**
+	 * <pre>
+	 * 스마트폰 셰어링 이용내역
+	 * 스마트폰 셰어링 
+	 * @param request
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 9. 2. 오전 11:28:09
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/shar/procSharUsing.do")
+	public ModelAndView procSharUsing(HttpServletRequest request, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("PROC SHARING USING START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(inParam);
+		try {
+			HttpSession session = request.getSession();
+			WebSession webSession = (WebSession)session.getAttribute("user");
+			if(webSession != null){
+				inParam.put("MBER_SEQ", webSession.getMBER_SEQ());
+				mav.addObject("countList", webSmartPhoneService.selectSmartPoneSharUsingCount(inParam));
+			}
+			mav.setViewName("web/shar/procSharUsing");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mav;
+	}
+	
+	/**
+	 * <pre>
+	 * 스마트폰 셰어링 이용내역
+	 * 스마트폰 셰어링 주문내역 정보
+	 * @param request
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 9. 2. 오후 5:50:11
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/shar/selectSharOrdProd.do")
+	public ModelAndView selectSharOrdInfo(HttpServletRequest request, HttpServletResponse response
+							, @RequestParam Map<String, Object> inParam
+							, @RequestParam(value="S_PROC_STAT_CD", required=false) String[] procArray
+							) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("SELECT SHARING ORDER INFO START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		ModelMap mm = new ModelMap();
+		ModelAndView mav = new ModelAndView();
+		
+		LoggerUtil.writeMap(inParam);
+		
+		
+		try {
+			HttpSession session = request.getSession();
+			WebSession webSession = (WebSession)session.getAttribute("user");
+			if(webSession != null){
+				inParam.put("MBER_SEQ", webSession.getMBER_SEQ());
+				if (inParam.get("PROC_STAT_CD") != "" && inParam.get("PROC_STAT_CD") != null ) {
+					inParam.put("PROC_STAT_CD", procArray);
+				}
+				mav.addAllObjects(webSmartPhoneService.selectSharOrdInfo(inParam));
+			}
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		if(inParam.containsKey("GUBUN")){
+			mav.setViewName("jsonView");
+		}else{
+			mav.setViewName("web/shar/selectSharOrdProd");
+		}
+		return mav;
+	}
+	
+	/**
+	 * <pre>
+	 * 스마트폰 셰어링 이용내역
+	 * 스마트폰 셰어링 주문내역 상세 정보
+	 * @param request
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 9. 4. 오후 5:01:35
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/shar/selectSharOrdDtl.do")
+	public ModelAndView selectSharOrdDtl(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("SELECT SHARING ORDER DTL INFO START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		ModelMap mm = new ModelMap();
+		LoggerUtil.writeMap(inParam);
+		try {
+			HttpSession session = request.getSession();
+			WebSession webSession = (WebSession)session.getAttribute("user");
+			if(webSession != null){
+//				inParam.put("MBER_SEQ", webSession.getMBER_SEQ());
+				mm = webSmartPhoneService.selectSharOrdDtl(inParam);
+				mm.put("USER_EMAIL", webSession.getMBER_EMAIL());
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return new ModelAndView("web/shar/selectSharOrdDtl", mm);
+	}
+	
+	@RequestMapping("/mobile/shar/updateSharDate.do")
+	public ModelAndView updateSharDate(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("UPDATE SHARING DATE START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		ModelMap mm = new ModelMap();
+		LoggerUtil.writeMap(inParam);
+		try {
+			HttpSession session = request.getSession();
+			WebSession webSession = (WebSession)session.getAttribute("user");
+			if(webSession != null){
+//				inParam.put("MBER_SEQ", webSession.getMBER_SEQ());
+				mm = webSmartPhoneService.updateSharDate(inParam);
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return new ModelAndView("jsonView", mm);
+	}
+	
+	/**
+	 * <pre>
+	 * 스마트폰 셰어링 이용내역
+	 * 스마트폰 셰어링 교환내역 정보
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @param procArray
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 9. 10. 오후 10:44:53
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/shar/selectSharChgProd.do")
+	public ModelAndView selectSharChgProd(HttpServletRequest request, HttpServletResponse response
+							, @RequestParam Map<String, Object> inParam
+							, @RequestParam(value="S_CHG_PROC_TYPE_CD", required=false) String[] procArray
+							) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("SELECT SHARING CHANGE PROD START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		ModelMap mm = new ModelMap();
+		ModelAndView mav = new ModelAndView();
+		List<String> li = new ArrayList<String>();
+		LoggerUtil.writeMap(inParam);
+		try {
+			HttpSession session = request.getSession();
+			WebSession webSession = (WebSession)session.getAttribute("user");
+			if(webSession != null){
+				inParam.put("MBER_SEQ", webSession.getMBER_SEQ());
+				if (inParam.get("CHG_PROC_TYPE_CD") != "" && inParam.get("CHG_PROC_TYPE_CD") != null ){
+					inParam.put("CHG_PROC_TYPE_CD", procArray);
+				} else {
+					li.add("10");
+					li.add("20");
+					li.add("30");
+					inParam.put("CHG_PROC_TYPE_CD", li);
+				}
+				inParam.put("CHG_GB_CD", "10");
+				mav.addAllObjects(webSmartPhoneService.selectSharOrdChgInfo(inParam));
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		if(inParam.containsKey("GUBUN")){
+			mav.setViewName("jsonView");
+		}else{
+			mav.setViewName("web/shar/selectSharChgProd");
+		}
+		return mav;
+	}
+	
+	/**
+	 * <pre>
+	 * 스마트폰 셰어링 교환
+	 * 스마트폰 셰어링 교환 상세
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 9. 17. 오후 8:52:27
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/shar/selectSharChgDtl.do")
+	public ModelAndView selectSharChgDtl(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("SELECT SHARING CHANGE PROD DTL INFO START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		ModelMap mm = new ModelMap();
+		LoggerUtil.writeMap(inParam);
+		try {
+			HttpSession session = request.getSession();
+			WebSession webSession = (WebSession)session.getAttribute("user");
+			if(webSession != null){
+//				inParam.put("MBER_SEQ", webSession.getMBER_SEQ());
+				mm = webSmartPhoneService.selectSharChgDtl(inParam);
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return new ModelAndView("web/shar/selectSharChgDtl", mm);
+	}
+	
+	/**
+	 * <pre>
+	 * 스마트폰 셰어링 반품
+	 * 스마트폰 셰어링 반품 리스트
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @param procArray
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 9. 17. 오후 9:39:48
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/shar/selectSharBackProd.do")
+	public ModelAndView selectSharBackProd(HttpServletRequest request, HttpServletResponse response
+							, @RequestParam Map<String, Object> inParam
+							, @RequestParam(value="S_CHG_PROC_TYPE_CD", required=false) String[] procArray
+							) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("SELECT SHARING BACK PROD START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		ModelMap mm = new ModelMap();
+		List<String> li = new ArrayList<String>();
+		LoggerUtil.writeMap(inParam);
+		try {
+			HttpSession session = request.getSession();
+			WebSession webSession = (WebSession)session.getAttribute("user");
+			if(webSession != null){
+				inParam.put("MBER_SEQ", webSession.getMBER_SEQ());
+				if (inParam.get("CHG_PROC_TYPE_CD") != "" && inParam.get("CHG_PROC_TYPE_CD") != null ){
+					inParam.put("CHG_PROC_TYPE_CD", procArray);
+				} else {
+					li.add("50");
+					li.add("60");
+					li.add("70");
+					inParam.put("CHG_PROC_TYPE_CD", li);
+				}
+				inParam.put("CHG_GB_CD", "50");
+				mm = webSmartPhoneService.selectSharOrdChgInfo(inParam);
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return new ModelAndView("web/shar/selectSharBackProd", mm);
+	}
+	
+	/**
+	 * <pre>
+	 * 스마트폰 셰어링 반품
+	 * 스마트폰 셰어링 반품 상세
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 9. 17. 오후 9:40:47
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/shar/selectSharBackDtl.do")
+	public ModelAndView selectSharBackDtl(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("SELECT SHARING BACK PROD DTL INFO START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		ModelMap mm = new ModelMap();
+		LoggerUtil.writeMap(inParam);
+		try {
+			HttpSession session = request.getSession();
+			WebSession webSession = (WebSession)session.getAttribute("user");
+			if(webSession != null){
+//				inParam.put("MBER_SEQ", webSession.getMBER_SEQ());
+				mm = webSmartPhoneService.selectSharChgDtl(inParam);
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return new ModelAndView("web/shar/selectSharBackDtl", mm);
+	}
+	
+	@RequestMapping("/mobile/shar/selectSharCanlProd.do")
+	public ModelAndView selectSharCanlProd(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("SELECT SHARING CANL PROD START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		ModelMap mm = new ModelMap();
+		List<String> li = new ArrayList<String>();
+		LoggerUtil.writeMap(inParam);
+		try {
+			HttpSession session = request.getSession();
+			WebSession webSession = (WebSession)session.getAttribute("user");
+			if(webSession != null){
+				inParam.put("MBER_SEQ", webSession.getMBER_SEQ());
+				li.add("50");
+				inParam.put("PROC_STAT_CD", li);
+				
+				mm = webSmartPhoneService.selectSharOrdInfo(inParam);
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return new ModelAndView("web/shar/selectSharCanlProd", mm);
+	}
+	
+	
+	
+	/**
+	 * <pre>
+	 * 스마트폰 셰어링 이용내역
+	 * 스마트폰 셰어링 주문취소 상세 정보
+	 * @param request
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 9. 4. 오후 5:01:35
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/shar/selectSharCanlDtl.do")
+	public ModelAndView selectSharCanlDtl(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("SELECT SHARING ORDER DTL INFO START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		ModelMap mm = new ModelMap();
+		LoggerUtil.writeMap(inParam);
+		try {
+			HttpSession session = request.getSession();
+			WebSession webSession = (WebSession)session.getAttribute("user");
+			if(webSession != null){
+//				inParam.put("MBER_SEQ", webSession.getMBER_SEQ());
+				mm = webSmartPhoneService.selectSharCanlDtl(inParam);
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return new ModelAndView("web/shar/selectSharCanlDtl", mm);
+	}
+	
+	/**
+	 * <pre>
+	 * 스마트폰 셰어링
+	 * 스마트폰 셰어링 해지 리스트
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 9. 14. 오전 11:18:40
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/shar/selectSharTermiProd.do")
+	public ModelAndView selectSharTermiProd(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("SELECT SHARING CANL PROD START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		ModelMap mm = new ModelMap();
+		List<String> li = new ArrayList<String>();
+		LoggerUtil.writeMap(inParam);
+		try {
+			HttpSession session = request.getSession();
+			WebSession webSession = (WebSession)session.getAttribute("user");
+			if(webSession != null){
+				inParam.put("MBER_SEQ", webSession.getMBER_SEQ());
+				li.add("70");
+				li.add("72");
+
+				inParam.put("PROC_STAT_CD", li);
+				mm = webSmartPhoneService.selectSharTermiOrdInfo(inParam);
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return new ModelAndView("web/shar/selectSharTermiProd", mm);
+	}
+	
+	/**
+	 * <pre>
+	 * 스마트폰 셰어링
+	 * 스마트폰 셰어링 해지 상세
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 9. 14. 오전 11:19:06
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/shar/selectSharTermiProdDtl.do")
+	public ModelAndView selectSharTermiProdDtl(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("SELECT SHARING TERMI PROD DETAIL START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		ModelMap mm = new ModelMap();
+		LoggerUtil.writeMap(inParam);
+		try {
+			HttpSession session = request.getSession();
+			WebSession webSession = (WebSession)session.getAttribute("user");
+			if(webSession != null){
+				inParam.put("MBER_SEQ", webSession.getMBER_SEQ());
+				mm = webSmartPhoneService.selectSharTermiProdDtl(inParam);
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return new ModelAndView("web/shar/selectSharTermiProdDtl", mm);
+	}
+	
+	@RequestMapping("/mobile/shar/selectSharPayProd.do")
+	public ModelAndView selectSharPayProd(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("SELECT SHARING PAY PROD START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		ModelMap mm = new ModelMap();
+		List<String> li = new ArrayList<String>();
+		LoggerUtil.writeMap(inParam);
+		try {
+			HttpSession session = request.getSession();
+			WebSession webSession = (WebSession)session.getAttribute("user");
+			if(webSession != null){
+				inParam.put("MBER_SEQ", webSession.getMBER_SEQ());
+				 mm.put("list", webSmartPhoneService.selectSharPayProd(inParam));
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return new ModelAndView("web/shar/selectSharPayProd", mm);
+	}
+	
+	/**
+	 * <pre>
+	 * 스마트폰 셰어링 해지 신청
+	 * 스마트폰 셰어링 해지 신청
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 9. 13. 오후 7:01:29
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/shar/procSharCanl.do")
+	public ModelAndView procSharCanl(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("PROC SHARING CANCEL START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		ModelMap mm = new ModelMap();
+		LoggerUtil.writeMap(inParam);
+		try {
+			HttpSession session = request.getSession();
+			WebSession webSession = (WebSession)session.getAttribute("user");
+			if(webSession != null){
+				inParam.put("MBER_SEQ", webSession.getMBER_SEQ());
+				mm = webSmartPhoneService.selectTermiInfo(inParam);
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return new ModelAndView("web/shar/procSharCanl", mm);
+	}
+	
+	/**
+	 * <pre>
+	 * 스마트폰 셰어링 해지
+	 * 스마트폰 셰어링 해지 등록
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 9. 13. 오후 8:19:05
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/shar/insertSharTermi.do")
+	public ModelAndView insertSharCanl(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("PROC SHARING CANCEL START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		ModelMap mm = new ModelMap();
+		LoggerUtil.writeMap(inParam);
+		try {
+			HttpSession session = request.getSession();
+			WebSession webSession = (WebSession)session.getAttribute("user");
+			if(webSession != null){
+				inParam.put("MBER_SEQ", webSession.getMBER_SEQ());
+				mm = webSmartPhoneService.insertSharTermi(inParam);
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return new ModelAndView("jsonView", mm);
+	}
+}

@@ -1,0 +1,115 @@
+package com.ssocio.sharing.cmmn.util.view;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.net.URLEncoder;
+import java.util.Map;
+
+import javax.servlet.ServletOutputStream;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.apache.commons.io.IOUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.web.servlet.view.AbstractView;
+
+
+public class FileDownLoadUtils extends AbstractView {
+
+private static final Logger logger = LoggerFactory.getLogger(FileDownLoadUtils.class);
+	
+	public FileDownLoadUtils() {
+		
+	}
+
+	
+	protected void renderMergedOutputModel(Map<String, Object> model,
+			HttpServletRequest request, HttpServletResponse response) throws Exception {
+		
+		/******************************************************
+		 * model.get("downloadFile")
+		 * Controller에서 ModelAndView객체의 value에 Setting한 파일 객체의 KEY
+		 ******************************************************/
+		File downloadFile = (File)model.get("downloadFile");
+
+		if (downloadFile == null ||!downloadFile.exists() || !downloadFile.isFile()) {
+			throw new FileNotFoundException("[==== FILE_NOT_FOUND_EXCEPTION====] File is Not Exist! Please, Check the File in the Server.");
+		}
+		
+		
+		String fileName = null;
+		String userAgent = request.getHeader("User-Agent");
+		logger.debug("userAgent: "+userAgent);
+		
+		
+		if (userAgent.indexOf("MSIE 5.5") > -1 || userAgent.indexOf("MSIE") > -1 || userAgent.indexOf("Trident") > -1) {
+			//브라우저가 IE인 경우
+			logger.debug("###### CONNECT =====> MSIE #####");
+			fileName = URLEncoder.encode(downloadFile.getName(), "UTF-8").replaceAll("\\+", "%20");
+			
+		} else {
+			// 그외
+			logger.debug("###### CONNECT =====> Others #####");
+			fileName = new String(downloadFile.getName().getBytes("UTF-8"), "ISO-8859-1");
+			
+			
+		} // END IF-ELSE
+		
+		logger.info("fileName = " + fileName);
+		
+		response.setContentType("application/octet-stream;" + " charset=" + "utf-8");
+		logger.debug("response.getContentType(): "+response.getContentType());
+		
+		response.setContentLength((int)downloadFile.length());
+		response.setHeader("Content-Disposition", "attachment; filename=\"" + fileName + "\";");
+		response.setHeader("Content-Transfer-Encoding", "binary");
+		response.setHeader("Content-Length", String.valueOf(downloadFile.length()));
+		response.setHeader("Cache-Control", "max-age=0");
+		
+		logger.info("length = "+downloadFile.length());
+		ServletOutputStream sos = response.getOutputStream();
+		FileInputStream fis = null;
+		
+		try {
+			
+			fis = new FileInputStream(downloadFile);
+			//IOUtils.copy(fis, sos);// FileCopyUtils.copy(fis, sos);
+			
+			byte[] bufferData = new byte[(int) downloadFile.length()];
+			int read=0;
+			while((read = fis.read(bufferData))!= -1){
+				logger.info("read = "+read);
+			    sos.write(bufferData, 0, read);
+			}			
+			
+			sos.flush();
+			
+		} catch (IOException ioe) {
+			ioe.printStackTrace();
+			
+		} finally {
+			IOUtils.closeQuietly(fis);// fis.close();
+			if(model.get("fileDelete") != null && model.get("fileDelete").equals("Y")){
+				
+				logger.debug("downloadFile.getAbsolutePath()"+downloadFile.getAbsolutePath());
+				logger.debug("downloadFile.getName()"+downloadFile.getName());
+				// renamed file delete
+				File dir = new File(downloadFile.getAbsolutePath());
+				
+				if(dir.exists()) {
+					dir.delete();
+					logger.debug("renamedFile delete");
+				}
+			
+			}
+			if(sos != null){sos.close();}
+			if(fis != null){fis.close();}
+			
+		}// END try-catch-finally
+		
+	}
+	
+}

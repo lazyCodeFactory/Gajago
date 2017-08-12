@@ -1,0 +1,361 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/admin/common/cmmnHead.jsp"%>
+<script type="text/javascript">
+$(document).ready(function(){
+	fixed_tbl_height(); 
+	prod_padding(); 
+	
+	$("#checkAll").click(function() {
+		if($("input:checkbox[id='checkAll']").is(":checked") == true){
+			$("input[type=checkbox]").prop("checked", true);
+		}else{
+			$("input[type=checkbox]").prop("checked", false);
+		}
+	});
+	
+	$("input:checkbox[id='checkAdj']").click(function(){
+		$("input[type=checkbox]").each(function(){
+			if($(this).is(":checked") == false) $("#checkAll").prop("checked", false);
+		});
+	});
+	
+	var previous = "";
+
+    $(".SEL_ADJ_STAT").bind('click', function () {
+        // Store the current value on focus and on change
+        previous = this.value;
+    }).bind('change',function() {
+        
+        if($(this).val() == 'W'){
+        	
+        	if(confirm("정산상태를 보류로 변경하시겠습니까?")){
+        		
+        		$('#pop_ord_cd').val($(this).attr('ord_cd'));
+        		$('#pop_prod_cd').val($(this).attr('prod_cd'));
+        		$('#pop_pre_stat').val(previous);
+        		$('#pop_memo').val($(this).parents('tr').children('.memo').text());
+        		$(this).addClass("ch_stat");
+        		$('#popupMemo').show();
+        	}else{
+        		
+				$(this).val(previous);
+        	}
+        }else if($(this).val() == 'F'){
+        	if(confirm("정산상태를 완료로 변경하시겠습니까?")){
+        		changeStat($(this).attr('ord_cd'),$(this).attr('prod_cd'),$(this).val(),"");
+        	}else{
+        		
+				$(this).val(previous);
+        	}
+    	}else{
+    		changeStat($(this).attr('ord_cd'),$(this).attr('prod_cd'),$(this).val(),"");
+    	}
+    });
+});
+
+function popupMemo(ch){
+	if(ch == "W"){
+		
+		changeStat($('#pop_ord_cd').val(), $('#pop_prod_cd').val(), 'W',$('#pop_memo').val());
+	}else{
+		$(".ch_stat").val($('#pop_pre_stat').val());
+	}
+	$('.ch_stat').removeClass("ch_stat");
+	$('#popupMemo').hide();
+}
+
+//리스트 이동	
+function goList() {
+	var $form = $('<form></form>');
+    $form.attr('action','/seller/adjust/selectAdjust.do');
+    $form.attr('method','post');
+    $form.appendTo('body');
+    $form.append('<input type="hidden" name="MBER_EMAIL" value="${list.params.MBER_EMAIL }">');
+    $form.append('<input type="hidden" name="PROD_TYPE_CD" value="${list.params.PROD_TYPE_CD }">');
+    $form.append('<input type="hidden" name="S_START_DATE" value="${list.params.S_START_DATE }">');
+    $form.append('<input type="hidden" name="S_END_DATE" value="${list.params.S_END_DATE }">');
+    $form.append('<input type="hidden" name="SEARCH_STAT" value="${list.params.SEARCH_STAT}">');
+    $form.submit();
+}
+//페이지 이동
+function GoPage(pageNo) {
+	$(".PAGE_NO").val(pageNo);
+	$("#frm").attr("action","/seller/adjust/selectDtlListShareAdjust.do").submit();
+}
+
+function goCpltAdjust(){
+	var cnt = $("input:checkbox[id='checkAdj']:checked").length;
+	 if(cnt < 1){
+         alert('한 개 이상을 선택하셔야 합니다');
+         return;
+	 }
+	if(confirm("선택한 내역을 정산완료 하시겠습니까?")){
+		var ord_cd = "";
+		var prod_cd = "";
+		$(':checkbox[name=checkAdj]:checked').each(function(index){
+			if(ord_cd != ""){
+				ord_cd += "|";
+				prod_cd += "|";
+			}
+			ord_cd += $(this).val().split("|")[0];
+			prod_cd += $(this).val().split("|")[1];
+		});
+		$('#ORD_CD').val(ord_cd);
+		$('#PROD_CD').val(prod_cd);
+		$("#adjForm").attr("action", "/seller/adjust/goCpltAdjust.do").submit();
+	}
+}
+
+</script>
+<form id="frm" method="post" name="frm">
+	<input type="hidden" class="PAGE_NO" name="PAGE_NO">
+	<input type='hidden' name='MBER_SEQ' value='${params.MBER_SEQ }'>
+	<input type="hidden" name="MBER_EMAIL" value="${list.params.MBER_EMAIL }">
+	<input type="hidden" name="PROD_TYPE_CD" value="${list.params.PROD_TYPE_CD }">
+	<input type="hidden" name="S_START_DATE" value="${list.params.S_START_DATE }">
+	<input type="hidden" name="S_END_DATE" value="${list.params.S_END_DATE }">
+    <input type="hidden" name="SEARCH_STAT" value="${list.params.SEARCH_STAT}">
+</form>
+
+<div id="popupMemo" style="width:300px;background-color:white;border:0.5px solid black;display:none;position: absolute;top: 200px; left: 500px;z-index: 100">
+	<div style="height:30px; width:100%;padding-top: 30px;" align="center">
+		<input type="hidden" id="pop_ord_cd"/>
+		<input type="hidden" id="pop_prod_cd"/>
+		<input type="hidden" id="pop_pre_stat"/>
+		<span style="margin-top: 30px">정산 상태를 <font color="red">보류</font>로 변경하시겠습니까?</span>
+	</div>
+	<div style="height:30px; width:100%;padding-left:10px;">
+	사유 &nbsp;<input type="text" id="pop_memo" value="" maxlength="100" style="width:67%;"/>
+	</div>
+	<div style="height:50px; width:100%;padding:10px 0px 0px 90px;">
+	<a href="javascript:popupMemo('W');" class="btn_sr">확인</a>
+	<a href="javascript:popupMemo();" class="btn_sb">취소</a>
+	</div>
+	
+
+</div>
+
+<!-- content -->
+<div id="content">
+	<!-- top_content -->
+	<div class="top_content">
+		<!-- location -->
+		<div class="location">
+			<ul class="clear">
+				<li class="first-child"><a href="#">Home</a></li>
+				<li><a href="#">정산 대기</a></li>
+				<li><a href="#" class="current">셰어링  정산 상세</a></li>
+			</ul>
+		</div>
+		<!-- //location -->
+	</div>
+	<!-- //top_content -->
+	
+	<div class="inner">
+		<p class="mt20">* 조회기간 : ${params.S_START_DATE } ~ ${params.S_END_DATE }</p>
+		<div class="tbl mt20">
+			<table class="list">
+				<colgroup>
+					<col style="width:8%" />
+					<col style="width:7%" />
+					<col style="width:8%" />
+					<col style="width:8%" />
+					<col style="width:9%" />
+					<col style="width:8%" />
+					<col style="width:9%" />
+					<col style="width:9%" />
+					<col style="width:9%" />
+					<col style="width:9%" />
+					<col style="width:6%" />
+					<col style="width:8%" />
+				</colgroup>
+				<thead>	
+					<tr>
+						<th scope="col" colspan="4" class="bdb text_b">판매금액[A]</th>
+						<th scope="col" colspan="6" class="bdb text_b">공제금액[B]</th>
+						<th scope="col" rowspan="2">정산건수</th>
+						<th scope="col" rowspan="2" class="text_r">정산금액[A-B]</th>
+					</tr>
+					<tr>
+						<th scope="col" class="text_b">소계[①+②+③]</th>
+						<th scope="col">①보증금</th>
+						<th scope="col">②셰어링료</th>
+						<th scope="col">③선결제배송비</th>
+						<th scope="col" class="text_b">소계<br/>[④+⑤+⑥+⑦+⑧]</th>
+						<th scope="col">④셰어링수수료</th>
+						<th scope="col">⑤할인쿠폰분담금</th>
+						<th scope="col">⑥제휴택배 배송비</th>
+						<th scope="col">⑦반납/회수보증금</th>
+						<th scope="col">⑧유입경로할인분담금</th>
+					</tr>
+				</thead>
+				<tbody>
+					<c:set var="item" value="${list.selectShareAdjust}"/>
+					<tr>
+						<td class="tr text_b"><fmt:formatNumber value="${item.TOT_SELL}" type="number" /></td>
+						<td class="tr bg_y"><fmt:formatNumber value="${item.DEPOSIT}" type="number" /></td>
+						<td class="tr"><fmt:formatNumber value="${item.SHARE_AMT}" type="number" /></td>
+						<td class="tr"><fmt:formatNumber value="${item.DLV_PRCE}" type="number" /></td>
+						<td class="tr text_b"><fmt:formatNumber value="${item.TOT_DSCT}" type="number" /></td>
+						<td class="tr"><fmt:formatNumber value="${item.DNL_CMTN}" type="number" /></td>
+						<td class="tr"><fmt:formatNumber value="${item.DSCNT_SEL_AMT}" type="number" /></td>
+						<td class="tr"><fmt:formatNumber value="${item.CO_DLV_PRCE}" type="number" /></td>
+						<td class="tr"><fmt:formatNumber value="${item.RTN_TO_SEL_DPST}" type="number" /></td>
+						<td class="tr"><fmt:formatNumber value="${item.RTN_TO_SEL_DPST}" type="number" /></td>
+						<td class="tr"><fmt:formatNumber value="${item.ADJ_CNT}" type="number" /></td>
+						<td class="tr text_r"><fmt:formatNumber value="${item.ADJ_AMT}" type="number" /></td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+		
+		
+		<!-- tbl -->
+		<div class="tbl mt20">
+			<p class="tbl_tit type">
+			<img src="http://static.ssocio.net/admin/images/ico_admin.gif" alt="" />상세내역 
+		</div>
+		<!-- //tbl -->
+		
+		<form name="adjForm" id="adjForm" method="post">	
+			<input type='hidden' name='MBER_SEQ' value='${list.params.MBER_SEQ }'>
+			<input type="hidden" name="MBER_EMAIL" value="${list.params.MBER_EMAIL }">
+			<input type="hidden" name="PROD_TYPE_CD" value="${list.params.PROD_TYPE_CD }">
+			<input type="hidden" name="S_START_DATE" value="${list.params.S_START_DATE }">
+			<input type="hidden" name="S_END_DATE" value="${list.params.S_END_DATE }">
+		    <input type="hidden" name="SEARCH_STAT" value="${list.params.SEARCH_STAT}">
+			<input type="hidden" class="PAGE_NO" name="PAGE_NO">
+			<input type="hidden" id="PROD_CD" name="PROD_CD" value="">
+			<input type="hidden" id="ORD_CD" name="ORD_CD" value="">
+		<div class="fixed_tbl_list">
+			<!-- thead -->
+			<div class="tbl thead" style="height:auto; width:2800px">
+				<table class="list">
+					<colgroup>
+						<col style="width:5%"/>
+						<col style="width:4%"/>
+						<col style="width:3%"/>
+						<col style="width:5%"/>
+						<c:if test="${params.MBER_GB_CD eq 0 }">
+						<col style="width:4%"/>
+						<col style="width:4%"/>
+						</c:if>
+						<c:if test="${params.MBER_GB_CD eq 1 }">
+						<col style="width:4%"/>
+						</c:if>
+						<col style="width:*" />
+						<col style="width:3%"/>
+						<col style="width:4%"/>
+						<col style="width:4%"/>
+						<col style="width:4%"/>
+						<col style="width:4%"/>
+						<col style="width:4%"/>
+						<col style="width:5%"/>
+						<col style="width:4%"/>
+						<col style="width:4%"/>
+						<col style="width:3%"/>
+						<col style="width:4%"/>
+						<col style="width:4%"/>
+						<col style="width:4%"/>
+						<col style="width:4%"/>
+						<col style="width:4%"/>
+						<col style="width:4%"/>
+					</colgroup>
+					<thead>	
+						<tr>
+							<th scope="col" rowspan="2">주문일시</th>
+							<th scope="col" rowspan="2">주문번호</th>
+							<th scope="col" rowspan="2">구매자명</th>
+							<th scope="col" rowspan="2">구매자ID</th>
+							<c:if test="${params.MBER_GB_CD eq 0 }">
+							<th rowspan="2" scope="col">반납완료일</th>
+							<th rowspan="2" scope="col">셰어링종료일</th>
+							</c:if>
+							<c:if test="${params.MBER_GB_CD eq 1 }">
+							<th scope="col" rowspan="2">회수완료일</th>
+							</c:if>
+							<th scope="col" rowspan="2">상품명</th>
+							<th scope="col" rowspan="2">구매수량</th>
+							<th scope="col" rowspan="2" class="text_r">정산금액(A-B)</th>
+							<th scope="col" colspan="4" class="bdb text_b">판매금액(A)</th>
+							<th scope="col" colspan="8" class="bdb text_b">공제금액(B)</th>
+							<th scope="col" rowspan="2">정산상태</th>
+							<th scope="col" rowspan="2">비고</th>
+						</tr>
+						<tr>
+							<th scope="col" class="text_b">소계(①+②+③)</th>
+							<th scope="col">①보증금</th>
+							<th scope="col">②셰어링료</th>
+							<th scope="col">③선결제배송비</th>
+							<th scope="col" class="text_b">소계(④+⑤+⑥+⑦+⑧)</th>
+							<th scope="col">④판매수수료</th>
+							<th scope="col">수수료정책</th>
+							<th scope="col">수수료율</th>
+							<th scope="col">⑤할인쿠폰분담금</th>
+							<th scope="col">⑥제휴택배배송비</th>
+							<th scope="col">⑦반납/회수보증금</th>
+							<th scope="col">⑧유입경로할인분담금</th>
+						</tr>
+					</thead>
+					
+					
+					<tbody>
+						<c:forEach var="list" items="${list.selectDtlListShareAdjust}">
+						<tr>
+							<td class="first">${list.ODR_YMD}</td>
+							<td>${list.ORD_CD}</td>
+							<td>${list.ORD_NM}</td>
+							<td>${list.ORD_EMAIL}</td>
+							<c:if test="${params.MBER_GB_CD eq 0 }">
+								<td>${list.RTN_YMD}</td>
+								<td>${list.CMP_SHARE_YMD}</td>
+							</c:if>
+							<c:if test="${params.MBER_GB_CD eq 1 }">
+								<td>${list.RTN_YMD}</td>
+							</c:if>
+							<td>${list.PROD_NM}</td>
+							<td><fmt:formatNumber value="${list.ORD_QTY}" type="number" /></td>
+							<td class="tr"><fmt:formatNumber value="${list.ADJ_AMT}" type="number" /></td>
+							<td class="tr"><fmt:formatNumber value="${list.TOT_SELL}" type="number" /></td>
+							<td class="tr"><fmt:formatNumber value="${list.DEPOSIT}" type="number" /></td>
+							<td class="tr"><fmt:formatNumber value="${list.SHARE_AMT}" type="number" /></td>
+							<td class="tr"><fmt:formatNumber value="${list.DLV_PRCE}" type="number" /></td>
+							<td class="tr"><fmt:formatNumber value="${list.TOT_DSCT}" type="number" /></td>
+							<td class="tr"><fmt:formatNumber value="${list.DNL_CMTN}" type="number" /></td>
+							<td class="tr">${list.DNL_CMTN_RATE_NM}</td>
+							<td class="tr">${list.DNL_CMTN_RATE}%</td>
+							<td class="tr"><fmt:formatNumber value="${list.DSCNT_SEL_AMT}" type="number" /></td>
+							<td class="tr"><fmt:formatNumber value="${list.CO_DLV_PRCE}" type="number" /></td>
+							<td class="tr"><fmt:formatNumber value="${list.RTN_TO_SEL_DPST}" type="number" /></td>
+							<td class="tr"><fmt:formatNumber value="${list.DSCNT_CON_SEL_AMT}" type="number" /></td>
+							<td>${list.ADJ_STAT}</td>
+							<td>${list.MEMO}</td>
+						</tr>
+						</c:forEach>
+						<c:if test="${empty list.selectDtlListShareAdjust}">
+						<tr>
+							<td class="nolineL" colspan="24">조회된 결과가 없습니다.</td>
+						</tr>
+						</c:if>
+					</tbody>
+				</table>
+			</div>
+		</div>
+		</form>
+		
+        <!-- bot_tbl -->
+        <div class="bot_tbl">
+            <!-- paging -->
+			<div class="paging">
+				<%@ include file="/WEB-INF/views/seller/common/PageView.jsp" %>
+			</div>
+			<!-- //paging -->
+        </div>
+        <!-- //bot_tbl -->
+		<div class="btn_area tc mt20">
+			<a href="javascript:goList();" class="btn_b">목록으로</a>
+		</div>
+	</div>
+</div>
+<!-- //content -->
+

@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="webMainEtcMapper">
+	
+	<!-- 2.약관동의 여부 조회 -->
+	<select id="termsAgree" parameterType="HashMap" resultType="HashMap">
+	/* 메인에서 보이는 약관 */
+		SELECT * 
+		  FROM (
+					SELECT M.AGR_SEQ , M.AGR_GB_CD , 
+						   M.AGR_VER AS OLD_AGR_VER ,
+						   (SELECT S.AGR_VER FROM AGR_VER S WHERE S.AGR_SEQ = M.AGR_SEQ AND S.AGR_VER = M.AGR_VER) AGR_VER, 
+						   (SELECT S.COM_CD_NM from code S where S.GRP_CD = 'AGR_NAME_CD' AND M.AGR_GB_CD = S.COM_CD ) AS AGR_GB_NM,
+						   (SELECT S.AGR_DESC FROM AGR_VER S WHERE S.AGR_SEQ = M.AGR_SEQ AND S.AGR_VER = M.AGR_VER) AGR_DESC,
+						   (SELECT S.START_DT FROM AGR_VER S WHERE S.AGR_SEQ = M.AGR_SEQ AND S.AGR_VER = M.AGR_VER) START_DT,
+						   (SELECT S.AGR_MUST_YN FROM AGR S WHERE S.AGR_SEQ = M.AGR_SEQ ) AGR_MUST_YN,
+               (  
+                 SELECT 
+                        ( SELECT S.COM_CD_NM from code S where S.GRP_CD = 'AGR_NAME_CD' AND W.AGR_NAME_CD = S.COM_CD ) 
+                  FROM AGR W WHERE M.AGR_SEQ = W.AGR_SEQ 
+               ) AGR_NAME_NM
+					  FROM (
+								SELECT V.AGR_SEQ, A.AGR_GB_CD ,  MAX(TO_NUMBER(V.AGR_VER)) AGR_VER
+								  FROM AGR_VER V , AGR A
+								 WHERE V.AGR_SEQ = A.AGR_SEQ
+								   AND A.AGR_USE_YN = 'Y'
+								 GROUP BY V.AGR_SEQ , A.AGR_GB_CD
+								MINUS
+								SELECT E.AGR_SEQ, A.AGR_GB_CD AS AGR_GB_CD , TO_NUMBER(E.AGR_VER) AGR_VER
+								  FROM AGR_AGREE E, AGR A
+								 WHERE E.MBER_SEQ =   <![CDATA[#{MBER_SEQ}]]> 
+				        		   AND  A.AGR_SEQ = E.AGR_SEQ
+								 GROUP BY E.AGR_SEQ, A.AGR_GB_CD , TO_NUMBER(E.AGR_VER)	
+							) M 
+					 <if test="MBER_REG_GB_CD == 0">	<!-- 구매 회원 -->
+					   WHERE M.AGR_GB_CD IN ('01','03')
+					 </if>
+					 <if test="MBER_REG_GB_CD == 1">	<!-- 판매 회원 -->
+					   WHERE M.AGR_GB_CD IN ('01','02','03')
+					 </if>
+				)
+		  WHERE START_DT <![CDATA[<]]>  SYSDATE					  
+	</select>
+	<!-- 2-0.약관동의 기존 등록건 조회 -->
+	<select id="countTermsAgree" parameterType="HashMap" resultType="int">
+		SELECT COUNT(AGR_SEQ) AS CNT
+		  FROM AGR_AGREE 
+		 WHERE MBER_SEQ = <![CDATA[#{MBER_SEQ}]]>  
+		   AND AGR_SEQ = #{AGR_SEQ}  
+		   AND AGR_VER = <![CDATA[#{AGR_VER}]]>
+	</select>
+	<!-- 2-1.약관동의 등록 / 저장 -->
+	<insert id="insertTermsAgree" parameterType="HashMap">
+     	INSERT INTO AGR_AGREE( 
+     		MBER_SEQ,
+     		AGR_SEQ,
+     		AGR_VER,
+     		AGREE_YN,
+     		REGIST_DT
+     	)VALUES(
+     		<![CDATA[#{MBER_SEQ}]]>,
+     		#{AGR_SEQ},
+     		<![CDATA[#{AGR_VER}]]>,
+     		<![CDATA[#{AGREE_YN}]]>,
+     		SYSDATE
+     	)
+  	</insert>
+  	<!-- 2-1.약관동의 수정 -->
+	<update id="updateTermsAgree" parameterType="HashMap">
+     	UPDATE AGR_AGREE
+     	   SET AGR_VER = <![CDATA[#{AGR_VER}]]>,
+     		   AGREE_YN = 'Y',
+     		   REGIST_DT = SYSDATE
+     	 WHERE AGR_SEQ = #{AGR_SEQ}
+     	   AND MBER_SEQ = <![CDATA[#{MBER_SEQ}]]>
+  	</update>
+	<!-- 3.이용정지 안내 조회 -->
+	<select id="useingStop" parameterType="HashMap" resultType="HashMap">
+		SELECT M.MBER_EMAIL,
+			   TO_CHAR(S.STOP_DT, 'YYYY')||'년 '||TO_CHAR(S.STOP_DT, 'MM')||'월 '||TO_CHAR(S.STOP_DT, 'MM')||'일 '||TO_CHAR(S.STOP_DT, 'HH24:MI') AS UPDT_DT ,        
+    		   TRUNC( TO_DATE(TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'),'YYYYMMDDHH24MISS') - TO_DATE(TO_CHAR(S.STOP_DT, 'YYYYMMDDHH24MISS'),'YYYYMMDDHH24MISS')) AS DAY, 
+    		   	<![CDATA[replace(REPLACE(REPLACE(S.STOP_REASON,'<','&lt'), chr(13),'<br />'), chr(10), '')  ]]>AS USEING_STOP_REASON
+		  FROM MBER_INFO M, MBER_DTL_INFO S
+		 WHERE M.MBER_SEQ = S.MBER_SEQ
+       	   AND M.MBER_SEQ = <![CDATA[#{MBER_SEQ}]]>  
+		   AND M.MBER_STAT_CD IN ('30','99')
+	</select>
+	<!-- 4.판매회원 가입 반려 안내 -->
+	<select id="sellerGuide" parameterType="HashMap" resultType="HashMap">
+		SELECT M.MBER_EMAIL,
+			   S.STOP_DT,   
+			   TO_CHAR(S.STOP_DT, 'YYYY')||'년 '||TO_CHAR(S.STOP_DT, 'MM')||'월 '||TO_CHAR(S.STOP_DT, 'MM')||'일 '||TO_CHAR(S.STOP_DT, 'HH24:MI') AS REGIST_DT ,
+    		 	<![CDATA[replace(REPLACE(REPLACE(S.STOP_REASON,'<','&lt'), chr(13),'<br />'), chr(10), '')  ]]>AS USEING_STOP_REASON
+	  FROM MBER_INFO M, MBER_DTL_INFO S  
+		 WHERE M.MBER_SEQ = S.MBER_SEQ
+       	   AND M.MBER_SEQ = <![CDATA[#{MBER_SEQ}]]>  
+		   AND M.MBER_STAT_CD IN ('22')
+		   AND M.MBER_REG_GB_CD = '1'       
+	</select>
+	
+	
+	<select id="useingStop2" parameterType="HashMap" resultType="HashMap">
+		SELECT M.MBER_EMAIL,
+			   TO_CHAR(S.STOP_DT, 'YYYY')||'년 '||TO_CHAR(S.STOP_DT, 'MM')||'월 '||TO_CHAR(S.STOP_DT, 'MM')||'일 '||TO_CHAR(S.STOP_DT, 'HH24:MI') AS UPDT_DT ,        
+    		   TRUNC( TO_DATE(TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'),'YYYYMMDDHH24MISS') - TO_DATE(TO_CHAR(S.STOP_DT, 'YYYYMMDDHH24MISS'),'YYYYMMDDHH24MISS')) AS DAY, 
+  		    	<![CDATA[replace(REPLACE(REPLACE(S.STOP_REASON,'<','&lt'), chr(13),'<br />'), chr(10), '')  ]]>AS USEING_STOP_REASON
+		  FROM MBER_INFO M, MBER_DTL_INFO S
+		 WHERE MBER_EMAIL = #{MBER_EMAIL}
+		   AND M.MBER_SEQ = S.MBER_SEQ
+       	  
+	</select>
+	
+	
+	
+</mapper>

@@ -1,0 +1,256 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/web/common/cmmnHead.jsp"%>
+<script type="text/javascript" src="/js/web/cart.js" ></script> <!-- 장바구니용 js -->
+<script type="text/javascript" src="/js/web/saleMng/byteCheckUtil.js"></script> <!-- 바이트 체크 유틸 -->
+<script type="text/javascript">
+
+
+
+
+	var regData = '${regData}';
+	var mainYn = '${params.mainYn }';
+	
+	
+	//ready
+	$(document).ready(function(){
+		
+		$(".input_text input[type='text']").css('padding-right','90px');
+		
+		$("#regData").val(regData);
+		
+		// title 및 back 버튼 url set		
+		document.title = "상품 등록";
+// 		header.type	= 6;
+		header.type	= 4;
+		header.title = "상품 등록";
+		header.method = "POST";
+		if (mainYn == "Y") {
+			header.backUrl = "/mobile/main/main.do";
+		}
+		else {
+			header.backUrl = "/mobile/salemanage/main.do";
+		}
+		header.callback = headerCallback; // 장바구니용 callback
+		header.form = $("#form");
+		initHeader();
+		
+		// 뒤로가기 를 공통 제어를 쓰지 않고 재정의함
+		var data = JSON.parse(regData);
+		$("#id_btn_back").unbind('click');
+		$(".btn_back").click(function(event){
+			event.preventDefault();
+			location.href=data.refUrl;
+		});
+		
+		displayFooter(false);
+		
+		// 상품명 keyup event
+		$("#prodNm").keypress(function (evt) {
+			if (evt.keyCode == 13) {
+				evt.returnValue = false;
+				evt.preventDefault();
+				return false;
+			}
+		});
+		$("#prodNm").bind('keyup input', function(evt) {
+			proc.prodNmKeyup();
+		});
+		
+		// init
+		var data = JSON.parse(regData);
+		$("#prodNm").val(data.prodNm);
+		proc.procBtnDel();
+		proc.procBtnNext();
+		proc.procProdNmLen();
+		
+	});
+
+	// page 이동
+	var page = {
+			
+		goNextPage : function (flag) {
+			//alert문구 추가 
+			if(!$("#btnNext").hasClass("btn_r")) {
+				alert("상품명을  입력해 주세요.");
+				return;
+			}
+			$("#prodTypeCd").val(flag);
+			var prodNm = $("#prodNm").val();
+			prodNm = prodNm.replace(/'|"/g, '&quot;');
+			$("#prodNm").val(prodNm);
+			
+			var url = "/mobile/salemanage/procInsertProdComm.do";
+			form.action = url;
+			form.submit();
+			
+		},
+		
+		// 이전 페이지 이동
+		goPrePage : function () {
+			
+			$("#movePage").val("4");
+			$("#moveBack").val("Y");
+			var url = "/mobile/salemanage/procInsertProdComm.do";
+			form.action = url;
+			form.submit();
+			
+		}
+			
+	};
+	
+	// script 처리 모음
+	var proc = {
+			
+		// 상품명 keyup
+		prodNmKeyup : function () {
+			proc.procBtnDel();
+			proc.procBtnNext();
+			proc.procProdNmLen();
+		},
+		
+		// 다음 버튼 활성화 비활성화
+		procBtnNext : function () {
+			var len = $("#prodNm").val().length;
+			if (len > 0) {
+				// 버튼 활성화
+				//$("#btnNext").attr("disabled",false);
+				$("#btnNext").removeClass("btn_b");
+				$("#btnNext").addClass("btn_r");
+			}
+			else {
+				// 버튼 비활성화
+				//$("#btnNext").attr("disabled",true);
+				$("#btnNext").removeClass("btn_r");
+				$("#btnNext").addClass("btn_b");
+			}
+		},
+		
+		// 삭제버튼 show/hide
+		procBtnDel : function () {
+			var len = $("#prodNm").val().length;
+			if (len > 0) {
+				// 삭제버튼 on
+				$("#btnDel").show();
+			}
+			else {
+				// 삭제버튼 off
+				$("#btnDel").hide();
+			}
+		},
+		
+		// 상품명 삭제
+		prodNmDel : function () {
+			$("#prodNm").val("");
+			proc.procBtnDel();
+			proc.procBtnNext();
+			proc.procProdNmLen();
+		},
+		
+		// 상품명 글자수 spanLen
+		procProdNmLen : function () {
+
+			// [2015-11-11] 바이트수 체크로 변경되어 수정함.
+			var maxByte = 50;
+			var obj = new strByteUtil(maxByte);
+			
+			var str = $("#prodNm").val();
+			var byteLength = obj.getByteLength(str);
+			
+			// 바이트 체크해서 초과하면, 자른 글자만큼 setting 해버림
+			if(!obj.byteCheck(str)){
+				alert("최대 50 Byte 까지 입력 가능 합니다.");
+				str = obj.getStrLimitmaxByte(str);
+				$("#prodNm").val(str);
+			}
+			
+			$("#spanLen").text(obj.getByteLength(str) + "/" + maxByte + " Byte");
+		}
+			
+	};
+
+	
+	
+
+	
+
+	
+
+</script>
+
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+		<div class="roc">
+			<ul class="inner">
+				<li><img src="http://static.ssocio.net/pc/img/common/section/roc_home.png" alt="홈"></li>
+				<li>판매관리</li>
+			</ul>
+		</div>
+		<jsp:include page="../common/sale_top.jsp" flush="false" />
+		<div class="mype_s_tit">
+			<p>상품 등록</p>
+		</div>
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+		<!-- container -->
+		<div id="container">
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>
+
+
+<form id="form" name="form" method="post" action="">
+	<input type="hidden" id="movePage" name="movePage" value="6" />
+	<input type="hidden" id="regData" name="regData" value="" />
+	<input type="hidden" id="moveBack" name="moveBack" value="" />
+	<!-- 이전버튼 클릭 시 브랜드 조회를 위해 -->
+	<input type="hidden" id="ctryCd" name="ctryCd" value="${ctryCd }" />
+	<input type="hidden" id="mainYn" name="mainYn" value="${params.mainYn }" />
+
+		<div class="completed">
+        	<p class="percent"><strong>40% Completed</strong></p>
+            <div class="bar"><p style="width:40%"></p></div>
+        </div>
+        <div class="contents pic_reg">
+        	<p class="purc-title"><strong>상품명</strong>을 입력해주세요.</p>
+        	<ul class="sbox08">
+				<li>
+					<div class="input_text">
+						<input type="text" id="prodNm" name="prodNm" value="" maxlength="50"/>
+						<a id="btnDel" href="javascript:proc.prodNmDel();" style="display:none;">
+							<img src="http://static.ssocio.net/web/images/ico_del.png" alt="삭제" />
+						</a>
+						<span class="byte" id="spanLen"></span>
+					</div>
+				</li>
+				<li class="clear"><span class="fl">* 최대 50 Byte 까지 입력 가능 합니다.</span></li>
+			</ul>
+			<div class="btn_enter">
+				<ul>
+					<li>
+						<input type="button" class="btn_b-line" onClick="javascript:page.goPrePage();" value="이전" title="이전" alt="이전" />
+					</li>
+					<li>
+						<input type="button" class="btn_b" id="btnNext" onClick="javascript:page.goNextPage();" value="다음" title="다음" alt="다음" />
+					</li>
+				</ul>
+			</div>
+        </div>
+</form>
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+		<jsp:include page="../common/sale_bottom.jsp" flush="false" />
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+		    </div>
+		    <!-- //container -->
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>

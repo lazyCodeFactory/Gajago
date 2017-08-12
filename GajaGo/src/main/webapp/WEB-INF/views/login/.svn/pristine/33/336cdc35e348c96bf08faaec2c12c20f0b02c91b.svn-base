@@ -1,0 +1,1933 @@
+package com.ssocio.sharing.controller.app;
+
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.servlet.http.Cookie;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.ModelMap;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.servlet.ModelAndView;
+
+import com.lambdaworks.redis.RedisConnection;
+import com.ssocio.sharing.cmmn.admin.util.CommonUtil;
+import com.ssocio.sharing.cmmn.elasticsearch.Elasticsearch;
+import com.ssocio.sharing.cmmn.security.SSOCIO_AES256Cipher;
+import com.ssocio.sharing.cmmn.util.JsonUtil;
+import com.ssocio.sharing.cmmn.util.LoggerUtil;
+import com.ssocio.sharing.cmmn.util.Redis;
+import com.ssocio.sharing.cmmn.util.StringUtil;
+import com.ssocio.sharing.cmmn.web.util.WebCommonUtil;
+import com.ssocio.sharing.service.web.AppCommonService;
+import com.ssocio.sharing.service.web.MobileInterestService;
+import com.ssocio.sharing.service.web.MobileJoinService;
+import com.ssocio.sharing.service.web.MobileMyMiniService;
+import com.ssocio.sharing.service.web.MobileMyPageService;
+import com.ssocio.sharing.service.web.MobileMyRecentProductService;
+import com.ssocio.sharing.service.web.MobileMyWishService;
+import com.ssocio.sharing.service.web.MobilePlanService;
+import com.ssocio.sharing.service.web.MobileSearchService;
+import com.ssocio.sharing.service.web.MobileSetupService;
+import com.ssocio.sharing.service.web.WebCommonService;
+import com.ssocio.sharing.service.web.WebCtryService;
+import com.ssocio.sharing.service.web.WebMainService;
+import com.ssocio.sharing.service.web.WebSaleManageService;
+import com.ssocio.sharing.service.web.WebSmartPhoneService;
+import com.ssocio.sharing.service.web.WebTestService;
+import com.ssocio.sharing.vo.web.HeaderVO;
+import com.ssocio.sharing.vo.web.WebSession;
+
+import net.sf.json.JSONObject;
+
+/**
+ * <pre>
+ *
+ *
+ * @author J.S.LEE
+ * @version
+ * @since 2015. 9. 9. 오후 8:37:13
+ * @see
+ * @History
+ * Date			|	author	| 변경 내용
+ * 2015. 9. 9.	|	J.S.LEE	|신규
+ * @비고
+ * </pre>
+ */
+/**
+ * <pre>
+ *
+ *
+ * @author J.S.LEE
+ * @version
+ * @since 2015. 9. 18. 오전 10:38:45
+ * @see
+ * @History
+ * Date			|	author	| 변경 내용
+ * 2015. 9. 18.	|	J.S.LEE	|신규
+ * @비고
+ * </pre>
+ */
+@Controller
+public class APPApiController extends APPReferController {
+
+	private static final Logger logger = LoggerFactory.getLogger(APPApiController.class);
+
+
+	// --------------------------------------------------------------------------
+	// # Service 설정
+	// --------------------------------------------------------------------------
+	//테스트용
+	@Autowired
+	private WebTestService webTestService;
+	// 공통
+	@Autowired
+	private WebCommonService webCommonService;
+	//MAIN
+	@Autowired
+	private WebMainService webMainService;
+	//MYPAGE
+	@Autowired
+	private MobileMyPageService mobileMyPageService;
+	//인트로
+	@Autowired
+	private AppCommonService appCommonService;
+	//스마트폰 쉐어링
+	@Autowired
+	private WebSmartPhoneService webSmartPhoneService;
+	//카테고리
+	@Autowired
+	private WebCtryService webCtryService;
+	//기획전
+	@Autowired
+	private MobilePlanService mobilePlanservice;
+	//관심 상품 가져오기
+	@Autowired
+	private MobileInterestService mobileInterestService;
+	//최근 본 상품
+	@Autowired
+	private MobileMyRecentProductService mobileMyRecentProductService;
+	//마이위시
+	@Autowired
+	private MobileMyWishService mobileMyWishService;
+	//미니샵
+	@Autowired
+	private MobileMyMiniService mobileMyMiniService;
+	//설정
+	@Autowired
+	private MobileSetupService mobileSetupService;
+	//검색
+	@Autowired
+	private MobileSearchService mobileSearchService;
+	//회원가입
+	@Autowired
+	private MobileJoinService mobileJoinService;
+	//간소화 이미지 등록
+	@Autowired
+	private WebSaleManageService webSaleManageService;
+
+	/**
+	 * <pre>
+	 * 검색어 자동완성 기능
+	 * 검색어 자동완성 기능
+	 * @param request
+	 * @param response
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 9. 29. 오후 12:31:39
+	 * @author LeeJinSe
+	 * @see com.ssocio.sharing.controller.app
+	 * @비고
+	 *
+	 * </pre>
+	*/
+	@RequestMapping("/app/inf/selectAutokeyword.do")
+	public ModelAndView selectAutokeyword(HttpServletRequest request, HttpServletResponse response) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("@@@@ /app/inf/PassCheck.do IN @@@@@");
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		HeaderVO headerObj = (HeaderVO) request.getAttribute("header");
+		 Map<String, Object> resultData   = new HashMap<String, Object>();
+		 Map<String, Object> bodyParam = (Map<String, Object>) request.getAttribute("body");
+		 ModelMap outData = new ModelMap();
+
+			//input PROD_NM
+
+		try{
+			Elasticsearch es = new Elasticsearch();
+//			List<String> keywordList =  mobileSearchService.selectListAutoSearch((String)bodyParam.get("keyword"));
+			List<String> keywordList = es.getAutocompletion((String)bodyParam.get("keyword"));
+			System.out.println(bodyParam);
+			outData.put("keyWordList", keywordList);
+
+		resultData = RetSettMethod(request,headerObj,outData);
+	} catch (Exception e) {
+		e.printStackTrace();
+	}
+	return new ModelAndView("jsonView",resultData);
+
+	}
+
+
+
+	@RequestMapping("/app/inf/inskeyword.do")
+	public ModelAndView inskeyword(HttpServletRequest request, HttpServletResponse response) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("@@@@ /app/inf/PassCheck.do IN @@@@@");
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		HeaderVO headerObj = (HeaderVO) request.getAttribute("header");
+		 Map<String, Object> resultData   = new HashMap<String, Object>();
+		 ModelMap outData = new ModelMap();
+			Elasticsearch elasticsearch = new Elasticsearch();
+			Map<String, Object> bodyParam = (Map<String, Object>) request.getAttribute("body");
+			System.out.println(bodyParam);
+		try{
+//			elasticsearch.putRankIndexing(bodyParam); //지움
+		resultData = RetSettMethod(request,headerObj,outData);
+	} catch (Exception e) {
+		e.printStackTrace();
+	}
+	return new ModelAndView("jsonView",resultData);
+
+	}
+
+
+	/**
+	 * <pre>
+	 * 인기 검색어 리스트
+	 * 인기 검색어 리스트
+	 * @param request
+	 * @param response
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 9. 25. 오후 9:48:58
+	 * @author LeeJinSe
+	 * @see com.ssocio.sharing.controller.app
+	 * @비고
+	 *
+	 * </pre>
+	*/
+	@RequestMapping("/app/inf/popularKeywordList.do")
+	public ModelAndView selectListRankKwd(HttpServletRequest request, HttpServletResponse response) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("@@@@ /app/inf/PassCheck.do IN @@@@@");
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		HeaderVO headerObj = (HeaderVO) request.getAttribute("header");
+		 Map<String, Object> resultData   = new HashMap<String, Object>();
+		 ModelMap outData = new ModelMap();
+//			Elasticsearch elasticsearch = new Elasticsearch();
+
+		try{
+
+			List< Map<String, Object>> rankListMap = new ArrayList< Map<String, Object>>();
+			List< String> rankList  = new ArrayList<String>();
+			rankListMap = mobileSearchService.selectListHitKeyword();
+			LoggerUtil.writeList(rankListMap);
+			for (int i = 0; i < rankListMap.size(); i++) {
+				String tempStr = StringUtil.nvl((String) rankListMap.get(i).get("KEYWORD"));
+				logger.debug(tempStr);
+				rankList.add(tempStr);
+
+			}
+
+		outData.put("rankList", rankList);
+		resultData = RetSettMethod(request,headerObj,outData);
+	} catch (Exception e) {
+		e.printStackTrace();
+	}
+	return new ModelAndView("jsonView",resultData);
+
+	}
+
+
+
+	/**
+	 * <pre>
+	 * 검새관련 상품 리스트 (검색어를 입력했을 경우 )
+	 * 검새관련 상품 리스트 (검색어를 입력했을 경우 )
+	 * @param LVL_SEQ : 0(디폴트)
+	 * 		  CTRY_CD : 카테고리 코드
+	 *        PROD_TYPE_CD : 0(디폴트) 중복선택은  콤마로 합쳐서 전달 ex ) 1,2,3
+	 *        CPON_APPLY_PSBL_YN : Y or N
+	 *        DLV_PAY_GB_CD : 0,1 배송비 관련
+	 *        CUR_PAGE : 1(디폴트)
+	 * @param response
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 9. 25. 오후 2:23:20
+	 * @author LeeJinSe
+	 * @see com.ssocio.sharing.controller.app
+	 * @비고
+	 *
+	 * </pre>
+	*/
+	@RequestMapping("/app/inf/keywordSearch.do")
+	public ModelAndView keywordSearch(HttpServletRequest request, HttpServletResponse response) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("@@@@ /app/inf/PassCheck.do IN @@@@@");
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		HeaderVO headerObj = (HeaderVO) request.getAttribute("header");
+		 Map<String, Object> resultData   = new HashMap<String, Object>();
+		 List<HashMap<String, Object>> keywordDataList   = new ArrayList<HashMap<String, Object>>();
+		 ModelMap outData = new ModelMap();
+			Map<String, Object> bodyParam = (Map<String, Object>) request.getAttribute("body");
+		try{
+			if("0".equals(bodyParam.get("DLV_PAY_GB_CD"))){
+				bodyParam.put("DLV_PAY_GB_CD", "");
+			}
+
+			if("A".equals(bodyParam.get("CPON_APPLY_PSBL_YN"))){
+				bodyParam.put("CPON_APPLY_PSBL_YN", "");
+			}
+			if("0".equals(bodyParam.get("PROD_TYPE_CD"))){
+				bodyParam.put("PROD_TYPE_CD", "");
+			}
+
+
+			outData = mobileSearchService.selectListProd(bodyParam);
+		resultData = RetSettMethod(request,headerObj,outData);
+	} catch (Exception e) {
+		e.printStackTrace();
+	}
+	return new ModelAndView("jsonView",resultData);
+
+	}
+
+
+
+	@RequestMapping("/app/inf/chgpasswrd.do")
+	public ModelAndView chgpasswrd(HttpServletRequest request, HttpServletResponse response) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("@@@@ /app/inf/PassCheck.do IN @@@@@");
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		HeaderVO headerObj = (HeaderVO) request.getAttribute("header");
+		 Map<String, Object> resultData   = new HashMap<String, Object>();
+		 List<HashMap<String, Object>> keywordDataList   = new ArrayList<HashMap<String, Object>>();
+		 ModelMap outData = new ModelMap();
+			Map<String, Object> bodyParam = (Map<String, Object>) request.getAttribute("body");
+		try{
+		String inputPwd = CommonUtil.getEncPassword((String)bodyParam.get("MBER_PASS"));
+		System.out.println();
+		outData.put("chgpwd", inputPwd);
+		resultData = RetSettMethod(request,headerObj,outData);
+	} catch (Exception e) {
+		e.printStackTrace();
+	}
+	return new ModelAndView("jsonView",resultData);
+
+	}
+
+	/**
+	 * <pre>
+	 * mainFooterURL
+	 * mainFooterURL
+	 * @param request
+	 * @param response
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 9. 21. 오후 9:27:11
+	 * @author LeeJinSe
+	 * @see com.ssocio.sharing.controller.app
+	 * @비고
+	 *
+	 * </pre>
+	*/
+	@RequestMapping("/app/inf/footerUrl.do")
+	public ModelAndView mainFooterURL(HttpServletRequest request, HttpServletResponse response) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("@@@@ /app/inf/PassCheck.do IN @@@@@");
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+
+	return new ModelAndView("web/appMainFooter/appfooter");
+
+	}
+
+	/**
+	 * <pre>
+	 * 미니샵 상품 리스트
+	 * 미니샵 상품 리스트
+	 * @param request
+	 * @param response
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 9. 21. 오후 8:03:57
+	 * @author LeeJinSe
+	 * @see com.ssocio.sharing.controller.app
+	 * @비고
+	 *
+	 * </pre>
+	*/
+	@SuppressWarnings("unchecked")
+	@RequestMapping("/app/inf/selectMiniShop.do")
+	public ModelAndView selectMiniShop(HttpServletRequest request, HttpServletResponse response) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("@@@@ /app/inf/selectMiniShop.do IN @@@@@");
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		HeaderVO headerObj = (HeaderVO) request.getAttribute("header");
+		 Map<String, Object> resultData   = new HashMap<String, Object>();
+		 ModelMap outData = new ModelMap();
+		 Map<String, Object> bodyParam = (Map<String, Object>) request.getAttribute("body");
+		 bodyParam.put("firstUrl", request.getServerName());
+		 bodyParam.put("ctryGbn", "1"); // 카테고리 xml을 위한 예외처리 로직
+//	logger.debug("### SELLER_MBER_SEQ		: " + inParam.get("SELLER_MBER_SEQ"));
+
+	try {
+		outData = mobileMyMiniService.selectMiniShop(bodyParam);
+
+
+		resultData = RetSettMethod(request,headerObj,outData);
+	} catch (Exception e) {
+		e.printStackTrace();
+	}
+	return new ModelAndView("jsonView",resultData);
+
+	}
+
+
+
+
+
+
+	/**
+	 * <pre>
+	 * 비밀번호 확인
+	 * 비밀번호 확인
+	 * @param request
+	 * @param response
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 9. 18. 오후 12:46:22
+	 * @author LeeJinSe
+	 * @see com.ssocio.sharing.controller.app
+	 * @비고
+	 *
+	 * </pre>
+	*/
+	@SuppressWarnings("unchecked")
+	@RequestMapping("/app/inf/PassCheck.do")
+	public ModelAndView PassCheck(HttpServletRequest request, HttpServletResponse response) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("@@@@ /app/inf/PassCheck.do IN @@@@@");
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		HeaderVO headerObj = (HeaderVO) request.getAttribute("header");
+		 Map<String, Object> resultData   = new HashMap<String, Object>();
+		 ModelMap outData = new ModelMap();
+			Map<String, Object> bodyParam = (Map<String, Object>) request.getAttribute("body");
+
+		try {
+			bodyParam.put("MBER_SEQ", headerObj.getMber_seq());
+			if(0 >= (int)webCommonService.checkPass(bodyParam)){
+				outData.put("rtnCd","F");
+			}else{
+				outData.put("rtnCd","S");
+			}
+			resultData = RetSettMethod(request,headerObj,outData);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return new ModelAndView("jsonView",resultData);
+	}
+	/**
+	 * <pre>
+	 * 알람설정 변경하기
+	 * 알람설정 변경하기
+	 * @param request
+	 * @param response
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 9. 18. 오후 12:33:11
+	 * @author LeeJinSe
+	 * @see com.ssocio.sharing.controller.app
+	 * @비고
+	 *
+	 * </pre>
+	*/
+	@SuppressWarnings("unchecked")
+	@RequestMapping("/app/inf/updateMypushInfo.do")
+	public ModelAndView updateMypushInfo(HttpServletRequest request, HttpServletResponse response) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("@@@@ /app/inf/updateMypushInfo.do IN @@@@@");
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		HeaderVO headerObj = (HeaderVO) request.getAttribute("header");
+		 Map<String, Object> resultData   = new HashMap<String, Object>();
+		 ModelMap outData = new ModelMap();
+			Map<String, Object> bodyParam = (Map<String, Object>) request.getAttribute("body");
+
+		try {
+			bodyParam.put("UUID", headerObj.getUuid());
+			if(0 >= (int)appCommonService.updateMypushInfo(bodyParam)){
+				outData.put("rtnCd","F");
+			}else{
+				outData.put("rtnCd","S");
+			}
+			resultData = RetSettMethod(request,headerObj,outData);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return new ModelAndView("jsonView",resultData);
+	}
+
+
+
+	/**
+	 * <pre>
+	 * 설정 알림받기
+	 * 설정 알림받기
+	 * @param request
+	 * @param response
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 9. 18. 오전 10:38:46
+	 * @author LeeJinSe
+	 * @see com.ssocio.sharing.controller.app
+	 * @비고
+	 *
+	 * </pre>
+	*/
+	@SuppressWarnings("unchecked")
+	@RequestMapping("/app/inf/selectMypushInfo.do")
+	public ModelAndView selectMypushInfo(HttpServletRequest request, HttpServletResponse response) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("@@@@ /app/inf/selectMypushInfo.do IN @@@@@");
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		HeaderVO headerObj = (HeaderVO) request.getAttribute("header");
+		 Map<String, Object> resultData   = new HashMap<String, Object>();
+		 ModelMap outData = new ModelMap();
+			Map<String, Object> bodyParam = (Map<String, Object>) request.getAttribute("body");
+
+		try {
+			bodyParam.put("UUID", headerObj.getUuid());
+			outData.put("pushInfo", appCommonService.selectMypushInfo(bodyParam));
+			resultData = RetSettMethod(request,headerObj,outData);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return new ModelAndView("jsonView",resultData);
+	}
+
+
+
+
+	/**
+	 * <pre>
+	 * 공통 카테고리 관련 상품 리스트 가져오기
+	 * 공통 카테고리 관련 상품 리스트 가져오기
+	 * @param request
+	 * @param response
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 9. 16. 오전 12:14:00
+	 * @author LeeJinSe
+	 * @see com.ssocio.sharing.controller.app
+	 * @비고
+	 *
+	 * </pre>
+	*/
+	@SuppressWarnings("unchecked")
+	@RequestMapping("/app/inf/selectListCtryProd.do")
+	public ModelAndView selectListCtryProd(HttpServletRequest request, HttpServletResponse response) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("@@@@ /app/inf/selectListCtryProd.do IN @@@@@");
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		
+		HeaderVO headerObj = (HeaderVO) request.getAttribute("header");
+		Map<String, Object> resultData   = new HashMap<String, Object>();
+		ModelMap outData = new ModelMap();
+		ModelMap test = new ModelMap();
+		ModelMap test2 = new ModelMap();
+		Map<String, Object> bodyParam = (Map<String, Object>) request.getAttribute("body");
+		
+		try {
+			if("0".equals(bodyParam.get("DLV_PAY_GB_CD"))){
+				bodyParam.put("DLV_PAY_GB_CD", "");
+			}
+
+			if("A".equals(bodyParam.get("CPON_APPLY_PSBL_YN")) || "N".equals(bodyParam.get("CPON_APPLY_PSBL_YN"))){
+				bodyParam.put("CPON_APPLY_PSBL_YN", "");
+			}
+			if("0".equals(bodyParam.get("PROD_TYPE_CD"))){
+				bodyParam.put("PROD_TYPE_CD", "");
+			}
+
+			// bodyParam PUT CLIENT_TYPE
+			String session = (String) request.getSession().getAttribute("APP");	// SSOCIO 면 app
+			if(session != null && session.equals("SSOCIO")){
+				bodyParam.put("CLIENT_TYPE", "A");
+			}else{
+				bodyParam.put("CLIENT_TYPE", "M");
+			}
+			
+			logger.info("##################session APP####################"+session+"#################");
+			
+			test = webCtryService.selectListCategories(bodyParam);
+			test2 = webCtryService.selectListProd(bodyParam);
+			String[] strArr = {"FILE_URL"};
+			String[] strArr2 = {"PROD_IMG_URL"};
+			if("1".equals((String)bodyParam.get("LVL_SEQ"))){
+				outData.put("largeCtryList", CdnimgUrlCheck("",(List<Map<String, Object>>) test.get("large"),strArr,"largeCtryList").get("largeCtryList"));
+				outData.put("mediumCtryList", test.get("medium"));
+			}else{
+				outData.put("mediumCtryList", test.get("medium"));
+				outData.put("smallCtryList", test.get("small"));
+			}
+				outData.put("prodList", CdnimgUrlCheck("",(List<Map<String, Object>>) test2.get("prodList"),strArr2,"prodList").get("prodList"));
+				outData.put("prodTypeList", test2.get("prodTypeList"));
+				outData.put("paging", test2.get("paging"));
+
+
+
+
+			resultData = RetSettMethod(request,headerObj,outData);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return new ModelAndView("jsonView",resultData);
+	}
+
+
+
+
+	/**
+	 * <pre>
+	 * 푸쉬아이디 등록하기
+	 * 푸쉬아이디 등록하기
+	 * @param request
+	 * @param response
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 9. 16. 오전 10:58:31
+	 * @author LeeJinSe
+	 * @see com.ssocio.sharing.controller.app
+	 * @비고
+	 *
+	 * </pre>
+	*/
+	@RequestMapping("/app/inf/insertPushIdreg.do")
+	public ModelAndView insertPushIdreg(HttpServletRequest request, HttpServletResponse response) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("@@@@ /app/inf/insertPushIdreg.do IN @@@@@");
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		HeaderVO headerObj = (HeaderVO) request.getAttribute("header");
+		 Map<String, Object> resultData   = new HashMap<String, Object>();
+		 ModelMap outData = new ModelMap();
+			Map<String, Object> bodyParam = (Map<String, Object>) request.getAttribute("body");
+		try {
+
+			outData = webCommonService.insertPushIdreg(headerObj,bodyParam);
+			resultData = RetSettMethod(request,headerObj,outData);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return new ModelAndView("jsonView",resultData);
+	}
+
+
+
+	@RequestMapping("/app/inf/selectSpOrdinfo.do")
+	public ModelAndView selectSpOrdinfo(HttpServletRequest request, HttpServletResponse response) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("@@@@ /app/inf/selectSpOrdinfo.do IN @@@@@");
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		HeaderVO headerObj = (HeaderVO) request.getAttribute("header");
+		 Map<String, Object> resultData   = new HashMap<String, Object>();
+		 ModelMap outData = new ModelMap();
+			Map<String, Object> bodyParam = (Map<String, Object>) request.getAttribute("body");
+		try {
+
+			outData = appCommonService.selectSpOrdinfo(bodyParam);
+			resultData = RetSettMethod(request,headerObj,outData);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return new ModelAndView("jsonView",resultData);
+	}
+
+
+	/**
+	 * <pre>
+	 * 위시 상세조회 조회
+	 * 위시 상세조회 조회
+	 * @param MBER_SEQ : 유저번호
+		   	  WISH_SEQ : 위시 SEQ
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 9. 9. 오후 8:37:34
+	 * @author LeeJinSe
+	 * @see com.ssocio.sharing.controller.app
+	 * @비고
+	 *
+	 * </pre>
+	*/
+	@SuppressWarnings("unchecked")
+	@RequestMapping("/app/inf/detailMyWishList.do")
+	public ModelAndView detailMyWishList(HttpServletRequest request, HttpServletResponse response) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("@@@@ /app/inf/detailMyWishList.do IN @@@@@");
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		HeaderVO headerObj = (HeaderVO) request.getAttribute("header");
+		 Map<String, Object> resultData   = new HashMap<String, Object>();
+		 ModelMap outData = new ModelMap();
+			Map<String, Object> bodyParam = (Map<String, Object>) request.getAttribute("body");
+		LoggerUtil.writeMap(bodyParam);
+		try {
+			String[] strArr = {"PROD_IMG_URL"};
+			outData = CdnimgUrlCheck("detailMyWishList",(List<Map<String, Object>>)appCommonService.detailMyWishList(bodyParam, headerObj).get("myWishDtl"),strArr,"prod_list");
+			resultData = RetSettMethod(request,headerObj,outData);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return new ModelAndView("jsonView",resultData);
+	}
+
+	/**
+	 * <pre>
+	 * 위시리스트 상세 개별삭제 처리
+	 * 위시리스트 상세 개별삭제 처리
+	 * @param request
+	 * REG_SEQ
+	   MBER_SEQ
+	   WISH_SEQ
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 9. 9. 오후 8:37:26
+	 * @author LeeJinSe
+	 * @see com.ssocio.sharing.controller.app
+	 * @비고
+	 *
+	 * </pre>
+	*/
+	@RequestMapping("/app/inf/deleteMyWishProd.do")
+	public ModelAndView deleteMyWishProd(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("@@@@ /app/inf/detailMyWishList.do IN @@@@@");
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		HeaderVO headerObj = (HeaderVO) request.getAttribute("header");
+			Map<String, Object> bodyParam = (Map<String, Object>) request.getAttribute("body");
+			 Map<String, Object> resultData   = new HashMap<String, Object>();
+			 ModelMap outData = new ModelMap();
+		LoggerUtil.writeMap(inParam);
+		try {
+
+			outData = appCommonService.deleteMyWishProd(bodyParam, headerObj);
+
+			resultData = RetSettMethod(request,headerObj,outData);
+
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return new ModelAndView("jsonView",resultData);
+	}
+
+	/**
+	 * <pre>
+	 * 젠체 상품 삭제
+	 * 젠체 상품 삭제
+	 * @param request
+	 * MBER_SEQ : 유저번호
+       WISH_SEQ : 위시번호
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 9. 9. 오후 8:37:16
+	 * @author LeeJinSe
+	 * @see com.ssocio.sharing.controller.app
+	 * @비고
+	 *
+	 * </pre>
+	*/
+	@RequestMapping("/app/inf/deleteMyWishProdAll.do")
+	public ModelAndView deleteMyWishProdAll(HttpServletRequest request, HttpServletResponse response) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("@@@@ /app/inf/deleteMyWishProdAll.do IN @@@@@");
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		HeaderVO headerObj = (HeaderVO) request.getAttribute("header");
+			Map<String, Object> bodyParam = (Map<String, Object>) request.getAttribute("body");
+			 Map<String, Object> resultData   = new HashMap<String, Object>();
+			 ModelMap outData = new ModelMap();
+		LoggerUtil.writeMap(bodyParam);
+		try {
+
+			outData = appCommonService.deleteMyWishProdAll(bodyParam, headerObj);
+
+			resultData = RetSettMethod(request,headerObj,outData);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return new ModelAndView("jsonView",resultData);
+	}
+
+
+	/**
+	 * <pre>
+	 * 상품 이미지 등록
+	 * 상품 이미지 등록
+	 * @param request
+	 * @param response
+	 * @param imageUpload
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 10. 27. 오후 5:58:44
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.controller.app
+	 * </pre>
+	 */
+	@RequestMapping("/app/inf/insertProdImg.do")
+	public ModelAndView insertProdImg(HttpServletRequest request, HttpServletResponse response, @RequestParam(value="userImg",required=false) MultipartFile imageUpload) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("@@@@ /app/inf/insertProdImg.do IN @@@@@");
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		HeaderVO headerObj = (HeaderVO) request.getAttribute("header");
+		Map<String, Object> bodyParam = (Map<String, Object>) request.getAttribute("body");
+		 Map<String, Object> resultData   = new HashMap<String, Object>();
+			ModelMap outData = new ModelMap();
+		try{
+			outData = appCommonService.insertProdImg(imageUpload,bodyParam);
+			resultData = RetSettMethod(request,headerObj,outData);
+		}catch (Exception e) {
+			e.printStackTrace();
+		}
+	
+		return new ModelAndView("jsonView", resultData);
+	}
+	
+	
+	/**
+	 * 상품관리 - 상품등록 공통 페이지 호출
+	 * @param request
+	 * @param paramDto
+	 * @return
+	 */
+	@RequestMapping("/app/inf/procInsertProdCommV2.do")
+	public ModelAndView procInsertProdCommV2(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam){
+
+		inParam.put("REFERER", request.getHeader("REFERER"));
+
+
+		logger.info("/app/inf/procInsertProdCommV2.do");
+		LoggerUtil.writeMap(inParam);
+
+		ModelAndView mav = new ModelAndView();
+
+
+		try {
+			HeaderVO headerObj = (HeaderVO) request.getAttribute("header");
+			
+			if(headerObj.getMber_seq()==null){
+				String returnUrl = "/mobile/salemanage/procInsertProdCommV2.do?mainYn=Y";
+				return new ModelAndView("redirect:/mobile/main/login.do"+"?ret="+URLEncoder.encode(returnUrl,"UTF-8"));
+			}else{
+				inParam.put("mberSeq", headerObj.getMber_seq());
+				// 상품 등록 페이지들 호출
+				webSaleManageService.procInsertProdCommV2(mav, inParam);
+			}
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		return mav;
+	}
+	
+	
+	/**
+	 * <pre>
+	 * 상품 이미지 등록
+	 * 상품 이미지 등록
+	 * @param request
+	 * @param response
+	 * @param imageUpload
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 10. 27. 오후 5:58:44
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.controller.app
+	 * </pre>
+	 */
+	@RequestMapping("/app/inf/insertProdImgV2.do")
+	public ModelAndView insertProdImgV2(HttpServletRequest request, HttpServletResponse response, @RequestParam(value="userImg",required=false) MultipartFile[] imageUpload) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("@@@@ /app/inf/insertProdImgV2.do IN @@@@@");
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		HeaderVO headerObj = (HeaderVO) request.getAttribute("header");
+		Map<String, Object> bodyParam = (Map<String, Object>) request.getAttribute("body");
+		 Map<String, Object> resultData   = new HashMap<String, Object>();
+			ModelMap outData = new ModelMap();
+		try{
+			outData = appCommonService.insertProdImgV2(imageUpload,bodyParam);
+			resultData = RetSettMethod(request,headerObj,outData);
+		}catch (Exception e) {
+			e.printStackTrace();
+		}
+	
+		return new ModelAndView("jsonView", resultData);
+	}
+	
+	
+	/**
+	 * <pre>
+	 * 이미지 변경하기
+	 * 이미지 변경하기
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 9. 2. 오후 5:41:24
+	 * @author LeeJinSe
+	 * @see com.ssocio.sharing.controller.app
+	 * @비고
+	 *
+	 * </pre>
+	*/
+	// @RequestParam requried : true 필수값일때
+	//						  : false 필수값이 아닐때
+	//   			            defalut : true
+	@RequestMapping("/app/inf/selectChgUserImg.do")
+		public ModelAndView selectChgUserImg(HttpServletRequest request, HttpServletResponse response, @RequestParam(value="userImg",required=false) MultipartFile imageUpload) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("@@@@ /app/inf/selectChgUserImg.do IN @@@@@");
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		HeaderVO headerObj = (HeaderVO) request.getAttribute("header");
+		 Map<String, Object> resultData   = new HashMap<String, Object>();
+			Map<String, Object> bodyParam = (Map<String, Object>) request.getAttribute("body");
+			ModelMap outData = new ModelMap();
+			bodyParam.put("MBER_SEQ", headerObj.getMber_seq());
+		try{
+//			CdnimgUrlCheck("detailMyWishList",(List<Map<String, Object>>)appCommonService.detailMyWishList(bodyParam, headerObj).get("myWishDtl"),strArr,"prod_list");
+			String imgUrl = StringUtil.nvl((String)appCommonService.updateUserImgReg(headerObj,imageUpload,bodyParam).get("FILE_URL"));
+
+			outData.put("IMG_URL",imgUrl);
+			resultData = RetSettMethod(request,headerObj,outData);
+		}catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return new ModelAndView("jsonView", resultData);
+	}
+
+	/**
+	 * <pre>
+	 * 기회전 상세
+	 * 기회전 상세
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 9. 7. 오후 7:05:02
+	 * @author LeeJinSe
+	 * @see com.ssocio.sharing.controller.app
+	 * @비고
+	 *
+	 * </pre>
+	*/
+	@RequestMapping("/app/inf/selectPlaninfo.do")
+	public ModelAndView selectPlaninfo(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam ) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("@@@@ /app/inf/selectPlaninfo.do IN @@@@@");
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		HeaderVO headerObj = (HeaderVO) request.getAttribute("header");
+		ModelMap outData   = new ModelMap();
+		ModelMap finalData   = new ModelMap();
+		 Map<String, Object> resultData   = new HashMap<String, Object>();
+			Map<String, Object> bodyParam = (Map<String, Object>) request.getAttribute("body");
+		try{
+			outData = appCommonService.selectPlaninfo(headerObj,bodyParam);
+			resultData = RetSettMethod(request,headerObj,outData);
+		}catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return new ModelAndView("jsonView", resultData);
+	}
+
+	/**
+	 * <pre>
+	 * 최근본 상품 선택 삭제
+	 * 최근본 상품 선택 삭제
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 9. 7. 오후 7:06:05
+	 * @author LeeJinSe
+	 * @see com.ssocio.sharing.controller.app
+	 * @비고
+	 *
+	 * </pre>
+	*/
+	@RequestMapping("/app/inf/deleteALLMyLately.do")
+	public ModelAndView deleteALLMyLately(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam ) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("@@@@ /app/inf/deleteMyLately.do IN @@@@@");
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		HeaderVO headerObj = (HeaderVO) request.getAttribute("header");
+		ModelMap outData   = new ModelMap();
+		Map<String, Object> bodyParam = (Map<String, Object>) request.getAttribute("body");
+		 Map<String, Object> resultData   = new HashMap<String, Object>();
+		 int ret = 0;
+		try{
+
+			ret = appCommonService.deleteALLMyLately(headerObj);
+			if(ret > 0){
+				outData.put("rtnCd", "S");
+			}else{
+				outData.put("rtnCd", "F");
+
+			}
+
+			resultData = RetSettMethod(request,headerObj,outData);
+		}catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return new ModelAndView("jsonView", resultData);
+	}
+
+	/**
+	 * <pre>
+	 * 최근본 상품 선택 삭제
+	 * 최근본 상품 선택 삭제
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 9. 7. 오후 7:06:05
+	 * @author LeeJinSe
+	 * @see com.ssocio.sharing.controller.app
+	 * @비고
+	 *
+	 * </pre>
+	*/
+	@RequestMapping("/app/inf/deleteMyLately.do")
+	public ModelAndView deleteMyLately(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam ) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("@@@@ /app/inf/deleteMyLately.do IN @@@@@");
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		HeaderVO headerObj = (HeaderVO) request.getAttribute("header");
+		ModelMap outData   = new ModelMap();
+		Map<String, Object> bodyParam = (Map<String, Object>) request.getAttribute("body");
+		 Map<String, Object> resultData   = new HashMap<String, Object>();
+		 int ret = 0;
+		try{
+
+		ret = 	appCommonService.deleteMyLately(headerObj,bodyParam);
+		if(ret > 0){
+			outData.put("rtnCd", "S");
+		}else{
+			outData.put("rtnCd", "F");
+		}
+
+			resultData = RetSettMethod(request,headerObj,outData);
+		}catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return new ModelAndView("jsonView", resultData);
+	}
+
+	/**
+	 * <pre>
+	 * 최근 본 상품 리스트 가져오기
+	 * 최근 본 상품 리스트 가져오기
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 9. 1. 오후 5:07:41
+	 * @author LeeJinSe
+	 * @see com.ssocio.sharing.controller.app
+	 * @비고
+	 *
+	 * </pre>
+	*/
+	@RequestMapping("/app/inf/getMyLatelyGoodsInfo.do")
+	public ModelAndView selectLatelyProd(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam ) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("@@@@ /app/inf/getMyLatelyGoodsInfo.do IN @@@@@");
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		HeaderVO headerObj = (HeaderVO) request.getAttribute("header");
+		ModelMap outData   = new ModelMap();
+		 Map<String, Object> resultData   = new HashMap<String, Object>();
+			Map<String, Object> bodyParam = (Map<String, Object>) request.getAttribute("body");
+		try{
+
+			bodyParam.put("MBER_SEQ", headerObj.getMber_seq());
+			String[] strArr = {"PROD_IMG_URL"};
+			outData = CdnimgUrlCheck("",appCommonService.getMyLatelyGoodsInfo(bodyParam),strArr,"prodList");
+			resultData = RetSettMethod(request,headerObj,outData);
+		}catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return new ModelAndView("jsonView", resultData);
+	}
+
+
+
+	/**
+	 * <pre>
+	 * 메인 화면
+	 * 메인 화면
+	 * @param request
+	 * @param response
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 8. 20. 오후 3:29:09
+	 * @author LeeJinSe
+	 * @see com.ssocio.sharing.controller.app
+	 * @비고
+	 *
+	 * </pre>
+	*/
+	@RequestMapping("/app/inf/main.do")
+	public ModelAndView main(HttpServletRequest request, HttpServletResponse response ) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("@@@@ /app/inf/main.do IN @@@@@");
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		 Map<String, Object> outData   = new HashMap<String, Object>();
+		 Map<String, Object> resultData   = new HashMap<String, Object>();
+
+		HeaderVO headerObj = (HeaderVO) request.getAttribute("header");
+		System.out.println("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+		System.out.println("header :: " + request.getAttribute("header"));
+		System.out.println("body :: " + request.getAttribute("body"));
+		System.out.println("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+
+
+
+		try{
+			outData = 	appCommonService.selectListMainPlan(request, headerObj);
+//			outData = 	webMainService.selectListMainPlan();
+			resultData = RetSettMethod(request,headerObj,outData);
+		}catch (Exception e) {
+			e.printStackTrace();
+
+		}
+		logger.debug("Last Check OUTPUT DATA : " + resultData);
+		return new ModelAndView("jsonView", resultData);
+	}
+
+
+	/**
+	 * <pre>
+	 * 관심 상품 리스트 밑 태그 가져오기
+	 * 관심 상품 리스트 밑 태그 가져오기
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 9. 1. 오후 5:07:41
+	 * @author LeeJinSe
+	 * @see com.ssocio.sharing.controller.app
+	 * @비고
+	 *
+	 * </pre>
+	*/
+	@RequestMapping("/app/inf/selectInterestProdInfo.do")
+	public ModelAndView selectInterestProdInfo(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam ) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("@@@@ /app/inf/selectInterestProdInfo.do IN @@@@@");
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		HeaderVO headerObj = (HeaderVO) request.getAttribute("header");
+		ModelMap outData   = new ModelMap();
+		Map<String, Object> bodyParam = (Map<String, Object>) request.getAttribute("body");
+		 Map<String, Object> resultData   = new HashMap<String, Object>();
+		try{
+			bodyParam.put("MBER_SEQ", headerObj.getMber_seq());
+
+			String[] strArr = {"PROD_IMG_URL"};
+			if(headerObj.getOs_gubun().equals("IOS") && headerObj.getApp_version().equals("1.0.1")){
+				List<Map<String, Object>> list = new ArrayList<>();
+				outData = CdnimgUrlCheck("", list,strArr,"prodList");
+				outData.put("tagList", list);
+				resultData = RetSettMethod(request,headerObj,outData);
+			}else{
+				outData = CdnimgUrlCheck("",appCommonService.selectInterestList(bodyParam, headerObj),strArr,"prodList");
+				outData.put("tagList", appCommonService.selectTagList(headerObj));
+				resultData = RetSettMethod(request,headerObj,outData);
+			}
+		}catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return new ModelAndView("jsonView", resultData);
+	}
+
+	@RequestMapping("/app/inf/tagSelectInterestProdInfo.do")
+	public ModelAndView tagSelectInterestProdInfo(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam ) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("@@@@ /app/inf/selectInterestProdInfo.do IN @@@@@");
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		HeaderVO headerObj = (HeaderVO) request.getAttribute("header");
+		ModelMap outData   = new ModelMap();
+		Map<String, Object> bodyParam = (Map<String, Object>) request.getAttribute("body");
+		 Map<String, Object> resultData   = new HashMap<String, Object>();
+		try{
+
+			bodyParam.put("MBER_SEQ", headerObj.getMber_seq());
+
+			String[] strArr = {"PROD_IMG_URL"};
+
+			if(headerObj.getOs_gubun().equals("IOS") && headerObj.getApp_version().equals("1.0.1")){
+				List<Map<String, Object>> list = new ArrayList<>();
+				outData = CdnimgUrlCheck("", list,strArr,"prodList");
+				outData.put("tagList", list);
+				resultData = RetSettMethod(request,headerObj,outData);
+			}else{
+				outData = CdnimgUrlCheck("",appCommonService.tagSelectInterestList(bodyParam, headerObj),strArr,"prodList");
+				outData.put("tagList", appCommonService.selectTagList(headerObj));
+				resultData = RetSettMethod(request,headerObj,outData);
+
+			}
+		}catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return new ModelAndView("jsonView", resultData);
+	}
+
+	/**
+	 * <pre>
+	 * leftmenuinfo 정보 가져오기
+	 * leftmenuinfo 정보 가져오기
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 9. 1. 오후 5:07:41
+	 * @author LeeJinSe
+	 * @see com.ssocio.sharing.controller.app
+	 * @비고
+	 *
+	 * </pre>
+	*/
+	@RequestMapping("/app/inf/selectLeftMenu.do")
+	public ModelAndView selectLeftMenu(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam ) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("@@@@ /app/inf/selectLeftMenu.do IN @@@@@");
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		HeaderVO headerObj = (HeaderVO) request.getAttribute("header");
+		Map<String, Object> outData   = new HashMap<String, Object>();
+		 Map<String, Object> resultData   = new HashMap<String, Object>();
+		try{
+			outData = webMainService.selectMenuInfo(Integer.parseInt(headerObj.getMber_seq()));
+
+			((HashMap<String, Object>) outData.get("mberInfo")).put("MINI_SHOP_PATH", "http://mall.ssocio.com/" + ((HashMap)outData.get("mberInfo")).get("MINI_SHOP_PATH"));
+
+			resultData = RetSettMethod(request,headerObj,outData);
+		}catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return new ModelAndView("jsonView", resultData);
+	}
+
+
+
+	/**
+	 * <pre>
+	 * 쏘시오 mobile I/F 필요 API 화면 이동
+	 * 쏘시오 mobile I/F 필요 API 화면 이동
+	 * @param request
+	 * @param response
+	 * @param paramDto
+	 * @return
+	 * @exception
+	 * @date 2015. 6. 26. 오전 11:35:16
+	 * @author JINSE
+	 * @see com.ssocio.sharing.admin.controller
+	 * @비고
+	 *
+	 * </pre>
+	 */
+	@RequestMapping(value={"/app/","/app/ssocioApi.do"})
+	public ModelAndView ssocioApi(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam ) throws Exception{
+		logger.info("@@@@ /web/ssocioApi.do IN @@@@@");
+
+		ModelAndView mav = new ModelAndView();
+		try{
+			mav.setViewName("/web/ssocioApi");
+		}catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return mav;
+	}
+
+	/**
+	 * <pre>
+	 * 기획전 리스트 가져오기
+	 * 기획전 리스트 가져오기
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 8. 27. 오후 3:12:46
+	 * @author LeeJinSe
+	 * @see com.ssocio.sharing.controller.app
+	 * @비고
+	 *
+	 * </pre>
+	*/
+	@RequestMapping("/app/inf/SelectListPlan.do")
+	public ModelAndView SelectListPlan(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam ) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("@@@@ /app/inf/SelectListPlan.do IN @@@@@");
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		HeaderVO headerObj = (HeaderVO) request.getAttribute("header");
+		Map<String, Object> outData   = new HashMap<String, Object>();
+		 Map<String, Object> resultData   = new HashMap<String, Object>();
+		try{
+			String[] strArr= {"SelectListPlan"};
+			outData = CdnimgUrlCheck("SelectListPlan",(List<Map<String, Object>>) ( mobilePlanservice.selectListPlan().get("planList")),strArr,"planList");
+
+			resultData = RetSettMethod(request,headerObj,outData);
+		}catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return new ModelAndView("jsonView", resultData);
+	}
+
+	/**
+	 * <pre>
+	 * listData : 서비스에서 받아온 리스트 데이타
+	 * fileName : 쿼리에서 가져온 이미지 파라미더 이름
+	 * rtnParam : 맵에 담길 key parameter 값
+	 * @param listData
+	 * @param fileName
+	 * @param rtnParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 9. 16. 오후 5:05:36
+	 * @author LeeJinSe
+	 * @param string
+	 * @see com.ssocio.sharing.controller.app
+	 * @비고
+	 *
+	 * </pre>
+	*/
+	public ModelMap CdnimgUrlCheck(String title, List<Map<String,Object>> listData, String[] fileName,String rtnParam) throws Exception{
+
+		System.out.println("leng...." + fileName.length);
+		String imgurl = "";
+		String imgurl2 = "";
+		ModelMap outData   = new ModelMap();
+		String originHost = super.getSiteUrl();
+		for(int i=0; i<listData.size(); i++){
+			imgurl = (String) listData.get(i).get(fileName[0]);
+			System.out.println(imgurl);
+			if(null != imgurl&& "" != imgurl){
+				if(imgurl.startsWith("/upload")){
+						listData.get(i).put(fileName[0], originHost+imgurl);
+//						listData.get(i).put(fileName[0], originHost);
+
+				}
+			}
+
+			if(1 < fileName.length){
+				imgurl2 = (String) listData.get(i).get(fileName[1]);
+//				/upload/2015/09/25/d4e6dfc2-fed2-4214-882b-8dc4b0653785.png
+//				imgurl2 : http://cdn.ssocio.com//upload/2015/09/22/6a04ef58-7298-4103-9ec4-93d99043ecb1.JPG
+//				SSDFSFSDFS
+				System.out.println("imgurl2 : " + imgurl2);
+				if(null != imgurl2 && "" != imgurl2){
+					if("selectListSPShar".equals(title)){
+						if(imgurl2.startsWith("/upload")){
+							listData.get(i).put(fileName[1], originHost+imgurl2);
+//							listData.get(i).put(fileName[1], "");
+
+						}
+					}else{
+						if(imgurl2.startsWith("/upload")){
+//							listData.get(i).put(fileName[1], originHost+imgurl2);
+							listData.get(i).put(fileName[1], originHost+imgurl2);
+
+						}
+					}
+				}
+			}
+
+
+		}
+		System.out.println(listData);
+		outData.put(rtnParam,listData);
+		return outData;
+	}
+
+/**
+ * <pre>
+ * voData 가 Map 일경우
+ *
+ * @param title
+ * @param listData
+ * @param fileName
+ * @param rtnParam
+ * @return
+ * @throws Exception
+ * @exception
+ * @date 2015. 9. 28. 오후 10:42:54
+ * @author LeeJinSe
+ * @see com.ssocio.sharing.controller.app
+ * @비고
+ *
+ * </pre>
+*/
+public ModelMap CdnimgUrlCheck2(String title, Map<String,Object> listData, String[] fileName,String rtnParam) throws Exception{
+
+		System.out.println("leng...." + fileName.length);
+		String imgurl = "";
+		String imgurl2 = "";
+		ModelMap outData   = new ModelMap();
+		String originHost = super.getSiteUrl();
+			imgurl = (String) listData.get(fileName[0]);
+			System.out.println("imgurl : " + imgurl);
+			if(null != imgurl&& "" != imgurl){
+				if(imgurl.startsWith("/upload")){
+						listData.put(fileName[0], originHost+imgurl);
+//						listData.get(i).put(fileName[0], originHost);
+
+				}
+			}else{
+				listData.put(fileName[0], "");
+			}
+
+			if(1 < fileName.length){
+				imgurl2 = (String) listData.get(fileName[1]);
+//				/upload/2015/09/25/d4e6dfc2-fed2-4214-882b-8dc4b0653785.png
+//				imgurl2 : http://cdn.ssocio.com//upload/2015/09/22/6a04ef58-7298-4103-9ec4-93d99043ecb1.JPG
+//				SSDFSFSDFS
+				System.out.println("imgurl2 : " + imgurl2);
+				if(null != imgurl2 && "" != imgurl2){
+					if("selectListSPShar".equals(title)){
+							System.out.println("SSDFSFSDFS");
+						if(imgurl2.startsWith("/upload")){
+							listData.put(fileName[1], originHost+imgurl2);
+//							listData.get(i).put(fileName[1], "");
+
+						}
+					}else{
+						if(imgurl2.startsWith("/upload")){
+//							listData.get(i).put(fileName[1], originHost+imgurl2);
+							listData.put(fileName[1], originHost+imgurl2);
+
+						}
+					}
+				}else{
+					listData.put(fileName[1], "");
+				}
+			}
+
+
+		outData.put(rtnParam,listData);
+		return outData;
+	}
+
+
+	/**
+	 * <pre>
+	 * 중분류 카테고리를 선택 시 호출되는 requestMapping 메소드
+	 * 중분류목록 및 해당 대분류에 해당하는 전체상품 목록을 가져온다.
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 8. 27. 오후 3:12:46
+	 * @author LeeJinSe
+	 * @see com.ssocio.sharing.controller.app
+	 * @비고
+	 *
+	 * </pre>
+	*/
+	@RequestMapping("/app/inf/selectListProdByMediumCtry.do")
+	public ModelAndView selectListProdByMediumCtry(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam ) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("@@@@ /app/inf/selectListProdByMediumCtry.do IN @@@@@");
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		HeaderVO headerObj = (HeaderVO) request.getAttribute("header");
+		Map<String, Object> outData   = new HashMap<String, Object>();
+		 Map<String, Object> resultData   = new HashMap<String, Object>();
+			Map<String, Object> bodyParam = (Map<String, Object>) request.getAttribute("body");
+
+			logger.debug("CTRY_CD  : " + bodyParam.get("CTRY_CD"));
+			logger.debug("CUR_PAGE  : " + bodyParam.get("CUR_PAGE"));
+			logger.debug("CHILD_CTRY_CD  : " + bodyParam.get("CHILD_CTRY_CD"));
+		try{
+			String childCd = StringUtil.nvl((String)inParam.get("CHILD_CTRY_CD"), "");
+			if("0".equals(bodyParam.get("DLV_PAY_GB_CD"))){
+				bodyParam.put("DLV_PAY_GB_CD", "");
+			}
+
+			if("A".equals(bodyParam.get("CPON_APPLY_PSBL_YN"))){
+				bodyParam.put("CPON_APPLY_PSBL_YN", "");
+			}
+
+			logger.debug("inParam : " + inParam);
+			if( "".equals(childCd)){
+				outData = webCtryService.selectListProdByMediumCtry(bodyParam);
+			}
+			else{
+				outData = webCtryService.selectListProdBySmallCtry(bodyParam);
+			}
+
+//			outData = 	webCtryService.selectListProdByMediumCtry(bodyParam);
+//			ComCookieCheck(request);
+			resultData = RetSettMethod(request,headerObj,outData);
+		}catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return new ModelAndView("jsonView", resultData);
+	}
+
+
+	/**
+	 * <pre>
+	 * 분류 카테고리를 선택 시 호출되는 requestMapping 메소드
+	 * 중분류목록 및 해당 대분류에 해당하는 전체상품 목록을 가져온다.
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 8. 27. 오후 3:12:46
+	 * @author LeeJinSe
+	 * @see com.ssocio.sharing.controller.app
+	 * @비고
+	 *
+	 * </pre>
+	*/
+	@RequestMapping("/app/inf/selectListProdByLargeCtry.do")
+	public ModelAndView selectListProdByLargeCtry(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam ) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("@@@@ /app/inf/selectListProdByLargeCtry.do IN @@@@@");
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		HeaderVO headerObj = (HeaderVO) request.getAttribute("header");
+		Map<String, Object> outData   = new HashMap<String, Object>();
+		 Map<String, Object> resultData   = new HashMap<String, Object>();
+			Map<String, Object> bodyParam = (Map<String, Object>) request.getAttribute("body");
+		try{
+			if("0".equals(bodyParam.get("DLV_PAY_GB_CD"))){
+				bodyParam.put("DLV_PAY_GB_CD", "");
+			}
+
+			if("A".equals(bodyParam.get("CPON_APPLY_PSBL_YN"))){
+				bodyParam.put("CPON_APPLY_PSBL_YN", "");
+			}
+
+			logger.debug("inParam : " + inParam);
+			outData = 	webCtryService.selectListProdByLargeCtry(bodyParam);
+
+
+//			ComCookieCheck(request);
+			resultData = RetSettMethod(request,headerObj,outData);
+		}catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return new ModelAndView("jsonView", resultData);
+	}
+
+
+
+	/**
+	 * <pre>
+	 * 대매뉴 카테고리 리스트 불러오기
+	 * 대매뉴 카테고리 리스트 불러오기
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 8. 26. 오후 10:20:25
+	 * @author LeeJinSe
+	 * @see com.ssocio.sharing.controller.app
+	 * @비고
+	 *
+	 * </pre>
+	*/
+	@SuppressWarnings("unchecked")
+	@RequestMapping("/app/inf/mainSelectListLargeCtry.do")
+	public ModelAndView mainSelectListLargeCtry(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam ) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("@@@@ /app/inf/mainSelectListLargeCtry.do IN @@@@@");
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		HeaderVO headerObj = (HeaderVO) request.getAttribute("header");
+		Map<String, Object> outData   = new HashMap<String, Object>();
+		Map<String, Object> sharData   = new HashMap<String, Object>();
+		Map<String, Object> voData2   = new HashMap<String, Object>();
+		List<Map<String,Object>> listData = null;
+		List<Map<String,Object>> listData2 = new ArrayList<Map<String,Object>>();
+		 Map<String, Object> resultData   = new HashMap<String, Object>();
+		try{
+			int i = 1;
+
+			sharData = appCommonService.selectCtryinfo("S");
+			voData2.put("CTRY_NM", sharData.get("CTRY_NM"));
+			voData2.put("FILE_URL", sharData.get("FILE_URL"));
+			voData2.put("CTRY_CD", "");
+			listData2.add(0, voData2);
+			listData = (List<Map<String, Object>>) ( webMainService.selectListCtry().get("largeCtryList"));
+			for(Map<String, Object> voData : listData){
+				listData2.add(i,voData);
+				i++;
+			}
+			outData.put("freeShareUrl", appCommonService.selectCtryinfo("3").get("FILE_URL"));
+			outData.put("sharingUrl", appCommonService.selectCtryinfo("2").get("FILE_URL"));
+			outData.put("largeCtryList", listData2);
+			outData.put("CartCnt", appCommonService.SelectCntMyNewCar(headerObj));
+			resultData = RetSettMethod(request,headerObj,outData);
+		}catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return new ModelAndView("jsonView", resultData);
+	}
+
+
+	/**
+	 * <pre>
+	 * 스마트폰 쉐어링 리스트
+	 * 스마트폰 쉐어링 리스트
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 8. 26. 오후 10:05:03
+	 * @author LeeJinSe
+	 * @see com.ssocio.sharing.controller.app
+	 * @비고
+	 *
+	 * </pre>
+	*/
+	@SuppressWarnings("unchecked")
+	@RequestMapping("/app/inf/selectListSPShar.do")
+	public ModelAndView selectListSPShar(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam ) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("@@@@ /app/inf/selectListSPShar.do IN @@@@@");
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		HeaderVO headerObj = (HeaderVO) request.getAttribute("header");
+		Map<String, Object> outData   = new HashMap<String, Object>();
+		 Map<String, Object> resultData   = new HashMap<String, Object>();
+			Map<String, Object> bodyParam = (Map<String, Object>) request.getAttribute("body");
+		try{
+			String telcomArray = (String)bodyParam.get("TELCOM_CODE");
+			if ( telcomArray != null && !telcomArray.equals("")) {
+					String[] result = telcomArray.split("[,]");
+					bodyParam.put("TELCOM_CODE", result);
+
+			}
+			outData  = appCommonService.selectListShar(headerObj,bodyParam);
+			resultData = RetSettMethod(request,headerObj,outData);
+		}catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return new ModelAndView("jsonView", resultData);
+	}
+
+
+	/**
+	 * <pre>
+	 * AppIntro
+	 * AppIntro
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 8. 25. 오후 11:27:36
+	 * @author LeeJinSe
+	 * @see com.ssocio.sharing.controller.app
+	 * @비고
+	 *
+	 * </pre>
+	*/
+	@RequestMapping("/app/inf/intro.do")
+	public ModelAndView loginSet(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam ) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("@@@@ /app/inf/intro.do IN @@@@@");
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		HeaderVO headerObj = (HeaderVO) request.getAttribute("header");
+		Map<String, Object> outData   = new HashMap<String, Object>();
+		Map<String, Object> resultData   = new HashMap<String, Object>();
+		Map<String, Object> bodyParam = (Map<String, Object>) request.getAttribute("body");
+
+		try{
+			outData = appCommonService.appIntroCheck(headerObj,bodyParam,request);
+//			ComCookieCheck(request);
+			resultData = RetSettMethod(request,headerObj,outData);
+		}catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		logger.debug("outData : " + outData);
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.debug("result Encoding Data : " + resultData);
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		return new ModelAndView("jsonView", resultData);
+	}
+
+
+	/**
+	 * <pre>
+	 * 카카오톡으로 회원가입
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 10. 23. 오후 5:32:40
+	 * @author user
+	 * @see com.ssocio.sharing.controller.app
+	 * </pre>
+	 */
+	@RequestMapping("/app/inf/insertKakaoJoin.do")
+	public ModelAndView insertKakaoJoin(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam ) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("@@@@ /app/inf/insertKakaoJoin.do IN @@@@@");
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		HeaderVO headerObj = (HeaderVO) request.getAttribute("header");
+		Map<String, Object> outData   = new HashMap<String, Object>();
+		Map<String, Object> resultData   = new HashMap<String, Object>();
+		Map<String, Object> bodyParam = (Map<String, Object>) request.getAttribute("body");
+		String AGR_SEQ_VER[] = request.getParameterValues("AGR_SEQ_VER[]");
+		String JOIN_CHAN_CD="";
+		String userAgent = (String)request.getHeader("User-Agent");
+		int count = 0;
+		if(userAgent.indexOf("Android")>-1){
+			JOIN_CHAN_CD = "10";
+		}else if(userAgent.indexOf("iPhone")>-1){
+			JOIN_CHAN_CD = "20";
+		}else{
+			JOIN_CHAN_CD = "30";
+		}
+
+		try{
+
+			count = mobileJoinService.selectMberChk(inParam);
+
+			if (count == 0) {
+//				outData = appCommonService.appIntroCheck(headerObj,bodyParam,request);
+				inParam.put("MBER_GB_CD", 0);
+				inParam.put("SSO_GB_CD", "KKO");
+				inParam.put("MBER_REG_GB_CD", 0);
+				inParam.put("MBER_STAT_CD", 40);
+				inParam.put("EMAIL_AGREE_YN", "N");
+				inParam.put("SELL_MBER_LEV_SEQ", 9);
+				inParam.put("BUY_MBER_LEV_SEQ", 6);
+				mobileJoinService.insertUserMber(inParam, AGR_SEQ_VER, JOIN_CHAN_CD);
+//				ComCookieCheck(request);
+			} else {
+				inParam.put("retcode", 9999);
+				inParam.put("retmsg", "");
+			}
+
+
+			resultData = RetSettMethod(request,headerObj,inParam);
+		}catch (Exception e) {
+			e.printStackTrace();
+		}
+		return new ModelAndView("jsonView", resultData);
+	}
+
+	@RequestMapping("/app/inf/setKakaoLogin.do")
+	public ModelAndView setKakaoLogin(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam ) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("@@@@ /app/inf/setKakaoLogin.do IN @@@@@");
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		HeaderVO headerObj = (HeaderVO) request.getAttribute("header");
+		Map<String, Object> resultData   = new HashMap<String, Object>();
+		Map<String, Object> bodyParam = (Map<String, Object>) request.getAttribute("body");
+		try{
+			if(inParam != null){
+				WebSession webSession = webCommonService.setKakaoLogin(inParam);
+				if(webSession != null && webSession.getLogin()){
+					HttpSession session  = request.getSession();
+					session.setAttribute("user", webCommonService.setKakaoLogin(inParam));
+				}
+			}
+//			ComCookieCheck(request);
+			resultData = RetSettMethod(request,headerObj,inParam);
+		}catch (Exception e) {
+			e.printStackTrace();
+		}
+		return new ModelAndView("jsonView", resultData);
+	}
+
+	/**
+	 * <pre>
+	 * 쿠키정보 조회
+	 * 쿠키정보 조회
+	 * @param request
+	 * @exception
+	 * @date 2015. 8. 24. 오후 8:01:46
+	 * @author LeeJinSe
+	 * @see com.ssocio.sharing.controller.app
+	 * @비고
+	 *
+	 * </pre>
+	*/
+	private void ComCookieCheck(HttpServletRequest request) {
+
+		Cookie[] cookies = request.getCookies();
+
+		if(null == cookies){
+
+		}else{
+
+		}
+		for (int i = 0; i < cookies.length; i++) {
+		//쿠키정보 조회 하기
+//		if("JSESSIONID".equals(cookies[i].getName())){
+			System.out.println("comment : " +cookies[i].getComment());
+			System.out.println("Domain : " +cookies[i].getDomain());
+			System.out.println("Name : " +cookies[i].getName());
+			System.out.println("Path : " +cookies[i].getPath());
+			System.out.println("Sercure : " +cookies[i].getSecure());
+			System.out.println("Version : " +cookies[i].getVersion());
+			System.out.println("Value : " +cookies[i].getValue());
+//		}
+		}
+	}
+
+
+	public  Map<String, Object> RetSettMethod(HttpServletRequest request,HeaderVO headerObj, Map<String, Object> outData) throws Exception{
+
+		Map<String, Object> resultData   = new HashMap<String, Object>();
+		 String json="";
+		 outData.put("header", headerObj);
+		 String Str= "";
+		 json = JsonUtil.getJsonStringfromMap(outData);
+
+		 logger.info("jsonData--->" + json);
+		 //api test 를 위해 구분 해놈
+		if(null != request.getParameter("ENCODE_YN")){
+			try {
+				resultData.put("ret_data", URLEncoder.encode(json, "UTF-8"));
+			} catch (UnsupportedEncodingException e) {
+				e.printStackTrace();
+			}
+		}else{
+
+			Str = SSOCIO_AES256Cipher.setAesMsg(json);
+			Str = URLEncoder.encode(Str, "UTF-8");
+				resultData.put("ret_data", Str);
+		}
+
+		logger.info("resultData-->" + resultData);
+		return resultData;
+
+	}
+
+	@RequestMapping("/app/inf/popularSharingPolling.do")
+	public ModelAndView popularSharingPolling(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam ) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("@@@@ /app/inf/popularSharingPolling.do IN @@@@@");
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		HeaderVO headerObj = (HeaderVO) request.getAttribute("header");
+		Map<String, Object> resultData   = new HashMap<String, Object>();
+		Map<String, Object> bodyParam = (Map<String, Object>) request.getAttribute("body");
+		
+		String userAgent = request.getHeader("user-agent");		
+		
+		Redis redis = null;
+		try {
+			redis = Redis.getInstance();
+		} catch ( Exception e ) {
+			e.printStackTrace();
+		}
+		
+		Map <String, Object> rtnMap = new HashMap<String, Object>();
+		try{
+			Map<String, Object> plan = new HashMap<String, Object>();
+			plan.put("TODAY_YN", "Y");
+			
+			Map<String, Object> checkWish = new HashMap<String, Object>();
+			List<Map<String, Object>> checkWishedList = new ArrayList<Map<String, Object>>();
+			try {
+				if ( headerObj.getMber_seq() != null && !headerObj.getMber_seq().trim().equalsIgnoreCase("")) {
+					inParam.put("MBER_SEQ", headerObj.getMber_seq());
+					checkWishedList = appCommonService.checkWishedList(inParam);
+				}
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+			
+			if ( checkWishedList != null && checkWishedList.size() > 0 ) {
+				for ( int cwl = 0; cwl < checkWishedList.size(); cwl++ ) {
+					Map<String, Object> tempMap = checkWishedList.get(cwl);
+					if ( tempMap.get("PROD_CODE") != null) {
+						String tProdCode = String.valueOf(tempMap.get("PROD_CODE"));
+						checkWish.put(tProdCode, tProdCode);
+					}
+				}
+			}
+			
+			rtnMap = appCommonService.NewSharingList(checkWish, inParam, plan);
+//			rtnMap.put("popularSharing", popularSharingDetail);
+//			rtnMap.put("latestSharingList", latestSharingList);
+			
+			if(userAgent.indexOf("MOBILEAPP") > -1){
+				rtnMap = RetSettMethod(request,headerObj,rtnMap);
+			}
+		}catch (Exception e) {
+			e.printStackTrace();
+			// return new ModelAndView("jsonView", null);
+		}
+		return new ModelAndView("jsonView", rtnMap);
+	}
+
+}

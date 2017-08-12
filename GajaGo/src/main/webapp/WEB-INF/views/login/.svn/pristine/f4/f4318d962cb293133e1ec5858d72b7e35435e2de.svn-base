@@ -1,0 +1,340 @@
+package com.ssocio.sharing.service.batch;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.interceptor.TransactionAspectSupport;
+
+import com.ssocio.sharing.cmmn.util.LoggerUtil;
+import com.ssocio.sharing.dao.batch.BatchAdminPerfDao;
+
+/**
+ * <pre>
+ * 설명
+ * 설명
+ * @author kim
+ * @version
+ * @since 2015. 10. 29
+ * @see
+ * @History
+ * Date			|	author	| 변경 내용
+ * 2015. 10. 29.	|	kim	|신규
+ * @비고
+ * </pre>
+ */
+@Service
+public class BatchAdminPerfServiceImpl implements BatchAdminPerfService {
+
+	// --------------------------------------------------------------------------
+	// # Log 설정
+	// --------------------------------------------------------------------------
+	private static final Logger logger = LoggerFactory.getLogger(BatchAdminPerfServiceImpl.class);
+
+	// --------------------------------------------------------------------------
+	// # DAO 설정
+	// --------------------------------------------------------------------------
+	@Resource(name="batchAdminPerfDao")
+	private BatchAdminPerfDao batchAdminPerfDao;
+
+	/**
+	 * <pre>
+	 * 실적관리 배치 처리
+	 *
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 10. 15
+	 * @author kim
+	 * @see @see com.ssocio.sharing.service.batch.BatchAdminPerfServiceImpl
+	 * @비고
+	 *
+	 * </pre>
+	 */
+	@Override
+	@Transactional(rollbackFor=Exception.class)
+	public void initBatch(String batch_nm) throws Exception {
+		logger.info("########### BatchAdminPerfServiceImpl :: initBatch :: Start ##########");
+		try {
+
+			if(null == batchAdminPerfDao.selectBatchJobCfgInfo(batch_nm)){
+
+				Map<String, Object> inParam = new HashMap<String, Object>();
+				inParam.put("batch_nm", batch_nm);
+				inParam.put("batch_term_gb", "");
+				inParam.put("rm", "");
+
+				batchAdminPerfDao.insertBatchJobCfg(inParam);
+			}
+
+		} catch (Exception e) {
+			e.printStackTrace();
+			logger.info(" 실패로 RollBack !!!!!!]");
+			TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+			throw new Exception(e);
+		}
+		logger.info("########### BatchAdminPerfServiceImpl :: initBatch :: End ##########");
+		return;
+	}
+
+	@Override
+	@Transactional(rollbackFor=Exception.class)
+	public String preBatch(String batch_nm, Map<String, Object> map) throws Exception {
+		logger.info("########### BatchAdminPerfServiceImpl :: preBatch :: Start ##########");
+		Map<String, Object> inParam = new HashMap<String, Object>();
+		String batch_id = "";
+		try {
+			
+			batch_id = batchAdminPerfDao.selectBatchJobCfgStat(batch_nm);
+
+			if(batch_id != null){
+
+				inParam.put("batch_id", batch_id);
+				inParam.put("start", "start");
+				inParam.put("job_stat", "R");
+				inParam.put("rm", "");
+				
+				map.putAll(batchAdminPerfDao.selectBatchJobHist(inParam));
+				batchAdminPerfDao.updateBatchJobCfg(inParam);
+				batchAdminPerfDao.insertBatchJobHist(inParam);
+			}
+			logger.debug(">>>> map : "+map.toString());
+		} catch (Exception e) {
+			e.printStackTrace();
+			logger.info(" 실패로 RollBack !!!!!!]");
+			TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+			throw new Exception(e);
+		}
+		logger.info("########### BatchAdminPerfServiceImpl :: preBatch :: End ##########");
+		return inParam.get("hist_seq").toString();
+	}
+
+	@Override
+	@Transactional(rollbackFor=Exception.class)
+	public String postBatch(String hist_seq, String err_dtl) throws Exception {
+		logger.info("########### BatchAdminPerfServiceImpl :: postBatch :: Start ##########");
+		try {
+
+			Map<String, Object> inParam = new HashMap<String, Object>();
+			inParam.put("hist_seq", hist_seq);
+			inParam.put("err_dtl", err_dtl);
+
+			batchAdminPerfDao.updateBatchJobHist(inParam);
+
+		} catch (Exception e) {
+			e.printStackTrace();
+			logger.info(" 실패로 RollBack !!!!!!]");
+			TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+			throw new Exception(e);
+		}
+		logger.info("########### BatchAdminPerfServiceImpl :: postBatch :: End ##########");
+		return hist_seq;
+	}
+
+	@Transactional(rollbackFor=Exception.class)
+	@Override
+	public int batchAdminPerfDate(Map<String, Object> inParam) throws Exception {
+		logger.info("########### BatchAdminPerfServiceImpl :: batchAdminPerfDate :: Start ##########");
+		int cnt = 0;
+
+
+		// 기간별
+		try {
+
+			// 배치 대상건 셀렉트
+			inParam.putAll(batchAdminPerfDao.selectTermAdminPerfDate());
+
+//			if("N".equals(inParam.get("EXC_FLAG"))){ // 기처리
+//				return 0;
+//			}
+//
+//			List<Map<String, Object>> list = batchAdminPerfDao.selectListAdminPerfDate(inParam);
+//
+//
+//			for(Map<String, Object> map : list){ // 대상건 많큼 insert 로직 돌음
+//				try{
+//
+//					logger.debug("####################################");
+//					logger.debug("################실데이터 insert########");
+//
+//					// 매퍼에 쿼리 넣기 요청
+//					LoggerUtil.writeMap(map);
+//					int result = batchAdminPerfDao.insertListAdminPerfDate(map); // 대상건 값 리턴
+//
+//					if(result>0){
+//						cnt +=1;
+//					}
+//
+//				}catch(Exception e){
+//					e.printStackTrace();
+//				}
+//			}
+			logger.debug(">>>>> inParam : "+inParam.toString());
+			cnt = batchAdminPerfDao.mergeAdminPefDate(inParam);
+			logger.debug(">>>>> cnt : "+cnt);
+		} catch (Exception e) {
+			e.printStackTrace();
+			logger.info(" 실패로 RollBack !!!!!!]");
+			TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+			throw new Exception(e);
+		}
+		logger.info("########### BatchAdminPerfServiceImpl :: batchAdminPerfDate :: End ##########");
+		return cnt;
+	}
+
+	@Transactional(rollbackFor=Exception.class)
+	@Override
+	public int batchAdminPerfCtry(Map<String, Object> inParam) throws Exception {
+		logger.info("########### BatchAdminPerfServiceImpl :: batchAdminPerfCtry :: Start ##########");
+		int cnt = 0;
+//		Map<String, Object> inParam = new HashMap<String, Object>();
+
+		// 카테고리별
+		try {
+
+			// 배치 대상건 셀렉트
+			inParam.putAll(batchAdminPerfDao.selectTermAdminPerfCtry());
+
+//			List<Map<String, Object>> list = batchAdminPerfDao.selectListAdminPerfCtry(inParam);
+//
+//			if("N".equals(inParam.get("EXC_FLAG"))){ // 기처리
+//				return 0;
+//			}
+//
+//			for(Map<String, Object> map : list){ // 대상건 많큼 insert 로직 돌음
+//				try{
+//
+//					logger.debug("####################################");
+//					logger.debug("################실데이터 insert########");
+//
+//					// 매퍼에 쿼리 넣기 요청
+//					LoggerUtil.writeMap(map);
+//					int result = batchAdminPerfDao.insertListAdminPerfCtry(map); // 대상건 값 리턴
+//
+//					if(result>0){
+//						cnt +=1;
+//					}
+//
+//				}catch(Exception e){
+//					e.printStackTrace();
+//				}
+//			}
+			cnt = batchAdminPerfDao.mergeAdminPerfCtry(inParam);
+			logger.debug(">>>>> cnt : "+cnt);
+		} catch (Exception e) {
+			e.printStackTrace();
+			logger.info(" 실패로 RollBack !!!!!!]");
+			TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+			throw new Exception(e);
+		}
+		logger.info("########### BatchAdminPerfServiceImpl :: batchAdminPerfCtry :: End ##########");
+		return cnt;
+	}
+
+	@Transactional(rollbackFor=Exception.class)
+	@Override
+	public int batchAdminPerfProd(Map<String, Object> inParam) throws Exception {
+		logger.info("########### BatchAdminPerfServiceImpl :: batchAdminPerfProd :: Start ##########");
+		int cnt = 0;
+//		Map<String, Object> inParam = new HashMap<String, Object>();
+
+		// 상품별
+		try {
+
+			// 배치 대상건 셀렉트
+			inParam.putAll(batchAdminPerfDao.selectTermAdminPerfProd());
+
+//			if("N".equals(inParam.get("EXC_FLAG"))){ // 기처리
+//				return 0;
+//			}
+//
+//			List<Map<String, Object>> list = batchAdminPerfDao.selectListAdminPerfProd(inParam);
+//
+//
+//			for(Map<String, Object> map : list){ // 대상건 많큼 insert 로직 돌음
+//				try{
+//
+//					logger.debug("####################################");
+//					logger.debug("################실데이터 insert########");
+//
+//					// 매퍼에 쿼리 넣기 요청
+//					LoggerUtil.writeMap(map);
+//					int result = batchAdminPerfDao.insertListAdminPerfProd(map); // 대상건 값 리턴
+//
+//					if(result>0){
+//						cnt +=1;
+//					}
+//
+//				}catch(Exception e){
+//					e.printStackTrace();
+//				}
+//			}
+			cnt = batchAdminPerfDao.mergeAdminPerfProd(inParam);
+			logger.debug(">>>>> cnt : "+cnt);
+		} catch (Exception e) {
+			e.printStackTrace();
+			logger.info(" 실패로 RollBack !!!!!!]");
+			TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+			throw new Exception(e);
+		}
+		logger.info("########### BatchAdminPerfServiceImpl :: batchAdminPerfProd :: End ##########");
+		return cnt;
+	}
+
+	@Transactional(rollbackFor=Exception.class)
+	@Override
+	public int batchAdminPerfMber(Map<String, Object> inParam) throws Exception {
+		logger.info("########### BatchAdminPerfServiceImpl :: batchAdminPerfMber :: Start ##########");
+		int cnt = 0;
+//		Map<String, Object> inParam = new HashMap<String, Object>();
+
+		// 회원별
+		try {
+
+			// 배치 대상건 셀렉트
+			inParam.putAll(batchAdminPerfDao.selectTermAdminPerfMber());
+
+//			if("N".equals(inParam.get("EXC_FLAG"))){ // 기처리
+//				return 0;
+//			}
+//
+//			List<Map<String, Object>> list = batchAdminPerfDao.selectListAdminPerfMber(inParam);
+//
+//
+//			for(Map<String, Object> map : list){ // 대상건 많큼 insert 로직 돌음
+//				try{
+//
+//					logger.debug("####################################");
+//					logger.debug("################실데이터 insert########");
+//
+//					// 매퍼에 쿼리 넣기 요청
+//					LoggerUtil.writeMap(map);
+//					int result = batchAdminPerfDao.insertListAdminPerfMber(map); // 대상건 값 리턴
+//
+//					if(result>0){
+//						cnt +=1;
+//					}
+//
+//				}catch(Exception e){
+//					e.printStackTrace();
+//				}
+//			}
+			cnt = batchAdminPerfDao.mergeAdminPerfMber(inParam);
+			logger.debug(">>>>> cnt : "+cnt);
+		} catch (Exception e) {
+			e.printStackTrace();
+			logger.info(" 실패로 RollBack !!!!!!]");
+			TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+			throw new Exception(e);
+		}
+		logger.info("########### BatchAdminPerfServiceImpl :: batchAdminPerfMber :: End ##########");
+		return cnt;
+	}
+}

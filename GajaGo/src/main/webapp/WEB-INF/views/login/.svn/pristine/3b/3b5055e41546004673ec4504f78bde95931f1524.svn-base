@@ -1,0 +1,301 @@
+package com.ssocio.sharing.service.web;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.ui.ModelMap;
+
+import com.ssocio.sharing.cmmn.elasticsearch.Elasticsearch;
+import com.ssocio.sharing.cmmn.util.CmmnCnst;
+import com.ssocio.sharing.cmmn.util.StringUtil;
+import com.ssocio.sharing.cmmn.web.util.WebMobilePaging;
+import com.ssocio.sharing.dao.web.MobileSearchDao;
+
+@Service
+public class MobileSearchServiceImpl implements MobileSearchService {
+	
+	// --------------------------------------------------------------------------
+	// # Log 설정
+	// --------------------------------------------------------------------------
+	private static final Logger logger = LoggerFactory.getLogger(MobileSearchServiceImpl.class);
+	
+	// --------------------------------------------------------------------------
+	// # DAO 설정
+	// --------------------------------------------------------------------------
+	@Resource(name="mobileSearchDao")
+	private MobileSearchDao mobileSearchDao;
+
+	
+	
+	public ModelMap selectListProd(Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆SERVICE selectListProd START☆★☆★☆★☆★☆★☆★☆");
+		
+		ModelMap mm = new ModelMap();
+		Map<String,Object> ret = new HashMap<String, Object>();
+		
+		String searchWord =  StringUtil.nvl((String)inParam.get("SEARCH_NM"), "").trim();//검색어 입력않되었으면
+		inParam.put("SEARCH_NM", searchWord);
+		
+		List<Map<String, Object>>  ctryTypeDbList= mobileSearchDao.selectListCtryType(inParam);
+		String ctryDd = StringUtil.nvl((String)inParam.get("CTRY"), "");
+		String prodTypeCd =StringUtil.nvl((String)inParam.get("PROD_TYPE_CD"), "");
+		
+
+		
+		String[] PROD_TYPE_CD  = null;
+		String[] CTRY_CD  = null;
+		
+		
+		int rowTotal = 0;
+		List<Map<String, Object>> prodList = null;
+		List<Map<String, Object>> prodTypeList = new ArrayList<Map<String,Object>>();
+		Map<String, Object> prodType = new HashMap<String, Object>();
+		List<Map<String, Object>> ctryList = new ArrayList<Map<String,Object>>();
+		Map<String, Object> ctry = new HashMap<String, Object>();
+		
+		 boolean ctryCheck = false;
+		//카테고리 셋팅
+		if(ctryDd != null && !"".equals(ctryDd)){
+			 CTRY_CD = ctryDd.split(",");
+			 
+			 for (int i = 0; i < CTRY_CD.length; i++) {
+				 if("0".equals(CTRY_CD[i])){
+					 ctryCheck = true;
+				 }
+			 }
+			if(ctryCheck){
+				 CTRY_CD = new String[ctryTypeDbList.size()];
+					for (int k = 0; k < ctryTypeDbList.size(); k++) {
+						CTRY_CD[k] = (String) ctryTypeDbList.get(k).get("CTRY");
+					}
+			}else{
+				 for (int i = 0; i < CTRY_CD.length; i++) {
+					 for (int j = 0; j < ctryTypeDbList.size(); j++) {
+						 if(CTRY_CD[i].equals((String) ctryTypeDbList.get(j).get("CTRY"))){
+						 }
+					}
+				}
+			}
+		}else{
+			CTRY_CD = new String[ctryTypeDbList.size()];
+			for (int i = 0; i < ctryTypeDbList.size(); i++) {
+				CTRY_CD[i] = (String) ctryTypeDbList.get(i).get("CTRY");
+			}
+		}
+		 
+		//상품 구분셋팅
+		if(prodTypeCd != null && !"".equals(prodTypeCd)){
+			PROD_TYPE_CD = prodTypeCd.split(",");
+		}else{
+			PROD_TYPE_CD = new String[5];
+			PROD_TYPE_CD[0] = "1";
+			PROD_TYPE_CD[1] = "2";
+			PROD_TYPE_CD[2] = "3";
+			PROD_TYPE_CD[3] = "4";
+			PROD_TYPE_CD[4] = "5";
+		}
+		
+		
+		//정렬 방법 셋팅
+		String orderType = StringUtil.nvl((String)inParam.get("ORDER_KIND"), "POPULAR").trim();//정렬방법
+		String sortName = "";//정렬컬럼명(신상품 기본)
+		String sortDescribe = "DESC";//정렬 방향(내림차순 기본)
+		
+		if(orderType.equals("POPULAR")){
+			sortName = "ORD_QTY";
+		}else if(orderType.equals("LOWPRCE")){
+			sortName = "SELL_PRCE";
+			sortDescribe = "ASC";
+		}else if(orderType.equals("HIGHPRCE")){
+			sortName = "SELL_PRCE";
+		}else{
+			sortName = "INDEX_DT";
+		}
+		
+		//페이지셋팅
+		int nowPage = StringUtil.nvlInt((String)inParam.get("CUR_PAGE"), 1);
+
+		logger.info("☆★☆★☆★☆★☆★☆★☆Elasticsearch START☆★☆★☆★☆★☆★☆★☆");
+		Elasticsearch elasticsearch = new Elasticsearch();
+
+		Map<String, Object> listParam = new HashMap<String, Object>();
+		listParam = new HashMap<String, Object>();
+		listParam.put("searchWord", searchWord);// 검색어
+		listParam.put("sortName", sortName);
+		listParam.put("sortDescribe", sortDescribe);
+		listParam.put("pageIndex",nowPage);// 페이징 처리용 int
+		listParam.put("pageSize", CmmnCnst.MOBILE_LIST_SIZE);// 페이징 처리용 int
+
+		ArrayList<String> P_CTRY_CD  = new ArrayList<String>();
+		 for (int i = 0; i < CTRY_CD.length ; i++) {
+			 P_CTRY_CD.add(CTRY_CD[i]);
+		 }
+		 
+		 try {
+			 P_CTRY_CD.add(mobileSearchDao.selectDefaultCtry().substring(0,4) );
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		
+			 ret = elasticsearch.searchElasticSearch(listParam,PROD_TYPE_CD,P_CTRY_CD);
+
+
+		 @SuppressWarnings("unchecked")
+		List<String> listStr = (List<String>) ret.get("prods");
+
+		
+
+
+		try {
+			long longCount  = (long) ret.get("count");
+			
+			rowTotal =	(int)longCount;
+			
+			prodType.put("PROD_TYPE_CD", "0");
+			prodType.put("PROD_TYPE_NM", "전체 상품");
+			prodType.put("PROD_TYPE_CNT", rowTotal);
+			prodTypeList.add(prodType);
+			
+			ctry.put("CTRY", "0");
+			ctry.put("CTRY_NM", "전체 카테고리");
+			ctry.put("CTRY_CNT", rowTotal);
+			ctryList.add(ctry);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		
+		if(listStr != null && listStr.size()>0){
+//			ctryTempList
+			inParam.put("PROD_CODE", listStr);
+			//상품구분코드 관련
+
+
+			
+			 prodTypeList = elasticsearch.searchElasticSearchCnt(listParam,PROD_TYPE_CD,CTRY_CD,prodTypeList);
+
+				
+			 ctryList = elasticsearch.searchElasticSearchCtryCnt(listParam,PROD_TYPE_CD,ctryTypeDbList,ctryList);
+			//인기검색어 업데이트
+			if(rowTotal > 0 && !"".equals(searchWord)){
+				Map<String, Object> indexingMap = new HashMap<String, Object>();
+				indexingMap.put("SEARCH_NM",searchWord.replaceAll("\\ ", ""));
+				try {
+					mobileSearchDao.updateHitKeyword(indexingMap);
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+			}
+		
+			logger.debug("rowTotal"+rowTotal);
+			
+			WebMobilePaging paging = new WebMobilePaging(rowTotal, nowPage, CmmnCnst.MOBILE_LIST_SIZE);
+
+			prodList = mobileSearchDao.selectListProd(inParam);
+			
+			try {
+				for (int i = 0; i < ctryList.size(); i++) {
+					long cnt = Long.parseLong(String.valueOf( ctryList.get(i).get("CTRY_CNT")));
+					if(0 == cnt){
+						if(!"0".equals((String)ctryList.get(i).get("CTRY"))){
+							ctryList.remove(i);
+						}
+					}
+				}
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+
+			logger.info("☆★☆★☆★☆★☆★☆★☆Elasticsearch ctryDd☆★☆★☆ "+ctryDd);
+			logger.info("☆★☆★☆★☆★☆★☆★☆Elasticsearch prodTypeCd☆★☆★☆ "+prodTypeCd);
+			
+			
+			inParam.put("PROD_TYPE_CD", prodTypeCd);
+			inParam.put("CTRY", ctryDd);
+			mm.put("ctryTypeList", ctryList);
+			mm.put("prodList", prodList);
+			mm.put("prodTypeList", prodTypeList);
+			mm.put("paging", paging);
+		}else{
+			logger.info("☆★☆★☆★☆★☆★☆★☆Elasticsearch NONE☆★☆★☆ "+ctryDd);
+			logger.info("☆★☆★☆★☆★☆★☆★☆Elasticsearch NONE☆★☆★☆ "+prodTypeCd);
+			
+			WebMobilePaging paging = new WebMobilePaging(rowTotal, nowPage, CmmnCnst.MOBILE_LIST_SIZE);
+			inParam.put("PROD_TYPE_CD", prodTypeCd);
+			prodTypeList = new ArrayList<Map<String,Object>>();
+			inParam.put("CTRY", ctryDd);
+
+			prodType = new HashMap<String, Object>();
+			prodType.put("PROD_TYPE_CD", "0");
+			prodType.put("PROD_TYPE_NM", "전체 상품");
+			prodType.put("PROD_TYPE_CNT", "0");
+			prodTypeList.add(prodType);
+			prodType = new HashMap<String, Object>();
+			prodType.put("PROD_TYPE_CD", "1");
+			prodType.put("PROD_TYPE_NM", "판매");
+			prodType.put("PROD_TYPE_CNT", "0");
+			prodTypeList.add(prodType);
+			prodType = new HashMap<String, Object>();
+			prodType.put("PROD_TYPE_CD", "2");
+			prodType.put("PROD_TYPE_NM", "셰어링");
+			prodType.put("PROD_TYPE_CNT", "0");
+			prodTypeList.add(prodType);
+			prodType = new HashMap<String, Object>();
+			prodType.put("PROD_TYPE_CD", "3");
+			prodType.put("PROD_TYPE_NM", "나눔");
+			prodType.put("PROD_TYPE_CNT", "0");
+			prodTypeList.add(prodType);
+			prodType = new HashMap<String, Object>();
+			prodType.put("PROD_TYPE_CD", "4");
+			prodType.put("PROD_TYPE_NM", "스마트폰셰어링");
+			prodType.put("PROD_TYPE_CNT", "0");
+			prodTypeList.add(prodType);
+			prodType = new HashMap<String, Object>();
+			prodType.put("PROD_TYPE_CD", "5");
+			prodType.put("PROD_TYPE_NM", "렌탈");
+			prodType.put("PROD_TYPE_CNT", "0");
+			prodTypeList.add(prodType);
+			mm.put("prodTypeList", prodTypeList);
+			
+
+			for (int i = 0; i < ctryTypeDbList.size(); i++) {
+				ctryList.add(ctryTypeDbList.get(i));
+			}
+			
+			mm.put("ctryTypeList", ctryList);
+			
+			mm.put("paging", paging);
+		}
+
+
+	
+		
+		return mm;
+	}
+	
+	public List<Map<String, Object>> selectListHitKeyword() throws Exception{
+				return mobileSearchDao.selectListHitKeyword();
+	}
+	public List<String> selectListAutoSearch(String searchNm) throws Exception{
+		return mobileSearchDao.selectListAutoSearch(searchNm);
+	}
+	
+	public List<Map<String, Object>> selectListProdAll(Map<String, Object> inParam) throws Exception{
+		return mobileSearchDao.selectListProdAll(inParam);
+	}
+	
+	public int insertWantProd(Map<String, Object> inParam) throws Exception{
+		return mobileSearchDao.insertWantProd(inParam);
+	}
+	
+//	--------------------------------------------------------------------------------------------------------------------
+	
+}

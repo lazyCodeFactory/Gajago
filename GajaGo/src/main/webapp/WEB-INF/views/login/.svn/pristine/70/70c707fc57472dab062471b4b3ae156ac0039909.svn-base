@@ -1,0 +1,1815 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="adminMberMapper">
+
+	<sql id="SearchMberEx">
+	<!-- 판매횟수 -->
+		<if test="sellCnt1 != null and sellCnt1 != ''">
+			AND SELL_CNT &gt;= TO_NUMBER(#{sellCnt1})
+		</if>
+		<if test="sellCnt1 != null and sellCnt2 != ''">
+			AND SELL_CNT <![CDATA[<=]]> TO_NUMBER(#{sellCnt2})
+		</if>
+		<!-- 판매금액 -->
+		<if test="sellPrce1 != null and sellPrce1 != ''">
+			AND SELL_PRCE &gt;= TO_NUMBER(#{sellPrce1})
+		</if>
+		<if test="sellPrce1 != null and sellPrce2 != ''">
+			AND SELL_PRCE <![CDATA[<=]]> TO_NUMBER(#{sellPrce2})
+		</if>
+		<!-- 주문횟수 -->
+		<if test="buyCnt1 != null and buyCnt1 != ''">
+			AND BUY_CNT &gt;= TO_NUMBER(#{buyCnt1})
+		</if>
+		<if test="buyCnt1 != null and buyCnt2 != ''">
+			AND BUY_CNT <![CDATA[<=]]> TO_NUMBER(#{buyCnt2})
+		</if>
+		<!-- 주문금액 -->
+		<if test="buyPrce1 != null and buyPrce1 != ''">
+			AND BUY_PRCE &gt;= TO_NUMBER(#{buyPrce1})
+		</if>
+		<if test="buyPrce1 != null and buyPrce2 != ''">
+			AND BUY_PRCE <![CDATA[<=]]> TO_NUMBER(#{buyPrce2})
+		</if>
+	</sql>
+	<!-- 검색조건 -->
+	<sql id="SearchMber">
+		<if test="regToDate != '' and regFromDate != ''">
+			<!-- 기간 -->
+			<if test="searchDateGb != null and searchDateGb == 1">
+	         AND (TO_DATE(#{regToDate},'YYYYMMDD')+1 &gt; A.REGIST_DT AND A.REGIST_DT &gt;= TO_DATE(#{regFromDate},'YYYYMMDD'))
+			</if>
+			<if test="searchDateGb != null and searchDateGb == 2">
+	         AND (TO_DATE(#{regToDate},'YYYYMMDD')+1 &gt; B.LASTEST_LOGIN_TIME AND B.LASTEST_LOGIN_TIME &gt;= TO_DATE(#{regFromDate},'YYYYMMDD'))
+			</if>
+		</if>
+
+		<!-- 아이디 -->
+		<if test="searchId != null and searchId != ''">
+			AND (
+					A.MBER_EMAIL LIKE '%${searchId}%'
+					OR A.MBER_NICK LIKE '%${searchId}%'
+					OR A.MBER_PHONE LIKE '%${searchId}%'
+					OR A.MBER_NM LIKE '%${searchId}%'
+
+					OR CFG.BANK_ACNT_NO = #{searchId}	/* 계좌번호 */
+					OR CFG.CMPNY_NO = #{searchId}		/* 사업자 번호 */
+				)
+		</if>
+		<!-- 회사명 -->
+		<if test="cmpnyNm != null and cmpnyNm != ''">
+			AND CFG.CMPNY_NM LIKE '%${cmpnyNm}%'
+		</if>
+
+		<!-- 가입채널 -->
+		<if test="joinChanCd != null and joinChanCd.length > 0">
+         AND A.JOIN_CHAN_CD IN
+         	<foreach item="item" index="index" collection="joinChanCd" open="(" separator="," close=")">
+				#{item}
+			</foreach>
+		</if>
+		<!-- 가입경로 -->
+		<if test="joinPathCd != null and joinPathCd != ''">
+		AND A.JOIN_PATH_CD = #{joinPathCd}
+		</if>
+		<!-- 회원구분 -->
+		<if test="mberGbCd != null and mberGbCd.length > 0">
+         AND A.MBER_GB_CD IN
+         	<foreach item="item" index="index" collection="mberGbCd" open="(" separator="," close=")">
+				#{item}
+			</foreach>
+		</if>
+		<!-- 가입구분 -->
+		<if test="mberRegGbCd != null and mberRegGbCd.length > 0">
+         AND A.MBER_REG_GB_CD IN
+         	<foreach item="item" index="index" collection="mberRegGbCd" open="(" separator="," close=")">
+				#{item}
+			</foreach>
+		</if>
+
+		<if test="MBER_PHONE != null and MBER_PHONE != ''">
+			AND A.MBER_PHONE = #{MBER_PHONE}
+		</if>
+
+		<!-- 접속횟수 -->
+		<if test="connCnt1 != null and connCnt1 != ''">
+			AND C.CONN_CNT &gt;= #{connCnt1}
+		</if>
+		<if test="connCnt1 != null and connCnt2 != ''">
+			AND C.CONN_CNT <![CDATA[<=]]> #{connCnt2}
+		</if>
+		<!-- 가입상태 -->
+		<if test="mberStatCd != null and mberStatCd.length > 0">
+         AND A.MBER_STAT_CD IN
+         	<foreach item="item" index="index" collection="mberStatCd" open="(" separator="," close=")">
+				#{item}
+			</foreach>
+		</if>
+	</sql>
+
+	<select id="selectMberTotalCnt" parameterType="hashmap" resultType="hashmap">
+	SELECT CNT_1
+	     , CNT_2
+	     , CNT_3
+	     , CNT_4
+	     , (CNT_1+CNT_2 ) AS MBER_GB_0_CNT
+	     , (CNT_3+CNT_4 ) AS MBER_GB_1_CNT
+	     , (CNT_2+CNT_4 ) AS MBER_REG_GB_1_CNT
+	     , (CNT_1+CNT_3 ) AS MBER_REG_GB_0_CNT
+	     , (CNT_1+CNT_2+CNT_3+CNT_4 ) AS TOTAL_CNT
+	  FROM (SELECT NVL(MAX(CASE WHEN MBER_GB_CD = 0 AND MBER_REG_GB_CD = 0 THEN COUNT(MBER_SEQ) END), 0) CNT_1
+	             , NVL(MAX(CASE WHEN MBER_GB_CD = 0 AND MBER_REG_GB_CD = 1 THEN COUNT(MBER_SEQ) END), 0) CNT_2
+	             , NVL(MAX(CASE WHEN MBER_GB_CD = 1 AND MBER_REG_GB_CD = 0 THEN COUNT(MBER_SEQ) END), 0) CNT_3
+	             , NVL(MAX(CASE WHEN MBER_GB_CD = 1 AND MBER_REG_GB_CD = 1 THEN COUNT(MBER_SEQ) END), 0) CNT_4
+	         FROM MBER_INFO
+	        GROUP BY MBER_GB_CD
+	            , MBER_REG_GB_CD)
+	</select>
+
+	<select id="selectMberSearchCnt" parameterType="hashmap" resultType="int">
+<!--
+		SELECT COUNT(MBER_SEQ) AS CNT
+		  FROM (
+		       SELECT A.MBER_SEQ
+		            , TO_CHAR(A.REGIST_DT, 'YYYY-MM-DD HH24:MI') AS REGIST_DT
+		            , NVL(TO_CHAR(B.LASTEST_LOGIN_TIME, 'YYYY-MM-DD HH24:MI'), '-') AS LASTEST_LOGIN_TIME
+		            , A.MBER_EMAIL
+		            , A.SSO_GB_CD
+		            , JCC.COM_CD_NM AS JOIN_CHAN_NM 			/* 가입채널 */
+		            , NVL(JPC.COM_CD_NM, '-') AS JOIN_PATH_NM 	/* 가입경로 */
+		            , MGC.COM_CD_NM AS MBER_GB_NM 				/* 회원구분 */
+		            , MRGC.COM_CD_NM AS MBER_REG_GB_NM 			/* 가입구분 */
+		            , C.CONN_CNT 								/* 접속횟수 */
+	                      , NVL(TT.SALES_CNT, 0) AS BUY_CNT                         /* 구매횟수 */
+	                      , NVL(TT.SALES_PRCE, 0) AS BUY_PRCE                       /* 구매금액 */
+	                      , NVL(TT.SELL_CNT, 0) AS SELL_CNT                         /* 판매횟수 */
+	                      , NVL(TT.SELL_PRCE, 0) AS SELL_PRCE                       /* 판매횟수 */
+		            , NVL(MSC.COM_CD_NM, '-') AS MBER_STAT_NM 	/* 가입상태 */
+	                , A.MBER_NICK
+		            , A.MBER_PHONE
+		            , A.MBER_NM
+		            , CFG.CMPNY_NM
+		         FROM MBER_INFO A LEFT OUTER JOIN (
+		              SELECT MBER_SEQ
+		                   , MAX(LAST_ACC_DT) AS LASTEST_LOGIN_TIME
+		                FROM MBER_CON_DEV
+		               GROUP BY MBER_SEQ
+		            ) B ON A.MBER_SEQ = B.MBER_SEQ
+	                      LEFT OUTER JOIN SELLER_INFO_CFG CFG ON CFG.MBER_SEQ = A.MBER_SEQ
+		            	  LEFT OUTER JOIN MBER_DTL_INFO C ON A.MBER_SEQ = C.MBER_SEQ
+	                      LEFT OUTER JOIN CODE JCC ON JCC.COM_CD = A.JOIN_CHAN_CD
+		          AND JCC.GRP_CD = 'JOIN_CHAN_CD' LEFT OUTER JOIN CODE JPC ON JPC.COM_CD = A.JOIN_PATH_CD
+		          AND JPC.GRP_CD = 'JOIN_PATH_CD' LEFT OUTER JOIN CODE MGC ON MGC.COM_CD = A.MBER_GB_CD
+		          AND MGC.GRP_CD = 'MBER_GB_CD' LEFT OUTER JOIN CODE MRGC ON MRGC.COM_CD = A.MBER_REG_GB_CD
+		          AND MRGC.GRP_CD = 'MBER_REG_GB_CD' LEFT OUTER JOIN CODE MSC ON MSC.COM_CD = A.MBER_STAT_CD
+		          AND MSC.GRP_CD = 'MBER_STAT_CD'
+	                    LEFT OUTER JOIN (
+	          		SELECT Z.MBER_SEQ
+	          		     , COUNT(Z.PROD_CODE) AS SALES_CNT
+	          		     , SUM(Z.SELL_PRCE + Z.OPT_PRCE_SUM) AS SALES_PRCE
+	          		     , SUM(NVL(Y.REG_CNT, 0)) AS SELL_CNT
+	          		     , SUM(NVL(Y.SELL_PRCE, 0)) AS SELL_PRCE
+	          		  FROM (
+	          		       SELECT P.PROD_TYPE_CD
+	          		            , P.MBER_SEQ
+	          		            , P.PROD_CODE AS PROD_CODE
+	          		            , NVL(P.SELL_PRCE, 0) * NVL(OPI.ORD_QTY, 0) AS SELL_PRCE
+	          		            , NVL(OPOI.OPT_PRCE_SUM, 0) AS OPT_PRCE_SUM
+	          		            , TO_CHAR(OI.REGIST_DT, 'YYYYMMDD') AS SALES_YYMMDD
+	          		         FROM ORD_INFO OI JOIN ORD_PROD_INFO OPI ON OI.ORD_CD = OPI.ORD_CD JOIN PROD_BUY_CONF_INFO PBCI ON OPI.ORD_CD = PBCI.ORD_CD
+	          		          AND OPI.PROD_CODE = PBCI.PROD_CODE
+	          		          AND OPI.PROD_SEQ = PBCI.PROD_SEQ JOIN PROD P ON OPI.PROD_CODE = P.PROD_CODE LEFT OUTER JOIN (
+	          		              SELECT OPOI.ORD_CD
+	          		                   , OPOI.PROD_CODE
+	          		                   , OPOI.PROD_SEQ
+	          		                   , SUM(OPOI.OPT_QTY * PO.OPT_PRCE) AS OPT_PRCE_SUM
+	          		                FROM ORD_PROD_OPT_INFO OPOI JOIN PROD_OPT PO ON OPOI.PROD_CODE = PO.PROD_CODE
+	          		                 AND OPOI.OPT_CD = PO.OPT_CD
+	          		               GROUP BY OPOI.ORD_CD
+	          		                   , OPOI.PROD_CODE
+	          		                   , OPOI.PROD_SEQ
+	          		            ) OPOI ON OPOI.ORD_CD = OPI.ORD_CD
+	          		          AND OPOI.PROD_CODE = OPI.PROD_CODE
+	          		          AND OPOI.PROD_SEQ = OPI.PROD_SEQ LEFT OUTER JOIN ORD_CANC_INFO OCI ON OPI.CANC_CD = OCI.CANC_CD
+	          		        WHERE PBCI.CONF_GB = 'Y'
+	          		          AND OPI.CANC_CD IS NULL
+	          		     ) Z LEFT OUTER JOIN (
+	                                         SELECT B.MBER_SEQ
+	                                         	  , COUNT(B.PROD_CODE) AS REG_CNT
+	                                              , SUM(NVL(B.PROD_PRCE, 0)) AS SELL_PRCE
+	                                              , TO_CHAR(B.REGIST_DT, 'YYYYMMDD') SALES_YYMMDD
+	                                           FROM  PROD A,  ORD_PROD_INFO B
+	                                           WHERE A.PROD_CODE = B.PROD_CODE
+	                                          GROUP BY B.MBER_SEQ, TO_CHAR(B.REGIST_DT, 'YYYYMMDD')
+	          		     ) Y ON Z.MBER_SEQ = Y.MBER_SEQ
+	          		   AND Z.SALES_YYMMDD = Y.SALES_YYMMDD
+	          		 GROUP BY Z.MBER_SEQ
+	                    ) TT ON A.MBER_SEQ =TT.MBER_SEQ
+		        WHERE 1 = 1
+	                  <include refid="SearchMber" />
+		     ) Z
+		 WHERE 1 = 1
+-->
+
+SELECT COUNT(MBER_SEQ) AS CNT
+	  FROM (
+	       SELECT A.MBER_SEQ
+	            , TO_CHAR(A.REGIST_DT, 'YYYY-MM-DD HH24:MI') AS REGIST_DT
+	            , NVL(TO_CHAR(A.LAST_LOGIN_DT, 'YYYY-MM-DD HH24:MI'), '-') AS LASTEST_LOGIN_TIME
+	            , A.MBER_EMAIL
+	            , A.SSO_GB_CD
+	            , A.MBER_REG_GB_CD
+	            , JCC.COM_CD_NM AS JOIN_CHAN_NM 			/* 가입채널 */
+	            , NVL(JPC.COM_CD_NM, '-') AS JOIN_PATH_NM 	/* 가입경로 */
+	            , MGC.COM_CD_NM AS MBER_GB_NM 				/* 회원구분 */
+	            , MRGC.COM_CD_NM AS MBER_REG_GB_NM 			/* 가입구분 */
+	            , C.CONN_CNT 								/* 접속횟수 */
+                , NVL(Z.SALES_CNT, 0) AS BUY_CNT     /* 주문횟수 */
+                , NVL(Z.SALES_PRCE, 0) AS BUY_PRCE   /* 주문금액 */
+                , NVL(TT.SELL_CNT, 0) AS SELL_CNT     /* 판매횟수 */
+                , NVL(TT.SELL_PRCE, 0) AS SELL_PRCE   /* 판매횟수 */
+	            , NVL(MSC.COM_CD_NM, '-') AS MBER_STAT_NM 	/* 가입상태 */
+                , A.MBER_NICK	/* 닉네임 */
+	            , A.MBER_PHONE  /* 전화번호 */
+	            , A.MBER_NM		/* 회원명 */
+	            , CFG.CMPNY_NM  /* 회사명 */
+	            , CFG.BANK_ACNT_NO  /* [2015-11-24] ROCOKANG >>> 은행 계좌번호 */
+                , CFG.ACNT_NM       /* [2015-11-24] ROCOKANG >>> 예금주 이름 */
+              	, CFG.BANK_NM       /* [2015-11-24] ROCOKANG >>> 은행명 */
+              	, CFG.CMPNY_NO      /* [2015-11-24] ROCOKANG 사업자 등록번호 */
+              	, MINI_SHOP_NM      /* [2015-11-24] ROCOKANG */
+              	, (CASE WHEN CFG.BANK_ACNT_NO IS NOT NULL THEN CFG.BANK_NM || '|' || CFG.ACNT_NM || '|' || CFG.BANK_ACNT_NO ELSE '' END) AS FULL_ACNT_DATA
+	         FROM MBER_INFO A LEFT OUTER JOIN (
+	              SELECT MBER_SEQ
+	                   , MAX(LAST_ACC_DT) AS LASTEST_LOGIN_TIME
+	                FROM MBER_CON_DEV
+	               GROUP BY MBER_SEQ
+	            ) B ON A.MBER_SEQ = B.MBER_SEQ
+                      LEFT OUTER JOIN SELLER_INFO_CFG CFG ON CFG.MBER_SEQ = A.MBER_SEQ
+	            	  LEFT OUTER JOIN MBER_DTL_INFO C ON A.MBER_SEQ = C.MBER_SEQ
+	            	  LEFT OUTER JOIN CODE JCC ON JCC.COM_CD = A.JOIN_CHAN_CD
+	          AND JCC.GRP_CD = 'JOIN_CHAN_CD' LEFT OUTER JOIN CODE JPC ON JPC.COM_CD = A.JOIN_PATH_CD
+	          AND JPC.GRP_CD = 'JOIN_PATH_CD' LEFT OUTER JOIN CODE MGC ON MGC.COM_CD = A.MBER_GB_CD
+	          AND MGC.GRP_CD = 'MBER_GB_CD' LEFT OUTER JOIN CODE MRGC ON MRGC.COM_CD = A.MBER_REG_GB_CD
+	          AND MRGC.GRP_CD = 'MBER_REG_GB_CD' LEFT OUTER JOIN CODE MSC ON MSC.COM_CD = A.MBER_STAT_CD
+	          AND MSC.GRP_CD = 'MBER_STAT_CD' LEFT OUTER JOIN (
+					SELECT SUM(NVL(SALES_PRCE, 0)) AS SALES_PRCE
+					     , SUM(NVL(SALES_CNT, 0)) AS SALES_CNT
+					     , MBER_SEQ AS MBER_SEQ
+					     FROM (
+					SELECT SUM(NVL(A.REAL_SELT_AMT, 0)) AS SALES_PRCE /*주문금액*/
+					     , COUNT(A.MBER_SEQ) AS SALES_CNT /*주문횟수*/
+					     , A.MBER_SEQ /*주문자*/
+					  FROM ORD_INFO A
+					     , ORD_PROD_INFO B
+					 WHERE A.ORD_CD = B.ORD_CD
+					   AND B.PROC_STAT_CD != '15' 	/* 가결제 데이터 제거 */
+					   AND B.PROD_TYPE_CD = '1'		/* 판매 */
+					   AND B.PROC_STAT_CD = '99' 	/* 구매완료 */
+					 GROUP BY A.MBER_SEQ
+					 UNION ALL
+					SELECT SUM(SALES_PRCE) AS SALES_PRCE, COUNT(SALES_CNT) AS SALES_CNT, MBER_SEQ FROM (
+					SELECT CASE WHEN (B.PROC_STAT_CD = '89' OR B.PROC_STAT_CD = '92' ) THEN NVL(A.REAL_SELT_AMT, 0) - B.SHAR_RETURN_MONEY ELSE NVL(A.REAL_SELT_AMT, 0) END AS SALES_PRCE /*주문금액*/
+					     , A.MBER_SEQ AS SALES_CNT /* 주문횟수 */
+					     , A.MBER_SEQ /*주문자*/
+					  FROM ORD_INFO A
+					     , (
+					       SELECT P.ORD_CD
+					            , Q.PROD_CODE
+					            , (T.DEPOSIT+DECODE (S.MBER_GB_CD, 0, 0, 1, NVL(T.SHARING_PRICE, 0) * Q.SHARE_TERM ) ) * Q.ORD_QTY +NVL (Q.DLV_PRCE, 0 ) -NVL (Q.CPN_USE_AMT, 0 ) AS SALES_PRCE
+					            , P.MBER_SEQ
+					            , CASE WHEN P.DLV_END_DT IS NULL THEN 0 WHEN P.PROC_STAT_CD = '89' AND P.DLV_END_DT IS NOT NULL THEN NVL(T.DEPOSIT, 0) * NVL(Q.ORD_QTY, 0) - (NVL(T.SHARING_PRICE, 0) * (TRUNC(J.REGIST_DT) - TRUNC(P.DLV_END_DT) + 1 ) * NVL(Q.ORD_QTY, 0) ) WHEN P.PROC_STAT_CD = '92' AND P.DLV_END_DT IS NOT NULL THEN ( (T.DEPOSIT+ (NVL(T.SHARING_PRICE, 0) * Q.SHARE_TERM ) ) *Q.ORD_QTY ) - (NVL(T.SHARING_PRICE, 0) * (TRUNC(J.REGIST_DT) - TRUNC(P.DLV_END_DT) + 1 ) * NVL(Q.ORD_QTY, 0) ) ELSE 0 END AS SHAR_RETURN_MONEY
+					            , P.PROC_STAT_CD
+					         FROM (
+					              SELECT TB.*
+					                FROM (
+					                     SELECT S.ORD_CD
+					                          , S.MBER_SEQ
+					                          , S.DLV_END_DT
+					                          , S.PROC_STAT_CD
+					                       FROM (
+					                            SELECT A.ORD_CD
+					                                 , A.SELT_GB_CD
+					                                 , A.CREDIT_APPR_NO
+					                                 , A.MBER_SEQ
+					                                 , A.DLV_END_DT
+					                                 , A.PROC_STAT_CD
+					                              FROM (
+					                                   SELECT OI.ORD_CD
+					                                        , OI.SELT_GB_CD
+					                                        , OI.CREDIT_APPR_NO
+					                                        , CASE WHEN OPI.PROC_STAT_CD = '85' AND TRUNC(SYSDATE) - TRUNC(II.DLV_END_DT + OPI.SHARE_TERM -1) > 0 THEN '86' ELSE OPI.PROC_STAT_CD END AS PROC_STAT_CD
+					                                        , OI.MBER_SEQ
+					                                        , II.DLV_END_DT
+					                                     FROM ORD_INFO OI
+					                                        , ORD_PROD_INFO OPI
+					                                        , INVC_INFO II
+					                                    WHERE OI.ORD_CD = OPI.ORD_CD
+					                                      AND OPI.ORD_CD = II.ORD_CD (+)
+					                                      AND OPI.PROD_CODE = II.PROD_CODE (+)
+					                                      AND OPI.PROD_SEQ = II.PROD_SEQ (+)
+					                                      AND OPI.PROD_TYPE_CD = '2'
+					                                      AND OPI.PROC_STAT_CD != '15'
+					                                 ) A, ORD_PROD_INFO B, PROD C, MBER_INFO D
+					                             WHERE A.ORD_CD = B.ORD_CD
+					                               AND A.PROC_STAT_CD IN ('86', '89', '92' )
+					                               AND B.PROD_CODE = C.PROD_CODE
+					                               AND C.MBER_SEQ = D.MBER_SEQ
+					                          ) S
+					                      GROUP BY S.ORD_CD, S.SELT_GB_CD, S.CREDIT_APPR_NO, S.MBER_SEQ, S.DLV_END_DT, S.PROC_STAT_CD
+					                   ) TB
+					            ) P, ORD_PROD_INFO Q, PROD R, MBER_INFO S, PROD_SHARING T, (
+					              SELECT TC.*
+					                   , TD.DLV_END_DT
+					                FROM (
+					                     SELECT TA.CHG_CD
+					                          , TB.ORD_CD
+					                          , TB.PROD_CODE
+					                          , TB.PROD_SEQ
+					                          , TB.REGIST_DT
+					                       FROM CHG_RTN_PROC_INFO TA
+					                          , CHG_PROD_INFO TB
+					                      WHERE TA.CHG_CD = TB.CHG_CD
+					                   ) TC LEFT OUTER JOIN CHG_INVC_INFO TD ON TC.ORD_CD = TD.ORD_CD
+					                 AND TC.CHG_CD = TD.CHG_CD
+					                 AND TC.PROD_CODE = TD.PROD_CODE
+					                 AND TC.PROD_SEQ = TD.PROD_SEQ
+					            ) J
+					        WHERE P.ORD_CD = Q.ORD_CD
+					          AND Q.PROD_CODE = R.PROD_CODE
+					          AND R.MBER_SEQ = S.MBER_SEQ
+					          AND Q.PROD_CODE = T.PROD_CODE
+					          /*AND Q.PROD_CODE = J.PROD_CODE(+)
+					          AND Q.PROD_SEQ = J.PROD_SEQ(+) */
+                              AND P.ORD_CD = J.ORD_CD(+)
+					     ) B
+					 WHERE A.ORD_CD = B.ORD_CD /* AND B.PROC_STAT_CD IN ('86', '89', '92') */
+					 ) GROUP BY MBER_SEQ
+					 UNION ALL
+					 SELECT SUM(NVL(A.REAL_SELT_AMT, 0)) AS SALES_PRCE /*주문금액*/
+					     , COUNT(A.MBER_SEQ) AS SALES_CNT /*주문횟수*/
+					     , A.MBER_SEQ /*주문자*/
+					  FROM ORD_INFO A
+					     , ORD_PROD_INFO B
+					 WHERE A.ORD_CD = B.ORD_CD
+					   AND B.PROC_STAT_CD != '15' 	/*가결제 데이터 제거*/
+					   AND B.PROD_TYPE_CD = '4'		/* 스마트폰셰어링 */
+					   AND B.PROC_STAT_CD ='92'
+					 GROUP BY A.MBER_SEQ) GROUP BY MBER_SEQ
+          		     ) Z ON Z.MBER_SEQ = A.MBER_SEQ LEFT OUTER JOIN (
+						SELECT SUM(NVL(SELL_PRCE, 0)) AS SELL_PRCE
+						     , SUM(NVL(SELL_CNT, 0)) AS SELL_CNT
+						     , MBER_SEQ AS MBER_SEQ FROM (
+						/* SELECT SUM( (NVL(B.PROD_PRCE, 0) * NVL(B.ORD_QTY, 0) ) - NVL(B.CPN_USE_AMT, 0)) AS SELL_PRCE 판매금액*/
+						SELECT SUM(NVL(A.REAL_SELT_AMT, 0)) AS SELL_PRCE /*판매금액*/
+						     , COUNT(B.MBER_SEQ) AS SELL_CNT /*판매횟수*/
+						     , C.MBER_SEQ /*판매자*/
+						  FROM ORD_INFO A
+						     , ORD_PROD_INFO B
+						     , PROD C
+						 WHERE A.ORD_CD = B.ORD_CD /* 주문코드 수정 */
+						   AND B.PROD_CODE = C.PROD_CODE
+						   AND B.PROC_STAT_CD != '15' 	/*가결제 데이터 제거*/
+						   AND B.PROD_TYPE_CD = '1'		/* 판매 */
+						   AND B.PROC_STAT_CD = '99' 	/* 구매완료 */
+						 GROUP BY C.MBER_SEQ
+						 UNION ALL
+						SELECT SUM(A.REAL_SELT_AMT) AS SELL_PRCE /*판매금액*/
+						     , COUNT(B.MBER_SEQ) AS SELL_CNT /*판매횟수*/
+						     , C.MBER_SEQ /*판매자*/
+						  FROM ORD_INFO A
+							 , (SELECT P.ORD_CD
+							 	     , Q.PROD_CODE
+							     	 , (T.DEPOSIT+DECODE (S.MBER_GB_CD, 0, 0, 1, NVL(T.SHARING_PRICE, 0) * Q.SHARE_TERM ) ) * Q.ORD_QTY +NVL (Q.DLV_PRCE, 0 ) -NVL (Q.CPN_USE_AMT, 0 ) AS SELL_PRCE
+							     	 , P.MBER_SEQ
+							  	  FROM (SELECT TB.*
+							      		  FROM (SELECT S.ORD_CD, S.MBER_SEQ
+							            	      FROM (SELECT A.ORD_CD
+							                	             , A.SELT_GB_CD
+							                    	         , A.CREDIT_APPR_NO
+							                        	     , A.MBER_SEQ
+							                          	  FROM (SELECT OI.ORD_CD
+							                              	         , OI.SELT_GB_CD
+							                                  	     , OI.CREDIT_APPR_NO
+							                                     	 , CASE WHEN OPI.PROC_STAT_CD = '85' AND TRUNC(SYSDATE) - TRUNC(II.DLV_END_DT + OPI.SHARE_TERM -1) > 0 THEN '86' ELSE OPI.PROC_STAT_CD END AS PROC_STAT_CD
+							                                     	 , OI.MBER_SEQ
+							                                  	  FROM ORD_INFO OI
+							                                     	 , ORD_PROD_INFO OPI
+							                                     	 , INVC_INFO II
+							                             		 WHERE OI.ORD_CD = OPI.ORD_CD
+							                               		   AND OPI.ORD_CD = II.ORD_CD (+)
+							                               		   AND OPI.PROD_CODE = II.PROD_CODE (+)
+							                               		   AND OPI.PROD_SEQ = II.PROD_SEQ (+)
+							                               		   AND OPI.PROD_TYPE_CD = '2'
+							                               		   AND OPI.PROC_STAT_CD != '15'
+							                          			) A, ORD_PROD_INFO B, PROD C, MBER_INFO D
+							                      			WHERE A.ORD_CD = B.ORD_CD
+							                        		  AND A.PROC_STAT_CD IN ('86', '89', '92')
+							                        		  AND B.PROD_CODE = C.PROD_CODE
+							                        		  AND C.MBER_SEQ = D.MBER_SEQ) S
+							               			GROUP BY S.ORD_CD, S.SELT_GB_CD, S.CREDIT_APPR_NO, S.MBER_SEQ
+							            			) TB) P, ORD_PROD_INFO Q, PROD R, MBER_INFO S, PROD_SHARING T
+							 					WHERE P.ORD_CD = Q.ORD_CD
+							   					  AND Q.PROD_CODE = R.PROD_CODE
+							   					  AND R.MBER_SEQ = S.MBER_SEQ
+							   					  AND Q.PROD_CODE = T.PROD_CODE) B
+						     , PROD C
+						 WHERE A.ORD_CD = B.ORD_CD /* 주문코드 수정 */
+						   AND B.PROD_CODE = C.PROD_CODE
+						   /* AND B.PROC_STAT_CD IN ('86', '89', '92') */
+						 GROUP BY C.MBER_SEQ
+						 )
+						 GROUP BY MBER_SEQ
+          		     ) TT ON TT.MBER_SEQ =A.MBER_SEQ
+                 LEFT OUTER JOIN MBER_MINI_SHOP_INFO MINI ON CFG.MBER_SEQ = MINI.MBER_SEQ    /* [2015-11-24] ROCOKANG */
+	        WHERE 1 = 1
+	        <include refid="SearchMber" />
+	     ) Z
+	 WHERE 1 = 1
+	 <include refid="SearchMberEx" />
+	</select>
+
+	<!-- 멤버리스트 기본SQL -->
+	<sql id="mberBaseSql">
+
+	/* 멤버리스트 기본 SQL */
+	SELECT Z.*
+         , ROW_NUMBER ( ) OVER ( ORDER BY REGIST_DT DESC ) AS NO
+	  FROM (
+	       SELECT A.MBER_SEQ
+	            , TO_CHAR(A.REGIST_DT, 'YYYY-MM-DD HH24:MI') AS REGIST_DT
+	            , NVL(TO_CHAR(A.LAST_LOGIN_DT, 'YYYY-MM-DD HH24:MI'), '-') AS LASTEST_LOGIN_TIME
+	            , A.MBER_EMAIL
+	            , A.SSO_GB_CD
+	            , A.MBER_REG_GB_CD
+	            , JCC.COM_CD_NM AS JOIN_CHAN_NM 			/* 가입채널 */
+	            , NVL(JPC.COM_CD_NM, '-') AS JOIN_PATH_NM 	/* 가입경로 */
+	            , MGC.COM_CD_NM AS MBER_GB_NM 				/* 회원구분 */
+	            , MRGC.COM_CD_NM AS MBER_REG_GB_NM 			/* 가입구분 */
+	            , C.CONN_CNT 								/* 접속횟수 */
+                , NVL(Z.SALES_CNT, 0) AS BUY_CNT     /* 주문횟수 */
+                , NVL(Z.SALES_PRCE, 0) AS BUY_PRCE   /* 주문금액 */
+                , NVL(TT.SELL_CNT, 0) AS SELL_CNT     /* 판매횟수 */
+                , NVL(TT.SELL_PRCE, 0) AS SELL_PRCE   /* 판매횟수 */
+	            , NVL(MSC.COM_CD_NM, '-') AS MBER_STAT_NM 	/* 가입상태 */
+                , A.MBER_NICK	/* 닉네임 */
+	            , A.MBER_PHONE  /* 전화번호 */
+	            , A.MBER_NM		/* 회원명 */
+	            , CFG.CMPNY_NM  /* 회사명 */
+	            , CFG.BANK_ACNT_NO  /* [2015-11-24] ROCOKANG >>> 은행 계좌번호 */
+                , CFG.ACNT_NM       /* [2015-11-24] ROCOKANG >>> 예금주 이름 */
+              	, CFG.BANK_NM       /* [2015-11-24] ROCOKANG >>> 은행명 */
+              	, CFG.CMPNY_NO      /* [2015-11-24] ROCOKANG 사업자 등록번호 */
+              	, MINI_SHOP_NM      /* [2015-11-24] ROCOKANG */
+              	, (CASE WHEN CFG.BANK_ACNT_NO IS NOT NULL THEN CFG.BANK_NM || '|' || CFG.ACNT_NM || '|' || CFG.BANK_ACNT_NO ELSE '' END) AS FULL_ACNT_DATA
+	         FROM MBER_INFO A LEFT OUTER JOIN (
+	              SELECT MBER_SEQ
+	                   , MAX(LAST_ACC_DT) AS LASTEST_LOGIN_TIME
+	                FROM MBER_CON_DEV
+	               GROUP BY MBER_SEQ
+	            ) B ON A.MBER_SEQ = B.MBER_SEQ
+                      LEFT OUTER JOIN SELLER_INFO_CFG CFG ON CFG.MBER_SEQ = A.MBER_SEQ
+	            	  LEFT OUTER JOIN MBER_DTL_INFO C ON A.MBER_SEQ = C.MBER_SEQ
+	            	  LEFT OUTER JOIN CODE JCC ON JCC.COM_CD = A.JOIN_CHAN_CD
+	          AND JCC.GRP_CD = 'JOIN_CHAN_CD' LEFT OUTER JOIN CODE JPC ON JPC.COM_CD = A.JOIN_PATH_CD
+	          AND JPC.GRP_CD = 'JOIN_PATH_CD' LEFT OUTER JOIN CODE MGC ON MGC.COM_CD = A.MBER_GB_CD
+	          AND MGC.GRP_CD = 'MBER_GB_CD' LEFT OUTER JOIN CODE MRGC ON MRGC.COM_CD = A.MBER_REG_GB_CD
+	          AND MRGC.GRP_CD = 'MBER_REG_GB_CD' LEFT OUTER JOIN CODE MSC ON MSC.COM_CD = A.MBER_STAT_CD
+	          AND MSC.GRP_CD = 'MBER_STAT_CD' LEFT OUTER JOIN (
+					SELECT SUM(NVL(SALES_PRCE, 0)) AS SALES_PRCE
+					     , SUM(NVL(SALES_CNT, 0)) AS SALES_CNT
+					     , MBER_SEQ AS MBER_SEQ
+					     FROM (
+					SELECT SUM(NVL(A.REAL_SELT_AMT, 0)) AS SALES_PRCE /*주문금액*/
+					     , COUNT(A.MBER_SEQ) AS SALES_CNT /*주문횟수*/
+					     , A.MBER_SEQ /*주문자*/
+					  FROM ORD_INFO A
+					     , ORD_PROD_INFO B
+					 WHERE A.ORD_CD = B.ORD_CD
+					   AND B.PROC_STAT_CD != '15' 	/* 가결제 데이터 제거 */
+					   AND B.PROD_TYPE_CD = '1'		/* 판매 */
+					   AND B.PROC_STAT_CD = '99' 	/* 구매완료 */
+					 GROUP BY A.MBER_SEQ
+					 UNION ALL
+					SELECT SUM(SALES_PRCE) AS SALES_PRCE, COUNT(SALES_CNT) AS SALES_CNT, MBER_SEQ FROM (
+					SELECT CASE WHEN (B.PROC_STAT_CD = '89' OR B.PROC_STAT_CD = '92' ) THEN NVL(A.REAL_SELT_AMT, 0) - B.SHAR_RETURN_MONEY ELSE NVL(A.REAL_SELT_AMT, 0) END AS SALES_PRCE /*주문금액*/
+					     , A.MBER_SEQ AS SALES_CNT /* 주문횟수 */
+					     , A.MBER_SEQ /*주문자*/
+					  FROM ORD_INFO A
+					     , (
+					       SELECT P.ORD_CD
+					            , Q.PROD_CODE
+					            , (T.DEPOSIT+DECODE (S.MBER_GB_CD, 0, 0, 1, NVL(T.SHARING_PRICE, 0) * Q.SHARE_TERM ) ) * Q.ORD_QTY +NVL (Q.DLV_PRCE, 0 ) -NVL (Q.CPN_USE_AMT, 0 ) AS SALES_PRCE
+					            , P.MBER_SEQ
+					            , CASE WHEN P.DLV_END_DT IS NULL THEN 0 WHEN P.PROC_STAT_CD = '89' AND P.DLV_END_DT IS NOT NULL THEN NVL(T.DEPOSIT, 0) * NVL(Q.ORD_QTY, 0) - (NVL(T.SHARING_PRICE, 0) * (TRUNC(J.REGIST_DT) - TRUNC(P.DLV_END_DT) + 1 ) * NVL(Q.ORD_QTY, 0) ) WHEN P.PROC_STAT_CD = '92' AND P.DLV_END_DT IS NOT NULL THEN ( (T.DEPOSIT+ (NVL(T.SHARING_PRICE, 0) * Q.SHARE_TERM ) ) *Q.ORD_QTY ) - (NVL(T.SHARING_PRICE, 0) * (TRUNC(J.REGIST_DT) - TRUNC(P.DLV_END_DT) + 1 ) * NVL(Q.ORD_QTY, 0) ) ELSE 0 END AS SHAR_RETURN_MONEY
+					            , P.PROC_STAT_CD
+					         FROM (
+					              SELECT TB.*
+					                FROM (
+					                     SELECT S.ORD_CD
+					                          , S.MBER_SEQ
+					                          , S.DLV_END_DT
+					                          , S.PROC_STAT_CD
+					                       FROM (
+					                            SELECT A.ORD_CD
+					                                 , A.SELT_GB_CD
+					                                 , A.CREDIT_APPR_NO
+					                                 , A.MBER_SEQ
+					                                 , A.DLV_END_DT
+					                                 , A.PROC_STAT_CD
+					                              FROM (
+					                                   SELECT OI.ORD_CD
+					                                        , OI.SELT_GB_CD
+					                                        , OI.CREDIT_APPR_NO
+					                                        , CASE WHEN OPI.PROC_STAT_CD = '85' AND TRUNC(SYSDATE) - TRUNC(II.DLV_END_DT + OPI.SHARE_TERM -1) > 0 THEN '86' ELSE OPI.PROC_STAT_CD END AS PROC_STAT_CD
+					                                        , OI.MBER_SEQ
+					                                        , II.DLV_END_DT
+					                                     FROM ORD_INFO OI
+					                                        , ORD_PROD_INFO OPI
+					                                        , INVC_INFO II
+					                                    WHERE OI.ORD_CD = OPI.ORD_CD
+					                                      AND OPI.ORD_CD = II.ORD_CD (+)
+					                                      AND OPI.PROD_CODE = II.PROD_CODE (+)
+					                                      AND OPI.PROD_SEQ = II.PROD_SEQ (+)
+					                                      AND OPI.PROD_TYPE_CD = '2'
+					                                      AND OPI.PROC_STAT_CD != '15'
+					                                 ) A, ORD_PROD_INFO B, PROD C, MBER_INFO D
+					                             WHERE A.ORD_CD = B.ORD_CD
+					                               AND A.PROC_STAT_CD IN ('86', '89', '92' )
+					                               AND B.PROD_CODE = C.PROD_CODE
+					                               AND C.MBER_SEQ = D.MBER_SEQ
+					                          ) S
+					                      GROUP BY S.ORD_CD, S.SELT_GB_CD, S.CREDIT_APPR_NO, S.MBER_SEQ, S.DLV_END_DT, S.PROC_STAT_CD
+					                   ) TB
+					            ) P, ORD_PROD_INFO Q, PROD R, MBER_INFO S, PROD_SHARING T, (
+					              SELECT TC.*
+					                   , TD.DLV_END_DT
+					                FROM (
+					                     SELECT TA.CHG_CD
+					                          , TB.ORD_CD
+					                          , TB.PROD_CODE
+					                          , TB.PROD_SEQ
+					                          , TB.REGIST_DT
+					                       FROM CHG_RTN_PROC_INFO TA
+					                          , CHG_PROD_INFO TB
+					                      WHERE TA.CHG_CD = TB.CHG_CD
+					                   ) TC LEFT OUTER JOIN CHG_INVC_INFO TD ON TC.ORD_CD = TD.ORD_CD
+					                 AND TC.CHG_CD = TD.CHG_CD
+					                 AND TC.PROD_CODE = TD.PROD_CODE
+					                 AND TC.PROD_SEQ = TD.PROD_SEQ
+					            ) J
+					        WHERE P.ORD_CD = Q.ORD_CD
+					          AND Q.PROD_CODE = R.PROD_CODE
+					          AND R.MBER_SEQ = S.MBER_SEQ
+					          AND Q.PROD_CODE = T.PROD_CODE
+					          /*AND Q.PROD_CODE = J.PROD_CODE(+)
+					          AND Q.PROD_SEQ = J.PROD_SEQ(+) */
+                              AND P.ORD_CD = J.ORD_CD(+)
+					     ) B
+					 WHERE A.ORD_CD = B.ORD_CD /* AND B.PROC_STAT_CD IN ('86', '89', '92') */
+					 ) GROUP BY MBER_SEQ
+					 UNION ALL
+					 SELECT SUM(NVL(A.REAL_SELT_AMT, 0)) AS SALES_PRCE /*주문금액*/
+					     , COUNT(A.MBER_SEQ) AS SALES_CNT /*주문횟수*/
+					     , A.MBER_SEQ /*주문자*/
+					  FROM ORD_INFO A
+					     , ORD_PROD_INFO B
+					 WHERE A.ORD_CD = B.ORD_CD
+					   AND B.PROC_STAT_CD != '15' 	/*가결제 데이터 제거*/
+					   AND B.PROD_TYPE_CD = '4'		/* 스마트폰셰어링 */
+					   AND B.PROC_STAT_CD ='92'
+					 GROUP BY A.MBER_SEQ) GROUP BY MBER_SEQ
+          		     ) Z ON Z.MBER_SEQ = A.MBER_SEQ LEFT OUTER JOIN (
+						SELECT SUM(NVL(SELL_PRCE, 0)) AS SELL_PRCE
+						     , SUM(NVL(SELL_CNT, 0)) AS SELL_CNT
+						     , MBER_SEQ AS MBER_SEQ FROM (
+						/* SELECT SUM( (NVL(B.PROD_PRCE, 0) * NVL(B.ORD_QTY, 0) ) - NVL(B.CPN_USE_AMT, 0)) AS SELL_PRCE 판매금액*/
+						SELECT SUM(NVL(A.REAL_SELT_AMT, 0)) AS SELL_PRCE /*판매금액*/
+						     , COUNT(B.MBER_SEQ) AS SELL_CNT /*판매횟수*/
+						     , C.MBER_SEQ /*판매자*/
+						  FROM ORD_INFO A
+						     , ORD_PROD_INFO B
+						     , PROD C
+						 WHERE A.ORD_CD = B.ORD_CD /* 주문코드 수정 */
+						   AND B.PROD_CODE = C.PROD_CODE
+						   AND B.PROC_STAT_CD != '15' 	/*가결제 데이터 제거*/
+						   AND B.PROD_TYPE_CD = '1'		/* 판매 */
+						   AND B.PROC_STAT_CD = '99' 	/* 구매완료 */
+						 GROUP BY C.MBER_SEQ
+						 UNION ALL
+						SELECT SUM(A.REAL_SELT_AMT) AS SELL_PRCE /*판매금액*/
+						     , COUNT(B.MBER_SEQ) AS SELL_CNT /*판매횟수*/
+						     , C.MBER_SEQ /*판매자*/
+						  FROM ORD_INFO A
+							 , (SELECT P.ORD_CD
+							 	     , Q.PROD_CODE
+							     	 , (T.DEPOSIT+DECODE (S.MBER_GB_CD, 0, 0, 1, NVL(T.SHARING_PRICE, 0) * Q.SHARE_TERM ) ) * Q.ORD_QTY +NVL (Q.DLV_PRCE, 0 ) -NVL (Q.CPN_USE_AMT, 0 ) AS SELL_PRCE
+							     	 , P.MBER_SEQ
+							  	  FROM (SELECT TB.*
+							      		  FROM (SELECT S.ORD_CD, S.MBER_SEQ
+							            	      FROM (SELECT A.ORD_CD
+							                	             , A.SELT_GB_CD
+							                    	         , A.CREDIT_APPR_NO
+							                        	     , A.MBER_SEQ
+							                          	  FROM (SELECT OI.ORD_CD
+							                              	         , OI.SELT_GB_CD
+							                                  	     , OI.CREDIT_APPR_NO
+							                                     	 , CASE WHEN OPI.PROC_STAT_CD = '85' AND TRUNC(SYSDATE) - TRUNC(II.DLV_END_DT + OPI.SHARE_TERM -1) > 0 THEN '86' ELSE OPI.PROC_STAT_CD END AS PROC_STAT_CD
+							                                     	 , OI.MBER_SEQ
+							                                  	  FROM ORD_INFO OI
+							                                     	 , ORD_PROD_INFO OPI
+							                                     	 , INVC_INFO II
+							                             		 WHERE OI.ORD_CD = OPI.ORD_CD
+							                               		   AND OPI.ORD_CD = II.ORD_CD (+)
+							                               		   AND OPI.PROD_CODE = II.PROD_CODE (+)
+							                               		   AND OPI.PROD_SEQ = II.PROD_SEQ (+)
+							                               		   AND OPI.PROD_TYPE_CD = '2'
+							                               		   AND OPI.PROC_STAT_CD != '15'
+							                          			) A, ORD_PROD_INFO B, PROD C, MBER_INFO D
+							                      			WHERE A.ORD_CD = B.ORD_CD
+							                        		  AND A.PROC_STAT_CD IN ('86', '89', '92')
+							                        		  AND B.PROD_CODE = C.PROD_CODE
+							                        		  AND C.MBER_SEQ = D.MBER_SEQ) S
+							               			GROUP BY S.ORD_CD, S.SELT_GB_CD, S.CREDIT_APPR_NO, S.MBER_SEQ
+							            			) TB) P, ORD_PROD_INFO Q, PROD R, MBER_INFO S, PROD_SHARING T
+							 					WHERE P.ORD_CD = Q.ORD_CD
+							   					  AND Q.PROD_CODE = R.PROD_CODE
+							   					  AND R.MBER_SEQ = S.MBER_SEQ
+							   					  AND Q.PROD_CODE = T.PROD_CODE) B
+						     , PROD C
+						 WHERE A.ORD_CD = B.ORD_CD /* 주문코드 수정 */
+						   AND B.PROD_CODE = C.PROD_CODE
+						   /* AND B.PROC_STAT_CD IN ('86', '89', '92') */
+						 GROUP BY C.MBER_SEQ
+						 )
+						 GROUP BY MBER_SEQ
+          		     ) TT ON TT.MBER_SEQ =A.MBER_SEQ
+                 LEFT OUTER JOIN MBER_MINI_SHOP_INFO MINI ON CFG.MBER_SEQ = MINI.MBER_SEQ    /* [2015-11-24] ROCOKANG */
+	        WHERE 1 = 1
+	        <include refid="SearchMber" />
+	     ) Z
+	 WHERE 1 = 1
+	<include refid="SearchMberEx" />
+	</sql>
+
+	<select id="selectMberList" parameterType="hashmap" resultType="hashmap">
+	<include refid="adminCommonMapper.pagingHeader" />
+	<include refid="mberBaseSql" />
+	<include refid="adminCommonMapper.pagingFooter" />
+	</select>
+
+	<!-- 회원정보 리스트 엑셀 -->
+	<select id="selectMberListToExcel"  parameterType="hashmap" resultType="hashmap" fetchSize="1000">
+		<include refid="mberBaseSql" />
+	</select>
+
+	<select id="selectMberInfo" parameterType="hashmap" resultType="hashmap">
+	SELECT A.MBER_SEQ
+	     , NVL(A.MBER_NM, '-') AS MBER_NM
+	     , A.MBER_GB_CD
+	     , A.MBER_REG_GB_CD
+	     , NVL(A.MBER_EMAIL, '-') AS MBER_EMAIL
+	     , NVL(A.MBER_PHONE, '-') AS MBER_PHONE
+	     , A.ADM_MEMO
+	     , A.REGIST_DT
+	     , TO_CHAR(A.REGIST_DT, 'YYYY-MM-DD HH24:MI') AS REGIST_DT
+	     , NVL(TO_CHAR(C.EMAIL_AGREE_DT, 'YYYY-MM-DD HH24:MI'), '-') AS EMAIL_AGREE_DT
+	     , DECODE(C.EMAIL_AGREE_YN, 'Y', '수신동의', '수신거부') AS EMAIL_AGREE_NM
+	     , NVL(C.EMAIL_AGREE_YN, 'N') AS EMAIL_AGREE_YN
+	     , NVL(TO_CHAR(C.HP_AGREE_DT, 'YYYY-MM-DD HH24:MI'), '-') AS HP_AGREE_DT
+	     , DECODE(C.HP_AGREE_YN, 'Y', '수신동의', '수신거부') AS HP_AGREE_NM
+	     , NVL(C.HP_AGREE_YN, 'N') AS HP_AGREE_YN
+	     , NVL(TO_CHAR(A.LAST_LOGIN_DT, 'YYYY-MM-DD HH24:MI'), '-') AS LASTEST_LOGIN_TIME
+	     , NVL(BML.MBER_LEV_NM, '-') AS BUY_MBER_LEV_NM
+	     , NVL(SML.MBER_LEV_NM, '-') AS SELL_MBER_LEV_NM
+	     , A.MBER_EMAIL
+	     , A.SSO_GB_CD
+	     , JCC.COM_CD_NM AS JOIN_CHAN_NM 				/* 가입채널 */
+	     , NVL(JPC.COM_CD_NM, '-') AS JOIN_PATH_NM 		/* 가입경로*/
+	     , MGC.COM_CD_NM AS MBER_GB_NM					/* 회원구분 */
+	     , MRGC.COM_CD_NM AS MBER_REG_GB_NM 			/* 가입구분 */
+	     , C.CONN_CNT 									/* 접속횟수 */
+	     , C.BUY_CNT 									/* 구매횟수 */
+	     , C.BUY_PRCE 									/* 구매금액 */
+	     , A.MBER_STAT_CD
+	     , NVL(MSC.COM_CD_NM, '-') AS MBER_STAT_NM 		/* 가입상태 */
+	     , NVL(SIC.CMPNY_NO, '-') AS COMPNY_NO 			/* 사업자번호 */
+	     , NVL(SIC.CEO_NM, '-') AS CEO_NM 				/* 대표자명 */
+	     , NVL(SIC.CMPNY_NM, '-') AS CMPNY_NM 			/* 회사명 */
+	     , NVL(SIC.CS_PER_TEL, '-') AS CS_PER_TEL 		/* CS담당자전화번호 */
+	     , NVL(SIC.CS_PER_HP, '-') AS CS_PER_HP 		/* CS담당자휴대폰번호 */
+	     , CRIFI.FILE_URL AS COMP_REG_IMG_URL 			/* 사업자등록증이미지 */
+	     , CRIFI.FILE_PATH AS COMP_REG_IMG_PATH 			/* 사업자등록증이미지파일경로 */
+         , SIC.COMP_REG_IMG
+	     , BIFI.FILE_URL AS BNK_IMG_URL 				/* 통장사본이미지 */
+	     , BIFI.FILE_PATH AS BNK_IMG_PATH 				/* 통장사본이미지파일경로 */
+         , SIC.BNK_IMG
+	     , RIFI.FILE_URL AS REG_IMG_URL 				/* 통판신고증이미지 */
+	     , RIFI.FILE_PATH AS REG_IMG_PATH				/* 통판신고증이미지파일경로 */
+         , SIC.REG_IMG
+	     , CRIFI.FILE_TITLE AS COMP_REG_IMG_TITLE 		/* 사업자등록증이미지파일 이름 */
+	     , BIFI.FILE_TITLE AS BNK_IMG_TITLE 			/* 통장사본이미지파일 이름 */
+	     , RIFI.FILE_TITLE AS REG_IMG_TITLE 			/* 통판신고증이미지파일 이름 */
+	     , CRIFI.FILE_SIZE AS COMP_REG_IMG_SIZE 		/* 사업자등록증이미지파일 크기 */
+	     , BIFI.FILE_SIZE AS BNK_IMG_SIZE 				/* 통장사본이미지파일 크기 */
+	     , RIFI.FILE_SIZE AS REG_IMG_SIZE 				/* 통판신고증이미지파일 크기 */
+	     , ROW_NUMBER ( ) OVER ( ORDER BY A.REGIST_DT DESC ) AS NO
+	  FROM MBER_INFO A LEFT OUTER JOIN (
+	       SELECT MBER_SEQ
+	            , MAX(LAST_ACC_DT) AS LASTEST_LOGIN_TIME
+	         FROM MBER_CON_DEV
+	        GROUP BY MBER_SEQ
+	     ) B ON A.MBER_SEQ = B.MBER_SEQ
+	   LEFT OUTER JOIN MBER_DTL_INFO C ON A.MBER_SEQ = C.MBER_SEQ
+	   LEFT OUTER JOIN CODE JCC ON JCC.COM_CD = A.JOIN_CHAN_CD
+	   AND JCC.GRP_CD = 'JOIN_CHAN_CD' LEFT OUTER JOIN CODE JPC ON JPC.COM_CD = A.JOIN_PATH_CD
+	   AND JPC.GRP_CD = 'JOIN_PATH_CD' LEFT OUTER JOIN CODE MGC ON MGC.COM_CD = A.MBER_GB_CD
+	   AND MGC.GRP_CD = 'MBER_GB_CD' LEFT OUTER JOIN CODE MRGC ON MRGC.COM_CD = A.MBER_REG_GB_CD
+	   AND MRGC.GRP_CD = 'MBER_REG_GB_CD' LEFT OUTER JOIN CODE MSC ON MSC.COM_CD = A.MBER_STAT_CD
+	   AND MSC.GRP_CD = 'MBER_STAT_CD'
+	   LEFT OUTER JOIN MBER_LEV BML ON BML.MBER_LEV_SEQ = C.BUY_MBER_LEV_SEQ
+	   LEFT OUTER JOIN MBER_LEV SML ON BML.MBER_LEV_SEQ = C.SELL_MBER_LEV_SEQ
+	   LEFT OUTER JOIN SELLER_INFO_CFG SIC ON SIC.MBER_SEQ = A.MBER_SEQ
+	   LEFT OUTER JOIN FILE_INFO BIFI ON SIC.BNK_IMG = BIFI.FILE_SEQ
+	   LEFT OUTER JOIN FILE_INFO CRIFI ON SIC.COMP_REG_IMG = CRIFI.FILE_SEQ
+	   LEFT OUTER JOIN FILE_INFO RIFI ON SIC.REG_IMG = RIFI.FILE_SEQ
+	 WHERE A.MBER_SEQ = #{mberSeq}
+	</select>
+
+	<select id="selectMberLvlInfo" parameterType="hashmap" resultType="hashmap">
+	 SELECT  NVL(CRE_POINT, 0) AS CRE_POINT
+          , NVL((SELECT COUNT(A.BOARD_SEQ)
+           	   FROM BOARD_INFO A, BOARD_BAN_INFO B
+           	  WHERE A.MBER_SEQ = Z.MBER_SEQ
+           	    AND A.BOARD_SEQ = B.BOARD_SEQ
+           	    AND B.BAN_YN = 'Y'), 0) AS MBER_ALERT_CNT
+          , NVL(PROD_CODE, 0) AS SELL_ALERT_CNT
+	  FROM (
+	 	      SELECT MI.MBER_SEQ
+                   , DECODE(ADD_YN, 'Y', CPOINT, CPOINT * -1)AS CRE_POINT
+                   , SUM(NVL(PSI.PROD_CODE, 0)) AS PROD_CODE
+	            FROM MBER_INFO MI
+				LEFT OUTER JOIN CRED_POINT CP ON MI.MBER_SEQ = CP.MBER_SEQ
+          	  	LEFT OUTER JOIN PROD P ON MI.MBER_SEQ = P.MBER_SEQ
+          	  	LEFT OUTER JOIN PROD_SUSPECT_INFO PSI ON P.PROD_CODE = PSI.PROD_CODE
+	           WHERE MI.MBER_SEQ = #{mberSeq}
+               GROUP BY MI.MBER_SEQ, CP.ADD_YN, CPOINT
+	     ) Z
+	</select>
+
+	<select id="selectMberHistList" parameterType="hashmap" resultType="hashmap">
+		SELECT MHC.COM_CD_NM AS GUBUN
+		     , TO_CHAR(MH.REGIST_DT, 'YYYY-MM-DD HH24:MI') AS REGIST_DT
+		     , '-' AS STATUS
+		     , MH.MBER_HIST_REASON
+		  FROM MBER_HIST MH LEFT OUTER JOIN CODE MHC ON MH.MBER_HIST_CD = MHC.COM_CD
+		   AND GRP_CD = 'MBER_HIST_CD'
+		 WHERE MH.MBER_SEQ = #{mberSeq}
+		 ORDER BY MH.MBER_HIST_SEQ DESC
+	</select>
+
+	<select id="selectMberActInfo" parameterType="hashmap" resultType="hashmap">
+		SELECT MBER_SEQ, BUY_CNT, BUY_PRCE, SELL_CNT, SELL_PRCE, LOGIN_CNT, LASTEST_LOGIN_TIME, CPN_CNT, NVL(POINT, 0) AS POINT
+		  FROM (
+		       SELECT MI.MBER_SEQ
+		            , SUM(NVL(Z.SALES_CNT, 0)) AS BUY_CNT
+		            , SUM(NVL(Z.SALES_PRCE, 0)) AS BUY_PRCE
+		            , SUM(NVL(TT.SELL_CNT, 0)) AS SELL_CNT
+		            , SUM(NVL(TT.SELL_PRCE, 0)) AS SELL_PRCE
+		            , NVL((
+		              SELECT CONN_CNT
+		                FROM MBER_DTL_INFO
+		               WHERE MBER_SEQ =#{mberSeq}), 0) AS LOGIN_CNT
+		            , NVL(TO_CHAR(MAX(MI.LAST_LOGIN_DT), 'YYYY-MM-DD HH24:MI'), '-') AS LASTEST_LOGIN_TIME
+		            , NVL((SELECT COUNT(M.CPN_GRP_CD)
+		                FROM MBER_CPN_INFO M
+		                   , CPN_INFO S
+		               WHERE M.CPN_GRP_CD = S.CPN_GRP_CD
+		                 AND M.MBER_SEQ = #{mberSeq}), 0) AS CPN_CNT
+		            , MI.POINT
+		         FROM MBER_INFO MI LEFT OUTER JOIN (
+				SELECT SUM(NVL(SALES_PRCE, 0)) AS SALES_PRCE
+					     , SUM(NVL(SALES_CNT, 0)) AS SALES_CNT
+					     , MBER_SEQ AS MBER_SEQ
+					     FROM (
+					SELECT SUM(NVL(A.REAL_SELT_AMT, 0)) AS SALES_PRCE /*주문금액*/
+					     , COUNT(A.MBER_SEQ) AS SALES_CNT /*주문횟수*/
+					     , A.MBER_SEQ /*주문자*/
+					  FROM ORD_INFO A
+					     , ORD_PROD_INFO B
+					 WHERE A.ORD_CD = B.ORD_CD
+					   AND B.PROC_STAT_CD != '15' /*가결제 데이터 제거*/
+					   AND B.PROD_TYPE_CD = '1'
+					   AND B.PROC_STAT_CD = '99' /* 구매완료 */
+					 GROUP BY A.MBER_SEQ
+					 UNION ALL
+					SELECT SUM(SALES_PRCE) AS SALES_PRCE, COUNT(SALES_CNT) AS SALES_CNT, MBER_SEQ FROM (
+					SELECT CASE WHEN (B.PROC_STAT_CD = '89' OR B.PROC_STAT_CD = '92' ) THEN NVL(A.REAL_SELT_AMT, 0) - B.SHAR_RETURN_MONEY ELSE NVL(A.REAL_SELT_AMT, 0) END AS SALES_PRCE /*주문금액*/
+					     , A.MBER_SEQ AS SALES_CNT /* 주문횟수 */
+					     , A.MBER_SEQ /*주문자*/
+					  FROM ORD_INFO A
+					     , (
+					       SELECT P.ORD_CD
+					            , Q.PROD_CODE
+					            , (T.DEPOSIT+DECODE (S.MBER_GB_CD, 0, 0, 1, NVL(T.SHARING_PRICE, 0) * Q.SHARE_TERM ) ) * Q.ORD_QTY +NVL (Q.DLV_PRCE, 0 ) -NVL (Q.CPN_USE_AMT, 0 ) AS SALES_PRCE
+					            , P.MBER_SEQ
+					            , CASE WHEN P.DLV_END_DT IS NULL THEN 0 WHEN P.PROC_STAT_CD = '89' AND P.DLV_END_DT IS NOT NULL THEN NVL(T.DEPOSIT, 0) * NVL(Q.ORD_QTY, 0) - (NVL(T.SHARING_PRICE, 0) * (TRUNC(J.REGIST_DT) - TRUNC(P.DLV_END_DT) + 1 ) * NVL(Q.ORD_QTY, 0) ) WHEN P.PROC_STAT_CD = '92' AND P.DLV_END_DT IS NOT NULL THEN ( (T.DEPOSIT+ (NVL(T.SHARING_PRICE, 0) * Q.SHARE_TERM ) ) *Q.ORD_QTY ) - (NVL(T.SHARING_PRICE, 0) * (TRUNC(J.REGIST_DT) - TRUNC(P.DLV_END_DT) + 1 ) * NVL(Q.ORD_QTY, 0) ) ELSE 0 END AS SHAR_RETURN_MONEY
+					            , P.PROC_STAT_CD
+					         FROM (
+					              SELECT TB.*
+					                FROM (
+					                     SELECT S.ORD_CD
+					                          , S.MBER_SEQ
+					                          , S.DLV_END_DT
+					                          , S.PROC_STAT_CD
+					                       FROM (
+					                            SELECT A.ORD_CD
+					                                 , A.SELT_GB_CD
+					                                 , A.CREDIT_APPR_NO
+					                                 , A.MBER_SEQ
+					                                 , A.DLV_END_DT
+					                                 , A.PROC_STAT_CD
+					                              FROM (
+					                                   SELECT OI.ORD_CD
+					                                        , OI.SELT_GB_CD
+					                                        , OI.CREDIT_APPR_NO
+					                                        , CASE WHEN OPI.PROC_STAT_CD = '85' AND TRUNC(SYSDATE) - TRUNC(II.DLV_END_DT + OPI.SHARE_TERM -1) > 0 THEN '86' ELSE OPI.PROC_STAT_CD END AS PROC_STAT_CD
+					                                        , OI.MBER_SEQ
+					                                        , II.DLV_END_DT
+					                                     FROM ORD_INFO OI
+					                                        , ORD_PROD_INFO OPI
+					                                        , INVC_INFO II
+					                                    WHERE OI.ORD_CD = OPI.ORD_CD
+					                                      AND OPI.ORD_CD = II.ORD_CD (+)
+					                                      AND OPI.PROD_CODE = II.PROD_CODE (+)
+					                                      AND OPI.PROD_SEQ = II.PROD_SEQ (+)
+					                                      AND OPI.PROD_TYPE_CD = '2'
+					                                      AND OPI.PROC_STAT_CD != '15'
+					                                 ) A, ORD_PROD_INFO B, PROD C, MBER_INFO D
+					                             WHERE A.ORD_CD = B.ORD_CD
+					                               AND A.PROC_STAT_CD IN ('86', '89', '92' )
+					                               AND B.PROD_CODE = C.PROD_CODE
+					                               AND C.MBER_SEQ = D.MBER_SEQ
+					                          ) S
+					                      GROUP BY S.ORD_CD, S.SELT_GB_CD, S.CREDIT_APPR_NO, S.MBER_SEQ, S.DLV_END_DT, S.PROC_STAT_CD
+					                   ) TB
+					            ) P, ORD_PROD_INFO Q, PROD R, MBER_INFO S, PROD_SHARING T, (
+					              SELECT TC.*
+					                   , TD.DLV_END_DT
+					                FROM (
+					                     SELECT TA.CHG_CD
+					                          , TB.ORD_CD
+					                          , TB.PROD_CODE
+					                          , TB.PROD_SEQ
+					                          , TB.REGIST_DT
+					                       FROM CHG_RTN_PROC_INFO TA
+					                          , CHG_PROD_INFO TB
+					                      WHERE TA.CHG_CD = TB.CHG_CD
+					                   ) TC LEFT OUTER JOIN CHG_INVC_INFO TD ON TC.ORD_CD = TD.ORD_CD
+					                 AND TC.CHG_CD = TD.CHG_CD
+					                 AND TC.PROD_CODE = TD.PROD_CODE
+					                 AND TC.PROD_SEQ = TD.PROD_SEQ
+					            ) J
+					        WHERE P.ORD_CD = Q.ORD_CD
+					          AND Q.PROD_CODE = R.PROD_CODE
+					          AND R.MBER_SEQ = S.MBER_SEQ
+					          AND Q.PROD_CODE = T.PROD_CODE
+					          /* AND Q.PROD_CODE = J.PROD_CODE (+)
+					          AND Q.PROD_SEQ = J.PROD_SEQ (+) */
+							  AND P.ORD_CD = J.ORD_CD(+)
+					     ) B
+					 WHERE A.ORD_CD = B.ORD_CD /* AND B.PROC_STAT_CD IN ('86', '89', '92') */
+					 ) GROUP BY MBER_SEQ
+					 UNION ALL
+					 SELECT SUM(NVL(A.REAL_SELT_AMT, 0)) AS SALES_PRCE /*주문금액*/
+					     , COUNT(A.MBER_SEQ) AS SALES_CNT /*주문횟수*/
+					     , A.MBER_SEQ /*주문자*/
+					  FROM ORD_INFO A
+					     , ORD_PROD_INFO B
+					 WHERE A.ORD_CD = B.ORD_CD
+					   AND B.PROC_STAT_CD != '15' /*가결제 데이터 제거*/
+					   AND B.PROD_TYPE_CD = '4'
+					   AND B.PROC_STAT_CD ='92'
+					 GROUP BY A.MBER_SEQ) GROUP BY MBER_SEQ
+          		     ) Z ON Z.MBER_SEQ = MI.MBER_SEQ LEFT OUTER JOIN (
+						SELECT SUM(NVL(SELL_PRCE, 0)) AS SELL_PRCE
+						     , SUM(NVL(SELL_CNT, 0)) AS SELL_CNT
+						     , MBER_SEQ AS MBER_SEQ FROM (
+						/* SELECT SUM( (NVL(B.PROD_PRCE, 0) * NVL(B.ORD_QTY, 0) ) - NVL(B.CPN_USE_AMT, 0)) AS SELL_PRCE 판매금액*/
+						SELECT SUM(NVL(A.REAL_SELT_AMT, 0)) AS SELL_PRCE /*판매금액*/
+						     , COUNT(B.MBER_SEQ) AS SELL_CNT /*판매횟수*/
+						     , C.MBER_SEQ /*판매자*/
+						  FROM ORD_INFO A
+						     , ORD_PROD_INFO B
+						     , PROD C
+						 WHERE A.ORD_CD = B.ORD_CD /* 주문코드 수정 */
+						   AND B.PROD_CODE = C.PROD_CODE
+						   AND B.PROC_STAT_CD != '15' /*가결제 데이터 제거*/
+						   AND B.PROD_TYPE_CD = '1'
+						   AND B.PROC_STAT_CD = '99' /* 구매완료 */
+						 GROUP BY C.MBER_SEQ
+						 UNION ALL
+						 SELECT SUM(NVL(A.REAL_SELT_AMT, 0)) AS SELL_PRCE /*판매금액*/
+						     , COUNT(B.MBER_SEQ) AS SELL_CNT /*판매횟수*/
+						     , C.MBER_SEQ /*판매자*/
+						  FROM ORD_INFO A
+						 	 , (SELECT P.ORD_CD
+						 	     , Q.PROD_CODE
+						     	 , (T.DEPOSIT+DECODE (S.MBER_GB_CD, 0, 0, 1, NVL(T.SHARING_PRICE, 0) * Q.SHARE_TERM ) ) * Q.ORD_QTY +NVL (Q.DLV_PRCE, 0 ) -NVL (Q.CPN_USE_AMT, 0 ) AS SELL_PRCE
+						     	 , P.MBER_SEQ
+						  	  FROM (SELECT TB.*
+						      		  FROM (SELECT S.ORD_CD, S.MBER_SEQ
+						            	      FROM (SELECT A.ORD_CD
+						                	             , A.SELT_GB_CD
+						                    	         , A.CREDIT_APPR_NO
+						                        	     , A.MBER_SEQ
+						                          	  FROM (SELECT OI.ORD_CD
+						                              	         , OI.SELT_GB_CD
+						                                  	     , OI.CREDIT_APPR_NO
+						                                     	 , CASE WHEN OPI.PROC_STAT_CD = '85' AND TRUNC(SYSDATE) - TRUNC(II.DLV_END_DT + OPI.SHARE_TERM -1) > 0 THEN '86' ELSE OPI.PROC_STAT_CD END AS PROC_STAT_CD
+						                                     	 , OI.MBER_SEQ
+						                                  	  FROM ORD_INFO OI
+						                                     	 , ORD_PROD_INFO OPI
+						                                     	 , INVC_INFO II
+						                             		 WHERE OI.ORD_CD = OPI.ORD_CD
+						                               		   AND OPI.ORD_CD = II.ORD_CD (+)
+						                               		   AND OPI.PROD_CODE = II.PROD_CODE (+)
+						                               		   AND OPI.PROD_SEQ = II.PROD_SEQ (+)
+						                               		   AND OPI.PROD_TYPE_CD = '2'
+						                               		   AND OPI.PROC_STAT_CD != '15'
+						                          			) A, ORD_PROD_INFO B, PROD C, MBER_INFO D
+						                      			WHERE A.ORD_CD = B.ORD_CD
+						                        		  AND A.PROC_STAT_CD IN ('86', '89', '92')
+						                        		  AND B.PROD_CODE = C.PROD_CODE
+						                        		  AND C.MBER_SEQ = D.MBER_SEQ) S
+						               			GROUP BY S.ORD_CD, S.SELT_GB_CD, S.CREDIT_APPR_NO, S.MBER_SEQ
+						            			) TB) P, ORD_PROD_INFO Q, PROD R, MBER_INFO S, PROD_SHARING T
+						 					WHERE P.ORD_CD = Q.ORD_CD
+						   					  AND Q.PROD_CODE = R.PROD_CODE
+						   					  AND R.MBER_SEQ = S.MBER_SEQ
+						   					  AND Q.PROD_CODE = T.PROD_CODE) B
+						     , PROD C
+						 WHERE A.ORD_CD = B.ORD_CD /* 주문코드 수정 */
+						   AND B.PROD_CODE = C.PROD_CODE
+						   /* AND B.PROC_STAT_CD IN ('86', '89', '92') */
+						 GROUP BY C.MBER_SEQ
+						 ) GROUP BY MBER_SEQ
+          		     ) TT ON TT.MBER_SEQ =MI.MBER_SEQ
+		        GROUP BY MI.MBER_SEQ, MI.POINT
+		     )
+		 WHERE MBER_SEQ = #{mberSeq}
+	</select>
+
+	<update id="updateMberInfo" parameterType="hashmap">
+	UPDATE
+		MBER_INFO
+	SET
+		ADM_MEMO = #{admMemo}
+	WHERE
+		MBER_SEQ = #{mberSeq}
+	</update>
+
+
+<!-- ********************************************* 미니샵 ********************************************** -->
+
+	<select id="selectProdCntByType" parameterType="hashmap" resultType="hashmap">
+	SELECT	C.PROD_TYPE_CD
+	,			NVL(SUM(SELL_TOT_CNT),0)				AS SELL_TOT_CNT 	/* 등록 */
+	,			NVL(SUM(SELL_ING_CNT),0)				AS SELL_ING_CNT  	/* 판매중 */
+	,			NVL(SUM(SELL_END_CNT),0)				AS SELL_END_CNT  /* 판매완료 */
+	,			NVL(SUM(SELL_STOP_CNT),0)				AS SELL_STOP_CNT /* 판매중지 */
+	FROM		(
+	SELECT	P.PROD_TYPE_CD
+	,			COUNT(P.PROD_TYPE_CD)					AS SELL_TOT_CNT 		/* 등록 */
+	,			CASE WHEN P.PROD_STAT_CD = 0 		/* 판매중 */
+						THEN COUNT(P.PROD_CODE)
+				END											AS SELL_ING_CNT
+	,			CASE 	WHEN P.PROD_STAT_CD = 1 		/* 판매완료 */
+						THEN COUNT(P.PROD_CODE)
+				END											AS SELL_END_CNT
+	,			CASE 	WHEN P.PROD_STAT_CD = 2 		/* 판매중지 */
+						THEN COUNT(P.PROD_CODE)
+				END											AS SELL_STOP_CNT
+	FROM		PROD 			P
+	WHERE	P.MBER_SEQ = #{mberSeq}
+	GROUP BY P.PROD_TYPE_CD, P.PROD_STAT_CD
+	) Z
+	RIGHT OUTER JOIN (SELECT ROWNUM AS PROD_TYPE_CD FROM CODE WHERE ROWNUM &lt; 4) C
+	ON		Z.PROD_TYPE_CD = C.PROD_TYPE_CD
+	GROUP BY ROLLUP(C.PROD_TYPE_CD)
+	ORDER BY PROD_TYPE_CD
+	</select>
+
+	<!-- 미니샵정보 조회 -->
+	<select id="selectMiniShopInfo" parameterType="hashMap" resultType="hashMap">
+	SELECT A.MBER_SEQ
+	     , A.MINI_SHOP_NM
+	     , A.MINI_SHOP_PATH
+	     , B.CMPNY_ZIP_CD
+	     , B.CMPNY_ADDR_GB
+	     , B.CMPNY_JUSO_DORO
+	     , B.CMPNY_JUSO_JIBEN
+	     , B.CMPNY_JUSO_DTL
+	     , B.BANK_ACNT_NO
+	     , B.ACNT_NM
+	     , B.BANK_NM
+	     , B.RATE
+	     , (
+	       SELECT COUNT(*)
+	         FROM SELLER_SUSPECT_INFO
+	        WHERE SELLER_MBER_SEQ = #{mberSeq}
+	     ) AS SUS_CNT
+	     , C.FILE_URL AS MINI_BG_FILE_URL
+	     , D.FILE_URL AS MINI_SHOP_IMG_PATH
+	     , A.MINI_PROFILE_SEQ
+	     , A.FILE_SEQ
+	  FROM MBER_MINI_SHOP_INFO A INNER JOIN SELLER_INFO_CFG B ON A.MBER_SEQ = B.MBER_SEQ
+	   AND A.MBER_SEQ = #{mberSeq} LEFT OUTER JOIN FILE_INFO C ON C.FILE_SEQ = A.FILE_SEQ LEFT OUTER JOIN FILE_INFO D ON D.FILE_SEQ = A.MINI_PROFILE_SEQ
+	</select>
+
+	<update id="updateMiniShopInfo" parameterType="hashmap">
+	<!--
+	UPDATE
+		MBER_MINI_SHOP_INFO
+	SET
+		MINI_SHOP_NM = #{miniShopNm},
+		MINI_SHOP_PATH = #{miniShopPath},
+		UPDT_DT = SYSDATE
+	WHERE
+		MBER_SEQ = #{mberSeq} -->
+
+	UPDATE MBER_MINI_SHOP_INFO
+		SET UPDT_DT = SYSDATE
+		<if test='profChk == "Del"'>
+		  , MINI_PROFILE_SEQ = null
+		</if>
+		<if test='bgChk == "Del"'>
+		  , FILE_SEQ = null
+		</if>
+	  WHERE MBER_SEQ = #{mberSeq}
+
+	</update>
+
+	<update id="updateSellerInfo" parameterType="hashmap">
+	UPDATE
+		SELLER_INFO_CFG
+	SET
+		RATE = #{rate, jdbcType=NUMERIC}
+		<if test="miniShopImgPath != null and miniShopImgPath != ''">
+		, MINI_SHOP_IMG_PATH = #{miniShopImgPath}
+		</if>
+		,SND_ZIP_CD = #{SND_ZIP_CD}
+		,SND_JUSO_DORO = #{SND_JUSO_DORO}
+		,SND_JUSO_JIBEN = #{SND_JUSO_JIBEN}
+		,SND_JUSO_DTL = #{SND_JUSO_DTL}
+	WHERE
+		MBER_SEQ = #{mberSeq}
+	</update>
+<!-- ********************************************* 판매상품 ********************************************** -->
+
+<!-- 	<select id="selectProdList" parameterType="hashMap" resultType="hashMap"> -->
+<!-- 		SELECT	 -->
+<!-- 		FROM		PROD P -->
+<!-- 		WHERE -->
+<!-- 	</select> -->
+
+<!-- ********************************************* 회원쿠폰 ********************************************** -->
+
+<!-- 쿠폰팝업 (보유쿠폰) -->
+	<select id="selectCouponCnt" parameterType="hashMap" resultType="hashMap">
+		SELECT	NVL(SUM(CPN_CNT1),0)				AS CPN_CNT1
+		,			NVL(SUM(CPN_CNT2),0)				AS CPN_CNT2
+		,			NVL(SUM(CPN_CNT3),0)				AS CPN_CNT3
+		FROM		(
+		SELECT	CASE WHEN A.USE_YN = 'N' AND B.EXP_END_DT &gt; SYSDATE
+						   THEN	1
+					END					AS CPN_CNT1		/* 보유쿠폰 */
+		,			CASE WHEN	A.USE_YN = 'Y'
+						   THEN	1
+					END					AS CPN_CNT2		/* 사용 */
+		,			CASE WHEN	A.USE_YN = 'N' AND B.EXP_END_DT &lt;= SYSDATE
+						   THEN	1
+					END					AS CPN_CNT3		/* 만료 */
+		FROM 	MBER_CPN_INFO A
+		JOIN		CPN_INFO B
+		ON		B.CPN_GRP_CD = A.CPN_GRP_CD
+		WHERE 	A.MBER_SEQ = #{mberSeq}
+		<include refid="SearchCoupon" />
+		)
+
+	</select>
+
+	<!-- 검색조건 -->
+	<sql id="SearchCoupon">
+		<if test="toDate != null and toDate != '' and fromDate != null and fromDate != ''">
+		AND (TO_DATE(#{toDate}, 'YYYY-MM-DD')+1 > B.REGIST_DT AND B.REGIST_DT >= TO_DATE(#{fromDate}, 'YYYY-MM-DD'))
+		</if>
+		<!-- 쿠폰명 -->
+		<if test="cpnNm != null and cpnNm != ''">
+			AND B.CPN_NM LIKE '%'|| #{cpnNm} ||'%'
+		</if>
+		<!-- 쿠폰종류 -->
+		<if test="cpnGbCd != null and cpnGbCd != ''">
+			AND B.CPN_GB_CD = #{cpnGbCd}
+		</if>
+		<!-- 쿠폰상태 -->
+		<if test="cpnStatus != null and cpnStatus != ''">
+			<!-- 사용 -->
+			<if test="cpnStatus == 1">
+	         AND A.USE_YN = 'Y'
+			</if>
+			<!-- 미사용 -->
+			<if test="cpnStatus == 2">
+	         AND A.USE_YN = 'N'
+			</if>
+			<!-- 기간만료 -->
+			<if test="cpnStatus == 3">
+	         AND SYSDATE > B.EXP_END_DT
+			</if>
+		</if>
+	</sql>
+
+	<!-- 쿠폰리스트 기본SQL -->
+	<sql id="cpnBaseSql">
+		SELECT	TO_CHAR(B.REGIST_DT, 'YYYY-MM-DD HH24:MI') 	AS REGIST_DT 		/* 발급일 */
+		,			C.COM_CD_NM 											AS CPN_GB_NM 	/* 쿠폰종류 */
+		,			B.CPN_NM												AS CPN_NM			/* 쿠폰명 */
+		,			CASE WHEN A.USE_YN = 'N' AND B.EXP_END_DT &gt; SYSDATE
+						   THEN	'미사용'
+						   WHEN	A.USE_YN = 'N' AND B.EXP_END_DT &lt;= SYSDATE
+						   THEN	'유효기간 만료'
+						   WHEN	A.USE_YN = 'Y'
+						   THEN	'사용'
+					END														AS STATUS			/* 상태 */
+		,			TO_CHAR(A.USE_DATE, 'YYYY-MM-DD HH24:MI') 	AS USE_DATE
+		,			P.PROD_NM
+		,			ROW_NUMBER() OVER(ORDER BY A.REGIST_DT DESC ) AS NO
+		FROM 	MBER_CPN_INFO 					A
+		JOIN		CPN_INFO 							B
+		ON		B.CPN_GRP_CD 						= A.CPN_GRP_CD
+		LEFT OUTER JOIN ORD_PROD_CPN_INFO 	OPCI
+		ON		A.CPN_NO 							= OPCI.CPN_NO
+		LEFT OUTER JOIN PROD 						P
+		ON		P.PROD_CODE 						= OPCI.PROD_CODE
+		LEFT OUTER JOIN CODE 						C
+		ON		C.GRP_CD 							= 'CPN_GB_CD'
+		AND 		C.COM_CD 							= B.CPN_GB_CD
+		WHERE 	A.MBER_SEQ 						= #{mberSeq}
+	<include refid="SearchCoupon" />
+	</sql>
+
+	<select id="selectMberCpnSearchCnt" parameterType="hashmap" resultType="int">
+	SELECT
+		COUNT(*) AS CNT
+	FROM 	MBER_CPN_INFO A
+		JOIN		CPN_INFO B
+		ON		B.CPN_GRP_CD = A.CPN_GRP_CD
+		LEFT OUTER JOIN ORD_PROD_CPN_INFO OPCI
+		ON		A.CPN_NO = OPCI.CPN_NO
+		LEFT OUTER JOIN PROD P
+		ON		P.PROD_CODE = OPCI.PROD_CODE
+		LEFT OUTER JOIN CODE C
+		ON		C.GRP_CD = 'CPN_GB_CD'
+		AND 		C.COM_CD = B.CPN_GB_CD
+	WHERE
+		A.MBER_SEQ = #{mberSeq}
+		<include refid="SearchCoupon" />
+	</select>
+
+	<select id="selectMberCpnList" parameterType="hashmap" resultType="hashmap">
+		<include refid="adminCommonMapper.pagingHeader" />
+		<include refid="cpnBaseSql" />
+		<include refid="adminCommonMapper.pagingFooter" />
+	</select>
+
+<!-- ********************************************* 포인트 ********************************************** -->
+
+	<!-- 검색조건 -->
+	<sql id="SearchPoint">
+		<if test="toDate != null and toDate != '' and fromDate != null and fromDate != ''">
+		AND (TO_DATE(#{toDate}||' 235959','YYYY-MM-DD HH24MISS') >= A.REGIST_DT AND A.REGIST_DT >= TO_DATE(#{fromDate}||' 000000','YYYY-MM-DD HH24MISS'))
+		</if>
+		<!-- 구분 -->
+		<if test="pointCd != null and pointCd != ''">
+			AND A.POINT_CD = #{pointCd}
+		</if>
+	</sql>
+
+	<!-- 포인트리스트 기본SQL -->
+	<sql id="pointBaseSql">
+	SELECT 	TO_CHAR(A.REGIST_DT, 'YYYY-MM-DD HH24:MI') 	AS REGIST_DT
+	,			NVL(C.COM_CD_NM, '-')									AS POINT_CD_NM
+	,			NVL(CASE 	WHEN A.POINT_CD =10
+						THEN A.POINT
+				END,0)		 												AS ADMIN_PLUS_POINT
+	,			NVL(CASE 	WHEN A.POINT_CD = 15
+						THEN A.POINT
+				END,0)	 													AS ADMIN_MINUS_POINT
+	,			NVL(CASE 	WHEN A.POINT_CD !=10 AND MOD(A.POINT_CD,10) = 0
+						THEN A.POINT
+				END,0)		 												AS PLUS_POINT
+	,			NVL(CASE 	WHEN A.POINT_CD != 15 AND MOD(A.POINT_CD,10) != 0
+						THEN A.POINT
+				END,0)	 													AS MINUS_POINT
+	,			ROW_NUMBER() OVER(ORDER BY A.REGIST_DT DESC )	AS NO
+	,			A.CHG_REASON												AS CHG_REASON
+	FROM 	POINT_USE_LOG 	A
+	LEFT OUTER JOIN CODE 		C
+	ON		C.COM_CD 			= A.POINT_CD
+	AND		C.GRP_CD 			= 'POINT_CD'
+	WHERE 	MBER_SEQ 			= #{mberSeq}
+	<include refid="SearchPoint" />
+	</sql>
+
+	<select id="selectMberPointSearchCnt" parameterType="hashmap" resultType="int">
+	SELECT
+		COUNT(*) AS CNT
+	FROM
+		POINT_USE_LOG A
+	WHERE
+		1 = 1
+		<include refid="SearchPoint" />
+	</select>
+
+
+
+
+	<select id="selectMberPointList" parameterType="hashmap" resultType="hashmap">
+		<include refid="adminCommonMapper.pagingHeader" />
+		<include refid="pointBaseSql" />
+		<include refid="adminCommonMapper.pagingFooter" />
+	</select>
+
+	<select id="selectMberPointSummary" parameterType="hashmap" resultType="hashmap">
+	SELECT NVL(SUM(CASE WHEN MOD(A.POINT_CD, 10) = 0 THEN A.POINT END), '0') AS ADD_POINT
+	     , NVL(SUM(CASE WHEN MOD(A.POINT_CD, 10) != 0 THEN A.POINT END), '0') AS USED_POINT
+	  FROM POINT_USE_LOG A
+	 WHERE MBER_SEQ = #{mberSeq}
+
+		<include refid="SearchPoint" />
+	</select>
+
+	<insert id="insertMberPoint" parameterType="hashmap">
+	INSERT INTO POINT_USE_LOG(
+		MBER_SEQ,
+		POINT_SEQ,
+		POINT,
+		CHG_REASON,
+		POINT_CD,
+		POINT_TYPE,
+		REGIST_DT
+	)VALUES(
+		#{mberSeq},
+		SEQ_POINT_USE.nextval,
+		#{point},
+		#{CHG_REASON},
+		#{addPointCd},
+		DECODE(#{addPointCd}, '10','1', '15','2'),
+		SYSDATE
+	)
+	</insert>
+
+	<update id="updateMberPoint" parameterType="hashmap">
+	UPDATE MBER_INFO
+	SET POINT =  NVL(POINT, 0) +
+		DECODE(#{addPointCd} ,10,TO_NUMBER(#{point}),TO_NUMBER(#{point}) * -1)
+	WHERE
+		MBER_SEQ = #{mberSeq}
+	</update>
+
+
+
+	<!-- 조은별 포인트 새로작성 -->
+
+	<select id="selectMberPointCnt" parameterType="hashmap" resultType="int">
+
+		SELECT COUNT(1) AS TOTAL_CNT
+		FROM POINT_USE_LOG A
+		<where>
+		1=1
+		AND A.MBER_SEQ = #{mberSeq}
+		<if test="S_START_DATE != null and S_START_DATE != '' and S_END_DATE != null and S_END_DATE != ''">
+	        AND TO_CHAR(A.REGIST_DT, 'YYYYMMDD') BETWEEN #{S_START_DATE} AND #{S_END_DATE}
+	    </if>
+	    <if test="pointCd != null and pointCd != ''">
+	        AND A.POINT_CD = #{pointCd}
+	    </if>
+		</where>
+
+
+	</select>
+
+
+	<select id="selectPointList" parameterType="hashmap" resultType="hashmap">
+		<include refid="adminCommonMapper.pagingHeader" />
+
+		SELECT ROW_NUMBER ( ) OVER ( ORDER BY M.REGIST_DT DESC ) AS NO
+		     , TO_CHAR(M.REGIST_DT, 'YYYY-MM-DD HH24:MI') AS REGIST_DT
+		     , M.POINT
+		     , M.POINT_SEQ
+		     , M.POINT_CD
+		     , M.CHG_REASON
+		     , M.MBER_SEQ
+		     , M.M_POINT
+		     , M.T_POINT
+		     , M.G_POINT
+		     , M.C_POINT
+		     , M.POINT_NM
+		     , DECODE(M.POINT_USE_NM, NULL, M.CHG_REASON, M.POINT_USE_NM) AS POINT_USE_NM
+		  FROM (
+		       SELECT A.REGIST_DT
+		            , A.POINT
+		            , A.POINT_SEQ
+		            , A.POINT_CD
+		            , A.CHG_REASON
+		            , A.MBER_SEQ
+		            , DECODE(A.POINT_CD, '30', A.POINT, '0') AS M_POINT /* [회원가입밖에 없음]적립포인트 */
+		            , DECODE(A.POINT_CD, '21', A.POINT, '0') AS T_POINT /* 상품_사용포인트 */
+		            , DECODE(A.POINT_CD, '10', A.POINT, '0') AS G_POINT /* 관리자_지급포인트 */
+		            , DECODE(A.POINT_CD, '15', A.POINT, '0') AS C_POINT /* 관리자_차감포인트 */
+		            , (
+		              SELECT COM_CD_NM
+		                FROM CODE
+		               WHERE GRP_CD = 'POINT_CD'
+		                 AND COM_CD = A.POINT_CD
+		            ) AS POINT_NM, (
+		              SELECT POINT_USE_NM
+		                FROM (
+		                     SELECT OPI.ORD_CD
+		                          , MAX(PI.PROD_NM) PROD_NM
+		                          , COUNT(*)
+		                          , DECODE(COUNT(*), 1, MAX(PI.PROD_NM), MAX(PI.PROD_NM) || ' 외 ' || COUNT(*) || '건') AS POINT_USE_NM
+		                       FROM ORD_PROD_INFO OPI
+		                          , PROD PI
+		                      WHERE OPI.PROD_CODE = PI.PROD_CODE (+)
+		                      GROUP BY OPI.ORD_CD
+		                   ) A
+		               WHERE ORD_CD = A.CHG_REASON
+		            ) AS POINT_USE_NM
+		         FROM POINT_USE_LOG A
+		     ) M
+		    <where>
+		    1=1
+		    AND m.MBER_SEQ = #{mberSeq}
+		      <if test="S_START_DATE != null and S_START_DATE != '' and S_END_DATE != null and S_END_DATE != ''">
+		        AND TO_CHAR(m.REGIST_DT, 'YYYYMMDD') BETWEEN #{S_START_DATE} AND #{S_END_DATE}
+		      </if>
+		      <if test="pointCd != null and pointCd != ''">
+		        AND m.POINT_CD = #{pointCd}
+		      </if>
+	  		</where>
+
+		<include refid="adminCommonMapper.pagingFooter" />
+	</select>
+
+
+
+
+	<select id="selectPointListSummary" parameterType="hashmap" resultType="hashmap">
+	SELECT NVL((SUM(M_POINT) - SUM(T_POINT) + SUM(G_POINT) - SUM(C_POINT)), 0) AS P_POINT /*보유포인트*/
+	     , NVL(SUM(M_POINT), 0) AS M_POINT
+	     , NVL(SUM(T_POINT), 0) AS T_POINT
+	     , NVL(SUM(G_POINT), 0) AS G_POINT
+	     , NVL(SUM(C_POINT), 0) AS C_POINT
+	  FROM (
+	       SELECT DECODE(A.POINT_CD, '30', A.POINT, '0') AS M_POINT /* [회원가입밖에 없음]적립포인트 */
+	            , DECODE(A.POINT_CD, '21', A.POINT, '0') AS T_POINT /* 상품_사용포인트 */
+	            , DECODE(A.POINT_CD, '10', A.POINT, '0') AS G_POINT /* 관리자_지급포인트 */
+	            , DECODE(A.POINT_CD, '15', A.POINT, '0') AS C_POINT /* 관리자_차감포인트 */
+	            , A.POINT
+	            , A.MBER_SEQ
+	            , A.POINT_CD
+	            , A.REGIST_DT
+	         FROM POINT_USE_LOG A
+	        WHERE 1=1
+	          AND A.MBER_SEQ = #{mberSeq})
+	</select>
+
+
+
+<!-- ********************************************* 신용점수 ********************************************** -->
+
+	<!-- 검색조건 -->
+	<sql id="SearchCrePoint">
+		<if test="toDate != null and toDate != '' and fromDate != null and fromDate != ''">
+		AND (TO_DATE(#{toDate})+1 > A.REGIST_DT AND A.REGIST_DT >= TO_DATE(#{fromDate}))
+		</if>
+		<!-- 항목 -->
+		<if test="cpointReasonCd != null and cpointReasonCd != ''">
+		AND A.CPOINT_REASON_CD = #{cpointReasonCd}
+		</if>
+		<!-- 구분 -->
+		<if test="addY != null and addY != '' and (addN eq null or addN eq '') ">
+         AND A.ADD_YN = #{addY}
+		</if>
+		<if test="addN != null and addN != '' and ( addY eq null or addY eq '') ">
+         AND A.ADD_YN = #{addN}
+		</if>
+		<!-- 상품명 -->
+		<if test="prodNm != null and prodNm != ''">
+		AND B.PROD_NM LIKE '%'|| #{prodNm} ||'%'
+		</if>
+		<!-- 판매 신용점수 -->
+		<if test="CPOINT_GB_CD == null or CPOINT_GB_CD == '' or CPOINT_GB_CD != '10' ">
+		AND A.CPOINT_GB_CD != 10
+		</if>
+		<!-- 구매 신용점수 -->
+		<if test="CPOINT_GB_CD != null and CPOINT_GB_CD != '' and CPOINT_GB_CD == '10' ">
+		AND A.CPOINT_GB_CD = 10
+		</if>
+	</sql>
+
+	<select id="selectMberCrePointSearchCnt" parameterType="hashmap" resultType="int">
+	SELECT
+		COUNT(*) AS CNT
+	FROM
+		CRED_POINT A
+	WHERE
+		A.MBER_SEQ = #{mberSeq}
+		<include refid="SearchCrePoint" />
+	</select>
+
+	<select id="selectMberCrePointList" parameterType="hashmap" resultType="hashmap">
+	<include refid="adminCommonMapper.pagingHeader" />
+	SELECT
+		TO_CHAR(A.REGIST_DT, 'YYYY-MM-DD HH24:MI') AS REGIST_DT,
+		DECODE(ADD_YN, 'Y','지급' ,'차감') AS ADD_YN_NM,
+		(SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'CPOINT_REASON_CD' AND COM_CD = A.CPOINT_REASON_CD) AS CPOINT_REASON_NM,
+		B.PROD_NM,
+		C.PROD_IMG_URL,
+		DECODE(ADD_YN, 'Y','+'||A.CPOINT ,'-'||A.CPOINT) AS POINT,
+		ROW_NUMBER() OVER(ORDER BY A.REGIST_DT DESC ) AS NO
+	FROM
+		CRED_POINT A,
+		PROD B,
+		PROD_IMG C
+	WHERE
+		A.REL_CODE = B.PROD_CODE
+	AND B.PROD_CODE = C.PROD_CODE
+	AND C.PROD_IMG_GB_CD = '11'
+	AND	A.MBER_SEQ = #{mberSeq}
+	<include refid="SearchCrePoint" />
+	<include refid="adminCommonMapper.pagingFooter" />
+	</select>
+
+
+<!-- ********************************************* 회원경고조회 ********************************************** -->
+
+	<!-- 검색조건 -->
+	<sql id="SearchMberAlert">
+		<if test="toDate != null and toDate != '' and fromDate != null and fromDate != ''">
+		AND (TO_DATE(#{toDate})+1 > A.BAN_DT AND A.BAN_DT >= TO_DATE(#{fromDate}))
+		</if>
+		<!-- 구분 -->
+		<if test="banGbCd != null and banGbCd.length > 0">
+         AND A.BAN_GB_CD IN
+         	<foreach item="item" index="index" collection="INS_CHK_BOX_RESULT" open="(" separator="," close=")">
+				#{item}
+			</foreach>
+		</if> <!-- INS_CHK_BOX_RESULT -->
+	</sql>
+
+	<select id="selectMberAlertSearchCnt" parameterType="hashmap" resultType="int">
+	SELECT
+		COUNT(A.BOARD_CUT_SEQ) AS CNT
+	FROM
+		BOARD_BAN_INFO A,
+		BOARD_INFO B
+	WHERE
+		A.BOARD_TYPE_CD = B.BOARD_TYPE_CD
+	AND	A.BOARD_SEQ = B.BOARD_SEQ
+	AND A.BAN_YN = 'Y'
+	AND	B.MBER_SEQ = #{mberSeq}
+		<include refid="SearchMberAlert" />
+	</select>
+
+	<select id="selectMberAlertList" parameterType="hashmap" resultType="hashmap">
+	<include refid="adminCommonMapper.pagingHeader" />
+	SELECT
+		TO_CHAR(A.BAN_DT, 'YYYY-MM-DD HH24:MI') AS BAN_DT,
+		(SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'BAN_GB_CD' AND COM_CD = A.BAN_GB_CD) AS BAN_GB_NM,
+		A.DENY_REASON,
+		A.BAN_ADM_NM,
+		ROW_NUMBER() OVER(ORDER BY A.BAN_DT DESC ) AS NO
+	FROM
+		BOARD_BAN_INFO A,
+		BOARD_INFO B
+	WHERE
+		A.BOARD_TYPE_CD = B.BOARD_TYPE_CD
+	AND	A.BOARD_SEQ = B.BOARD_SEQ
+	AND A.BAN_YN = 'Y'
+	AND	B.MBER_SEQ = #{mberSeq}
+	<include refid="SearchMberAlert" />
+	<include refid="adminCommonMapper.pagingFooter" />
+	</select>
+
+	<select id="selectMberAlertSummary" parameterType="hashmap" resultType="hashmap">
+	SELECT
+		B.COM_CD AS BAN_GB_CD,
+		B.COM_CD_NM AS BAN_GB_NM,
+		NVL(A.CNT, 0) AS CNT
+	FROM
+		(
+		SELECT
+		A.BAN_GB_CD, COUNT(*) AS CNT
+		FROM
+		BOARD_BAN_INFO A,
+		BOARD_INFO B
+		WHERE
+			A.BOARD_TYPE_CD = B.BOARD_TYPE_CD
+		AND	A.BOARD_SEQ = B.BOARD_SEQ
+		AND A.BAN_YN = 'Y'
+		AND	B.MBER_SEQ = #{mberSeq}
+		GROUP BY A.BAN_GB_CD
+		) A,
+		(SELECT COM_CD, COM_CD_NM FROM CODE WHERE GRP_CD = 'BAN_GB_CD') B
+	WHERE
+		B.COM_CD = A.BAN_GB_CD(+)
+	ORDER BY
+		B.COM_CD
+	</select>
+
+
+
+<!-- ********************************************* 교환반품 ********************************************** -->
+
+	<select id="selectChgRtnProdTotCnt" parameterType="hashMap" resultType="hashMap">
+	SELECT
+		B.COM_CD AS PROC_STAT_CD,
+		NVL(A.CNT, 0) AS CNT
+	FROM
+		(
+		SELECT
+		PROC_STAT_CD, COUNT(*) AS CNT
+		FROM
+		CHG_PROD_INFO A,
+		CHG_RTN_PROC_INFO B
+		WHERE
+		A.CHG_CD = B.CHG_CD
+		AND A.ORD_CD = B.ORD_CD
+		AND B.MBER_SEQ = #{mberSeq}
+		GROUP BY PROC_STAT_CD
+		) A,
+		(SELECT COM_CD FROM CODE WHERE GRP_CD = 'CHG_PROC_TYPE_CD') B
+	WHERE
+		B.COM_CD = A.PROC_STAT_CD(+)
+	ORDER BY
+		B.COM_CD
+	</select>
+	<select id="selectChgRtnProdCnt" parameterType="hashMap" resultType="hashMap">
+	SELECT
+		A.PROD_GB_CD,
+		A.PROC_STAT_CD,
+		NVL(B.CNT, 0) AS CNT
+	FROM
+		(
+		SELECT
+		AA.COM_CD AS PROD_GB_CD,
+		BB.COM_CD AS PROC_STAT_CD
+		FROM
+		(SELECT COM_CD FROM CODE WHERE GRP_CD = 'PROD_TYPE_CD') AA,
+		(SELECT COM_CD FROM CODE WHERE GRP_CD = 'CHG_PROC_TYPE_CD') BB
+		WHERE
+		AA.COM_CD <![CDATA[<>]]> '3'
+		) A,
+		(
+		SELECT
+		AA.PROD_GB_CD, AA.PROC_STAT_CD, COUNT(*) AS CNT
+		FROM
+		CHG_PROD_INFO AA,
+		CHG_RTN_PROC_INFO BB
+		WHERE
+		AA.CHG_CD = BB.CHG_CD
+		AND AA.ORD_CD = BB.ORD_CD
+		AND BB.MBER_SEQ = #{mberSeq}
+		GROUP BY AA.PROD_GB_CD, AA.PROC_STAT_CD
+		) B
+	WHERE
+		A.PROD_GB_CD = B.PROD_GB_CD(+)
+		AND A.PROC_STAT_CD = B.PROC_STAT_CD(+)
+	ORDER BY
+		A.PROD_GB_CD,
+		A.PROC_STAT_CD
+	</select>
+
+	<!-- 약관동의 리스트 조회 -->
+	<select id="selectMberAgrList" parameterType="hashMap" resultType="hashMap">
+	SELECT
+		C.AGR_SEQ,
+		(SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'AGR_GB_CD' AND COM_CD = A.AGR_GB_CD) AGR_GB_NM,
+		(SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'AGR_NAME_CD' AND COM_CD = A.AGR_NAME_CD) AGR_NAME_NM,
+		C.AGR_VER,
+		B.AGR_DESC,
+		TO_CHAR(C.REGIST_DT, 'YYYY-MM-DD HH24:MI') AS REGIST_DT,
+		DECODE(C.AGREE_YN, 'Y','동의', '미동의') AS AGREE_YN
+	FROM
+		AGR A,
+		AGR_VER B,
+		AGR_AGREE C
+	WHERE
+		C.AGR_SEQ = B.AGR_SEQ
+	AND C.AGR_VER = B.AGR_VER
+	AND C.AGR_SEQ = A.AGR_SEQ
+	AND C.MBER_SEQ = #{mberSeq}
+	</select>
+
+	<!-- Ajax -->
+	<select id="selectpath" parameterType="hashmap" resultType="int">
+		SELECT
+				COUNT(*)
+		FROM 	MBER_MINI_SHOP_INFO
+		WHERE 	MINI_SHOP_PATH = #{MINI_SHOP_PATH}
+		AND		MBER_SEQ != #{MBER_SEQ}
+	</select>
+
+	<!-- 가입상태변경 -->
+	<update id="updateMberStat" parameterType="hashmap">
+		UPDATE 	MBER_INFO
+		SET 		MBER_STAT_CD = #{MBER_STAT_CD}
+		  , UPDT_DT = SYSDATE
+		WHERE 	MBER_SEQ = #{mberSeq}
+		AND		MBER_STAT_CD != DECODE(#{MBER_STAT_CD},'32','10',#{MBER_STAT_CD})
+	</update>
+
+	<update id="updateMberReason" parameterType="hashmap">
+		UPDATE 	MBER_DTL_INFO
+		<if test="stop_reason_cd neq null and stop_reason_cd neq '' ">
+		SET		STOP_REASON_CD 	= #{stop_reason_cd}
+			<if test="stop_reason neq null and stop_reason neq '' ">
+		,			STOP_REASON 		= #{stop_reason}
+			</if>
+		,			STOP_DT 				= SYSDATE
+		</if>
+		<if test="reject_reason neq null and reject_reason neq '' ">
+		SET		REJECT_REASON 	= #{reject_reason}
+		,			REJECT_DT 			= SYSDATE
+		</if>
+		WHERE 	MBER_SEQ 			= #{mberSeq}
+	</update>
+
+	<select id="selectCodeList" parameterType="String" resultType="hashmap">
+		SELECT	COM_CD
+		,			COM_CD_NM
+		,			COM_CD_VAL
+		FROM 	CODE
+		WHERE	GRP_CD = #{grp_cd}
+		AND		USE_YN = 'Y'
+		ORDER BY SORT_SEQ
+	</select>
+
+	<insert id="insertMberHist" parameterType="hashmap">
+		INSERT INTO MBER_HIST (
+					MBER_SEQ
+		,			MBER_HIST_SEQ
+		,			MBER_HIST_CD
+		<if test=" MBER_HIST_REASON neq null and MBER_HIST_REASON neq ''">
+		,			MBER_HIST_REASON
+		</if>
+		<if test=" MBER_STOP_CD neq null and MBER_STOP_CD neq ''">
+		,			MBER_STOP_CD
+		</if>
+		,			REGIST_DT
+		,			ADM_ID
+		,			ADM_NM
+		) VALUES (
+					#{mberSeq}
+		,			SEQ_MBER_HIST.NEXTVAL
+		,			#{MBER_STAT_CD}
+		<if test=" MBER_HIST_REASON neq null and MBER_HIST_REASON neq ''">
+		,			#{MBER_HIST_REASON}
+		</if>
+		<if test=" MBER_STOP_CD neq null and MBER_STOP_CD neq ''">
+		,			#{MBER_STOP_CD}
+		</if>
+		,			SYSDATE
+		,			#{ADM_ID}
+		,			#{ADM_NM}
+		)
+	</insert>
+
+
+	<update id="updateCmpnyImg" parameterType="hashmap">
+		UPDATE SELLER_INFO_CFG SET
+			<if test=" COMP_REG_IMG neq null and COMP_REG_IMG neq ''">
+				COMP_REG_IMG = #{COMP_REG_IMG}
+			</if>
+			<if test=" REG_IMG neq null and REG_IMG neq ''">
+				REG_IMG = #{REG_IMG}
+			</if>
+			<if test=" BNK_IMG neq null and BNK_IMG neq ''">
+				BNK_IMG = #{BNK_IMG}
+			</if>
+		WHERE MBER_SEQ = #{MBER_SEQ}
+	</update>
+
+	<select id="selectMberSusCnt3" parameterType="hashMap" resultType="int">
+		select count(*)
+		from
+			seller_suspect_info ssi
+		left OUTER JOIN MBER_INFO mi
+		on ssi.MBER_SEQ = mi.mber_seq
+		left outer join code cd
+		on ssi.seller_suspect_gb_cd = cd.com_cd and cd.grp_cd = 'SUSPECT_GB_CD'
+		where ssi.SELLER_MBER_SEQ = #{mberSeq}
+
+		<if test="stat != null and stat != ''" >
+		and cd.com_cd = #{stat}
+		</if>
+
+		<if test="story != null and story != ''" >
+		and ssi.suspect_reason like '%' || #{story} || '%'
+		</if>
+
+		<if test="S_START_DATE != null and S_START_DATE !=''">
+		and ssi.regist_dt
+		between to_date(#{S_START_DATE} || ' 00:00 ' , 'YYYY-MM-DD HH24:MI') AND to_date(#{S_END_DATE} ||' 23:59' , 'YYYY-MM-DD HH24:MI' )
+ 		</if>
+	</select>
+
+	<select id="selectMberSusList" parameterType="hashMap" resultType="hashMap">
+
+		<include refid="adminCommonMapper.pagingHeader" />
+
+		SELECT
+			CD.COM_CD_NM,
+			MI.MBER_EMAIL,
+			NVL(SSI.SUSPECT_REASON, '') AS SUSPECT_REASON,
+			SSI.REGIST_DT,
+			ROW_NUMBER() OVER(ORDER BY SSI.REGIST_DT DESC ) AS NO
+		FROM
+			SELLER_SUSPECT_INFO SSI
+		LEFT OUTER JOIN MBER_INFO MI
+		ON SSI.MBER_SEQ = MI.MBER_SEQ
+		LEFT OUTER JOIN CODE CD
+		ON SSI.SELLER_SUSPECT_GB_CD = CD.COM_CD AND CD.GRP_CD = 'SELLER_SUSPECT_GB_CD'
+		WHERE SSI.SELLER_MBER_SEQ = #{mberSeq}
+
+		<if test="stat != null and stat != ''" >
+		AND CD.COM_CD = #{stat}
+		</if>
+
+		<if test="story != null and story != ''" >
+		AND SSI.SUSPECT_REASON LIKE '%' || #{story} || '%'
+		</if>
+
+		<if test="S_START_DATE != null and S_START_DATE !='' and S_END_DATE != null and S_END_DATE !=''">
+		AND SSI.REGIST_DT
+		BETWEEN TO_DATE(#{S_START_DATE} || ' 00:00:00 ' , 'YYYY-MM-DD HH24:MI:SS') AND to_date(#{S_END_DATE} ||' 23:59:59' , 'YYYY-MM-DD HH24:MI:SS' )
+ 		</if>
+
+		<include refid="adminCommonMapper.pagingFooter" />
+
+	</select>
+
+	<select id="selectMberAccCnt" parameterType="hashmap" resultType="int">
+		SELECT  COUNT(CON_DATE)      AS TOT_CON_CNT
+        FROM MBER_CON_LOG
+        WHERE MBER_SEQ = #{mberSeq}
+	</select>
+
+	<select id="selectMberAccList" parameterType="hashmap" resultType="hashmap">
+		<include refid="adminCommonMapper.pagingHeader" />
+		SELECT NVL(TO_CHAR(MCL.REGIST_DT, 'YYYY-MM-DD HH24:MI'), '-') AS CON_DATE
+		     , NVL(CD.COM_CD_NM, '-') AS COM_CD_NM
+		     , ROW_NUMBER ( ) OVER ( ORDER BY MCL.REGIST_DT DESC ) AS NO
+		  FROM MBER_CON_LOG MCL LEFT OUTER JOIN CODE CD ON CD.GRP_CD = 'CON_GB_CD'
+		   AND MCL.CON_GB = CD.COM_CD
+		 WHERE MCL.MBER_SEQ = #{mberSeq}
+        <if test="S_START_DATE != null and S_START_DATE != '' and S_END_DATE != null and S_END_DATE != ''">
+	        AND MCL.CON_DATE BETWEEN #{S_START_DATE} AND #{S_END_DATE}
+	    </if>
+		<include refid="adminCommonMapper.pagingFooter" />
+	</select>
+
+	<select id="selectMberAccListCnt" parameterType="hashmap" resultType="int">
+
+		SELECT 	COUNT(CON_DATE)
+        FROM 	MBER_CON_LOG
+        WHERE 	MBER_SEQ = #{mberSeq}
+        <if test="S_START_DATE != null and S_START_DATE != '' and S_END_DATE != null and S_END_DATE != ''">
+	        AND CON_DATE BETWEEN #{S_START_DATE} AND #{S_END_DATE}
+	    </if>
+	</select>
+
+	<select id="selectMberCodeList"	resultType="hashmap">
+		SELECT GRP_CD, COM_CD, COM_CD_NM
+		FROM CODE
+		WHERE GRP_CD = 'SELLER_SUSPECT_GB_CD'
+	</select>
+
+	<update id="updateMyminiInfoReg">
+	UPDATE MBER_MINI_SHOP_INFO
+	   SET MINI_SHOP_PATH = <![CDATA[#{miniShopPath}]]>
+	   	  , MINI_SHOP_NM  =  <![CDATA[#{miniShopNm}]]>
+	   	   <if test="MainfileSeq != null and MainfileSeq != ''">
+	   	  ,  MINI_PROFILE_SEQ = #{MainfileSeq}
+	   	  </if>
+	   	   <if test="BackgrdfileSeq != null and BackgrdfileSeq != ''">
+		  , FILE_SEQ = #{BackgrdfileSeq}
+	   	  </if>
+	      , UPDT_DT = SYSDATE
+	  WHERE MBER_SEQ = #{mberSeq}
+	</update>
+
+</mapper>

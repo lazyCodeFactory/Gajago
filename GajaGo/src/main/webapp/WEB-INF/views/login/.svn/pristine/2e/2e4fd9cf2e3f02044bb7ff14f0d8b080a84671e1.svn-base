@@ -1,0 +1,248 @@
+package com.ssocio.sharing.vo.web;
+
+import java.net.URLDecoder;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.StringTokenizer;
+
+import com.ssocio.sharing.cmmn.util.CmmnCnst;
+
+import kr.co.danal.jsinbi.HttpClient;
+
+public class Bank {
+
+	
+	final String DN_SERVICE_URL = "https://service.teledit.com:443/bank/";
+
+	/******************************************************
+	 * SET TIMEOUT
+	 ******************************************************/
+	final int DN_CONNECT_TIMEOUT = 5000;
+	final int DN_TIMEOUT = 30000;
+
+	/******************************************************
+	 *  ID, PWD : 다날에서 제공해 드린 CPID, CPPWD
+	 ******************************************************/
+//	private String ID  = "xxxxx";
+//	private String PWD = "xxxxx";
+	private String ID  = CmmnCnst.BANK_ID_MERCHANT;
+	private String PWD = CmmnCnst.BANK_PW_MERCHANT;
+	
+	
+	/******************************************************
+	 * CHARSET 지정 ( EUC-KR:Default or UTF-8 )
+	 ******************************************************/
+	private String CHARSET = "EUC-KR";
+//	final String CHARSET = "UTF-8";
+
+	/******************************************************
+	 * 다날 서버와 통신함수 CallTrans
+	 *    - 다날 서버와 통신하는 함수입니다.
+	 ******************************************************/
+	public Map CallTrans( Map data ){
+
+		String REQ_STR = data2str(data);
+		String RES_STR = "";
+
+		HttpClient hc = new HttpClient();
+
+		hc.setConnectionTimeout( DN_CONNECT_TIMEOUT );
+		hc.setTimeout( DN_TIMEOUT );
+
+		try{
+			int nStatus = hc.retrieve( "POST", DN_SERVICE_URL, REQ_STR, CHARSET );
+
+			if( nStatus != 0) {
+				RES_STR = "RETURNCODE=-1&RETURNMSG=NETWORK ERROR(" +nStatus+ ")";
+			} else {
+				RES_STR = hc.getResponseBody();
+			}
+
+		} catch(Exception e) {
+			e.printStackTrace();
+		}
+
+		return str2data( RES_STR );
+	}
+
+	/*
+	 * 문자열을 Map으로 리턴
+	 */
+    	public Map str2data(String str){
+
+		Map map = new HashMap();
+		StringTokenizer st = new StringTokenizer(str,"&"); 
+
+		while(st.hasMoreTokens()){
+
+	    		String pair = st.nextToken();
+	    		int index = pair.indexOf('=');
+
+	    		if(index > 0){
+				map.put(pair.substring(0,index).trim(),urlDecode(pair.substring(index+1)));
+			}
+	 	}
+
+		return map;
+	}
+    
+	/* 
+	 * Map을 문자열로 리턴
+	 */
+	public String data2str(Map data){
+
+		Iterator i = data.keySet().iterator();
+		StringBuffer sb = new StringBuffer();
+	
+		while(i.hasNext()){
+	    		Object key = i.next();
+	    		Object value = data.get(key);
+	    		sb.append(key.toString()+"="+value+"&");
+		}
+
+		if(sb.length()>0) {
+			return sb.substring(0,sb.length()-1);
+		} else {
+	    		return "";
+		}
+     	}
+	
+	/*
+	 * Parsor 결과값 Parsing
+	 */
+    	public Map Parsor(String str,String delimeter){
+
+		Map Out = new HashMap();
+		String[] step1 = null;
+		String[] step2 = null;
+	
+		step1 = str.split(delimeter);
+		for(int i = 0;i<step1.length;i++){
+	    		step2 = step1[i].split("=");
+	    		Out.put(step2[0].trim(), step2[1].trim());
+		}
+
+		return Out;
+	}
+    
+	/*
+	 *  Map에 있는 key, value를 HIDDEN 태그로 만듬
+	 */    
+	public String MakeFormInput( Map map, String[] arr ){
+
+		StringBuffer ret = new StringBuffer();
+
+		if(arr != null) {
+
+			for(int i = 0; i < arr.length; i++) {
+				if(map.containsKey(arr[i])) {
+					map.remove(arr[i]);
+				}
+			}
+		}
+
+		Iterator i = map.keySet().iterator();
+		while(i.hasNext()){
+			String key = (String)i.next();
+			String value = (String)map.get(key);
+			
+			ret.append( "<INPUT TYPE=HIDDEN NAME="+key+" VALUE="+value+">\n" );
+		}
+
+		return ret.toString();
+	}
+
+	/*
+	 *  HTTPVAR에 있는 key, value를 HIDDEN 태그로 만듬
+	 *  arr에 있는 key값은 제외
+	 */	
+	public String MakeFormInputHTTP( Map HTTPVAR, String arr ){
+
+		StringBuffer ret = new StringBuffer();
+
+		String key = "";
+		String[] value = null;
+
+		Iterator i = HTTPVAR.keySet().iterator();
+		while(i.hasNext()){
+			key = (String)i.next();
+			if(key.equals(arr)) continue;
+
+			value = (String[])HTTPVAR.get(key);
+			
+			for(int j = 0; j < value.length; j++){
+				ret.append( "<INPUT TYPE=HIDDEN NAME="+key+" VALUE="+value[j]+">\n" );
+			}
+		}
+
+		return ret.toString();
+	}
+    
+	/*
+	 *  POST로 넘어온 값을 Trans에 추가
+	 */
+	public Map MakeAddtionalInput(Map Trans,Map HTTPVAR, String[] Name){
+
+		for(int i=0;i<Name.length;i++){
+	    		if(HTTPVAR.containsKey(Name[i])){
+				String[] a = (String[])HTTPVAR.get(Name[i]);
+				Trans.put(Name[i],a[0]);
+	    		}
+		}
+
+		return Trans;
+	}
+
+	public String Map2Str(Map data){
+
+		StringBuffer sb = new StringBuffer();
+		Iterator it = data.keySet().iterator();
+		while(it.hasNext()){
+			Object key = it.next();
+			String[] value = (String[])data.get(key);
+
+			for(int i = 0; i<value.length;i++){
+				sb.append( "{"+key+"="+value[i]+"}" );
+			}
+		}
+		return sb.toString();
+	}
+
+	public String urlDecode(Object obj) {
+
+		if (obj == null)
+			return null;
+
+		try{
+			return URLDecoder.decode(obj.toString(), CHARSET);
+		}catch (Exception e) {
+			return obj.toString();
+		}
+	}
+
+	public String getID() {
+		return ID;
+	}
+
+	public void setID(String iD) {
+		ID = iD;
+	}
+
+	public String getPWD() {
+		return PWD;
+	}
+
+	public void setPWD(String pWD) {
+		PWD = pWD;
+	}
+
+	public String getCHARSET() {
+		return CHARSET;
+	}
+
+	public void setCHARSET(String cHARSET) {
+		CHARSET = cHARSET;
+	}
+	
+}

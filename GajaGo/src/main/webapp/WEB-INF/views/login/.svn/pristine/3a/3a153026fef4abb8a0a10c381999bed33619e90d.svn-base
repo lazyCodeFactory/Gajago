@@ -1,0 +1,291 @@
+/* ======================================================================
+Function : 카테고리  초기화
+Return   : 없음
+========================================================================= */
+function initCtry(ctryStr, ctryCd){
+	
+	var ctryCd1 = ctryCd.substring(0,4)+'000000000000';
+	var ctryCd2 = ctryCd.substring(0,8)+'00000000';
+	var ctryCd3 = ctryCd.substring(0,12)+'0000';
+	
+	//대분류 초기화
+	makeCtryBox('1', '', ctryStr, ctryCd1);
+	
+	//중분류 초기화
+	if(ctryCd1 != null && ctryCd1 != '' && ctryCd1 != '000000000000'){
+		makeCtryBox('2', ctryCd1, ctryStr, ctryCd2);
+	}
+	//소분류 초기화
+	if(ctryCd2 != null && ctryCd2 != '' && ctryCd2 != '00000000'){
+		makeCtryBox('3', ctryCd2, ctryStr, ctryCd3);
+	}
+}
+
+/* ======================================================================
+Function : 대분류 카테고리 변경
+Return   : 없음
+========================================================================= */
+function chgCtryCd1Box(ctryStr){
+	if ($('#'+ctryStr+'CtryCd1').val() == null || $('#'+ctryStr+'CtryCd1').val() == "") {
+		$('#'+ctryStr+'CtryCd2').empty();
+		$('#'+ctryStr+'CtryCd2').html('<option value="">중분류를 선택해 주세요</option>');
+		$('#'+ctryStr+'CtryCd3').empty();
+		$('#'+ctryStr+'CtryCd3').html('<option value="">소분류를 선택해 주세요</option>');
+	}
+	else {
+		$('#'+ctryStr+'CtryCd3').empty();
+		$('#'+ctryStr+'CtryCd3').html('<option value="">소분류를 선택해 주세요</option>');
+		makeCtryBox('2', $('#'+ctryStr+'CtryCd1').val(), ctryStr, '');
+	}
+}
+
+/* ======================================================================
+Function : 중분류 카테고리 변경
+Return   : 없음
+========================================================================= */
+function chgCtryCd2Box(ctryStr){
+	if ($('#'+ctryStr+'CtryCd2').val() == null || $('#'+ctryStr+'CtryCd2').val() == "") {
+		$('#'+ctryStr+'CtryCd3').empty();
+		$('#'+ctryStr+'CtryCd3').html('<option value="">소분류를 선택해 주세요</option>');
+	}
+	else {
+		makeCtryBox('3', $('#'+ctryStr+'CtryCd2').val(), ctryStr, '');
+	}
+}
+
+/* ======================================================================
+Function : 선택한 최종카테고리코드를 리턴한다
+Return   : 카테고리코드
+========================================================================= */
+function getCtryCd(ctryStr){
+	var ctryCd = '';
+	var ctryCd1 = $('#'+ctryStr+'CtryCd1').val().substring(0,4);
+	var ctryCd2 = $('#'+ctryStr+'CtryCd2').val().substring(4,8);
+	var ctryCd3 = $('#'+ctryStr+'CtryCd3').val().substring(8,12);
+	
+	if(ctryCd1 == null || ctryCd1 == '' ){
+		if(ctryStr == 'search'){
+			return '';
+		}else{
+			alert('카테고리를 선택해 주십시요.');
+			return '';
+		}
+	}else{
+		ctryCd += ctryCd1;
+	}
+	if(ctryCd2 == null || ctryCd2 == ''){
+		ctryCd += '0000';
+	}else{
+		ctryCd += ctryCd2;
+	}
+	if(ctryCd3 == null || ctryCd3 == ''){
+		ctryCd += '0000';
+	}else{
+		ctryCd += ctryCd3;
+	}
+	ctryCd += '0000';
+	
+	return ctryCd;
+}
+
+/* ======================================================================
+Function : 카테고리 셀렉트박스 생성
+Return   : 없음
+========================================================================= */
+function makeCtryBox(lvlSeq, parentCtryCd, ctryStr, selectedCtryCd){  
+	
+	$.ajax({
+	    type: 'post'
+	    , async: true
+	    , url: '/mobile/common/selectCtryList.do'
+	    , data: {"lvlSeq":lvlSeq, "parentCtryCd":parentCtryCd, "viewYn":"Y"}
+	    , success: function(data) {
+	    	var ctryList = data.ctryList;
+	    	
+	    	//초기화
+	    	if(lvlSeq == '1'){
+				$('#'+ctryStr+'CtryCd1').empty();
+				$('#'+ctryStr+'CtryTxt1').text('대분류');
+				$('#'+ctryStr+'CtryCd1').html('<option value="">대분류를 선택해 주세요</option>');
+			}else if(lvlSeq == '2'){
+				$('#'+ctryStr+'CtryCd2').empty();
+				$('#'+ctryStr+'CtryTxt2').text('중분류');
+				$('#'+ctryStr+'CtryCd2').html('<option value="">중분류를 선택해 주세요</option>');
+			}else if(lvlSeq == '3'){
+				$('#'+ctryStr+'CtryCd3').empty();
+				$('#'+ctryStr+'CtryTxt3').text('소분류');
+				$('#'+ctryStr+'CtryCd3').html('<option value="">소분류를 선택해 주세요</option>');
+			}
+	    	
+			if(ctryList.length > 0){
+				for(var i=0; i<ctryList.length; i++){
+					var html = '<option value="' +ctryList[i].CTRY_CD+ '" ';
+					
+					if(selectedCtryCd != '' && ctryList[i].CTRY_CD == selectedCtryCd){
+						html += 'selected="selected"';
+						$('#'+ctryStr+'CtryTxt'+lvlSeq).text(ctryList[i].CTRY_NM);
+					}
+					html += ' >' +ctryList[i].CTRY_NM+ '</option>';
+					$('#'+ctryStr+'CtryCd'+lvlSeq).append(html);
+				}
+			}
+			
+			if (typeof(proc.procNextBtn) == 'function') {
+				proc.procNextBtn();
+			}
+			
+	    }
+	    , error: function(data, status, err) {
+	      alert('서버와의 통신이 실패했습니다.');
+	    }
+	});
+}
+
+/**
+ * 
+ * <pre>
+ * 설명 : Product 객체
+ * 설명 : prodContainer에 들어갈 Product에 대한 구조체
+ * @param prodCode 			: 상품 일련번호
+ * @param prodNm 			: 상품 이름
+ * @param ctryCd 			: 상품 카테고리 코드
+ * @param prodTypeCd 		: 상품 구분
+ * @param imgUrl 			: 상품 이미지 URL
+ * @param brandNm 			: 브랜드 명
+ * @param sellPrce 			: 판매가
+ * @param nrmPrce 			: 정상가
+ * @param percent 			: 할인률
+ * @param recomYn 			: 추천상품 YN
+ * @param cponApplyPsblYn 	: 쿠폰사용 YN
+ * @param dlvPayGbCd 		: 무료배송 YN
+ * @date 2015. 8. 25. 오후 17:42:41
+ * @author WOOK.KIM
+ * @see
+ * </pre>
+ */
+var Product = function(){
+	this.prodCode = '';
+	this.prodNm = '';
+	this.ctryCd = '';
+	this.prodTypeCd = '';
+	this.imgUrl = '';
+	this.brandNm = '';
+	this.sellPrce = '';
+	this.nrmPrce = '';
+	this.sharingPrce = '';
+	this.percent = '';
+	this.recomYn = '';
+	this.cponApplyPsblYn = '';
+	this.dlvPayGbCd = '';
+	this.dlvWayCd = '';
+};
+
+/**
+ * 
+ * <pre>
+ * 설명 : prodContainer 객체
+ * 설명 : 상품 목록에 대한 처리를 담당한다.
+ * @param prods 		: Product객체를 담을 collection 객체
+ * @param area 			: display할 영역의 parent 객체
+ * @date 2015. 8. 25. 오후 17:42:41
+ * @author WOOK.KIM
+ * @see
+ * </pre>
+ */
+var prodContainer = {
+	prods : new Array(),
+	area : null,
+	curPage : 1,
+	isNext : false,
+	add : function(prod, defaultUrl){
+		prod.percent = this._setPercent(prod.sellPrce, prod.nrmPrce);
+		
+		var html = '';
+		html += '<li class="type02">';
+		html += '	<a href="javascript:selectProd(' + prod.prodCode + ');">';
+		html += '		<div class="inner_box">';
+		html += '			<p class="thomb"><img data-img="' + prod.imgUrl + '"></p>';
+		if( prod.prodTypeCd == '2'){
+			html += '			<p class="sharing"><img src="http://static.ssocio.net/web/images/main/label_sharing.png" alt="쉐어링"></p>';
+		}
+		html += '			<div class="label">';
+		if( prod.cponApplyPsblYn == 'Y'){
+			html += '				<p><img src="http://static.ssocio.net/web/images/main/label_coupon.png" alt="쿠폰할인"></p>';
+		}
+		
+		if(prod.prodTypeCd == '1' || prod.prodTypeCd == '2'){
+			if( prod.dlvPayGbCd == '1' && (prod.dlvWayCd == '1' || prod.dlvWayCd == '2' || prod.dlvWayCd == '3')){
+				html += '				<p><img src="http://static.ssocio.net/web/images/main/label_delivery.png" alt="무료배송"></p>';	
+			}
+		}
+		html += '			</div>';
+		html += '		</div>';
+		html += '		<div class="subs" style="height:105px;">';
+		html += ' 			<p class="subj">';
+		if( isNull(prod.brandNm) == false){
+			html += '[' + prod.brandNm + ']';
+		}
+		html += '				' + prod.prodNm + ''; 
+		html += '			<div class="clear">';
+		if( prod.prodTypeCd == '1'){
+			if( nvlInt(prod.percent, 0) > 0){
+				html += '				<strong class="fl">' + Math.floor(prod.percent) + '%</strong>';
+				html += '				<p class="fr tr"><span>' + formatNumber(nvlInt(prod.nrmPrce)) + '원</span><br><strong>' + formatNumber(nvlInt(prod.sellPrce)) + '원</strong></p>';
+			}
+			else{
+				html += '				<p class="fr tr"><span></span><br><strong>' + formatNumber(nvlInt(prod.sellPrce, 0)) + '원</strong></p>';
+			}
+		}
+		else if(prod.prodTypeCd == '2'){
+			html += '				<p class="fr tr"><strong>' + '1일 ' + formatNumber(nvlInt(prod.sellPrce, 0)) + '원</strong></p>';
+		}
+		html += '			</div>';
+		html += '		</div>';
+		html += '	</a>';
+		html += '</li>';
+		this.area.append(html);
+		this.prods.push(prod);
+	},
+	addJson : function(prod, defaultUrl){
+		var product = new Product();
+		product.prodCode = prod.PROD_CODE;
+		product.prodNm = prod.PROD_NM;
+		product.ctryCd = prod.CTRY_CD;
+		product.prodTypeCd = prod.PROD_TYPE_CD;
+		product.imgUrl = prod.PROD_IMG_URL;
+		product.brandNm = prod.BRAND_NM;
+		product.sellPrce = prod.SELL_PRCE;
+		product.nrmPrce = prod.NRM_PRCE;
+		product.sharingPrce = prod.SHARING_PRCE;
+		product.recomYn = prod.RECOM_YN;
+		product.cponApplyPsblYn = prod.CPON_APPLY_PSBL_YN;
+		product.dlvPayGbCd = prod.DLV_PAY_GB_CD;
+		
+		this.add(product, defaultUrl);
+	},
+	removeAll : function(){
+		this.area.empty();
+		this.prods.splice(0, this.prods.length);
+	},
+	_setPercent : function(sellPrce, nrmPrce){
+		var temp = 0;
+		if( !this._isNull(sellPrce) || !this._isNull(nrmPrce)){
+			temp = ( parseInt(nrmPrce) - parseInt(sellPrce) ) / parseInt(nrmPrce) * 100;
+		}
+		
+		return temp;
+	},
+	_isNull : function(value){
+		if( value != undefined && value != ''){
+			return false;
+		}
+		
+		return true;
+	},
+	beanAdd : function(){
+		var html = '';
+		html += ' 	<p>준비된 상품이 없습니다.</p> ';
+		this.area.append(html);
+	}
+};
+

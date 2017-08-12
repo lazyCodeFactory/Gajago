@@ -1,0 +1,1636 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="webSmartPhoneMapper">
+
+	<resultMap id="SharMap" type="HashMap">
+		<result property="PROD_CODE" column="PROD_CODE" javaType="String" />
+		<result property="TELCOM_CODE" column="TELCOM_CODE" javaType="String" />
+		<result property="PROD_NM" column="PROD_NM" javaType="String" />
+		<result property="SHARING_PRICE" column="SHARING_PRICE" javaType="String" />
+		<result property="PROD_MB_DTL" column="PROD_MB_DTL" javaType="String"  jdbcType="CLOB" />
+		<result property="SP_IMG_GB_CD" column="SP_IMG_GB_CD" javaType="String" />
+		<result property="FILE_NO" column="FILE_NO" javaType="String" />
+		<result property="FILE_TITLE" column="FILE_TITLE" javaType="String" />
+		<result property="FILE_URL" column="FILE_URL" javaType="String" />
+		<result property="WISH_PROD_CNT" column="WISH_PROD_CNT" javaType="Integer" />
+	</resultMap>
+	
+	<!-- 상품 후기 맵 -->
+	<resultMap id="reviewMap" type="HashMap">
+		<result property="AVG_SCORE" column="AVG_SCORE" javaType="String" />
+		<result property="SUM_AVG_SCORE" column="SUM_AVG_SCORE" javaType="String" />
+		<result property="EMAIL" column="EMAIL" javaType="String" />
+		<result property="REGIST_DT" column="REGIST_DT"  />
+		<result property="TITLE" column="TITLE" javaType="String" />
+		<result property="LEVEL_IMG" column="LEVEL_IMG" javaType="String" />
+		<result property="CONTENTS" column="CONTENTS" javaType="String" jdbcType="CLOB" />
+	</resultMap>
+	
+	<!-- 댓글 맵 -->
+	<resultMap id="commentMap" type="HashMap">
+			<result property="MBER_EMAIL"			column="MBER_EMAIL" />
+			<result property="SSO_GB_CD"			column="SSO_GB_CD" />
+			<result property="MBER_NICK"			column="MBER_NICK" />
+			<result property="CONTENTS"				column="CONTENTS" jdbcType="CLOB" javaType="string"/>
+			<result property="REGIST_DT"			column="REGIST_DT"/>
+			<result property="TIME_GAP"				column="TIME_GAP"/>
+			<result property="FILE_URL"				column="FILE_URL" />
+			<result property="BAN_YN"				column="BAN_YN" />
+			<result property="LEVEL_IMG"			column="LEVEL_IMG" />
+	</resultMap>
+	
+	<resultMap type="hashmap" id="selectSharingRealPrce">
+			<result property="EXT_PRCE"							column="EXT_PRCE" 						javaType="Integer"		 	jdbcType="VARCHAR" />
+			<result property="USE_PHONE_PRE_COMPENSATE_PRCE"	column="USE_PHONE_PRE_COMPENSATE_PRCE"  javaType="float" 			jdbcType="DECIMAL" />
+			<result property="BUY_SALE_PRCE"					column="BUY_SALE_PRCE"  				javaType="float"	 		jdbcType="DECIMAL"/>
+			<result property="GUARANTEE_INSURANCE_PRCE"			column="GUARANTEE_INSURANCE_PRCE" 		javaType="Integer" 			jdbcType="DECIMAL" />
+			<result property="RV_INSURANCE_PRCE"				column="RV_INSURANCE_PRCE"  			javaType="Integer" 			jdbcType="DECIMAL"/>
+			<result property="INSURANCE_PRCE"					column="INSURANCE_PRCE"  				javaType="Integer" 			jdbcType="VARCHAR"/>
+			<result property="SERVICIZING_PRCE"					column="SERVICIZING_PRCE" 				javaType="Integer" 			jdbcType="VARCHAR"  />
+			<result property="SALE_SUPP_PRCE"					column="SALE_SUPP_PRCE"  				javaType="float" 	jdbcType="VARCHAR"/>
+			<result property="SALE_GSUPP_PRCE"					column="SALE_GSUPP_PRCE"  				javaType="float" 	jdbcType="VARCHAR"/>
+			<result property="SALE_DISC_PRCE"					column="SALE_DISC_PRCE"  				javaType="Integer" 			jdbcType="VARCHAR"/>
+			<result property="SHARING_FEE_PRCE"					column="SHARING_FEE_PRCE"  				javaType="float" 	jdbcType="DECIMAL"/>
+			<result property="SSOCIO_FEE_PRCE"					column="SSOCIO_FEE_PRCE"  				javaType="float" 	jdbcType="DECIMAL"/>
+			<result property="STIP_CODE"					column="STIP_CODE"  						javaType="Integer" 	jdbcType="VARCHAR"/>
+	</resultMap>
+	
+	<!-- [2015-11-05] 나이구하기 추가 -->
+	<select id="getAge" parameterType="int" resultType="int">
+		SELECT	NVL2(BIRTH, FLOOR(MONTHS_BETWEEN(SYSDATE, TO_DATE(BIRTH, 'YYYYMMDD')) / 12), 0) AS AGE 
+		  FROM 	MBER_INFO
+		  WHERE MBER_SEQ = #{MBER_SEQ}
+		  
+	</select>
+	
+	<!-- 스마트폰 셰어링 -->
+	<select id="selectListShar" parameterType="hashmap" resultType="hashmap">
+		<include refid="webCommonMapper.pagingHeader" />
+		SELECT Z.PROD_CODE
+			 , Z.TELCOM_CODE
+			 , Z.PROD_NM
+			 , Z.REGIST_DT
+			 , Z.SHARING_PRICE
+			 , Z.TELCOM_NM
+			 , Z.TEL_FILE_URL
+			 , Z.FILE_URL
+			 , Z.FILE_WIDTH
+			 , Z.FILE_HEIGH
+			 , ROW_NUMBER() OVER( ORDER BY Z.REGIST_DT DESC ) AS NO
+		  FROM (SELECT A.PROD_CODE
+					 , A.TELCOM_CODE
+					 , A.PROD_NM
+					 , A.REGIST_DT
+					 , B.SHARING_PRICE
+					 , C.SELL_CNT
+					 , D.TELCOM_NM
+					 , (SELECT FILE_URL FROM FILE_INFO WHERE FILE_SEQ = D.TELCOM_IMG) AS TEL_FILE_URL
+					 , F.FILE_URL
+					 , F.FILE_WIDTH
+					 , F.FILE_HEIGH
+					 , ROW_NUMBER() OVER(PARTITION BY B.PROD_CODE ORDER BY B.SHARING_PRICE ASC) AS MIN_PRCE
+				  FROM SP_PROD A
+				 INNER JOIN SP_PROD_DTL B ON (B.PROD_CODE = A.PROD_CODE)
+				 INNER JOIN PROD C ON (C.PROD_CODE = A.PROD_CODE)
+				 INNER JOIN SP_TELCOM D ON (D.TELCOM_CODE = A.TELCOM_CODE)
+				 INNER JOIN SP_IMAGE E ON (E.PROD_CODE = A.PROD_CODE)
+				 INNER JOIN FILE_INFO F ON (F.FILE_SEQ = E.FILE_NO)
+				 WHERE A.PROD_SHOW_YN = 'Y'
+				   AND C.PROD_TYPE_CD = '4'
+				   AND D.USE_YN = 'Y'
+				   AND E.SP_IMG_GB_CD = '01'
+		) Z
+		WHERE Z.MIN_PRCE = '1'
+		<if test="TELCOM_CODE != null and TELCOM_CODE != ''">
+		   AND Z.TELCOM_CODE IN
+			<foreach item="item" index="index" collection="TELCOM_CODE" open="(" separator="," close=")">
+				#{item}
+			</foreach>
+		</if>
+		<choose>
+			<when test="SORT == 0">
+				ORDER BY Z.SELL_CNT DESC
+			</when>
+			<when test="SORT == 1">
+				ORDER BY Z.REGIST_DT DESC
+			</when>
+			<when test="SORT == 2">
+				ORDER BY Z.SHARING_PRICE ASC
+			</when>
+			<when test="SORT == 3">
+				ORDER BY Z.SHARING_PRICE DESC
+			</when>
+			<otherwise>
+				ORDER BY Z.REGIST_DT DESC
+			</otherwise>
+		</choose>
+		<include refid="webCommonMapper.pagingFooter" />
+	</select>
+	
+	<!-- 스마트폰 셰어링 카운트 수 조회 -->
+	<select id="selectListSharCount" parameterType="hashmap" resultType="int">
+		SELECT COUNT(1)
+		  FROM (SELECT A.PROD_CODE
+					 , A.TELCOM_CODE
+					 , A.PROD_NM
+					 , A.REGIST_DT
+					 , B.SHARING_PRICE
+					 , D.TELCOM_NM
+					 , (SELECT FILE_URL FROM FILE_INFO WHERE FILE_SEQ = D.TELCOM_IMG) AS TEL_FILE_URL
+					 , F.FILE_URL
+					 , C.SELL_CNT
+					 , ROW_NUMBER() OVER(PARTITION BY B.PROD_CODE ORDER BY B.SHARING_PRICE ASC) AS MIN_PRCE
+				  FROM SP_PROD A
+				 INNER JOIN SP_PROD_DTL B ON (B.PROD_CODE = A.PROD_CODE)
+				 INNER JOIN PROD C ON (C.PROD_CODE = A.PROD_CODE)
+				 INNER JOIN SP_TELCOM D ON (D.TELCOM_CODE = A.TELCOM_CODE)
+				 INNER JOIN SP_IMAGE E ON (E.PROD_CODE = A.PROD_CODE)
+				 INNER JOIN FILE_INFO F ON (F.FILE_SEQ = E.FILE_NO)
+				 WHERE A.PROD_SHOW_YN = 'Y'
+				   AND C.PROD_TYPE_CD = '4'
+				   AND D.USE_YN = 'Y'
+				   AND E.SP_IMG_GB_CD = '01'
+		) Z
+		WHERE Z.MIN_PRCE = '1'
+		<if test="TELCOM_CODE != null and TELCOM_CODE != ''">
+		   AND Z.TELCOM_CODE IN
+			<foreach item="item" index="index" collection="TELCOM_CODE" open="(" separator="," close=")">
+				#{item}
+			</foreach>
+		</if>
+		<choose>
+			<when test="SORT == 0">
+				ORDER BY Z.SELL_CNT DESC
+			</when>
+			<when test="SORT == 1">
+				ORDER BY Z.REGIST_DT DESC
+			</when>
+			<when test="SORT == 2">
+				ORDER BY Z.SHARING_PRICE ASC
+			</when>
+			<when test="SORT == 3">
+				ORDER BY Z.SHARING_PRICE DESC
+			</when>
+			<otherwise>
+				ORDER BY Z.REGIST_DT DESC
+			</otherwise>
+		</choose>
+	</select>
+	
+	<!-- 통신사 리스트 조회 -->
+	<select id="selectListTelcom" parameterType="hashmap" resultType="hashmap">
+		SELECT ST.TELCOM_CODE
+			 , ST.TELCOM_NM
+		  FROM SP_TELCOM ST, SP_PROD SP
+     	 WHERE ST.TELCOM_CODE = SP.TELCOM_CODE
+      	   AND ST.USE_YN = 'Y'
+      GROUP BY ST.TELCOM_CODE , ST.TELCOM_NM
+	</select>
+	
+	<!-- 스마트폰 셰어링 상품 상세 이미지 조회 -->
+	<select id="selectSharProdImg" parameterType="hashmap" resultType="hashmap">
+		SELECT A.PROD_CODE
+			 , A.TELCOM_CODE
+			 , A.PROD_NM
+			 , C.FILE_NO
+			 , D.FILE_TITLE
+			 , D.FILE_URL
+		  FROM SP_PROD A
+		 INNER JOIN SP_TELCOM B ON (B.TELCOM_CODE = A.TELCOM_CODE)
+		 INNER JOIN SP_IMAGE C ON (C.PROD_CODE = A.PROD_CODE)
+		 INNER JOIN FILE_INFO D ON ( D.FILE_SEQ = C.FILE_NO)
+		 WHERE A.PROD_CODE = #{PROD_CODE}
+		   AND A.PROD_SHOW_YN = 'Y'
+		   AND C.SP_IMG_GB_CD IN ('02', '03', '04', '05', '06', '07')
+	</select>
+	
+	<!-- 스마트폰 셰어링 상품 상세 내용 조회 -->
+	<select id="selectSharDtl" parameterType="hashmap" resultMap="SharMap">
+		SELECT Z.PROD_CODE
+			 , Z.PROD_NM
+			 , Z.TELCOM_CODE
+			 , Z.PROD_MB_DTL
+			 , Z.SHARING_PRICE
+			 , Z.MSG_GB
+			 , Z.FILE_NM
+			 , Z.FILE_URL
+			 , Z.TEL_FILE_URL
+			 , DECODE (Z.SP_IMG_GB_CD, '20', Z.FILE_URL, Z.PROD_MB_DTL) MSG
+			 , Z.NO
+			 , Z.FILE_SEQ
+			 , (SELECT COUNT(*) FROM PROD_WISH WHERE PROD_CODE = Z.PROD_CODE) AS WISH_PROD_CNT  <!-- 위시담기 상품 총 개수 추가 -->
+		  FROM (SELECT A.PROD_CODE
+					 , A.PROD_NM
+					 , A.TELCOM_CODE
+					 , A.PROD_MB_DTL
+					 , B.SHARING_PRICE
+					 , D.SP_IMG_GB_CD
+					 , DECODE(D.SP_IMG_GB_CD, '20', 1, 0) AS MSG_GB
+					 , ROW_NUMBER() OVER(PARTITION BY B.PROD_CODE ORDER BY B.SHARING_PRICE ASC) AS MIN_PRCE
+					 , ROW_NUMBER() OVER( ORDER BY DECODE(D.SP_IMG_GB_CD, '20', 1, 0) DESC ) AS NO
+					 , E.FILE_NM
+					 , E.FILE_URL
+					 , (SELECT FILE_URL FROM FILE_INFO WHERE FILE_SEQ = C.TELCOM_IMG) AS TEL_FILE_URL
+					 , E.FILE_SEQ
+				  FROM SP_PROD A
+				 INNER JOIN SP_PROD_DTL B ON (B.PROD_CODE = A.PROD_CODE)
+				 INNER JOIN SP_TELCOM C ON (C.TELCOM_CODE = A.TELCOM_CODE)
+				 INNER JOIN SP_IMAGE D ON (D.PROD_CODE = A.PROD_CODE)
+				 INNER JOIN FILE_INFO E ON (E.FILE_SEQ = D.FILE_NO)
+				 WHERE A.PROD_CODE = ${PROD_CODE}
+				   AND A.PROD_SHOW_YN = 'Y'
+				 ORDER BY D.SP_IMG_GB_CD DESC
+				) Z
+		 WHERE Z.NO = '1'
+	</select>
+	
+	
+	
+	<!-- 상품 후기 갯수 -->
+	<select id="selectEpilogueCnt" parameterType="hashmap" resultType="int">
+		SELECT COUNT(1)
+		  FROM BOARD_INFO
+		 WHERE PROD_CODE = #{PROD_CODE}
+		   AND BOARD_TYPE_CD = '70'
+	</select>
+	
+	<!-- 상품 후기 -->
+	<select id="selectEpilogue" parameterType="hashmap" resultMap="reviewMap">
+	SELECT RVW.RNUM					AS RNUM
+		     , RVW.CNT           	AS CNT
+		     , RVW.AVG_SCORE     	AS SUM_AVG_SCORE
+		     , RVW.BOARD_SEQ     	AS BOARD_SEQ
+		     , RVW.SCORE         	AS AVG_SCORE
+		     , RVW.CONTENTS      	AS CONTENTS
+		     , RVW.MBER_SEQ      	AS MBER_SEQ
+		     , RVW.PROD_CODE     	AS PROD_CODE
+		     , RVW.BAN_YN			AS BAN_YN
+		     , RVW.REGIST_DT    	AS REGIST_DT
+		     , RVW.TIME_GAP			AS TIME_GAP
+		     , RVW.BOARD_FILE_URL 	AS BOARD_FILE_URL
+		     , RVW.EMAIL          	AS EMAIL
+		     , RVW.MBER_IMG_URL     AS USER_IMG
+		     , FI1.FILE_URL				    AS LEVEL_IMG
+		  FROM (
+		        SELECT ROWNUM          	AS RNUM
+		             , WW.CNT           AS CNT
+		             , WW.AVG_SCORE      AS AVG_SCORE
+		             , XX.BOARD_SEQ      AS BOARD_SEQ
+		             , XX.SCORE          AS SCORE
+		             , XX.CONTENTS       AS CONTENTS
+		             , XX.MBER_SEQ       AS MBER_SEQ
+		             , XX.PROD_CODE      AS PROD_CODE
+		             , XX.BAN_YN			AS BAN_YN
+		             , XX.REGIST_DT    	AS REGIST_DT
+		             , XX.TIME_GAP		AS TIME_GAP
+		             , XX.BOARD_FILE_URL AS BOARD_FILE_URL
+		             , XX.EMAIL          AS EMAIL
+		             , FF.FILE_URL       AS MBER_IMG_URL
+		             , ML.FILE_SEQ		AS LEVEL_IMG_SEQ
+		          FROM (
+		                SELECT COUNT(BOARD_SEQ) AS CNT
+		                     , AVG(AVG_SCORE)    AS AVG_SCORE
+		                  FROM BOARD_INFO
+		                 WHERE PROD_CODE = #{PROD_CODE}
+		                   AND BOARD_TYPE_CD = '70'
+		               ) WW,
+		               (
+		                SELECT BI.BOARD_SEQ      AS BOARD_SEQ
+		                     , BI.AVG_SCORE       AS SCORE
+		                     , BI.CONTENTS        AS CONTENTS
+		                     , BI.MBER_SEQ        AS MBER_SEQ
+		                     , BI.PROD_CODE       AS PROD_CODE
+		                     , BI.BAN_YN			AS BAN_YN
+		                     , X.REGIST_DT    	AS REGIST_DT
+		                     , X.TIME_GAP		AS TIME_GAP
+		                     , X.FILE_URL        AS BOARD_FILE_URL
+		                     , MI.MBER_EMAIL      AS EMAIL
+		                     , MI.MBER_IMG        AS MBER_IMG
+		                     , MDI.BUY_MBER_LEV_SEQ AS BUY_MBER_LEV_SEQ 
+		                  FROM (
+		                        SELECT T.BOARD_SEQ      	AS BOARD_SEQ
+		                             , T.REGIST_DT  		AS REGIST_DT
+		                             , TO_CHAR(T.REGIST_DT, 'YYYY-MM-DD HH24:MI:SS') AS TIME_GAP
+		                             , FI.FILE_URL      	AS FILE_URL
+		                          FROM (
+		                                SELECT BI.BOARD_SEQ     AS BOARD_SEQ
+		                                     , BI.REGIST_DT    	AS REGIST_DT
+		                                     , MIN(BF.FILE_SEQ)  AS FILE_SEQ
+		                                  FROM BOARD_INFO BI LEFT OUTER JOIN BOARD_FILE BF ON BI.BOARD_SEQ = BF.BOARD_SEQ
+		                                 WHERE BI.PROD_CODE = #{PROD_CODE}
+		                                   AND BI.BOARD_TYPE_CD = '70'
+		                                GROUP BY BI.BOARD_SEQ, BI.REGIST_DT
+		                               ) T LEFT OUTER JOIN FILE_INFO FI ON T.FILE_SEQ = FI.FILE_SEQ
+		                       ) X
+		                            INNER JOIN BOARD_INFO BI ON X.BOARD_SEQ = BI.BOARD_SEQ
+		                            INNER JOIN MBER_INFO MI ON BI.MBER_SEQ = MI.MBER_SEQ
+		                            LEFT OUTER JOIN MBER_DTL_INFO MDI ON BI.MBER_SEQ = MDI.MBER_SEQ
+		                ORDER BY X.REGIST_DT DESC
+		            ) XX LEFT OUTER JOIN FILE_INFO FF ON XX.MBER_IMG = FF.FILE_SEQ
+		            LEFT OUTER JOIN MBER_LEV ML ON XX.BUY_MBER_LEV_SEQ = ML.MBER_LEV_SEQ    
+		       ) RVW
+       				LEFT OUTER JOIN FILE_INFO FI1 ON RVW.LEVEL_IMG_SEQ = FI1.FILE_SEQ
+       		 WHERE RVW.RNUM <![CDATA[>=]]>1
+		   		AND RVW.RNUM <![CDATA[<=]]> 3
+	
+	</select>
+	
+	<!-- 댓글 갯수 -->
+	<select id="selectCommentCnt" parameterType="hashmap" resultType="int">
+		SELECT COUNT(1)
+		  FROM BOARD_INFO
+		 WHERE PROD_CODE = #{PROD_CODE}
+		   AND BOARD_TYPE_CD = '50'
+		   AND (DEL_YN <![CDATA[<>]]> 'Y' OR DEL_YN IS NULL)
+	</select>
+	
+	<!-- 댓글 -->
+	<select id="selectComment" parameterType="hashmap" resultMap="commentMap">
+		SELECT CMT.RNUM
+			 , CMT.CNT						AS CNT
+			 , CMT.PROD_CODE				AS PROD_CODE
+			 , CMT.BOARD_SEQ				AS BOARD_SEQ
+			 , CMT.MBER_SEQ					AS MBER_SEQ
+			 , CMT.CONTENTS					AS CONTENTS
+			 , CMT.MBER_EMAIL				AS MBER_EMAIL
+			 , CMT.SSO_GB_CD				AS SSO_GB_CD
+			 , CMT.MBER_NICK				AS MBER_NICK
+			 , CMT.BAN_YN					AS BAN_YN
+			 , CMT.REGIST_DT				AS REGIST_DT
+			 , CMT.TIME_GAP				  	AS TIME_GAP
+			 , CMT.FILE_URL					AS FILE_URL
+			 , FI1.FILE_URL				    AS LEVEL_IMG
+		  FROM (
+				SELECT ROWNUM       AS RNUM
+					 , W.CNT						AS CNT
+					 , X.PROD_CODE					AS PROD_CODE
+					 , X.BOARD_SEQ					AS BOARD_SEQ
+					 , X.MBER_SEQ					AS MBER_SEQ
+					 , X.CONTENTS					AS CONTENTS
+					 , X.MBER_EMAIL					AS MBER_EMAIL
+					 , X.SSO_GB_CD					AS SSO_GB_CD
+					 , X.MBER_NICK					AS MBER_NICK
+					 , X.BAN_YN						AS BAN_YN
+					 , X.REGIST_DT				  	AS REGIST_DT
+					 , X.TIME_GAP				  	AS TIME_GAP
+					 , ML.FILE_SEQ					AS LEVEL_IMG_SEQ
+					 , FI.FILE_URL					AS FILE_URL
+				  FROM (
+						SELECT COUNT(BOARD_SEQ) AS CNT
+						  FROM BOARD_INFO
+						 WHERE BOARD_TYPE_CD = '50'
+						   AND PROD_CODE = #{PROD_CODE}
+						   AND (DEL_YN <![CDATA[<>]]> 'Y' OR DEL_YN IS NULL)
+						) W,
+					   (
+						SELECT BI.BOARD_SEQ
+							 , BI.PROD_CODE
+							 , BI.MBER_SEQ
+							 , BI.CONTENTS
+							 , BI.BAN_YN
+							 , BI.REGIST_DT
+							 , TO_CHAR(BI.REGIST_DT, 'YYYY-MM-DD HH24:MI:SS') AS TIME_GAP
+							 , MI.MBER_IMG
+							 , MI.MBER_EMAIL
+							 , MI.SSO_GB_CD
+							 , MI.MBER_NICK
+							 , MDI.BUY_MBER_LEV_SEQ
+						  FROM BOARD_INFO BI
+			                    INNER JOIN MBER_INFO MI ON BI.MBER_SEQ = MI.MBER_SEQ
+			                    LEFT OUTER JOIN MBER_DTL_INFO MDI ON BI.MBER_SEQ = MDI.MBER_SEQ
+						 WHERE BI.BOARD_TYPE_CD = '50'
+						   AND BI.PROD_CODE = #{PROD_CODE}
+						   AND (BI.DEL_YN <![CDATA[<>]]> 'Y' OR BI.DEL_YN IS NULL)
+					  ORDER BY BI.REGIST_DT DESC
+					  ) X 
+					  		LEFT OUTER JOIN FILE_INFO FI ON X.MBER_IMG = FI.FILE_SEQ
+					  		LEFT OUTER JOIN MBER_LEV ML ON X.BUY_MBER_LEV_SEQ = ML.MBER_LEV_SEQ
+			   ) CMT
+			   		LEFT OUTER JOIN FILE_INFO FI1 ON CMT.LEVEL_IMG_SEQ = FI1.FILE_SEQ
+		 WHERE CMT.RNUM <![CDATA[>=]]> 1
+		   AND CMT.RNUM <![CDATA[<=]]> 3
+	</select>
+	
+	<!-- 스마트폰 셰어링 주문 상품 정보 조회 -->
+	<select id="selectSharPordInfo" parameterType="hashmap" resultType="hashmap">
+		SELECT A.PROD_CODE												<!-- 상품코드 -->
+			 , A.TELCOM_CODE											<!-- 통신사코드 -->
+			 , A.PROD_NM												<!-- 상품명 -->
+			 , A.SP_SIZE_CD												<!-- 핸드폰용량 -->
+			 , NVL(A.EXT_PRCE, 0) AS EXT_PRCE							<!-- 출고가 -->
+			 , NVL(A.INSURANCE_PRCE, 0) AS INSURANCE_PRCE_OLD			
+			 , (NVL(A.INSURANCE_PRCE, 0) + NVL(A.GUARANTEE_INSURANCE_PRCE, 0) + NVL(A.RV_INSURANCE_PRCE, 0) ) AS INSURANCE_PRCE	<!-- 보험료 -->		
+			 , NVL(A.SERVICIZING_PRCE, 0) AS SERVICIZING_PRCE			<!-- 서비사이징 -->
+			 , D.FILE_TITLE												<!-- 상품이미지타이틀 -->
+			 , D.FILE_URL												<!-- 상품이미지URL -->
+			 , (SELECT FILE_TITLE FROM FILE_INFO WHERE FILE_SEQ = B.TELCOM_IMG) AS TEL_FILE_TITLE
+			 , (SELECT FILE_URL FROM FILE_INFO WHERE FILE_SEQ = B.TELCOM_IMG) AS TEL_FILE_URL
+			 , A.OPEN_TYPE
+			 , A.STIP_CODE
+		  FROM SP_PROD A
+		 INNER JOIN SP_TELCOM B ON (B.TELCOM_CODE = A.TELCOM_CODE)
+		 INNER JOIN SP_IMAGE C ON (C.PROD_CODE = A.PROD_CODE)
+		 INNER JOIN FILE_INFO D ON (D.FILE_SEQ = C.FILE_NO)
+		 WHERE A.PROD_CODE = #{PROD_CODE}
+		   AND A.PROD_SHOW_YN = 'Y'
+		   AND C.SP_IMG_GB_CD = '02'
+	</select>
+	
+	<!-- 중고폰 매입 (개인정보 조회) -->
+	<select id="selectUpUserInfo" parameterType="hashmap" resultType="hashmap">
+		SELECT MBER_EMAIL
+			 , NVL(MBER_PHONE, '01011111111') AS MBER_PHONE
+			 , NVL(JUSO_DORO, ' ') AS JUSO_DORO
+			 , NVL(JUSO_JIBEN, ' ') AS JUSO_JIBEN
+			 , NVL(JUSO_DTL, ' ') AS JUSO_DTL
+			 , NVL(ZIP_CD, ' ') AS ZIP_CD
+			 , NVL(MBER_NM, ' ') AS MBER_NM
+		  FROM MBER_INFO
+		 WHERE MBER_SEQ = #{MBER_SEQ}
+	</select>
+	
+	<!-- 올리바 중고폰 매입 URL -->
+	<select id="selectOlivarUrl" parameterType="hashmap" resultType="hashmap">
+		SELECT COM_CD_NM
+		  FROM code
+		 WHERE GRP_CD = 'SITE_DEFAULT'
+		   AND COM_CD = 'OLIVAR_URL_DOMAIN'
+	</select>
+	
+	<select id="selectRetUrl" resultType="hashmap">
+		  		SELECT substr(COM_CD_NM,1,instr(com_cd_nm,'/',8)) as RETURL
+		  FROM code
+		 WHERE GRP_CD = 'SITE_DEFAULT'
+		   AND COM_CD = 'PUSH_IF_URL'
+	</select>
+	
+	<!-- 중고폰 매입 (올리바 TOKENID 생성 ) -->
+	<insert id="insertTokenId" parameterType="hashmap" useGeneratedKeys="true" keyProperty="UP_BUY_CODE" keyColumn="UP_BUY_CODE">
+		INSERT INTO UP_BUY_INFO (
+			 UP_BUY_CODE
+			 , MBER_SEQ
+			 , REGIST_DT
+		) VALUES (
+			 TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')||LPAD(SEQ_UP_BUY_CODE.NEXTVAL,6,0)
+			 , #{MBER_SEQ}
+			 , SYSDATE
+		)
+	</insert>
+	<select id="selectOlivarSumPrceInfo" resultType="hashmap">
+	SELECT NVL(SUM(REAL_PRCE),0) as REAL_PRCE
+		  FROM UP_BUY_DTL
+		 WHERE UP_BUY_CODE = #{TOKENID}
+	</select>
+	
+	<!-- 중고폰 매입 (올리바 중고폰 매입 정보) -->
+	<select id="selectOlivarInfo" parameterType="hashmap" resultType="hashmap">
+		 SELECT UP_BUY_CODE
+			 , UP_BUY_ITEM_CODE
+			 , MODEL
+			 , REAL_PRCE
+			 , SUM(REAL_PRCE) OVER(PARTITION BY UP_BUY_CODE) AS SUM_REAL_PRCE
+		  FROM UP_BUY_DTL
+		 WHERE UP_BUY_CODE = #{TOKENID}
+	</select>
+	
+	<!-- 스마트폰 셰어링 요금 조회 -->
+	<select id="selectCharge" parameterType="hashmap" resultType="hashmap">
+		SELECT NVL(SELL_PRCE, 0) AS SELL_PRCE
+			 , 0 AS PRCE1
+			 , 0 AS PRCE2
+			 , 0 AS PRCE3
+		  FROM PROD
+		 WHERE PROD_CODE = #{PROD_CODE}
+	</select>
+	
+	<!-- 스마트폰 신청 정보 (색상) -->
+	<select id="selectSpColor" parameterType="hashmap" resultType="hashmap">
+	   SELECT SC.COLOR_SEQ
+        	, SC.PROD_CODE
+	 		, SC.COLOR_NAME
+	   FROM SP_COLOR SC, SP_SH_PROD SSP 
+	  WHERE SC.PROD_CODE = SSP.PROD_CODE 
+	    AND SC.COLOR_SEQ = SSP.COLOR_SEQ 
+	    AND SC.PROD_CODE = #{PROD_CODE}
+	   GROUP BY SC.COLOR_SEQ,SC.PROD_CODE,SC.COLOR_NAME
+	</select>
+	
+	<!-- 스마트폰 신청 정보 (약정정보) -->
+	<select id="selectSpStip" parameterType="hashmap" resultType="hashmap">
+		SELECT C.STIP_CODE
+			 , C.STIP_PERIOD
+		  FROM SP_PROD A
+		INNER JOIN SP_PROD_DTL B ON (B.PROD_CODE = A.PROD_CODE)
+		INNER JOIN SP_STIP C ON (C.STIP_CODE = B.STIP_CODE)
+		WHERE A.PROD_CODE = #{PROD_CODE}
+	 GROUP BY C.STIP_CODE , C.STIP_PERIOD
+	</select>
+	
+	<!-- 스마트폰 신청 정보 (요금제) -->
+	<select id="selectSpPayplan" parameterType="hashmap" resultType="hashmap">
+		SELECT A.TELCOM_CODE
+			 , B.PAYPLAN_CODE
+			 , C.PAYPLAN_NM
+			 , C.SHOW_SEQ
+			 , C.SHOW_YN
+		  FROM SP_PROD A
+		INNER JOIN SP_PROD_DTL B ON (B.PROD_CODE = A.PROD_CODE)
+		INNER JOIN SP_PAYPLAN C ON (C.PAYPLAN_CODE = B.PAYPLAN_CODE AND C.TELCOM_CODE = A.TELCOM_CODE)
+		WHERE A.PROD_CODE = #{PROD_CODE}
+		  AND C.SHOW_YN = 'Y'
+		ORDER BY SHOW_SEQ ASC
+	</select>
+	
+	<!-- 스마트폰 셰어링 신청(지원금) -->
+	<select id="selectSpSup" parameterType="hashmap" resultType="hashmap">
+	
+		SELECT NVL(B.SALE_SUPP_PRCE, 0) AS SALE_SUPP_PRCE		/* 판매 지원금 */
+			 , NVL(B.SALE_GSUPP_PRCE, 0) AS SALE_GSUPP_PRCE		/* 공시 지원금 */
+			 , NVL(B.SALE_DISC_PRCE, 0) AS SALE_DISC_PRCE		/* 추가 할인 */
+			 , NVL(B.SHARING_PRICE, 0) AS SHARING_PRICE			/* 쉐어링 요금 */
+			 , NVL (B.SHARING_FEE_PRCE , 0) AS SHARING_FEE_PRCE	/* 쉐어링 수수료 */
+			 , NVL (B.SSOCIO_FEE_PRCE , 0) AS SSOCIO_FEE_PRCE	/* 쏘시오 수수료 */	
+			
+			 , NVL (A.USE_PHONE_PRE_COMPENSATE_PRCE , 0) AS USE_PHONE_PRE_COMPENSATE_PRCE	/* 중고폰 선보상 */
+			 , NVL (A.BUY_SALE_PRCE , 0) AS BUY_SALE_PRCE									/* 구입 할인 */
+			 , C.STIP_PERIOD									/* 약정 기간 */
+		  FROM SP_PROD A
+		 INNER JOIN SP_PROD_DTL B ON ( B.PROD_CODE = A.PROD_CODE )
+		 INNER JOIN SP_STIP C ON (C.STIP_CODE = B.STIP_CODE)
+		 WHERE A.PROD_CODE = #{PROD_CODE}
+		   AND B.PAYPLAN_CODE = #{PAYPLAN_CODE}
+		   AND B.STIP_CODE = #{STIP_CODE}
+	</select>
+	
+	<!-- 올리바 중고폰 매입 사용 여부 -->
+	<select id="selectOlivarYn" parameterType="hashmap" resultType="hashmap">
+		SELECT COM_CD_NM
+		  FROM code
+		 WHERE GRP_CD = 'SITE_DEFAULT'
+		   AND COM_CD = 'OLIVAR_USE_YN'
+	</select>
+	
+	<!-- 본인인증 여부 체크 -->
+	<select id="selectMberInfo" parameterType="hashmap" resultType="hashmap">
+		SELECT COUNT(1) AS CNT
+		  FROM MBER_INFO
+		 WHERE MBER_SEQ = #{MBER_SEQ}
+		   AND CI IS NOT NULL
+		   AND DI IS NOT NULL
+		   AND BIRTH IS NOT NULL
+	</select>
+	
+	<!-- 주문 번호 -->
+	<select id="selectOrdInfoSeq" resultType="string">
+		SELECT TO_CHAR(SYSDATE, 'YYYYMMDDHH24MI')||LPAD(SEQ_ORD_CD.NEXTVAL,4,0) AS ORD_CD FROM DUAL
+	</select>
+	
+	<select id="selectSharingRealPrce"  resultMap="selectSharingRealPrce">
+		 SELECT  NVL(SP.EXT_PRCE,0) as EXT_PRCE
+				,NVL(SP.INSURANCE_PRCE,0) as INSURANCE_PRCE
+				,NVL(SP.SERVICIZING_PRCE,0) as SERVICIZING_PRCE
+				,NVL(SP.USE_PHONE_PRE_COMPENSATE_PRCE,0) as USE_PHONE_PRE_COMPENSATE_PRCE
+				,NVL(SP.BUY_SALE_PRCE,0) as BUY_SALE_PRCE
+				,NVL(SP.GUARANTEE_INSURANCE_PRCE,0) as GUARANTEE_INSURANCE_PRCE
+				,NVL(SP.RV_INSURANCE_PRCE,0) as RV_INSURANCE_PRCE
+				,NVL(SPD.SALE_SUPP_PRCE,0) as SALE_SUPP_PRCE
+				,NVL(SPD.SALE_GSUPP_PRCE,0) as SALE_GSUPP_PRCE
+				,NVL(SPD.SALE_DISC_PRCE,0) as SALE_DISC_PRCE
+				,NVL(SPD.SHARING_FEE_PRCE,0) as SHARING_FEE_PRCE
+				,NVL(SPD.SSOCIO_FEE_PRCE,0) as SSOCIO_FEE_PRCE
+				,SP.STIP_CODE
+		 FROM SP_PROD SP
+		 	, SP_PROD_DTL SPD
+		WHERE SP.PROD_CODE = SPD.PROD_CODE 
+		  AND SP.PROD_CODE = #{PROD_CODE} 
+		  AND SPD.PAYPLAN_CODE = #{PAYPLAN_CODE}
+	</select>
+	
+	
+	<!-- 스마트폰 셰어링 신청 -->
+	<insert id="insertSharingOrder" parameterType="hashmap">
+		INSERT INTO ORD_INFO (
+			 ORD_CD														<!-- 주문번호 -->
+			 , SELT_GB_CD												<!-- 결제방법 -->
+			 , MBER_SEQ													<!-- 주문자고유번호 -->
+			 , REAL_SELT_AMT											<!-- 실결제금액 -->
+			 , ORD_AMT													<!-- 주문금액 -->
+			 , DSCNT_BF_ORD_AMT											<!-- 할인전주문금액 -->
+			 , DSCNT_AMT												<!-- 할인금액 -->
+			 , NOT_TAX_AMT												<!-- 비과세금액 -->
+			 , ORD_STAT_CD												<!-- 주문상태코드 -->
+			 , ORD_NM													<!-- 주문자명 -->
+			 , ORD_HP													<!-- 주문자휴대폰번호 -->
+			 , ORD_EMAIL												<!-- 주문자EMAIL -->
+			 , ORD_GB_CD												
+			 , ORD_REG_DATE												<!-- 주문접수일 -->
+			 , SESS_ID													<!-- SESSID -->
+			 , TOT_ORD_QTY												<!-- 총주문수량 -->
+			 , TOT_ORD_PROD_CNT											<!-- 총주문상품건수 -->
+			 , INDIV_INFO_AGRE_YN										<!-- 개인정보동의여부 -->
+			 , REGIST_DT												<!-- 등록일시 -->
+			 , UPDT_DT													<!-- 수정일시 -->
+		) VALUES (
+			 #{ORDERID}
+			 , '1'
+			 , #{MBER_SEQ}
+			 , #{TOT_AMT}
+			 , #{TOT_AMT}
+			 , #{TOT_AMT}
+			 , 0
+			 , 0
+			 , '110'
+			 , #{USERNAME}
+			 , #{USERPHONE}
+			 , #{USEREMAIL}
+			 , '1'
+			 , SYSDATE
+			 , <![CDATA[#{SESS_ID}]]>
+			 , 1
+			 , 1
+			 , 'Y'
+			 , SYSDATE
+			 , SYSDATE
+		)
+	</insert>
+	
+	<insert id="insertSharingOrdDtl" parameterType="hashmap">
+		INSERT INTO ORD_PROD_INFO
+		( ORD_CD
+		 , PROD_CODE
+		 , PROD_SEQ
+		 , PROC_STAT_CD
+		 , PROD_ORD_AMT
+		 , PROD_TYPE_CD
+		 , PROD_PRCE
+		 , ORD_QTY
+		 , OPEN_TYPE
+		 , PAYPLAN_CODE
+		 , COLOR_SEQ
+		 , STIP_CODE
+		 , MBER_SEQ
+		 , REGIST_DT
+		 , UPDT_DT
+		 , DLV_GRP_CODE
+		<if test="TOKENID != null and TOKENID != ''">
+		 , UP_BUY_CODE
+		</if>
+		) 
+		VALUES 
+		(
+		 #{ORDERID}
+		 , #{PROD_CODE}
+		 , 1
+		 , '10'
+		 , #{TOT_AMT}
+		 , '4'
+		 , #{AMOUNT_OF_MONTH}
+		 , 1
+		 , #{OPEN_TYPE}
+		 , #{PAYPLAN_CODE}
+		 , #{COLOR_SEQ}
+		 , #{STIP_CODE}
+		 , #{MBER_SEQ}
+		 , SYSDATE
+		 , SYSDATE
+		 , TO_CHAR(#{ORD_CD}||'0000')
+		 <if test="TOKENID != null and TOKENID != ''">
+		 , #{TOKENID}
+		</if>
+		)
+	</insert>
+	
+	<!-- 스마트폰 셰어링 결제 정보 입력 -->
+	<insert id="insertSharSetlInfo" parameterType="hashmap">
+		INSERT INTO ORD_SETL_INFO
+			( 
+				ORD_CD
+			 , REG_SEQ
+			 , TRD_GB_CD
+			 , TRD_NO
+			 , TRD_AMT					<!-- 쿠폰, 포인트가 합산된 주문 총액 -->
+			 , SETL_NM
+			 
+			 
+			 , REGIST_DT
+			 , UPDT_DT
+			 , BILL_KEY
+			 , CARD_COMP_NM
+			 
+			 , RLT_CD
+			 , RLT_MSG
+			) 
+			VALUES 
+			(
+			 #{ORDERID}
+			 , 1
+			 , 10				<!-- 주문은 구분코드가 무조건 10 이라고 함. -->
+			 , #{PAYTID}
+			 , #{TOT_AMT}
+			 , #{USEREMAIL}
+			 
+			 
+			 , SYSDATE
+			 , SYSDATE
+			 , #{BILLKEY}
+			 , #{CARD_COMP_NM}
+			 , #{RETURNCODE}
+			 , #{RETURNMSG}
+			)
+	</insert>
+	
+	<insert id="inserthisTbreg">
+	  INSERT INTO ORD_PROD_INFO_HIST(
+				  ORD_CD
+				, PROD_CODE
+				, PROD_SEQ
+				, PROC_SEQ
+				, PROC_STAT_CD
+				, REGIST_DT
+				, HIST_GB_CD
+				, ORG_CD
+				)VALUES(
+				  #{ORDERID}
+				, #{PROD_CODE}
+				, '1'
+				,NVL( (SELECT max(PROC_SEQ) + 1 as PROC_SEQ
+					  FROM ORD_PROD_INFO_HIST
+					 WHERE ORD_CD = #{ORDERID} AND PROD_CODE = #{PROD_CODE}), 1)
+				, #{HIST_PROC_STAT_CD}
+				, SYSDATE
+				, #{HIST_GB_CD}
+				, #{ORG_CD}
+				)
+	</insert>
+	
+	<!-- 본인인증 정보 수정 -->
+	<update id="updateMberInfo" parameterType="hashmap">
+		UPDATE MBER_INFO
+		   SET CI = #{CI}
+			 , DI = #{DI}
+			 , SEX = #{SEX}
+			 , TID = #{TID}
+			 , BIRTH = #{BIRTH}
+			 , MBER_NM = #{MBER_NM}
+			 , MBER_PHONE = #{MBER_PHONE}
+		 WHERE MBER_SEQ = #{MBER_SEQ}
+	</update>
+	
+	<!-- 스마트폰 셰어링 신청 완료 -->
+	<select id="selectComAppli" parameterType="hashmap" resultType="hashmap">
+		SELECT A.ORD_CD														<!-- 주문번호 -->
+			 , A.ORD_REG_DATE												<!-- 주문일자 -->
+			 , A.ORD_EMAIL													<!-- 주문자이메일 -->
+			 , B.PROD_CODE													<!-- 상품코드번호 -->
+			 , B.OPEN_TYPE
+			 , B.PROD_PRCE
+			 , B.UP_BUY_CODE
+			 , C.PROD_NM
+			 , C.SP_SIZE_CD
+			 , NVL(C.EXT_PRCE, 0) AS EXT_PRCE
+			 , NVL(C.USE_PHONE_PRE_COMPENSATE_PRCE, 0) AS USE_PHONE_PRE_COMPENSATE_PRCE
+			 , NVL(C.BUY_SALE_PRCE, 0) AS BUY_SALE_PRCE
+			 , NVL(C.INSURANCE_PRCE, 0) AS INSURANCE_PRCE
+			 , NVL(C.GUARANTEE_INSURANCE_PRCE, 0) AS GUARANTEE_INSURANCE_PRCE
+			 , NVL(C.RV_INSURANCE_PRCE, 0) AS RV_INSURANCE_PRCE
+			 , NVL(C.SERVICIZING_PRCE, 0) AS SERVICIZING_PRCE
+			 , NVL(D.SALE_SUPP_PRCE, 0) AS SALE_SUPP_PRCE
+			 , NVL(D.SALE_GSUPP_PRCE, 0) AS SALE_GSUPP_PRCE
+			 , NVL(D.SALE_DISC_PRCE, 0) AS SALE_DISC_PRCE
+			 , NVL(D.SHARING_FEE_PRCE, 0) AS SHARING_FEE_PRCE
+<!-- 			 , NVL(D.SSOCIO_FEE_PRCE, 0) AS SSOCIO_FEE_PRCE -->
+			 , NVL(D.SHARING_PRICE, 0) AS SHARING_PRICE
+			 , G.FILE_URL
+			 , H.COLOR_NAME
+			 , J.STIP_PERIOD
+			 , I.PAYPLAN_NM
+			 ,  (SELECT CARD_COMP_NM FROM ORD_SETL_INFO WHERE ORD_CD = A.ORD_CD GROUP BY CARD_COMP_NM) as CARD_COMP_NM 	
+			 , (SELECT FILE_URL FROM FILE_INFO WHERE FILE_SEQ = E.TELCOM_IMG) AS TEL_FILE_URL
+		  FROM ORD_INFO A
+		 INNER JOIN ORD_PROD_INFO B ON(B.ORD_CD = A.ORD_CD)
+		 INNER JOIN SP_PROD C ON (C.PROD_CODE = B.PROD_CODE)
+		 INNER JOIN SP_PROD_DTL D ON (D.PROD_CODE = B.PROD_CODE AND D.PAYPLAN_CODE = B.PAYPLAN_CODE AND D.STIP_CODE = B.STIP_CODE)
+		 INNER JOIN SP_TELCOM E ON (E.TELCOM_CODE = C.TELCOM_CODE)
+		 INNER JOIN SP_IMAGE F ON (F.PROD_CODE = B.PROD_CODE)
+		 INNER JOIN FILE_INFO G ON ( G.FILE_SEQ = F.FILE_NO)
+		 INNER JOIN SP_COLOR H ON (H.COLOR_SEQ = B.COLOR_SEQ)
+		 INNER JOIN SP_PAYPLAN I ON (I.PAYPLAN_CODE = B.PAYPLAN_CODE)
+		 INNER JOIN SP_STIP J ON (J.STIP_CODE = B.STIP_CODE)
+		 INNER JOIN ORD_SETL_INFO K ON (K.ORD_CD = A.ORD_CD)
+		 WHERE A.ORD_CD = #{ORD_CD}
+		   AND C.PROD_SHOW_YN = 'Y'
+		   AND F.SP_IMG_GB_CD = '02'
+	</select>
+	
+	<!-- 중고폰 매입 가격 -->
+	<select id="selectOlPrce" parameterType="hashmap" resultType="hashmap">
+		SELECT SUM_REAL_PRCE
+		  FROM (SELECT SUM(REAL_PRCE) OVER(PARTITION BY UP_BUY_CODE) AS SUM_REAL_PRCE
+					 , ROW_NUMBER() OVER(PARTITION BY UP_BUY_CODE ORDER BY BUY_DT DESC) AS NO
+				  FROM UP_BUY_DTL
+				 WHERE UP_BUY_CODE = #{TOKENID}
+		) Z
+		 WHERE Z.NO = 1
+	</select>
+	
+	<!-- 스마트폰 셰어링 주문 내역 총갯수 -->
+	<select id="selectSharOrdInfoCnt" parameterType="hashmap" resultType="int">
+		SELECT COUNT(1)
+		  FROM ORD_INFO A
+		 INNER JOIN ORD_PROD_INFO B ON (B.ORD_CD = A.ORD_CD)
+		 INNER JOIN SP_PROD C ON (C.PROD_CODE = B.PROD_CODE)
+		 INNER JOIN SP_TELCOM D ON (D.TELCOM_CODE = C.TELCOM_CODE)
+		 INNER JOIN SP_IMAGE E ON (E.PROD_CODE = C.PROD_CODE)
+		 INNER JOIN FILE_INFO F ON (F.FILE_SEQ = E.FILE_NO)
+		 WHERE A.MBER_SEQ = #{MBER_SEQ}
+		   AND E.SP_IMG_GB_CD = '02'
+		<if test="PROC_STAT_CD != null and PROC_STAT_CD != ''">
+		   AND B.PROC_STAT_CD IN
+			<foreach item="item" index="index" collection="PROC_STAT_CD" open="(" separator="," close=")">
+				#{item}
+			</foreach>
+		</if>
+		<if test="keyword != null and keyword != ''">
+		   AND UPPER(C.PROD_NM) LIKE '%' || UPPER(#{keyword}) || '%'
+		</if>
+		<if test="S_START_DATE != null and S_START_DATE != ''">
+		   AND A.ORD_REG_DATE <![CDATA[>=]]> TO_DATE(#{S_START_DATE},'YYYY-MM-DD') 
+		</if>
+	</select>
+	
+	<!-- 스마트폰 셰어링 주문 내역 조회 -->
+	<select id="selectSharOrdInfo" parameterType="hashmap" resultType="hashmap">
+		<include refid="webCommonMapper.pagingHeader"/>
+			SELECT A.ORD_CD
+				 , A.ORD_REG_DATE
+				 , TO_CHAR(A.ORD_REG_DATE, 'YYYY-MM-DD HH24:MI') AS ORD_REG_PAGINE_DATE
+				 , (SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'SP_SIZE_GB_CD' AND COM_CD = D.SP_SIZE_CD ) as SP_SIZE_PAGING_CD
+				 , (SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'OPEN_TYPE' AND COM_CD = B.OPEN_TYPE ) as OPEN_PAGING_TYPE
+				 , B.PROC_STAT_CD
+				 , B.COLOR_SEQ
+				 , B.OPEN_TYPE
+				 , B.STIP_CODE
+				 , B.PAYPLAN_CODE
+				 , B.PROD_CODE
+				 , D.PROD_NM
+				 , D.SP_SIZE_CD
+				 , B.PROD_PRCE as SHARING_PRICE
+				 , K.SHARING_PRICE as SHARING_PRICE_OLD
+				 , G.FILE_TITLE
+				 , G.FILE_URL
+				 , (SELECT FILE_TITLE FROM FILE_INFO WHERE FILE_SEQ = E.TELCOM_IMG) AS TEL_FILE_TITLE
+				 , (SELECT FILE_URL FROM FILE_INFO WHERE FILE_SEQ = E.TELCOM_IMG) AS TEL_FILE_URL
+				 , H.COLOR_NAME
+				 , I.PAYPLAN_NM
+				 , J.STIP_PERIOD
+				 , ROW_NUMBER() OVER( ORDER BY A.ORD_REG_DATE DESC ) AS NO
+				 , (SELECT COUNT(1) AS CHG_CNT FROM CHG_RTN_PROC_INFO CRPI WHERE CRPI.CHG_GB_CD IN('10','50') AND  CRPI.CHG_PROC_TYPE_CD IN('10','20','50','60') AND CRPI.ORD_CD = A.ORD_CD ) AS CHG_CNT
+				  , (SELECT COUNT(1) AS CHG_CNT FROM CHG_RTN_PROC_INFO CRPI WHERE CRPI.CHG_GB_CD IN('50') AND  CRPI.CHG_PROC_TYPE_CD IN('70') AND CRPI.ORD_CD = A.ORD_CD ) AS RTN_CNT
+				  , (SELECT COUNT(1) FROM TERMI_INFO TI WHERE B.TERMI_CD = TI.TERMI_CD AND TI.PROC_STAT_CD IN('70','72') ) AS TERMI_CNT
+				  , (SELECT BOARD_SEQ FROM BOARD_INFO WHERE BOARD_TYPE_CD=70 AND MBER_SEQ=A.MBER_SEQ AND PROD_CODE=B.PROD_CODE AND ROWNUM = 1) AS BOARD_SEQ				  
+			  FROM ORD_INFO A
+			 INNER JOIN ORD_PROD_INFO B ON (B.ORD_CD = A.ORD_CD)
+			 INNER JOIN PROD C ON (C.PROD_CODE = B.PROD_CODE)
+			 INNER JOIN SP_PROD D ON (D.PROD_CODE = B.PROD_CODE)
+			 INNER JOIN SP_TELCOM E ON (E.TELCOM_CODE = D.TELCOM_CODE)
+			 INNER JOIN SP_IMAGE F ON (F.PROD_CODE = B.PROD_CODE)
+			 INNER JOIN FILE_INFO G ON (G.FILE_SEQ = F.FILE_NO)
+			 INNER JOIN SP_COLOR H ON (H.COLOR_SEQ = B.COLOR_SEQ)
+			 INNER JOIN SP_PAYPLAN I ON (I.PAYPLAN_CODE = B.PAYPLAN_CODE)
+			 INNER JOIN SP_STIP J ON (J.STIP_CODE = B.STIP_CODE)
+			 INNER JOIN SP_PROD_DTL K ON (K.PROD_CODE = B.PROD_CODE AND K.PAYPLAN_CODE = B.PAYPLAN_CODE AND K.STIP_CODE = B.STIP_CODE)
+			 WHERE A.MBER_SEQ = #{MBER_SEQ}
+			   AND C.PROD_TYPE_CD = '4'
+			   AND F.SP_IMG_GB_CD = '02'
+			<if test="PROC_STAT_CD != null and PROC_STAT_CD != ''">
+			   AND B.PROC_STAT_CD IN
+				<foreach item="item" index="index" collection="PROC_STAT_CD" open="(" separator="," close=")">
+					#{item}
+				</foreach>
+			</if>
+			<if test="keyword != null and keyword != ''">
+			  AND UPPER(C.PROD_NM) LIKE '%' || UPPER(#{keyword}) || '%'
+			</if>
+			<if test="S_START_DATE != null and S_START_DATE != ''">
+			    AND A.ORD_REG_DATE <![CDATA[>=]]> TO_DATE(#{S_START_DATE},'YYYY-MM-DD') 
+			</if>
+			 ORDER BY A.ORD_REG_DATE DESC
+		<include refid="webCommonMapper.pagingFooter" />
+	</select>
+	
+	
+	
+		<!-- 스마트폰 셰어링 교환 내역 총갯수 -->
+	<select id="selectSharOrdInfoChgCnt" parameterType="hashmap" resultType="int">
+		SELECT COUNT(1)
+		  FROM CHG_RTN_PROC_INFO L 
+		  INNER JOIN CHG_PROD_INFO M ON (L.CHG_CD = M.CHG_CD  )
+		 INNER JOIN ORD_INFO A ON (L.ORD_CD =  A.ORD_CD)
+		 INNER JOIN ORD_PROD_INFO B ON (B.ORD_CD = A.ORD_CD)
+		 INNER JOIN SP_PROD C ON (C.PROD_CODE = B.PROD_CODE)
+		 INNER JOIN SP_TELCOM D ON (D.TELCOM_CODE = C.TELCOM_CODE)
+		 INNER JOIN SP_IMAGE E ON (E.PROD_CODE = C.PROD_CODE)
+		 INNER JOIN FILE_INFO F ON (F.FILE_SEQ = E.FILE_NO)
+		 WHERE A.MBER_SEQ = #{MBER_SEQ}
+		   AND E.SP_IMG_GB_CD = '02'
+		    AND L.CHG_GB_CD =  #{CHG_GB_CD}
+		<if test="CHG_PROC_TYPE_CD != null and CHG_PROC_TYPE_CD != ''">
+			   AND L.CHG_PROC_TYPE_CD IN
+				<foreach item="item" index="index" collection="CHG_PROC_TYPE_CD" open="(" separator="," close=")">
+					#{item}
+				</foreach>
+			</if>
+		<if test="keyword != null and keyword != ''">
+		   AND UPPER(C.PROD_NM) LIKE '%' || UPPER(#{keyword}) || '%'
+		</if>
+		<if test="S_START_DATE != null and S_START_DATE != ''">
+		   AND A.ORD_REG_DATE BETWEEN TO_DATE(#{S_START_DATE}) and SYSDATE
+		</if>
+	</select>
+	
+	<!-- 스마트폰 셰어링 교환 내역 조회 -->
+	<select id="selectSharOrdChgInfo" parameterType="hashmap" resultType="hashmap">
+		<include refid="webCommonMapper.pagingHeader"/>
+			SELECT A.ORD_CD
+				 , TO_CHAR(L.REGIST_DT, 'YYYY-MM-DD HH24:MI') AS ORD_REG_PAGINE_DATE
+				 , (SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'SP_SIZE_GB_CD' AND COM_CD = D.SP_SIZE_CD ) as SP_SIZE_PAGING_CD
+				 , (SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'OPEN_TYPE' AND COM_CD = B.OPEN_TYPE ) as OPEN_PAGING_TYPE
+				 , L.REGIST_DT AS ORD_REG_DATE
+				 , B.PROC_STAT_CD
+				 , L.CHG_CD
+				 , B.COLOR_SEQ
+				 , B.OPEN_TYPE
+				 , B.STIP_CODE
+				 , B.PAYPLAN_CODE
+				 , B.PROD_CODE
+				 , B.PROD_PRCE
+				 , D.PROD_NM
+				 , D.SP_SIZE_CD
+				 , K.SHARING_PRICE
+				 , G.FILE_TITLE
+				 , G.FILE_URL
+				 , (SELECT FILE_TITLE FROM FILE_INFO WHERE FILE_SEQ = E.TELCOM_IMG) AS TEL_FILE_TITLE
+				 , (SELECT FILE_URL FROM FILE_INFO WHERE FILE_SEQ = E.TELCOM_IMG) AS TEL_FILE_URL
+				 , H.COLOR_NAME
+				 , I.PAYPLAN_NM
+				 , J.STIP_PERIOD
+				 , (SELECT COM_CD_NM FROM CODE WHERE GRP_CD ='CHG_PROC_TYPE_CD'AND COM_CD = L.CHG_PROC_TYPE_CD ) AS PROC_NM
+				 , ROW_NUMBER() OVER( ORDER BY A.ORD_REG_DATE DESC ) AS NO
+			  FROM CHG_RTN_PROC_INFO L 
+			 INNER JOIN CHG_PROD_INFO M ON (L.CHG_CD = M.CHG_CD  )
+			 INNER JOIN ORD_INFO A ON (L.ORD_CD =  A.ORD_CD)
+			 INNER JOIN ORD_PROD_INFO B ON (B.ORD_CD = A.ORD_CD)
+			 INNER JOIN PROD C ON (C.PROD_CODE = B.PROD_CODE)
+			 INNER JOIN SP_PROD D ON (D.PROD_CODE = B.PROD_CODE)
+			 INNER JOIN SP_TELCOM E ON (E.TELCOM_CODE = D.TELCOM_CODE)
+			 INNER JOIN SP_IMAGE F ON (F.PROD_CODE = B.PROD_CODE)
+			 INNER JOIN FILE_INFO G ON (G.FILE_SEQ = F.FILE_NO)
+			 INNER JOIN SP_COLOR H ON (H.COLOR_SEQ = B.COLOR_SEQ)
+			 INNER JOIN SP_PAYPLAN I ON (I.PAYPLAN_CODE = B.PAYPLAN_CODE)
+			 INNER JOIN SP_STIP J ON (J.STIP_CODE = B.STIP_CODE)
+			 INNER JOIN SP_PROD_DTL K ON (K.PROD_CODE = B.PROD_CODE AND K.PAYPLAN_CODE = B.PAYPLAN_CODE AND K.STIP_CODE = B.STIP_CODE)
+			 WHERE A.MBER_SEQ = #{MBER_SEQ}
+			   AND C.PROD_TYPE_CD = '4'
+			   AND F.SP_IMG_GB_CD = '02'
+			   AND L.CHG_GB_CD =  #{CHG_GB_CD}
+			<if test="CHG_PROC_TYPE_CD != null and CHG_PROC_TYPE_CD != ''">
+			   AND L.CHG_PROC_TYPE_CD IN
+				<foreach item="item" index="index" collection="CHG_PROC_TYPE_CD" open="(" separator="," close=")">
+					#{item}
+				</foreach>
+			</if>
+			<if test="keyword != null and keyword != ''">
+			 AND UPPER(C.PROD_NM) LIKE '%' || UPPER(#{keyword}) || '%'
+			</if>
+			<if test="S_START_DATE != null and S_START_DATE != ''">
+			   AND A.ORD_REG_DATE BETWEEN TO_DATE(#{S_START_DATE}) and SYSDATE
+			</if>
+			 ORDER BY A.ORD_REG_DATE DESC
+		<include refid="webCommonMapper.pagingFooter" />
+	</select>
+	
+	<!-- 스마트폰 셰어링 주문 내역 상세 조회 -->
+	<select id="selectSharOrdDtl" parameterType="hashmap" resultType="hashmap">
+		SELECT A.ORD_CD														<!-- 주문번호 -->
+			 , A.ORD_REG_DATE												<!-- 주문일시 -->
+			 , A.ORD_EMAIL													<!-- 주문자이메일 -->
+			 , B.PROD_UNIQUENO
+		 	 , B.PROD_PRCE
+			 , B.PROC_STAT_CD												<!-- 상품처리상태 -->
+			 , B.PROD_CODE													<!-- 상품코드번호 -->
+			 , B.OPEN_TYPE													<!-- 가입유형 -->
+			 , B.UP_BUY_CODE												<!-- 중고폰매입코드 -->
+			 , C.PROD_NM													<!-- 상품명 -->
+			 , C.SP_SIZE_CD													<!-- 휴대폰 용량 -->
+			 , NVL(C.EXT_PRCE, 0) AS EXT_PRCE								<!-- 출고가 -->
+	 		 , NVL(C.USE_PHONE_PRE_COMPENSATE_PRCE, 0) AS USE_PHONE_PRE_COMPENSATE_PRCE
+			 , NVL(C.BUY_SALE_PRCE, 0) AS BUY_SALE_PRCE
+			 , NVL(C.INSURANCE_PRCE, 0) AS INSURANCE_PRCE
+			 , NVL(C.GUARANTEE_INSURANCE_PRCE, 0) AS GUARANTEE_INSURANCE_PRCE
+			 , NVL(C.RV_INSURANCE_PRCE, 0) AS RV_INSURANCE_PRCE
+			 , NVL(C.SERVICIZING_PRCE, 0) AS SERVICIZING_PRCE				<!-- 서비사이징 -->
+			 , NVL(D.SHARING_FEE_PRCE, 0) AS SHARING_FEE_PRCE
+			 , NVL(D.SSOCIO_FEE_PRCE, 0) AS SSOCIO_FEE_PRCE
+			 , NVL(D.SALE_SUPP_PRCE, 0) AS SALE_SUPP_PRCE					<!-- 판매지원금 -->
+			 , NVL(D.SALE_GSUPP_PRCE, 0) AS SALE_GSUPP_PRCE					<!-- 공시지원금 -->
+			 , NVL(D.SALE_DISC_PRCE, 0) AS SALE_DISC_PRCE					<!-- 추가할인 -->
+			 , NVL(D.SHARING_PRICE, 0) AS SHARING_PRICE						<!-- 쉐어링요금 -->
+			 , G.FILE_URL													<!-- 상품이미지URL -->
+			 , H.COLOR_NAME													<!-- 상품색상 -->
+			 , J.STIP_PERIOD												<!-- 상품약정기간 -->
+			 , I.PAYPLAN_NM													<!-- 상품요금제 -->
+			 ,  (SELECT CARD_COMP_NM FROM ORD_SETL_INFO WHERE ORD_CD = A.ORD_CD GROUP BY CARD_COMP_NM) as CARD_COMP_NM 													<!-- 카드명 -->
+			 , L.USIM_SEQ_CODE												<!-- USIM 일련번호 -->
+			 , L.USIM_PHONE													<!-- USIM 폰번호 -->
+			 , L.BIRTH_YYYYMMDD												<!-- 생년월일 -->
+			 , L.ORD_NAME													<!-- 개통자명 -->
+			 , TO_CHAR(L.OPEN_DT, 'DD') as OPEN_DD							<!-- 결제일 -->
+			 , L.OPEN_DT													<!-- 개통일 -->
+			 , L.END_DT														<!-- 종료일 -->
+			 , M.RCV_NM														<!-- 받는자명 -->
+			 , M.RCV_HP														<!-- 받는자휴대폰번호 -->
+			 , M.RCV_TEL														<!-- 받는자휴대폰번호 -->
+			 , M.ZIP_CD														<!-- 배송지우편번호 -->
+			 , M.ADDR_GB													<!-- 주소구분 -->
+			 , M.JUSO_JIBEN													<!-- 배송지주소 -->
+			 , M.JUSO_DORO													<!-- 도로명주소 -->
+			 , M.JUSO_DTL													<!-- 배송지주소상세 -->
+			 , M.DLV_MSG													<!-- 배송메시지 -->
+			 , M.SECU_NO_USE_YN												<!-- 안심번호사용여부 -->
+			 , M.SECU_NO													<!-- 안심번호 -->
+			 , (SELECT FILE_URL FROM FILE_INFO WHERE FILE_SEQ = E.TELCOM_IMG) AS TEL_FILE_URL
+			 , (SELECT COUNT(1) AS CHG_CNT FROM CHG_RTN_PROC_INFO CRPI WHERE CRPI.CHG_GB_CD IN('10','50') AND  CRPI.CHG_PROC_TYPE_CD IN('10','20','50','60') AND CRPI.ORD_CD = A.ORD_CD ) AS CHG_CNT
+			 , (SELECT COUNT(1) AS CHG_CNT FROM CHG_RTN_PROC_INFO CRPI WHERE CRPI.CHG_GB_CD IN('50') AND  CRPI.CHG_PROC_TYPE_CD IN('70') AND CRPI.ORD_CD = A.ORD_CD ) AS RTN_CNT		  
+			 , (SELECT COUNT(1) FROM TERMI_INFO TI WHERE B.TERMI_CD = TI.TERMI_CD AND TI.PROC_STAT_CD IN('70','72') ) AS TERMI_CNT
+			 , (SELECT PROD_SERIAL FROM SP_SH_PROD WHERE COLOR_SEQ = B.COLOR_SEQ and PROD_CODE = B.PROD_CODE and PROD_UNIQUENO = B.PROD_UNIQUENO ) as PROD_SERIAL
+			 , (SELECT BOARD_SEQ FROM BOARD_INFO WHERE BOARD_TYPE_CD=70 AND MBER_SEQ=A.MBER_SEQ AND PROD_CODE=B.PROD_CODE AND ROWNUM = 1) AS BOARD_SEQ	
+		  FROM ORD_INFO A
+		 INNER JOIN ORD_PROD_INFO B ON(B.ORD_CD = A.ORD_CD)
+		 INNER JOIN SP_PROD C ON (C.PROD_CODE = B.PROD_CODE)
+		 INNER JOIN SP_PROD_DTL D ON (D.PROD_CODE = B.PROD_CODE AND D.PAYPLAN_CODE = B.PAYPLAN_CODE AND D.STIP_CODE = B.STIP_CODE)
+		 INNER JOIN SP_TELCOM E ON (E.TELCOM_CODE = C.TELCOM_CODE)
+		 INNER JOIN SP_IMAGE F ON (F.PROD_CODE = B.PROD_CODE)
+		 INNER JOIN FILE_INFO G ON ( G.FILE_SEQ = F.FILE_NO)
+		 INNER JOIN SP_COLOR H ON (H.COLOR_SEQ = B.COLOR_SEQ)
+		 INNER JOIN SP_PAYPLAN I ON (I.PAYPLAN_CODE = B.PAYPLAN_CODE)
+		 INNER JOIN SP_STIP J ON (J.STIP_CODE = B.STIP_CODE)
+		 INNER JOIN ORD_SETL_INFO K ON (K.ORD_CD = A.ORD_CD)
+		  LEFT JOIN SP_OPEN_DETAIL L ON (L.ORD_CD = A.ORD_CD)
+		  LEFT JOIN ORD_DLV_INFO M ON (M.ORD_CD = A.ORD_CD)
+		 WHERE A.ORD_CD = #{ORD_CD}
+		   AND C.PROD_SHOW_YN = 'Y'
+		   AND F.SP_IMG_GB_CD = '02'
+	</select>
+	
+	
+	
+	<!-- 스마트폰 셰어링 해지 내역 총갯수 -->
+	<select id="selectSharTermiOrdInfoCnt" parameterType="hashmap" resultType="int">
+		SELECT COUNT(1)
+		  FROM ORD_INFO A
+		 INNER JOIN ORD_PROD_INFO B ON (B.ORD_CD = A.ORD_CD)
+		 INNER JOIN SP_PROD C ON (C.PROD_CODE = B.PROD_CODE)
+		 INNER JOIN SP_TELCOM D ON (D.TELCOM_CODE = C.TELCOM_CODE)
+		 INNER JOIN SP_IMAGE E ON (E.PROD_CODE = C.PROD_CODE)
+		 INNER JOIN FILE_INFO F ON (F.FILE_SEQ = E.FILE_NO)
+		 LEFT JOIN TERMI_INFO N ON (B.TERMI_CD = N.TERMI_CD)
+		 WHERE A.MBER_SEQ = #{MBER_SEQ}
+		   AND E.SP_IMG_GB_CD = '02'
+		<if test="PROC_STAT_CD != null and PROC_STAT_CD != ''">
+		   AND N.PROC_STAT_CD IN
+			<foreach item="item" index="index" collection="PROC_STAT_CD" open="(" separator="," close=")">
+				#{item}
+			</foreach>
+		</if>
+		<if test="keyword != null and keyword != ''">
+		   AND UPPER(C.PROD_NM) LIKE '%' || UPPER(#{keyword}) || '%'
+		</if>
+		<if test="S_START_DATE != null and S_START_DATE != ''">
+		   AND A.ORD_REG_DATE <![CDATA[>=]]> TO_DATE(#{S_START_DATE},'YYYY-MM-DD') 
+		</if>
+	</select>
+	
+	<!-- 스마트폰 셰어링 해지 내역 조회 -->
+	<select id="selectSharTermiOrdInfo" parameterType="hashmap" resultType="hashmap">
+		<include refid="webCommonMapper.pagingHeader"/>
+			SELECT A.ORD_CD
+				 , A.ORD_REG_DATE
+				 , B.PROC_STAT_CD
+				 , B.COLOR_SEQ
+				 , B.OPEN_TYPE
+				 , B.STIP_CODE
+				 , B.PAYPLAN_CODE
+				 , B.PROD_CODE
+				 , D.PROD_NM
+				 , D.SP_SIZE_CD
+				 , K.SHARING_PRICE
+				 , G.FILE_TITLE
+				 , G.FILE_URL
+				 , (SELECT FILE_TITLE FROM FILE_INFO WHERE FILE_SEQ = E.TELCOM_IMG) AS TEL_FILE_TITLE
+				 , (SELECT FILE_URL FROM FILE_INFO WHERE FILE_SEQ = E.TELCOM_IMG) AS TEL_FILE_URL
+				 , H.COLOR_NAME
+				 , I.PAYPLAN_NM
+				 , J.STIP_PERIOD
+				 , ROW_NUMBER() OVER( ORDER BY A.ORD_REG_DATE DESC ) AS NO
+			  FROM ORD_INFO A
+			 INNER JOIN ORD_PROD_INFO B ON (B.ORD_CD = A.ORD_CD)
+			 INNER JOIN PROD C ON (C.PROD_CODE = B.PROD_CODE)
+			 INNER JOIN SP_PROD D ON (D.PROD_CODE = B.PROD_CODE)
+			 INNER JOIN SP_TELCOM E ON (E.TELCOM_CODE = D.TELCOM_CODE)
+			 INNER JOIN SP_IMAGE F ON (F.PROD_CODE = B.PROD_CODE)
+			 INNER JOIN FILE_INFO G ON (G.FILE_SEQ = F.FILE_NO)
+			 INNER JOIN SP_COLOR H ON (H.COLOR_SEQ = B.COLOR_SEQ)
+			 INNER JOIN SP_PAYPLAN I ON (I.PAYPLAN_CODE = B.PAYPLAN_CODE)
+			 INNER JOIN SP_STIP J ON (J.STIP_CODE = B.STIP_CODE)
+			 INNER JOIN SP_PROD_DTL K ON (K.PROD_CODE = B.PROD_CODE AND K.PAYPLAN_CODE = B.PAYPLAN_CODE AND K.STIP_CODE = B.STIP_CODE)
+			 LEFT JOIN TERMI_INFO N ON (B.TERMI_CD = N.TERMI_CD)
+			 WHERE A.MBER_SEQ = #{MBER_SEQ}
+			   AND C.PROD_TYPE_CD = '4'
+			   AND F.SP_IMG_GB_CD = '02'
+			<if test="PROC_STAT_CD != null and PROC_STAT_CD != ''">
+			   AND N.PROC_STAT_CD IN
+				<foreach item="item" index="index" collection="PROC_STAT_CD" open="(" separator="," close=")">
+					#{item}
+				</foreach>
+			</if>
+			<if test="keyword != null and keyword != ''">
+			  AND UPPER(C.PROD_NM) LIKE '%' || UPPER(#{keyword}) || '%'
+			</if>
+			<if test="S_START_DATE != null and S_START_DATE != ''">
+			    AND A.ORD_REG_DATE <![CDATA[>=]]> TO_DATE(#{S_START_DATE},'YYYY-MM-DD') 
+			</if>
+			 ORDER BY A.ORD_REG_DATE DESC
+		<include refid="webCommonMapper.pagingFooter" />
+	</select>
+	
+	
+	<!-- 스마트폰 셰어링 확일 일자 등록 -->
+	<update id="updateSharDate" parameterType="hashmap">
+		UPDATE ORD_PROD_INFO
+		   SET SHARE_OK_DT = SYSDATE
+			 , PROC_STAT_CD = '85'
+		 WHERE ORD_CD = #{S_ORD_CD}
+		   AND PROD_CODE = #{S_PROD_CD}
+	</update>
+	
+	<!-- 스마트폰 셰어링 교환 내역 상세 조회 -->
+	<select id="selectSharChgDtl" parameterType="hashmap" resultType="hashmap">
+		SELECT A.ORD_CD														<!-- 주문번호 -->
+			 , A.ORD_REG_DATE												<!-- 주문일시 -->
+			 , A.ORD_EMAIL													<!-- 주문자이메일 -->
+			 , B.PROD_UNIQUENO
+			 , B.PROC_STAT_CD												<!-- 상품처리상태 -->
+			 , B.PROD_CODE													<!-- 상품코드번호 -->
+			 , B.OPEN_TYPE													<!-- 가입유형 -->
+			 , B.UP_BUY_CODE												<!-- 중고폰매입코드 -->
+			 , C.PROD_NM													<!-- 상품명 -->
+			 , C.SP_SIZE_CD													<!-- 휴대폰 용량 -->
+			 , NVL(C.EXT_PRCE, 0) AS EXT_PRCE								<!-- 출고가 -->
+			 , NVL(C.REMAIN_PRCE, 0) AS REMAIN_PRCE							<!-- 잔존가 -->
+			 , NVL(C.MAKER_FUND, 0) AS MAKER_FUND							<!-- 제조사 지원금 -->
+			 , NVL(C.INSURANCE_PRCE, 0) AS INSURANCE_PRCE					<!-- 보험료 -->
+			 , NVL(C.SERVICIZING_PRCE, 0) AS SERVICIZING_PRCE				<!-- 서비사이징 -->
+			 , NVL(D.SALE_SUPP_PRCE, 0) AS SALE_SUPP_PRCE					<!-- 판매지원금 -->
+			 , NVL(D.SALE_GSUPP_PRCE, 0) AS SALE_GSUPP_PRCE					<!-- 공시지원금 -->
+			 , NVL(D.SALE_DISC_PRCE, 0) AS SALE_DISC_PRCE					<!-- 추가할인 -->
+			 , NVL(D.SHARING_PRICE, 0) AS SHARING_PRICE						<!-- 쉐어링요금 -->
+			  , NVL(D.SHARING_FEE_PRCE, 0) AS SHARING_FEE_PRCE
+			 , G.FILE_URL													<!-- 상품이미지URL -->
+			 , H.COLOR_NAME													<!-- 상품색상 -->
+			 , J.STIP_PERIOD												<!-- 상품약정기간 -->
+			 , I.PAYPLAN_NM													<!-- 상품요금제 -->
+			 , L.USIM_SEQ_CODE												<!-- USIM 일련번호 -->
+			 , L.USIM_PHONE													<!-- USIM 폰번호 -->
+			 , L.BIRTH_YYYYMMDD												<!-- 생년월일 -->
+			 , L.ORD_NAME													<!-- 개통자명 -->
+			 , L.OPEN_DT													<!-- 개통일 -->
+			  , TO_CHAR(L.OPEN_DT,'DD') as PAY_APPLY_DAY 							<!-- 개통일 -->
+			 , L.END_DT														<!-- 종료일 -->
+			 , (SELECT FILE_URL FROM FILE_INFO WHERE FILE_SEQ = E.TELCOM_IMG) AS TEL_FILE_URL
+			 , M.REGIST_DT AS CHG_REGIST_DT
+			 , N.CHG_REASON_CD
+			 , N.CHG_REASON
+			 , N.RCV_NM														<!-- 받는자명 -->
+			 , N.HP															<!-- 받는자휴대폰번호 -->
+			 , N.ZIP_CD														<!-- 배송지우편번호 -->
+			 , N.JUSO_JIBEN													<!-- 배송지주소 -->
+			 , N.JUSO_DORO													<!-- 도로명주소 -->
+			 , N.JUSO_DTL													<!-- 배송지주소상세 -->
+			 , N.MEMO														<!-- 배송메시지 -->
+			 , (SELECT CARD_COMP_NM FROM ORD_SETL_INFO WHERE ORD_CD = A.ORD_CD GROUP BY CARD_COMP_NM) as CARD_COMP_NM
+			 , N.CHG_PROC_TYPE_CD
+			   , (SELECT PROD_SERIAL FROM SP_SH_PROD WHERE COLOR_SEQ = B.COLOR_SEQ and PROD_CODE = B.PROD_CODE and PROD_UNIQUENO = B.PROD_UNIQUENO ) as PROD_SERIAL
+			   , B.PROD_PRCE
+		  FROM ORD_INFO A
+		 INNER JOIN ORD_PROD_INFO B ON(B.ORD_CD = A.ORD_CD)
+		 INNER JOIN SP_PROD C ON (C.PROD_CODE = B.PROD_CODE)
+		 INNER JOIN SP_PROD_DTL D ON (D.PROD_CODE = B.PROD_CODE AND D.PAYPLAN_CODE = B.PAYPLAN_CODE AND D.STIP_CODE = B.STIP_CODE)
+		 INNER JOIN SP_TELCOM E ON (E.TELCOM_CODE = C.TELCOM_CODE)
+		 INNER JOIN SP_IMAGE F ON (F.PROD_CODE = B.PROD_CODE)
+		 INNER JOIN FILE_INFO G ON ( G.FILE_SEQ = F.FILE_NO)
+		 INNER JOIN SP_COLOR H ON (H.COLOR_SEQ = B.COLOR_SEQ)
+		 INNER JOIN SP_PAYPLAN I ON (I.PAYPLAN_CODE = B.PAYPLAN_CODE)
+		 INNER JOIN SP_STIP J ON (J.STIP_CODE = B.STIP_CODE)
+		  LEFT JOIN SP_OPEN_DETAIL L ON (L.ORD_CD = A.ORD_CD)
+		 INNER JOIN CHG_PROD_INFO M ON (M.ORD_CD = A.ORD_CD AND M.PROD_CODE = B.PROD_CODE)
+		 INNER JOIN CHG_RTN_PROC_INFO N ON (N.CHG_CD = M.CHG_CD)
+		 WHERE M.CHG_CD = #{ORD_CD}
+		   AND F.SP_IMG_GB_CD = '02'
+	</select>
+	
+	<!-- 스마트폰 셰어링 주문 취소 상세 내역 -->
+	<select id="selectSharCanlDtl" parameterType="hashmap" resultType="hashmap">
+		SELECT A.ORD_CD														<!-- 주문번호 -->
+			 , A.ORD_REG_DATE												<!-- 주문일시 -->
+			 , A.ORD_EMAIL													<!-- 주문자이메일 -->
+			 , B.PROD_UNIQUENO
+			 , B.PROC_STAT_CD												<!-- 상품처리상태 -->
+			 , B.PROD_CODE													<!-- 상품코드번호 -->
+			 , B.OPEN_TYPE													<!-- 가입유형 -->
+			 , B.UP_BUY_CODE												<!-- 중고폰매입코드 -->
+			 , C.PROD_NM													<!-- 상품명 -->
+			 , C.SP_SIZE_CD													<!-- 휴대폰 용량 -->
+			 , NVL(C.EXT_PRCE, 0) AS EXT_PRCE								<!-- 출고가 -->
+			 , NVL(C.REMAIN_PRCE, 0) AS REMAIN_PRCE							<!-- 잔존가 -->
+			 , NVL(C.MAKER_FUND, 0) AS MAKER_FUND							<!-- 제조사 지원금 -->
+			 , NVL(C.INSURANCE_PRCE, 0) AS INSURANCE_PRCE					<!-- 보험료 -->
+			 , NVL(C.SERVICIZING_PRCE, 0) AS SERVICIZING_PRCE				<!-- 서비사이징 -->
+			 , NVL(D.SALE_SUPP_PRCE, 0) AS SALE_SUPP_PRCE					<!-- 판매지원금 -->
+			 , NVL(D.SALE_GSUPP_PRCE, 0) AS SALE_GSUPP_PRCE					<!-- 공시지원금 -->
+			 , NVL(D.SALE_DISC_PRCE, 0) AS SALE_DISC_PRCE					<!-- 추가할인 -->
+			 , NVL(D.SHARING_PRICE, 0) AS SHARING_PRICE						<!-- 쉐어링요금 -->
+			 , G.FILE_URL													<!-- 상품이미지URL -->
+			 , H.COLOR_NAME													<!-- 상품색상 -->
+			 , J.STIP_PERIOD												<!-- 상품약정기간 -->
+			 , I.PAYPLAN_NM													<!-- 상품요금제 -->
+			 , (SELECT FILE_URL FROM FILE_INFO WHERE FILE_SEQ = E.TELCOM_IMG) AS TEL_FILE_URL
+			 , K.CANC_REASON												<!-- 주문취소사유 -->
+			 , K.CANC_REASON_CD												<!-- 주문취소사유코드 -->
+			 , TO_CHAR(K.CANC_DT, 'YYYY-MM-DD HH24:MI')	as CANC_DT												<!-- 주문취소일시 -->
+		  FROM ORD_INFO A
+		 INNER JOIN ORD_PROD_INFO B ON(B.ORD_CD = A.ORD_CD)
+		 INNER JOIN SP_PROD C ON (C.PROD_CODE = B.PROD_CODE)
+		 INNER JOIN SP_PROD_DTL D ON (D.PROD_CODE = B.PROD_CODE AND D.PAYPLAN_CODE = B.PAYPLAN_CODE AND D.STIP_CODE = B.STIP_CODE)
+		 INNER JOIN SP_TELCOM E ON (E.TELCOM_CODE = C.TELCOM_CODE)
+		 INNER JOIN SP_IMAGE F ON (F.PROD_CODE = B.PROD_CODE)
+		 INNER JOIN FILE_INFO G ON ( G.FILE_SEQ = F.FILE_NO)
+		 INNER JOIN SP_COLOR H ON (H.COLOR_SEQ = B.COLOR_SEQ)
+		 INNER JOIN SP_PAYPLAN I ON (I.PAYPLAN_CODE = B.PAYPLAN_CODE)
+		 INNER JOIN SP_STIP J ON (J.STIP_CODE = B.STIP_CODE)
+		 INNER JOIN ORD_CANC_INFO K ON (K.CANC_CD = B.CANC_CD)
+		 WHERE A.ORD_CD = #{ORD_CD}
+		   AND C.PROD_SHOW_YN = 'Y'
+		   AND F.SP_IMG_GB_CD = '02'
+	</select>
+	
+	<!-- 스마트폰 셰어링 해지 정보 상세 -->
+	<select id="selectSharTermiProdDtl" parameterType="hashmap" resultType="hashmap">
+	
+		SELECT A.ORD_CD														<!-- 주문번호 -->
+			 , A.ORD_REG_DATE												<!-- 주문일시 -->
+			 , A.ORD_EMAIL													<!-- 주문자이메일 -->
+			 , B.PROD_UNIQUENO
+			 , B.PROC_STAT_CD												<!-- 상품처리상태 -->
+			 , B.PROD_CODE													<!-- 상품코드번호 -->
+			 , B.OPEN_TYPE													<!-- 가입유형 -->
+			 , B.UP_BUY_CODE												<!-- 중고폰매입코드 -->
+			 , C.PROD_NM													<!-- 상품명 -->
+			 , C.SP_SIZE_CD													<!-- 휴대폰 용량 -->
+			 , NVL(C.EXT_PRCE, 0) AS EXT_PRCE								<!-- 출고가 -->
+	 		 , NVL(C.USE_PHONE_PRE_COMPENSATE_PRCE, 0) AS USE_PHONE_PRE_COMPENSATE_PRCE
+			 , NVL(C.BUY_SALE_PRCE, 0) AS BUY_SALE_PRCE
+			 , NVL(C.INSURANCE_PRCE, 0) AS INSURANCE_PRCE
+			 , NVL(C.GUARANTEE_INSURANCE_PRCE, 0) AS GUARANTEE_INSURANCE_PRCE
+			 , NVL(C.RV_INSURANCE_PRCE, 0) AS RV_INSURANCE_PRCE
+			 , NVL(C.SERVICIZING_PRCE, 0) AS SERVICIZING_PRCE				<!-- 서비사이징 -->
+			 , NVL(D.SHARING_FEE_PRCE, 0) AS SHARING_FEE_PRCE
+			 , NVL(D.SSOCIO_FEE_PRCE, 0) AS SSOCIO_FEE_PRCE
+			 , NVL(D.SALE_SUPP_PRCE, 0) AS SALE_SUPP_PRCE					<!-- 판매지원금 -->
+			 , NVL(D.SALE_GSUPP_PRCE, 0) AS SALE_GSUPP_PRCE					<!-- 공시지원금 -->
+			 , NVL(D.SALE_DISC_PRCE, 0) AS SALE_DISC_PRCE					<!-- 추가할인 -->
+			 , NVL(D.SHARING_PRICE, 0) AS SHARING_PRICE						<!-- 쉐어링요금 -->
+			 , G.FILE_URL													<!-- 상품이미지URL -->
+			 , H.COLOR_NAME													<!-- 상품색상 -->
+			 , J.STIP_PERIOD												<!-- 상품약정기간 -->
+			 , I.PAYPLAN_NM													<!-- 상품요금제 -->
+			 , (SELECT CARD_COMP_NM FROM ORD_SETL_INFO WHERE ORD_CD = A.ORD_CD GROUP BY CARD_COMP_NM) as CARD_COMP_NM 												<!-- 카드명 -->
+			 , L.USIM_SEQ_CODE												<!-- USIM 일련번호 -->
+			 , L.USIM_PHONE													<!-- USIM 폰번호 -->
+			 , L.BIRTH_YYYYMMDD												<!-- 생년월일 -->
+			 , L.ORD_NAME													<!-- 개통자명 -->
+			 , L.OPEN_DT													<!-- 개통일 -->
+			 , L.END_DT														<!-- 종료일 -->
+			  , TO_CHAR(L.OPEN_DT, 'DD') as OPEN_DD							<!-- 결제일 -->
+			 , M.RCV_NM														<!-- 받는자명 -->
+			 , M.RCV_HP														<!-- 받는자휴대폰번호 -->
+			 , M.ZIP_CD														<!-- 배송지우편번호 -->
+			 , M.ADDR_GB													<!-- 주소구분 -->
+			 , M.JUSO_JIBEN													<!-- 배송지주소 -->
+			 , M.JUSO_DORO													<!-- 도로명주소 -->
+			 , M.JUSO_DTL													<!-- 배송지주소상세 -->
+			 , M.DLV_MSG													<!-- 배송메시지 -->
+			 , M.SECU_NO_USE_YN												<!-- 안심번호사용여부 -->
+			 , M.SECU_NO													<!-- 안심번호 -->
+			 , (SELECT FILE_URL FROM FILE_INFO WHERE FILE_SEQ = E.TELCOM_IMG) AS TEL_FILE_URL
+		     , (SELECT PROD_SERIAL FROM SP_SH_PROD WHERE COLOR_SEQ = B.COLOR_SEQ and PROD_CODE = B.PROD_CODE and PROD_UNIQUENO = B.PROD_UNIQUENO ) as PROD_SERIAL
+			 , N.TERMI_REASON_CD
+			 , N.TERMI_REASON
+			 , N.TERMI_REQ_DT
+			 , B.PROD_PRCE
+			 , (N.RENTAL_PENALTY + N.SALE_PENALTY) as PENAL_PRCE
+		  FROM ORD_INFO A
+		 INNER JOIN ORD_PROD_INFO B ON(B.ORD_CD = A.ORD_CD)
+		 INNER JOIN SP_PROD C ON (C.PROD_CODE = B.PROD_CODE)
+		 INNER JOIN SP_PROD_DTL D ON (D.PROD_CODE = B.PROD_CODE AND D.PAYPLAN_CODE = B.PAYPLAN_CODE AND D.STIP_CODE = B.STIP_CODE)
+		 INNER JOIN SP_TELCOM E ON (E.TELCOM_CODE = C.TELCOM_CODE)
+		 INNER JOIN SP_IMAGE F ON (F.PROD_CODE = B.PROD_CODE)
+		 INNER JOIN FILE_INFO G ON ( G.FILE_SEQ = F.FILE_NO)
+		 INNER JOIN SP_COLOR H ON (H.COLOR_SEQ = B.COLOR_SEQ)
+		 INNER JOIN SP_PAYPLAN I ON (I.PAYPLAN_CODE = B.PAYPLAN_CODE)
+		 INNER JOIN SP_STIP J ON (J.STIP_CODE = B.STIP_CODE)
+		 INNER JOIN ORD_SETL_INFO K ON (K.ORD_CD = A.ORD_CD)
+		  LEFT JOIN SP_OPEN_DETAIL L ON (L.ORD_CD = A.ORD_CD)
+		  LEFT JOIN ORD_DLV_INFO M ON (M.ORD_CD = A.ORD_CD)
+		  LEFT JOIN TERMI_INFO N ON (N.TERMI_CD = B.TERMI_CD)
+		 WHERE A.ORD_CD = #{S_ORD_CD}
+		   AND C.PROD_SHOW_YN = 'Y'
+		   AND F.SP_IMG_GB_CD = '02'
+	</select>
+	
+	<!-- 주문 해지자 정보 -->
+	<select id="selectTermiInfo" parameterType="hashmap" resultType="hashmap">
+	SELECT 
+    NVL( A.UP_BUY_CODE,'0') AS UP_BUY_CODE
+     ,A.PROD_PRCE
+    		,(SELECT STIP_PERIOD FROM SP_STIP WHERE STIP_CODE = A.STIP_CODE) AS STIP
+       	,D.EXT_PRCE
+        ,(D.EXT_PRCE 
+        - NVL(D.BUY_SALE_PRCE,0) 
+        - NVL(E.SALE_SUPP_PRCE,0) 
+        - NVL(E.SALE_GSUPP_PRCE,0) 
+        - NVL(E.SALE_DISC_PRCE,0) 
+        - NVL(D.USE_PHONE_PRE_COMPENSATE_PRCE,0) 
+        + NVL(E.SHARING_FEE_PRCE,0) 
+        + NVL(D.SERVICIZING_PRCE,0) 
+        + NVL(D.RV_INSURANCE_PRCE,0) 
+       + NVL(D.GUARANTEE_INSURANCE_PRCE,0) 
+        + NVL(D.INSURANCE_PRCE,0)
+        ) AS TOTAL_PRCE
+        , C.OPEN_DT								
+			 , C.END_DT	
+			 , SYSDATE TO_DAY													
+       		,B.RCV_NM
+			 , B.RCV_HP
+			 , B.ZIP_CD
+			 , B.JUSO_JIBEN
+			 , B.JUSO_DORO
+			 , B.JUSO_DTL 
+		FROM ORD_PROD_INFO A
+    LEFT OUTER JOIN  ORD_DLV_INFO B  ON  A.ORD_CD = B.ORD_CD
+		LEFT OUTER JOIN SP_OPEN_DETAIL C ON A.ORD_CD = C.ORD_CD
+    LEFT OUTER JOIN SP_PROD D ON A.PROD_CODE = D.PROD_CODE
+    LEFT OUTER JOIN SP_PROD_DTL E ON (A.PROD_CODE = E.PROD_CODE AND A.PAYPLAN_CODE = E.PAYPLAN_CODE)
+	WHERE A.ORD_CD = #{S_ORD_CD}
+	</select>
+	
+	<!-- 주문정보 해지 -->
+	<insert id="insertSharTermi" parameterType="hashmap" useGeneratedKeys="true" keyColumn="TERMI_CD" keyProperty="TERMI_CD">
+		INSERT INTO TERMI_INFO 
+			( TERMI_CD
+			 , PROC_STAT_CD
+			 , TERMI_REASON_CD
+			 , TERMI_REASON
+			 , USE_DAY
+			 , TOTAL_PENALTY
+			 , RENTAL_PENALTY
+			 , SALE_PENALTY
+			 , RCV_NM
+			 , HP
+			 , ZIP_CD
+			 , JUSO_JIBEN
+			 , JUSO_DORO
+			 , JUSO_DETAIL
+			 , TERMI_REQ_DT
+			) VALUES (
+			 TO_CHAR(SYSDATE, 'YYYYMMDDHH24MI')||LPAD(SEQ_TERMI_CD.NEXTVAL,4,0)
+			 , '70'
+			 , #{S_TERMI_REASON_CD}
+			 , #{S_TERMI_REASON}
+			 , #{S_USE_DAY}
+			 , #{S_TOTAL_PENALTY}
+			 , #{S_RENTAL_PENALTY}
+			 , #{S_SALE_PENALTY}
+			 , #{S_RCV_NM}
+			 , #{S_RCV_HP}
+			 , #{S_ZIP_CD}
+			 , #{S_JUSO_JIBEN}
+			 , #{S_JUSO_DORO}
+			 , #{S_JUSO_DTL}
+			 , SYSDATE
+			)
+	</insert>
+	
+	<!-- 주문 상세 정보 변경 -->
+	<update id="updateSharOrd" parameterType="hashmap">
+		UPDATE ORD_PROD_INFO
+		   SET  TERMI_CD = #{TERMI_CD}
+		   		,PROC_STAT_CD = '70'
+		 WHERE ORD_CD = #{S_ORD_CD}
+		   AND PROD_CODE = #{S_PROD_CD}
+	</update>
+	
+	
+	  	<select id="selectsiteIFUrl" resultType="String">
+       SELECT COM_CD_NM 
+         FROM CODE 
+        WHERE GRP_CD = 'SITE_DEFAULT' 
+          AND COM_CD = 'EMAIL_IF_URL'
+	</select>
+	
+	<select id="selectSharPayProdCount" resultType="int">
+	SELECT COUNT(1) FROM(
+			SELECT TO_CHAR(SPAY.PAY_DT,'YYYY-MM-DD HH24:MI')  as PAY_DT
+			, SPAY.STEP
+			, SP.PROD_NM 
+			,(SELECT CARD_COMP_NM FROM ORD_SETL_INFO WHERE ORD_CD = OPI.ORD_CD GROUP BY CARD_COMP_NM) AS CARD_COMP_NM 
+			, SPAY.AMT_REAL
+		FROM SP_PAY SPAY 
+			,ORD_PROD_INFO OPI
+			, SP_PROD SP
+		WHERE SPAY.ORD_CD = OPI.ORD_CD
+		  AND OPI.PROD_CODE = SP.PROD_CODE 
+		  AND SPAY.MBER_SEQ = #{MBER_SEQ}
+		  AND SPAY.PAY_DT <![CDATA[<]]> SYSDATE
+	  )
+	</select>
+	
+	<select id="selectSharPayProd" resultType="hashmap">
+		select * from(
+		SELECT TO_CHAR(SPAY.PAY_DT,'YYYY-MM-DD HH24:MI')  as PAY_DT
+			, SPAY.STEP
+			, SP.PROD_NM 
+			, (SELECT CARD_COMP_NM FROM ORD_SETL_INFO WHERE ORD_CD = OPI.ORD_CD GROUP BY CARD_COMP_NM) AS CARD_COMP_NM 
+			, ROW_NUMBER() OVER( ORDER BY SPAY.STEP DESC ) AS NO
+			, SPAY.AMT_REAL
+		FROM SP_PAY SPAY 
+			,ORD_PROD_INFO OPI
+			, SP_PROD SP
+		WHERE SPAY.ORD_CD = OPI.ORD_CD
+		  AND OPI.PROD_CODE = SP.PROD_CODE 
+		  AND SPAY.MBER_SEQ = #{MBER_SEQ}
+		  AND SPAY.PAY_DT <![CDATA[<]]> SYSDATE
+		  ) WHERE NO BETWEEN #{START_ROW} AND #{END_ROW}
+	</select>
+	
+	<select id="selectSharUseCnt" resultType="int">
+	SELECT COUNT(1) 
+	  FROM ORD_PROD_INFO 
+	 WHERE PROD_TYPE_CD ='4' 
+	   AND MBER_SEQ = #{MBER_SEQ} 
+	   AND PROC_STAT_CD ='85'
+	</select>
+	
+	
+	<select id="CheckSharWaitCnt" resultType="int">
+	SELECT COUNT(1) FROM SP_SH_PROD WHERE PROD_CODE = #{PROD_CODE} AND SH_STAT_CD = '06'
+	</select>
+	
+	<select id="selectOrdShipProdInfo" resultType="hashmap">
+	SELECT 
+	       (SELECT FILE_URL FROM FILE_INFO WHERE FILE_SEQ  = SI.FILE_NO) AS IMG_URL,
+	       C.PROD_NM,
+           II.INVC_NO,
+           II.DLV_STAT_CD,
+           B.ORD_CD,
+           TO_CHAR(A.ORD_REG_DATE, 'YYYY-MM-DD HH24:MI') AS ORD_REG_DATE,
+           (SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'DLV_CMP_CD' AND COM_CD = II.DLV_CMP_CD) AS DLV_CMP_NM,
+           TO_CHAR(II.REGIST_DT, 'YYYY-MM-DD HH24:MI') AS REGIST_DT
+		FROM ORD_INFO A, 
+		     ORD_PROD_INFO B, 
+		     SP_PROD C,
+		     SP_IMAGE SI,
+         INVC_INFO II
+		WHERE A.ORD_CD = B.ORD_CD 
+		AND B.PROD_CODE = C.PROD_CODE
+		AND C.PROD_CODE = SI.PROD_CODE
+		AND II.ORD_CD = B.ORD_CD
+		AND SI.SP_IMG_GB_CD = '01'
+		AND A.ORD_CD = #{S_ORD_CD}
+		AND B.PROD_CODE = #{S_PROD_CD}
+	</select>
+	
+	<insert id="insOrdcancel" parameterType="hashmap" useGeneratedKeys="true" keyProperty="CANC_CD" keyColumn="CANC_CD">
+		INSERT INTO ORD_CANC_INFO (
+			 CANC_CD,
+			 CANC_REASON_CD,
+			 CANC_REASON,
+			 CANC_DT
+		) VALUES (
+			 TO_CHAR(SYSDATE, 'YYYYMMDDHH24MI')||LPAD(SEQ_ORD_CANC_INFO.NEXTVAL,4,0),
+			 #{I_CANC_REASON_CD},
+			 #{I_CANC_REASON},
+			 SYSDATE
+		)
+	</insert>
+	<select id="selectBillCancelKey" resultType="hashmap">
+		SELECT BILL_KEY 
+		     , TRD_AMT
+		     , CARD_COMP_NM
+		  FROM ORD_SETL_INFO 
+		 WHERE ORD_CD = #{ORD_CD}
+	</select>
+	
+	<update id="updateOrdProdInfoReg" parameterType="hashmap" >
+		UPDATE ORD_PROD_INFO
+		  SET PROC_STAT_CD = '50',
+			  CANC_CD = #{CANC_CD}
+		WHERE ORD_CD = #{ORD_CD}
+		  AND PROD_CODE = #{PROD_CODE}
+		  AND PROD_SEQ = #{PROD_SEQ}
+	</update>
+	
+	<insert id="insertCancelSeltInfo">
+	INSERT INTO ORD_SETL_INFO (
+			  ORD_CD
+			, REG_SEQ
+		 	, TRD_AMT
+		 	, TRD_NO
+			, CARD_COMP_NM
+		)VALUES(
+			#{ORD_CD}
+			, (SELECT NVL(MAX(REG_SEQ +1),1) FROM ORD_SETL_INFO WHERE ORD_CD = #{ORD_CD} ) 
+			, #{TRD_AMT}
+			, #{TID}
+			, #{CARD_COMP_NM}
+		)	
+	</insert>
+	
+<select id="selectOrdDlvinfo" resultType="hashmap">
+	SELECT RCV_NM
+		 , RCV_TEL
+		 , RCV_HP
+		 , ZIP_CD
+		 , ADDR_GB
+		 , JUSO_JIBEN
+		 , JUSO_DORO
+		 , JUSO_DTL
+		 , DLV_MSG
+		 , SECU_NO_USE_YN
+		 , SECU_NO
+	 FROM ORD_DLV_INFO 
+	 WHERE ORD_CD =#{ORD_CD}
+</select>
+
+
+	<!-- 주문취소되었는지 확인 -->
+	<select id="selectMobileSmartOrderCancelOrdcd" resultType="String" parameterType="String">
+		SELECT
+			 PROC_STAT_CD
+		FROM
+			ORD_PROD_INFO
+		WHERE
+			 ORD_CD = #{ORD_CD}
+	
+	</select>
+	
+	<insert id="insertPaytbProc" statementType="CALLABLE">
+    {
+        call SP_SMARTSHARE_PAY_ADD(#{MBER_SEQ}, #{PROD_CODE},(SELECT STIP_PERIOD FROM SP_STIP WHERE STIP_CODE = #{STIP_CODE} ),#{TOT_AMT})
+    }
+	</insert>
+	
+	
+	<select id="selectChgChkCnt" parameterType="hashmap" resultType="String">
+		SELECT PROC_STAT_CD FROM ORD_PROD_INFO WHERE ORD_CD = #{ORD_CD}
+	</select>
+	
+	<!-- 스마트폰 셰어링 이용내역 카운트 -->
+	<select id="selectSmartPoneSharUsingCount" parameterType="int" resultType="hashmap">
+		SELECT
+		      D.*
+			, (SELECT COUNT(*) AS CT FROM SP_PAY WHERE MBER_SEQ = #{MBER_SEQ} AND PAY_DT IS NOT NULL AND SCHEDULE_DT <![CDATA[<=]]> SYSDATE) AS PAY_COUNT
+		FROM
+		(
+			SELECT
+			    NVL(SUM(CASE WHEN C.PROC_STAT_CD IN ('10','11','22','23','85','86','90','91','92') THEN 1 ELSE 0 END),0) AS ST_ORDER_COUNT
+			  , NVL(SUM(CASE WHEN C.PROC_STAT_CD IN ('41','42','43') THEN 1 ELSE 0 END),0) AS ST_CHANGE_COUNT
+			  , NVL(SUM(CASE WHEN C.PROC_STAT_CD IN ('31','32','33') THEN 1 ELSE 0 END),0) AS ST_RETURN_COUNT
+			  , NVL(SUM(CASE WHEN C.PROC_STAT_CD IN ('50') THEN 1 ELSE 0 END),0) AS ST_CANCEL_COUNT
+			  , NVL(SUM(CASE WHEN C.PROC_STAT_CD IN ('70','71','72') THEN 1 ELSE 0 END),0) AS ST_CLOSE_COUNT
+			FROM
+				(
+					SELECT
+						B.PROC_STAT_CD
+					FROM
+						ORD_INFO A , ORD_PROD_INFO B
+					WHERE
+					        A.ORD_CD = B.ORD_CD
+						AND B.PROD_TYPE_CD = '4'
+					    AND B.MBER_SEQ = #{MBER_SEQ}
+				) C
+		) D
+	</select>
+	
+	
+</mapper>

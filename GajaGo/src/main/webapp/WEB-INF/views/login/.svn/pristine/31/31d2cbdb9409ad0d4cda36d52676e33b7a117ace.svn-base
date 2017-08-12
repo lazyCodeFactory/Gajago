@@ -1,0 +1,231 @@
+<%@ page language="java" contentType="text/html; charset=utf-8"
+    pageEncoding="utf-8"%>
+<!-- 태그는 cmmnHead.jsp 에 선언함 -->
+<%@ include file="/WEB-INF/views/admin/common/cmmnHead.jsp"%>
+<script type="text/javascript">
+/*
+ * @functoin : leng
+ * @description : 텍스트의 byte수를 리턴한다.
+ * @return : int
+ */
+String.prototype.leng = function() {
+	//var koreanByte = 2;//-- 한글은 2byte로 인식
+	var koreanByte = 3; //--oracle charset이 utf-8일 경우 한글은 3bype로 인식한다.
+	var cntLeng = 0;
+	for(var leni=0; leni<this.length; leni++)
+	{
+		var c = this.charCodeAt(leni);
+		if( (0xAC00 <= c && c <= 0xD7A2) || (0x3131 <= c && c <= 0x318E) ) cntLeng += koreanByte;
+		else cntLeng += 1;
+	}
+	return cntLeng;
+};
+
+$(document).ready(function(){
+
+
+
+	
+	$("#cancelBtn").click(function(){
+		$("#frm").attr("action","/admin/autosms/selectListAutoSms.do").submit();
+		
+	});
+	
+
+	
+});
+
+
+function fn_mod(){
+
+	
+	if($("#TPL_TITLE").val().leng() == 0 ){
+		alert("템플릿명을 입력해 주세요.");
+		$('#TPL_TITLE').focus();
+		return;
+	}
+	
+	if($("#TITLE").val().leng() == 0 ){
+		alert("제목을 입력해 주세요.");
+		$('#TITLE').focus();
+		return;
+	}
+	
+	if ($('#SND_KIND_CD').val() == null || $('#SND_KIND_CD').val() == "") {
+		alert("메뉴를 선택하셔야 합니다.");
+		$('#SND_KIND_CD').focus();
+		return;
+	}
+	
+	
+	if($("#CONTENTS").val().leng() == 0 ){
+		alert("메시지내용을 입력해 주세요.");
+		$('#CONTENTS').focus();
+		return;
+	}
+
+	if(confirm('수정 하시겠습니까?')){
+
+		 var options = {
+				 type : "POST",
+				 url : "/admin/autosms/updateAutoSms.do",
+// 				 dataType :  "json",
+				 contentType: "application/x-www-form-urlencoded; charset=UTF-8",
+				 success: function(data){
+					 if("S" == data){
+						 alert("수정 되었습니다."); 
+						 $("#frm").attr("action","/admin/autosms/selectAutoSms.do").submit();
+					 }else{
+						 alert("수정 실패 하였습니다. 관리자에게 문의 하세요.");
+					 }
+					
+				 },
+				 error : function(request, status, error) {
+				    	alert("통신 오류가 발생 하였습니다. 잠시 후 다시 시도해 주세요"   + status  + " request [" + request  + "] error[" + error +"]");
+
+				 }
+		 };
+		 
+		 
+	    $("#frm").ajaxSubmit(options);
+	}
+}
+</script>
+<!-- content -->
+	<div id="content">
+		<!-- top_content -->
+		<div class="top_content">
+			<!-- location -->
+			<div class="location">
+				<ul class="clear">
+					<li class="first-child"><a href="#">발송관리</a></li>
+					<li><a href="#">자동 발송 관리</a></li>
+					<li><a href="#" class="current">PUSH 상세</a></li>
+				</ul>
+			</div>
+			<!-- //location -->
+		</div>
+		<!-- //top_content -->
+		
+		<div class="inner">
+			
+			<!-- tbl -->
+			<div class="tbl mt10">
+			<form name="frm" id="frm" method="post">
+			<input type="hidden" id="TPL_GB_CD"  name="TPL_GB_CD" value="${TPL_GB_CD }"/>
+			<input type="hidden" id="MSG_TPL_CODE" name="MSG_TPL_CODE" value="${list.selectAutoSms.MSG_TPL_CODE }"/>
+				<p class="tbl_tit"><img src="http://static.ssocio.net/admin/images/ico_admin.gif" alt="">PUSH 상세</p>
+				<table class="upd">
+					<colgroup>
+						<col style="width:15%">
+						<col style="width:*">
+					</colgroup>
+					<tbody>
+						<tr>
+							<th scope="row">템플릿 코드</th>
+							<td>
+								${list.selectAutoSms.MSG_TPL_CODE }
+							</td>
+						</tr>
+						<tr>
+							<th scope="row">템플릿명</th>
+							<td>
+								<input type="text" style="width:420px" id="TPL_TITLE" name="TPL_TITLE" maxlength="100"  value="${list.selectAutoSms.TPL_TITLE }" />
+							</td>
+						</tr>
+						<tr>
+							<th scope="row">PUSH 메뉴</th>
+							<td>
+								<span class="select" style="width:250px">
+									<span class="sel_txt"></span>
+									<custom:codeList var="sndKindCd" groupCode="SND_KIND_CD" />
+									<select id="SND_KIND_CD" name="SND_KIND_CD">
+										<option value="" <c:if test="${list.selectAutoSms.SND_KIND_CD eq sndKindCd.key}">selected="selected"</c:if>>선택</option>
+										
+										<c:forEach items="${sndKindCd}" var="sndKindCd" varStatus="idx">
+										<option value="${sndKindCd.key}" <c:if test="${list.selectAutoSms.SND_KIND_CD eq sndKindCd.key}">selected="selected"</c:if> >${sndKindCd.value}</option>
+										</c:forEach>
+									</select>
+								</span>
+								
+							</td>
+						</tr>
+						<tr>
+							<th scope="row" >PUSH 제목</th>
+							<td>
+								<input type="text" style="width:420px" id="TITLE" name="TITLE" maxlength="100" value="${list.selectAutoSms.TITLE }"/>
+							</td>
+						</tr>
+						<tr>
+							<th scope="row">PUSH 내용</th>
+							<td>
+								<textarea id="CONTENTS" name="CONTENTS" cols="30" rows="10" class="textarea" style="width:420px" >${list.selectAutoSms.CONTENTS }</textarea>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+				</form>
+			</div>
+			<!-- //tbl -->
+			<div class="btn_area tc mt20">
+				<a href="javascript:fn_mod();" class="btn_r">수정</a>
+				<a href="#" id="cancelBtn" class="btn_b ml10">취소</a>
+			</div>
+
+			<div class="tbl mt20">
+				<p class="tbl_tit"><img src="http://static.ssocio.net/admin/images/ico_admin.gif" alt="">발송 내용 입력 정보</p>
+				<!-- list -->
+				<table class="list">
+					<colgroup>
+						<col style="width:15%">
+						<col style="width:15%">
+						<col style="width:*">
+					</colgroup>
+					<thead>	
+						<tr>
+							<th scope="col">구분</th>
+							<th scope="col">코드</th>
+							<th scope="col">메시지 제한</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td class="nolineL">회원 ID</td>
+							<td>[{user}]</td>
+							<td>메시지 발송시 최대 4자리로 제한</td>
+						</tr>
+						<tr>
+							<td class="nolineL">상품명</td>
+							<td>[{pro_item}]</td>
+							<td>메시지 발송시 최대 6자리로 제한</td>
+						</tr>
+						<tr>
+							<td class="nolineL">택배사</td>
+							<td>[{send_deli}]</td>
+							<td>메시지 발송시 최대 10자리로 제한</td>
+						</tr>
+						<tr>
+							<td class="nolineL">운송장 번호</td>
+							<td>[{send_num}]</td>
+							<td>메시지 발송시 최대 20자리로 제한</td>
+						</tr>
+						<tr>
+							<td class="nolineL">셰어링 종료일</td>
+							<td>[{end_data}]</td>
+							<td>yyyy-mm-dd 형식으로 발송</td>
+						</tr>
+						<tr>
+							<td class="nolineL">셰어링 종료시간</td>
+							<td>[{end_data}]</td>
+							<td>HH:MM 형식으로 발송</td>
+						</tr>
+					</tbody>
+				</table>
+				<!-- //list -->
+			</div>
+		</div>
+	</div>
+	<!-- //content -->
+
+
+	

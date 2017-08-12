@@ -1,0 +1,374 @@
+<%
+	/*
+	 *	[구매회원용] 위시리스트 상세정보조회
+	 */
+%>
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/web/common/cmmnHead.jsp"%>
+<title>SSOCIO</title>
+<script type="text/javascript">
+	$(document).ready(function(){
+		header.type	= 5;	// ( 0 : 타이틀영역만존재, 1 : 검색HEADER, 2 : SELECT TYPE HEADER, 3 : AD MENU TYPE HEADER, 4 : SUB TYPE HEADER )
+		header.title = "${params.WISH_NAME}";	document.title = "${params.WISH_NAME}";
+		header.method = "GET";
+		header.backUrl = "/mobile/myWish/getMyWishList.do";
+		header.form = '';
+		header.callback = deleteAll;
+		initHeader();
+		$(window).scroll(function(){
+			if( $(window).scrollTop() == $(document).height() - $(window).height()){
+				var LAST_SEQ = $("#LAST_SEQ").val();
+				if(0 == (LAST_SEQ % 20) ){
+					pageScroll();
+				}
+			}
+		});
+		// CDN Reload
+		cdnreload();
+		imgLatelyHeightResize()
+
+		$(".btn_back").click(function(){
+			document.location.replace = "/mobile/myWish/getMyWishList.do"
+				//mobile/myWish/getMyWishList.do
+		});
+	});
+	/*
+	 *	상품상세조회
+	 */
+	prodDtl = function(PROD_CODE,PROD_TYPE_CD){
+		if(PROD_CODE.length<1){
+			alert("상품정보가 올바르지 않습니다. 확인 재조회해주십시오."); return;
+		}else{
+			$("#prodDtlForm #PROD_CODE").val(PROD_CODE);
+			if(PROD_TYPE_CD=='4'){
+				$("#prodDtlForm").attr("action", '/mobile/shar/selectSharDtl.do.do');
+			}else{
+				$("#prodDtlForm").attr("action", '/mobile/prod/selectProd.do');
+			}
+			$("#prodDtlForm").submit();
+		}
+	};
+	/*
+	 * 스크롤 시 조회
+	 */
+	pageScroll = function () {
+		// 페이지
+		var FIRST_SEQ = $("#FIRST_SEQ").val();
+		var LAST_SEQ = $("#LAST_SEQ").val();
+		var WISH_SEQ = $("#WISH_SEQ").val();
+		$.ajax({
+		    type: 'get'
+		    , async: true
+		    , url: '/mobile/myWish/detailMyWishListPage.do'
+		    , data: {
+		    		"FIRST_SEQ"	: FIRST_SEQ,
+		    		"LAST_SEQ"	: LAST_SEQ,
+		    		"WISH_SEQ"	: WISH_SEQ
+		    },
+		    success: function(result) {
+		    	var FIRST_SEQ = $("#FIRST_SEQ").val();
+		    	$("#FIRST_SEQ").val( parseInt(FIRST_SEQ)+20);
+		    	var LAST_SEQ = $("#LAST_SEQ").val();
+		    	$("#LAST_SEQ").val(parseInt(LAST_SEQ)+20);
+		    	var innerH = $("#targetS");
+		    	var htmlI = '';
+		    	for(var c=0;c<result.result.length;c++){
+		    		htmlI += "<li>";
+		                htmlI += "<p class='thomb'><a href=\"javascript:detailProd('"+result.result[c].PROD_CODE+"','"+result.result[c].PROD_TYPE_CD+"');\" ><img src=\"<custom:codeTag code='DEFAULT_IMG_URL' groupCode='SITE_DEFAULT' />\"  data-img=\""+result.result[c].PROD_IMG_URL+"\" ></a></p>";	//<!-- 배너 -->
+		                htmlI += "<div class='label'>";		// <!-- 라벨 스티커 -->
+		                if(result.result[c].CPON_APPLY_PSBL_YN == 'Y'){
+		                	htmlI +="<p><img src=\"http://static.ssocio.net/web/images/main/label_coupon.png\" alt=\"\" ></p>";
+		                }
+		                if(result.result[c].DLV_PAY_GB_CD == '1'){
+		                	htmlI +="<p><img src=\"http://static.ssocio.net/web/images/main/label_delivery.png\" alt=\"\" ></p>";
+		                }
+		                htmlI += "</div>";
+		                htmlI += "<div class='subs'>";
+		                htmlI += "    <a href=\"javascript:preDel('"+result.result[c].REG_SEQ+"','"+result.result[c].MBER_SEQ+"','"+result.result[c].WISH_SEQ+"');\" class='del'>";
+		                htmlI += "			<img src=\"http://static.ssocio.net/web/images/search_list_clos.png\" alt=\""+result.result[c].PROD_IMG_URL+"\" ></a>";
+		                htmlI += "    <a href=\"javascript:detailProd('"+result.result[c].PROD_CODE+"','"+result.result[c].PROD_TYPE_CD+"');\">";
+		                htmlI += "    <p class='subj'>"+result.result[c].PROD_NM+"</p>";
+		                htmlI += "    <div class='clear'>";
+		                if(result.result[c].PROD_TYPE_CD == '4'){				// 4.스마트폰셰어링
+		                	htmlI += "    	  <p class='fr tr'>";
+							htmlI += "	  	  <strong>"+commify(result.result[c].SP_SHARING_PRICE)+"원/월</strong></p>";
+
+		                }else if(result.result[c].PROD_TYPE_CD == '2'){			// 2.셰어링
+	                		htmlI += "    	  <p class='fr tr'>";
+							htmlI += "	  	  <strong>1일&nbsp;"+commify(result.result[c].SHARING_PRICE)+"원</strong></p>";
+	                	}else if(result.result[c].PROD_TYPE_CD == '1'){			// 1.판매
+	                		if(result.result[c].NRM_PRCE == result.result[c].SELL_PRCE || result.result[c].NRM_PRCE < 1){
+				                htmlI += "        <p class='fr tr'><span></span>";
+				                htmlI += "        <br><strong>"+commify(result.result[c].SELL_PRCE)+"원</strong></p>";
+	                		}else{
+	                			if(result.result[c].PER_PRCE > 0){
+	                				htmlI += "        <strong class='fl'>"+result.result[c].PER_PRCE+"%</strong>";
+	                			}
+// 				                htmlI += "        <p class='fr tr'><span>"+commify(result.result[c].NRM_PRCE)+"원</span>";
+								htmlI += "            <p class='fr tr'><span>";
+								if(result.result[c].NRM_PRCE > result.result[c].SELL_PRCE && result.result[c].NRM_PRCE > 0){
+
+									htmlI += commify(result.result[c].NRM_PRCE)+"원";
+								}
+				                htmlI += "</span><br><strong>"+commify(result.result[c].SELL_PRCE)+"원</strong></p>";
+	                		}
+	                	}else if(result.result[c].PROD_TYPE_CD == '3'){			// 3.나눔
+// 	                		if(result.result[c].NRM_PRCE == result.result[c].SELL_PRCE){
+// 				                htmlI += "        <p class='fr tr'><span></span>";
+// 				                htmlI += "        <br><strong>"+commify(result.result[c].SELL_PRCE)+"원</strong></p>";
+// 	                		}else{
+// 	                			if(result.result[c].PER_PRCE > 0){
+// 	                				htmlI += "        <strong class='fl'>"+result.result[c].PER_PRCE+"%</strong>";
+// 	                			}
+// 				                htmlI += "        <p class='fr tr'><span>"+commify(result.result[c].NRM_PRCE)+"원</span>";
+// 				                htmlI += "        <br><strong>"+commify(result.result[c].SELL_PRCE)+"원</strong></p>";
+// 	                		}
+	                	}else if(result.result[c].PROD_TYPE_CD == '5'){			// 5.렌탈
+// 	                		if(result.result[c].NRM_PRCE == result.result[c].SELL_PRCE){
+// 								htmlI += "            <p class='fr tr'><span></span>";
+// 								htmlI += "			  <br><strong>"+commify(result.result[c].SELL_PRCE)+"원</strong></p>";
+// 							}else{
+// 								if(result.result[c].PER_PRCE > 0){
+// 									htmlI += "            <strong class='fl'>"+result.result[c].PER_PRCE+"%</strong>";
+// 								}
+// 								htmlI += "            <p class='fr tr'><span>"+commify(result.result[c].NRM_PRCE)+"원</span>";
+// 								htmlI += "			  <br><strong>"+commify(result.result[c].SELL_PRCE)+"원</strong></p>";
+// 							}
+	                	}
+
+		                htmlI += "    </div>";
+		                htmlI += "    </a>";
+		                htmlI += "</div>";
+		            htmlI += "</li>";
+		    	}
+		    	innerH.append(htmlI);
+	    		cdnreload();
+	    		imgLatelyHeightResize()
+		    },
+		    error: function(data, status, err) {
+		      alert('서버와의 통신이 실패했습니다.');
+		    }
+		});
+	};
+	/*
+	 * 전체 삭제
+	 */
+	deleteAll = function(){
+		var WISH_SEQ = $("#WISH_SEQ").val();
+		if(WISH_SEQ.length<1){
+			alert("필수키값이 존재하지 않습니다"); return;
+		}
+		if(confirm("위시리스트 상품을 전체 삭제하시겠습니까?")){
+		 	$.ajax({
+			    url 	: '/mobile/myWish/deleteMyWishProdAll.do',
+			    data 	: {'WISH_SEQ':WISH_SEQ},
+			    type 	: "get",
+			    dataType: 'json',
+			    success : function(result) {
+			    	alert("선택하신 상품가 삭제되었습니다.");
+			    	// 배송지 관리(조회) 이동
+			    	$("#detailMyWishForm").attr("action", '/mobile/myWish/detailMyWishList.do');
+					$("#detailMyWishForm").submit();
+			    },
+			    error : function(request, status, error) {
+					//통신 에러 발생시 처리
+					alert("통신 오류가 발생 하였습니다. 잠시 후 다시 시도해 주세요"   + status.toString()  + " request [" + request.toString()  + "] error[" + error.toString() +"]");
+				}
+			});
+		}
+	};
+
+	/*
+	 * 한개 삭제
+	 */
+	preDel = function(REG_SEQ, MBER_SEQ, WISH_SEQ){
+		$("#detailMyWishForm #WISH_SEQ").val(WISH_SEQ); // 재조회시 사용
+
+		if( (REG_SEQ.length<1)||(MBER_SEQ.length<1)||(WISH_SEQ.length<1) ){
+			alert("필수 키값이 존재하지 않습니다."); return;
+		}
+		 $.ajax({
+			    url 	: '/mobile/myWish/deleteMyWishProd.do',
+			    data 	: {'REG_SEQ':REG_SEQ,'MBER_SEQ':MBER_SEQ,'WISH_SEQ':WISH_SEQ},
+			    type 	: "get",
+			    dataType: 'json',
+			    success : function(result) {
+			    	alert("선택하신 상품가 삭제되었습니다.");
+			    	// 배송지 관리(조회) 이동
+			    	$("#detailMyWishForm").attr("action", '/mobile/myWish/detailMyWishList.do');
+					$("#detailMyWishForm").submit();
+			    },
+			    error : function(request, status, error) {
+					//통신 에러 발생시 처리
+					alert("통신 오류가 발생 하였습니다. 잠시 후 다시 시도해 주세요"   + status.toString()  + " request [" + request.toString()  + "] error[" + error.toString() +"]");
+				}
+		});
+	};
+	/*
+	 *	콤마처리
+	 */
+	function commify(n) {
+	  var reg = /(^[+-]?\d+)(\d{3})/;   // 정규식
+	  n += '';                          // 숫자를 문자열로 변환
+
+	  while (reg.test(n))
+	    n = n.replace(reg, '$1' + ',' + '$2');
+
+	  return n;
+	}
+	/*
+	 * 상품상세조회
+	 */
+	detailProd = function(PROD_CODE,PROD_TYPE_CD){
+		if(PROD_CODE.length<1){
+			alert("필수키값이 없습니다."); return;
+		}
+		if(PROD_TYPE_CD == '4'){
+			location.href = '/mobile/shar/selectSharDtl.do?PROD_CODE=' + PROD_CODE+'&PROD_TYPE_CD='+PROD_TYPE_CD;
+		}else{
+			//location.href = '/mobile/prod/selectProd.do?PROD_CODE=' + PROD_CODE+'&PROD_TYPE_CD='+PROD_TYPE_CD;
+			location.href = '/mobile/prod/selectProd.do?PROD_CODE=' + PROD_CODE;
+		}
+
+	};
+</script>
+<!-- S PAGING -->
+<input type="hidden" id="FIRST_SEQ" name="FIRST_SEQ" 	value="${params.FIRST_SEQ }" 	/>
+<input type="hidden" id="LAST_SEQ" 	name="LAST_SEQ" 	value="${params.LAST_SEQ }" 	/>
+<!-- E PAGING -->
+<!-- 상품상세조회 -->
+<form name="prodDtlForm" id="prodDtlForm" method="get">
+	<input type="hidden" id="PROD_CODE" 		name="PROD_CODE" value=""	/>
+</form>
+<!-- 재조회 -->
+<form name="detailMyWishForm" id="detailMyWishForm" method="get">
+	<input type="hidden" id="WISH_SEQ" 		name="WISH_SEQ" value="${params.WISH_SEQ }"	/>
+</form>
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+		<div class="roc">
+			<ul class="inner">
+				<li><img src="http://static.ssocio.net/pc/img/common/section/roc_home.png" alt="홈"></li>
+				<li>마이페이지</li>
+				<li>위시리스트</li>
+			</ul>
+		</div>
+		<jsp:include page="../common/mype_top.jsp" flush="false" />
+		<div class="mype_s_tit">
+			<p>위시리스트</p>
+            <div class="btn_mype_trash"><a href="#none">전체삭제</a></div>
+		</div>
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+		<div id="">
+		
+			<!-- container -->
+			<div id="container">
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>
+
+<c:choose>
+	<c:when test="${empty result.myWishDtl}">
+		<div class="sha_nodata">
+        	<p>등록된 위시리스트가 존재하지 않습니다.</p>
+        </div>
+	</c:when>
+	<c:otherwise>
+		<!-- 기획전 배너 -->
+        <section class="plan_banner">
+        	<!-- 좌우 배너 -->
+            <ul class="type-list" id='targetS'>
+		<c:forEach var="myWishDtl" items="${result.myWishDtl}" varStatus="status">
+			<!-- S 반복 -->
+			<li>
+                <!-- 배너 -->
+                <p class="thomb"><a href="javascript:detailProd('${myWishDtl.PROD_CODE }','${myWishDtl.PROD_TYPE_CD }');" ><img src='<custom:codeTag code="DEFAULT_IMG_URL" groupCode="SITE_DEFAULT" />' data-img="${myWishDtl.PROD_IMG_URL }" ></a></p>
+<%--                 <p class="thomb"><a href="javascript:prodDtl('${myWishDtl.PROD_CODE }','${myWishDtl.PROD_TYPE_CD }');" ><img src='<custom:codeTag code="DEFAULT_IMG_URL" groupCode="SITE_DEFAULT" />' alt="${myWishDtl.PROD_IMG_URL }" ></a></p> --%>
+
+                <!-- 라벨 스티커 -->
+                <div class="label">
+                <c:if test="${myWishDtl.CPON_APPLY_PSBL_YN eq 'Y'}" >
+                    <p><img src='http://static.ssocio.net/web/images/main/label_coupon.png' alt="" ></p>
+                </c:if>
+                <c:if test="${myWishDtl.DLV_PAY_GB_CD eq '1'}" >
+                    <p><img src='http://static.ssocio.net/web/images/main/label_delivery.png' alt="" ></p>                </c:if>
+                </div>
+                <div class="subs">
+                    <a href="javascript:preDel('${myWishDtl.REG_SEQ }','${myWishDtl.MBER_SEQ }','${myWishDtl.WISH_SEQ }');" class="del">
+                    	<img src='http://static.ssocio.net/web/images/search_list_clos.png' alt="" ></a>
+                    <a href="javascript:detailProd('${myWishDtl.PROD_CODE }','${myWishDtl.PROD_TYPE_CD }')">
+                    <p class="subj">${myWishDtl.PROD_NM }</p>
+                    <div class="clear">
+<c:if test="${myWishDtl.PROD_TYPE_CD eq '2'}" >				<!-- 2.셰어링 -->
+                       		<p class="fr tr"><strong>1일&nbsp;<fmt:formatNumber value="${myWishDtl.SHARING_PRICE }" pattern="#,###,###" />원</strong></p>
+</c:if>
+<c:if test="${myWishDtl.PROD_TYPE_CD eq	'1'}" >				<!-- 1.판매 -->
+<%-- 						<c:if test="${myWishDtl.NRM_PRCE ne myWishDtl.SELL_PRCE and myWishDtl.NRM_PRCE gt 0}" >   	 --%>
+							<c:if test="${myWishDtl.PER_PRCE > 0 }" >
+		                      	<strong class="fl">${myWishDtl.PER_PRCE}%</strong>
+		                   	</c:if>
+		                   	<p class="fr tr"><span>
+							<c:if test="${myWishDtl.NRM_PRCE > 0 and myWishDtl.NRM_PRCE gt myWishDtl.SELL_PRCE }" >
+		                   	<fmt:formatNumber value="${myWishDtl.NRM_PRCE }" pattern="#,###,###" />원
+		                   	</c:if>
+		                   	</span><br><strong><fmt:formatNumber value="${myWishDtl.SELL_PRCE }" pattern="#,###,###" />원</strong></p>
+<%-- 						</c:if> --%>
+<%-- 	                    <c:if test="${myWishDtl.NRM_PRCE eq myWishDtl.SELL_PRCE and  myWishDtl.NRM_PRCE lt 1}" >   	 --%>
+<%-- 							<p class="fr tr"><span></span><br><strong><fmt:formatNumber value="${myWishDtl.SELL_PRCE }" pattern="#,###,###" />원</strong></p> --%>
+<%-- 						</c:if> --%>
+</c:if>
+<c:if test="${myWishDtl.PROD_TYPE_CD eq	'3'}" >				<!-- 3.나눔 -->
+<%-- 	                        <strong class="fl">${myWishDtl.PER_PRCE }%</strong> --%>
+<%-- 	                        <p class="fr tr"><span><fmt:formatNumber value="${myWishDtl.NRM_PRCE }" pattern="#,###,###" />원</span> --%>
+<%-- 	                        <br><strong><fmt:formatNumber value="${myWishDtl.SELL_PRCE }" pattern="#,###,###" />원</strong></p> --%>
+</c:if>
+<c:if test="${myWishDtl.PROD_TYPE_CD eq '5'}" >				<!-- 5.렌탈 -->
+<%-- 	                        <strong class="fl">${myWishDtl.PER_PRCE }%</strong> --%>
+<%-- 	                        <p class="fr tr"><span><fmt:formatNumber value="${myWishDtl.NRM_PRCE }" pattern="#,###,###" />원</span> --%>
+<%-- 	                        <br><strong><fmt:formatNumber value="${myWishDtl.SELL_PRCE }" pattern="#,###,###" />원</strong></p> --%>
+</c:if>
+<c:if test="${myWishDtl.PROD_TYPE_CD eq '4'}" >				<!-- 4.스마트폰셰어링 -->
+                        <p class="fr tr"><strong><fmt:formatNumber value="${myWishDtl.SP_SHARING_PRICE }" pattern="#,###,###" />원/월</strong></p>
+</c:if>
+                    </div>
+                    </a>
+                </div>
+            </li>
+			<!-- E 반복 -->
+         </c:forEach>
+         	</ul>
+         </section>
+	</c:otherwise>
+</c:choose>
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+		<jsp:include page="../common/mype_bottom.jsp" flush="false" />
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+		    </div>
+		    <!-- //container -->
+		</div>
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>
+
+<!-- 위시리스트 만들기  팝업 -->
+<div class="popup wish">
+	<p class="title"><strong>위시리스트 만들기</strong></p>
+    <p class="pd10"><input type="text" id='inputNewWishTitle' name='inputNewWishTitle' placeholder="최대10자리"></p>
+    <div class="bot_btn">
+    	<ul class="btn">
+        	<li><a href="javascript:newWishProc();popup_hide();" class="btn_r">확인</a></li>
+        	<li><a href="javascript:popup_hide();" class="btn_b-line">취소</a></li>
+        </ul>
+    </div>
+</div>
+

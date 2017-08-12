@@ -1,0 +1,338 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/admin/common/cmmnHead.jsp" %>
+<script type="text/javascript" src="/js/smartEditor/js/HuskyEZCreator.js" charset="utf-8"></script>
+<script type="text/javascript">
+var oEditors = [];
+$(document).ready(function(){
+    document.title='출하지선택';	
+	makeShipmentList('');
+});
+
+
+//--------------------------------- INIT Function ------------------------------------
+
+
+//--------------------------------- SETTING Function ------------------------------------
+
+/* ======================================================================
+Function : 리셋
+Return   : 없음
+========================================================================= */
+function reset(){
+	$("#grpNm").val('');
+	$("#zipCode").val('');
+	$("#jusoDoro").val('');
+	$("#jusoDtl").val('');
+	$("#tel").val('');
+	$("#hp").val('');
+	$('#baseYn').removeAttr('checked');
+}
+/* ======================================================================
+Function : 
+Return   : 없음
+========================================================================= */
+function shipmentValidation(){
+	if(!$.trim($("#grpNm").val()).length>0){
+		alert("출하지명을 입력해주세요.");
+		$("#grpNm").focus();
+		return true;
+	}
+	if(!$.trim($("#zipCode").val()).length>0){
+		alert("우편번호을 입력해주세요.");
+		$("#zipCode").focus();
+		return true;
+	}
+	if(!$.trim($("#jusoDtl").val()).length>0){
+		alert("상세주소를 입력해주세요.");
+		$("#jusoDtl").focus();
+		return true;
+	}
+	if(!$.trim($("#tel").val()).length>0){
+		alert("전화번호을 입력해주세요.");
+		$("#tel").focus();
+		return true;
+	}
+	
+	if(!$.trim($("#hp").val()).length>0){
+		alert("휴대폰번호을 입력해주세요.");
+		$("#hp").focus();
+		return true;
+	}	
+
+	if($("input:checkbox[id='baseYn']").is(":checked")){
+		$("#baseYn").val("Y");
+	}else{
+		$('#baseYn').attr('checked', 'checked');
+		$("#baseYn").val("N");
+	}
+	 
+	
+	return false;
+}
+
+/* ======================================================================
+Function : 출하지 전체선택
+========================================================================= */
+function clickAll(){
+	if($('#allSelect').is(':checked')){
+		$('input[name="checkItem"]').each(function(){
+			$(this).attr('checked', 'checked');
+		});
+	}else{
+		$('input[name="checkItem"]').each(function(){
+			$(this).removeAttr('checked');
+		});
+	}
+}
+
+/* ======================================================================
+Function : 출하지선택
+========================================================================= */
+function selectedShipment(){
+	var grpSeqList = new Array();
+	var grpNmList = new Array();
+	
+	var cnt = 0;
+	$('input[name="checkItem"]:checked').each(function(){
+	
+		var temp = $(this).val().split('##');
+		grpSeqList[cnt] = temp[0];
+		grpNmList[cnt] = temp[1];
+		cnt++;
+	});
+	
+	if(cnt == 0){
+		alert('출하지를 선택해주세요')
+		return false;
+	}
+
+	opener.setShipment(grpSeqList, grpNmList);
+	this.close();
+}
+
+//--------------------------------- SUBMIT Function ------------------------------------
+
+
+/* ======================================================================
+Function : 출하지등록
+Return   : 없음
+========================================================================= */
+function insertShipment(){
+	
+	if(shipmentValidation()){
+		return;
+	}
+	var options = {
+        url : "/admin/prodMgr/insertShipment.do",
+        success: function(){
+        	//makeShipmentList('');
+        	//reset();
+          alert("등록되었습니다.");
+          //$("#prodFrm").attr('action', '/admin/prodMgr/shipmentPopup.do?mberSeq='+$("#mberSeq").val()).submit();
+          location.reload();
+        }
+	};
+	$("#shipmentFrm").ajaxSubmit(options);
+	
+}
+/* ======================================================================
+Function : 출하지수정
+Return   : 없음
+========================================================================= */
+function updateShipment(){
+	
+	if(shipmentValidation()){
+		return;
+	}
+	//$("#shipmentFrm").attr('action', '/admin/prodMgr/updateShipment.do');
+	//$("#shipmentFrm").submit();
+	
+	var options = {
+	        url : "/admin/prodMgr/updateShipment.do",
+	        success: function(){
+	        	makeShipmentList('');
+	        	reset();
+	          alert("수정되었습니다.");
+	          $("#prodFrm").attr('action', '/admin/prodMgr/selectProdList.do').submit();
+	        }
+		};
+	$("#shipmentFrm").ajaxSubmit(options);
+}
+
+//--------------------------------- AJAX Function ------------------------------------
+
+/* ======================================================================
+Function : 출하지리스트 생성
+Return   : 없음
+========================================================================= */
+function makeShipmentList(grpProdSeq){
+	var mberSeq = $('#mberSeq').val();
+	$.ajax({
+	    type: 'post'
+	    , async: true
+	    , url: '/admin/prodMgr/selectShipmentList.do'
+	    , data: {"mberSeq":mberSeq, "grpProdSeq":grpProdSeq}
+	    , success: function(data) {
+	    	var shipmentList = data.result.shipmentList;
+	    	$('#shipmentList').empty();
+			if(shipmentList.length > 0){
+				for(var i=0; i<shipmentList.length; i++){
+					var html = '<tr>';
+					html += '<td class="nolineL"><input type="radio" name="checkItem" value="' +shipmentList[i].GRP_PROD_SEQ+ '##'+shipmentList[i].GRP_NM+'"/></td>';
+					html += '<td>'+shipmentList[i].BASE_YN+'</td>';
+					html += '<td><a href="javascript:selectShipment(\'' +shipmentList[i].GRP_PROD_SEQ+ '\');">'+shipmentList[i].GRP_NM+'</a></td>';
+					html += '<td>'+shipmentList[i].ZIP_CD+'</td>';
+					html += '<td>'+shipmentList[i].JUSO+'</td>';
+					html += '<td>'+shipmentList[i].TEL+'</td>';
+					html += '<td>'+shipmentList[i].HP+'</td>';
+					html += '</tr>';
+					$('#shipmentList').append(html);
+				}
+			}else{
+				$('#shipmentList').append('<tr><td colspan="6">등록된 출하지가 없습니다.</td></tr>');
+			}
+	    }
+	    , error: function(data, status, err) {
+	      alert('서버와의 통신이 실패했습니다.');
+	    }
+	});
+}
+
+/* ======================================================================
+Function : 출하지정보 조회
+Return   : 없음
+========================================================================= */
+function selectShipment(grpProdSeq){
+	var mberSeq = $('#mberSeq').val();
+	$.ajax({
+	    type: 'post'
+	    , async: true
+	    , url: '/admin/prodMgr/selectShipmentList.do'
+	    , data: {"mberSeq":mberSeq, "grpProdSeq":grpProdSeq}
+	    , success: function(data) {
+
+	    	var shipmentList = data.result.shipmentList;
+			if(shipmentList.length == 1){
+				$("#grpProdSeq").val(shipmentList[0].GRP_PROD_SEQ);
+				$("#grpNm").val(shipmentList[0].GRP_NM);
+				$("#zipCode").val(shipmentList[0].ZIP_CD);
+				$("#jusoDoro").val(shipmentList[0].JUSO_DORO);
+				$("#jusoDtl").val(shipmentList[0].JUSO_DTL);
+				$("#tel").val(shipmentList[0].TEL);
+				$("#hp").val(shipmentList[0].HP);
+				if(shipmentList[0].BASE_YN == 'Y'){
+					$('#baseYn').attr('checked', 'checked');
+				}else{
+					$('#baseYn').removeAttr('checked');
+				}
+			}
+	    }
+	    , error: function(data, status, err) {
+	      alert('서버와의 통신이 실패했습니다.');
+	    }
+	});
+}
+
+/* ======================================================================
+Function : 우편번호 검색
+Return   : 없음
+========================================================================= */
+function getAddrInfo(zip_code,jiben_addr,road_addr) {
+	$("#zipCode").val(zip_code);
+	$("#jusoDoro").val(road_addr);
+	//$("#jusoDtl").val(jiben_addr);
+}
+</script>
+
+<div class="pop_inner">
+<form id="shipmentFrm" name="shipmentFrm" method="post">
+<input type="hidden" id="mberSeq" name="mberSeq" value="${inParam.mberSeq}"/>
+<input type="hidden" id="grpProdSeq" name="grpProdSeq" />
+	<!-- tbl -->
+	<div class="tbl mt10">
+		<p class="tbl_tit"><img src="http://static.ssocio.net/admin/images/ico_admin.gif" alt="" />출하지선택</p>
+		<p class="notice_info2">※ 상품이 출고될 출하지를 선택해 주세요.</p>
+		<!-- list -->
+		<table class="list">
+			<colgroup>
+				<col style="width:5%" />
+				<col style="width:8%" />
+				<col style="width:10%" />
+				<col style="width:8%" />
+				<col style="width:39%" />
+				<col style="width:12%" />
+				<col style="width:12%" />
+			</colgroup>
+			<thead>	
+				<tr>
+					<th scope="col" class="nolineL"></th>
+					<th scope="col">기본출하지</th>
+					<th scope="col">출하지명</th>
+					<th scope="col">우편번호</th>
+					<th scope="col">주소</th>
+					<th scope="col">전화번호</th>
+					<th scope="col">휴대전화</th>
+				</tr>
+			</thead>
+			<tbody id="shipmentList"></tbody>
+		</table>
+		<!-- //list -->
+		<div class="btn_area type2">
+			<a href="javascript:selectedShipment();" class="btn_r">선택</a>
+		</div>
+		
+		<div class="pop_ship_place_bx">
+			<div class="dash_bx2">
+				<p class="notice_info2">※ 신규 등록/수정 관리 (상단 출하지 목록에서 출하지명을 선택하시면 출하지 정보를 수정 할 수 있습니다.)</p>
+			</div>
+			<!-- list -->
+			<table class="upd type3">
+				<colgroup>
+					<col style="width:15%" />
+					<col style="width:85%" />
+				</colgroup>
+				<tbody>
+					<tr>
+						<th class="nolineL">출하지명</th>
+						<td><input type="text" id="grpNm" name="grpNm" style="width:300px;" /></td>
+					</tr>
+					<tr>
+						<th class="nolineL">주소</th>
+						<td>
+							<p><input type="text" id="zipCode" name="zipCode" style="width:163px;"  readonly="true"/><a href="#" class="btn_addr ml5" onclick="popup('/admin/common/jusopopup.do','우편번호찾기','714','660')">우편번호</a></p>
+							<p class="mt5">
+								<input type="text" id="jusoDoro" name="jusoDoro" style="width:300px;" readonly="true"/> 
+								<input type="text" id="jusoDtl" name="jusoDtl" style="width:300px;" />
+							</p>
+						</td>
+					</tr>
+					<tr>
+						<th class="nolineL">전화번호</th>
+						<td><input type="text" id="tel" name="tel" style="width:300px;" onkeyup="numberOnly(this);" maxlength="11"/></td>
+					</tr>
+					<tr>
+						<th class="nolineL">휴대폰번호</th>
+						<td><input type="text" id="hp" name="hp" style="width:300px;" onkeyup="numberOnly(this);" maxlength="11"/></td>
+					</tr>
+					<tr>
+						<th class="nolineL">기본출하지 설정</th>
+						<td>
+							<input type="checkbox" id="baseYn" name="baseYn" value="Y"/> <label for="baseYn">기본 출하지로 설정</label>
+						</td>
+					</tr>
+				</tbody>
+			</table>
+			<!-- //list -->
+		</div>
+	</div>
+	<!-- //tbl -->
+	
+	<!-- bot_btn -->
+	<div class="bot_btn tc mt20">
+		<a href="javascript:insertShipment();" class="btn_b ml10">신규등록</a>
+		<a href="javascript:updateShipment();" class="btn_r">수정</a>
+		<a href="#" class="btn_g2 ml10">취소</a>
+	</div>
+	<!-- //bot_btn -->
+</form>
+</div>

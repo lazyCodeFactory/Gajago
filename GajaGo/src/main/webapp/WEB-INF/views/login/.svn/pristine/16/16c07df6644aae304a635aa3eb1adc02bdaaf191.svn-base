@@ -1,0 +1,893 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/seller/common/cmmnHead.jsp"%>
+<script src="/js/web/mobile.common.js"></script>
+<script type="text/javascript">
+
+$(document).ready(function() {
+	$('.email').hide();
+// 	$('#MBER_EMAIL').blur(function(){
+// 		$('#MINI_SHOP_PATH').val($(this).val());
+// 	});
+
+	//공통 HEADER SETTING
+	header.type = 6;
+	header.title = "회원가입";
+	//header.backUrl = "/seller/join/sellEmailView.do";
+	header.method = "GET";
+	initHeader();
+	//공통 FOOTER SETTING
+	displayFooter(false);
+	//APP TITLE
+	document.title = "회원가입";
+});
+
+
+/*
+ * *********************************************************************
+ * 회원가입
+ * *********************************************************************
+ */
+function goJoin(){
+
+	var MINI = $("#MINI_SHOP_PATH").val();
+
+	if(confirm('등록 하시겠습니까?')){
+
+		// 약관 체크
+		if(!required()){
+			return;
+		}
+
+		if($("#MBER_AUTHYN").val() != "Y"){
+			alert("회원 인증을 해주세요.");
+			return;
+		}
+
+		// 휴대폰 인증
+// 		if("" == $("#MBER_NM").val() || "" == $("#MBER_PHONE").val() ){
+// 			alert("휴대폰 인증이 완료 되지 않았습니다.");
+// 			return;
+// 		}
+
+		if($("#PHONE_CHECK").val() != 'Y' ){
+			alert("휴대폰 인증이 완료 되지 않았습니다.");
+			return;
+		}
+
+// 		if($("#MINI_SHOP_NM").val().length == 0  ){
+// 			alert("미니샵 명을 입력해주세요.");
+// 			return;
+// 		}
+
+		if($("#MINI_SHOP_PATH").val().length == 0  ){
+			alert("미니샵 주소 입력해주세요.");
+			return;
+		}
+
+		if(MINI.replace(/[a-zA-Z0-9]/gi,'') != '') {
+			alert('미니샵 주소는 영문, 숫자만 입력 가능합니다..');
+	        $("#MINI_SHOP_PATH").focus();
+	        return;
+		}
+
+		if($("#CMPNY_ZIP_CD").val().length == 0  ){
+			alert("우편 번호를 등록 해주세요.");
+			return;
+		}
+
+		if($("#CMPNY_JUSO_DTL").val().length == 0  ){
+			alert("나머지 주소를 입력해주세요.");
+			return;
+		}
+
+		if($("#cmPh").val().length == 0  ){
+			alert("사업장 전화번호를 입력해주세요.");
+			return;
+		}
+
+		if($("#ACNT_NM").val().length == 0  ){
+			alert("예금주명을 입력해주세요.");
+			return;
+		}
+
+		var bnkNm = $("#bank option:selected").text();
+		$("#BANK_NM").val(bnkNm);
+
+		if($("#ACC_AUTHYN").val() != "Y"){
+			alert("계좌 인증을 해주세요.");
+			return;
+		}
+
+		if($("#compRegImgPath").val().length == 0  ){
+			alert("사업자 등록증을 첨부해주세요.");
+			return;
+		}
+
+		if($("#regImgPath").val().length == 0  ){
+			alert("통신 판매 신고증을 첨부해주세요.");
+			return;
+		}
+
+		if($("#bnkImgPath").val().length == 0  ){
+			alert("통장 사본을 첨부해주세요.");
+			return;
+		}
+	}
+	doSetEmailAndHp();
+
+
+	var MBER_REG_GB_CD = $("#MBER_REG_GB_CD").val();
+
+	$("#FIRST_TEL_NUM").val($("#cmpnyPhnum option:selected").text()); // 앞자리 전화번호 선택
+
+	var agrNoChk = "";
+	$('input:checkbox[name="AGR_SEQ_VER[]"]').each(function(){
+		if(!this.checked){
+			if(agrNoChk.length < 1){
+				agrNoChk = this.value;
+			}else{
+				agrNoChk = agrNoChk + "/" + this.value;
+			}
+
+		}
+	});
+
+	$("#AGR_SEQ_VER_N").val(agrNoChk);
+
+	var options = {
+		//type : "POST",
+		url : "/seller/join/updateJoinPopupReg.do",
+		success: function(data){
+			if("S" == data.retCode){
+				$("#frm").attr("action","/seller/join/selectJoinRet.do").submit();
+			}else if("E" == data.retCode ){
+				alert("해당 이메일로 가입이 되어 있습니다.");
+			}else if("P" == data.retCode ){
+				alert("해당 휴대전화로 인증된 이메일이 있습니다.");
+			}else if("M" == data.retCode ){
+				alert("미니샵 주소가 중복되었습니다. 다시 입력해주세요.");
+			}else{
+				alert("가입 실패 하였습니다. 관리자에게 문의 해주세요.");
+			}
+		},
+		error : function(request, status, error) {
+		   	alert("통신 오류가 발생 하였습니다. 잠시 후 다시 시도해 주세요"   + status  + " request [" + request  + "] error[" + error +"]");
+
+		}
+	};
+
+
+	$("#frm").ajaxSubmit(options);
+
+	//frm.action = url;
+	//frm.submit();
+
+}
+
+function goBack(){
+history.back(-1);
+}
+
+
+/*
+ * *********************************************************************
+ * 약관 선택
+ * *********************************************************************
+ */
+function fnCheck()
+{
+	var opt;
+	opt = "<c:forEach var="list" items="${list.termsList}" varStatus="status">agrSeq${status.index }||</c:forEach>";
+	var aropt = opt.split("||");
+	var chkcount = 0;
+
+
+	for (var i = 0 ; i < aropt.length -1 ; i ++)
+	{
+		if ( document.getElementById("agrSeq"+i).checked == true ){
+			chkcount ++;
+		}
+
+	}
+
+	if ( chkcount == aropt.length -1)
+	{
+		document.getElementById("termsAll").checked = true;
+	} else {
+		document.getElementById("termsAll").checked = false;
+	}
+}
+
+/*
+ * *********************************************************************
+ * 약관 전체 선택/해제
+ * *********************************************************************
+ */
+function fnAllChk()
+{
+	var opt;
+	opt = "<c:forEach var="list" items="${list.termsList}" varStatus="status">agrSeq${status.index }||</c:forEach>";
+	var aropt = opt.split("||");
+	var chkcount = 0;
+	var vChecked;
+	vChecked = document.getElementById("termsAll").checked;
+
+	for (var i = 0 ; i < aropt.length -1 ; i ++)
+	{
+		document.getElementById("agrSeq"+i).checked = vChecked ;
+
+	}
+}
+
+/*
+ * *********************************************************************
+ * 약관 전체 보기
+ * *********************************************************************
+ */
+
+function termsMoreViews()
+{
+	$("P .trigger").trigger( "click" );
+}
+
+function termsPopViews( num)
+{
+	$('#agreePop').css("display", "");
+// 	$('#agreePop').addClass("on");
+	layer_popup($('#agreePop'));
+	$('#popTitle').text( $('#agrNm'+num).text() );
+	$('#agrDec'+num).clone().appendTo('#agreeDesc');
+}
+
+function agreeClose(){
+// 	$('#agreePop').removeClass("on")
+	layer_close();
+}
+/*
+ * *********************************************************************
+ * 필수 약관 동의 확인
+ * *********************************************************************
+ */
+function required()
+{
+	var rtn = true;
+	$("input[name^=AGR_SEQ_VER]").each(function (idx) {
+		var cls = $(this).attr("class");
+		//console.log("cls : " + cls);
+		if (cls == "Y") {
+			var chk = $(this).is(":checked");
+			if (!chk) {
+				//var reVal = $(this).parent().text();
+				//alert(reVal.trim());
+				//alert($(this).parent().text() + "동의 바랍니다.");
+				alert("필수 약관 동의바랍니다.");
+
+				rtn = false;
+				return false;
+			}
+		}
+
+	});
+
+	return rtn;
+
+}
+
+/*
+ * *********************************************************************
+ * 전화번호 유효성 체크
+ * *********************************************************************
+ */
+function cfmValidate(){
+
+	$("#PHONE_CHECK").val("N");
+	var ph =  $("#ph").val();
+	var phVal = "";
+
+	if(ph.length < 10){
+		alert("휴대폰번호를 입력해주세요.");
+		$('#ph').focus();
+		return;
+	}
+
+	$("#MBER_PHONE").val(ph);
+	return true;
+
+}
+
+/*
+ * *********************************************************************
+ * 휴대 전화 인증 팝업
+ * *********************************************************************
+ */
+function confirmChek(){
+	if(!cfmValidate()){
+		return;
+	}
+
+	$('#ph').attr('disabled',false);
+	popup('/seller/common/nameConfPopup.do?MBER_PHONE='+$("#ph").val(),'popupFrm','1100','560');
+
+}
+
+/*
+ * *********************************************************************
+ * 전화 번호 인증 확인
+ * *********************************************************************
+ */
+function getAuth(ci, di, name, tid, birth, sex){
+	console.log(ci);
+	console.log(di);
+	console.log(name);
+	console.log(tid);
+	console.log(birth);
+	console.log(sex);
+
+	$('#ph').attr('disabled',true);
+	$("#CI").val(ci);
+	$("#DI").val(di);
+	$("#MBER_NM").val(name);
+	$("#TID").val(tid);
+	$("#BIRTH").val(birth);
+	$("#SEX").val(sex);
+// 	$("#ACNT_NM").val(name);
+
+	$("#PHONE_CHECK").val("Y");
+	$('#phAuth').text('인증완료');
+	$('#phAuth').attr('onclick','return false');
+
+}
+
+/*
+ * *********************************************************************
+ * 계좌 번호 인증
+ * *********************************************************************
+ */
+ function accountChek() {
+
+	if(!validate()){
+		return;
+	}
+
+	$("#strGbn").val(1);
+	$("#strNm").val($("#ACNT_NM").val());
+
+	var bank = $("#bank option:selected").val();
+
+	$("#strBankCode").val(bank);
+
+	$("#strAccountNo").val($("#BANK_ACNT_NO").val());
+
+	var strGbn = "1";
+	var strNm = $("#ACNT_NM").val();
+	var strBankCode =  $("#bank option:selected").val();
+	var strAccountNo = $("#BANK_ACNT_NO").val();
+
+	$.ajax({
+	      type: 'post'
+	      , async: true
+	      , url: '/seller/common/acntConfirm.do'
+	      , dataType:'json'
+	      , data: {"strGbn":strGbn, "strNm":strNm, "strBankCode":strBankCode, "strAccountNo":strAccountNo}
+	      , before: function() {
+		        loadingForm.showDialog();
+		      }
+	      , success: function(data) {
+
+	    	  if(data.resultCode == "0000"){
+				alert("계좌 인증이 완료되었습니다.");
+				$("#ACC_AUTHYN").val("Y");
+
+				$('#ACNT_NM').attr('disabled',true);
+				$('#bank').attr('disabled',true);
+				$('#BANK_ACNT_NO').attr('disabled',true);
+
+				$('#accountChek').attr('onclick','return false');
+				$('#accountChek').text('인증완료');
+	    	  }else{
+				  alert(data.resultMsg);
+	    	  }
+
+
+	      }
+	      , complete: function() {
+		        loadingForm.hideDialog();
+		      }
+
+	      , error : function(request, status, error) {
+				alert("통신 오류가 발생 하였습니다. 잠시 후 다시 시도해 주세요");
+			}
+	    });
+}
+
+
+function validate(){
+
+	var ACNT_NM = $("#ACNT_NM").val();
+	var BANK_ACNT_NO = $("#BANK_ACNT_NO").val();
+	var bank = $("#bank option:selected").val();
+
+	if(ACNT_NM.length == 0 ){
+		alert("예금주명을 입력해주세요.");
+		$('#ACNT_NM').focus();
+		return;
+	}
+
+	if(BANK_ACNT_NO.length == 0 ){
+		alert("계좌번호를 입력해주세요.");
+		$('#ACNT_NM').focus();
+		return;
+	}
+
+	if(bank == "N" ){
+		alert("은행을 선택해주세요.");
+		return;
+	}
+
+	return true;
+}
+
+function getAddrInfo(gubun,jiben_addr,road_addr,addr){
+
+	// 1.도로명 , 2.지번
+	//alert(gubun+" : 1 : "+addr+" 2: "+jiben_addr+" 3: "+road_addr);
+	//$("#CMPNY_ADDR_GB").val(gubun);
+	$("#CMPNY_ZIP_CD").val(gubun);
+	$("#CMPNY_JUSO_DORO").val(road_addr);
+	$("#CMPNY_JUSO_JIBEN").val(jiben_addr);
+	//$("#CMPNY_JUSO_DTL").val(road_addr);
+
+	//popup_hide();
+}
+/*
+ * *********************************************************************
+ * 가입 회원 인증
+ * *********************************************************************
+ */
+ function doAuthMber() {
+	if( !emailValidate() ){
+		return;
+	}
+
+	var options = {
+		url: '/seller/join/doChckAuthMber.do'
+		,dataType : "json"
+		,success: function(data){
+			/*
+			if(data == "OK"){
+				//$('#MBER_EMAIL').attr('disabled',true);
+				$('#MBER_EMAIL').attr('readonly','readonly');
+	    		$('#MBER_PASS').attr('disabled',true);
+				alert("회원 인증이 완료되었습니다.");
+				// 인증 플래그 추가
+				$("#MBER_AUTHYN").val("Y");
+	    	  }else{
+				  alert("회원 인증이 실패하였습니다.");
+	    	  }
+			 */
+// 			if(data == "SELL"){
+// 				alert("이미 판매회원으로 가입된 아이디 입니다.");
+// 			}else if(data == "GB"){
+// 				alert("개인 구매회원은 사업자 판매회원으로 전환할 수 없습니다.");
+// 			}else if( data == "OK" ){
+// 				$('#MBER_EMAIL').attr('readonly','readonly');
+// 	    		$('#MBER_PASS').attr('disabled',true);
+// 				alert("회원 인증이 완료되었습니다.");
+// 				$("#MBER_AUTHYN").val("Y");
+// 			}else{
+// 				alert("등록되지 않은 아이디이거나, 아이디 또는 비밀번호를 잘못 입력하셨습니다.");
+// 			}
+			if(data.gubun == "EMAIL"){
+// 				alert("이메일 인증이 완료되지 않은 아이디입니다. \n이메일 인증 완료 후 다시 인증 해주세요.");
+				$('#mberemail').text($('#MBER_EMAIL').val());
+				$('.email').show();
+			}else if(data.gubun == "SELL"){
+				alert("이미 판매회원으로 가입된 아이디 입니다.");
+			}else if(data.gubun == "OUT"){
+				alert("탈퇴한 아이디로 전환 불가합니다.");
+			}else if(data.gubun == "GB"){
+// 				alert("사업자 구매회원은 개인 판매회원으로 전환할 수 없습니다.");
+				alert("개인 구매회원은 사업자 판매회원으로 전환할 수 없습니다.");
+			}else if( data.gubun == "perChk_Y"){
+
+				$('#MBER_EMAIL').attr('readonly','readonly');
+	    		$('#MBER_PASS').attr('disabled',true);
+				$("#MBER_AUTHYN").val("Y");
+				$("#PHONE_CHECK").val("Y");
+
+				$('.tit03').hide();
+// 				$('#ACNT_NM').val(decodeURIComponent(data.nm));
+				$('#tit04').text($('#tit04').text().replace("04","03"));
+				$('#tit05').text($('#tit05').text().replace("05","04"));
+
+				alert("회원 인증이 완료되었습니다.");
+				$('#authMberBtn').attr('onclick','return false');
+				$('#authMberBtn').text('인증완료');
+
+			}else if( data.gubun == "perChk_N"){
+				$('#MBER_EMAIL').attr('readonly','readonly');
+	    		$('#MBER_PASS').attr('disabled',true);
+				alert("회원 인증이 완료되었습니다.");
+				$("#MBER_AUTHYN").val("Y");
+				$('#authMberBtn').attr('onclick','return false');
+				$('#authMberBtn').text('인증완료');
+			}else{
+				alert("등록되지 않은 아이디이거나, 아이디 또는 비밀번호를 잘못 입력하셨습니다.");
+			}
+		},
+		error : function(request, status, error) {
+		   	alert("통신 오류가 발생 하였습니다. 잠시 후 다시 시도해 주세요"   + status  + " request [" + request  + "] error[" + error +"]");
+
+		}
+	};
+
+
+	$("#frm").ajaxSubmit(options);
+}
+
+ /*
+  * *********************************************************************
+  * email 확인
+  * *********************************************************************
+  */
+ function emailValidate(){
+ 	var regEmail = /([\w-\.]+)@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.)|(([\w-]+\.)+))([a-zA-Z]{2,4}|[0-9]{1,3})(\]?)$/;	//이메일 유효성
+ 	var regPw = /^[a-zA-Z0-9]{8,20}$/;	//비밀번호 유효성
+
+ 	var EMAIL = $("#MBER_EMAIL").val();
+
+ 	if(EMAIL.length == 0 ){
+ 		alert("이메일을 입력해주세요.");
+ 		$('#MBER_EMAIL').focus();
+ 		return;
+ 	}
+
+ 	if(!regEmail.test(EMAIL)) {
+ 	       alert('이메일 상세주소를 입력해주세요.');
+ 	       $("#MBER_EMAIL").focus();
+ 	       return false;
+ 	   }
+
+ 	return true;
+ }
+
+
+ function doSetEmailAndHp(){
+
+ 	if($("input:checkbox[id='email']").is(":checked") == true){
+ 		$("#EMAIL_AGREE_YN").val('Y');
+ 	}else{
+ 		$("#EMAIL_AGREE_YN").val('N');
+ 	}
+
+ 	if($("input:checkbox[id='sms']").is(":checked") == true){
+ 		$("#HP_AGREE_YN").val('Y');
+ 	}else{
+ 		$("#HP_AGREE_YN").val('N');
+ 	}
+ }
+ 
+ function authMailSend(){
+		$.ajax({
+			type : 'post',
+			async : true,
+			url : '/seller/join/authEmail.do',
+			data : $("#frm").serialize(),
+			success : function(data) {
+				alert("회원님께서 가입하신 이메일 주소로 인증메일이 재전송 되었습니다.");
+			},
+			error : function(data, status, err) {
+				alert('서버와의 통신이 실패했습니다.');
+			}
+		});
+		$('.email').hide();
+	}
+</script>
+
+<form id="frm" name="frm" method="post" >
+<!--
+<input type="hidden" name="AGR_SEQ_VER_N" id="AGR_SEQ_VER_N" value=""  /> -->
+<input type="hidden" name="SSO_GB_CD" id="SSO_GB_CD" value="${list.params.SSO_GB_CD }"  />
+<input type="hidden" name="MBER_GB_CD" id="MBER_GB_CD" value="1"  />
+<input type="hidden" name="MBER_REG_GB_CD" id="MBER_REG_GB_CD" value="1"  />
+<input type="hidden" name="CMPNY_ADDR_GB" id="CMPNY_ADDR_GB" value="1"  />
+<input type="hidden" name="CHANGE_CD" value="1" id="CHANGE_CD"/>
+<input type="hidden" name="FIRST_TEL_NUM" id="FIRST_TEL_NUM" />
+
+<c:forEach var="list" items="${params.AGR_SEQ_VER}" varStatus="status">
+	<input type="hidden" id="agrSeq${status.index }" name="AGR_SEQ_VER[]" value="${list}" />
+</c:forEach>
+<!-- 번호 인증 관련 START -->
+<input type="hidden" name="AGR_SEQ_VER_N" id="AGR_SEQ_VER_N" value="${params.AGR_SEQ_VER_N }"  />
+<input type="hidden" name="MBER_PHONE" id="MBER_PHONE" value=""  />
+<input type="hidden" name="PHONE_CHECK" id="PHONE_CHECK" value="" />
+<input type="hidden" name="PHONE_TEMP" id="PHONE_TEMP" value="" />
+<input type="hidden" name="CI" id="CI" value="" />
+<input type="hidden" name="DI" id="DI" value="" />
+<input type="hidden" name="MBER_NM" id="MBER_NM" value="" />
+<input type="hidden" name="TID" id="TID" value="" />
+<input type="hidden" name="BIRTH" id="BIRTH" value="" />
+<input type="hidden" name="SEX" id="SEX" value="" />
+<!-- 번호 인증 관련 END -->
+
+<!-- 계좌 인증 관련 START -->
+<input type="hidden" name="strGbn" id="strGbn" value=""  />
+<input type="hidden" name="strResId" id="strResId" value=""  />
+<input type="hidden" name="strNm" id="strNm" value=""  />
+<input type="hidden" name="strBankCode" id="strBankCode" value=""  />
+<input type="hidden" name="strAccountNo" id="strAccountNo" value=""  />
+<input type="hidden" name="BANK_NM" id="BANK_NM" value=""  />
+<input type="hidden" name="ACC_AUTHYN" id="ACC_AUTHYN" value="N"  />
+
+	<!-- contents -->
+	<div id="contents" style="min-height: 676px;">
+		<div class="inner">
+            <fieldset class="join_content">
+                <h1>회원전환</h1>
+                <h2>01.약관동의</h2>
+                <div class="terms">
+                	<p class="chk_all"><input type="checkbox" id="termsAll" onclick="fnAllChk();"> <label for="termsAll">[전체동의] SSOCIO 회원가입 약관에 모두 동의합니다. (전체 동의시, 선택항목도 포함됩니다.)</label></p>
+                    <ul class="accordion">
+                        <c:forEach var="list" items="${list.termsList}" varStatus="status">
+                        <li class="article hide">
+                            <p class="q">
+                            	<input type="checkbox" id="agrSeq${status.index }" name="AGR_SEQ_VER[]" class="${list.AGR_MUST_YN }" value="${list.AGR_SEQ},${list.AGR_VER}" onclick="fnCheck();" />
+								<a href="#a1" class="trigger" id="agrNm${status.index }">
+									<c:if test="${list.AGR_MUST_YN eq 'Y' }">[필수]</c:if>
+				  					<c:if test="${list.AGR_MUST_YN ne 'Y' }">[선택]</c:if>
+				  					${list.COM_CD_NM}
+			  					</a>
+								<!-- <a href="#" class="btn" onclick="termsPopViews(this)">전체보기</a> -->
+								<a href="#none" class="btn" onclick="termsPopViews(${status.index })">전체보기</a>
+							</p>
+                            <div class="a" style="display: none;">
+								<div id="agrDec${status.index }">
+									${list.AGR_DESC}
+                            	</div>
+                            </div>
+                        </li>
+                        </c:forEach>
+
+                    </ul>
+                </div>
+
+				<h2 class="mt40">02.회원가입인증</h2>
+                <table class="join_tbl">
+                	<colgroup>
+                    	<col width="115px">
+                    	<col width="*">
+                    </colgroup>
+                    <tbody>
+                    	<tr>
+                        	<th class="row">회원 가입 인증</th>
+                            <td>
+                            	<p class="mb10">
+                            		<input type="text" style="width:410px" placeholder="아이디 입력" id="MBER_EMAIL" name="MBER_EMAIL" maxlength="200">
+                            		<input type="password" style="width:410px" placeholder="비밀번호 입력" id="MBER_PASS" name="MBER_PASS" maxlength="20">
+                            		<input type="hidden" id="MBER_AUTHYN" name="MBER_AUTHYN" value="N">
+                            		<a href="#none" class="btn_bs" onclick="doAuthMber();" id="authMberBtn">인증하기</a>
+                           		</p>
+                                <p class="mb5">※ 구매회원으로 가입하신 아이디/비밀번호를 입력해 주세요.</p>
+                                <p>※ 인증이 되지 않을 경우, 다날쏘시오 고객센터(1877-0101) 로 문의하시기 바랍니다.</p>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h2 class="mt40 tit03">03.본인인증</h2>
+                <table class="join_tbl tit03">
+                	<colgroup>
+                    	<col width="115px">
+                    	<col width="*">
+                    </colgroup>
+                    <tbody>
+                    	<tr>
+                        	<th class="row">휴대폰인증</th>
+                            <td>
+                            	<p class="mb10">
+                            		<input type="text" placeholder="휴대폰번호입력" id="ph" name="ph"  onkeydown="this.value=this.value.replace(/[^0-9]/g,'')" onkeyup="this.value=this.value.replace(/[^0-9]/g,'')"
+	                				onblur="this.value=this.value.replace(/[^0-9]/g,'')" maxlength="11" class="fl">
+                            		<a href="#none" class="btn_bs" onclick="confirmChek();" id="phAuth">인증하기</a></p>
+                                <p class="mb5">※ 휴대폰 번호 입력시 [-]는 제외하고 입력해 주세요.</p>
+                                <p class="mb5">※ 쏘시오는 개정 정보통신망법 제23조에 따라 회원 가입시에는 주민등록번호를 수집하지 않습니다.</p>
+                                <p class="mb5">※ 휴대폰 인증은 가입하시는 분 명의의 휴대폰으로만 인증이 가능합니다.(14세 미만 가입 불가)</p>
+                                <p>※ 인증이 되지 않을 경우, 다날쏘시오 고객센터(1877-0101) 로 문의하시기 바랍니다.</p>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h2 class="mt40" id="tit04">04.판매자정보 입력</h2>
+                <table class="join_tbl">
+                	<colgroup>
+                    	<col width="115px">
+                    	<col width="*">
+                    </colgroup>
+                    <tbody>
+                    	<tr>
+                        	<th class="row">미니샵 이름</th>
+                            <td>
+                            	<p class="mb10"><input type="text" style="width:410px" placeholder="미니샵 이름 입력" id="MINI_SHOP_NM" name="MINI_SHOP_NM" maxlength="20"></p>
+                                <p class="mb5">※ 최대 20자까지 입력 가능합니다.</p>
+                                <p>※ 한글, 영문, 숫자, 특수문자까지 입력 가능합니다.</p>
+                            </td>
+                        </tr>
+                    	<tr>
+                        	<th class="row">미니샵 주소</th>
+                            <td>
+                            	<p class="mb10">http://mall.ssocio.com/ <input type="text" class="ml10" style="width:270px" placeholder="미니샵 주소 입력" id="MINI_SHOP_PATH" name="MINI_SHOP_PATH" maxlength="20"></p>
+                                <p class="mb5">※ 최대 20자까지 입력 가능합니다.</p>
+                                <p>※ 영문, 숫자만 입력 가능합니다.</p>
+                            </td>
+                        </tr>
+                        <tr>
+                        	<th class="row">사업장 주소</th>
+                            <td>
+                            	<p class="mb2"><input type="text" style="width:120px" placeholder="우편번호 입력" id="CMPNY_ZIP_CD" name="CMPNY_ZIP_CD" readonly="readonly"> <a href="#none" onclick="popup('/seller/common/jusopopup.do','우편번호찾기','714','660')" class="btn_bs ml10">우편번호 찾기</a></p>
+                            	<p class="mb2"><input type="text" style="width:410px" id="CMPNY_JUSO_DORO" name="CMPNY_JUSO_DORO" readonly="readonly"></p>
+                            	<p class="mb10"><input type="text" style="width:410px" placeholder="나머지 주소 입력" id="CMPNY_JUSO_DTL" name="CMPNY_JUSO_DTL"></p>
+                                <p>※ 우편번호와 나머지 주소를 반드시 입력해주세요.</p>
+                                <input type="hidden" id="CMPNY_JUSO_JIBEN" name="CMPNY_JUSO_JIBEN">
+                            </td>
+                        </tr>
+                    	<tr>
+                        	<th class="row">사업장 전화번호</th>
+                            <td>
+                            	<p class="mb2">
+                            	<span class="select" style="width:100px">
+                                    <span class="sel_txt" style="width: 100px;">선택</span>
+                                    <select id="cmpnyPhnum">
+                                        <custom:codeList var="cmpnyPhnum" groupCode="CMPNY_PHNUM" />
+                                        <c:forEach var="list" items="${cmpnyPhnum}" varStatus="status">
+                                        <option value="${list.key }">${list.value}</option>
+                                        </c:forEach>
+                                    </select>
+                                </span>
+                            	<input type="text" placeholder="번호입력" id="cmPh" name="cmPh"  onkeydown="this.value=this.value.replace(/[^0-9]/g,'')" onkeyup="this.value=this.value.replace(/[^0-9]/g,'')"
+	                				onblur="this.value=this.value.replace(/[^0-9]/g,'')" maxlength="20" class="fl">
+                                </p>
+                                <p class="mb5">※ 사업장 전화번호 입력시 [-]는 제외하고 입력 해 주세요.</p>
+                            </td>
+                        </tr>
+                    	<tr>
+                        	<th class="row">계좌번호</th>
+                            <td>
+                            	<div class="account mb10">
+                                    <p class="mb2"><input type="text" style="width:224px" placeholder="예금주명" id="ACNT_NM" name="ACNT_NM" maxlength="30"></p>
+                                    <p class="mb2">
+                                        <span class="select" style="width:240px">
+                                            <span class="sel_txt" style="width: 233px;">은행선택</span>
+                                            <select id="bank">
+                                                <custom:codeList var="bankGbCd" groupCode="BANK_GB_CD" />
+                                                <c:forEach var="list" items="${bankGbCd}" varStatus="status">
+                                                <option value="${list.key }">${list.value}</option>
+                                                </c:forEach>
+                                            </select>
+                                        </span>
+                                    </p>
+                                    <p>
+	                                     <input type="text" placeholder="계좌번호 입력" id="BANK_ACNT_NO" name="BANK_ACNT_NO" style="width:224px" onkeydown="this.value=this.value.replace(/[^0-9]/g,'')" onkeyup="this.value=this.value.replace(/[^0-9]/g,'')"
+		                				onblur="this.value=this.value.replace(/[^0-9]/g,'')" maxlength="20">
+                                    </p>
+                                    <a href="#none" class="btn_b" id="accountChek" onclick='accountChek();'>계좌인증</a>
+
+                                </div>
+                                <p class="mb5">※ 계좌번호 입력시 [-]는 제외하고 입력해주세요.</p>
+                                <p>※ 개인회원의 경우 예금주명과 판매자명이 반드시 일치해야 합니다.</p>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+
+                 <h2 class="mt40" id="tit05">05.가입서류 첨부</h2>
+                <table class="join_tbl">
+                	<colgroup>
+                    	<col width="115px">
+                    	<col width="*">
+                    </colgroup>
+                    <tbody>
+                    	<tr>
+                        	<th class="row">사업자 등록증 사본</th>
+                            <td>
+                            	<div class="img_file_bx">
+									<div class="file_upload_area ml5">
+										<input type="text" id="compRegImgPath" name="compRegImgPath" class="file_txt" readonly="readonly" style="width:350px;" />
+										<span class="txt_file">
+											<input type="file" id="compRegImg" name="compRegImg" class="inp_file" onchange="preView(this, 'compRegImgView', 'compRegImgPath');"/>
+											<a href="#" class="btn_w ml5 vmid file_add">파일찾기</a>
+										</span>
+									</div>
+									<p>* jpg, png 파일만 등록 가능합니다.</p>
+								</div>
+                            </td>
+						</tr>
+						<tr>
+                            <th class="row">통신판매업 신고증 사본</th>
+                            <td>
+                            	<div class="img_file_bx">
+									<div class="file_upload_area ml5">
+										<input type="text" id="regImgPath" name="regImgPath" class="file_txt" readonly="readonly" style="width:350px;" />
+										<span class="txt_file">
+											<input type="file" id="regImg" name="regImg" class="inp_file" onchange="preView(this, 'regImgView', 'regImgPath');"/>
+											<a href="#" class="btn_w ml5 vmid file_add">파일찾기</a>
+										</span>
+									</div>
+									<p>* jpg, png 파일만 등록 가능합니다.</p>
+								</div>
+                            </td>
+                          </tr>
+                          <tr>
+                            <th class="row">통장 사본</th>
+                            <td>
+                            	<div class="img_file_bx">
+									<div class="file_upload_area ml5">
+										<input type="text" id="bnkImgPath" name="bnkImgPath" class="file_txt" readonly="readonly" style="width:350px;" />
+										<span class="txt_file">
+											<input type="file" id="bnkImg" name="bnkImg" class="inp_file" onchange="preView(this, 'bnkImgView', 'bnkImgPath');"/>
+											<a href="#" class="btn_w ml5 vmid file_add">파일찾기</a>
+										</span>
+									</div>
+									<p>* jpg, png 파일만 등록 가능합니다.</p>
+								</div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+
+                <div class="mt20">
+                	<input type="checkbox" id="email" checked="checked"> <label for="email">이벤트/쇼핑정보 이메일 수신에 동의합니다.</label>
+                	<input type="checkbox" class="ml40" id="sms" checked="checked"> <label for="sms">이벤트/쇼핑정보 SMS 수신에 동의합니다.</label>
+                	<input type="hidden" id="EMAIL_AGREE_YN" name="EMAIL_AGREE_YN" value="Y">
+                	<input type="hidden" id="HP_AGREE_YN" name="HP_AGREE_YN" value="Y">
+                </div>
+
+                <div class="bot_btn mt20">
+                	<a href="javascript:goJoin();" class="btn_r" >확인</a>
+                	<a href="javascript:goBack();" class="btn_b ml20">취소</a>
+                </div>
+            </fieldset>
+		</div>
+	</div>
+	<!-- //contents -->
+	<div class="lay_pop fee_reg_area on" id="agreePop" style="width: 685px; height:650px; z-index: 10000; display: none; overflow-y:scroll;">
+		<!-- pop_header -->
+		<div class="pop_header">
+			<h1 id="popTitle">약관보기</h1>
+			<a href="javascript:agreeClose();" class="btn_close" ><img src="http://static.ssocio.net/seller/images/btn_layer_close.gif" alt="close"></a>
+		</div>
+		<!-- //pop_header -->
+
+		<!-- pop_con -->
+		<div class="pop_con">
+			<div class="agree_box" id="agreeDesc" style="overflow:auto; overflow:hidden;">
+			</div>
+		</div>
+		<!-- //pop_con -->
+	</div>
+	
+	<div class="lay_pop email" style="width: 500px"> 
+		<!-- pop_header -->
+		<div class="pop_header">
+			<h2>이메일 인증 확인</h2>
+			<a href="javascript:;" class="btn_close" onclick="$('.email').hide();"><img src="http://static.ssocio.net/seller/images/btn_layer_close.gif" alt="close"></a>
+		</div>
+		<!-- //pop_header -->
+		
+		<!-- pop_con -->
+		<div class="pop_con mt20">
+			<div class="cont_bx4">
+            	<p class="tc mb20"><img src="http://static.ssocio.net/seller/images/ico_email.png" style="margin-right:-30px" alt=""></p>
+                <p class="tc mb20"><strong id="mberemail"></strong></p>
+                <p class="tc">이메일 인증이 완료 되지 않은 아이디 입니다.<br>이메일 인증 완료 후 다시 인증 해주세요.</p>
+			</div>
+			<div class="btn_area">
+				<a href="#" onclick="$('.email').hide();" class="btn_r">확인</a> 
+                <a href="#"  onclick="authMailSend();" class="btn_r">이메일 재전송</a>
+			</div>
+		</div>
+		<!-- //pop_con -->
+	</div>
+
+</form>

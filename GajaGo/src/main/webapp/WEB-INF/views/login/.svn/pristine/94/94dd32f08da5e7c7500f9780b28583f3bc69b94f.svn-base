@@ -1,0 +1,1326 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="adminProdMapper">
+
+	<!-- 검색조건 -->
+	<sql id="SearchProd">
+		<if test="regToDate != '' and regFromDate != ''">
+			<!-- 기간 -->
+			<if test="searchDateGb != null and searchDateGb == 1">
+			 AND  TO_CHAR(A.REGIST_DT,'YYYYMMDD') BETWEEN #{regFromDate} AND #{regToDate}
+			</if>
+			<if test="searchDateGb != null and searchDateGb == 2">
+			 AND  TO_CHAR(A.UPDT_DT,'YYYYMMDD') BETWEEN #{regFromDate} AND #{regToDate}
+			</if>
+		</if>
+		
+		<if test="searchText != null and searchText != ''">
+			<!-- 상품명 -->
+			<if test="searchTxtGb != null and searchTxtGb == 1">
+	         AND A.PROD_NM LIKE '%'|| #{searchText} ||'%'
+			</if>
+			<!-- 판매자 -->
+			<if test="searchTxtGb != null and searchTxtGb == 2">
+	        AND A.MBER_SEQ IN (
+	        	SELECT MBER_SEQ FROM MBER_INFO WHERE MBER_EMAIL LIKE '%${searchText}%' 
+	        	UNION 
+	        	SELECT MBER_SEQ FROM MBER_INFO WHERE MBER_NICK LIKE '%${searchText}%'
+	        	UNION 
+	        	SELECT MBER_SEQ FROM MBER_INFO WHERE MBER_NM LIKE '%${searchText}%'
+	        	) 
+			</if>
+			<!-- 상품코드 -->
+			<if test="searchTxtGb != null and searchTxtGb == 3">
+	         AND A.PROD_CODE LIKE '%'|| #{searchText} ||'%'
+			</if>
+		</if>
+		
+		<!-- 카테고리 -->
+		<if test="searchCtryCd != null and searchCtryCd != ''">
+         AND A.CTRY_CD LIKE '${searchCtryCd}%' 
+		</if>
+		<!-- 판매구분 -->
+		<if test="prodTypeCd != null and prodTypeCd.length > 0">
+         AND A.PROD_TYPE_CD IN
+         	<foreach item="item" index="index" collection="prodTypeCd" open="(" separator="," close=")">
+				#{item}
+			</foreach>
+		</if>
+		<!-- 상품상태 -->
+		<if test="prodStatCd != null and prodStatCd.length > 0">
+         AND A.PROD_STAT_CD IN
+         	<foreach item="item" index="index" collection="prodStatCd" open="(" separator="," close=")">
+				#{item}
+			</foreach>
+		</if>
+		
+	</sql>
+	
+	<!-- 상품리스트 기본SQL -->
+	<sql id="prodBaseSql">
+	SELECT
+		A.PROD_CODE,
+		TO_CHAR(A.REGIST_DT, 'YYYY-MM-DD HH24:MI') AS REGIST_DT, 
+		A.PROD_NM,
+		A.PROD_TYPE_CD,
+		(SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'PROD_TYPE_CD' AND COM_CD = A.PROD_TYPE_CD) AS PROD_TYPE_NM,
+		NVL(A.SELL_PRCE,'0') SELL_PRCE,
+		NVL(C.SHARING_PRICE,'0') SHARING_PRICE,
+		NVL(A.DLV_PRCE,'0') DLV_PRCE,
+		NVL(C.DEPOSIT,'0') DEPOSIT,
+		A.STOCK_QTY,
+		A.OPT_PROD_YN,
+		(SELECT CTRY_NM FROM CTRY WHERE CTRY_CD = (SUBSTR(A.CTRY_CD,0,4)||'000000000000')) ||
+		NVL((SELECT ' > ' || CTRY_NM FROM CTRY WHERE CTRY_CD = (SUBSTR(A.CTRY_CD,0,8)||'00000000')  AND LVL_SEQ = 2), '') ||
+		NVL((SELECT ' > ' || CTRY_NM FROM CTRY WHERE CTRY_CD = (SUBSTR(A.CTRY_CD,0,12)||'0000') AND LVL_SEQ = 3), '') AS CTRY_NM,
+		(SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'PROD_STAT_CD' AND COM_CD = A.PROD_STAT_CD) AS PROD_STAT_NM,
+		(SELECT MAX(PROD_IMG_URL) FROM PROD_IMG WHERE PROD_CODE = A.PROD_CODE AND PROD_IMG_GB_CD ='11') AS IMG_URL,
+		DECODE(A.SELLER_CD, 1, '[쏘시오]', 2, '[개인]'||B.MBER_EMAIL, 3, '[사업자]' ||B.MBER_EMAIL) AS SELLER,
+		SELLER_CD,
+        PROD_STOP_REASON_CD,
+        PROD_STOP_REASON,		
+        ROW_NUMBER() OVER(ORDER BY A.REGIST_DT DESC ) AS NO
+	FROM 
+		PROD A,
+		MBER_INFO B,
+		PROD_SHARING C
+	WHERE
+		A.MBER_SEQ = B.MBER_SEQ(+)
+		AND A.PROD_CODE = C.PROD_CODE(+)
+		<include refid="SearchProd" />
+	</sql>
+	
+	<select id="selectProdSearchCnt" parameterType="hashmap" resultType="int">
+	SELECT
+		COUNT(PROD_CODE) AS CNT
+	FROM
+		PROD A
+	WHERE
+		1 = 1
+		<include refid="SearchProd" />
+	</select>
+	
+	<select id="selectProdList" parameterType="hashmap" resultType="hashmap">
+	<include refid="adminCommonMapper.pagingHeader" />
+	<include refid="prodBaseSql" />
+	<include refid="adminCommonMapper.pagingFooter" />
+	</select>
+	
+	
+	<resultMap id="prodListMap" type="hashmap">
+	    <result property="REGIST_DT"          column="REGIST_DT"        javaType="String"/>
+	    <result property="SELLER"             column="SELLER"           javaType="String"/>
+	    <result property="PROD_NM"            column="PROD_NM"          javaType="String"/>  
+	    <result property="PROD_TYPE_NM"       column="PROD_TYPE_NM"     javaType="String"/>  
+	    <result property="SELL_PRCE"          column="SELL_PRCE"        javaType="String"/>  
+	    <result property="DLV_PRCE"           column="DLV_PRCE"         javaType="String"/>  
+	    <result property="STOCK_QTY"          column="STOCK_QTY"        javaType="String"/>  
+	    <result property="OPT_PROD_YN"        column="OPT_PROD_YN"      javaType="String"/>  
+	    <result property="CTRY_NM"            column="CTRY_NM"          javaType="String"/>  
+	    <result property="PROD_STAT_NM"       column="PROD_STAT_NM"     javaType="String"/>
+	</resultMap>
+	
+	<select id="selectProdListExcel" parameterType="hashmap" resultMap="prodListMap">
+		SELECT
+			A.PROD_CODE,
+			TO_CHAR(A.REGIST_DT, 'YYYY-MM-DD HH24:MI') AS REGIST_DT, 
+			A.PROD_NM,
+			A.PROD_TYPE_CD,
+			(SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'PROD_TYPE_CD' AND COM_CD = A.PROD_TYPE_CD) AS PROD_TYPE_NM,
+	    (CASE PROD_TYPE_CD
+	      WHEN '2' THEN 
+	        CASE SELLER_CD 
+	          WHEN '2' THEN NVL(C.DEPOSIT,'0') ||''
+	          ELSE NVL(C.DEPOSIT,'0')||'('||NVL(C.SHARING_PRICE,'0') ||')원/일'
+	        END
+	      ELSE  NVL(A.SELL_PRCE,'0')||''
+	
+	    END)AS SELL_PRCE,
+			NVL(C.SHARING_PRICE,'0') SHARING_PRICE,
+			NVL(A.DLV_PRCE,'0') DLV_PRCE,
+			NVL(C.DEPOSIT,'0') DEPOSIT,
+			A.STOCK_QTY,
+			A.OPT_PROD_YN,
+			(SELECT CTRY_NM FROM CTRY WHERE CTRY_CD = (SUBSTR(A.CTRY_CD,0,4)||'000000000000')) ||
+			NVL((SELECT ' > ' || CTRY_NM FROM CTRY WHERE CTRY_CD = (SUBSTR(A.CTRY_CD,0,8)||'00000000')  AND LVL_SEQ = 2), '') ||
+			NVL((SELECT ' > ' || CTRY_NM FROM CTRY WHERE CTRY_CD = (SUBSTR(A.CTRY_CD,0,12)||'0000') AND LVL_SEQ = 3), '') AS CTRY_NM,
+			(SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'PROD_STAT_CD' AND COM_CD = A.PROD_STAT_CD) AS PROD_STAT_NM,
+			(SELECT PROD_IMG_URL FROM PROD_IMG WHERE PROD_CODE = A.PROD_CODE AND PROD_IMG_GB_CD ='11') AS IMG_URL,
+			DECODE(A.SELLER_CD, 1, '[쏘시오]', 2, '[개인]'||B.MBER_EMAIL, 3, '[사업자]' ||B.MBER_EMAIL) AS SELLER,
+			SELLER_CD,
+			ROW_NUMBER() OVER(ORDER BY A.REGIST_DT DESC ) AS NO
+		FROM 
+			PROD A,
+			MBER_INFO B,
+			PROD_SHARING C
+		WHERE
+			A.MBER_SEQ = B.MBER_SEQ(+)
+			AND A.PROD_CODE = C.PROD_CODE(+)
+		<include refid="SearchProd" />
+	</select>
+	
+	<select id="selectProdCnt" parameterType="hashmap" resultType="hashmap">
+	SELECT
+		(SELECT COUNT(PROD_CODE) AS CNT FROM PROD WHERE PROD_STAT_CD = '0') AS SELL_ING_CNT,
+		(SELECT COUNT(PROD_CODE) AS CNT FROM PROD WHERE PROD_STAT_CD = '1') AS SELL_END_CNT,
+		(SELECT COUNT(PROD_CODE) AS CNT FROM PROD WHERE PROD_STAT_CD = '2') AS SELL_STOP_CNT,
+		(SELECT COUNT(PROD_CODE) AS CNT FROM PROD WHERE PROD_STAT_CD = '3') AS SELL_DEL_CNT,
+        '' AS GP,
+		(SELECT COUNT(PROD_CODE) AS CNT FROM PROD WHERE PROD_TYPE_CD = '1') AS SELL_CNT,
+		(SELECT COUNT(PROD_CODE) AS CNT FROM PROD WHERE PROD_TYPE_CD = '2') AS SHAR_CNT,
+		(SELECT COUNT(PROD_CODE) AS CNT FROM PROD WHERE PROD_TYPE_CD = '3') AS FREE_CNT,
+		(SELECT COUNT(PROD_CODE) AS CNT FROM PROD WHERE PROD_TYPE_CD = '4') AS SMART_CNT,
+		(SELECT COUNT(PROD_CODE) AS CNT FROM PROD WHERE PROD_TYPE_CD = '5') AS RENTAL_CNT,
+		(SELECT COUNT(PROD_CODE) AS CNT FROM PROD) AS TOTAL_CNT
+	FROM
+		DUAL
+	</select>
+	
+	<select id="selectProdInfo" parameterType="hashmap" resultType="hashmap">
+	SELECT
+		A.PROD_CODE,
+		TO_CHAR(A.REGIST_DT, 'YYYY-MM-DD HH24:MI') AS REGIST_DT,
+		TO_CHAR(A.UPDT_DT, 'YYYY-MM-DD HH24:MI') AS UPDT_DT,
+		A.MBER_SEQ,
+		A.PROD_TYPE_CD,
+		(SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'PROD_TYPE_CD' AND COM_CD = A.PROD_TYPE_CD) AS PROD_TYPE_NM,
+		A.PROD_STAT_CD,
+		A.CTRY_CD,
+		A.BRAND_CD,
+		A.PROD_NM,
+		A.NPROD_GB_CD,
+		A.NRM_PRCE,
+		A.SELL_PRCE,
+		NVL(A.STOCK_QTY, 0) AS STOCK_QTY,
+		NVL(A.EXP_QTY, 0) AS EXP_QTY,
+		A.TXN_ON_YN,
+		A.KEYWORD,
+		A.PROD_PC_DTL,
+		A.PROD_MB_DTL,
+		A.OPT_PROD_YN,
+		A.DLV_WAY_CD,
+		A.DLV_CMP_CD,
+		A.DLV_PAY_GB_CD,
+		A.DLV_PRCE,
+		A.DLV_STAND_AMT,
+		A.BNDL_DLV_YN,
+		A.PROD_ITEM_CODE,
+		(SELECT ADD_DLV_PRICE FROM EXT_LAND_DLV_PRICE WHERE PROD_CODE = A.PROD_CODE AND EXT_LAND_CD = '10') AS ADD_DLV_PRICE_1,
+		(SELECT ADD_DLV_PRICE FROM EXT_LAND_DLV_PRICE WHERE PROD_CODE = A.PROD_CODE AND EXT_LAND_CD = '20') AS ADD_DLV_PRICE_2,
+		A.FREESHARE_OK_GB_CD,
+		TO_CHAR(A.FREESHARE_END_DT, 'YYYY-MM-DD') AS FREESHARE_END_DT,
+		B.MBER_EMAIL,
+		TO_CHAR(C.SHARING_START_DT, 'YYYY-MM-DD') AS SHARING_START_DT,
+		TO_CHAR(C.SHARING_END_DT, 'YYYY-MM-DD') AS SHARING_END_DT,
+		C.SHARING_PRICE,
+		C.SHARING_MIN_TERM,
+		C.SHARING_MAX_TERM,
+		C.DEPOSIT,
+		AGR_YN,
+		AGR,
+		DLV_STAND_YN,
+		A.OPT_BUY_GB_CD,
+		A.PROD_TAX,
+		A.OPT_PROD_EXT_YN,
+		A.SELLER_CD,
+		A.TRAD_LOC,
+	    A.PROD_STOP_REASON_CD,
+	    A.PROD_STOP_REASON,	
+        A.MB_DTL_USE_YN,
+		A.PC_DTL_USE_YN
+	FROM 
+		PROD A,
+		MBER_INFO B,
+		PROD_SHARING C
+	WHERE
+		A.MBER_SEQ = B.MBER_SEQ(+)
+	AND	A.PROD_CODE = C.PROD_CODE(+)
+	AND	A.PROD_CODE = #{prodCode}
+	</select>
+	
+	<insert id="insertProdInfo" parameterType="hashmap" useGeneratedKeys="true" keyProperty="PROD_CODE" keyColumn="PROD_CODE">
+		<if test="prodTypeCd != null and prodTypeCd == 1">
+		INSERT INTO PROD(
+			PROD_CODE
+			, SELLER_CD
+			, MBER_SEQ
+			, PROD_TYPE_CD
+			, PROD_STAT_CD
+			, CTRY_CD
+			, BRAND_CD
+			, PROD_NM
+			, NPROD_GB_CD
+			, NRM_PRCE
+			, SELL_PRCE
+			, STOCK_QTY
+			, TXN_ON_YN
+			, KEYWORD
+			, PROD_PC_DTL
+			, PROD_MB_DTL
+			, DLV_WAY_CD
+			, DLV_CMP_CD
+			, DLV_PAY_GB_CD
+			, DLV_PRCE
+			, DLV_STAND_AMT
+			, BNDL_DLV_YN
+			, PROD_ITEM_CODE
+			, REGIST_DT
+			, UPDT_DT
+			, OPT_PROD_YN
+			, OPT_BUY_GB_CD
+			, OPT_PROD_EXT_YN
+			, DLV_STAND_YN
+			<if test="prodTax != null and prodTax != '' ">
+			, PROD_TAX
+			</if>
+			, TRAD_LOC
+			, MB_DTL_USE_YN
+			, PC_DTL_USE_YN
+		)VALUES(
+			TO_CHAR(SYSDATE,'YYYYMMDD')||TRIM(TO_CHAR(SEQ_PROD_CODE.NEXTVAL,'000000'))
+			, #{seller}
+			, #{mberSeq}
+			, #{prodTypeCd}
+			, #{prodStatCd}
+			, #{ctryCd}
+			, #{brandCd, jdbcType=VARCHAR}
+			, #{prodNm}
+			, #{nprodGbCd}
+			, replace(#{nrmPrce},',','')
+			, replace(#{sellPrce},',','')
+			, replace(#{stockQty},',','')
+			, #{txnOnYn, jdbcType=VARCHAR}
+			, #{keyword}
+			, #{prodPcDtl, jdbcType=CLOB}
+			, #{prodMbDtl, jdbcType=CLOB}
+			, #{dlvWayCd}
+			, #{dlvCmpCd}
+			, #{dlvPayGbCd}
+			, replace(#{dlvPrce},',','')
+			, replace(#{dlvStandAmt},',','')
+			, #{bndlDlvYn}
+			, #{prodItemCode}
+			, SYSDATE
+			, SYSDATE
+			, #{opt_rad, jdbcType=VARCHAR}
+			, #{optBuyGbCd}
+			, #{opt_ext_rad, jdbcType=VARCHAR}
+			, #{dlvStandYn}
+			<if test="prodTax != null and prodTax != '' ">
+			, #{prodTax}
+			</if>
+			, #{tradLoc}
+			, #{mbDtlUseYn}
+			, #{pcDtlUseYn}
+		)
+		</if>
+		<if test="prodTypeCd != null and prodTypeCd == 2">
+		INSERT INTO PROD(
+			PROD_CODE
+			, SELLER_CD
+			, CTRY_CD
+			, PROD_TYPE_CD
+			, PROD_NM
+			, KEYWORD
+			, PROD_PC_DTL
+			, PROD_MB_DTL
+			, OPT_PROD_YN
+			, STOCK_QTY
+			, DLV_WAY_CD
+			, DLV_CMP_CD
+			, DLV_PRCE
+			, DLV_STAND_AMT
+			, BNDL_DLV_YN
+			, DLV_PAY_GB_CD
+			, REGIST_DT
+			, UPDT_DT
+			, MBER_SEQ
+			, BRAND_CD
+			, PROD_STAT_CD
+			, PROD_ITEM_CODE
+			, NPROD_GB_CD
+			, TXN_ON_YN
+			<if test="prodTax != null and prodTax != '' ">
+			, PROD_TAX
+			</if>
+			, OPT_PROD_EXT_YN
+			, DLV_STAND_YN
+			, TRAD_LOC
+			, MB_DTL_USE_YN
+			, PC_DTL_USE_YN
+		)VALUES(
+			TO_CHAR(SYSDATE,'YYYYMMDD')||TRIM(TO_CHAR(SEQ_PROD_CODE.NEXTVAL,'000000'))
+			, #{seller}
+			, #{ctryCd}
+			, #{prodTypeCd}
+			, #{prodNm}
+			, #{keyword}
+			, #{prodPcDtl, jdbcType=CLOB}
+			, #{prodMbDtl, jdbcType=CLOB}
+			, #{opt_rad, jdbcType=VARCHAR}
+			, replace(#{stockQty},',','')
+			, #{dlvWayCd}
+			, #{dlvCmpCd}
+			, replace(#{dlvPrce},',','')
+			, replace(#{dlvStandAmt},',','')
+			, #{bndlDlvYn}
+			, #{dlvPayGbCd}
+			, SYSDATE
+			, SYSDATE
+			, #{mberSeq}
+			, #{brandCd, jdbcType=VARCHAR}
+			, #{prodStatCd}
+			, #{prodItemCode}
+			, #{nprodGbCd}
+			, #{txnOnYn, jdbcType=VARCHAR}
+			<if test="prodTax != null and prodTax != '' ">
+			, #{prodTax}
+			</if>
+			, #{opt_ext_rad, jdbcType=VARCHAR}
+			, #{dlvStandYn}
+			, #{tradLoc}
+			, #{mbDtlUseYn}
+			, #{pcDtlUseYn}
+		)
+		</if>
+		<if test="prodTypeCd != null and prodTypeCd == 3">
+		INSERT INTO PROD(
+			PROD_CODE
+			, SELLER_CD
+			, CTRY_CD
+			, PROD_TYPE_CD
+			, PROD_NM
+			, KEYWORD
+			, PROD_PC_DTL
+			, PROD_MB_DTL
+			, OPT_PROD_YN
+			, STOCK_QTY
+			, DLV_WAY_CD
+			, DLV_CMP_CD
+			, DLV_PRCE
+			, DLV_STAND_AMT
+			, BNDL_DLV_YN
+			, DLV_PAY_GB_CD
+			, REGIST_DT
+			, UPDT_DT
+			, MBER_SEQ
+			, BRAND_CD
+			, PROD_STAT_CD
+			, PROD_ITEM_CODE
+			, FREESHARE_OK_GB_CD
+			, FREESHARE_END_DT
+			, TXN_ON_YN
+			<if test="prodTax != null and prodTax != '' ">
+			, PROD_TAX
+			</if>
+			, OPT_PROD_EXT_YN
+			, DLV_STAND_YN
+			, TRAD_LOC
+			, MB_DTL_USE_YN
+			, PC_DTL_USE_YN
+		)VALUES(
+			TO_CHAR(SYSDATE,'YYYYMMDD')||TRIM(TO_CHAR(SEQ_PROD_CODE.NEXTVAL,'000000'))
+			, #{seller}
+			, #{ctryCd}
+			, #{prodTypeCd}
+			, #{prodNm}
+			, #{keyword}
+			, #{prodPcDtl, jdbcType=CLOB}
+			, #{prodMbDtl, jdbcType=CLOB}
+			, #{opt_rad, jdbcType=VARCHAR}
+			, replace(#{stockQty},',','')
+			, #{dlvWayCd}
+			, #{dlvCmpCd}
+			, replace(#{dlvPrce},',','')
+			, replace(#{dlvStandAmt},',','')
+			, #{bndlDlvYn}
+			, #{dlvPayGbCd}
+			, SYSDATE
+			, SYSDATE
+			, #{mberSeq}
+			, #{brandCd, jdbcType=VARCHAR}
+			, #{prodStatCd}
+			, #{prodItemCode}
+			, #{freeShareOkGbCd}
+			, TO_DATE(#{freeShareEndDt}, 'YYYY-MM-DD')
+			, #{txnOnYn, jdbcType=VARCHAR}
+			<if test="prodTax != null and prodTax != '' ">
+			, #{prodTax}
+			</if>
+			, #{opt_ext_rad, jdbcType=VARCHAR}
+			, #{dlvStandYn}
+			, #{tradLoc}
+			, #{mbDtlUseYn}
+			, #{pcDtlUseYn}
+		)
+		</if>
+		<if test="prodTypeCd != null and prodTypeCd == 5">
+		INSERT INTO PROD(
+			PROD_CODE
+			, SELLER_CD
+			, CTRY_CD
+			, PROD_TYPE_CD
+			, PROD_NM
+			, KEYWORD
+			, PROD_PC_DTL
+			, PROD_MB_DTL
+			, OPT_PROD_YN
+			, STOCK_QTY
+			, DLV_WAY_CD
+			, DLV_PRCE
+			, DLV_STAND_AMT
+			, BNDL_DLV_YN
+			, DLV_PAY_GB_CD
+			, REGIST_DT
+			, UPDT_DT
+			, MBER_SEQ
+			, BRAND_CD
+			, PROD_STAT_CD
+			, PROD_ITEM_CODE
+			, TXN_ON_YN
+			, AGR
+			, AGR_YN
+			<if test="prodTax != null and prodTax != '' ">
+			, PROD_TAX
+			</if>
+			, OPT_PROD_EXT_YN
+			, DLV_STAND_YN
+			, MB_DTL_USE_YN
+			, PC_DTL_USE_YN
+		)VALUES(
+			TO_CHAR(SYSDATE,'YYYYMMDD')||TRIM(TO_CHAR(SEQ_PROD_CODE.NEXTVAL,'000000'))
+			, #{seller}
+			, #{ctryCd}
+			, #{prodTypeCd}
+			, #{prodNm}
+			, #{keyword}
+			, #{prodPcDtl, jdbcType=CLOB}
+			, #{prodMbDtl, jdbcType=CLOB}
+			, #{opt_rad, jdbcType=VARCHAR}
+			, replace(#{stockQty},',','')
+			, #{dlvWayCd}
+			, replace(#{dlvPrce},',','')
+			, replace(#{dlvStandAmt},',','')
+			, #{bndlDlvYn}
+			, #{dlvPayGbCd}
+			, SYSDATE
+			, SYSDATE
+			, #{mberSeq}
+			, #{brandCd, jdbcType=VARCHAR}
+			, #{prodStatCd}
+			, #{prodItemCode}
+			, #{txnOnYn, jdbcType=VARCHAR}
+			, #{agr, jdbcType=CLOB}
+			, #{agr_yn}
+			<if test="prodTax != null and prodTax != '' ">
+			, #{prodTax}
+			</if>
+			, #{opt_ext_rad, jdbcType=VARCHAR}
+			, #{dlvStandYn}
+			, #{mbDtlUseYn}
+			, #{pcDtlUseYn}
+		)
+		</if>
+	</insert>
+	
+	<update id="updateProdInfo" parameterType="hashmap">
+	UPDATE 
+		PROD
+	SET
+		MBER_SEQ = #{mberSeq}
+		, PROD_STAT_CD = #{prodStatCd} 
+		, CTRY_CD = #{ctryCd}
+		, BRAND_CD = #{brandCd, jdbcType=VARCHAR}
+		, PROD_NM = #{prodNm}
+		<if test="nprodGbCd != null and nprodGbCd != '' ">
+		, NPROD_GB_CD = #{nprodGbCd, jdbcType=VARCHAR} 
+		</if>
+		, NRM_PRCE = replace(#{nrmPrce, jdbcType=NUMERIC},',','')
+		, SELL_PRCE = replace(#{sellPrce, jdbcType=NUMERIC},',','') 
+		, STOCK_QTY = replace(#{stockQty, jdbcType=VARCHAR},',','') 
+		, TXN_ON_YN = #{txnOnYn, jdbcType=VARCHAR}
+		, KEYWORD = #{keyword, jdbcType=VARCHAR}
+		, PROD_PC_DTL = #{prodPcDtl, jdbcType=CLOB}
+		, PROD_MB_DTL = #{prodMbDtl, jdbcType=CLOB}
+		<if test="opt_rad != null and opt_rad != '' ">
+		, OPT_PROD_YN = #{opt_rad, jdbcType=VARCHAR}
+		</if>
+		<if test="opt_ext_rad != null and opt_ext_rad != '' ">
+		, OPT_PROD_EXT_YN = #{opt_ext_rad, jdbcType=VARCHAR}
+		</if>
+		<if test="dlvWayCd != null and dlvWayCd != '' ">
+		, DLV_WAY_CD = #{dlvWayCd, jdbcType=VARCHAR}
+		</if>
+		<if test="dlvCmpCd != null and dlvCmpCd != '' ">
+		, DLV_CMP_CD = #{dlvCmpCd, jdbcType=VARCHAR} 
+		</if>
+		<if test="dlvPayGbCd != null and dlvPayGbCd != '' ">
+		, DLV_PAY_GB_CD = #{dlvPayGbCd, jdbcType=VARCHAR}
+		</if>
+		<if test="dlvPrce != null and dlvPrce != '' ">
+		, DLV_PRCE = replace(#{dlvPrce, jdbcType=NUMERIC},',','')
+		</if> 
+		<if test="dlvStandAmt != null and dlvStandAmt != '' ">
+		, DLV_STAND_AMT = replace(#{dlvStandAmt},',','')
+		</if>
+		<if test="bndlDlvYn != null and bndlDlvYn != '' ">
+		, BNDL_DLV_YN = #{bndlDlvYn, jdbcType=VARCHAR}
+		</if>
+		, PROD_ITEM_CODE = #{prodItemCode, jdbcType=VARCHAR}
+		<if test="freeShareOkGbCd != null and freeShareOkGbCd != '' ">
+		, FREESHARE_OK_GB_CD = #{freeShareOkGbCd, jdbcType=VARCHAR}
+		</if>
+		<if test="freeShareEndDt != null and freeShareEndDt != '' ">
+		, FREESHARE_END_DT = TO_DATE(#{freeShareEndDt, jdbcType=VARCHAR}, 'YYYY-MM-DD')
+		</if>
+		, UPDT_DT = SYSDATE
+		, OPT_BUY_GB_CD = #{optBuyGbCd, jdbcType=VARCHAR}
+		<if test="prodTypeCd != null and prodTypeCd == 5">
+		, AGR = #{agr, jdbcType=CLOB}
+		, AGR_YN = #{agr_yn, jdbcType=VARCHAR}
+		</if>
+		<if test="dlvStandYn != null and dlvStandYn != '' ">
+		, DLV_STAND_YN = #{dlvStandYn}
+		</if>
+		<if test="prodTax != null and prodTax != '' ">
+		, PROD_TAX = #{prodTax}
+		</if>
+		, TRAD_LOC = #{tradLoc}
+		, MB_DTL_USE_YN = #{mbDtlUseYn}
+		, PC_DTL_USE_YN = #{pcDtlUseYn}
+        , PROD_STOP_REASON_CD = #{prodStopReasonCd}
+        , PROD_STOP_REASON    = #{prodStopReason}
+	WHERE
+		PROD_CODE = #{prodCode}
+	</update>
+	
+	<insert id="insertProdSharing" parameterType="hashmap">
+	INSERT INTO PROD_SHARING(
+		PROD_CODE,
+		SHARING_PRICE,
+		<if test="sharingMinTerm != null">
+		SHARING_MIN_TERM,
+		</if>
+		SHARING_MAX_TERM,
+		DEPOSIT
+	)VALUES(
+		#{prodCode},
+		replace(#{sharingPrice, jdbcType=NUMERIC},',','') ,
+		<if test="sharingMinTerm != null">
+		#{sharingMinTerm},
+		</if>
+		#{sharingMaxTerm},
+		replace(#{deposit, jdbcType=NUMERIC},',','') 
+	)
+	</insert>
+	
+	<update id="updateProdSharing" parameterType="hashmap">
+	UPDATE 
+		PROD_SHARING
+	SET
+		SHARING_PRICE = replace(#{sharingPrice, jdbcType=NUMERIC},',','') ,
+		<if test="sharingMinTerm != null">
+		SHARING_MIN_TERM = #{sharingMinTerm},
+		</if>
+		SHARING_MAX_TERM = #{sharingMaxTerm},
+		DEPOSIT = replace(#{deposit, jdbcType=NUMERIC},',','') 
+	WHERE
+		PROD_CODE = #{prodCode}
+	</update>
+	
+	<select id="selectProdOption" parameterType="hashmap" resultType="hashmap">
+	SELECT
+				A.OPT_CD,
+				A.OPT_GRP_CD,
+				A.PAR_OPT_CD,
+				A.DEPTH,
+				A.OPT_NM,
+				NVL(A.OPT_STOCK_QTY,0) AS OPT_STOCK_QTY,
+				NVL(A.OPT_PRCE,0) AS OPT_EXP_QTY,
+				A.OPT_USE_YN,
+		        B.MAXDEPTH,
+		        B.OP_GB_CD,
+		        B.GRP1_NM,
+		        B.GRP2_NM,
+		        B.GRP3_NM
+	FROM 
+				PROD_OP A
+				,PROD_OP_INFO B
+	WHERE
+				A.OPT_GRP_CD = B.OPT_GRP_CD
+		AND		A.OPT_GRP_CD in (SELECT OPT_GRP_CD	 	
+						FROM 	PROD_OP_INFO 	
+						WHERE 	PROD_CODE = #{prodCode}
+							<if test="opGbCd != null and opGbCd != '' ">
+							AND OP_GB_CD = #{opGbCd}
+							</if>
+					)
+	ORDER BY OPT_CD
+	</select>
+	
+	<select id="selectProdImg" parameterType="hashmap" resultType="hashmap">
+	SELECT
+		FILE_SEQ,
+		PROD_IMG_URL,
+		PROD_IMG_GB_CD
+	FROM
+		PROD_IMG
+	WHERE
+		PROD_CODE = #{prodCode}
+	</select>
+	
+	<insert id="insertProdImg" parameterType="hashmap">
+	INSERT INTO PROD_IMG(
+		PROD_CODE,
+		FILE_SEQ,
+		PROD_IMG_URL,
+		PROD_IMG_GB_CD,
+		REGIST_DT,
+		UPDT_DT
+	)VALUES(
+		#{prodCode},
+		#{fileSeq},
+		#{fileUrl},
+		#{prodImgGbCd},
+		SYSDATE,
+		SYSDATE
+	)
+	</insert>
+	
+	<update id="updateProdImg" parameterType="hashmap">
+	UPDATE 
+		PROD_IMG
+	SET
+		FILE_SEQ = #{fileSeq}, 
+		PROD_IMG_URL = #{fileUrl}, 
+		UPDT_DT = SYSDATE
+	WHERE
+		PROD_CODE = #{prodCode} AND FILE_SEQ = #{oldFileSeq}
+	</update>
+	
+<!-- **********************************************   판매자조회, 정보고시   ******************************************************** -->
+	<select id="selectSellerList" parameterType="hashmap" resultType="hashmap">
+	SELECT
+		A.MBER_SEQ,
+		A.MBER_EMAIL,
+		(SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'MBER_GB_CD' AND COM_CD = A.MBER_GB_CD) AS MBER_GB_NM,
+		A.MBER_GB_CD
+	FROM
+		MBER_INFO A
+	WHERE
+		A.MBER_EMAIL LIKE '%'|| #{sellerId} ||'%'
+		
+		<if test="mberGb != null and mberGb != ''">
+        AND A.MBER_GB_CD = #{mberGb}
+		</if>
+		AND A.MBER_REG_GB_CD ='1'
+	ORDER BY 
+		A.MBER_EMAIL
+		
+	</select>
+	
+	<select id="selectItemList" resultType="hashmap">
+	SELECT
+		ITEM_CD,
+		ITEM_NM
+	FROM
+		ITEM_INFO
+	ORDER BY 
+		SORT_SEQ
+	</select>
+	
+	<select id="selectItemDtlList" resultType="hashmap" parameterType="hashmap">
+	SELECT
+		A.ENTRY_SEQ,
+		A.ENTRY_NM,
+		NVL(B.INFO_DTL,' ') AS INFO_DTL,
+    	B.EXT_SHOW_YN
+	FROM
+		ITEM_DTL_INFO A,
+		(SELECT ENTRY_SEQ, INFO_DTL, EXT_SHOW_YN FROM PROD_INFO_NOTI WHERE PROD_CODE = #{prodCode} AND PROD_ITEM_CODE = #{itemCd}) B
+	WHERE
+		A.ENTRY_SEQ = B.ENTRY_SEQ(+)
+	AND	A.ITEM_CD = #{itemCd}
+	ORDER BY 
+		A.SORT_SEQ
+	</select>
+	
+	<insert id="insertProdItem" parameterType="hashmap">
+	INSERT INTO PROD_INFO_NOTI(
+		PROD_CODE,
+		PROD_ITEM_CODE,
+		ENTRY_SEQ,
+		INFO_TITLE,
+		INFO_DTL,
+		EXT_SHOW_YN,
+		REGIST_DT,
+		UPDT_DT
+	)VALUES(
+		#{prodCode},
+		#{prodItemCode},
+		#{entrySeq},
+		#{infoTitle},
+		#{infoDtl, jdbcType=VARCHAR},
+		NVL(#{extShowYn, jdbcType=VARCHAR}, 'N'),
+		SYSDATE,
+		SYSDATE
+	)
+	</insert>
+	
+	<delete id="deleteProdItem" parameterType="hashmap">
+	DELETE FROM PROD_INFO_NOTI WHERE PROD_CODE = #{prodCode}
+	</delete>
+	
+<!-- **********************************************   출하지, 도서산간배송비   ******************************************************** -->
+	<select id="selectShipmentList" resultType="hashmap">
+	SELECT
+		A.GRP_PROD_SEQ,
+		NVL(A.GRP_NM,'기본') GRP_NM,
+		A.ZIP_CD||' '||JUSO_DORO||' '||JUSO_DTL AS JUSO,
+		A.ZIP_CD,
+		A.JUSO_DORO,
+		A.JUSO_JIBEN,
+		A.JUSO_DTL,
+		NVL(A.TEL, (SELECT MBER_PHONE FROM MBER_INFO WHERE MBER_SEQ = #{mberSeq} )) TEL,
+		A.HP,
+		A.BASE_YN,
+		( SELECT	COUNT (*)
+			FROM 	
+					GRP_PROD_MAP Z
+					, PROD Y
+					, PROD_IMG X
+			WHERE 	
+					Z.PROD_CODE = Y.PROD_CODE
+			  AND 	Z.PROD_CODE = X.PROD_CODE
+			  AND 	Z.MBER_SEQ = Y.MBER_SEQ
+			  AND 	Z.MBER_SEQ = A.MBER_SEQ
+			  AND	X.PROD_IMG_GB_CD ='11'
+			  AND 	Z.GRP_PROD_SEQ = A. GRP_PROD_SEQ
+    	) AS PROD_CNT
+	FROM
+		GRP_PROD_INFO A
+	WHERE
+		A.MBER_SEQ = #{mberSeq}
+		<if test="grpProdSeq != null and grpProdSeq != ''">
+         AND A.GRP_PROD_SEQ = #{grpProdSeq}
+		</if>
+		<if test="grp_nm != null and grp_nm != ''">
+         AND A.GRP_NM = #{grp_nm}
+		</if>
+		<if test="telNum != null and telNum != ''">
+         AND A.TEL = #{telNum}
+		</if>
+		<if test="baseYn != null and baseYn != ''">
+         AND A.BASE_YN = #{baseYn}
+		</if>
+	ORDER BY 
+		A.BASE_YN
+	</select>
+	
+	<select id="selectShipmentProdMap" resultType="hashmap">
+	SELECT
+		NVL(A.GRP_NM,'기본') GRP_NM,
+		B.GRP_PROD_SEQ
+	FROM
+		GRP_PROD_INFO A,
+		GRP_PROD_MAP B
+	WHERE
+		A.MBER_SEQ = B.MBER_SEQ
+	AND A.GRP_PROD_SEQ = B.GRP_PROD_SEQ
+	AND B.PROD_CODE = #{prodCode}
+	</select>
+
+	<!-- 출하지명이 없는 경우 "기본출하지"로 변경함 : okayjava -->
+	<insert id="insertShipment" parameterType="hashmap">
+	INSERT INTO GRP_PROD_INFO(
+		MBER_SEQ,
+		GRP_PROD_SEQ,
+		GRP_NM,
+		ZIP_CD,
+		JUSO_DORO,
+		JUSO_DTL,
+		TEL,
+		HP,
+		BASE_YN,
+		REGIST_DT,
+		UPDT_DT
+	)VALUES(
+		#{mberSeq},
+		(SELECT NVL(MAX(GRP_PROD_SEQ)+1, 1) FROM GRP_PROD_INFO WHERE MBER_SEQ = #{mberSeq}),
+	    NVL(#{grpNm},'기본출하지'),
+		#{zipCode},
+		#{jusoDoro, jdbcType=VARCHAR},
+		#{jusoDtl},
+		#{tel},
+		#{hp, jdbcType=VARCHAR},
+		NVL(#{baseYn, jdbcType=VARCHAR}, 'N'),
+		SYSDATE,
+		SYSDATE
+	)
+	</insert>
+	
+	<insert id="insertShipmentProdMap" parameterType="hashmap">
+	INSERT INTO GRP_PROD_MAP(
+		MBER_SEQ,
+		GRP_PROD_SEQ,
+		PROD_CODE,
+		REGIST_DT,
+		UPDT_DT
+	)VALUES(
+		#{mberSeq},
+		#{grpProdSeq},
+		#{prodCode},
+		SYSDATE,
+		SYSDATE
+	)
+	</insert>
+	
+	<delete id="deleteShipmentProdMap" parameterType="hashmap">
+	DELETE FROM GRP_PROD_MAP WHERE PROD_CODE = #{prodCode}
+	</delete>
+	
+	<delete id="deleteShipmentProd" parameterType="hashmap">
+	DELETE 	FROM 	GRP_PROD_MAP 
+			WHERE 	PROD_CODE = #{prodCode}
+			AND		MBER_SEQ = #{mberSeq}
+			AND 	GRP_PROD_SEQ = #{grpProdSeq}
+	</delete>
+	
+	<update id="updateShipment" parameterType="hashmap">
+	UPDATE 
+		GRP_PROD_INFO
+	SET
+		GRP_NM = #{grpNm},
+		ZIP_CD = #{zipCode},
+		JUSO_DORO = #{jusoDoro},
+		JUSO_DTL = #{jusoDtl},
+		TEL = #{tel},
+		HP = #{hp},
+		BASE_YN = NVL(#{baseYn, jdbcType=VARCHAR}, 'N'),
+		UPDT_DT = SYSDATE
+	WHERE
+		MBER_SEQ = #{mberSeq} AND GRP_PROD_SEQ = #{grpProdSeq}
+	</update>
+	
+	<insert id="insertExtLandPrice" parameterType="hashmap">
+	INSERT INTO EXT_LAND_DLV_PRICE(
+		PROD_CODE
+		, EXT_LAND_CD
+		, ADD_DLV_PRICE
+	)VALUES(
+		#{prodCode}
+		, #{extLandCd}
+		, replace(#{addDlvPrice},',','')
+	)
+	</insert>
+	
+	<delete id="deleteExtLandPrice" parameterType="hashmap">
+	DELETE FROM EXT_LAND_DLV_PRICE WHERE PROD_CODE = #{prodCode}
+	</delete>
+	
+	<insert id="insertProdOption" parameterType="hashmap">
+		INSERT INTO PROD_OPT
+		      (PROD_CODE
+				, OPT_CD
+				, OPT_NM
+				, OPT_PRCE
+				<!-- OPT_DLV_PRCE, -->
+				, OPT_STOCK_QTY
+				<!-- OPT_EXP_QTY,
+				, OPT_USE_YN, -->
+				, REGIST_DT
+				, OPT_GRP1
+				, OPT_GRP2
+				<if test="opt_grp3 != null and opt_grp3 != ''">
+				, OPT_GRP3
+				</if>
+		 ) VALUES (
+		        #{prodCode}
+				, #{opt_cd}
+				, #{opt_nm}
+				, #{opt_prce}
+				<!-- #{opt_dlv_prce}, -->
+				, #{opt_stock_qty}
+				<!-- #{opt_exp_qty},
+				#{opt_use_yn}, -->
+				, SYSDATE
+				, #{opt_grp1}
+				, #{opt_grp2}
+				<if test="opt_grp3 != null and opt_grp3 != ''">
+				, #{opt_grp3}
+				</if>
+		      ) 
+	</insert>
+	
+
+	<delete id="deleteProdOption" parameterType="hashmap">
+		DELETE FROM PROD_OPT WHERE PROD_CODE = #{prodCode}
+	</delete>
+	
+	<select id="selectShipmentProdList" resultType="hashmap">
+	SELECT 
+			A.GRP_PROD_SEQ
+			,A.PROD_CODE
+			,B.PROD_NM
+			,B.PROD_TYPE_CD
+			,B.NRM_PRCE
+			,B.SELL_PRCE
+			,B.STOCK_QTY
+			,B.EXP_QTY
+			,(B.STOCK_QTY - B.EXP_QTY) AS QTY
+			,B.PROD_STAT_CD
+			,C.PROD_IMG_URL
+			,C.PROD_IMG_TYPE_CD
+			,A.MBER_SEQ
+			,A.REGIST_DT
+			,A.UPDT_DT
+			,(SELECT CTRY_NM FROM CTRY WHERE CTRY_CD = B.CTRY_CD) AS CTRY3
+  			,(SELECT CTRY_NM FROM CTRY WHERE CTRY_CD = (SELECT PARENT_CTRY_CD FROM CTRY WHERE CTRY_CD = B.CTRY_CD)) AS CTRY2
+  			,(SELECT CTRY_NM FROM CTRY WHERE CTRY_CD = (SELECT PARENT_CTRY_CD FROM CTRY WHERE CTRY_CD = (SELECT PARENT_CTRY_CD FROM CTRY WHERE CTRY_CD = B.CTRY_CD))) AS CTRY1
+	FROM 	
+			GRP_PROD_MAP A
+			, PROD B
+			, PROD_IMG C
+	WHERE 	
+			A.PROD_CODE = B.PROD_CODE
+	  AND 	A.PROD_CODE = C.PROD_CODE
+	  AND 	A.MBER_SEQ = B.MBER_SEQ
+	  AND 	A.MBER_SEQ = #{mberSeq}
+	  AND	C.PROD_IMG_GB_CD ='11'
+	<if test="grpProdSeq != null and grpProdSeq != ''">
+	  AND 	A.GRP_PROD_SEQ = #{grpProdSeq}
+	</if>
+	ORDER BY 
+		A.REGIST_DT DESC
+	</select>
+	
+	<select id="selectAddShipmentProdList" resultType="hashmap">
+	SELECT 
+			B.PROD_CODE
+			,B.PROD_NM
+			,B.PROD_TYPE_CD
+			,B.NRM_PRCE
+			,B.SELL_PRCE
+			,B.STOCK_QTY
+			,B.EXP_QTY
+			,(B.STOCK_QTY - B.EXP_QTY) AS QTY
+			,B.PROD_STAT_CD
+			,C.PROD_IMG_URL
+			,C.PROD_IMG_TYPE_CD
+			,B.MBER_SEQ
+			,(SELECT CTRY_NM FROM CTRY WHERE CTRY_CD = B.CTRY_CD) AS CTRY3
+  			,(SELECT CTRY_NM FROM CTRY WHERE CTRY_CD = (SELECT PARENT_CTRY_CD FROM CTRY WHERE CTRY_CD = B.CTRY_CD)) AS CTRY2
+  			,(SELECT CTRY_NM FROM CTRY WHERE CTRY_CD = (SELECT PARENT_CTRY_CD FROM CTRY WHERE CTRY_CD = (SELECT PARENT_CTRY_CD FROM CTRY WHERE CTRY_CD = B.CTRY_CD))) AS CTRY1
+	FROM 	
+			PROD B
+			, PROD_IMG C
+	WHERE 	
+			B.PROD_CODE = C.PROD_CODE
+	  AND 	B.MBER_SEQ = #{mberSeq}
+	  AND	C.PROD_IMG_GB_CD ='11'
+	<!-- 
+	<if test="grpNm != null and grpNm != ''">
+	</if>
+	<if test="prodTypeCd != null and prodTypeCd != ''">
+	</if>
+	<if test="ctry != null and ctry != ''">
+	</if>
+	<if test="grpProdSeq != null and grpProdSeq != ''">
+	</if>
+	 -->
+	<if test="grpProdSeq != null and grpProdSeq != ''">
+	  AND  	B.PROD_CODE NOT IN (
+              SELECT    Z.PROD_CODE
+                FROM    GRP_PROD_MAP Z , PROD Y , PROD_IMG X 
+                WHERE   Z.PROD_CODE = Y.PROD_CODE 
+                  AND   Z.PROD_CODE = X.PROD_CODE 
+                  AND   Z.MBER_SEQ = B.MBER_SEQ 
+                  AND   X.PROD_IMG_GB_CD = C.PROD_IMG_GB_CD
+                  AND   Z.GRP_PROD_SEQ = #{grpProdSeq}
+            )
+   	</if>
+	</select>
+	
+	<insert id="insetShipmentProdMap" parameterType="hashmap">
+		INSERT INTO GRP_PROD_MAP
+		  (
+		    GRP_PROD_SEQ,
+		    PROD_CODE,
+		    MBER_SEQ,
+		    REGIST_DT,
+		    UPDT_DT
+		  )
+		  VALUES
+		  (
+		    #{grpProdSeq}
+		    ,#{prodCode}
+		    ,#{mberSeq}
+		    ,SYSDATE
+		    ,SYSDATE
+		  )
+	</insert>
+	
+	<insert id="insertProdOpInfo" parameterType="hashmap" useGeneratedKeys="true" keyProperty="OPT_GRP_CD" keyColumn="OPT_GRP_CD">
+		INSERT INTO PROD_OP_INFO
+		  (
+			OPT_GRP_CD        
+			, PROD_CODE  
+			, MAXDEPTH     
+			, GRP1_NM 
+			<if test="grp2Nm != null and grp2Nm != ''">
+			, GRP2_NM 
+			</if>
+			<if test="grp3Nm != null and grp3Nm != ''">
+			, GRP3_NM
+			</if>
+			, OP_GB_CD
+			, USE_YN
+			, REGIST_DT
+			, UPDT_DT
+		  )
+		  VALUES
+		  (
+		    SEQ_PROD_OP_INFO.NEXTVAL
+		    , #{prodCode}
+		    , #{maxDepth}
+		    , #{grp1Nm}
+		    <if test="grp2Nm != null and grp2Nm != ''">
+			, #{grp2Nm}
+			</if>
+		    <if test="grp3Nm != null and grp3Nm != ''">
+			, #{grp3Nm}
+			</if>
+		    , #{opGbCd}
+		    , #{opt_rad}
+		    , SYSDATE
+		    , SYSDATE
+		  )
+	</insert>
+	
+	<insert id="insertProdOp" parameterType="hashmap" useGeneratedKeys="true" keyProperty="OPT_CD" keyColumn="OPT_CD">
+		INSERT INTO PROD_OP
+		  (
+			OPT_CD
+			, OPT_GRP_CD
+			, PAR_OPT_CD
+			, DEPTH
+			, OPT_NM
+			, OPT_STOCK_QTY
+			<!-- , OPT_EXP_QTY
+			, OPT_USE_YN -->
+			, OPT_PRCE
+			, OPT_USE_YN
+			, REGIST_DT
+			, UPDT_DT
+		  )
+		  VALUES
+		  (
+		    <!-- (SELECT NVL(MAX(OPT_CD)+1, 1) FROM PROD_OP ) -->
+		    TO_CHAR(SYSDATE,'YYYYMMDD')||TRIM(TO_CHAR(SEQ_PROD_CODE.NEXTVAL,'000000'))
+		    , #{optGrpCd}
+		    , #{parOptCd}
+		    , #{depth}
+		    , #{optNm}
+		    , #{optStockQty}
+		    <!-- , #{optExpQty}
+		    , #{optUseYn} -->
+		    , #{optPrce}
+		    , 'Y'
+		    , SYSDATE
+		    , SYSDATE
+		  )
+	</insert>
+	
+	<update id="updateProdOpInfo" parameterType="hashmap">
+	UPDATE 
+		PROD_OP_INFO
+	SET
+		MAXDEPTH = #{maxDepth}
+		, GRP1_NM = #{grp1Nm}
+		<if test="grp2Nm != null and grp2Nm != ''">
+		, GRP2_NM = #{grp2Nm}
+		</if>
+		<if test="grp3Nm != null and grp3Nm != ''">
+		, GRP3_NM = #{grp3Nm}
+		</if>
+		, UPDT_DT = SYSDATE
+	WHERE
+		OPT_GRP_CD = #{optGrpCd}
+	</update>
+	
+	<select id="selectProdOp" parameterType="hashmap" resultType="hashmap">
+	SELECT 
+			MAX(OPT_GRP_CD) AS OPT_GRP_CD
+			, COUNT(OPT_GRP_CD) AS OPCNT
+	FROM 	
+			PROD_OP_INFO
+	WHERE 	
+			PROD_CODE = #{prodCode}
+			AND OP_GB_CD = #{opGbCd}
+	</select>
+	
+	<update id="deleteProdOp" parameterType="hashmap">
+		UPDATE PROD_OP SET OPT_USE_YN ='N' WHERE OPT_GRP_CD = #{optGrpCd}  
+	</update>
+	<delete id="deleteProdOpInfo" parameterType="hashmap">
+		UPDATE PROD_OP 
+			SET OPT_USE_YN ='N' 
+			, UPDT_DT = SYSDATE
+			WHERE OPT_CD = ${optCd} 
+	</delete>
+	<update id="updateProdOp" parameterType="hashmap">
+		UPDATE PROD_OP 
+			SET OPT_STOCK_QTY = #{optStockQty}
+			, OPT_PRCE = #{optPrce}
+			, UPDT_DT = SYSDATE
+			WHERE OPT_CD = ${optCd} 
+	</update>
+	
+	<select id="selectGrpProfInfo" parameterType="hashmap" resultType="hashmap">
+		SELECT
+				GRP_PROD_SEQ
+		FROM
+				GRP_PROD_INFO
+		WHERE
+				MBER_SEQ = #{mberSeq}
+				AND BASE_YN = 'Y'
+	</select>
+	<select id="selectProdOptionNm" parameterType="hashmap" resultType="hashmap">
+	SELECT
+		OP_GB_CD,
+		GRP1_NM,
+		GRP2_NM,
+		GRP3_NM,
+		MAXDEPTH
+	FROM
+		PROD_OP_INFO
+		WHERE PROD_CODE = #{prodCode}
+			<if test="opGbCd != null and opGbCd != ''">
+				AND OP_GB_CD = #{opGbCd}
+			</if>
+	ORDER BY OP_GB_CD ASC
+	</select>
+	<update id="updateShipmentStatus" parameterType="hashmap" >
+		UPDATE GRP_PROD_INFO SET BASE_YN = 'N' WHERE MBER_SEQ = #{mberSeq}
+	</update>
+	
+	<select id="selectCountProdInfo" parameterType="hashmap" resultType="java.lang.Integer">
+		SELECT COUNT(1) FROM ORD_PROD_INFO WHERE PROD_CODE = #{prodCode}
+	</select>
+	
+	<delete id="deleteProdImg" parameterType="hashmap">
+	DELETE 
+		PROD_IMG
+	WHERE
+		PROD_CODE = #{prodCode} AND FILE_SEQ = #{oldFileSeq}
+	</delete>
+	<select id="selectOpUseCnt" parameterType="hashmap" resultType="java.lang.Integer">
+		SELECT COUNT(1)  CNT FROM PROD_OP
+		WHERE OPT_GRP_CD = (
+			SELECT OPT_GRP_CD FROM PROD_OP_INFO
+			WHERE
+				PROD_CODE = #{prodCode}
+				AND OP_GB_CD = #{opGbCd}
+		)
+		AND DEPTH = #{optMax}
+		AND OPT_USE_YN = 'Y'
+	</select>
+	<update id="updateProdOpUse" parameterType="hashmap" >
+		UPDATE PROD 
+			<if test="opt_rad != null and opt_rad != '' ">
+			SET OPT_PROD_YN = #{opt_rad, jdbcType=VARCHAR}
+			</if>
+			<if test="opt_ext_rad != null and opt_ext_rad != '' ">
+			SET OPT_PROD_EXT_YN = #{opt_ext_rad, jdbcType=VARCHAR}
+			</if>
+		WHERE
+			PROD_CODE = #{prodCode}
+	</update>
+	
+	 <select id="selectProdWantListCount" parameterType="hashmap" resultType="int">
+    	
+   	 	SELECT COUNT(*)
+		FROM PROD_WANT A, MBER_INFO B		
+		<where>
+	  	1=1
+	  	AND A.MBER_SEQ = B.MBER_SEQ
+	  	
+		<if test="S_START_DATE != null and S_START_DATE != ''">
+	  	  <if test="S_END_DATE != null and S_END_DATE != ''">
+	  	    AND TO_CHAR(A.REGIST_DT, 'YYYYMMDD') BETWEEN #{S_START_DATE} AND #{S_END_DATE}
+	  	  </if>
+	  	</if>	  	
+		<if test="searchKeyword != null and searchKeyword != ''">
+		  AND A.WANT_PROD_COMMENT LIKE '%${searchKeyword}%'
+		</if>	
+		</where>
+	   
+    </select>
+	
+<select id="selectProdWantList" parameterType="hashmap" resultType="hashmap">
+    
+	<include refid="adminCommonMapper.pagingHeader" />
+   	 
+   	 	SELECT 
+			ROW_NUMBER() OVER(ORDER BY A.REGIST_DT DESC ) AS NO
+			,ROW_NUMBER() OVER(ORDER BY A.REGIST_DT DESC ) AS SORT_NO	
+			,A.WANT_SEQ
+			,TO_CHAR(A.REGIST_DT, 'YYYY-MM-DD HH24:MI') AS REGIST_DT 
+			,A.WANT_PROD_COMMENT
+			,B.MBER_EMAIL
+			,B.MBER_SEQ
+			,B.MBER_GB_CD
+		    ,(SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'MBER_GB_CD' AND COM_CD = B.MBER_GB_CD) AS MBER_GB_CD_NM
+		    ,B.MBER_REG_GB_CD
+		    ,(SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'MBER_REG_GB_CD' AND COM_CD = B.MBER_REG_GB_CD) AS MBER_REG_GB_CD_NM
+		    ,A.HANDLING_YN
+		    ,DECODE (A.HANDLING_YN , 'Y' , '처리 완료' , '처리 대기') AS HANDLING_YN_NM
+		    ,A.HANDLER_ID
+		    ,C.EMAIL AS HANDLER_EMAIL
+		    ,TO_CHAR(A.HANDLING_DATE,  'YYYY-MM-DD HH24:MI') AS HANDLING_DATE 
+		    FROM PROD_WANT A, MBER_INFO B, ADM_INFO_CFG C	
+		<where>
+			1=1
+			AND A.MBER_SEQ = B.MBER_SEQ
+			AND A.HANDLER_ID = C.ADM_ID(+)
+			<if test="S_START_DATE != null and S_START_DATE != ''">
+				<if test="S_END_DATE != null and S_END_DATE != ''">
+				AND TO_CHAR(A.REGIST_DT, 'YYYYMMDD') BETWEEN #{S_START_DATE} AND #{S_END_DATE}
+				</if>
+			</if>	  	
+			<if test="searchKeyword != null and searchKeyword != ''">
+				AND A.WANT_PROD_COMMENT LIKE '%${searchKeyword}%'
+			</if>
+			<if test="handlingYn != null and handlingYn != ''">
+			  AND HANDLING_YN IN
+			  <foreach collection="handlingYn" item="handYn" open="(" close=")" separator=",">
+			    #{handYn}
+			  </foreach>
+			</if>		
+		</where>
+	    
+	    ORDER BY A.REGIST_DT DESC
+
+	<include refid="adminCommonMapper.pagingFooter" />
+	    
+    </select>
+    
+    
+	    <update id="updateProdWantHandlingInfo" parameterType="hashmap" >
+    
+    	<if test="wantSeq != null and wantSeq != ''">
+    		UPDATE PROD_WANT SET
+				HANDLING_YN = 'Y'
+				,HANDLING_DATE = SYSDATE
+				<if test="handlerId != null and handlerId != ''">
+					,HANDLER_ID = #{handlerId}
+				</if>
+			WHERE WANT_SEQ IN
+	 			<foreach collection="wantSeq" item="wSeq" open="(" close=")" separator=",">
+					#{wSeq}
+		  		</foreach>
+		</if>
+    </update>
+	
+</mapper>

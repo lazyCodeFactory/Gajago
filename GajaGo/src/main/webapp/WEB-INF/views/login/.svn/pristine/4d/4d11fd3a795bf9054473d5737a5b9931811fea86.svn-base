@@ -1,0 +1,342 @@
+<%@ page language="java" contentType="text/html; charset=utf-8"
+    pageEncoding="utf-8"%>
+<!-- 태그는 cmmnHead.jsp 에 선언함 -->
+<%@ include file="/WEB-INF/views/admin/common/cmmnHead.jsp"%>
+
+<script type="text/javascript">
+
+	var message = '${list.params.message}';
+
+	$(document).ready(function(){
+
+		$('.calendar').datepicker({
+			showOn: "button",
+			buttonImage: "http://static.ssocio.net/admin/images/ico_calendar.gif",
+			buttonImageOnly: true
+	    });
+		
+		/* enter event */
+		$("#mberEmail").keypress( function (evt) {
+			if (evt.keyCode == 13) {
+				getMberList();
+			}
+		});
+		
+		// 전체선택
+		$("#chkAll").click( function () {
+			allCheck();
+		});
+		
+		$("input[name^=MBER_SEQ]").click( function (evt) {
+			chkEvent();
+		});	
+		
+		// message
+		if (message != null && message != "") {
+			alert(message);
+		}
+		
+	});
+	
+	// 전체 선택
+	function allCheck() {
+		var chk = $("#chkAll").is(":checked");
+		if (chk) {
+			$("input[name^=MBER_SEQ]").each( function (idx) {
+				$(this).attr("checked", true);
+			});
+		}
+		else {
+			$("input[name^=MBER_SEQ]").each( function (idx) {
+				$(this).attr("checked", false);
+			});
+		}
+	}
+	
+	// 전체 선택을 제외한 체크박스 선택
+	function chkEvent() {
+		var chkAllCnt = $("input[name^=MBER_SEQ]").length; 
+		var chkCnt = $("input[name^=MBER_SEQ]:checked").length;
+		
+		if (chkAllCnt == chkCnt) {
+			$("#chkAll").attr("checked", true);	
+		}
+		else {
+			$("#chkAll").attr("checked", false);
+		}
+	}
+	
+	// 조회
+	function getMberList() {
+		
+		$("#PAGE_NO").val("");
+		
+		// 참여일
+		var startDt = $("#S_START_DATE").val();
+		var endDt = $("#S_END_DATE").val();
+		if ((startDt != null && startDt != "") && (endDt == null || endDt == "")) {
+			alert("조회 종료일을 입력하세요.");
+			$("#S_END_DATE").focus();
+			return;
+		}
+		if ((startDt == null || startDt == "") && (endDt != null && endDt != "")) {
+			alert("조회 시작일을 입력하세요.");
+			$("#S_START_DATE").focus();
+			return;
+		}
+		if (startDt.replace(/\-/ig, '') > endDt.replace(/\-/ig, '')) {
+			alert("조회 시작일은 종료일보다 클수 없습니다.");
+			$("#S_START_DATE").focus();
+			return;
+		}
+		
+		$("#S_START_DATE").val($("#S_START_DATE").val().replace(/\-/ig, ''));
+		$("#S_END_DATE").val($("#S_END_DATE").val().replace(/\-/ig, ''));
+		
+		var url = "/admin/evt/selectEvtWinMber.do";
+		
+		form.action = url;
+		form.submit();
+		
+	}
+	
+	// 페이징
+	function GoPage(pageNo) {
+		$("#PAGE_NO").val(pageNo);
+	
+		$("#S_START_DATE").val($("#S_START_DATE").val().replace(/\-/ig, ''));
+		$("#S_END_DATE").val($("#S_END_DATE").val().replace(/\-/ig, ''));
+		
+		var url = "/admin/evt/selectEvtWinMber.do";
+		
+		form.action = url;
+		form.submit();
+	}
+	
+	// 선택회원 당첨 취소
+	function setMberWinCnacel() {
+		
+		if (!confirm("선택된 회원을 당첨 취소 시키시겠습니까?")) {
+			return;
+		}
+		
+		// 선택여부 확인
+		var chkCnt = $("input[name^=MBER_SEQ]:checked").length;
+		if (chkCnt <= 0) {
+			alert("선택된 회원이 없습니다.");
+			return;
+		}
+		
+		$("#PAGE_NO").val("");
+		$("#S_START_DATE").val($("#S_START_DATE").val().replace(/\-/ig, ''));
+		$("#S_END_DATE").val($("#S_END_DATE").val().replace(/\-/ig, ''));
+		
+		var url = "/admin/evt/updateEvtWinMber.do";
+		
+		form.action = url;
+		form.submit();
+		
+	}
+
+	/* ======================================================================
+	Function : 조회
+	Return   : 없음
+	========================================================================= */
+	function f_searchEvtList(sAction) {
+		
+		var sYear = $("#S_YEAR").val();
+		var sMonth = $("#S_MONTH").val();
+		var sDay = $("#S_DAY").val();
+		var sSalesDate = "";
+		var url;
+		
+		if(sAction == "excel") {
+		   	url = "/admin/evt/selectEvtWinMberExcelDownload.do";
+		}else {
+		   	url = "/admin/evt/selectEvtWinMber.do";
+		}
+		
+		$("#ACTION").val(sAction);
+		$("#S_SALES_DATE").val(sSalesDate);
+		$("#form").attr("action", url).submit();
+	}
+	
+</script>
+<form id="form" name="form" method="post" action="">
+	<input type="hidden" name="PAGE_NO" id="PAGE_NO" value="${list.PAGE_NO }" />
+	<input type="hidden" id="evtGrpCd" name="EVT_GRP_CD" value="${list.params.EVT_GRP_CD }" />
+	<input type="hidden" id="mberGbCd" name="MBER_GB_CD" value="${list.params.MBER_GB_CD}" />
+	<input type="hidden" id="mberRegGbCd" name="MBER_REG_GB_CD" value="${list.params.MBER_REG_GB_CD}" />
+	
+	<div class="pop_inner">
+		<div class="tbl mt10">
+			<p class="tbl_tit"><img src="http://static.ssocio.net/admin/images/ico_admin.gif" alt="" />이벤트 당첨 회원</p>
+			<table class="list type">
+				<colgroup>
+					<col style="width:8%;" />
+					<col style="width:40%;" />
+					<col style="width:8%;" />
+					<col style="width:*" />
+				</colgroup>
+				<tbody>
+					<tr>
+						<td colspan="2" class="tl">
+							<span class="select" style="width:150px;">
+								<span class="sel_txt"></span>
+								<select id="dateChk" name="DATE_CHK">
+									<option value="">전체</option>
+									<option value="A">참여일</option>
+									<option value="B">당첨일</option>
+								</select>
+							</span>
+							<fmt:parseDate value="${list.params.S_START_DATE }" var="S_START_DATE" pattern="yyyymmdd" scope="page" />
+   							<fmt:parseDate value="${list.params.S_END_DATE }" var="S_END_DATE" pattern="yyyymmdd" scope="page" />
+							<input type="text" id="S_START_DATE" name="S_START_DATE" class="calendar" style="width:82px" value='<fmt:formatDate value="${S_START_DATE }" pattern="yyyy-mm-dd" />' readonly /> - 
+							<input type="text" id="S_END_DATE" name="S_END_DATE" class="calendar" style="width:82px" value='<fmt:formatDate value="${S_END_DATE }" pattern="yyyy-mm-dd" />' readonly/>
+						</td>
+						<th scope="row">아이디</th>
+						<td class="tl" colspan="3">
+							<input type="text" id="mberEmail" name="MBER_EMAIL" style="width:200px" maxLength="100" value="${list.params.MBER_EMAIL }" />
+						</td>
+					</tr>
+					<tr>
+						<th scope="row">회원구분</th>
+						<td class="tl">
+							<c:forEach var="code" items="${list.mberGbCd }" varStatus="codeStatus">
+								<c:choose>
+									<c:when test="${codeStatus.index == 0 }">
+										<input type="checkbox" id="mberGbCd${codeStatus.index }" name="MBER_GB_CD[]" value="${code.COM_CD }" 
+											<c:forEach var="mberGbCd" items="${list.params.MBER_GB_CD}" varStatus="status">
+												<c:if test="${mberGbCd eq code.COM_CD }">checked</c:if>
+											</c:forEach>
+										/>
+										<label for="mberGbCd${codeStatus.index }">${code.COM_CD_NM }</label>
+									</c:when>
+									<c:otherwise>
+										<span class="ml15">
+											<input type="checkbox" id="mberGbCd${codeStatus.index }" name="MBER_GB_CD[]" value="${code.COM_CD }" 
+												<c:forEach var="mberGbCd" items="${list.params.MBER_GB_CD}" varStatus="status">
+													<c:if test="${mberGbCd eq code.COM_CD }">checked</c:if>
+												</c:forEach>
+											/>
+											<label for="mberGbCd${codeStatus.index }">${code.COM_CD_NM }</label>
+										</span>
+									</c:otherwise>
+								</c:choose>
+							</c:forEach>
+						</td>
+						<th scope="row">기업구분</th>
+						<td class="tl">
+							<c:forEach var="code" items="${list.mberRegGbCd }" varStatus="codeStatus">
+								<c:choose>
+									<c:when test="${codeStatus.index == 0 }">
+										<input type="checkbox" id="mberRegGbCd${codeStatus.index }" name="MBER_REG_GB_CD[]" value="${code.COM_CD }" 
+											<c:forEach var="mberRegGbCd" items="${list.params.MBER_REG_GB_CD}" varStatus="status">
+												<c:if test="${mberRegGbCd eq code.COM_CD }">checked</c:if>
+											</c:forEach>
+										/>
+										<label for="mberRegGbCd${codeStatus.index }">${code.COM_CD_NM }</label>
+									</c:when>
+									<c:otherwise>
+										<span class="ml15">
+											<input type="checkbox" id="mberRegGbCd${codeStatus.index }" name="MBER_REG_GB_CD[]" value="${code.COM_CD }" 
+												<c:forEach var="mberRegGbCd" items="${list.params.MBER_REG_GB_CD}" varStatus="status">
+													<c:if test="${mberRegGbCd eq code.COM_CD }">checked</c:if>
+												</c:forEach>
+											/>
+											<label for="mberRegGbCd${codeStatus.index }">${code.COM_CD_NM }</label>
+										</span>
+									</c:otherwise>
+								</c:choose>
+							</c:forEach>
+						</td>
+					</tr>
+				</tbody>
+			</table>
+			<p class="btn_area type"><a href="javascript:getMberList();" class="btn_chk btn_r">조회</a></p>
+		</div>
+		
+		<div class="prod_info_area">
+			<p>총 <fmt:formatNumber value="${list.TOT_CNT }" type="number" /> 명</p>
+			<div class="right">
+				<span class="select" style="width:130px;">
+						<span class="sel_txt"></span>
+							<select name="S_ROW_CNT" onchange="f_searchEvtList();">
+								<custom:codeList var="display" groupCode="DISPLAY_CNT" />
+									<c:forEach var="displaylist" items="${display}" varStatus="status">
+										<option value="${displaylist.key}" <c:if test="${displaylist.key == list.params.S_ROW_CNT }">selected="selected"</c:if> >${displaylist.value}</option>
+			            			</c:forEach>
+							</select>
+						</span>
+				<a href="javascript:f_searchEvtList('excel');" id="btn_excel" class="btn_excel mr0"><span>엑셀 다운로드</span></a>
+			</div>
+		</div>
+		
+		<!-- tbl -->
+		<div class="tbl mt10">
+			<!-- list -->
+			<table class="list">
+				<colgroup>
+					<col style="width:5%" />
+				<col style="width:25%" />
+				<col style="width:25%" />
+				<col style="width:25%" />
+				<col style="width:10%" />
+				<col style="width:10%" />
+				</colgroup>
+				<thead>	
+					<tr>
+						<th scope="col"><input type="checkbox" id="chkAll" name="chkAll" /></th>
+						<th scope="col">참여일시</th>
+						<th scope="col">당첨일시</th>
+						<th scope="col">아이디</th>
+						<th scope="col">회원구분</th>
+						<th scope="col">가입구분</th>
+					</tr>
+				</thead>
+				<tbody>
+					<c:choose>
+						<c:when test="${fn:length(list.selectEvtWinMber)>0}">						
+							<c:forEach var="list" items="${list.selectEvtWinMber}" varStatus="status">
+						    	<tr>
+						    		<td class="nolineL">
+						    			<input type="checkbox" id="mberSeq" name="MBER_SEQ[]" value="${list.MBER_SEQ }" class="" />
+						    		</td>
+						    		<td>${list.REGIST_DT }</td>
+						    		<td>${list.WIN_DT }</td>
+						    		<td>${list.MBER_EMAIL }</td>
+						    		<td>${list.MBER_GB_CD_NM }</td>
+						    		<td>${list.MBER_REG_GB_CD_NM }</td>
+						    	</tr>
+						    </c:forEach>								
+						</c:when>
+						<c:otherwise>
+							<tr>
+								<td class="nolineL" colspan="6">조회된 결과가 없습니다.</td>
+							</tr>
+						</c:otherwise>
+					</c:choose>
+				</tbody>
+			</table>
+			<!-- //list -->
+		</div>
+		<!-- //tbl -->
+		
+		<!-- bot_tbl -->
+		<div class="bot_tbl">
+			<a href="javascript:setMberWinCnacel();" class="btn_r btn_prod_del"><span>선택회원 당첨취소</span></a>
+			<!-- paging -->
+				<c:if test="${fn:length(list.selectEvtWinMber)>0}">		
+					<%@ include file="/WEB-INF/views/admin/common/PageView.jsp" %>
+				</c:if>
+				<!-- //paging -->
+		</div>
+		<!-- //bot_tbl -->
+		
+		<!-- bot_btn -->
+		<div class="bot_btn tc mt20">
+			<a href="javascript:window.close();" class="btn_g2 ml10">닫기</a>
+		</div>
+		<!-- //bot_btn -->
+	</div>
+</form>

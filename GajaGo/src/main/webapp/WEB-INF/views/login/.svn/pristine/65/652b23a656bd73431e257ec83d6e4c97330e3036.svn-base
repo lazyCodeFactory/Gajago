@@ -1,0 +1,851 @@
+package com.ssocio.sharing.controller.admin;
+
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Calendar;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.multipart.MultipartHttpServletRequest;
+import org.springframework.web.servlet.ModelAndView;
+
+import com.ssocio.sharing.cmmn.admin.util.FileUtil;
+import com.ssocio.sharing.cmmn.util.DateUtil;
+import com.ssocio.sharing.cmmn.util.LoggerUtil;
+import com.ssocio.sharing.cmmn.util.StringUtil;
+import com.ssocio.sharing.service.admin.AdminMberService;
+import com.ssocio.sharing.service.admin.AdminProdService;
+import com.ssocio.sharing.vo.admin.AdminSession;
+
+/**
+ * <pre>
+ * 상품 콘트롤러
+ * 상품 콘트롤러
+ * @author Y.I.Chun
+ * @version
+ * @since 2015. 7. 8. 오후 5:50:30
+ * @see
+ * @History
+ * Date			|	author	| 변경 내용
+ * 2015. 7. 8.	|	Y.I.Chun	|신규
+ * @비고
+ * </pre>
+ */
+@Controller
+public class AdminMberController extends AdminReferController {
+
+	// --------------------------------------------------------------------------
+	// # Log 설정
+	// --------------------------------------------------------------------------
+	private static final Logger logger = LoggerFactory.getLogger(AdminMberController.class);
+
+	// --------------------------------------------------------------------------
+	// # Service 설정
+	// --------------------------------------------------------------------------
+	@Autowired
+	private AdminMberService adminMberService;
+	@Autowired
+	private AdminProdService adminProdService;
+
+
+	@RequestMapping("/admin/mber/selectMberList.do")
+	public ModelAndView selectMberList(HttpServletRequest request, HttpServletResponse response,
+			@RequestParam Map<String, Object> inParam
+			, @RequestParam(value="mberGbCd", required=false) String[] mberGbCd
+			, @RequestParam(value="mberRegGbCd", required=false) String[] mberRegGbCd
+			, @RequestParam(value="joinChanCd", required=false) String[] joinChanCd
+			, @RequestParam(value="mberStatCd", required=false) String[] mberStatCd) throws Exception{
+
+		String MBER_PHONE = request.getParameter("MBER_PHONE");
+
+		if ( MBER_PHONE != null && !MBER_PHONE.trim().equalsIgnoreCase("") && inParam.get("searchId") != null ) {
+			inParam.put("MBER_PHONE", MBER_PHONE.replaceAll("-", ""));
+			inParam.put("regToDate", "");
+			inParam.put("regFromDate", "");
+		}
+
+		ModelAndView mav = new ModelAndView("admin/mber/mberList");
+
+		if("1".equals(inParam.get("P_MENU_CD"))){
+			logger.debug(">>>>> menu_cd : ");
+//			String[] joinChanCdArr = {"10","20","30"};
+//			String[] mberRegGbCdArr = {"0","1"};
+//			String[] mberGbCdArr = {"0","1"};
+//			String[] mberStatCdArr = {"10","99","20","22","30","32"};
+//			inParam.put("mberGbCd", mberGbCdArr);
+//			inParam.put("mberRegGbCd", mberRegGbCdArr);
+//			inParam.put("joinChanCd", joinChanCdArr);
+//			inParam.put("mberStatCd", mberStatCdArr);
+
+			Calendar cal = Calendar.getInstance();
+			SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd");
+
+			inParam.put("regToDate", sdf.format(cal.getTime()));
+			cal.add(Calendar.DATE, -7);
+			inParam.put("regFromDate", sdf.format(cal.getTime()));
+			inParam.put("searchDateGb", 1);
+		}
+		inParam.put("mberGbCd", mberGbCd);
+		inParam.put("mberRegGbCd", mberRegGbCd);
+		inParam.put("joinChanCd", joinChanCd);
+		inParam.put("mberStatCd", mberStatCd);
+		try {
+			mav.addObject("list", adminMberService.selectMberList(inParam));
+			mav.addObject("searchParam", inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return mav;
+	}
+
+	/**
+	 * <pre>
+	 * 회원정보 리스트 엑셀
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 7. 17. 오후 2:21:41
+	 * @author J.K.CHOI
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@RequestMapping("/admin/mber/selectMberListToExcel.do")
+	public ModelAndView selectMberListToExcel(HttpServletRequest request, HttpServletResponse response
+			, @RequestParam Map<String, Object> inParam
+			, @RequestParam(value="mberGbCd", required=false) String[] mberGbCd
+			, @RequestParam(value="mberRegGbCd", required=false) String[] mberRegGbCd
+			, @RequestParam(value="joinChanCd", required=false) String[] joinChanCd
+			, @RequestParam(value="mberStatCd", required=false) String[] mberStatCd) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("selectMberListToExcel START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		ModelAndView mav = new ModelAndView();
+		mav.setViewName("excelDownloadView2");
+		try {
+
+			String MBER_PHONE = request.getParameter("MBER_PHONE");
+
+			if ( MBER_PHONE != null && !MBER_PHONE.trim().equalsIgnoreCase("") && inParam.get("searchId") != null ) {
+				inParam.put("MBER_PHONE", MBER_PHONE.replaceAll("-", ""));
+				inParam.put("regToDate", "");
+				inParam.put("regFromDate", "");
+			}
+
+			if("1".equals(inParam.get("P_MENU_CD"))){
+				logger.debug(">>>>> menu_cd : ");
+				String[] joinChanCdArr = {"10","20","30"};
+				String[] mberRegGbCdArr = {"0","1"};
+				String[] mberGbCdArr = {"0","1"};
+				String[] mberStatCdArr = {"10","99","20","22","30","32"};
+				inParam.put("mberGbCd", mberGbCdArr);
+				inParam.put("mberRegGbCd", mberRegGbCdArr);
+				inParam.put("joinChanCd", joinChanCdArr);
+				inParam.put("mberStatCd", mberStatCdArr);
+			}
+			inParam.put("mberGbCd", mberGbCd);
+			inParam.put("mberRegGbCd", mberRegGbCd);
+			inParam.put("joinChanCd", joinChanCd);
+			inParam.put("mberStatCd", mberStatCd);
+
+			String today = StringUtil.getCurrentDate();
+			response.setContentType("application/msexcel");
+			response.setHeader("Content-Disposition", getDisposition("SSOCIO_회원정보_"+today+".xls", check_browser(request)));
+
+
+			String SheetName = "회원정보";
+
+			List<String> excelTitle = new ArrayList<String>();
+
+			excelTitle.add("회원번호");//20151104발송관리 업로드시 필요하여 추가함
+			excelTitle.add("가입일시");
+			excelTitle.add("최종접속일시");
+			excelTitle.add("아이디");
+			excelTitle.add("이름");
+			excelTitle.add("미니샵이름"); //
+			excelTitle.add("전화번호");
+			excelTitle.add("회사명");
+			excelTitle.add("가입채널");
+			excelTitle.add("가입경로");
+			excelTitle.add("회원구분");
+			excelTitle.add("가입구분");
+			excelTitle.add("사업자번호");
+			excelTitle.add("계좌번호");
+			excelTitle.add("접속횟수");
+			excelTitle.add("주문횟수");
+			excelTitle.add("주문금액"); // 화면설계서대로 추가
+			excelTitle.add("판매횟수"); // 화면설계서대로 추가
+			excelTitle.add("판매금액"); // 화면설계서대로 추가
+			excelTitle.add("가입상태");
+
+			List<String> CellName = new ArrayList<String>();
+			CellName.add("MBER_SEQ"); 	// 회원번호
+			CellName.add("REGIST_DT");	// 가입일시
+			CellName.add("LASTEST_LOGIN_TIME");	// 최종접속일시
+			CellName.add("MBER_EMAIL");	//아이디
+			CellName.add("MBER_NM");	//이름
+			CellName.add("MINI_SHOP_NM");	//미니샵이름
+			CellName.add("MBER_PHONE");	//전화번호
+			CellName.add("CMPNY_NM");	//회사명
+			CellName.add("JOIN_CHAN_NM");	// 가입채널
+			CellName.add("JOIN_PATH_NM");	// 가입경로
+			CellName.add("MBER_GB_NM");	// 회원구분
+			CellName.add("MBER_REG_GB_NM");	// 가입구분
+			CellName.add("CMPNY_NO");	// 사업자번호
+			CellName.add("FULL_ACNT_DATA");	// 계좌번호
+			CellName.add("CONN_CNT");	// 접속횟수
+			CellName.add("BUY_CNT");	//주문횟수
+			CellName.add("BUY_PRCE");	// 주문금액
+			CellName.add("SELL_CNT");	//판매횟수
+			CellName.add("SELL_PRCE");	// 판매금액
+			CellName.add("MBER_STAT_NM");	// 가입상태
+
+			List<String> sizeList = new ArrayList<String>();
+
+			sizeList.add("11");//20151104발송관리 업로드시 필요하여 추가함
+			sizeList.add("16");
+			sizeList.add("16");
+			sizeList.add("61");
+			sizeList.add("7");
+			sizeList.add("22");
+			sizeList.add("13");
+			sizeList.add("20");
+			sizeList.add("11");
+			sizeList.add("11");
+			sizeList.add("11");
+			sizeList.add("11");
+			sizeList.add("11");
+			sizeList.add("11");
+			sizeList.add("11"); // 화면설계서대로 추가
+			sizeList.add("11"); // 화면설계서대로 추가
+			sizeList.add("11"); // 화면설계서대로 추가
+			sizeList.add("11");
+			sizeList.add("11");
+			sizeList.add("11");
+
+
+			mav.addObject("fileName", "SSOCIO_회원정보_"+today+".xls");
+			mav.addObject("SheetName", SheetName);
+			mav.addObject("excelTitle", excelTitle);
+			mav.addObject("sizeList", sizeList);
+
+			mav.addObject("CellName", CellName);
+			logger.debug("start--> " +System.currentTimeMillis());
+			mav.addObject("excelList", adminMberService.selectMberListToExcel(inParam));
+			logger.debug("end--> " +System.currentTimeMillis());
+			mav.addObject("param", inParam);
+
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mav;
+	}
+
+	private String getDisposition(String down_filename, String browser_check) throws UnsupportedEncodingException {
+		String prefix = "attachment;filename=";
+		String encodedfilename = null;
+		System.out.println("browser_check:"+browser_check);
+		if (browser_check.equals("ie")) {
+		encodedfilename = URLEncoder.encode(down_filename, "UTF-8").replaceAll("\\+", "%20");
+		}else if (browser_check.equals("chrome")) {
+		StringBuffer sb = new StringBuffer();
+		for (int i = 0; i < down_filename.length(); i++){
+		    char c = down_filename.charAt(i);
+		    if (c > '~') {
+		        sb.append(URLEncoder.encode("" + c, "UTF-8"));
+		    } else {
+		        sb.append(c);
+		    }
+		}
+		encodedfilename = sb.toString();
+		}else {
+		encodedfilename = "\"" + new String(down_filename.getBytes("UTF-8"), "8859_1") + "\"";
+		}
+		return prefix + encodedfilename;
+	}
+
+	private String check_browser(HttpServletRequest request) {
+		String browser = "";
+		String header = request.getHeader("User-Agent");
+		//신규추가된 indexof : Trident(IE11) 일반 MSIE로는 체크 안됨
+		if (header.indexOf("MSIE") > -1 || header.indexOf("Trident") > -1){
+		browser = "ie";
+		}
+		//크롬일 경우
+		else if (header.indexOf("Chrome") > -1){
+		browser = "chrome";
+		}
+		//오페라일경우
+		else if (header.indexOf("Opera") > -1){
+		browser = "opera";
+		}
+		//사파리일 경우
+		else if (header.indexOf("Apple") > -1){
+		browser = "sarari";
+		} else {
+		browser = "firfox";
+		}
+		return browser;
+	}
+
+	/**
+	 * <pre>
+	 * 회원상세정보 조회
+	 * 회원상세정보를 조회합니다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 5. 오후 3:26:04
+	 * @author Y.I.Chun
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@RequestMapping("/admin/mber/selectMberInfo.do")
+	public ModelAndView selectMberInfo(HttpServletRequest request
+			, @RequestParam Map<String, Object> inParam
+			, @RequestParam(value="prodTypeCd", required=false) String[] prodTypeCd
+			, @RequestParam(value="prodStatCd", required=false) String[] prodStatCd) throws Exception	{
+
+		ModelAndView mav = new ModelAndView("admin/mber/mberInfoDtl");
+
+		inParam.put("prodTypeCd", prodTypeCd);
+		inParam.put("prodStatCd", prodStatCd);
+		inParam.put("dateChk", "");
+		inParam.put("POINT_CD", "");
+		inParam.put("S_START_DATE", "");
+		inParam.put("S_END_DATE", "");
+
+		try {
+
+			if(!"".equals(inParam.get("MBER_STAT_CD")) && "U".equals(inParam.get("GUBUN")) ){
+				// 가입상태 변경
+				AdminSession session = (AdminSession) request.getSession().getAttribute("manager");
+				logger.debug(">>>>> session.getADM_ID() : "+session.getADM_ID()+"   "+session.getADM_NM());
+				inParam.put("ADM_ID", session.getADM_ID());
+				inParam.put("ADM_NM", session.getADM_NM());
+				adminMberService.updateMberStat(inParam);
+			}
+
+			mav.addObject("list", adminProdService.selectProdList(inParam));
+			mav.addObject("result", adminMberService.selectMberInfo(inParam));
+			mav.addObject("searchParam", inParam);
+
+
+
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mav;
+	}
+
+	@RequestMapping("/admin/mber/updateMberStatCd.do")
+	public ModelAndView updateMberStat(HttpServletRequest request
+			, @RequestParam Map<String, Object> inParam ) throws Exception	{
+		ModelAndView mav = new ModelAndView();
+//		Map<String, Object> inParam = new HashMap<String, Object>();
+//		inParam.put("MBER_STAT_CD", MBER_STAT_CD);
+
+		try {
+
+			logger.debug(">>>>> cont "+inParam.toString());
+			if(inParam.get("MBER_STAT_CD") != null){
+				logger.debug(">>>>> in ");
+				// 가입상태 변경
+				AdminSession session = (AdminSession) request.getSession().getAttribute("manager");
+				inParam.put("ADM_ID", session.getADM_ID());
+				inParam.put("ADM_NM", session.getADM_NM());
+				adminMberService.updateMberStat(inParam);
+			}else{
+				logger.debug(">>>>> out ");
+				inParam.put("retMsg", "다시 시도해 주세요1");
+			}
+			mav.addObject("param",inParam);
+			mav.addObject("currentDate",StringUtil.getCurrentDateFormat("yyyy-MM-dd HH:mm"));
+			mav.setViewName("jsonView");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mav;
+	}
+
+	/**
+	 * <pre>
+	 * 회원상세정보 수정
+	 * 회원상세정보를 수정합니다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 5. 오후 3:26:04
+	 * @author Y.I.Chun
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@RequestMapping("/admin/mber/updateMberInfo.do")
+	public ModelAndView updateMberInfo( @RequestParam Map<String, Object> inParam) throws Exception	{
+		ModelAndView mav = new ModelAndView("jsonView");
+		try {
+			adminMberService.updateMberInfo(inParam);
+			mav.addObject("result", "OK");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return mav;
+	}
+
+
+
+	/**
+	 * <pre>
+	 * 회원포인트 추가
+	 * 회원포인트를 추가합니다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 5. 오후 3:26:04
+	 * @author Y.I.Chun
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@RequestMapping("/admin/mber/addMberPoint.do")
+	public ModelAndView addMberPoint(@RequestParam Map<String, Object> inParam) throws Exception	{
+		ModelAndView mav = new ModelAndView("jsonView");
+		try {
+			LoggerUtil.writeMap(inParam);
+			adminMberService.insertMberPoint(inParam);
+			mav.addObject("result", "OK");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return mav;
+	}
+
+	/**
+	 * <pre>
+	 * 미니샵 저장
+	 * 미니샵정보를 저장합니다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 5. 오후 3:26:04
+	 * @author Y.I.Chun
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@RequestMapping("/admin/mber/saveMiniShopInfo.do")
+	public ModelAndView saveMiniShopInfo(MultipartHttpServletRequest req, @RequestParam Map<String, Object> inParam) throws Exception	{
+		ModelAndView mav = new ModelAndView("jsonView");
+		try {
+			adminMberService.saveMiniShopInfo(req, inParam);
+			mav.addObject("result", "OK");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return mav;
+	}
+
+
+	/**
+	 * <pre>
+	 * 회원 가입 상태변경
+	 * 회원 가입 상태를 변경합니다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 5. 오후 3:26:04
+	 * @author Y.I.Chun
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@RequestMapping("/admin/mber/updateMberStat.do")
+	public ModelAndView updateMberStat(MultipartHttpServletRequest req, @RequestParam Map<String, Object> inParam) throws Exception	{
+		ModelAndView mav = new ModelAndView();
+
+		try {
+			adminMberService.saveMiniShopInfo(req, inParam);
+			mav.addObject("result", "OK");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return mav;
+	}
+
+	/**
+	 * <pre>
+	 * 회원쿠폰팝업 표시
+	 * 회원쿠폰팝업을 표시합니다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 5. 오후 3:26:04
+	 * @author Y.I.Chun
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@RequestMapping("/admin/mber/couponPopup.do")
+	public ModelAndView couponPopup(@RequestParam Map<String, Object> inParam) throws Exception	{
+		ModelAndView mav = new ModelAndView("admin/mber/mberCouponPopup");
+		try {
+			mav.addObject("list", adminMberService.selectMberCpnList(inParam));
+			mav.addObject("searchParam", inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return mav;
+	}
+
+	/**
+	 * <pre>
+	 * 회원포인트팝업 표시
+	 * 회원포인트팝업을 표시합니다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 5. 오후 3:26:04
+	 * @author Y.I.Chun
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@RequestMapping("/admin/mber/pointPopup.do")
+	public ModelAndView pointPopup(@RequestParam Map<String, Object> inParam) throws Exception	{
+		ModelAndView mav = new ModelAndView("admin/mber/mberPointPopup");
+		try {
+
+			LoggerUtil.writeMap(inParam);
+			mav.addObject("list", adminMberService.selectMberPointList(inParam));
+			mav.addObject("searchParam", inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return mav;
+	}
+
+	/**
+	 * <pre>
+	 * 신용점수팝업 표시
+	 * 신용점수팝업을 표시합니다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 5. 오후 3:26:04
+	 * @author Y.I.Chun
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@RequestMapping("/admin/mber/crePointPopup.do")
+	public ModelAndView crePointPopup(@RequestParam Map<String, Object> inParam
+			, @RequestParam(value="addY", required=false) String addY
+			, @RequestParam(value="addN", required=false) String addN) throws Exception	{
+		ModelAndView mav = new ModelAndView("admin/mber/mberCrePointPopup");
+		inParam.put("addY", addY);
+		inParam.put("addN", addN);
+		try {
+			mav.addObject("list", adminMberService.selectMberCrePointList(inParam));
+			mav.addObject("searchParam", inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return mav;
+	}
+
+	/**
+	 * <pre>
+	 * 회원경고팝업 표시
+	 * 회원경고팝업을 표시합니다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 5. 오후 3:26:04
+	 * @author Y.I.Chun
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@RequestMapping("/admin/mber/mberAlertPopup.do")
+	public ModelAndView mberAlertPopup(@RequestParam Map<String, Object> inParam
+			, @RequestParam(value="banGbCd", required=false) String[] banGbCd) throws Exception	{
+		ModelAndView mav = new ModelAndView("admin/mber/mberAlertPopup");
+		inParam.put("banGbCd", banGbCd);
+		try {
+			mav.addObject("list", adminMberService.selectMberAlertList(inParam));
+			mav.addObject("searchParam", inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		if(banGbCd != null && banGbCd.length > 0){
+			mav.addObject("banGbCdArr", Arrays.toString(banGbCd));
+			logger.debug(">>>>> searchParam : "+Arrays.toString(banGbCd));
+		}
+		return mav;
+	}
+
+	/**
+	 * <pre>
+	 * 판매경고팝업 표시
+	 * 판매경고팝업을 표시합니다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 5. 오후 3:26:04
+	 * @author Y.I.Chun
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@RequestMapping("/admin/mber/sellAlertPopup.do")
+	public ModelAndView sellAlertPopup(@RequestParam Map<String, Object> inParam
+			, @RequestParam(value="banGbCd", required=false) String[] banGbCd) throws Exception	{
+		ModelAndView mav = new ModelAndView("admin/mber/sellAlertPopup");
+		inParam.put("banGbCd", banGbCd);
+		try {
+//			mav.addObject("list", adminMberService.selectSellAlertList(inParam));
+			mav.addObject("searchParam", inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return mav;
+	}
+
+	@RequestMapping("/admin/mber/mberAccPopup.do")
+	public ModelAndView mberAccPopup(@RequestParam Map<String, Object> inParam) throws Exception{
+		ModelAndView mav = new ModelAndView("admin/mber/mberAccPopup");
+		try {
+			mav.addObject("list", adminMberService.selectMberAccList(inParam));
+			mav.addObject("searchParam", inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mav;
+	}
+
+	@RequestMapping("/admin/mber/mberBuyCredPopup.do")
+	public ModelAndView mberBuyCredPopup(@RequestParam Map<String, Object> inParam
+			, @RequestParam(value="addY", required=false) String addY
+			, @RequestParam(value="addN", required=false) String addN) throws Exception	{
+		ModelAndView mav = new ModelAndView("admin/mber/mberBuyCredPopup");
+		inParam.put("addY", addY);
+		inParam.put("addN", addN);
+		inParam.put("CPOINT_GB_CD","10");
+		try {
+			mav.addObject("list", adminMberService.selectMberCrePointList(inParam));
+			mav.addObject("searchParam", inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return mav;
+	}
+
+	@RequestMapping("/admin/mber/mberDropOutPopup.do")
+	public ModelAndView mberDropOutPopup(@RequestParam Map<String, Object> inParam
+			, @RequestParam(value="banGbCd", required=false) String[] banGbCd) throws Exception	{
+		ModelAndView mav = new ModelAndView("admin/mber/mberDropOutPopup");
+		inParam.put("banGbCd", banGbCd);
+		try {
+//			mav.addObject("list", adminMberService.selectSellAlertList(inParam));
+			mav.addObject("searchParam", inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return mav;
+	}
+
+	@RequestMapping("/admin/mber/mberOrderPopup.do")
+	public ModelAndView mberOrderPopup(@RequestParam Map<String, Object> inParam
+			, @RequestParam(value="banGbCd", required=false) String[] banGbCd) throws Exception	{
+		ModelAndView mav = new ModelAndView("admin/mber/mberOrderPopup");
+		inParam.put("banGbCd", banGbCd);
+		try {
+//			mav.addObject("list", adminMberService.selectSellAlertList(inParam));
+			mav.addObject("searchParam", inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return mav;
+	}
+
+	@RequestMapping("/admin/mber/mberRejectPopup.do")
+	public ModelAndView mberRejectPopup(@RequestParam Map<String, Object> inParam) throws Exception	{
+		ModelAndView mav = new ModelAndView("admin/mber/mberRejectPopup");
+		try {
+			mav.addObject("searchParam", inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return mav;
+	}
+
+	@RequestMapping("/admin/mber/mberSellCredPopup.do")
+	public ModelAndView mberSellCredPopup(@RequestParam Map<String, Object> inParam
+			, @RequestParam(value="banGbCd", required=false) String[] banGbCd) throws Exception	{
+		ModelAndView mav = new ModelAndView("admin/mber/mberSellCredPopup");
+		inParam.put("banGbCd", banGbCd);
+		try {
+//			mav.addObject("list", adminMberService.selectSellAlertList(inParam));
+			mav.addObject("searchParam", inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return mav;
+	}
+
+	@RequestMapping("/admin/mber/mberShareCredPopup.do")
+	public ModelAndView mberShareCredPopup(@RequestParam Map<String, Object> inParam
+			, @RequestParam(value="banGbCd", required=false) String[] banGbCd) throws Exception	{
+		ModelAndView mav = new ModelAndView("admin/mber/mberShareCredPopup");
+		inParam.put("banGbCd", banGbCd);
+		try {
+//			mav.addObject("list", adminMberService.selectSellAlertList(inParam));
+			mav.addObject("searchParam", inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return mav;
+	}
+
+	@RequestMapping("/admin/mber/mberStopPopup.do")
+	public ModelAndView mberStopPopup(@RequestParam Map<String, Object> inParam) throws Exception	{
+		ModelAndView mav = new ModelAndView("admin/mber/mberStopPopup");
+		try {
+			mav.addObject("listCode", adminMberService.selectCodeList("MBER_STOP_REASON_GB_CD"));
+			mav.addObject("searchParam", inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return mav;
+	}
+
+	@RequestMapping("/admin/mber/sendMail.do")
+	public ModelAndView sendMail(HttpServletRequest request
+			, @RequestParam Map<String, Object> inParam ) throws Exception	{
+		ModelAndView mav = new ModelAndView();
+
+		try {
+			logger.debug(">>>>> mberSeq : " + inParam.get("mberSeq"));
+			inParam.put("retMsg", "메일이 발송되었습니다");
+			mav.addObject("param",inParam);
+			mav.setViewName("jsonView");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mav;
+	}
+
+
+
+	@RequestMapping("/admin/mber/sendMsg.do")
+	public ModelAndView sendMsg(HttpServletRequest request
+			, @RequestParam Map<String, Object> inParam ) throws Exception	{
+		ModelAndView mav = new ModelAndView();
+
+		try {
+
+			inParam.put("retMsg", "문자가 발송되었습니다");
+			mav.addObject("param",inParam);
+			mav.setViewName("jsonView");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mav;
+	}
+
+		@RequestMapping("/admin/mber/ajaxminishop.do")
+		public ModelAndView ajaxminishop(HttpServletRequest request
+				, @RequestParam Map<String, Object> inParam ) throws Exception	{
+			ModelAndView mav = new ModelAndView();
+//		Map<String, Object> inParam = new HashMap<String, Object>();
+//		inParam.put("MBER_STAT_CD", MBER_STAT_CD);
+
+
+			try {
+				if(adminMberService.selectpath(inParam) > 0){
+
+					inParam.put("retMsg", "이미 사용중인 주소 입니다.");
+					inParam.put("miniShopNameDupFlag", "N");
+				}else{
+					inParam.put("retMsg", "사용 가능한 주소 입니다.");
+					inParam.put("miniShopNameDupFlag", "Y");
+				}
+				mav.addObject("param",inParam);
+				mav.setViewName("jsonView");
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+			return mav;
+		}
+
+		@RequestMapping("/admin/mber/mberSuspPopup.do")
+		public ModelAndView mberSuspPopup(@RequestParam Map<String, Object> inParam ) throws Exception	{
+			ModelAndView mav = new ModelAndView("admin/mber/mberSuspPopup");
+				try {
+					mav.addObject("list", adminMberService.selectSusList(inParam));
+					mav.addObject("searchParam", inParam);
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+			return mav;
+		}
+
+	/**
+	 * 콜센터 전화 매칭 url, 해당 url에서 전화번호를 바탕으로 회원 정보 확인으로 넘어간다.
+	 * @param inParam
+	 * @return mav
+	 * @throws Exception
+	 */
+	@RequestMapping("/admin/mber/callcenter.do")
+	public ModelAndView callcenter(@RequestParam Map<String, Object> inParam) throws Exception {
+		ModelAndView mav = new ModelAndView("admin/mber/callcenter");
+		return mav;
+	}
+
+	/**
+	 * 이미지 변경
+	 * @param inParam
+	 * @return mav
+	 * @throws Exception
+	 */
+	@RequestMapping("/admin/mber/updateCmpnyImg.do")
+	public ModelAndView updateCmpnyImg(MultipartHttpServletRequest request,
+			HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception {
+		ModelAndView mav = new ModelAndView("jsonView");
+		LoggerUtil.writeMap(inParam);
+		try{
+			mav.addObject("result", adminMberService.updateCmpnyImg(request, inParam));
+		}catch (Exception e) {
+			e.printStackTrace();
+			throw e;
+		}
+
+		return mav;
+	}
+
+
+}

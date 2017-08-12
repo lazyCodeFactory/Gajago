@@ -1,0 +1,505 @@
+package com.ssocio.sharing.cmmn.web.handler;
+
+import java.net.URLDecoder;
+import java.net.URLEncoder;
+import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
+
+import net.sf.json.JSONObject;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.ui.ModelMap;
+import org.springframework.web.servlet.ModelAndView;
+
+import com.ssocio.sharing.cmmn.handler.AbstractHandlerInterceptor;
+import com.ssocio.sharing.cmmn.security.SSOCIO_AES256Cipher;
+import com.ssocio.sharing.cmmn.service.CommonService;
+import com.ssocio.sharing.cmmn.util.CmmnCnst;
+import com.ssocio.sharing.cmmn.util.JsonUtil;
+import com.ssocio.sharing.cmmn.util.StringUtil;
+import com.ssocio.sharing.cmmn.web.util.WebCommonUtil;
+import com.ssocio.sharing.vo.web.HeaderVO;
+import com.ssocio.sharing.vo.web.WebSession;
+
+/**
+ * <pre>
+ * Batch Interceptor
+ * 
+ * @author N.J.Kim
+ * @version 
+ * @since 2015. 6. 5. 오후 5:35:35
+ * @see 
+ * @History 
+ *  Date          |    author    | 변경내용 
+ * @Todo
+ * </pre>
+ */
+public class WebDeviceCheckInterceptor extends AbstractHandlerInterceptor {
+
+	private static final long serialVersionUID = 2604055211090907745L;
+
+	// --------------------------------------------------------------------------
+	// # Log 설정
+	// --------------------------------------------------------------------------
+	private static final Logger logger = LoggerFactory.getLogger(WebDeviceCheckInterceptor.class);
+	
+	// --------------------------------------------------------------------------
+	// # Service 설정
+	// --------------------------------------------------------------------------
+	@Autowired
+	private CommonService commonService;
+	
+	/**
+	 * <pre>
+	 * preHandle
+	 * 
+	 * @param request
+	 * @param response
+	 * @param handler
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 14. 오후 2:22:22 
+	 * @see @see org.springframework.web.servlet.handler.HandlerInterceptorAdapter#preHandle(javax.servlet.http.HttpServletRequest, javax.servlet.http.HttpServletResponse, java.lang.Object)
+	 * </pre>
+	 */
+	@Override
+	public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
+		try{
+			logger.info("# @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+			logger.info("# [MobileDeviceCheckInterceptor] Start @@@@@@@@@@@");
+		
+			// ----------------------------------------------------------------------
+			// LOGIN VAL CHECK
+			// ----------------------------------------------------------------------
+			logger.debug("☆★☆★☆★☆★☆★☆★☆★☆★☆★[AdminLoginCheckInterceptor]☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+			logger.debug("[isLogin]"+WebCommonUtil.isLogin(request));
+			logger.debug("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+			
+			String userAgent = (String)request.getHeader("User-Agent");
+//			String userAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 8_4 like Mac OS X) AppleWebKit/600.1.4 (KHTML, like Gecko) Mobile/12H141 MOBILEAPP";
+			//WEBVIEW로 들어오는 구분 값 추가 - "MOBILEAPP"
+			request.getServerName();
+			boolean secure= request.isSecure();
+			if ( secure ) {
+				request.setAttribute("INIT_URL", "https://"+request.getServerName()+":"+request.getServerPort());
+			} else {
+				request.setAttribute("INIT_URL", "http://"+request.getServerName()+":"+request.getServerPort());
+			}
+			String[] mobileos = {"MOBILEAPP","iPhone", "iPod", "Android", "BlackBerry", "Windows CE", "Nokia", "Webos", "Opera", "Mini", "SonyEricsson", "Opera Mobi", "IEMobile"};
+			String xRealIp = request.getHeader("x-real-ip");
+			String APP_VERSION = request.getHeader("APP_VERSION");
+			String APP_VERSION2 = request.getHeader("app_version");
+			
+			System.out.println("============= GET HEADER ================================");
+			System.out.println(APP_VERSION);
+			System.out.println(APP_VERSION2);
+			System.out.println("======================++++++++=======================");
+			
+			// okayjava : 11.14 : 판매관리/구매관리 폴더 추가
+			String[] urlChk = {"/myBacket/","/myAdr/","/myInfo/","/myPage/","/myRecentProduct/","/salemanage/","/mobile/buy/"};
+			String reqURL = StringUtil.nvl((String)request.getRequestURI());
+			boolean bMobileDevice = false;
+			boolean isPcAgent = false;
+
+			logger.info("# userAgent : " + userAgent);
+			//logger.debug("In reqURL : " + reqURL);
+
+			
+		
+			if(userAgent != null && !userAgent.equals("")){
+				
+				if (WebCommonUtil.isLogin(request)) {
+					HttpSession session = request.getSession();
+					WebSession webSession = (WebSession)session.getAttribute("user");
+					int mberSeq = webSession.getMBER_SEQ();
+					// 로그인 시 refresh위한 작업 
+					session.setAttribute("user", commonService.reSetUerinfo(mberSeq));
+				}
+			
+				
+				// --------------------------------------------------------------------
+				// 디바이스 체크 (모바일/PC)
+				//  - 모바일기기 목록에 없으면 모두 PC로 인식
+				// --------------------------------------------------------------------
+				for(String os : mobileos){
+					if(userAgent.indexOf(os)>-1){
+						// 모바일디바이스로 접속
+						bMobileDevice = true;
+						break;
+					}
+				} // End of
+				
+				// --------------------------------------------------------------------
+				// 디바이스와 접속URL비교
+				// --------------------------------------------------------------------
+				if (bMobileDevice) {
+					//모바일 접속
+					request.getSession().setAttribute("isPcAgent", isPcAgent);
+					////////////////모바일 웹인지 App인지 판별하기 위해 셋팅 /////////////////
+					if(userAgent.indexOf("MOBILEAPP") > -1){
+						logger.info("@@@@@@@@WEB VIEW IN@@@@@@@");
+						String test = request.getHeader("Set-Cookie");
+						request.getSession().setAttribute("APP", "SSOCIO");
+						request.getSession().setAttribute("conGbCd", "20");
+						
+						
+						logger.debug("Header Cookie Session ID:::::::::" + test);
+						logger.debug("Session ID ::::::::::::::::::::::" + request.getSession().getId());
+						logger.debug("getCreationTime::::::::::::::::::" + request.getSession().getCreationTime());
+						logger.debug("getLastAccessedTime :::::::::::::" + request.getSession().getLastAccessedTime());
+						// APP SERIAL_KEY 비교 (자동로그인 체크)
+						ModelMap inParam = new ModelMap();
+						//로그인일 경우 들어온다.
+						if (WebCommonUtil.isLogin(request)) {
+							
+							HttpSession session = request.getSession();
+							
+							WebSession webSession = (WebSession)session.getAttribute("user");
+							
+							int outParam = 0;
+							if(webSession.getSERIAL_KEY() != null) {
+								inParam.put("SERIAL_KEY", webSession.getSERIAL_KEY());
+								outParam = commonService.getMberInfo(inParam);
+								
+								if (outParam == 1) {
+									webSession.setLogin(true);
+									outParam = commonService.getCartCnt(String.valueOf(webSession.getMBER_SEQ()));
+									webSession.setCART_CNT(outParam);
+									
+									request.getSession().setAttribute("user", webSession);
+								} else {
+									webSession.setLogin(false);
+								}
+							}
+						}
+					}
+					
+					// ------------------------------------------------------------------
+					// 모바일디바이스로 접속한 경우
+					// ------------------------------------------------------------------
+					System.out.println("reqURL : " + reqURL);
+					logger.debug("# Device : Mobile");
+					request.setAttribute(CmmnCnst.deviceKey, CmmnCnst.deviceMobile);//디바이스 셋팅
+					
+					if(reqURL.indexOf("/mobile/")>-1) {
+						// 모바일디바이스이로 /mobile/ URL 접속
+						// reqURL 변경없이 진행
+						
+						//false : soccioApi 페이지에서 접속 
+						//true  : app에서 접속 
+						AppCheck(userAgent,request,true);
+						request.getSession().setAttribute("conGbCd", "10");
+					
+					} else if(userAgent.indexOf("MOBILEAPP") > -1){
+						//테스트용 
+						if(null != request.getParameter("ENCODE_YN")){
+							AppCheck(userAgent,request,false);
+						}else{
+							AppCheck(userAgent,request,true);
+						}
+					}else{
+						// TODO 오류처리
+						
+					}
+					
+				
+					
+				} else {
+					// ------------------------------------------------------------------
+					// PC일디바이스로 접속한 경우
+					// ------------------------------------------------------------------
+					logger.debug("# Device : PC");
+					// 임시적으로 해당 IP에만 보이도록 적용(개발 완료후 삭제)
+					if(xRealIp != null) {
+						if(xRealIp.indexOf("59.8.174.")>-1) {
+							isPcAgent = true;
+						}
+					} else {
+						isPcAgent = false;
+					}
+					
+					//모바일 접속
+					request.getSession().setAttribute("isPcAgent", isPcAgent);
+					request.getSession().setAttribute("conGbCd", "30");
+					// ------------------------------------------------------------------
+					// PC일디바이스로 접속한 경우
+					// ------------------------------------------------------------------
+//					logger.debug("# Device : PC");
+//					request.setAttribute(CmmnCnst.deviceKey, CmmnCnst.devicePc);//디바이스 셋팅
+//					
+//					if(reqURL.indexOf("/mobile/")>-1) {
+//						// PC디바이스이로 /mobile/ URL 접속
+//						// reqURL web으로 변경
+//						reqURL  = AppConfigManager.getInstance().getConfig(AppConfigManager.AppConfigKeyDomain)
+//								+ "/web/"
+//								+ reqURL.substring(8);
+//						logger.debug("# Change Device URL : " + reqURL);
+////						response.sendRedirect(reqURL);
+////						reqURL 변경없이 진행
+//					} else if(reqURL.indexOf("/web/")>-1) {
+//						// PC디바이스이로 /web/ URL 접속
+//						// reqURL 변경없이 진행
+//						
+//					} else {
+//						throw new Exception ("잘못된 접속입니다.");
+//					}
+				}
+				logger.info("###### isPcAgent ###### : " + isPcAgent);
+//				logger.info("###### xRealIp ###### : " + xRealIp);
+			}
+			
+      //if(userAgent != null && !userAgent.equals("")){
+      //  for(String os : mobileos){
+      //    if(userAgent.indexOf(os)>-1){
+      //      //모바일로 web URL로 호출했을때
+      //      if(reqURL.indexOf("/web/")>-1){
+      //        reqURL = "/mobile/"+reqURL.substring(5);
+      //        logger.debug("[reqURL]"+reqURL);
+      //        response.sendRedirect(reqURL);
+      //      }
+      //      request.setAttribute(CmmnCnst.deviceKey, CmmnCnst.deviceMobile);//디바이스 셋팅
+      //    }
+      //    else{
+      //      //PC로 mobile URL로 호출했을때
+      //      if(reqURL.indexOf("/mobile/")>-1){
+      //        reqURL = "/web/"+reqURL.substring(8);
+      //        logger.debug("[reqURL]"+reqURL);
+      //        response.sendRedirect(reqURL); 
+      //      }
+      //      request.setAttribute(CmmnCnst.deviceKey, CmmnCnst.devicePc);//디바이스 셋팅
+      //    }
+      //  } // End of for(String os : mobileos)
+      //}
+			
+			//로그인 페이지 호출시 세션이 있으면 메인으로	
+			if(reqURL.indexOf("/mobile/main/login.do")>-1) {
+				if(userAgent.indexOf("MOBILEAPP") ==  -1){
+					if (WebCommonUtil.isLogin(request)) {
+						 response.sendRedirect("/mobile/main/main.do"); 
+		                    return false;
+							
+						}
+				}
+			}
+			
+			
+			if (WebCommonUtil.isLogin(request)) {
+//				commonService.insertMobileLog(inParam);
+				WebSession webSession = (WebSession)request.getSession().getAttribute("user");
+				String cartViewYn = commonService.getCartViewYn(webSession.getMBER_SEQ());
+				request.setAttribute("cartViewYn", cartViewYn);
+			}else{
+				// 수정자 : 이진세 
+				// 수정날짜 : 15.11.09
+				// 수정내용 : intercepter : login을 해야만 진입할수 있는 페이지들을 catch 후 session값이 null 이면 로그인 페이지로 이동. 
+				for(String url : urlChk){
+					if(reqURL.indexOf(url)>-1){
+						response.sendRedirect("/mobile/main/login.do"+"?ret="+URLEncoder.encode(reqURL,"UTF-8"));
+						 return false;
+					}
+				}
+				
+			}
+			
+			
+			logger.debug("conGbCd ::::::::: "+ (String)request.getSession().getAttribute("conGbCd"));
+		} catch (Exception e) {
+			logger.error("# MobileDeviceCheckInterceptor 오류 [" + e.toString() + "]");
+			e.printStackTrace();
+		}
+		return true;
+	}
+	
+	
+	private void AppCheck(String userAgent, HttpServletRequest request,boolean AppGuben) {
+
+		//SSOCIOAPI.do 전문 테스트 전용... 
+		if(!AppGuben){
+			String JSONDATA =  (String)request.getParameter("JSONDATA") ;
+			try {
+				JSONObject headerjson= JsonUtil.getJsonfromJsonString(JSONDATA);
+				//body 파라미터 담기
+				Map<String, Object> bodyMap = JsonUtil.getJsonStringToMap(JSONDATA);
+				JSONObject headerObj = (JSONObject) headerjson.get("header");
+				HeaderVO headerVO = new HeaderVO();
+				logger.info("@@@@@@@@@@@@@@@@ Header Info Sett Start @@@@@@@@@@@@@@@@");
+				if(headerObj.containsKey("SVC_CD")){
+					headerVO.setSvc_cd(headerObj.getString("SVC_CD"));
+				}
+				if(headerObj.containsKey("OS_GUBUN")){
+					headerVO.setOs_gubun(headerObj.getString("OS_GUBUN"));
+				}
+				if(headerObj.containsKey("REQ_DTM")){
+					headerVO.setReq_dtm(headerObj.getString("REQ_DTM"));
+				}
+				if(headerObj.containsKey("APP_VERSION")){
+					headerVO.setApp_version(headerObj.getString("APP_VERSION"));
+				}
+				if(headerObj.containsKey("SERIAL_KEY")){
+					headerVO.setSerial_key(headerObj.getString("SERIAL_KEY"));
+				}
+				if(headerObj.containsKey("SCREEN")){
+					headerVO.setScreen(headerObj.getString("SCREEN"));
+				}
+				if(headerObj.containsKey("UUID")){
+					headerVO.setUuid(headerObj.getString("UUID"));
+				}
+				if(headerObj.containsKey("MBER_SEQ")){
+					headerVO.setMber_seq(headerObj.getString("MBER_SEQ"));
+				}
+				if(headerObj.containsKey("OS_VERSION")){
+					headerVO.setOs_version(headerObj.getString("OS_VERSION"));
+				}
+				logger.debug("header Info ::::::: " + headerVO);
+				logger.info("@@@@@@@@@@@@@@@@ Header Info Sett End @@@@@@@@@@@@@@@@");
+				request.setAttribute("header", headerVO);
+				request.setAttribute("body", bodyMap);
+			} catch (Exception e) {
+
+			}
+		}else{
+			logger.info("USER AGENT MOBILEAPP CONTAIN.......");
+			if(request.getParameter("JSONDATA") != null){
+				
+				String JSONDATA =  (String)request.getParameter("JSONDATA") ;
+//				String JSONDATA =  "RNlg4OEvkIZn%2Bffnqnom%2BpXK1gLOdTVy8hGpHk8na87SZQ492iRySkEkhdbpA8jILvIcNh7wkjq7uAU4q2UHVZozLXIj8K4hXuKWiDJFl139EHAmaCS%2B8QCLC%2BmOabVSN/5npgV3qx1V2agBQDURo0gCbKfHpMS%2BmjWef3EA4IJ/vGEcYCqDnjpaEsxelBaxBjeivBguL1r4vr1LeeeEAnN/kRl/eaSVht5XTc5oB2FW6Mjx2cVi%2BOD4XvtZvNIw";
+				System.out.println("@@@@@@@@@@@@DECODE 전 JSONDATA @@@@@@@@@@@@@@@@@@");
+				System.out.println(JSONDATA);
+				System.out.println("@@@@@@@@@@@@DECODE 전 JSONDATA @@@@@@@@@@@@@@@@@@");
+				try {
+					//1. APP에서 넘어온 값을 UTF-8 decode 한다. 
+					JSONDATA=URLDecoder.decode(JSONDATA, "UTF-8");
+					//2. AES256으로 암호된 값을 복호화한다 (AES_Decode 안에 BASE 64 decode 도 포함되어 있음)
+					JSONDATA = SSOCIO_AES256Cipher.getAesMsg(JSONDATA);////디코딩
+					logger.info("@@@@@@@@@@@@@@@@ Decode JSONDATA @@@@@@@@@@@@@@@@");
+					logger.debug("JSONDATA : " + JSONDATA);
+					logger.info("@@@@@@@@@@@@@@@@ Decode JSONDATA END @@@@@@@@@@@@@@@@");
+					// 헤더 파라미터 담기
+					
+					JSONObject headerjson= JsonUtil.getJsonfromJsonString(JSONDATA);
+					//body 파라미터 담기
+					Map<String, Object> bodyMap = JsonUtil.getJsonStringToMap(JSONDATA);
+					logger.info("@@@@@@@@@@@@@@@@ Decode JSONDATA @@@@@@@@@@@@@@@@");
+					logger.debug("bodyMap : " + bodyMap);
+					logger.info("@@@@@@@@@@@@@@@@ Decode JSONDATA END @@@@@@@@@@@@@@@@");
+					JSONObject headerObj = (JSONObject) headerjson.get("HEADER");
+					HeaderVO headerVO = new HeaderVO();
+					logger.info("@@@@@@@@@@@@@@@@ Header Info Sett Start @@@@@@@@@@@@@@@@");
+					if(headerObj.containsKey("SVC_CD")){
+						headerVO.setSvc_cd(headerObj.getString("SVC_CD"));
+					}
+					if(headerObj.containsKey("OS_GUBUN")){
+						headerVO.setOs_gubun(headerObj.getString("OS_GUBUN"));
+					}
+					if(headerObj.containsKey("REQ_DTM")){
+						headerVO.setReq_dtm(headerObj.getString("REQ_DTM"));
+					}
+					if(headerObj.containsKey("APP_VERSION")){
+						headerVO.setApp_version(headerObj.getString("APP_VERSION"));
+					}
+					if(headerObj.containsKey("SERIAL_KEY")){
+						headerVO.setSerial_key(headerObj.getString("SERIAL_KEY"));
+					}
+					if(headerObj.containsKey("SCREEN")){
+						headerVO.setScreen(headerObj.getString("SCREEN"));
+					}
+					if(headerObj.containsKey("SERIAL_KEY")){
+						headerVO.setSerial_key(headerObj.getString("SERIAL_KEY"));
+					}
+					if(headerObj.containsKey("UUID")){
+						headerVO.setUuid(headerObj.getString("UUID"));
+					}
+					if(headerObj.containsKey("OS_VERSION")){
+						headerVO.setOs_version(headerObj.getString("OS_VERSION"));
+					}
+					if(headerObj.containsKey("MBER_SEQ")){
+						headerVO.setMber_seq(headerObj.getString("MBER_SEQ"));
+					}
+					logger.debug("header Info ::::::: " + headerVO.toString());
+					logger.info("@@@@@@@@@@@@@@@@ Header Info Sett End @@@@@@@@@@@@@@@@");
+					request.setAttribute("header", headerVO);
+					request.setAttribute("body", bodyMap);
+					HttpSession session = request.getSession();
+					session.setAttribute("OS_GUBUN", headerVO.getOs_gubun());
+					session.setAttribute("APP_VERSION", headerVO.getApp_version());
+				} catch (Exception e) {
+
+				}
+			}
+		}
+		
+	}
+
+	/**
+	 * <pre>
+	 * postHandle
+	 * 
+	 * @param request
+	 * @param response
+	 * @param handler
+	 * @param model
+	 * @throws Exception
+	 * @date 2015. 8. 14. 오후 2:26:47
+	 * @author S.B.LEE
+	 * @see @see org.springframework.web.servlet.handler.HandlerInterceptorAdapter#postHandle(javax.servlet.http.HttpServletRequest, javax.servlet.http.HttpServletResponse, java.lang.Object, org.springframework.web.servlet.ModelAndView)
+	 * </pre>
+	 */
+	@Override
+	public void postHandle(HttpServletRequest request, HttpServletResponse response, Object handler, ModelAndView model) throws Exception {
+		// TODO Auto-generated method stub
+	}
+	
+	/**
+	 * <pre>
+	 * afterCompletion
+	 * 
+	 * @param request
+	 * @param response
+	 * @param handler
+	 * @param exception
+	 * @throws Exception
+	 * @date 2015. 8. 14. 오후 2:27:19
+	 * @author S.B.LEE
+	 * @see @see org.springframework.web.servlet.handler.HandlerInterceptorAdapter#afterCompletion(javax.servlet.http.HttpServletRequest, javax.servlet.http.HttpServletResponse, java.lang.Object, java.lang.Exception)
+	 * </pre>
+	 */
+	@Override
+	public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler, Exception exception) throws Exception {
+		// TODO Auto-generated method stub
+	}
+	
+	/**
+	 * <pre>
+	 * AfterContextPathUri반환
+	 *  - request에서 가져옴
+	 * @param request
+	 * @return
+	 * @date 2015. 8. 14. 오후 2:28:08
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.cmmn.web.handler
+	 * </pre>
+	 */
+	public static String getAfterContextPathUri(HttpServletRequest request) {
+		
+		String requestUri             = "";
+		String strAfterContextPathUri = "";
+
+		try {
+			
+			requestUri = request.getRequestURI();   // ex) /lotteCardMall/web/web.apiTest
+			logger.debug("# requestUri          : " + requestUri);
+			strAfterContextPathUri = requestUri.substring(request.getContextPath().length());
+			//logger.debug("@@afterContextPathUri : " + strAfterContextPathUri);
+		} catch (Exception e) {
+			
+			logger.error("# MobileDeviceCheckInterceptor 오류 [" + e.toString() + "]");
+			e.printStackTrace();
+		}
+		return strAfterContextPathUri;
+	}
+}

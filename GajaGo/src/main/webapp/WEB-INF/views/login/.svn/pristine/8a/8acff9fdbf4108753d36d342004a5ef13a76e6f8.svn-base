@@ -1,0 +1,267 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/web/common/cmmnHead.jsp"%>
+<script type="text/javascript" src="/js/web/class.js"/></script>
+<script type="text/javascript">
+Ctry = Class({
+	index : 0,
+	seq : '',
+	name : '',
+	initialize: function(index, seq, name) {
+		this.index = index;
+		this.seq = seq;
+		this.name = name;
+	}
+});
+
+var categories = {
+	list : new Array(),
+	paging : {
+		curPage : 1,
+		isNext : false
+	},
+	add : function(ctry){
+		this.list.push(ctry);
+		this.display(ctry);
+	},
+	getSequence : function(){
+		return this.list.length;
+	},
+	display : function(ctry){
+		var html = '<li>';
+		html += '	<p>';
+		html += '		<input type="radio" id="WISH_SEQ_' + ctry.index + '" name="WISH_SEQ" value="' + ctry.seq + '">';
+		html += '		<label for="WISH_SEQ_' + ctry.index + '">' + ctry.name + '</label>';
+		html += '	</p>';
+		html += '</li>';
+		$("#WISH_CTRY_LIST").append(html);
+	}
+};
+
+var limit = 20;
+
+$(document).ready(function(){
+	header.type	= 3;
+	header.title = "위시담기";
+	header.method = "GET";
+	if( '${inParam.PROD_TYPE_CD}' == '4'){
+		header.backUrl = "/mobile/shar/selectSharDtl.do?PROD_CODE=${inParam.PROD_CODE }";
+	}
+	else{
+		header.backUrl = "/mobile/prod/selectProd.do?PROD_CODE=${inParam.PROD_CODE }";	
+	}
+	header.callback = showAddWishCtry;
+	header.backUrl = "/mobile/prod/selectProd.do?PROD_CODE=${inParam.PROD_CODE }";
+	initHeader();
+	document.title = header.title;
+	
+	if( '${sessionScope.APP}' == 'SSOCIO'){
+		document.location.replace('ssocio://web/hideDetailBottomView');
+	}	
+	
+	//	위시 카테고리의 첫번째 인덱스를 선택상태로 세팅한다.
+	$(":radio[name='WISH_SEQ']").eq(0).attr("checked", true);
+	
+	$(window).scroll(function(){
+		if( $(window).scrollTop() == $(document).height() - $(window).height()){
+			isNext = categories.paging.isNext;
+			console.log(isNext);
+			if(isNext == true){
+				$("#CUR_PAGE").val(categories.paging.curPage + 1);
+				getWishCtry();
+			}
+		}
+	});
+	
+	$('#WISH_CTRY_NM').keyup(function(e){
+		var cur = getBytesLength($(this).val());
+		console.log(cur + " : " + limit);
+		if( cur > limit ){
+			$(this).val($(this).val().substring(0, limit));
+		}
+	});
+	
+	//	위시 카테고리 리스트 세팅
+	<c:forEach var="wish" items="${result.wishCtryList }" varStatus="status">
+		var ctry = new Ctry(categories.getSequence(), '${wish.WISH_SEQ}', '${wish.WISH_NAME}');
+		categories.add(ctry);
+	</c:forEach>
+	
+	//$("input:radio[id='WISH_SEQ_0']").prop("checked", true);
+	
+	categories.paging.isNext = ${result.paging.next };
+	categories.paging.curPage = ${result.paging.curPage};
+	$("#CUR_PAGE").val(categories.paging.curPage);	
+	
+	displayFooter(false);
+	
+});
+
+function getWishCtry(){
+	$.ajax({
+		type: 'post',
+		async: true, 
+		url: '/mobile/myWish/selectListCtryAjax.do', 
+		dataType:'json', 
+		data: {"CUR_PAGE":$("#CUR_PAGE").val()},
+	    success: function(response) {
+	    	var ctryList = response.data.wishCtryList;
+
+	    	$.each(ctryList, function(index){
+	    		var ctry = new Ctry(categories.getSequence(), ctryList[index].WISH_SEQ, ctryList[index].WISH_NAME);
+	    		categories.add(ctry);
+	    	});
+	    	
+	    	categories.paging.isNext = response.data.paging.next;
+	    	categories.paging.curPage = response.data.pageing.curPage;
+			$("#CUR_PAGE").val(response.data.pageing.curPage);	    	
+		}, 
+		error : function(request, status, error) {
+			alert("통신 오류가 발생 하였습니다. 잠시 후 다시 시도해 주세요");
+		}
+	}); 
+}
+
+function showAddWishCtry(param){
+	if( "btn_plus" == param){
+		$('.wish').show();popup_show();
+	}
+}
+
+/**
+ * <pre>
+ * 설명 : 위시 카테고리 추가에서 확인 버튼 클릭 시 호출
+ * 설명 : 이미 존재하면 리턴하고, 아니면 DB에 insert후 카테고리를 추가한다.
+ * @author WOOK.KIM
+ * @see
+ * </pre>
+ */
+function insertWishCtry(){
+	$.ajax({
+		type: 'post',
+		async: true, 
+		url: '/mobile/myWish/insertWishCtryReg.do', 
+		dataType:'json', 
+		data: {"WISH_NAME": $("#WISH_CTRY_NM").val() },
+		success: function(response) {
+			if( response.data.ERR_CODE == 0){
+				alert("이미 존재하는 위시 카테고리 이름입니다.");
+			}
+			else{
+				$("#form").attr("action", "/mobile/myWish/insertWish.do").submit();
+			}
+		},
+		error : function(request, status, error) {
+			alert("통신 오류가 발생 하였습니다. 잠시 후 다시 시도해 주세요");
+		}
+	}); 
+
+}
+ 
+ /**
+  * <pre>
+  * 설명 : 상품을 위시에 추가한다.
+  * 설명 : 이미 존재하면 메세지 후 리턴하고, 추가되었으면 상세 페이지로 이동한다.
+  * @author WOOK.KIM
+  * @see
+  * </pre>
+  */
+function insertWish(){
+	var wishSeq = $(":radio[name='WISH_SEQ']:checked").val() 
+	if(wishSeq == undefined || wishSeq == ''){
+		alert("위시리스트를 선택해 주세요.");
+		return;
+	}
+
+	$.ajax({
+		type: 'post',
+		async: true, 
+		url: '/mobile/myWish/insertWishReg.do', 
+		dataType:'json', 
+		data: {"WISH_SEQ": wishSeq, "PROD_CODE" : $("#PROD_CODE").val() },
+		success: function(response) {
+			if( response.data == 0){
+				alert("해당 상품이 이미 담겨있습니다.");
+			}
+			else{
+				if( '${inParam.PROD_TYPE_CD}' == '4'){
+					location.href = "/mobile/shar/selectSharDtl.do?PROD_CODE=${inParam.PROD_CODE }";
+				}
+				else{
+					location.href = "/mobile/prod/selectProd.do?PROD_CODE=${inParam.PROD_CODE }";	
+				}
+			}
+		},
+		error : function(request, status, error) {
+			alert("통신 오류가 발생 하였습니다. 잠시 후 다시 시도해 주세요");
+		}
+	}); 
+}
+
+
+</script>
+</head>
+<body>
+<form name="form" id="form" method="post">
+<input type="hidden" name="PROD_CODE" id="PROD_CODE" value="${inParam.PROD_CODE }" />
+<input type="hidden" name="PROD_TYPE_CD" id="PROD_TYPE_CD" value="${inParam.PROD_TYPE_CD }" />
+<input type="hidden" name="CUR_PAGE" id="CUR_PAGE" value="${inParam.CUR_PAGE }" />
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+		<div class="roc">
+			<ul class="inner">
+				<li><img src="http://static.ssocio.net/pc/img/common/section/roc_home.png" alt="홈"></li>
+				<li>마이페이지</li>
+				<li>위시리스트</li>
+			</ul>
+		</div>
+		<jsp:include page="../common/mype_top.jsp" flush="false" />
+		<div class="mype_s_tit">
+			<p>위시리스트</p>
+		</div>
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+		<!-- container -->
+		<div id="container">
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>
+
+	<p class="title">위시리스트를 선택해 주세요.</p>
+	<div class="content" id="id_div_content">
+		<ul class="list linet" id="WISH_CTRY_LIST">
+		</ul>
+	</div>
+	<div class="btn_enter fixed"><a href="javascript:insertWish();" class="btn_r">담기</a></div>
+
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+		<jsp:include page="../common/mype_bottom.jsp" flush="false" />
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+	    </div>
+	    <!-- //container -->
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>
+
+<!-- 위시리스트 팝업 -->
+<div class="popup wish">
+	<p class="title"><strong>위시카테고리</strong></p>
+	<p class="pd10"><input type="text" name="WISH_CTRY_NM" id="WISH_CTRY_NM" value="" placeholder="최대10자리"></p>
+	<div class="bot_btn">
+		<ul class="btn">
+			<li><a href="javascript:insertWishCtry();popup_hide();" class="btn_r">추가</a></li>
+			<li><a href="javascript:popup_hide();" class="btn_b-line">취소</a></li>
+		</ul>
+	</div>
+</div>
+</form>
+</body>
+</html>

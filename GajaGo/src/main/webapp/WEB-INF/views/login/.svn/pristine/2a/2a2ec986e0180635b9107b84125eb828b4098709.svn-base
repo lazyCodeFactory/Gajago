@@ -1,0 +1,326 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="sellerQAAdviceMapper">
+	<!-- 검색조건 -->
+	<sql id="condition">  
+	    <!-- 시작일자-->
+	    <if test="S_START_DATE != null and S_START_DATE != ''">
+	      AND TO_CHAR(A.REGIST_DT, 'YYYYMMDD') <![CDATA[>=]]> #{S_START_DATE}
+	    </if>
+	    <!-- 끝일자-->
+	    <if test="S_END_DATE != null and S_END_DATE != ''">
+	      AND TO_CHAR(A.REGIST_DT, 'YYYYMMDD') <![CDATA[<=]]> #{S_END_DATE}
+	    </if>
+	    <!-- 문의유형 -->
+	    <if test="P_QNA_TYPE_CD != null and P_QNA_TYPE_CD != ''">
+	    /*sellerQAAdviceMapper.QNA_TYPE*/
+	      AND A.QNA_TYPE_CD = #{P_QNA_TYPE_CD}
+	    </if>
+	    <!-- 주문번호 -->
+	    <if test="P_ORD_CD != null and P_ORD_CD != ''">
+	    /*sellerQAAdviceMapper.ORD_CD*/
+	      AND A.ORD_CD = #{P_ORD_CD}
+	    </if>
+	    <!-- 상품명 -->
+	    <if test="P_PROD_NM != null and P_PROD_NM != ''">
+	    /*sellerQAAdviceMapper.PROD_NM*/
+	      AND D.PROD_NM LIKE '%' ||#{P_PROD_NM} || '%'
+	    </if>
+	    <!-- CS담당자 -->
+	    <if test="P_WRITE_NM != null and P_WRITE_NM != ''">
+	    /*sellerQAAdviceMapper.WRITE_NM*/
+	      AND A.WRITE_NM LIKE '%' || #{P_WRITE_NM} || '%'
+	    </if>
+	    <!-- 처리상태 -->
+	    <if test="P_ANS_GB_CD != null and P_ANS_GB_CD != ''">
+	    /*sellerQAAdviceMapper.ANS_GB_CD*/
+	      AND A.ANS_GB_CD = #{P_ANS_GB_CD}
+	    </if>
+	    <!-- 상품코드 -->
+	    <if test="P_PROD_CODE != null and P_PROD_CODE != ''">
+	    /*sellerQAAdviceMapper.PROD_CODE*/
+	      AND A.PROD_CODE = #{P_PROD_CODE}
+	    </if>
+	    <!-- 제목 -->
+	    <if test="P_TITLE != null and P_TITLE != ''" >
+	    /*sellerQAAdviceMapper.TITLE*/
+	      AND TITLE LIKE '%' || #{P_TITLE} || '%'
+	    </if>
+	    <!-- 작성자아이디(작성자 이메일) -->
+	    <if test="P_MBER_EMAIL != null and P_MBER_EMAIL != ''" >
+	    /*sellerQAAdviceMapper.MBER_EMAIL*/
+	      AND B.MBER_EMAIL LIKE '%' || #{P_MBER_EMAIL} || '%'
+	    </if>
+	</sql>
+	
+	<!-- 1:1문의 리스트 조회  -->
+	<select id="selectListQAA" parameterType="HashMap" resultType="HashMap">
+	 <include refid="sellerCommonMapper.pagingHeader" /> 
+		 SELECT      A.REGIST_DT
+          		   , A.TITLE
+          	       , ROW_NUMBER() OVER(ORDER BY A.REGIST_DT DESC )AS NO
+          	       , A.BOARD_SEQ
+          	       , A.ANS_CONTENTS
+          	        , (
+	              SELECT COM_CD_NM 
+	                FROM CODE 
+	               WHERE GRP_CD = 'ANS_GB_CD' 
+	                 AND COM_CD = A.ANS_GB_CD
+	           	  )	AS ANS_GB_NM		
+
+                  , (
+	              SELECT COM_CD_NM 
+	                FROM CODE 
+	               WHERE GRP_CD = 'QNA_TYPE_CD' 
+	                 AND COM_CD = A.QNA_TYPE_CD 
+	              ) AS QNA_TYPE_NM
+				   , A.FWRITER_ID
+				   , A.FWRITER_NM
+		 FROM      BOARD_INFO A
+	     WHERE     A.BOARD_TYPE_CD = #{BOARD_TYPE_CD} 
+     	       AND A.MBER_SEQ = 	   #{MBER_SEQ} 
+     	       	    <if test="P_QNA_TYPE_CD != null and P_QNA_TYPE_CD != ''" >
+          	   AND A.QNA_TYPE_CD = 	   #{P_QNA_TYPE_CD} 	
+	    </if>
+        <include refid="condition"/>
+               ORDER BY A.REGIST_DT DESC 
+	 <include refid="sellerCommonMapper.pagingFooter" /> 
+	</select>
+	
+	<select id="selectListQAACount" resultType="int">
+			 SELECT  count(1)
+		 FROM     BOARD_INFO A
+	     WHERE     A.BOARD_TYPE_CD = #{BOARD_TYPE_CD} 
+          	   AND A.MBER_SEQ = 	   #{MBER_SEQ} 	
+        <include refid="condition"/>
+               ORDER BY A.REGIST_DT DESC 
+	</select>
+	
+	<!-- 상품문의 리스트 조회 -->
+	<select id="selectListQAAdvice" parameterType="HashMap" resultType="HashMap">
+	 <include refid="sellerCommonMapper.pagingHeader" /> 
+	/*sellerQAAdviceMapper.selectListQAAdvice*/
+		SELECT   
+				 A.BOARD_TYPE_CD    						AS BOARD_TYPE_CD	<!-- 게시판유형구분코드 -->
+	           , TO_CHAR(A.REGIST_DT, 'YYYY-MM-DD HH24:MI')	AS REGIST_DT      	<!-- 등록일시 -->
+	           , (
+	              SELECT COM_CD_NM 
+	                FROM CODE 
+	               WHERE GRP_CD = 'QNA_TYPE_CD' 
+	                 AND COM_CD = A.QNA_TYPE_CD
+	             )											AS QNA_TYPE_NM		<!-- 문의유형명 -->
+	           , A.ORD_CD									AS ORD_CD			<!-- 주문번호 -->
+	           , (SELECT PROD_IMG_URL FROM PROD_IMG WHERE PROD_CODE = A.PROD_CODE AND PROD_IMG_GB_CD ='11') AS IMG_URL
+	           , A.PROD_CODE								AS PROD_CODE		<!-- 상품코드 -->
+	           , D.PROD_NM									AS PROD_NM			<!-- 상품명 -->
+	           , B.MBER_EMAIL								AS MBER_EMAIL		<!-- 작성자아이디(작성자 이메일) -->
+	           , A.WRITE_NM          						AS WRITE_NM			<!-- 작성자명(중간처리자) -->
+			   , (
+	              SELECT COM_CD_NM 
+	                FROM CODE 
+	               WHERE GRP_CD = 'ANS_GB_CD' 
+	                 AND COM_CD = A.ANS_GB_CD
+	             )											AS ANS_GB_NM		<!-- 처리상태 -->
+	           , A.BOARD_SEQ								AS BOARD_SEQ		<!-- 게시일련번호 -->
+	           , A.WRITE_ID          						AS WRITE_ID			<!-- 작성자ID(중간처리자) -->
+	           , A.TITLE									AS TITLE			<!-- 제목 -->
+	           , (
+	           		SELECT MBER_EMAIL
+	           		  FROM MBER_INFO
+	           		 WHERE MBER_SEQ = D.MBER_SEQ
+	           		 				
+	           	 )											AS SELLER_EMAIL		<!-- 판매자ID(이메일) -->
+	           , A.CUST_NM									AS CUST_NM			<!-- 문의자명 -->
+	           , A.CUST_TEL									AS CUST_TEL			<!-- 문의자 전화번호 -->
+	           , ROW_NUMBER() OVER(ORDER BY A.REGIST_DT DESC ) 	AS NO
+		FROM 
+				 BOARD_INFO A
+			   , MBER_INFO B
+			   , ORD_INFO C
+			   , PROD D
+		WHERE 
+			     A.BOARD_TYPE_CD	= #{BOARD_TYPE_CD}
+	    AND      A.MBER_SEQ 		= B.MBER_SEQ (+)
+	    AND		 A.ORD_CD			= C.ORD_CD (+)
+	    AND		 A.PROD_CODE		= D.PROD_CODE (+)	
+	    AND      D.MBER_SEQ 		= #{MBER_SEQ}		           
+     <include refid="condition"/>
+              ORDER BY A.REGIST_DT DESC 
+	 <include refid="sellerCommonMapper.pagingFooter" /> 
+	</select>
+
+	
+	<!-- 리스트 카운트 조회 -->
+	<select id="selectListQAAdviceCount" parameterType="HashMap" resultType="int">
+		/*sellerQAAdviceMapper.selectListQAAdviceCount*/
+		SELECT   count(1)
+		FROM 
+				 BOARD_INFO A
+			   , MBER_INFO B
+			   , ORD_INFO C
+			   , PROD D
+		WHERE 
+			     A.BOARD_TYPE_CD	= #{BOARD_TYPE_CD}
+	    AND      A.MBER_SEQ 		= B.MBER_SEQ (+)
+	    AND		 A.ORD_CD			= C.ORD_CD (+)
+	    AND		 A.PROD_CODE		= D.PROD_CODE (+)	
+	    AND      D.MBER_SEQ 		= #{MBER_SEQ}		
+	   <include refid="condition"/>  
+	</select>
+	
+	<!-- 상품문의 상세 조회 -->
+	<select id="selectQAAdvice" parameterType="HashMap" resultType="HashMap">
+		/*sellerQAAdviceMapper.selectQAAdvice*/
+		SELECT   
+				 A.BOARD_TYPE_CD    						AS BOARD_TYPE_CD	<!-- 게시판유형구분코드 -->
+	           , TO_CHAR(A.REGIST_DT, 'YYYY-MM-DD HH24:MI')	AS REGIST_DT      	<!-- 등록일시 -->
+	           , TO_CHAR(A.UPDT_DT, 'YYYY-MM-DD HH24:MI')	AS UPDT_DT      	<!-- 수정일시 -->
+	           , QNA_TYPE_CD								AS QNA_TYPE_CD		<!-- 문의유형 -->
+	           , (
+	              SELECT COM_CD_NM 
+	                FROM CODE 
+	               WHERE GRP_CD = 'QNA_TYPE_CD' 
+	                 AND COM_CD = A.QNA_TYPE_CD
+	             )											AS QNA_TYPE_NM		<!-- 문의유형명 -->
+	           , A.ORD_CD									AS ORD_CD			<!-- 주문번호 -->
+	           , A.PROD_CODE								AS PROD_CODE		<!-- 상품코드 -->
+	           , D.PROD_NM									AS PROD_NM			<!-- 상품명 -->
+	           , B.MBER_EMAIL								AS MBER_EMAIL		<!-- 작성자아이디(작성자 이메일) -->
+	           , A.WRITE_NM          						AS WRITE_NM			<!-- 작성자명(중간처리자) -->
+			   , (
+	              SELECT COM_CD_NM 
+	                FROM CODE 
+	               WHERE GRP_CD = 'ANS_GB_CD' 
+	                 AND COM_CD = A.ANS_GB_CD
+	             )											AS ANS_GB_NM		<!-- 처리상태명 -->
+	           , ANS_GB_CD									AS ANS_GB_CD		<!-- 처리상태 -->
+	           , A.BOARD_SEQ								AS BOARD_SEQ		<!-- 게시일련번호 -->
+	           , A.WRITE_ID          						AS WRITE_ID			<!-- 작성자ID(중간처리자) -->
+	           , A.FWRITER_ID								AS FWRITER_ID		<!-- 최종처리자아이디 -->
+			   , A.FWRITER_NM								AS FWRITER_NM       <!-- 최종처리자이름 -->
+	           , A.TITLE									AS TITLE			<!-- 제목 -->
+	           , A.CONTENTS									AS CONTENTS			<!-- 내용 -->
+	           , A.ANS_CONTENTS								AS ANS_CONTENTS		<!-- 답변내용 -->
+	           , A.CUST_NM									AS CUST_NM			<!-- 문의자명 -->
+	           , A.CUST_TEL									AS CUST_TEL			<!-- 문의자 전화번호 -->
+	           ,(SELECT PIU.PROD_IMG_URL  FROM PROD_IMG PIU WHERE PIU.PROD_IMG_GB_CD ='11' AND PIU.PROD_CODE = D.PROD_CODE ) AS PROD_IMG_URL
+	           ,A.SMS_YN
+	           ,A.EMAIL_YN
+	           ,A.EMAIL  AS WEMAIL
+	           ,A.TEL   AS WTEL
+		FROM 
+				 BOARD_INFO A
+			   , MBER_INFO B
+			   , ORD_INFO C
+			   , PROD D
+		WHERE 
+			     A.BOARD_SEQ 	= #{BOARD_SEQ}
+	    AND      A.MBER_SEQ 	= B.MBER_SEQ (+)
+	    AND		 A.ORD_CD		= C.ORD_CD (+)
+	    AND		 A.PROD_CODE	= D.PROD_CODE (+)	
+	    AND D.MBER_SEQ = #{MBER_SEQ }
+	</select>
+	
+	
+	<update id="updateQAAdviceReg" parameterType="hashmap">
+		/*adminQAAdviceMapper.updateQAAdviceReg*/
+		 UPDATE BOARD_INFO
+		 SET
+	           		  ANS_GB_CD		= #{ANS_GB_CD}		<!-- 처리상태 -->
+	           		, ANS_CONTENTS	= #{ANS_CONTENTS}	<!-- 답변내용 -->
+	           		, UPDT_DT 		= SYSDATE			<!-- 수정일시 -->
+	 	    <if test="ANS_GB_CD == '30'">				<!-- 처리완료일때 -->
+	           		, FWRITER_ID	= #{FWRITER_ID}		<!-- 최종처리자아이디 -->
+	           		, FWRITER_NM	= #{FWRITER_NM}		<!-- 최종처리자이름 -->
+	 	    </if>
+	 	   
+		 WHERE                            
+			  BOARD_SEQ = #{BOARD_SEQ}				<!-- 고유번호 -->
+	</update>
+	
+	
+	<!-- 1:1 문의관리 상세 -->
+	<select id="selectQAAdviceReg" parameterType="java.util.Map" resultType="HashMap">
+	/*sellerQAAdviceMapper.selectQAAdviceReg*/
+		<!-- SELECT 		TITLE									AS TITLE
+				   ,CONTENTS								AS CONTENTS
+				   ,NVL(ANS_CONTENTS, 'N')        			AS ANS_CONTENTS		
+		FROM
+				   BOARD_INFO
+		WHERE	
+				   BOARD_TYPE_CD = #{BOARD_TYPE_CD} AND
+				   MBER_SEQ = #{MBER_SEQ}			AND
+				   BOARD_SEQ = #{BOARD_SEQ} -->
+				   
+		SELECT 		REGIST_DT
+      		       ,UPDT_DT
+      			   ,TITLE
+      			   ,CONTENTS
+      			   ,ANS_CONTENTS
+		FROM       BOARD_INFO
+		WHERE      BOARD_TYPE_CD = #{BOARD_TYPE_CD}
+     		   AND MBER_SEQ = #{MBER_SEQ}
+    	       AND BOARD_SEQ = #{BOARD_SEQ}		   
+	</select>
+	
+	
+	<!-- 1:1문의 등록 -->
+	<insert id="insertQAAdviceReg" parameterType="hashmap">
+		/*sellerQAAdviceMapper.insertQAAdviceReg*/
+		<!-- INSERT INTO BOARD_INFO (
+			     BOARD_TYPE_CD   	게시판유형구분코드
+	           , BOARD_SEQ			게시일련번호
+	           , QNA_TYPE_CD		문의유형
+	           , ANS_GB_CD			처리상태
+	           , ORD_CD				주문번호
+	           , PROD_CODE			상품코드
+	           , WRITE_ID			작성자ID(중간처리자)
+	           , WRITE_NM			작성자명(중간처리자)
+	           , CUST_NM			문의자명
+	           , CUST_TEL			문의자 전화번호
+	           , TITLE				제목
+	           , CONTENTS			내용
+	           , ANS_CONTENTS		답변내용
+	           , REGIST_DT			등록일시
+	           , UPDT_DT 			수정일시
+			 )VALUES(
+			  #{BOARD_TYPE_CD}
+			, (SELECT NVL(MAX(BOARD_SEQ), 0) + 1 FROM BOARD_INFO)
+			,#{QNA_TYPE_CD}
+			,#{ANS_GB_CD}
+			,#{ORD_CD}
+			,#{PROD_CODE}  
+			,#{WRITE_ID}
+			,#{WRITE_NM}
+			,#{CUST_NM}
+			,#{CUST_TEL}
+			,#{TITLE}
+			,#{CONTENTS}
+			,#{ANS_CONTENTS}
+			, SYSDATE
+			, SYSDATE
+			 ) -->
+			 
+			  INSERT INTO BOARD_INFO(
+			               BOARD_TYPE_CD			<!-- 게시판 유형 -->
+			              ,BOARD_SEQ				<!-- 게시글 번호 -->
+			              ,MBER_SEQ					<!-- 회원번호 -->
+			              ,TITLE					<!-- 제목 -->
+			              ,CONTENTS					<!-- 문의내용 -->
+              			  ,REGIST_DT				<!-- 작성일 -->
+              			  ,WRITE_ID					<!-- 작성자 ID -->
+              			  ,QNA_TYPE_CD	            <!-- 문의유형코드 -->
+              			  
+              ) VALUES(
+              			  #{BOARD_TYPE_CD}
+              			 ,(SELECT NVL(MAX(BOARD_SEQ), 0) + 1 FROM BOARD_INFO)
+              			 ,#{MBER_SEQ}
+              			 ,#{TITLE}
+              			 ,#{CONTENTS} 
+              			 ,SYSDATE
+              			 ,#{WRITE_ID}
+              			 ,#{P_QNA_TYPE_CD}
+              )
+	</insert>
+  
+</mapper>

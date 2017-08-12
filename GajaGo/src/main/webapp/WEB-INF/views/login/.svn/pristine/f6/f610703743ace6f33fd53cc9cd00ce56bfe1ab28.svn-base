@@ -1,0 +1,704 @@
+package com.ssocio.openmarket.api.controller;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.apache.poi.xssf.usermodel.XSSFCell;
+import org.apache.poi.xssf.usermodel.XSSFRow;
+import org.apache.poi.xssf.usermodel.XSSFSheet;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.ModelMap;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.multipart.MultipartHttpServletRequest;
+import org.springframework.web.servlet.ModelAndView;
+
+import com.ssocio.openmarket.api.service.OMProductService;
+import com.ssocio.openmarket.common.Constant;
+import com.ssocio.openmarket.common.Util;
+import com.ssocio.sharing.cmmn.util.StringUtil;
+import com.ssocio.sharing.service.admin.AdminProdService;
+
+@Controller
+public class OMProductController {
+	private static final Logger logger = LoggerFactory.getLogger(OMProductController.class);
+	
+	@Autowired
+	private AdminProdService adminProdService;
+	
+	@Autowired
+	private OMProductService oMProductService;
+	
+	/**
+	 * 상품 리스트를 조회한다
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 */
+	@RequestMapping(value=Constant.OM_SELECTPRODLIST, method = RequestMethod.POST)
+	public ModelAndView selectProdList(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info(Constant.OM_SELECTPRODLIST + " START");
+		logger.info("### inParam ###");
+		logger.info(String.valueOf(inParam));
+		
+		inParam.put("mberSeq", String.valueOf(request.getAttribute("mberSeq")));
+		inParam.put("prodTypeCd[0]", request.getAttribute("mberSeq") != null ? String.valueOf(request.getAttribute("mberSeq")) : "1");
+		ModelAndView mav = new ModelAndView("jsonView2");
+		
+		// Required Param check
+		String[] parameters = { "mberSeq", "prodTypeCd[0]" };
+		String checkParam = Util.checkRequiredParameters(parameters, inParam);
+		if ( checkParam != null ) {
+			response.setStatus( HttpServletResponse.SC_OK);
+			Map<String, String> error = new HashMap<String, String>();
+			error.put("code", "412");
+			error.put("msg", "필수값 체크가 필요합니다. : " + checkParam );
+			error.put("api", Constant.OM_SELECTPRODLIST );
+			mav.addObject("error", error);
+			return mav;
+		}
+		
+		ModelMap serviceMap = adminProdService.selectProdList(inParam);
+		
+		@SuppressWarnings("unchecked")
+		List<Map<String, Object>> prodList = (List<Map<String, Object>>) serviceMap.get("prodList");
+		logger.info("### prodList ###");
+		logger.info(String.valueOf(prodList));
+		
+		// 각각의 리스트에 detail을 추가하는 부분.
+		for ( int i = 0; i < prodList.size(); i++ ) {
+			Map<String, Object> prodInfo = prodList.get(i);
+			String prodCode = String.valueOf(prodInfo.get("PROD_CODE"));
+			if (prodCode == null || prodCode.trim().equalsIgnoreCase("") || prodCode.trim().equalsIgnoreCase("null")) {
+				continue;
+			}
+			
+			Map<String, Object> subParam = new HashMap<String, Object>();
+			subParam.put("prodCode", prodCode);
+			
+			try {
+				ModelMap prodDetail = adminProdService.selectProdInfo(subParam);
+				prodList.get(i).put("prodDetail", prodDetail);
+			} catch (Exception e) {
+				e.printStackTrace();
+				response.setStatus( HttpServletResponse.SC_OK);
+				Map<String, String> error = new HashMap<String, String>();
+				error.put("code", "500");
+				error.put("msg", "Internal Server Error");
+				mav.addObject("error", error);
+				return mav;
+			}
+		}
+		
+		mav.addObject("prodList", prodList);
+		mav.addObject("inParam", inParam);
+		return mav;
+	}
+	
+	/**
+	 * 상품 등록 / 수정 : prodCode 코드 존재 여부에 따른 등록 / 수정한다
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 */
+	@RequestMapping(value=Constant.OM_SAVEPRODINFO, method = RequestMethod.POST)
+	public ModelAndView saveProdInfo(MultipartHttpServletRequest request, HttpServletResponse response,
+			@RequestParam(value="entrySeq", required=false) String[] entrySeq, 
+			@RequestParam(value="infoTitle", required=false) String[] infoTitle,
+			@RequestParam(value="infoDtl", required=false) String[] infoDtl,
+			@RequestParam(value="extShowYn", required=false) String[] extShowYn,
+			@RequestParam(value="grpProdSeq", required=false) String[] grpProdSeq,
+			@RequestParam Map<String, Object> inParam ) throws Exception{
+		logger.info(Constant.OM_SAVEPRODINFO + " START");
+		logger.info("### inParam ###");
+		logger.info(Arrays.deepToString(entrySeq));
+		
+		for ( int i = 0; i < entrySeq.length; i++ ) {
+			logger.info(entrySeq[i]);
+		}
+		
+		// add value in param
+		inParam.put("mberSeq", String.valueOf(request.getAttribute("mberSeq")));
+		// 상품유형코드를 1(판매)로 고정
+		inParam.put("prodTypeCd", "1");
+		inParam.put("opGbCd", "10");
+		inParam.put("opGbCd2", "20");
+		inParam.put("optBuyGbCd", "10"); // 의미없는 코드값임.
+		if ( inParam.get("seller") == null ) {
+			inParam.put("seller", "3");
+		}
+		// input String array
+		inParam.put("entrySeq", entrySeq);
+		inParam.put("infoTitle", infoTitle);
+		inParam.put("infoDtl", infoDtl);
+		inParam.put("extShowYn", extShowYn);
+		inParam.put("grpProdSeq", grpProdSeq);
+		
+		ModelAndView mav = new ModelAndView("jsonView2");
+		
+		// Required Param check
+		String[] parameters = {  
+				// PROD 
+				"seller", "mberSeq", "prodTypeCd", "prodStatCd", "ctryCd", "brandCd", "prodNm" 
+				,"nprodGbCd", "nrmPrce", "sellPrce", "stockQty", "txnOnYn", "keyword", "prodPcDtl", "prodMbDtl"
+				, "dlvWayCd", "dlvCmpCd", "dlvPayGbCd", "dlvPrce", "dlvStandAmt", "bndlDlvYn", "prodItemCode"
+				, "freeShareOkGbCd", "freeShareEndDt", "optBuyGbCd", "dlvStandYn", "tradLoc", "opt_rad", "opt_ext_rad", "dlvStandAmt"
+				// PROD_OPT
+				, "optFlg", "CELL0", "CELL1", "CELL2", "optName", "maxDepth", "opGbCd"  
+				, "optFlg2", "CELL3", "CELL4", "CELL5", "optName2", "maxDepth2", "opGbCd2"
+				// PROD_INFO_NOTI
+				, "entrySeq", "infoTitle", "infoDtl", "extShowYn" // array
+				// GRP_PROD_MAP
+				, "grpProdSeq" // array
+				// EXT_LAND_DLV_PRICE
+				, "addDlvPrice1", "addDlvPrice2"
+				// add 2015-11-10 
+				, "mbDtlUseYn", "pcDtlUseYn", "addDlvUse"
+				};
+		
+		String checkParam = Util.checkRequiredParameters(parameters, inParam);
+		if ( checkParam != null ) {
+			response.setStatus( HttpServletResponse.SC_OK);
+			Map<String, String> error = new HashMap<String, String>();
+			error.put("code", "412");
+			error.put("msg", "필수값 체크가 필요합니다. : " + checkParam );
+			error.put("api", Constant.OM_SAVEPRODINFO );
+			mav.addObject("error", error);
+			return mav;
+		}
+		
+//		String[] imageParameters = { "img_11", "img_12", "img_21", "img_22" };
+//		String checkImage = Util.checkRequiredImage(imageParameters, request);
+//		if ( checkImage != null ) {
+//			response.setStatus( HttpServletResponse.SC_OK);
+//			Map<String, String> error = new HashMap<String, String>();
+//			error.put("code", "412");
+//			error.put("msg", "필수 이미지 체크가 필요합니다. : " + checkParam );
+//			error.put("api", Constant.OM_SAVEPRODINFO );
+//			mav.addObject("error", error);
+//			return mav;
+//		}
+		
+		int nrmPrce = Integer.parseInt(String.valueOf(inParam.get("nrmPrce")).replaceAll(",", ""));
+		int sellPrce = Integer.parseInt(String.valueOf(inParam.get("sellPrce")).replaceAll(",", ""));
+		
+		if ( nrmPrce < sellPrce ) {
+			response.setStatus( HttpServletResponse.SC_OK);
+			Map<String, String> error = new HashMap<String, String>();
+			error.put("code", "412");
+			error.put("msg", String.format("판매가가 정상가보다 클 수 없습니다. ( 정상가 : %d, 판매가 : %d ) ", nrmPrce, sellPrce) );
+			error.put("api", Constant.OM_SAVEPRODINFO );
+			mav.addObject("error", error);
+			return mav;
+		}
+		
+		try {
+			String prodCode = "";
+			
+			// prodCode 유무에 따라, insert와 update를 구분
+			if (StringUtil.isEmpty((String) inParam.get("prodCode"))) {
+				prodCode = adminProdService.insertProdInfo(request, inParam);
+			} else {
+				Map<String, Object> imgMap = adminProdService.selectProdImg(inParam);
+				String[] imgGbList = {"11", "12", "13", "14", "15", "16", "17", "21", "22", "23", "24", "25", "26", "27", "20"};
+				for(String gbCd : imgGbList){
+					@SuppressWarnings("unchecked")
+					Map<String, Object> imgInfoMap = (Map<String, Object>) imgMap.get("imgGbCd"+gbCd);
+					if (imgInfoMap != null) {
+						inParam.put("imgFileSeq_"+gbCd, imgInfoMap.get("FILE_SEQ"));
+					}
+				}
+				adminProdService.updateProdInfo(request, inParam);
+			}
+			
+//			adminProdService.insertProdOption(inParam);
+			mav.addObject("prodCode", prodCode);
+		}catch (Exception e){
+			e.printStackTrace();
+			response.setStatus( HttpServletResponse.SC_OK);
+			Map<String, String> error = new HashMap<String, String>();
+			error.put("code", "500");
+			error.put("msg", "Internal Server Error");
+			mav.addObject("error", error);
+			return mav;
+		}
+		return mav;
+	}
+	
+	/**
+	 * 상품 옵션을 저장한다(사용안함)
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 */
+	@RequestMapping(value=Constant.OM_SAVEPRODOPTION, method = RequestMethod.POST)
+	public ModelAndView saveProdOption(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info(Constant.OM_SAVEPRODOPTION + " START");
+		ModelAndView mav = new ModelAndView("jsonView2");
+		return mav;
+	}
+	
+	/**
+	 * 상품 옵션 리스트를 조회한다(사용안함)
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 */
+	@RequestMapping(value=Constant.OM_SELECTPRODOPTION, method = RequestMethod.POST)
+	public ModelAndView selectProdOption(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info(Constant.OM_SELECTPRODOPTION + " START");
+		ModelAndView mav = new ModelAndView("jsonView2");
+		return mav;
+	}
+	
+	/**
+	 * 정보고시 상세 리스트를 조회한다
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 */
+	@RequestMapping(value=Constant.OM_SELECTITEMDTLLIST, method = RequestMethod.POST)
+	public ModelAndView selectItemDtlList(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info(Constant.OM_SELECTITEMDTLLIST + " START");
+		logger.info("### inParam ###");
+		logger.info(String.valueOf(inParam));
+		ModelAndView mav = new ModelAndView("jsonView2");
+		inParam.put("mberSeq", String.valueOf(request.getAttribute("mberSeq")));
+		try {
+			if (inParam.get("prodCode") == null || String.valueOf(inParam.get("prodCode")).trim().equalsIgnoreCase("") 
+					|| inParam.get("itemCd") == null || String.valueOf(inParam.get("itemCd")).trim().equalsIgnoreCase("")) {
+				response.setStatus( HttpServletResponse.SC_OK);
+				Map<String, String> error = new HashMap<String, String>();
+				error.put("code", "412");
+				error.put("msg", "invalid parameter");
+				mav.addObject("error", error);
+				return mav;
+			}
+			ModelMap serviceMap = adminProdService.selectItemDtlList(inParam);
+			
+			@SuppressWarnings("unchecked")
+			List<Map<String, Object>> itemDtlList = (List<Map<String, Object>>) serviceMap.get("itemDtlList");
+			logger.info("### itemDtlList ###");
+			logger.info(String.valueOf(itemDtlList));
+			
+			mav.addObject("itemDtlList", itemDtlList);
+			mav.addObject("inParam", inParam);
+		}catch (Exception e){
+			e.printStackTrace();
+			response.setStatus( HttpServletResponse.SC_OK);
+			Map<String, String> error = new HashMap<String, String>();
+			error.put("code", "500");
+			error.put("msg", "Inter Server Error");
+			mav.addObject("error", error);
+		}
+		return mav;
+	}
+	
+	/**
+	 * 출하지 리스트를 조회한다
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 */
+	@RequestMapping(value=Constant.OM_SELECTSHIPMENTLIST, method = RequestMethod.POST)
+	public ModelAndView selectShipmentList(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info(Constant.OM_SELECTSHIPMENTLIST + " START");
+		logger.info("### inParam ###");
+		logger.info(String.valueOf(inParam));
+		ModelAndView mav = new ModelAndView("jsonView2");
+		inParam.put("mberSeq", String.valueOf(request.getAttribute("mberSeq")));
+		try {
+			if (inParam.get("mberSeq") == null || String.valueOf(inParam.get("mberSeq")).trim().equalsIgnoreCase("")) {
+				response.setStatus( HttpServletResponse.SC_OK);
+				Map<String, String> error = new HashMap<String, String>();
+				error.put("code", "412");
+				error.put("msg", "invalid parameter");
+				mav.addObject("error", error);
+				return mav;
+			}
+			ModelMap serviceMap = adminProdService.selectShipmentList(inParam);
+			
+			@SuppressWarnings("unchecked")
+			List<Map<String, Object>> itemDtlList = (List<Map<String, Object>>) serviceMap.get("shipmentList");
+			logger.info("### itemDtlList ###");
+			logger.info(String.valueOf(itemDtlList));
+			
+			mav.addObject("shipmentList", serviceMap);
+			mav.addObject("inParam", inParam);
+		}catch (Exception e){
+			e.printStackTrace();
+			response.setStatus( HttpServletResponse.SC_OK);
+			Map<String, String> error = new HashMap<String, String>();
+			error.put("code", "500");
+			error.put("msg", "Inter Server Error");
+			mav.addObject("error", error);
+		}
+		return mav;
+	}
+	
+	/**
+	 * 출하지 정보를 등록한다
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 */
+	@RequestMapping(value=Constant.OM_INSERTSHIPMENT, method = RequestMethod.POST)
+	public ModelAndView insertShipment(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info(Constant.OM_INSERTSHIPMENT + " START");
+		logger.info("### inParam ###");
+		logger.info(String.valueOf(inParam));
+		ModelAndView mav = new ModelAndView("jsonView2");
+		inParam.put("mberSeq", String.valueOf(request.getAttribute("mberSeq")));
+		try {
+			adminProdService.insertShipment(inParam);
+			mav.addObject("inParam", inParam);
+		}catch (Exception e){
+			e.printStackTrace();
+			response.setStatus( HttpServletResponse.SC_OK);
+			Map<String, String> error = new HashMap<String, String>();
+			error.put("code", "500");
+			error.put("msg", "Inter Server Error");
+			mav.addObject("error", error);
+		}
+		return mav;
+	}
+	
+	/**
+	 * 출하지 정보를 수정한다
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 */
+	@RequestMapping(value=Constant.OM_UPDATESHIPMENT, method = RequestMethod.POST)
+	public ModelAndView updateShipment(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info(Constant.OM_UPDATESHIPMENT + " START");
+		logger.info("### inParam ###");
+		logger.info(String.valueOf(inParam));
+		ModelAndView mav = new ModelAndView("jsonView2");
+		inParam.put("mberSeq", String.valueOf(request.getAttribute("mberSeq")));
+		try {
+			adminProdService.updateShipment(inParam);
+			mav.addObject("inParam", inParam);
+		}catch (Exception e){
+			e.printStackTrace();
+			response.setStatus( HttpServletResponse.SC_OK);
+			Map<String, String> error = new HashMap<String, String>();
+			error.put("code", "500");
+			error.put("msg", "Inter Server Error");
+			mav.addObject("error", error);
+		}
+		return mav;
+	}
+	
+	/**
+	 * excel 파일을 이용하여 상품 업로드
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 */
+	@RequestMapping(value=Constant.OM_PRODSAVEWITHEXCEL, method = RequestMethod.POST)
+	public ModelAndView saveExcel(MultipartHttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info(Constant.OM_PRODSAVEWITHEXCEL + " START");
+		logger.info("### inParam ###");
+		logger.info(String.valueOf(inParam));
+		ModelAndView mav = new ModelAndView("jsonView2");
+		try {
+			logger.info(String.valueOf(request));
+			
+			String uploadPath = "/tmp/ssocio_excel_dump/";
+	         
+	        File dir = new File(uploadPath);
+	        if (!dir.isDirectory()) {
+	            dir.mkdirs();
+	        }
+	         
+	        Iterator<String> iter = request.getFileNames();
+	        while(iter.hasNext()){
+	            String uploadFileName = iter.next();
+	            MultipartFile mFile = request.getFile(uploadFileName);
+//	            String fileName = mFile.getOriginalFilename();
+	            String fileName = String.valueOf(System.currentTimeMillis());
+	            if(fileName != null && !fileName.equals("")){
+	                File file = null;
+	                try {
+	                    file = new File(uploadPath + fileName);
+	                    mFile.transferTo(file);
+	                     
+	                    // Excel 파일 읽기!!
+	                    List<Map<String, Object>> list = null;
+	                    list = readExcelFile(file);
+	                    String[] prodCode = new String[list.size()];
+	                    for ( int i = 0; i < list.size(); i++ ) {
+	                    	inParam = list.get(i);
+//	            			inParam.put("prodTypeCd", "1");
+	            			inParam.put("opGbCd", "10");
+	            			inParam.put("opGbCd2", "20");
+//	            			if ( inParam.get("seller") == null ) {
+//	            				inParam.put("seller", "3");
+//	            			} else {
+//	            				String seller = String.valueOf(inParam.get("seller"));
+//	            				if ( !seller.trim().equalsIgnoreCase("1") || !seller.trim().equalsIgnoreCase("2") || !seller.trim().equalsIgnoreCase("3")) {
+//	            					inParam.put("seller", "3");
+//	            				}
+//	            				if (String.valueOf(request.getAttribute("mberSeq")).trim().equalsIgnoreCase("ssocio")) {
+//	            					inParam.put("seller", "1");
+//	            				}
+//	            			}
+	                    	logger.info(String.valueOf(inParam));
+	                    	prodCode[i] = adminProdService.insertProdInfo(request, inParam);
+	                    }
+	                    
+	                    mav.addObject("prodCode", prodCode);
+	                    
+	                    logger.info(String.valueOf(prodCode));
+	                } catch (Exception e ){
+	                    e.printStackTrace();
+	                } finally {
+	                    if ( file != null && file.exists()){
+	                        file.delete();
+	                    }
+	                }
+	            }
+	        }
+			
+			
+			// 상품유형코드를 1(판매)로 고정
+//			inParam.put("prodTypeCd", "1");
+//			String prodCode = "";
+			
+			// prodCode 유무에 따라, insert와 update를 구분
+//			prodCode = adminProdService.insertProdInfo(request, inParam);
+//			adminProdService.insertProdOption(inParam);
+//			mav.addObject("prodCode", prodCode);
+		}catch (Exception e){
+			e.printStackTrace();
+			response.setStatus( HttpServletResponse.SC_OK);
+			Map<String, String> error = new HashMap<String, String>();
+			error.put("code", "500");
+			error.put("msg", "Inter Server Error");
+			mav.addObject("error", error);
+		}
+		return mav;
+	}
+	
+	private List<Map<String, Object>> readExcelFile(File file) throws Exception {
+
+		List<Map<String, Object>> list = new ArrayList<Map<String, Object>>();
+
+		XSSFWorkbook work = new XSSFWorkbook(new FileInputStream(file));
+		int sheetNum = work.getNumberOfSheets();
+		for (int loop = 0; loop < sheetNum; loop++) {
+			XSSFSheet sheet = work.getSheetAt(loop);
+			
+			int rows = sheet.getPhysicalNumberOfRows();
+			for (int rownum = 0; rownum < rows; rownum++) {
+				XSSFRow row = sheet.getRow(rownum);
+				Map<String, Object> sheetMap = new HashMap<String, Object>();
+				if (row != null && rownum > 0) {
+					int cells = row.getPhysicalNumberOfCells();
+					for (int cellnum = 0; cellnum < cells; cellnum++) {
+						XSSFCell cell = row.getCell(cellnum);
+						if (cell != null) {
+							try {
+								if ( !String.valueOf(cell).trim().equalsIgnoreCase("") ) {
+									sheetMap.put(String.valueOf(sheet.getRow(0).getCell(cellnum)), new Double(cell.getNumericCellValue()).intValue());
+								} else {
+									sheetMap.put(String.valueOf(sheet.getRow(0).getCell(cellnum)), String.valueOf(cell));
+								}
+							} catch (IllegalStateException e) {
+								sheetMap.put(String.valueOf(sheet.getRow(0).getCell(cellnum)), String.valueOf(cell));
+							}
+						}
+					}
+					list.add(sheetMap);
+				}
+				
+			}
+		}
+		return list;
+	}
+	
+	/**
+	 * 상품의 name을 이용해서 naver 검색을 통해 카테고리 정보를 가져온다
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 */
+	@RequestMapping(value=Constant.OM_GET_CATEGORY_FROM_NAVER_MAPPING, method = RequestMethod.POST)
+	public ModelAndView getProductCategoryFromNaver(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info(Constant.OM_GET_CATEGORY_FROM_NAVER_MAPPING + " START");
+		ModelAndView mav = new ModelAndView("jsonView2");
+		
+		try {
+			// update를 할 product list를 가져온
+			List<Map<String, Object>> prodList = oMProductService.selectProductList(inParam);
+			
+			Map<String, Object> prodMap = oMProductService.getCategoryFromNaver(prodList);
+			// product list(상품명)을 통해 naver 쇼핑에서 카테고리 정보를 가져온다
+			mav.addObject("prodMap", prodMap);
+		} catch (Exception e) {
+			e.printStackTrace();
+			Map<String, String> error = new HashMap<String, String>();
+			error.put("code", "500");
+			error.put("msg", "internal server error");
+			mav.addObject("error", error);
+			return mav;
+		}
+		return mav;
+	}
+	
+	/**
+	 * 정보고시 리스트와 상세를 가져온다.
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 */
+	@SuppressWarnings("unchecked")
+	@RequestMapping(value=Constant.OM_SELECTITEMLIST, method = RequestMethod.POST)
+	public ModelAndView selectItemList(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info(Constant.OM_SELECTITEMLIST + " START");
+		ModelAndView mav = new ModelAndView("jsonView2");
+		
+		try {
+			// update를 할 product list를 가져온
+			List<Map<String, Object>> itemList = oMProductService.selectItemList(inParam);
+			List<Map<String, Object>> itemDetailList = oMProductService.selectItemDetailList(inParam);
+			
+			Map<String, Object> itemsMap = new HashMap<String, Object>();
+			
+			for ( int i =0; i < itemList.size(); i++ ) {
+				Map<String, Object> item = itemList.get(i);
+				Map<String, Object> itemMap = new HashMap<String, Object>();
+				String item_cd = String.valueOf(item.get("ITEM_CD"));
+				String item_nm = String.valueOf(item.get("ITEM_NM"));
+				itemMap.put("ITEM_CD", item_cd);
+				itemMap.put("ITEM_NM", item_nm);
+				
+				itemsMap.put(item_cd, itemMap);
+			}
+			
+			Map<String, Object> itemsDetailMap = new HashMap<String, Object>();
+			for ( int i =0; i < itemDetailList.size(); i++ ) {
+				Map<String, Object> itemDetail = itemDetailList.get(i);
+				String item_cd = String.valueOf(itemDetail.get("ITEM_CD"));
+				List<Object> list = (List<Object>) itemsDetailMap.get(item_cd);
+				if ( list == null || !(list.size() > 0) ) {
+					list = new ArrayList<Object>();
+					list.add(itemDetail);
+				} else {
+					list.add(itemDetail);
+				}
+				itemsDetailMap.put(item_cd, list);
+			}
+			for (String key : itemsMap.keySet()) {
+				Map<String, Object> itemMap = (Map<String, Object>) itemsMap.get(key);
+				itemMap.put("dtl", itemsDetailMap.get(key));
+				itemsMap.put(key, itemMap);
+			}
+
+			mav.addObject("itemsMap", itemsMap);
+		} catch (Exception e) {
+			e.printStackTrace();
+			Map<String, String> error = new HashMap<String, String>();
+			error.put("code", "500");
+			error.put("msg", "internal server error");
+			mav.addObject("error", error);
+			return mav;
+		}
+		return mav;
+	}
+	
+	/**
+	 * 상품의 상태를 업데이트 한다.
+	 * @param request 
+	 * @param response
+	 * @param inParam PROD_STAT_CD(0:판매중, 1:판매종료, 2:판매중지, 3:상품삭제)
+	 * @return
+	 * @throws Exception
+	 */
+	@SuppressWarnings("unchecked")
+	@RequestMapping(value=Constant.OM_UPDATEPRODSTATCD, method = RequestMethod.POST)
+	public ModelAndView updateProdStatCd(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info(Constant.OM_UPDATEPRODSTATCD + " START");
+		ModelAndView mav = new ModelAndView("jsonView2");
+		
+		logger.info("### inParam ###");
+		logger.info(String.valueOf(inParam));
+		
+		inParam.put("mberSeq", String.valueOf(request.getAttribute("mberSeq")));
+		
+		// Required Param check
+		String[] parameters = { "mberSeq", "PROD_CODE", "PROD_STAT_CD" };
+		String checkParam = Util.checkRequiredParameters(parameters, inParam);
+		if (checkParam != null) {
+			response.setStatus(HttpServletResponse.SC_OK);
+			Map<String, String> error = new HashMap<String, String>();
+			error.put("code", "412");
+			error.put("msg", "필수값 체크가 필요합니다. : " + checkParam);
+			error.put("api", Constant.OM_SELECTPRODLIST);
+			mav.addObject("error", error);
+			return mav;
+		} 
+		int PROD_STAT_CD = Integer.parseInt(String.valueOf(inParam.get("PROD_STAT_CD")));
+		if ( PROD_STAT_CD < 0 || PROD_STAT_CD > 2 ) {
+			response.setStatus(HttpServletResponse.SC_OK);
+			Map<String, String> error = new HashMap<String, String>();
+			error.put("code", "412");
+			error.put("msg", "PROD_STAT_CD의 범위는 0, 1, 2 입니다. 입력된 값 : " + PROD_STAT_CD);
+			error.put("api", Constant.OM_SELECTPRODLIST);
+			mav.addObject("error", error);
+			return mav;
+		}
+
+		try {
+			int rtn = oMProductService.updateProdStatCd(inParam);
+			mav.addObject("result", ( rtn > 0 ? true : false));
+		} catch (Exception e) {
+			e.printStackTrace();
+			Map<String, String> error = new HashMap<String, String>();
+			error.put("code", "500");
+			error.put("msg", "internal server error");
+			mav.addObject("error", error);
+			return mav;
+		}
+		return mav;
+	}
+}
+

@@ -1,0 +1,645 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/admin/common/cmmnHead.jsp" %>
+<script type="text/javascript">
+$(document).ready(function(){
+	$('.calendar').datepicker({
+		showOn: "button",
+		buttonImage: "http://static.ssocio.net/admin/images/ico_calendar.gif",
+		buttonImageOnly: true
+	});
+
+	initMberList();
+
+	fixed_tbl_height();
+
+	//$("#picture_pop").hide(); // 로딩숨김
+
+	/*
+	if (navigator.userAgent.indexOf("MSIE") > -1 && !window.opera){
+		alert("2");
+		setTimeout("ieOnLoadEventFunction()", 1000);
+	} else {
+		alert("1");
+		$("#submitFrame").onload = function(){
+			//IE 외의 브라우저의 onLoad Event 구현
+			alert("1");
+		}
+	}*/
+});
+
+
+//--------------------------------- SETTING Function ------------------------------------
+/* ======================================================================
+Function : 다른페이지 이동
+Return   : 없음
+========================================================================= */
+function GoPage(pageNo) {
+	$("#pageNo").val(pageNo);
+	$("#searchFrm").attr("action","/admin/mber/selectMberList.do").submit();
+}
+
+/*
+function ieOnLoadEventFunction(sec) {
+	if( $('#submitFrame')[0].readyState == 'complete' ) { //iframe의 src 페이지의 응답이 완료된 경우
+		//IE 브라우저인 경우 onLoad Event 구현
+		alert("2");
+	} else { //응답이 완료되지 않은 경우
+		setTimeout("ieOnLoadEventFunction()", 1000);
+	}
+}
+*/
+
+
+/* ======================================================================
+Function : 상품리스트 초기화
+========================================================================= */
+function initMberList(){
+
+	//회원구분 초기화
+	var mberGbCd = new Array();
+	var cnt = 0;
+	<c:forEach var="list" items="${searchParam.mberGbCd}">
+	mberGbCd[cnt] = '${list}';
+	cnt++;
+	</c:forEach>
+	if(mberGbCd != null && mberGbCd.length > 0){
+		for(var i=0; i < mberGbCd.length; i++){
+			$('#mberGbCd'+mberGbCd[i]).attr('checked', 'checked');
+		}
+	}else{
+		$('input[name="mberGbCd"]').each(function(){
+			$(this).attr('checked', 'checked');
+		});
+	}
+	//가입구분 초기화
+	var mberRegGbCd = new Array();
+	cnt = 0;
+	<c:forEach var="list" items="${searchParam.mberRegGbCd}" >
+	mberRegGbCd[cnt] = '${list}';
+	cnt++;
+	</c:forEach>
+	if(mberRegGbCd != null && mberRegGbCd.length > 0){
+		for(var i=0; i < mberRegGbCd.length; i++){
+			$('#mberRegGbCd'+mberRegGbCd[i]).attr('checked', 'checked');
+		}
+	}else{
+		$('input[name="mberRegGbCd"]').each(function(){
+			$(this).attr('checked', 'checked');
+		});
+	}
+	//가입채널 초기화
+	var joinChanCd = new Array();
+	cnt = 0;
+	<c:forEach var="list" items="${searchParam.joinChanCd}" >
+	joinChanCd[cnt] = '${list}';
+	cnt++;
+	</c:forEach>
+	if(joinChanCd != null && joinChanCd.length > 0){
+		for(var i=0; i < joinChanCd.length; i++){
+			$('#joinChanCd'+joinChanCd[i]).attr('checked', 'checked');
+		}
+	}else{
+		$('input[name="joinChanCd"]').each(function(){
+			$(this).attr('checked', 'checked');
+		});
+	}
+
+	//가입상태 초기화
+	var mberStatCd = new Array();
+	cnt = 0;
+	<c:forEach var="list" items="${searchParam.mberStatCd}" >
+	mberStatCd[cnt] = '${list}';
+	cnt++;
+	</c:forEach>
+	if(mberStatCd != null && mberStatCd.length > 0){
+		for(var i=0; i < mberStatCd.length; i++){
+			$('#mberStatCd'+mberStatCd[i]).attr('checked', 'checked');
+		}
+	}else{
+		$('input[name="mberStatCd"]').each(function(){
+			$(this).attr('checked', 'checked');
+		});
+	}
+
+}
+/* ======================================================================
+Function : 기간버튼클릭시 날짜 셋팅
+========================================================================= */
+function clickDate(dateType, date){
+	var now = new Date();
+	var toDate = now.getFullYear() + '-' + (now.getMonth()+1) + '-' + now.getDate();
+	$('#regToDate').val(toDate);
+
+	if(dateType == 'day'){
+		now.setDate(now.getDate() - date);
+	}else{
+		now.setMonth(now.getMonth() - date);
+	}
+
+	var fromDate = leadingZeros(now.getFullYear(),4) + '-' + leadingZeros(now.getMonth()+1,2) + '-' + leadingZeros(now.getDate(),2);
+	$('#regFromDate').val(fromDate);
+}
+function leadingZeros(n, digits) {
+    var zero = '';
+    n = n.toString();
+
+    if (n.length < digits) {
+        for (i = 0; i < digits - n.length; i++)
+            zero += '0';
+    }
+    return zero + n;
+}
+
+/* ======================================================================
+Function : 대분류 카테고리 변경
+========================================================================= */
+function chgLrgCtryBox(){
+	makeCtryBox('2', $('#ctryCd_1').val(), '');
+}
+
+/* ======================================================================
+Function : 중분류 카테고리 변경
+========================================================================= */
+function chgMdlCtryBox(){
+	makeCtryBox('3', $('#ctryCd_2').val(), '');
+}
+
+
+//--------------------------------- SUBMIT Function ------------------------------------
+
+
+/* ======================================================================
+Function : 상품리스트 검색
+Return   : 없음
+========================================================================= */
+function searchMberList(){
+
+	var fromDt = $.trim($("#regFromDate").val()).replace(/-/g, '');
+    var toDt = $.trim($("#regToDate").val()).replace(/-/g, '');
+    if(toDt != '' && fromDt>toDt){
+		alert('조회시작일이 조회종료일보다 미래입니다.');
+		return;
+    }else if(!($('#connCnt1').val() == "" && $('#connCnt2').val() == "") && ($('#connCnt1').val() > $('#connCnt2').val())){
+    	alert("접속횟수를 다시 설정해 주세요.");
+    	return;
+    }else if(!($('#buyCnt1').val() == "" && $('#buyCnt2').val() == "") && ($('#buyCnt1').val() > $('#buyCnt2').val())){
+    	alert("주문횟수를 다시 설정해 주세요.");
+    	return;
+    }else if(!($('#buyPrce1').val() == "" && $('#buyPrce2').val() == "") && ($('#buyPrce1').val() > $('#buyPrce2').val())){
+    	alert("주문금액을 다시 설정해 주세요.");
+    	return;
+    }else if(!($('#sellCnt1').val() == "" && $('#sellCnt2').val() == "") && ($('#sellCnt1').val() > $('#sellCnt2').val())){
+    	alert("판매횟수를 다시 설정해 주세요.");
+    	return;
+    }else if(!($('#sellPrce1').val() == "" && $('#sellPrce2').val() == "") && ($('#sellPrce1').val() > $('#sellPrce2').val())){
+    	alert("판매금액을 다시 설정해 주세요.");
+    	return;
+    }
+
+    /*
+    if(!$('#prodTypeCd1').is(':checked') && !$('#prodTypeCd2').is(':checked')
+    		&& !$('#prodTypeCd3').is(':checked') ){
+    	alert('판매구분을 1개이상 체크해 주십시요.');
+    	return;
+    }
+    */
+
+    $("#regFromDate").val(fromDt);
+    $("#regToDate").val(toDt);
+
+ 	$("#searchFrm").attr({"method" : "post", "action" : '/admin/mber/selectMberList.do'}).submit();
+
+}
+
+//var excelFlag = "N";
+/* ======================================================================
+Function : 회원 목록 엑셀 다운로드
+Return   : 없음
+========================================================================= */
+function go_excel(){
+	var f = document.searchFrm;
+
+	f.action = "/admin/mber/selectMberListToExcel.do";
+	f.target = "submitFrame";
+	f.method="post";
+
+	var listSize = "${list.pageNav.rowTotal}";
+
+	if(listSize == 0){
+		alert("조회된 결과가 없습니다.");
+	}else{
+
+		var fromDt = $.trim($("#regFromDate").val()).replace(/-/g, '');
+	    var toDt = $.trim($("#regToDate").val()).replace(/-/g, '');
+
+	    if(toDt != '' && fromDt>toDt){
+			alert('조회시작일이 조회종료일보다 미래입니다.');
+			return;
+	    }else if(!($('#connCnt1').val() == "" && $('#connCnt2').val() == "") && ($('#connCnt1').val() > $('#connCnt2').val())){
+	    	alert("접속횟수를 다시 설정해 주세요.");
+	    	return;
+	    }else if(!($('#buyCnt1').val() == "" && $('#buyCnt2').val() == "") && ($('#buyCnt1').val() > $('#buyCnt2').val())){
+	    	alert("주문횟수를 다시 설정해 주세요.");
+	    	return;
+	    }else if(!($('#buyPrce1').val() == "" && $('#buyPrce2').val() == "") && ($('#buyPrce1').val() > $('#buyPrce2').val())){
+	    	alert("주문금액을 다시 설정해 주세요.");
+	    	return;
+	    }else if(!($('#sellCnt1').val() == "" && $('#sellCnt2').val() == "") && ($('#sellCnt1').val() > $('#sellCnt2').val())){
+	    	alert("판매횟수를 다시 설정해 주세요.");
+	    	return;
+	    }else if(!($('#sellPrce1').val() == "" && $('#sellPrce2').val() == "") && ($('#sellPrce1').val() > $('#sellPrce2').val())){
+	    	alert("판매금액을 다시 설정해 주세요.");
+	    	return;
+	    }
+
+	    $("#regFromDate").val(fromDt);
+	    $("#regToDate").val(toDt);
+
+	    /*
+	    if(excelFlag == "Y"){
+	    	alert("엑셀을 다운로드 중에 있습니다. 잠시만 기다려 주세요");
+	    }*/
+
+		if(listSize > 50000){
+			    if(confirm("엑셀 저장건수가 총" + listSize + "건 입니다. \n 50000건.이상 출력시 2-3분 정도의 시간이 소요 됩니다. ")){
+					f.submit();
+				}
+		}else{
+			f.submit();
+		}
+	}
+}
+
+
+/* ======================================================================
+Function : 회원정보상세
+========================================================================= */
+function selectMberInfo(mberSeq){
+	$('#mberSeq').val(mberSeq);
+	$("#searchFrm").attr('action', '/admin/mber/selectMberInfo.do').submit();
+}
+
+
+//--------------------------------- AJAX Function ------------------------------------
+
+
+</script>
+
+<!-- content -->
+<div id="content">
+	<!-- top_content -->
+	<div class="top_content">
+		<!-- location -->
+		<div class="location">
+			<ul class="clear">
+				<li class="first-child"><a href="#">Home</a></li>
+				<li><a href="#" class="current">회원관리</a></li>
+			</ul>
+		</div>
+		<!-- //location -->
+	</div>
+	<!-- //top_content -->
+
+	<div class="inner">
+		<div class="member_info_bx mt10 clear">
+			<div class="mem_bx">
+				<p>- 구매회원 : <span class="text_r">
+					<fmt:formatNumber value="${list.totalCnt.MBER_REG_GB_0_CNT}" pattern="#,###" />
+					</span>명 (개인 : <fmt:formatNumber value="${list.totalCnt.CNT_1}" pattern="#,###" />명 / 사업자 : <fmt:formatNumber value="${list.totalCnt.CNT_3}" pattern="#,###" />명)
+				</p>
+				<p class="mt5">- 판매회원 : <span class="text_r">
+					<fmt:formatNumber value="${list.totalCnt.MBER_REG_GB_1_CNT}" pattern="#,###" />
+					</span>명 (개인 : <fmt:formatNumber value="${list.totalCnt.CNT_2}" pattern="#,###" />명 / 사업자 : <fmt:formatNumber value="${list.totalCnt.CNT_4}" pattern="#,###" />명)</p>
+			</div>
+			<div class="tot_mem_bx">
+				<p>전체 : <span class="text_r">${list.totalCnt.TOTAL_CNT}</span>명 (개인 :<fmt:formatNumber value="${list.totalCnt.MBER_GB_0_CNT}" pattern="#,###" />  / 사업자 : <fmt:formatNumber value="${list.totalCnt.MBER_GB_1_CNT}" pattern="#,###" />)</p>
+			</div>
+		</div>
+		<!-- tbl -->
+		<!-- 2015-07-16 수정영역 시작 -->
+		<form id="searchFrm" name="searchFrm" method="post">
+		<input type="hidden" id="pageNo" name="pageNo"/>
+		<input type="hidden" id="mberSeq" name="mberSeq"/>
+		<div class="tbl mt20">
+			<table class="search">
+				<colgroup>
+					<col style="width:6%" />
+					<col style="width:20%" />
+					<col style="width:6%" />
+					<col style="width:26%" />
+					<col style="width:6%" />
+					<col style="width:15%" />
+					<col style="width:6%" />
+					<col style="width:*" />
+				</colgroup>
+				<tbody>
+					<tr>
+						<td colspan="8">
+							<span class="select" style="width:130px">
+								<span class="sel_txt"></span>
+								<select id="searchDateGb" name="searchDateGb">
+									<option value="1">가입일</option>
+									<option value="2">최종접속일</option>
+								</select>
+							</span>
+	 						<fmt:parseDate value="${searchParam.regFromDate }" var="S_START_DATE" pattern="yyyymmdd" scope="page" />
+							<fmt:parseDate value="${searchParam.regToDate }" var="S_END_DATE" pattern="yyyymmdd" scope="page" />
+							<input type="text" id="regFromDate" name="regFromDate" class="calendar" style="width:82px" value='<fmt:formatDate value="${S_START_DATE }" pattern="yyyy-mm-dd"/>' readonly="readonly" />
+							- <input type="text" id="regToDate" name="regToDate" class="calendar" style="width:82px" value='<fmt:formatDate value="${S_END_DATE }" pattern="yyyy-mm-dd"/>' readonly="readonly" />
+							<span class="ml5">
+								<a href="javascript:clickDate('day', 0);" class="btn_w">오늘</a>
+								<a href="javascript:clickDate('day', 3);" class="btn_w">3일</a>
+								<a href="javascript:clickDate('day', 7);" class="btn_w">7일</a>
+								<a href="javascript:clickDate('month', 1);" class="btn_w">1개월</a>
+								<a href="javascript:clickDate('month', 3);" class="btn_w">3개월</a>
+								<a href="javascript:clickDate('month', 6);" class="btn_w">6개월</a>
+							</span>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row">검색어</th>
+						<td><input type="text" id="searchId" name="searchId" style="width:200px;" value="${searchParam.searchId}"/></td>
+						<th scope="row">가입채널</th>
+						<td>
+							<custom:codeList var="joinChanCd" groupCode="JOIN_CHAN_CD" />
+							<c:forEach var="list" items="${joinChanCd}">
+								<span <c:if test="${ !status.first}">class="ml5"</c:if> style="display:inline-block;">
+									<input type="checkbox" id="joinChanCd${list.key}" name="joinChanCd" value="${list.key}"/>
+									<label for="joinChanCd${list.key}">${list.value}</label>
+								</span>
+			                </c:forEach>
+						</td>
+						<th scope="row">가입경로</th>
+						<td colspan="1">
+							<span class="select" style="width:150px;">
+								<span class="sel_txt"></span>
+								<select id="joinPathCd" name="joinPathCd">
+									<option value="">전체</option>
+									<custom:codeList var="joinPathCd" groupCode="JOIN_PATH_CD" />
+									<c:forEach var="list" items="${joinPathCd}" varStatus="status">
+										<option value="${list.key}" <c:if test="${ list.key eq searchParam.joinPathCd}">selected="selected"</c:if> >${list.value}</option>
+						            </c:forEach>
+								</select>
+							</span>
+						</td>
+						<th scope="row">회사명</th>
+						<td><input type="text" id="cmpnyNm" name="cmpnyNm" style="width:100px;" value="${searchParam.cmpnyNm}"/></td>
+					</tr>
+					<tr>
+						<th scope="row">회원구분</th>
+						<td>
+							<custom:codeList var="mberGbCd" groupCode="MBER_GB_CD" />
+							<c:forEach var="list" items="${mberGbCd}">
+								<span <c:if test="${ !status.first}">class="ml5"</c:if> >
+									<input type="checkbox" id="mberGbCd${list.key}" name="mberGbCd" value="${list.key}"/>
+									<label for="mberGbCd${list.key}">${list.value}</label>
+								</span>
+			                </c:forEach>
+						</td>
+						<th scope="row">가입구분</th>
+						<td>
+							<custom:codeList var="mberRegGbCd" groupCode="MBER_REG_GB_CD" />
+							<c:forEach var="list" items="${mberRegGbCd}">
+								<span <c:if test="${ !status.first}">class="ml5"</c:if> >
+									<input type="checkbox" id="mberRegGbCd${list.key}" name="mberRegGbCd" value="${list.key}"/>
+									<label for="mberRegGbCd${list.key}">${list.value}</label>
+								</span>
+			                </c:forEach>
+						</td>
+						<th scope="row">접속횟수</th>
+						<td colspan="3">
+							<input type="text" id="connCnt1" name="connCnt1" value="${searchParam.connCnt1}" style="width:50px;" /> ~
+							<input type="text" id="connCnt2" name="connCnt2" value="${searchParam.connCnt2}" style="width:50px;" />
+						</td>
+					</tr>
+					<tr>
+						<th scope="row">주문횟수</th>
+						<td>
+							<input type="text" id="buyCnt1" name="buyCnt1" value="${searchParam.buyCnt1}" style="width:50px;" /> ~
+							<input type="text" id="buyCnt2" name="buyCnt2" value="${searchParam.buyCnt2}" style="width:50px;" />
+						</td>
+						<th scope="row">주문금액</th>
+						<td>
+							<input type="text" id="buyPrce1" name="buyPrce1" value="${searchParam.buyPrce1}" style="width:80px"/> -
+							<input type="text" id="buyPrce2" name="buyPrce2" value="${searchParam.buyPrce2}" style="width:80px"/>
+						</td>
+						<th scope="row">판매횟수</th>
+						<td>
+							<input type="text" id="sellCnt1" name="sellCnt1" value="${searchParam.sellCnt1}" style="width:50px"/> ~
+							<input type="text" id="sellCnt2" name="sellCnt2" value="${searchParam.sellCnt2}" style="width:50px"/>
+						</td>
+						<th scope="row">판매금액</th>
+						<td>
+							<input type="text" id="sellPrce1" name="sellPrce1" value="${searchParam.sellPrce1}" style="width:50px"/> ~
+							<input type="text" id="sellPrce2" name="sellPrce2" value="${searchParam.sellPrce2}" style="width:50px"/>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row">가입상태</th>
+						<td colspan="7">
+							<custom:codeList var="mberStatCd" groupCode="MBER_STAT_CD" />
+							<c:forEach var="list" items="${mberStatCd}">
+								<span <c:if test="${ !status.first}">class="ml5"</c:if> >
+									<input type="checkbox" id="mberStatCd${list.key}" name="mberStatCd" value="${list.key}"/>
+									<label for="mberStatCd${list.key}">${list.value}</label>
+								</span>
+			                </c:forEach>
+						</td>
+					</tr>
+				</tbody>
+			</table>
+			<p class="btn_area type"><a href="javascript:searchMberList();" class="btn_chk btn_r">조회</a></p>
+		</div>
+		<!-- //2015-07-16 수정영역 끝 -->
+		<!-- //tbl -->
+
+		<!-- top_tbl -->
+		<div class="top_tbl mt20 clear">
+			<div class="right">
+				<span class="select" style="width:130px;">
+					<span class="sel_txt"></span>
+					<select name="displayCnt" onchange="searchMberList();">
+						<custom:codeList var="display" groupCode="DISPLAY_CNT" />
+						<c:forEach var="list" items="${display}" varStatus="status">
+							<option value="${list.key}" <c:if test="${list.key == searchParam.displayCnt}">selected="selected"</c:if> >${list.value}</option>
+			            </c:forEach>
+					</select>
+				</span>
+				<a href="javascript:go_excel()" class="btn_excel ml5 mr0"><span>엑셀 다운로드</span></a>
+			</div>
+		</div>
+		</form>
+		<!-- //top_tbl -->
+
+		<!-- //2015-07-16 수정영역 시작 -->
+		<!-- fixed_tbl_list -->
+		<div class="fixed_tbl_list mt10">
+			<!-- thead -->
+			<div class="tbl thead" style="height:39px; postion:inherit; width:1800px;">
+				<table class="list">
+					<colgroup>
+						<col style="width:3%" />
+						<col style="width:7%" />
+						<col style="width:7%" /> <!-- 최종접속일시 -->
+						<col style="width:11%" /> <!-- 아이디  -->
+						<col style="width:4%" /> <!-- 이름 -->
+ 						<col style="width:9%" /> <!-- 미니샵 이름 -->
+						<col style="width:6%" /> <!-- 전화번호 -->
+						<col style="width:5%" />
+						<col style="width:4%" />
+						<col style="width:9%" />
+						<col style="width:4%" />
+						<col style="width:4%" />
+						<col style="width:5%" />		<!-- 사업자번호 -->
+						<col style="width:8%" />		<!-- 계좌번호 -->
+						<col style="width:4%" />
+						<col style="width:4%" />
+						<col style="width:6%" />
+						<col style="width:4%" />
+						<col style="width:6%" />
+						<col style="width:6%" />
+					</colgroup>
+					<thead>
+						<tr>
+							<th scope="col" class="first">번호</th>
+							<th scope="col">가입일시</th>
+							<th scope="col">최종접속일시</th>
+							<th scope="col">아이디</th>
+							<th scope="col">이름</th>
+ 							<th scope="col">미니샵이름</th>
+ 							<th scope="col">전화번호</th>
+							<th scope="col">회사명</th>
+							<th scope="col">가입채널</th>
+							<th scope="col">가입경로</th>
+							<th scope="col">회원구분</th>
+							<th scope="col">가입구분</th>
+							<th scope="col">사업자번호</th>
+							<th scope="col">계좌번호</th>
+							<th scope="col">접속횟수</th>
+							<th scope="col">주문횟수</th>
+							<th scope="col">주문금액</th>
+							<th scope="col">판매횟수</th>
+							<th scope="col">판매금액</th>
+							<th scope="col">가입상태</th>
+						</tr>
+					</thead>
+				</table>
+			</div>
+			<!-- //thead -->
+
+			<!-- tbody -->
+			<div class="tbl tbody" style="top:42px; width:1800px;">
+				<table class="list">
+ 					<colgroup>
+						<col style="width:3%" /><!-- 번호 -->
+						<col style="width:7%" /><!-- 가입일시 -->
+						<col style="width:7%" /><!-- 최종접속일시 -->
+						<col style="width:11%" /><!-- 아이디 -->
+						<col style="width:4%" /> <!-- 이름 -->
+ 						<col style="width:9%" /> <!-- 미니샵 이름 -->
+						<col style="width:6%" /> <!-- 전화번호 -->
+						<col style="width:5%" /><!-- 회사명 -->
+						<col style="width:4%" /><!-- 가입채널 -->
+						<col style="width:9%" /><!-- 가입경로 -->
+						<col style="width:4%" /><!-- 회원구분 -->
+						<col style="width:4%" /><!-- 가입구분 -->
+						<col style="width:5%" /><!-- 사업자번호 -->
+						<col style="width:8%" /><!-- 계좌번호 -->
+						<col style="width:4%" /><!-- 접속횟수 -->
+						<col style="width:4%" /><!-- 주문횟수 -->
+						<col style="width:6%" /><!-- 주문금액 -->
+						<col style="width:4%" /><!-- 판매횟수 -->
+						<col style="width:6%" /><!-- 판매금액 -->
+						<col style="width:6%" /><!-- 가입상태 -->
+
+					</colgroup>
+					<tbody>
+						<c:if test="${fn:length(list.mberList) <= 0}">
+						<tr>
+							<td colspan="14">조회된 결과가 없습니다.</td>
+						</tr>
+						</c:if>
+
+						<c:if test="${fn:length(list.mberList) > 0}">
+						<c:forEach var="mberList" items="${list.mberList}" varStatus="status">
+						<tr>
+							<td class="first">${list.pageNav.rowTotal - (list.pageNav.blockList*(list.pageNav.nowPage-1)+status.index)}</td>
+							<td>${mberList.REGIST_DT}</td> <!-- 가입일시 -->
+							<td>${mberList.LASTEST_LOGIN_TIME}</td> <!-- 최종접속일시 -->
+							<td class="tl"> <!-- 아이디 -->
+								<c:if test="${mberList.SSO_GB_CD eq 'SCO'}"><a href="javascript:selectMberInfo('${mberList.MBER_SEQ}');" class="ellipsis" style="display:block">${mberList.MBER_EMAIL}</a></c:if>
+								<c:if test="${mberList.SSO_GB_CD eq 'FBO' }"><a href="javascript:selectMberInfo('${mberList.MBER_SEQ}');" class="fb ellipsis" style="display:block">${mberList.MBER_EMAIL}</a></c:if>
+								<c:if test="${mberList.SSO_GB_CD eq 'KKO' }"><a href="javascript:selectMberInfo('${mberList.MBER_SEQ}');" class="kko ellipsis" style="display:block">${mberList.MBER_EMAIL}</a></c:if>
+							</td>
+							<td style="overflow: hidden; white-space: nowrap; text-overflow: ellipsis;">${mberList.MBER_NM}</td> <!-- 이름 -->
+ 							<td style="overflow: hidden; white-space: nowrap; text-overflow: ellipsis;">${mberList.MINI_SHOP_NM}</td> <!-- 미니샵이름 -->
+ 							<td>${mberList.MBER_PHONE}</td> <!-- 전화번호 -->
+							<td style="overflow: hidden; white-space: nowrap; text-overflow: ellipsis;">${mberList.CMPNY_NM}</td> <!-- 회사명 -->
+							<td>${mberList.JOIN_CHAN_NM}</td> <!-- 가입채널 -->
+							<td style="overflow: hidden; white-space: nowrap; text-overflow: ellipsis;">${mberList.JOIN_PATH_NM}</td> <!-- 가입경로 -->
+							<td>${mberList.MBER_GB_NM}</td> <!-- 회원 구분 -->
+							<td>${mberList.MBER_REG_GB_NM}</td> <!-- 가입구분 -->
+							<td>${mberList.CMPNY_NO }</td>
+							<c:choose>
+								<c:when test="${mberList.BANK_NM ne null}">
+									<td>${mberList.BANK_NM} | ${mberList.ACNT_NM }<br>${mberList.BANK_ACNT_NO }</td>
+								</c:when>
+								<c:otherwise>
+									<td>&nbsp;</td>
+								</c:otherwise>
+							</c:choose>
+
+							<td>${mberList.CONN_CNT}</td>
+							<td><fmt:formatNumber value="${mberList.BUY_CNT}" pattern="#,###" /></td>
+							<td class="tr"><fmt:formatNumber value="${mberList.BUY_PRCE}" pattern="#,###" />
+							</td>
+							<td>
+								<c:choose>
+									<c:when test="${mberList.MBER_REG_GB_CD eq '1'}">
+										<fmt:formatNumber value="${mberList.SELL_CNT}" pattern="#,###" />
+									</c:when>
+									<c:otherwise>
+										-
+									</c:otherwise>
+								</c:choose>
+							</td>
+							<td class="tr">
+								<c:choose>
+									<c:when test="${mberList.MBER_REG_GB_CD eq '1'}">
+										<fmt:formatNumber value="${mberList.SELL_PRCE}" pattern="#,###" />
+									</c:when>
+									<c:otherwise>
+										-
+									</c:otherwise>
+								</c:choose>
+							</td>
+							<td>${mberList.MBER_STAT_NM}</td>
+						</tr>
+						</c:forEach>
+						</c:if>
+					</tbody>
+				</table>
+			</div>
+			<!-- //tbody -->
+		</div>
+		<!-- //fixed_tbl_list -->
+		<!-- //2015-07-16 수정영역 끝 -->
+
+
+		<!-- bot_tbl -->
+		<div class="bot_tbl">
+			<%@ include file="/WEB-INF/views/admin/common/PageView.jsp" %>
+		</div>
+		<!-- //bot_tbl -->
+	</div>
+<!--
+    <div class="popup picture_pop" id="picture_pop">
+    	<div class="pic_cont">
+    		<p><img src="http://static.ssocio.net/web/images/bg_pic_none2.gif" width="182" height="117" alt="엑셀파일 다운로드 중입니다." /></p>
+    	</div>
+    </div>
+     -->
+</div>
+<iframe height="0" width="0" name="submitFrame" id="submitFrame"></iframe>
+<div class="popup layer_app" style="display: none;"></div>
+<!-- //content -->

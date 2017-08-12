@@ -1,0 +1,275 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/seller/common/cmmnHead.jsp"%>
+<script type="text/javascript">
+$(document).ready(function(){
+	//달력이미지
+	$('.calendar').datepicker({
+      showOn: "button",
+      buttonImage: "http://static.ssocio.net/seller/images/ico_calendar.gif",
+      buttonImageOnly: true
+    });
+	//오늘날짜 셋팅
+   /*  if($('#S_START_DATE').val() == '') $('#S_START_DATE').val($.datepicker.formatDate('yy-mm-dd', new Date()));
+	if($('#S_END_DATE').val() == '') $('#S_END_DATE').val($.datepicker.formatDate('yy-mm-dd', new Date())); */
+	
+	//조회버튼
+	$(".btn_r").click(function(){
+		searchForm();  
+	});
+	
+});
+
+//리스트 조회
+function searchForm(){
+	if(validDate()){  
+		replDate();  
+		$("#searchFrm").attr("action", "/seller/qaadvice/selectListInquiry.do").submit();
+	}
+}
+
+// 1:1문의 등록
+function addQAAadvice(){
+	$("#searchFrm").attr("action", "/seller/qaadvice/insertQAAdviceReg.do?chk=view").submit();
+}
+
+//날짜유효성 체크
+function validDate(){
+	if($("#S_START_DATE").val() != "" || $("#S_END_DATE").val() != ""){
+		var startDate = $("#S_START_DATE").val().replace(/\-/ig, "");
+		var endDate = $("#S_END_DATE").val().replace(/\-/ig, "");
+		if(startDate > endDate){
+	      alert("시작일이 종료일보다 크게 설정될 수 없습니다.");
+	      $("#S_START_DATE").val('');
+	      $("#S_END_DATE").val('');
+	      return false;
+	    }
+	}
+	return true;
+}
+
+//날짜 형식 '-' 제외 시키기
+function replDate(){
+	$("#S_START_DATE").val($("#S_START_DATE").val().replace(/\-/ig, ''));
+	$("#S_END_DATE").val($("#S_END_DATE").val().replace(/\-/ig, ''));
+}
+
+//페이지이동
+function GoPage(pageNo) {
+	$("#PAGE_NO").val(pageNo);
+	replDate();
+	$("#searchFrm").attr("action","/seller/qaadvice/selectListInquiry.do").submit();
+}
+
+//엔터키입력
+function enterKeyPress(){
+	if(event.keyCode == 13){
+		$(".btn_r").click();
+	}
+}        
+
+//상세화면
+function goDtl(BOARD_SEQ, BOARD_TYPE_CD){
+	$("#BOARD_SEQ").val(BOARD_SEQ);
+	$('#BOARD_TYPE_CD').val(BOARD_TYPE_CD);
+	replDate();  
+	$("#searchFrm").attr("action", "/seller/qaadvice/boardDtlQAAdvice.do").submit();
+}
+
+//상품리스트 검색
+function searchProdList(url){
+	var fromDt = $.trim($("#S_START_DATE").val()).replace(/-/g, '');
+    var toDt = $.trim($("#S_END_DATE").val()).replace(/-/g, '');
+    if(toDt != '' && fromDt>toDt){
+		alert('조회시작일이 조회종료일보다 미래입니다.');
+		return;   
+    }
+	$('#searchCtryCd').val(getCtryCd('search'));
+	$("#searchFrm").attr('action', url);
+	$("#searchFrm").submit();
+}
+
+/* ======================================================================
+Function : 기간버튼클릭시 날짜 셋팅
+========================================================================= */
+function clickDate(dateType, date){
+	var now = new Date();
+	var toDate = now.getFullYear() + '-' + (now.getMonth()+1) + '-' + now.getDate();
+	$('#S_END_DATE').val(toDate);
+	
+	if(dateType == 'day'){
+		now.setDate(now.getDate() - date);
+	}else{
+		now.setMonth(now.getMonth() - date);
+	}
+	  
+	var fromDate = leadingZeros(now.getFullYear(),4) + '-' + leadingZeros(now.getMonth()+1,2) + '-' + leadingZeros(now.getDate(),2);
+	$('#S_START_DATE').val(fromDate);
+}
+
+function leadingZeros(n, digits) {
+    var zero = '';
+    n = n.toString();
+ 
+    if (n.length < digits) {
+        for (i = 0; i < digits - n.length; i++)
+            zero += '0';
+    }
+    return zero + n;
+}
+
+</script>
+<div id="wrap">
+
+	<div id="content">
+		<!-- top_content -->
+		<div class="top_content">
+			<!-- location -->
+			<div class="location">
+				<ul class="clear">
+					<li class="first-child"><a href="#">문의관리</a></li>
+					<li><a href="" class="current">1:1 문의 조회</a></li>
+				</ul>
+			</div>
+			<!-- //location -->
+		</div>
+		<!-- //top_content -->
+		
+		<!-- inner -->
+		<div class="inner">
+			<fmt:parseDate value="${params.S_START_DATE }" var="S_START_DATE" pattern="yyyymmdd" scope="page" />
+			<fmt:parseDate value="${params.S_END_DATE }" var="S_END_DATE" pattern="yyyymmdd" scope="page" />
+			<form id="searchFrm" method="post" name="frm">
+		    <input type="hidden" id="PAGE_NO" name="PAGE_NO">
+		    <input type="hidden" id="BOARD_SEQ" name="BOARD_SEQ">  
+		    <input type="hidden" id="BOARD_TYPE_CD" name="BOARD_TYPE_CD" value="${params.BOARD_TYPE_CD }">
+			<input type="hidden" id="MBER_SEQ" name="MBER_SEQ" value="${sessionScope.sellerManager.MBER_SEQ }" />
+			<!-- tbl -->
+			<div class="tbl mt20">
+				<table class="search">
+					<colgroup>
+						<col style="width:10%">
+						<col style="width:40%">
+						<col style="width:10%">
+						<col style="width:40%">
+					</colgroup>
+					<tbody>
+						<tr>
+							<th scope="row">등록일</th>
+							<td colspan="3">
+								<input type="text" id="S_START_DATE" name="S_START_DATE" class="calendar" style="width:100px" value='<fmt:formatDate value="${S_START_DATE }" pattern="yyyy-mm-dd" />' readonly/> - 
+								<input type="text" id="S_END_DATE" name="S_END_DATE" class="calendar" style="width:100px" value='<fmt:formatDate value="${S_END_DATE }" pattern="yyyy-mm-dd" />' readonly/>
+								<span class="ml5">
+									<a href="javascript:clickDate('day', 0);" class="btn_w">오늘</a>
+									<a href="javascript:clickDate('day', 3);" class="btn_w">3일</a>
+									<a href="javascript:clickDate('day', 7);" class="btn_w">7일</a>
+									<a href="javascript:clickDate('month', 1);" class="btn_w">1개월</a>
+									<a href="javascript:clickDate('month', 3);" class="btn_w">3개월</a>
+									<a href="javascript:clickDate('month', 6);" class="btn_w">6개월</a>
+								</span>
+							</td>
+						</tr>
+						<tr>
+							<th scope="row">구분</th>
+							<td >
+								<span class="select" style="width:100px">
+									<span class="sel_txt"></span>
+									<custom:codeList var="QNA_TYPE_CD" groupCode="QNA_TYPE_CD" />
+									<select id="P_QNA_TYPE_CD" name="P_QNA_TYPE_CD">
+										<option value="">전체</option>
+										<c:forEach var="list" items="${QNA_TYPE_CD}">
+											<option value="${list.key}" <c:if test="${list.key == params.P_QNA_TYPE_CD}">selected</c:if>>${list.value}</option>
+										</c:forEach>
+									</select>
+								</span>
+							</td>
+
+							<th scope="row">제목</th>    
+							<td ><input type="text" id="P_TITLE" name="P_TITLE" value="${param.P_TITLE }" style="width:100%" onkeyup="enterKeyPress();"/></td>
+						</tr>     
+
+						<tr>     
+							<th scope="row">답변상태</th>
+							<td colspan = "3">
+								<input type="radio" id="r1" name="P_ANS_GB_CD" value="" <c:if test="${params.P_ANS_GB_CD == null or params.P_ANS_GB_CD == ''}">checked</c:if>/> <label for="r1">전체</label> <!-- [D] radio id와 label for 동일 -->
+								<input type="radio" id="r2" name="P_ANS_GB_CD" value="20" class="ml20" <c:if test="${params.P_ANS_GB_CD == '20'}">checked</c:if>/><label for="r2">대기</label>
+								<input type="radio" id="r3" name="P_ANS_GB_CD" value="30" class="ml20" <c:if test="${params.P_ANS_GB_CD == '30'}">checked</c:if>/><label for="r3">완료</label>
+							</td>
+						</tr>     
+					</tbody>
+				</table>
+				<p class="btn_area type"><a href="javascript: searchForm();" class="btn_chk btn_r">조회</a> <a href="javascript: addQAAadvice('${params.BOARD_TYPE_CD}');" class="btn_chk btn_r">1:1 문의등록</a></p>
+			</div>
+			<!-- //tbl -->
+
+			<!-- top_tbl -->
+			<div class="top_tbl mt20 ">
+				<div class="right">
+					<span class="select" style="width:130px;">
+						<span class="sel_txt"></span>   
+						<custom:codeList var="DISPLAY_CNT" groupCode="DISPLAY_CNT" />
+						<select id="DISPLAY_CNT" name="DISPLAY_CNT" onchange="searchProdList();">
+							<c:forEach var="list" items="${DISPLAY_CNT}">
+		                      <option value="${list.key}" <c:if test="${list.key == params.DISPLAY_CNT}"> selected="selected" </c:if>>${list.value}</option>
+		                    </c:forEach>
+						</select>
+					</span>
+				</div>
+			</div>   
+			<!-- //top_tbl -->
+		
+			<!-- tbl -->
+			<div class="tbl mt10">
+				<!-- list -->
+				<table class="list">
+					<colgroup>
+						<col style="width:20%">
+						<col style="width:10%" />
+						<col style="width:*">
+						<col style="width:10%">
+					</colgroup>
+					<thead>	
+						<tr>
+							<th scope="col">등록일시</th>
+							<th scope="col">구분</th>
+							<th scope="col">제목</th>
+							<th scope="col">답변여부</th>
+						</tr>
+					</thead>
+					<tbody>
+						<c:forEach var="list" items="${list.selectListQAAdvice }">
+						<!-- 반복 -->
+						<tr>
+							<td class="nolineL">${list.REGIST_DT }</td>
+							<td><a href="javascript: goDtl('${list.BOARD_SEQ }', '${params.BOARD_TYPE_CD}');" class="alink">${list.QNA_TYPE_NM }</a></td>
+							<td class="tl"><a href="javascript: goDtl('${list.BOARD_SEQ }', '${params.BOARD_TYPE_CD}');" class="alink">${list.TITLE }</a></td>
+							<td>${list.ANS_GB_NM }</td>
+						</tr>
+						</c:forEach>  
+						
+						<c:if test="${empty list.selectListQAAdvice }">
+							<tr>
+								<td class="nolineL" colspan="3">조회된 결과가 없습니다.</td>
+							</tr>
+						</c:if>
+						
+					</tbody>
+				</table>
+				<!-- //list -->
+			</div>
+		</form>   
+			<!-- //tbl -->
+			
+			<!-- bot_tbl -->
+			<div class="bot_tbl">
+			<!-- paging -->
+				<div class="paging">
+					<%@ include file="/WEB-INF/views/admin/common/PageView.jsp" %>
+				</div>
+			<!-- //paging -->
+			</div>
+			<!-- //bot_tbl -->
+		
+		</div>
+		<!-- //inner -->
+	</div>  
+</div>

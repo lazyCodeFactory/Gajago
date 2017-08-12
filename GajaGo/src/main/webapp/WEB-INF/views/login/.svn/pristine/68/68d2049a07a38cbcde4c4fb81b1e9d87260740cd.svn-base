@@ -1,0 +1,542 @@
+package com.ssocio.sharing.service.batch;
+
+import java.io.File;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.ssocio.sharing.cmmn.admin.util.FileUtil;
+import com.ssocio.sharing.cmmn.admin.util.SFTPUtil;
+import com.ssocio.sharing.cmmn.instance.config.AppConfigManager;
+import com.ssocio.sharing.cmmn.util.CmmnCnst;
+import com.ssocio.sharing.cmmn.util.StringUtil;
+import com.ssocio.sharing.dao.batch.BatchAdjustDao;
+import com.ssocio.sharing.dao.batch.BatchMyStatisDao;
+import com.ssocio.sharing.vo.admin.PageNavigation;
+
+/**
+ * <pre>
+ * 공통 서비스
+ * 공통 서비스
+ * @author J.K.CHOI
+ * @version
+ * @since 2015. 7. 17. 오후 7:33:23
+ * @see
+ * @History
+ * Date			|	author	| 변경 내용
+ * 2015. 7. 17.	|	J.K.CHOI	|신규
+ * @비고
+ * </pre>
+ */
+@Service
+public class BatchAdjustServiceImpl implements BatchAdjustService {
+
+	// --------------------------------------------------------------------------
+	// # Log 설정
+	// --------------------------------------------------------------------------
+	private static final Logger logger = LoggerFactory.getLogger(BatchAdjustServiceImpl.class);
+	
+	// --------------------------------------------------------------------------
+	// # DAO 설정
+	// --------------------------------------------------------------------------
+	@Resource(name="batchAdjustDao")
+	private BatchAdjustDao batchAdjustDao;
+	
+	@Resource(name="batchMyStatisDao")
+	private BatchMyStatisDao batchMyStatisDao;
+	
+	/**
+	 * <pre>
+	 * 정산대기 리스트 조회
+	 * 
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 17. 오후 2:03:43
+	 * @author J.K.CHOI
+	 * @see @see com.ssocio.sharing.service.admin.AdminAdjustService#selectListAdjust(java.util.Map)
+	 * @비고
+	 * 
+	 * </pre>
+	 */
+	@Override
+	@Transactional(propagation=Propagation.REQUIRED)
+	public void initBatch(String batch_nm) throws Exception {
+		logger.info("########### BatchAdjustServiceImpl :: initBatch :: Start ##########");
+		try {
+			
+			if(null == batchAdjustDao.selectBatchJobCfgInfo(batch_nm)){
+				
+				Map<String, Object> inParam = new HashMap<String, Object>();
+				inParam.put("batch_nm", batch_nm);
+				inParam.put("batch_term_gb", "");
+				inParam.put("rm", "");
+				
+				batchAdjustDao.insertBatchJobCfg(inParam);
+			}
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+			throw new Exception(e);
+		}
+		logger.info("########### BatchAdjustServiceImpl :: initBatch :: End ##########");
+		return;
+	}
+	
+	@Override
+	@Transactional(propagation=Propagation.REQUIRED)
+	public String preBatch(String batch_nm) throws Exception {
+		logger.info("########### BatchAdjustServiceImpl :: preBatch :: Start ##########");
+		Map<String, Object> inParam = new HashMap<String, Object>();
+		String batch_id = "";
+		try {
+			batch_id = batchAdjustDao.selectBatchJobCfgStat(batch_nm);
+			
+			if(batch_id != null){
+				
+				inParam.put("batch_id", batch_id);
+				inParam.put("start", "start");
+				inParam.put("job_stat", "R");
+				inParam.put("rm", "");
+				
+				batchAdjustDao.updateBatchJobCfg(inParam);
+				batchAdjustDao.insertBatchJobHist(inParam);
+			}
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+			throw new Exception(e);
+		}
+		logger.info("########### BatchAdjustServiceImpl :: preBatch :: End ##########");
+		return inParam.get("hist_seq").toString();
+	}
+	
+	@Override
+	@Transactional(propagation=Propagation.REQUIRED)
+	public String postBatch(String hist_seq, String err_dtl) throws Exception {
+		logger.info("########### BatchAdjustServiceImpl :: postBatch :: Start ##########");
+		try {
+				
+			Map<String, Object> inParam = new HashMap<String, Object>();
+			inParam.put("hist_seq", hist_seq);
+			inParam.put("err_dtl", err_dtl);
+			if(err_dtl.startsWith("[OK]")){
+				inParam.put("stat", "R");
+			}else{
+				inParam.put("stat", "E");
+			}
+			
+			batchAdjustDao.updateBatchJobHist(inParam);
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+			throw new Exception(e);
+		}
+		logger.info("########### BatchAdjustServiceImpl :: postBatch :: End ##########");
+		return hist_seq;
+	}
+	
+	@Override
+	public int batchAdjustCnt() throws Exception {
+		logger.info("########### BatchAdjustServiceImpl :: batchAdjustCnt :: Start ##########");
+		int cnt = 0;
+		try {
+			cnt = batchAdjustDao.selectListAdjustCnt(null);
+			
+			
+			logger.debug(">>>>> cnt : "+cnt);
+		} catch (Exception e) {
+			e.printStackTrace();
+			throw new Exception(e);
+		}
+		logger.info("########### BatchAdjustServiceImpl :: batchAdjustCnt :: End ##########");
+		return cnt;
+	}
+	
+	@Override
+	@Transactional(propagation=Propagation.REQUIRED)
+	public int batchAdjust(int page_no, int orgCnt) throws Exception {
+		logger.info("########### BatchAdjustServiceImpl :: batchAdjust :: Start ##########");
+		int cnt = 0;
+		try {
+			Map<String, Object> inParam = new HashMap<String, Object>();
+			inParam.put("PAGE_NO", page_no+"");
+			
+			inParam.put("PAGE_NO", StringUtil.nvl((String)inParam.get("PAGE_NO"), "1"));
+			int nowPage = StringUtil.nvlInt((String)inParam.get("PAGE_NO"), 1);
+			int rowTotal = orgCnt;
+			
+			PageNavigation pageNav= new PageNavigation(nowPage, rowTotal, 100, CmmnCnst.ADM_BLOCK_SIZE );
+		    inParam.put("START_ROW"	,pageNav.getStartRow());
+		    inParam.put("END_ROW"	,pageNav.getEndRow());
+		    
+		    
+			List<Map<String, Object>> list = batchAdjustDao.selectListAdjust(inParam);
+			
+			
+			for(Map<String, Object> map : list){
+				try{
+//					batchAdjustDao.EXEC_PR_ADJUST_HIST(ord_cd);
+					
+					logger.debug("####################################");
+					logger.debug(">>>>> ord_cd : "+map.get("ORD_CD"));
+					logger.debug(">>>>> prod_code : "+map.get("PROD_CODE"));
+					logger.debug(">>>>> prod_seq : "+map.get("PROD_SEQ"));
+					// 매퍼에 쿼리 넣기 요청
+					if(batchAdjustDao.insertAdjustHist(map) > 0){
+						
+						cnt += batchAdjustDao.updateOrdInfo(map);
+					}
+				}catch(Exception e){
+					e.printStackTrace();
+				}
+			}
+			logger.debug(">>>>> cnt : "+cnt);
+		} catch (Exception e) {
+			e.printStackTrace();
+			throw new Exception(e);
+		}
+		logger.info("########### BatchAdjustServiceImpl :: batchAdjust :: End ##########");
+		return cnt;
+	}
+	
+	@Override
+	@Transactional(propagation=Propagation.REQUIRED)
+	public int batchSpStat() throws Exception{
+		logger.info("########### BatchAdjustServiceImpl :: batchSpStat :: Start ##########");
+		int cnt = 0;
+		try {
+			
+			List<Map<String, Object>> list = batchAdjustDao.selectOrdProdInfoForSp();
+			
+			for(Map<String, Object> map : list){
+				try{
+//					batchAdjustDao.EXEC_PR_ADJUST_HIST(ord_cd);
+					
+					logger.debug("####################################");
+					logger.debug(">>>>> ord_cd : "+map.get("ORD_CD"));
+					logger.debug(">>>>> prod_code : "+map.get("PROD_CODE"));
+					logger.debug(">>>>> prod_seq : "+map.get("PROD_SEQ"));
+					// 매퍼에 쿼리 넣기 요청
+					if(batchAdjustDao.insertOrdProdInfoHist(map) > 0){
+						
+						cnt += batchAdjustDao.updateOrdProdInfoForSp(map);
+					}
+				}catch(Exception e){
+					e.printStackTrace();
+				}
+			}
+			logger.debug(">>>>> cnt : "+cnt);
+		} catch (Exception e) {
+			e.printStackTrace();
+			throw new Exception(e);
+		}
+		logger.info("########### BatchAdjustServiceImpl :: batchSpStat :: End ##########");
+		return cnt;
+	}
+	
+	/**
+	 *  1. danal 결제 데이터 텍스트 파일 sftp로 다운로드 후
+	 *  DB insert
+	 */
+	@Override
+//	@Transactional(propagation=Propagation.REQUIRED)
+	public int batchAdjustTr(Map<String, Object> inParam) throws Exception {
+		logger.info("########### BatchAdjustServiceImpl :: batchAdjustTr :: Start ##########");
+		logger.info("##### process #01 #####");
+		int cnt = 0;
+		try {
+			
+			String sftptId = CmmnCnst.SFTP_ADJUST_TXT_FILE_USERNAME;
+			String sftpPwd = CmmnCnst.SFTP_ADJUST_TXT_FILE_PASSWORD;
+			String sftpHost = CmmnCnst.SFTP_ADJUST_TXT_FILE_HOST;
+			int sftpPort = CmmnCnst.SFTP_ADJUST_TXT_FILE_PORT;
+			
+			String sftpFilePath = CmmnCnst.SFTP_ADJUST_TXT_FILE_PATH;
+			
+			Calendar cal = Calendar.getInstance();
+			SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd");
+			String sftpFileNm = CmmnCnst.ADJUST_TXT_FILE_PATH_NM.replace("YYYYMMDD", sdf.format(cal.getTime()));
+			
+			if(inParam != null){
+				if(!"".equals(inParam.get("ID"))){
+					sftptId = inParam.get("ID").toString();
+				}
+				if(!"".equals(inParam.get("PWD"))){
+					sftpPwd = inParam.get("PWD").toString();
+				}
+				if(!"".equals(inParam.get("HOST"))){
+					sftpHost = inParam.get("HOST").toString();
+				}
+				
+				if(inParam.get("PORT") != null && !"".equals(inParam.get("PORT").toString().replaceAll("[^0-9]", ""))){
+					sftpPort = Integer.parseInt(inParam.get("PORT").toString().replaceAll("[^0-9]", ""));
+				}
+				if(!"".equals(inParam.get("PATH"))){
+					sftpFilePath = inParam.get("PATH").toString();
+				}
+				if(!"".equals(inParam.get("FILENM"))){
+					sftpFileNm = inParam.get("FILENM").toString();
+				}
+			}
+			
+			sdf = new SimpleDateFormat("yyyyMM");
+			String filePath = AppConfigManager.getInstance().getUploadMiscRootPath()+CmmnCnst.ADJUST_TXT_FILE_PATH+sdf.format(cal.getTime())+"/";
+//			String filePath = batchAdjustDao.getAdjustFilePath()+CmmnCnst.ADJUST_TXT_FILE_PATH+sdf.format(cal.getTime())+"/";
+			
+			File file = new File(filePath);
+			if(!file.exists()){
+				file.mkdirs();
+			}
+			
+			SFTPUtil sftp = new SFTPUtil();
+			sftp.init(sftpHost, sftptId, sftpPwd, sftpPort);
+//			sftp.upload(CmmnCnst.SFTP_ADJUST_TXT_FILE_PATH, new File(CmmnCnst.ADJUST_TXT_FILE_PATH+fileName));
+			sftp.download(sftpFilePath, sftpFileNm, filePath);
+			sftp.disconnection();
+			
+//			String[] field = {"SELT_GB_CD_NM", "TR_ID", "CPID" ,"AMT", "TR_DT", "ORD_CD" };
+			List<Map<String, Object>> list = FileUtil.readTxtFile(filePath+sftpFileNm, CmmnCnst.ADJUST_TXT_FILE_FIELD, "euc-kr");
+			
+			for(Map<String, Object> map : list){
+				
+				try{
+					
+					logger.debug("####################################");
+					logger.debug(">>>>> SELT_GB_CD_NM : "+map.get("SELT_GB_CD_NM"));
+					logger.debug(">>>>> TR_ID : "+map.get("TR_ID"));
+					logger.debug(">>>>> CPID : "+map.get("CPID"));
+					logger.debug(">>>>> AMT : "+map.get("AMT"));
+					logger.debug(">>>>> TR_DT : "+map.get("TR_DT"));
+					logger.debug(">>>>> ORD_CD : "+map.get("ORD_CD"));
+					
+					// 매퍼에 쿼리 넣기 요청
+					cnt += batchAdjustDao.insertAdjustTrInfo(map);
+				}catch(Exception e){
+					e.printStackTrace();
+				}
+				try{
+					
+					batchAdjustDao.insertAdjustLogTr(map);
+				}catch(Exception e){
+					e.printStackTrace();
+				}
+			}
+			logger.debug(">>>>> cnt : "+cnt);
+		} catch (Exception e) {
+			e.printStackTrace();
+			throw new Exception(e);
+		}
+		logger.info("########### BatchAdjustServiceImpl :: batchAdjustTr :: End ##########");
+		return cnt;
+	}
+	
+	/**
+	 *  다날 정산 결과 받아오는 sftp 배치
+	 *  현재(20151129) 사용안함
+	 */
+	@Override
+//	@Transactional(propagation=Propagation.REQUIRED)
+	public int batchAdjustPaymnt() throws Exception {
+		logger.info("########### BatchAdjustServiceImpl :: batchAdjustPaymnt :: Start ##########");
+		int cnt = 0;
+		try {
+			Calendar cal = Calendar.getInstance();
+			SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd");
+			String fileName = CmmnCnst.ADJUST_RTN_TXT_FILE_PATH_NM.replace("YYYYMMDD", sdf.format(cal.getTime()));
+			sdf = new SimpleDateFormat("yyyyMM");
+			String filePath = AppConfigManager.getInstance().getUploadMiscRootPath()+CmmnCnst.ADJUST_RTN_TXT_FILE_PATH+sdf.format(cal.getTime())+"/";
+//			String filePath = batchAdjustDao.getAdjustFilePath() + CmmnCnst.ADJUST_RTN_TXT_FILE_PATH+sdf.format(cal.getTime())+"/";
+			
+			File file = new File(filePath);
+			if(!file.exists()){
+				file.mkdirs();
+			}
+
+			SFTPUtil sftp = new SFTPUtil();
+			sftp.init(CmmnCnst.SFTP_ADJUST_TXT_FILE_HOST, CmmnCnst.SFTP_ADJUST_TXT_FILE_USERNAME, CmmnCnst.SFTP_ADJUST_TXT_FILE_PASSWORD, CmmnCnst.SFTP_ADJUST_TXT_FILE_PORT);
+			sftp.download(CmmnCnst.SFTP_ADJUST_RTN_TXT_FILE_PATH, fileName, filePath);
+			sftp.disconnection();
+			
+//			String[] field = {"SELT_GB_CD_NM", "TR_ID", "CPID" ,"AMT", "TR_DT", "ORD_CD" };
+			List<Map<String, Object>> list = FileUtil.readTxtFile(filePath+fileName, CmmnCnst.ADJUST_RTN_TXT_FILE_FIELD, "euc-kr");
+			
+			for(Map<String, Object> map : list){
+				
+				try{
+					
+					logger.debug("####################################");
+					logger.debug(">>>>> BANK_CD : "+map.get("BANK_CD"));
+					logger.debug(">>>>> BAMK_ACNT_NO : "+map.get("BAMK_ACNT_NO"));
+					logger.debug(">>>>> CRNCY : "+map.get("CRNCY"));
+					logger.debug(">>>>> AMT : "+map.get("AMT"));
+					logger.debug(">>>>> ACNT_NM : "+map.get("ACNT_NM"));
+					logger.debug(">>>>> ORD_CD : "+map.get("ORD_CD"));
+					logger.debug(">>>>> PROD_CODE : "+map.get("PROD_CODE"));
+					logger.debug(">>>>> STAT : "+map.get("STAT"));
+					logger.debug(">>>>> RET_CD : "+map.get("RET_CD"));
+					logger.debug(">>>>> RET_MSG : "+map.get("RET_MSG"));
+//					map.put("STAT","R");
+//					map.put("RET_CD","RET_CD");
+//					map.put("RET_MSG","RET_MSG");
+					
+					// 매퍼에 쿼리 넣기 요청
+					cnt += batchAdjustDao.insertAdjustPaymntInfo(map);
+				}catch(Exception e){
+					e.printStackTrace();
+				}
+				try{
+					
+					batchAdjustDao.insertAdjustLog(map);
+				}catch(Exception e){
+					e.printStackTrace();
+				}
+			}
+			logger.debug(">>>>> cnt : "+cnt);
+		} catch (Exception e) {
+			e.printStackTrace();
+			throw new Exception(e);
+		}
+		logger.info("########### BatchAdjustServiceImpl :: batchAdjustPaymnt :: End ##########");
+		return cnt;
+	}
+	
+	@Override
+	@Transactional(propagation=Propagation.REQUIRED)
+	public int batchAccStatis() throws Exception {
+		logger.info("########### BatchAdjustServiceImpl :: batchAccStatis :: Start ##########");
+		int cnt = 0;
+		Map<String, Object> params = new HashMap<String, Object>();
+		try {
+			
+			params.put("sdate", batchMyStatisDao.selectBatchStatisAccDateLastDate(""));
+			if(!"LATEDATA".equals(params.get("sdate"))){
+				
+				cnt += batchMyStatisDao.insertBatchStatisAccDate(params);
+			}
+			
+			params.put("sdate", batchMyStatisDao.selectBatchStatisAccTimeLastDate(""));
+			if(!"LATEDATA".equals(params.get("sdate"))){
+				
+				cnt += batchMyStatisDao.insertBatchStatisAccTime(params);
+			}
+			
+			
+			params.put("sdate", batchMyStatisDao.selectBatchStatisAccMenuDateLastDate(""));
+			if(!"LATEDATA".equals(params.get("sdate"))){
+				
+				cnt += batchMyStatisDao.insertStatisAccMenuDate(params);
+			}
+			
+			
+			params.put("sdate", batchMyStatisDao.selectBatchStatisAccMenuDateLastTime(""));
+			if(!"LATEDATA".equals(params.get("sdate"))){
+				
+				cnt += batchMyStatisDao.insertStatisAccMenuTime(params);
+			}
+			
+			
+			logger.debug(">>>>> cnt : "+cnt);
+		} catch (Exception e) {
+			e.printStackTrace();
+			throw new Exception(e);
+		}
+		logger.info("########### BatchAdjustServiceImpl :: batchAdjust :: End ##########");
+		return cnt;
+	}
+	
+	@Override
+	@Transactional(propagation=Propagation.REQUIRED)
+	public int batchSgnStatis() throws Exception {
+		logger.info("########### BatchAdjustServiceImpl :: batchAccStatis :: Start ##########");
+		int cnt = 0;
+		Map<String, Object> params = new HashMap<String, Object>();
+		try {
+			
+			params.put("sdate", batchAdjustDao.selectBatchStatisSgnDateLastDate(""));
+			if(!"LATEDATA".equals(params.get("sdate"))){
+				
+				cnt += batchAdjustDao.insertBatchStatisSgnDate(params);
+			}
+			
+			params.put("sdate", batchAdjustDao.selectBatchStatisSgnTimeLastDate(""));
+			if(!"LATEDATA".equals(params.get("sdate"))){
+				
+				cnt += batchAdjustDao.insertBatchStatisSgnTime(params);
+			}
+			
+			logger.debug(">>>>> cnt : "+cnt);
+		} catch (Exception e) {
+			e.printStackTrace();
+			throw new Exception(e);
+		}
+		logger.info("########### BatchAdjustServiceImpl :: batchAdjust :: End ##########");
+		return cnt;
+	}
+	
+	@Override
+	@Transactional(propagation=Propagation.REQUIRED)
+	public void batchRtnAdjust() throws Exception {
+		logger.info("########### BatchAdjustServiceImpl :: batchRtnAdjust :: Start ##########");
+		try {
+			Map<String, Object> inParam = new HashMap<String, Object>();
+			List<String> list = batchAdjustDao.selectListChgRtnProcInfo(inParam);
+			
+			for(String chg_cd : list){
+				try{
+					batchAdjustDao.EXEC_PR_CAL_RTN_HIST(chg_cd);
+					batchAdjustDao.updateChgRtnProcInfo(chg_cd);
+				}catch(Exception e){
+					e.printStackTrace();
+				}
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+			throw new Exception(e);
+		}
+		logger.info("########### BatchAdjustServiceImpl :: batchRtnAdjust :: End ##########");
+		return;
+	}
+	
+	
+	@Override
+	@Transactional(propagation=Propagation.REQUIRED)
+	public int batchSellConf() throws Exception {
+		logger.info("########### BatchAdjustServiceImpl :: batchSellConf :: Start ##########");
+		int totCnt = 0;
+		try {
+			Map<String, Object> inParam = new HashMap<String, Object>();
+			List<Map<String, Object>> list = batchAdjustDao.selectOrdProdInfo(inParam);
+			int reCnt = 0;
+			for(Map<String, Object> map : list){
+				try{
+					reCnt = batchAdjustDao.updateOrdProdInfo(map);
+					if(reCnt > 0){
+						totCnt += batchAdjustDao.insertProdBuyConfInfo(map);
+					}
+					reCnt = 0;
+				}catch(Exception e){
+					e.printStackTrace();
+				}
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+			throw new Exception(e);
+		}
+		logger.info("########### BatchAdjustServiceImpl :: batchSellConf :: End ##########");
+		return totCnt;
+	}
+	
+
+}

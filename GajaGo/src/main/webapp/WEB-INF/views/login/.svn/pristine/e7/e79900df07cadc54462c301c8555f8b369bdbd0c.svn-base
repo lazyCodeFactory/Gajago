@@ -1,0 +1,283 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="adminEmailMapper">
+     <resultMap id="EmailMap" type="HashMap">
+     	<result property="MAIL_SEQ"          column="MAIL_SEQ"           javaType="String"/>
+     	<result property="SND_GB_CD"          column="SND_GB_CD"           javaType="String"/>
+     	<result property="TITLE"          column="TITLE"           javaType="String"/>
+     	<result property="CONTENTS"          column="CONTENTS"           javaType="String" jdbcType="CLOB"/>
+     	<result property="HTMLYN"          column="HTMLYN"           javaType="String"/>
+     	<result property="REGIST_DT"          column="REGIST_DT"           javaType="String"/>
+     	<result property="SND_DT"          column="SND_DT"           javaType="String"/>
+     	<result property="CPNM_NM"          column="CPNM_NM"           javaType="String"/>
+     	<result property="SND_CNT"          column="SND_CNT"           javaType="String"/>
+     	<result property="SND_STAT"          column="SND_STAT"           javaType="String"/>
+     	<result property="RESRV_YN"          column="RESRV_YN"           javaType="String"/>
+     </resultMap>
+    
+  
+  
+     <select id="selectListEmail"  parameterType="HashMap" resultType="HashMap">
+      
+     <include refid="adminCommonMapper.pagingHeader" />
+     SELECT
+		MAIL_SEQ
+		,CPNM_NM
+		,SND_CNT
+		,SND_STAT
+		,REGIST_DT
+		,to_char(SND_DT, 'yyyy-MM-dd HH24:mm') AS STR_SND_DT
+		,to_char(REGIST_DT, 'yyyy-MM-dd HH24:mm') AS STR_REGIST_DT
+		 , ROW_NUMBER() OVER(ORDER BY REGIST_DT DESC ) AS NO
+	FROM MAIL_SND_GRP
+			<where>
+		        SND_STAT IS NOT NULL
+		        <if test="param_title != null and param_title != ''">
+		          AND
+		            CPNM_NM LIKE '%' || <![CDATA[#{param_title }]]> || '%'
+		        </if>
+		        <if test="param_snd_stat != null and param_snd_stat != ''">
+		          AND
+		            SND_STAT = #{param_snd_stat }
+		        </if>
+		      AND
+		        TO_CHAR(REGIST_DT, 'YYYYMMDD') BETWEEN #{S_START_DATE} AND #{S_END_DATE}
+		     </where>
+         ORDER BY REGIST_DT DESC
+      <include refid="adminCommonMapper.pagingFooter" />
+      
+  </select>  
+  
+   <select id="selectListEmailCount"  parameterType="HashMap" resultType="int">
+   	    	SELECT 
+    		COUNT(1) AS TOTAL_COUNT
+    		FROM MAIL_SND_GRP
+			<where>
+		        SND_STAT IS NOT NULL
+		        <if test="param_title != null and param_title != ''">
+		          AND
+		            CPNM_NM LIKE '%' || <![CDATA[#{param_title }]]> || '%'
+		        </if>
+		        <if test="param_snd_stat != null and param_snd_stat != ''">
+		          AND
+		            SND_STAT = #{param_snd_stat }
+		        </if>
+		      AND
+		        TO_CHAR(REGIST_DT, 'YYYYMMDD') BETWEEN #{S_START_DATE} AND #{S_END_DATE}
+		     </where>
+   </select>
+   
+   
+   <insert id="insertEmailMber" parameterType="hashmap" >
+  INSERT INTO MAIL_SND(
+  	MAIL_SEQ
+	,SND_SEQ
+<!-- 	,TO_NAME -->
+	,TO_EMAIL
+	,MBER_SEQ	
+  	<if test='RESRV_YN == "Y" '>
+			,SND_DT	
+	</if>
+	<if test='RESRV_YN == "N" '>
+			,SND_DT	
+	</if>
+  )VALUES (
+  	#{MAIL_SEQ}
+	, #{SND_SEQ}
+<!-- 	, #{TO_NAME} -->
+	, #{TO_EMAIL}
+	, #{MBER_SEQ}
+	<if test='RESRV_YN == "Y" '>
+		,#{SND_DT}
+	</if>
+	<if test='RESRV_YN == "N" '>
+		,sysdate
+	</if>
+	)
+  </insert>
+  
+  
+  <insert id="insertEmail" parameterType="hashmap" useGeneratedKeys="true" keyProperty="MAIL_SEQ" keyColumn="MAIL_SEQ">
+ 		INSERT INTO MAIL_SND_GRP(
+			MAIL_SEQ
+			,SND_GB_CD
+			,CPNM_NM
+			,SND_CNT
+			,FROM_NAME
+			,FROM_EMAIL
+			,HTMLYN
+			,TITLE
+			,CONTENTS
+			,SND_STAT
+<!-- 			,FILE_SEQ -->
+			,RESRV_YN
+			,SND_DT
+			,REGIST_DT
+		)VALUES (
+				SEQ_MAIL_GRP.NEXTVAL
+				, #{SND_GB_CD}
+				, #{CPNM_NM} 
+				, #{SND_CNT}
+				, (SELECT COM_CD_NM FROM CODE WHERE GRP_CD='FROM_NAME' AND COM_CD ='00')
+				, (SELECT COM_CD_NM FROM CODE WHERE GRP_CD='FROM_EMAIL' AND COM_CD ='00')
+				, #{HTMLYN}
+				, #{TITLE}
+				, #{CONTENTS ,jdbcType=CLOB}
+				, #{SND_STAT}
+<!-- 				, #{FILE_SEQ} -->
+				, #{RESRV_YN }
+				, #{SND_DT }
+				, sysdate 
+				)
+  </insert>
+     
+   <insert id="insertEmail1" parameterType="hashmap" useGeneratedKeys="true" keyProperty="MAIL_SEQ" keyColumn="MAIL_SEQ">
+ 		INSERT INTO MAIL_SND_GRP(
+			MAIL_SEQ
+			,SND_GB_CD
+			,CPNM_NM
+			,SND_CNT
+			,FROM_NAME
+			,FROM_EMAIL
+			,HTMLYN
+			,TITLE
+			,CONTENTS
+			,SND_STAT
+<!-- 			,FILE_SEQ -->
+			,RESRV_YN
+			,SND_DT
+			,REGIST_DT
+		)VALUES (
+				SEQ_MAIL_GRP.NEXTVAL
+				, #{SND_GB_CD}
+				, #{CPNM_NM} 
+				, #{SND_CNT}
+				, (SELECT COM_CD_NM FROM CODE WHERE GRP_CD='FROM_NAME' AND COM_CD ='00')
+				, (SELECT COM_CD_NM FROM CODE WHERE GRP_CD='FROM_EMAIL' AND COM_CD ='00')
+				, #{HTMLYN}
+				, #{TITLE}
+				, #{CONTENTS ,jdbcType=CLOB}
+				, #{SND_STAT}
+<!-- 				, #{FILE_SEQ} -->
+				, #{RESRV_YN }
+				, sysdate
+				, sysdate 
+				)
+  </insert>
+  
+    <insert id="insertEmailNone" parameterType="hashmap" useGeneratedKeys="true" keyProperty="MAIL_SEQ" keyColumn="MAIL_SEQ">
+ 		INSERT INTO MAIL_SND_GRP(
+			MAIL_SEQ
+			,REGIST_DT
+		)VALUES (
+				SEQ_MAIL_GRP.NEXTVAL
+				, sysdate 
+				)
+  </insert>
+  
+    <insert id="insertEmailMber2" parameterType="hashmap" >
+  INSERT INTO MAIL_SND(
+  	MAIL_SEQ
+	,SND_SEQ
+	,TO_EMAIL
+	,MBER_SEQ	
+  
+  )VALUES (
+  	#{MAIL_SEQ }
+	, #{SND_SEQ}
+	, (SELECT MBER_EMAIL FROM MBER_INFO WHERE MBER_SEQ = #{MBER_SEQ })
+	, #{MBER_SEQ}
+	)
+  </insert>
+  
+       <select id="selectListEmailMberSearch"  parameterType="HashMap" resultType="HashMap">
+		    SELECT 
+		MBER_SEQ
+		,MBER_GB_CD
+		,MBER_EMAIL
+		,MBER_REG_GB_CD
+		,REGEXP_REPLACE(REGEXP_REPLACE(MBER_PHONE,'[^[:digit:]]'),'(^[[:digit:]]{3})([[:digit:]]{3,4})([[:digit:]]{4}$)', '\1-\2-\3') AS MBER_PHONE
+		FROM MBER_INFO 
+		WHERE MBER_EMAIL LIKE '%' || <![CDATA[#{MBER_EMAIL ,jdbcType=VARCHAR}]]> || '%'
+  </select> 
+  
+  
+   <select id="selectListEmailMberCnt"  parameterType="HashMap" resultType="int">
+		    SELECT 
+		COUNT(*) AS MBER_CNT
+		FROM MBER_INFO 
+  </select>  
+  
+   <select id="selectListEmailMber"  parameterType="HashMap" resultType="HashMap">
+	 SELECT 
+		 M.MBER_SEQ  AS MBER_SEQ
+		,M.MBER_GB_CD  AS MBER_GB_CD
+		,M.MBER_REG_GB_CD  AS MBER_REG_GB_CD
+		,M.MBER_EMAIL  AS MBER_EMAIL
+		,REGEXP_REPLACE(REGEXP_REPLACE(M.MBER_PHONE,'[^[:digit:]]'),'(^[[:digit:]]{3})([[:digit:]]{3,4})([[:digit:]]{4}$)', '\1-\2-\3') AS MBER_PHONE
+		FROM MAIL_SND E
+    LEFT JOIN MBER_INFO M 
+    ON  E.MBER_SEQ = M.MBER_SEQ
+		WHERE  E.MAIL_SEQ = #{MAIL_SEQ }
+  </select>  
+  
+  
+     <select id="selectListEmailMberCount"  parameterType="HashMap" resultType="int">
+	 SELECT 
+		 COUNT(*) CNT
+		 FROM MAIL_SND E
+    LEFT JOIN MBER_INFO M 
+    ON  E.MBER_SEQ = M.MBER_SEQ
+		WHERE  E.MAIL_SEQ = #{MAIL_SEQ }
+  </select>  
+  
+    <select id="selectEmail"  parameterType="HashMap" resultMap="EmailMap">
+  	SELECT
+	  	A.MAIL_SEQ  
+		,A.SND_GB_CD 
+		,A.TITLE     
+		,A.CONTENTS  
+		,A.HTMLYN        
+		,A.CPNM_NM   
+		,A.SND_CNT   
+		,A.SND_STAT  
+		,A.RESRV_YN
+		,to_char(A.SND_DT, 'yyyy-MM-dd HH24:mm') AS SND_DT
+		,to_char(A.REGIST_DT, 'yyyy-MM-dd HH24:mm') AS REGIST_DT
+	FROM MAIL_SND_GRP A
+	WHERE MAIL_SEQ = #{MAIL_SEQ }
+  </select>
+  
+  
+   <update  id="updateEmail"  parameterType="HashMap">
+   		UPDATE MAIL_SND_GRP SET SND_STAT = #{SND_STAT} WHERE MAIL_SEQ = #{MAIL_SEQ }
+   </update>
+   
+   
+      <update  id="updateEmailGrp"  parameterType="HashMap">
+   		UPDATE MAIL_SND_GRP
+   			 SET 
+   			 	MAIL_SEQ    = #{MAIL_SEQ}                                                             
+				,SND_GB_CD  = #{SND_GB_CD}                                                            
+				,CPNM_NM    = #{CPNM_NM}                                                              
+				,SND_CNT    = #{SND_CNT}                                                              
+				,FROM_NAME  = (SELECT COM_CD_NM FROM CODE WHERE GRP_CD='FROM_NAME' AND COM_CD ='00')  
+				,FROM_EMAIL = (SELECT COM_CD_NM FROM CODE WHERE GRP_CD='FROM_EMAIL' AND COM_CD ='00') 
+				,HTMLYN	    = #{HTMLYN}                                                               
+				,TITLE	    = #{TITLE}                                                                
+				,CONTENTS   = #{CONTENTS , jdbcType=CLOB}                                              
+				,SND_STAT   = #{SND_STAT}                                                             
+				,RESRV_YN   = #{RESRV_YN }     
+				<if test='RESRV_YN == "Y" '>
+				,SND_DT	    = #{SND_DT} 
+				</if>                                                       
+                <if test='RESRV_YN == "N" '>
+				,SND_DT	    = sysdate     
+				</if>                                              
+				,REGIST_DT  = sysdate                                                                 
+
+   			 WHERE 
+   			 	MAIL_SEQ = #{MAIL_SEQ }
+   	 </update>
+ </mapper>

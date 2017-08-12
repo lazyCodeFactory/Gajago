@@ -1,0 +1,166 @@
+package com.ssocio.sharing.controller.mobile;
+
+import java.util.HashMap;
+import java.util.Map;
+import org.springframework.ui.ModelMap;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.servlet.ModelAndView;
+
+import com.ssocio.sharing.cmmn.util.LoggerUtil;
+import com.ssocio.sharing.service.web.MobilePromoEvtService;
+
+@Controller
+public class MobilePromoEvtController extends MobileReferController {
+
+	// --------------------------------------------------------------------------
+	// # Log 설정
+	// --------------------------------------------------------------------------
+	private static final Logger logger = LoggerFactory.getLogger(MobilePromoEvtController.class);
+	// --------------------------------------------------------------------------
+	// # Service 설정
+	// --------------------------------------------------------------------------
+	@Autowired
+	private MobilePromoEvtService mobilePromoEvtService;
+	
+	/**
+	 * 진행중인 프로모션 이벤트를 조회한다
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return Json
+	 * @throws Exception
+	 */
+	@RequestMapping("/mobile/promo/evtApi.do")
+	public ModelAndView searchEvtApi(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception {
+
+		logger.info("☆★☆★☆★☆★☆★☆★☆Mobile searchEvtApi START☆★☆★☆★☆★☆★☆★☆");
+
+		ModelAndView mav = new ModelAndView();
+		Map<String, String> feedback = new HashMap<String, String>();
+		Map<String, String> tempReturnMap = new HashMap<String, String>();
+		ModelMap map = new ModelMap();
+
+		try {
+
+			String target = inParam.get("target") == null ? "" : String.valueOf(inParam.get("target")).toLowerCase(); // ex) evt or mber
+			String evtName = inParam.get("evtName") == null ? "" : String.valueOf(inParam.get("evtName")).toLowerCase(); // ex) joinmber
+			String isIng = inParam.get("isIng") == null ? "" : String.valueOf(inParam.get("isIng")).toUpperCase(); // ex) Y or N
+			
+			if (!"".equals(target) || !"".equals(evtName)) {
+
+				if ("evt".equals(target)) { //evt api call
+					
+					feedback.put("error", "필수값 체크가 필요합니다.");
+					
+					//이벤트는 메인 화면에서만 노출되게, 호출하는 api에는 임의로 N을 리턴함
+					tempReturnMap.put("ISING", "N");
+					tempReturnMap.put("EVT_PAGE_URL", "not use");
+					tempReturnMap.put("ISPOSSIBLE", "N");
+					map.put("success", tempReturnMap);					
+					mav.addObject("result", ("".equals(isIng) ? feedback : map));
+					
+					//mav.addObject("result", ("".equals(isIng) ? feedback : mobilePromoEvtService.searchEvt(evtName, isIng, inParam, request)));
+					//evtName or isIng 값 체크 후 result로 error or table result 리턴.
+				}
+				
+				if ("mber".equals(target)) { // evt join
+				
+					//mav.addObject("result", mobilePromoEvtService.searchJoinMber(evtName, request, inParam));
+				}
+
+			} else {
+
+				feedback.put("error", "필수값 체크가 필요합니다.");
+				mav.addObject("result", feedback);
+
+			}//terget && evtName null check end
+
+			mav.setViewName("jsonView");
+
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		logger.info("☆★☆★☆★☆★☆★☆★☆Mobile searchEvtApi END☆★☆★☆★☆★☆★☆★☆");
+		return mav;
+
+	}
+		
+	
+	/**
+	 * 프로모션 이벤트 참가
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return Json
+	 * @throws Exception
+	 */
+	@RequestMapping("/mobile/promo/insertjoinevt.do") // 이벤트 참여
+	public ModelAndView insertPromoEvtMber(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception {
+	
+		logger.info("☆★☆★☆★☆★☆★☆★☆Mobile insertPromoEvtMber START☆★☆★☆★☆★☆★☆★☆");
+				
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(inParam);	
+		
+		try {
+			mav.addObject("result", mobilePromoEvtService.insertMber(request, inParam));
+			//mav.setViewName("web/promo/insertjoinevt");
+			mav.setViewName("jsonView");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		logger.info("☆★☆★☆★☆★☆★☆★☆Mobile insertPromoEvtMber END☆★☆★☆★☆★☆★☆★☆");
+	return mav;
+	
+	};
+	
+	/**
+ * popup page
+ * @param request
+ * @param response
+ * @param inParam
+ * @return
+ * @throws Exception
+ */
+	@RequestMapping("/mobile/promo/joinevt.do") // pupup start
+	public ModelAndView viewEvtPopup(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception {
+	ModelAndView mav = new ModelAndView("web/promo/joinevt");
+	return mav;
+}
+	
+	
+	/**
+	 * popup page
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 */
+	@RequestMapping("/mobile/promo/evtPopup.do") // pupup start
+	public ModelAndView viewEvtPopupEtc(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception {
+		String evtNm = inParam.get("evtNm") == null ? "" : String.valueOf(inParam.get("evtNm")).toLowerCase(); // evtNm ex) join,
+		String url = "web/promo/promo"+evtNm;		
+		ModelAndView mav = new ModelAndView(url);
+		return mav;
+	}
+	
+	@RequestMapping("/mobile/promo/evtView.do") // pupup start
+	public ModelAndView evtView(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception {
+		String EVT_API_NM = request.getParameter("evtApiNm").toLowerCase().trim();
+		inParam.put("EVT_API_NM", EVT_API_NM);
+		ModelAndView mav = new ModelAndView("web/promo/evtView");
+		mav.addObject("result", mobilePromoEvtService.evtView(inParam));
+		return mav;
+	}
+	
+}

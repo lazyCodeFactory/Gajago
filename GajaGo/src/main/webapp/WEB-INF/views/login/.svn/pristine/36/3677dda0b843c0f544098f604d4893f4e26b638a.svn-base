@@ -1,0 +1,424 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/admin/common/cmmnHead.jsp"%>
+<script type="text/javascript">
+$(document).ready(function(){
+	//달력이미지
+	$('.calendar').datepicker({
+      showOn: "button",
+      buttonImage: "http://static.ssocio.net/admin/images/ico_calendar.gif",
+      buttonImageOnly: true
+    });
+	//오늘날짜 셋팅
+	if($('#S_START_DATE').val() == '') $('#S_START_DATE').val($.datepicker.formatDate('yy-mm-dd', new Date()));
+	if($('#S_END_DATE').val() == '') $('#S_END_DATE').val($.datepicker.formatDate('yy-mm-dd', new Date()));
+	//조회버튼
+	$(".btn_r").click(function(){
+		searchForm();
+	});
+
+});
+//리스트 조회
+function searchForm(){
+	if(validDate()){
+		replDate();
+		$("#frm").attr("action", "/admin/qaadvice/selectListQAAdvice.do").submit();
+	}
+}
+//입력화면
+function goInsert(){
+
+	$("#inOutFlag").val("");
+	replDate();
+	$("#frm").attr("action", "/admin/qaadvice/insertQAAdvice.do").submit();
+}
+//수정화면
+function goUpdate(BOARD_SEQ, BOARD_TYPE_CD){
+	$("#BOARD_SEQ").val(BOARD_SEQ);
+	$("#inOutFlag").val("Y");
+	replDate();
+	$("#frm").attr("action", "/admin/qaadvice/updateQAAdvice.do").submit();
+}
+//엔터키입력
+function enterKeyPress(){
+	if(event.keyCode == 13){
+		$(".btn_r").click();
+	}
+}
+//날짜유효성 체크
+function validDate(){
+	if($("#S_START_DATE").val() != "" || $("#S_END_DATE").val() != ""){
+		var startDate = $("#S_START_DATE").val().replace(/\-/ig, "");
+		var endDate = $("#S_END_DATE").val().replace(/\-/ig, "");
+		if(startDate > endDate){
+	      alert("시작일이 종료일보다 크게 설정될 수 없습니다.");
+	      $("#S_START_DATE").val('');
+	      $("#S_END_DATE").val('');
+	      return false;
+	    }
+	}
+	return true;
+}
+//페이지이동
+function GoPage(pageNo) {
+	$("#PAGE_NO").val(pageNo);
+	replDate();
+	$("#frm").attr("action","/admin/qaadvice/selectListQAAdvice.do").submit();
+}
+//날짜 형식 '-' 제외 시키기
+function replDate(){
+	$("#S_START_DATE").val($("#S_START_DATE").val().replace(/\-/ig, ''));
+	$("#S_END_DATE").val($("#S_END_DATE").val().replace(/\-/ig, ''));
+}
+</script>
+<!-- content -->
+<div id="content">
+	<!-- top_content -->
+	<div class="top_content">
+		<!-- location -->
+		<div class="location">
+			<ul class="clear">
+				<li class="first-child"><a href="#">Home</a></li>
+				<li><a href="#" >문의관리</a></li>
+				<li><a href="#" class="current">
+					<c:if test="${params.BOARD_TYPE_CD == '30' }">상담관리</c:if>
+					<c:if test="${params.BOARD_TYPE_CD == '40' }">서비스문의</c:if>
+					<c:if test="${params.BOARD_TYPE_CD == '72' }">상품문의</c:if>
+				</a></li>
+			</ul>
+		</div>
+		<!-- //location -->
+	</div>
+	<!-- //top_content -->
+
+	<div class="inner">
+		<fmt:parseDate value="${params.S_START_DATE }" var="S_START_DATE" pattern="yyyymmdd" scope="page" />
+	    <fmt:parseDate value="${params.S_END_DATE }" var="S_END_DATE" pattern="yyyymmdd" scope="page" />
+	    <form id="frm" method="post" name="frm">
+	    <input type="hidden" id="BOARD_TYPE_CD" name="BOARD_TYPE_CD" value="${params.BOARD_TYPE_CD }">
+	    <input type="hidden" id="PAGE_NO" name="PAGE_NO">
+	    <input type="hidden" id="BOARD_SEQ" name="BOARD_SEQ">
+	    <input type="hidden" id="inOutFlag" name="inOutFlag">
+		<div class="order_stats_bx mt10 clear">
+			<ul class="lst_type clear">
+				<li><span>처리중 : </span><span class="text_y">
+					<c:if test="${empty selectStatusCount.DOING_CNT}">0</c:if>
+					<c:if test="${not empty selectStatusCount.DOING_CNT}"><fmt:formatNumber value="${selectStatusCount.DOING_CNT}" type="number" /></c:if>
+					건
+				</span></li>
+				<li><span>처리완료 : </span><span class="text_y">
+					<c:if test="${empty selectStatusCount.COMPL_CNT}">0</c:if>
+					<c:if test="${not empty selectStatusCount.COMPL_CNT}"><fmt:formatNumber value="${selectStatusCount.COMPL_CNT}" type="number" /></c:if>
+					건
+				</span></li>
+			</ul>
+		</div>
+
+		<!-- tbl -->
+		<div class="tbl">
+			<table class="search">
+				<colgroup>
+					<col style="width:8%" />
+					<col style="width:30%" />
+					<col style="width:8%" />
+					<col style="width:*" />
+				</colgroup>
+				<tbody>
+					<tr>
+						<th scope="row">등록일</th>
+						<td colspan="5">
+							<input type="text" id="S_START_DATE" name="S_START_DATE" class="calendar" style="width:82px" value='<fmt:formatDate value="${S_START_DATE }" pattern="yyyy-mm-dd" />' readonly/> -
+							<input type="text" id="S_END_DATE" name="S_END_DATE" class="calendar" style="width:82px" value='<fmt:formatDate value="${S_END_DATE }" pattern="yyyy-mm-dd" />' readonly/>
+							<span class="ml5">
+								<a href="javascript:getDateInterval('0D');" class="btn_w">오늘</a>
+								<a href="javascript:getDateInterval('3D');" class="btn_w">3일</a>
+								<a href="javascript:getDateInterval('7D');" class="btn_w">7일</a>
+								<a href="javascript:getDateInterval('1M');" class="btn_w">1개월</a>
+								<a href="javascript:getDateInterval('3M');" class="btn_w">3개월</a>
+								<a href="javascript:getDateInterval('6M');" class="btn_w">6개월</a>
+							</span>
+						</td>
+					</tr>
+					<!-- 상담관리 start -->
+					<c:if test="${params.BOARD_TYPE_CD == '30' }">
+						<tr>
+							<th scope="row">문의유형</th>
+							<td>
+								<span class="select" style="width:100px">
+									<span class="sel_txt"></span>
+									<custom:codeList var="QNA_TYPE_CD" groupCode="QNA_TYPE_CD" />
+									<select id="P_QNA_TYPE_CD" name="P_QNA_TYPE_CD">
+										<option value="">전체</option>
+										<c:forEach var="list" items="${QNA_TYPE_CD}">
+					                      <option value="${list.key}" <c:if test="${list.key == params.P_QNA_TYPE_CD}"> selected="selected" </c:if>>${list.value}</option>
+					                    </c:forEach>
+									</select>
+								</span>
+							</td>
+							<th scope="row">주문번호</th>
+							<td><input type="text" id="P_ORD_CD" name="P_ORD_CD" value="${params.P_ORD_CD }" style="width:150px" onkeyup="enterKeyPress();"/></td>
+							<th scope="row">상품명</th>
+							<td><input type="text" id="P_PROD_NM" name="P_PROD_NM" value="${params.P_PROD_NM }" style="width:150px" onkeyup="enterKeyPress();"/></td>
+						</tr>
+						<tr>
+							<th scope="row">CS담당자</th>
+							<td><input type="text" id="P_WRITE_NM" name="P_WRITE_NM" value="${params.P_WRITE_NM }" style="width:250px" onkeyup="enterKeyPress();"/></td>
+							<th scope="row">처리상태</th>
+							<td colspan="3">
+								<custom:codeList var="ANS_GB_CD" groupCode="ANS_GB_CD" />
+								<label><input type="radio" name="P_ANS_GB_CD" value="" <c:if test="${params.P_ANS_GB_CD == null or params.P_ANS_GB_CD == ''}">checked</c:if>/>전체</label>
+								<c:forEach var="list" items="${ANS_GB_CD}">
+									<label><input type="radio" name="P_ANS_GB_CD" value="${list.key}" <c:if test="${list.key == params.P_ANS_GB_CD}">checked</c:if>/>${list.value}</label>
+								</c:forEach>
+							</td>
+						</tr>
+					</c:if>
+					<!-- 상담관리 end -->
+					<!-- 서비스관리 start -->
+					<c:if test="${params.BOARD_TYPE_CD == '40' }">
+						<tr>
+							<th scope="row">구분</th>
+							<td>
+								<span class="select" style="width:100px">
+									<span class="sel_txt"></span>
+									<custom:codeList var="QNA_TYPE_CD" groupCode="QNA_TYPE_CD" />
+									<select id="P_QNA_TYPE_CD" name="P_QNA_TYPE_CD">
+										<option value="">전체</option>
+										<c:forEach var="list" items="${QNA_TYPE_CD}">
+											<option value="${list.key}" <c:if test="${list.key == params.P_QNA_TYPE_CD}">selected</c:if>>${list.value}</option>
+										</c:forEach>
+									</select>
+								</span>
+							</td>
+							<th scope="row">제목</th>
+							<td colspan="3"><input type="text" id="P_TITLE" name="P_TITLE" value="${param.P_TITLE }" style="width:200px" onkeyup="enterKeyPress();"/></td>
+						</tr>
+						<tr>
+							<th scope="row">작성자ID</th>
+							<td><input type="text" id="P_MBER_EMAIL" name="P_MBER_EMAIL" value="${param.P_MBER_EMAIL }" style="width:200px" onkeyup="enterKeyPress();"/></td>
+							<th scope="row">답변상태</th>
+							<td colspan="3">
+								<custom:codeList var="ANS_GB_CD" groupCode="ANS_GB_CD" />
+								<label><input type="radio" name="P_ANS_GB_CD" value="" <c:if test="${params.P_ANS_GB_CD == null or params.P_ANS_GB_CD == ''}">checked</c:if>/>전체</label>
+								<c:forEach var="list" items="${ANS_GB_CD}">
+									<c:if test="${list.key ne '20' }">
+										<label><input type="radio" name="P_ANS_GB_CD" value="${list.key}" <c:if test="${list.key == params.P_ANS_GB_CD}">checked</c:if>/>${list.value}</label>
+									</c:if>
+								</c:forEach>
+							</td>
+						</tr>
+					</c:if>
+					<!-- 서비스관리 end -->
+					<!-- 상품관리 start -->
+					<c:if test="${params.BOARD_TYPE_CD == '72' }">
+						<tr>
+							<th scope="row">상품코드</th>
+							<td><input type="text" id="P_PROD_CODE" name="P_PROD_CODE" value="${param.P_PROD_CODE }" style="width:200px" onkeyup="enterKeyPress();"/></td>
+							<th scope="row">상품명</th>
+							<td><input type="text" id="P_PROD_NM" name="P_PROD_NM" value="${param.P_PROD_NM }" style="width:150px" onkeyup="enterKeyPress();"/></td>
+							<th scope="row">제목</th>
+							<td><input type="text" id="P_TITLE" name="P_TITLE" value="${param.P_TITLE}" style="width:150px" onkeyup="enterKeyPress();"/></td>
+						</tr>
+						<tr>
+							<th scope="row">작성자ID</th>
+							<td><input type="text" id="P_MBER_EMAIL" name="P_MBER_EMAIL" value="${param.P_MBER_EMAIL }" style="width:250px" onkeyup="enterKeyPress();"/></td>
+							<th scope="row">답변상태</th>
+							<td colspan="3">
+								<custom:codeList var="ANS_GB_CD" groupCode="ANS_GB_CD" />
+								<label><input type="radio" name="P_ANS_GB_CD" value="" <c:if test="${params.P_ANS_GB_CD == null or params.P_ANS_GB_CD == ''}">checked</c:if>/>전체</label>
+								<c:forEach var="list" items="${ANS_GB_CD}">
+									<c:if test="${list.key ne '20' }">
+										<label><input type="radio" name="P_ANS_GB_CD" value="${list.key}" <c:if test="${list.key == params.P_ANS_GB_CD}">checked</c:if>/>${list.value}</label>
+									</c:if>
+								</c:forEach>
+							</td>
+						</tr>
+					</c:if>
+					<!-- 상품관리 end -->
+				</tbody>
+			</table>
+			<p class="btn_area type">
+				<a href="javascript:searchForm();" class="btn_chk btn_r">조회</a>
+				<c:if test="${params.BOARD_TYPE_CD == '30' }">
+				<a href="javascript:goInsert();"" class="btn_chk btn_b">등록</a>
+				</c:if>
+			</p>
+		</div>
+		<!-- //tbl -->
+
+		<!-- top_tbl -->
+		<div class="top_tbl mt20 ">
+			<div class="right">
+				<span class="select" style="width:130px;">
+					<span class="sel_txt"></span>
+					<custom:codeList var="DISPLAY_CNT" groupCode="DISPLAY_CNT" />
+					<select id="DISPLAY_CNT" name="DISPLAY_CNT">
+						<c:forEach var="list" items="${DISPLAY_CNT}">
+	                      <option value="${list.key}" <c:if test="${list.key == params.DISPLAY_CNT}"> selected="selected" </c:if>>${list.value}</option>
+	                    </c:forEach>
+					</select>
+				</span>
+			</div>
+		</div>
+		<!-- //top_tbl -->
+		</form>
+		<!-- tbl -->
+		<div class="tbl mt10">
+			<!-- 상담관리 list start-->
+			<c:if test="${params.BOARD_TYPE_CD == '30' }">
+			<table class="list">
+				<colgroup>
+					<col style="width:12%" />
+					<col style="width:10%" />
+					<col style="width:15%" />
+					<col style="width:*" />
+					<col style="width:15%" />
+					<col style="width:10%" />
+					<col style="width:10%" />
+				</colgroup>
+				<thead>
+					<tr>
+						<th scope="col">등록일시</th>
+						<th scope="col">문의유형</th>
+						<th scope="col">주문번호</th>
+						<th scope="col">상품명</th>
+						<th scope="col">고객ID</th>
+						<th scope="col">CS담당자</th>
+						<th scope="col">처리상태</th>
+					</tr>
+				</thead>
+				<tbody>
+					<c:forEach var="list" items="${list.selectListQAAdvice }">
+					<tr>
+						<td class="nolineL">${list.REGIST_DT }</td>
+						<td>${list.QNA_TYPE_NM }</td>
+						<td>
+							<c:if test="${not empty list.ORD_CD }">${list.ORD_CD }</c:if>
+							<c:if test="${empty list.ORD_CD }">-</c:if>
+						</td>
+						<td <c:if test="${not empty list.PROD_NM }">class="tl"</c:if>>
+							<c:if test="${not empty list.PROD_NM }">${list.PROD_NM }</c:if>
+							<c:if test="${empty list.PROD_NM }">-</c:if>
+						</td>
+						<td>
+							<c:if test="${not empty list.MBER_EMAIL}">${list.MBER_EMAIL }</c:if>
+							<c:if test="${empty list.MBER_EMAIL}">${list.CUST_NM }</c:if>
+
+						<td>${list.WRITE_NM }</td>
+						<td><a href="javascript:goUpdate('${list.BOARD_SEQ }', '${params.BOARD_TYPE_CD}');" class="alink">${list.ANS_GB_NM }</a></td>
+					</tr>
+					</c:forEach>
+					<c:if test="${empty list.selectListQAAdvice }">
+					<tr>
+						<td class="nolineL" colspan="7">조회된 결과가 없습니다.</td>
+					</tr>
+					</c:if>
+				</tbody>
+			</table>
+			</c:if>
+			<!-- //상담관리 list end -->
+			<!-- 서비스관리 list start-->
+			<c:if test="${params.BOARD_TYPE_CD == '40' }">
+			<table class="list">
+				<colgroup>
+					<col style="width:12%" />
+					<col style="width:10%" />
+					<col style="width:*" />
+					<col style="width:15%" />
+					<col style="width:10%" />
+					<col style="width:10%" />
+				</colgroup>
+				<thead>
+					<tr>
+						<th scope="col">등록일시</th>
+						<th scope="col">구분</th>
+						<th scope="col">제목</th>
+						<th scope="col">고객ID</th>
+						<th scope="col">답변자</th>
+						<th scope="col">답변여부</th>
+					</tr>
+				</thead>
+				<tbody>
+					<c:forEach var="list" items="${list.selectListQAAdvice }">
+					<tr>
+						<td class="nolineL">${list.REGIST_DT }</td>
+						<td><a href="javascript:goUpdate('${list.BOARD_SEQ }', '${params.BOARD_TYPE_CD}');" class="alink">${list.QNA_TYPE_NM }</a></td>
+						<td class="tl"><a href="javascript:goUpdate('${list.BOARD_SEQ }', '${params.BOARD_TYPE_CD}');" class="alink">${list.TITLE }</a></td>
+						<td>${list.MBER_EMAIL }</td>
+						<td>${list.WRITE_NM }</td>
+						<td>${list.ANS_GB_NM }</td>
+					</tr>
+					</c:forEach>
+					<c:if test="${empty list.selectListQAAdvice }">
+					<tr>
+						<td class="nolineL" colspan="6">조회된 결과가 없습니다.</td>
+					</tr>
+					</c:if>
+				</tbody>
+			</table>
+			</c:if>
+			<!-- //서비스관리 list end -->
+			<!-- 상품관리 list start -->
+			<c:if test="${params.BOARD_TYPE_CD == '72' }">
+			<table class="list">
+				<colgroup>
+					<col style="width:12%" />
+					<col style="width:10%" />
+					<col style="width:*%" />
+					<col style="width:*" />
+					<col style="width:13%" />
+					<col style="width:13%" />
+					<col style="width:6%" />
+				</colgroup>
+				<thead>
+					<tr>
+						<th scope="col">등록일시</th>
+						<th scope="col">상품코드</th>
+						<th scope="col">상품명</th>
+						<th scope="col">제목</th>
+						<th scope="col">작성자ID</th>
+						<th scope="col">판매자</th>
+						<th scope="col">답변여부</th>
+					</tr>
+				</thead>
+				<tbody>
+					<c:forEach var="list" items="${list.selectListQAAdvice }">
+					<tr>
+						<td class="nolineL">${list.REGIST_DT }</td>
+						<td>${list.PROD_CODE }</td>
+						<td>
+							<div class="thumbnail_bx">
+								<img src="${list.IMG_URL }" alt="상품 이미지">
+								<span class="prod_name" style="width:150px"><a href="javascript:goUpdate('${list.BOARD_SEQ }', '${params.BOARD_TYPE_CD}');" class="alink">${list.PROD_NM }</a></span>
+							</div>
+						</td>
+						<td class="tl"><a href="javascript:goUpdate('${list.BOARD_SEQ }', '${params.BOARD_TYPE_CD}');" class="alink">${list.TITLE }</a></td>
+						<td>${list.MBER_EMAIL }</td>
+						<td>${list.SELLER_EMAIL }</td>
+						<td>${list.ANS_GB_NM }</td>
+					</tr>
+					</c:forEach>
+					<c:if test="${empty list.selectListQAAdvice }">
+					<tr>
+						<td class="nolineL" colspan="7">조회된 결과가 없습니다.</td>
+					</tr>
+					</c:if>
+				</tbody>
+			</table>
+			</c:if>
+			<!-- //상품관리 list end -->
+		</div>
+		<!-- //tbl -->
+
+		<!-- bot_tbl -->
+		<div class="bot_tbl">
+			<!-- paging -->
+			<div class="paging">
+				<%@ include file="/WEB-INF/views/admin/common/PageView.jsp" %>
+			</div>
+			<!-- //paging -->
+		</div>
+		<!-- //bot_tbl -->
+	</div>
+	<!-- //order_ask_bx -->
+</div>
+<!-- //content -->

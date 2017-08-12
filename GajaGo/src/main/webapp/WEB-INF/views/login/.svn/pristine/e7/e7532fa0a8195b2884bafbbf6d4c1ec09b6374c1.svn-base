@@ -1,0 +1,3095 @@
+<%
+	/*
+	 *	장바구니 화면으로 이동
+	 */
+%>
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/web/common/cmmnHead.jsp"%>
+<script type="text/javascript">
+String.prototype.trim = function() {
+    return this.replace(/(^\s*)|(\s*$)/gi, "");
+};
+</script>
+<script type="text/javascript">
+
+	var totAmount = "";
+	var StotProdAmt = "";
+	var StotDlvPrce = "";
+	
+
+	$(document).ready(function(){
+		header.type	= 2;	// ( 0 : 타이틀영역만존재, 1 : 검색HEADER, 2 : SELECT TYPE HEADER, 3 : AD MENU TYPE HEADER, 4 : SUB TYPE HEADER )
+		header.title = "장바구니";	document.title = "장바구니";
+		header.method = "GET";
+		header.backUrl = "/mobile/myPage/getMyPageInfo.do";
+		header.form = '';	
+		header.callback = '';
+		initHeader();
+		
+		// GUBUN : A 판매상품 , B 셰어링 상품
+		var gubun = '${params.GUBUN}';
+		if(gubun.length>0){
+			$("#targetS").val(gubun);		targetS(gubun);
+		}else{
+			$("#targetS").val("A");			targetS('A');
+		}
+				
+	});
+	/*
+	 *
+	 */
+	function initShaNoData(){
+		$('.sha_nodata').css('height', $(window).height()-86 );
+	}
+	/*
+	 *	주문하기
+	 */
+	var order = function(){
+		
+		var countCheckBox = $('input:checkbox[name="inputChk01"]').length;		
+		proc(countCheckBox,"ORDER");		
+	};
+	/*
+	 *	삭제
+	 */
+	var del = function(){
+		var countCheckBox = $('input:checkbox[name="inputChk01"]').length;
+		proc(countCheckBox,'DEL');
+	};
+	/*
+	 *	countCheckBox 체크된 건수
+	 *	gubun 'add' 추가 , 'del' 삭제
+	 */
+	var proc = function(countCheckBox,gubun){
+		
+		/* alert("현재 총건수는 "+countCheckBox); */
+		var confirmDo = true;
+		
+		if(gubun == 'ORDER'){			
+			confirmDo ="선택하신 상품을 주문하시겠습니까?";
+		}else if(gubun == 'DEL'){		
+			confirmDo ="선택하신 상품을 삭제하시겠습니까?";
+		}
+		
+		if(countCheckBox < 1){			
+			alert("선택된 상품이 없습니다."); 
+			return;
+		}
+
+		var countCheckBoxLen = $('input:checkbox[name="inputChk01"]:checked').length;
+		
+		if(countCheckBoxLen < 1){			
+			alert("선택된 상품이 없습니다."); 
+			return;
+		}
+		
+		var ch = false;
+		if(gubun == 'DEL'){
+			ch = confirm(confirmDo);
+		}else if(gubun == 'ORDER'){
+			ch = true;
+		}
+		
+// 		if(confirm(confirmDo)){
+		if(ch){
+			if(gubun == 'DEL'){
+				var valTot = '';
+				for(var i=0;i<countCheckBox;i++){
+					var val = $("#chiceForm #chk"+i+"").val();	// 상품코드
+					var yn 	= $("#chiceForm #inputChk"+i+"").val();			
+					if(yn == "Y"){
+						if( (val.length>0)&&(yn.length>0) ){
+							if( i==0 ){		valTot += val;			}
+							else{			valTot += ','+val;		}
+						}
+					}
+				}
+				if(countCheckBoxLen > 0){
+					var url = '<c:url value="/mobile/myBacket/deleteMyBacket.do"/>';
+					$.ajax({				
+					    url 	: url,
+					    data 	: {'chk01':valTot},
+					    type 	: "post",
+					    dataType: 'json',
+					    success : function(result) {
+					    	var targetGubun = $("#targetS").val();
+					    	// 장바구니 재조회
+					    	$("#myBasketForm #GUBUN").val(targetGubun);
+					    	$("#myBasketForm").attr("action", '/mobile/myBasket/getMyBasketInfo.do');
+							$("#myBasketForm").submit(); 	
+					    
+					    },
+					    error 	: function(request, status, error) {
+							//통신 에러 발생시 처리
+							alert("통신 오류가 발생 하였습니다. 잠시 후 다시 시도해 주세요"   + status.toString()  + " request [" + request.toString()  + "] error[" + error.toString() +"]");
+						}
+					});
+				}
+			}
+			if(gubun == 'ORDER'){
+				
+				if(countCheckBoxLen > 1){
+// 					alert("한가지 상품만 주문 가능합니다.");
+				   $('.order_conf').show();popup_show();
+					return;
+				}
+// 			    alert("장바구니 구매는 서비스준비중입니다.\n장바구니 상품목록을 개별 선택하셔서, 상품페이지로 이동하신후 구매는 가능합니다.");
+			    
+// 			    return;
+			    
+// 			   $('.email_conf').show();popup_show();
+			    
+// 			    return;
+			    
+			    
+				// 재고부족,변경된것에 대해 표시.
+				var sellStopYCnt = 0;
+				var sellStopNCnt = 0;
+				var sellStopYn = 0;
+				
+// 				for(var cn=0 ; cn<parseInt(countCheckBox) ; cn++ ){
+// 					sellStopYn = $("#sellStopYn_"+cn).val();
+// 					alert(">>>>> sellStopYn "+sellStopYn);
+// 					if(sellStopYn!='Y'){ // 재고부족으로 구입불가 제외한상품.
+// 						sellStopNCnt++;
+// 					}else{
+// 						sellStopYCnt++;
+// 					}
+// 				}
+				
+				$('input:checkbox[name="inputChk01"]:checked').each(function(){
+					var thisNum = $(this).attr('id').replace("inputChk","");
+					sellStopYn = $("#sellStopYn_"+thisNum).val();
+					if(sellStopYn!='Y'){ // 재고부족으로 구입불가 제외한상품.
+						sellStopNCnt++;
+					}else{
+						sellStopYCnt++;
+					}
+				});
+					
+				
+				//alert("총수량 countCheckBox:"+countCheckBox
+				//		+"\n 재고부족"+"sellStopYCnt:"+sellStopYCnt
+				//		+"\n 주문가능수량"+"sellStopNCnt:"+sellStopNCnt
+				//		);
+				var continuConfirmYn = 'N';
+				if(sellStopNCnt < 1){
+// 					alert("주문가능한 상품이 존재하지 않습니다. "); 
+					$('.imp_order_conf').show();popup_show();
+					return;
+				}else if(sellStopYCnt > 0){	// 재고부족 상품이 하나라도 발생시 
+				// 개별 주문만 가능 시 주석 처리					
+// 					var confirmText =
+// 						"선택된 상품에 상품정보변경/재고부족 등으로 주문이 불가한 상품이 포함되어 있습니다.\n해당 상품을 제외하고 주문 하시겠습니까?";
+// 					if(confirm(confirmText)){
+// 						continuConfirmYn = 'Y';
+// 					}
+					$('.imp_order_conf').show();popup_show();
+					return; // 1개만 주문 가능한 경우에 리턴
+				}else{
+					continuConfirmYn = 'Y';
+				}
+				if(continuConfirmYn=='Y'){
+					var targetS = $("#targetS").val();
+					/*	mobile/prod/insertOrder.do			*/
+					var data = new Array();
+					var dataSub = new Array();
+					if(targetS =='A'){ 
+						
+						var valTot = '';		var iVar = 0;
+						var tarDlv = '';		var tarOptProdAmt = 0;	
+						var sellStopYnSend = ''; // 상품변경/재고부족
+						var EXI = '';
+						
+						for(var i=0;i<countCheckBox;i++){
+							
+							EXI = $("#EXI"+i+"").val();	// 추가구성만 존재하는지.
+							var val = $("#chiceForm #chk"+i+"").val();
+							var yn 	= $("#chiceForm #inputChk"+i+"").val();
+							// 옵션갯수 
+							var opt_cd_cnt = $("#opt_cd_cnt"+i).val();
+							var opt_cd = '';
+							var totA = '' ; // 한 로우
+							var tete = '';
+							/*		orderInfo =  [ 	{ 	prodCode : , 
+														ordQty : , 
+														ordAmt	:	180000	,                   // 주문 금액(전체 주문 금액)
+														dlv 	: { dlvPayFCd : }, 			// 10:선불, 20:착불
+														options : { select : [ { optCd : , optQty : }, { optCd : , optQty : } ] } ],
+														
+													{ 	prodCode : , 
+														ordQty : , 
+														ordAmt	:	180000	,                   // 주문 금액(전체 주문 금액)
+														dlv 	: { dlvPayFCd : }, 			// 10:선불, 20:착불
+														options : { select : [ { optCd : , optQty : }, {optCd : , optQty : } ] } ] 	*/
+							//alert(    "총상품수 countCheckBox:"+countCheckBox													
+								//+"\n"+"옵션수 opt_cd_cnt:"+opt_cd_cnt);
+														
+							sellStopYnSend = $("#sellStopYn_"+i).val();	// 상품정보변경/재고부족.
+							
+							if(opt_cd_cnt==0){	// 옵션갯수가 없으면
+								
+								/***********************************************
+								 *** 옵션갯수가 없으면
+								 ***********************************************/
+								opt_cd = '';		// 옵션코드
+								tarOpt = $("#tarOptQty"+i+"_0").val();			// 옵션수량			
+								tarProd = $("#tarOpt"+i+"_0").val();			// 상품수량
+								
+								tarDlv = $("#dlvPayFCd_"+i).val().trim();		// 배송지구분
+// 								var dataSubDlv = new Array();
+// 								dataSubDlv.push({  "dlvPayFCd" 	: tarDlv });
+								optionInfoDlv = new Object();
+								optionInfoDlv.dlvPayFCd = tarDlv;
+								tarOptProdAmt 	= $("#totProdAmt").text().replace(/,/g,'').replace('원',''); 	// 주문금액
+								tarOptProdAmt = tarOptProdAmt == "" ? 0 : tarOptProdAmt;
+								if((yn == "Y")&&(sellStopYnSend != 'Y') ){
+									data.push({	  "prodCode": val 
+												, "ordAmt" 	: JSON.parse(tarOptProdAmt ) 
+												, "dlv" 	: optionInfoDlv 
+												, "ordQty" 	: JSON.parse(tarProd) });
+								}
+								
+							}else{
+								
+								tarProd = $("#prod_cnt"+i+"").val();			// 상품수량
+								var dataSubSub = new Array();
+								// 상품 수량
+								var prodQty = 0;
+								var opGbCd = '';
+								var opGbCd10cnt = 0;
+								
+								for(var ii=0;ii<parseInt(opt_cd_cnt);ii++){	
+									
+									/*
+									 *	부가옵션일경우 상품에 수량에 똑같이 해준다.
+									 */
+									opt_cd = $("#optCd"+i+"_"+ii).val();		// 옵션코드
+									
+									tarOpt = $("#tarOpt"+i+"_"+ii).val();		// 수량
+									
+									//alert("수량 - tarOpt:"+tarOpt);
+									opGbCd = $("#opGbCd_"+i+"_"+ii).val();		// 옵션구분코드 10.부가 , 20.추가 (사용 : 주문시)
+									
+									if(opGbCd=='10'){	// 부가옵션이면
+										opGbCd10cnt = parseInt(opGbCd10cnt) + parseInt(tarOpt);
+									}
+									dataSubSub.push( {  "optCd" 	: opt_cd , 
+														"ordQty" 	: JSON.parse(parseInt(tarOpt)) });
+									//dataSub.push( {"select" 	: dataSubSub });
+									//tete = "select :"+dataSubSub;
+									prodQty += tarOpt;
+								}
+								if(EXI=='EXI'){			
+									opGbCd10cnt = $("#tarOptEXI"+i+"").val();			// 상품수량
+								}
+								optionInfo = new Object();
+								optionInfo.select = dataSubSub;
+								tarDlv 			= $("#dlvPayFCd_"+i).val().trim();			// 배송지구분
+												//var dataSubDlv = new Array();
+												//dataSubDlv.push({  "dlvPayFCd" 	: tarDlv });
+												optionInfoDlv = new Object();
+												optionInfoDlv.dlvPayFCd = tarDlv;
+// 								if(EXI=='EXI'){
+// 									tarOptProdAmt 	= $("#tarOptEXI"+i+"ProdAmt").text().replace(/,/g,'').replace('원',''); 	// 주문금액
+// 								}else{
+									tarOptProdAmt 	= $("#totProdAmt").text().replace(/,/g,'').replace('원',''); 	// 주문금액
+// 								}
+								tarOptProdAmt = tarOptProdAmt == "" ? 0 : tarOptProdAmt;
+								//console.log(">>>>> tarOptProdAmt : "+tarOptProdAmt);
+								if((yn == "Y")&&(sellStopYnSend != 'Y') ){
+									data.push({	  "prodCode" 	: val 
+												//, "ordQty" 		: JSON.parse(parseInt(prodQty) )	// 부가옵션 총수량.
+												, "ordQty" 		: JSON.parse(parseInt(opGbCd10cnt) )	// 부가옵션 총수량.
+												, "ordAmt" 		: JSON.parse(parseInt(tarOptProdAmt) ) 
+												, "dlv" 		: optionInfoDlv 
+												, "option" 		: optionInfo		});
+								}
+							}
+						}
+						//alert("\n"+data+"\n");
+						if(countCheckBoxLen > 0){
+							var url = '<c:url value="/mobile/prod/insertOrder.do"/>';
+							$("#orderForm #ORD_INFO").val(JSON.stringify(data));
+					    	$("#orderForm").attr("action", url).submit(); 
+						}
+					}else if(targetS =='B'){ 
+						
+						var valTot = '';
+						var iVar = 0;
+						var tarOrdAmt = 0;
+						valTot += "[";
+						var bndlDlvYnCnt = 0;
+						for(var i=0;i<countCheckBox;i++){
+							
+							sellStopYnSend = $("#sellStopYn_"+i).val();	// 상품정보변경/재고부족.
+							var val = $("#chiceForm #chk"+i+"").val();
+							var yn = $("#chiceForm #inputChk"+i+"").val();
+							var minShare = $("#minShare"+i).val();
+							var maxShare = $("#mixShare"+i).val();
+							// 옵션갯수 
+							var opt_cd_cnt = $("#opt_cd_cnt"+i).val();
+							var opt_cd = '';
+							var totA = '' ; // 한 로우
+							/*	orderInfo = [	{ prodCode : , qty : , options : [ { code : , qty : }, { code : , qty : } ] },
+								  				{ prodCode : , qty : , options : [ { code : , qty : }, { code : , qty : } ] } 	]	 */
+							opt_cd = '';// 옵션코드
+							tarOpt 		= $("#tarOptQty"+i+"_0").val();		// 수량				
+							tarProd 	= $("#prod_cnt"+i).val();			// 상품수량
+							tarDlv 		= $("#dlvPayFCd_"+i).val().trim();			// 배송지구분
+											//var dataSubDlv = new Array();
+											//dataSubDlv.push({  "dlvPayFCd" 	: tarDlv });
+											optionInfoDlv = new Object();
+											optionInfoDlv.dlvPayFCd = tarDlv;
+							tarMberGbCd = $("#mberGbCd"+i).val();			// 0.개인 , 1.사업자
+							tarDay = '';
+							if(tarMberGbCd=='0'){
+								tarDay = $("#day"+i+"").val();
+							}else if(tarMberGbCd=='1'){
+								tarDay = $("#dayTarget"+i+"Day").val().trim();
+								if(tarDay == null || tarDay == "" || parseInt(tarDay) < 1 || (parseInt(minShare) > 0 && parseInt(tarDay) < parseInt(minShare))){
+									alert("셰어링 사용기간을 입력해주세요."); return;
+								}else if(parseInt(maxShare) > 0 && parseInt(tarDay) > parseInt(maxShare)){
+									alert("셰어링 사용기간을 입력해주세요."); return;
+								}
+							}
+// 							var dataSubDay = new Array();
+// 							dataSubDay.push({  "shareDay" 	: tarDlv });
+							optionInfoDay = new Object();
+							//	sharDay 정수형으로 변경 | 20151023		|	wook-kim
+							optionInfoDay.shareDay = parseInt(tarDay);
+							var bndlDlvYn = $("#bndlDlvYn"+i).val();
+							var bndlDlvCnt = $("#bndlDlvCnt"+i).val();
+							
+							if(bndlDlvYn=='Y'){
+								
+								if((parseInt(bndlDlvCnt)-1) == bndlDlvYnCnt){
+									tarOrdAmt =   $("#tarSharing"+i+"Sum").val();
+// 									tarOrdAmt =  $("#tarOpt"+i+"ProdAmt").text().replace(/,/g,'').replace('원','');
+									bndlDlvYnCnt = 0;
+								}else{
+									tarOrdAmt =   $("#tarSharing"+i+"Sum").val();
+// 									tarOrdAmt =   $("#tarOpt"+i+"ProdAmt").text().replace(/,/g,'').replace('원','');
+									bndlDlvYnCnt++;
+								}
+							}else{
+								tarOrdAmt =   $("#tarSharing"+i+"Sum").val();
+// 								tarOrdAmt =  $("#tarOpt"+i+"ProdAmt").text().replace(/,/g,'').replace('원','');
+							}
+							tarOrdAmt = tarOrdAmt == "" ? 0 : tarOrdAmt;
+							if((yn == "Y")&&(sellStopYnSend != 'Y') ){
+							
+								data.push({	"prodCode" 	: val ,	
+											"ordQty" 	: JSON.parse(parseInt(tarProd) ), 
+											"ordAmt" 	: JSON.parse(parseInt(tarOrdAmt) ) ,
+											"shar" 		: optionInfoDay ,
+											"dlv" 		: optionInfoDlv  });
+							}
+							
+						}
+					}
+					//alert("\n"+data+"\n"); return;
+					if(countCheckBoxLen > 0){
+						var url = '<c:url value="/mobile/prod/insertOrder.do"/>';
+						$("#orderForm #ORD_INFO").val(JSON.stringify(data));
+				    	$("#orderForm").attr("action", url).submit(); 
+					}
+				}
+			}
+		}
+		
+	};
+	/*
+	 *	[ 리스트 ]
+	 *		arg A:판매상품 , B:셰어링 상품
+	 */
+	 targetS = function(arg){
+		$("#targetS").val(arg);
+		var url = '/mobile/myBasket/getMyBasketList.do';		
+		$.ajax({			
+		    type: 'get'
+		    , async: true
+		    , url: url
+		    , data: {'arg':arg}
+		   	, success: function(result) {
+		    	var innerH = $(".targetS"); 
+		    	innerH.html("");		    	
+		    	var comHtml = '';  comOnHtmlA= ''; comOnHtmlB = ""; 
+		    	if(arg == 'A'){			// 판매상품
+		    		comOnHtmlA = "class='on'";
+		    	}else if(arg == 'B'){	// 셰어링상품	
+		    		comOnHtmlB = "class='on'";
+		    	}
+				comHtml += "<ul class='tab'>";				
+				comHtml += "<li "+comOnHtmlA+"><a href=\"javascript:targetS('A');\">구매 상품</a></li>";
+				comHtml += "<li "+comOnHtmlB+"><a href=\"javascript:targetS('B');\">셰어링 상품</a></li>";
+				comHtml += "</ul>";
+				var htmlI = '';
+				
+				/****  판매상품일 때 **********************************************************************/
+		    	if(arg == 'A'){			// 판매상품
+					$('#PROD_TYPE_CD').val(1);		    		
+		    		if(!result || !result.result || result.result.length <1){
+		    			comHtml += "<div class='sha_nodata'>"; 
+		    			comHtml += "	<p>장바구니에 담긴 상품이 없습니다.</p>";
+		    			comHtml += "</div>";
+		    			htmlI = comHtml;
+		    		}else{
+		    			var sellPrceR, sellPrce = 0;
+		    			var sellPrceCom = 0;	// 판매가격의 콤마
+		    			var sumAmt = 0;			// 총 판매가격의 합계
+		    			var prodImgUrlR,prodImgUrl = "";
+		    			var prodNmR,prodNm = "";
+		    			var dlvPrceR, dlvPrce = 0; // 배송비
+		    			var sumDlvPrce = 0;	// 총배송비
+		    			var totPreProdAmt =0; // 전체주문금액
+		    			var totDlvPrce = 0; // 전체배송비
+		    			/* 
+		    			 *	[묶음배송] BNDL_DLV_YN
+		    			 *		- 두번째 부터 표시.
+		    			 */
+		    			var bndlDlvYnCnt = 0; 	// 묶음배송 카운터
+		    			var bndlDlvYn = ""; 	// 묶음배송 값
+		    			var bndlDlvCnt = 0; 	// 묶음배송의 총건수(마지막을 체크하기위해 만듦)
+		    			var bndlDlvGrp = "";
+		    			var bndlAmt = 0;		// 묶음배송의 합계금액 c
+		    			var bndlQty = 0;		// 묶음배송의 수량
+		    			var tarOptProdEXIAmt = 0;	// 추가구성만 존재시 상품갯수
+		    			var bndlDlvPayF = "-1";        // 착불+선불 묶음 배송 : 선불 / 착불+착불 묶음 배송 : 묶음배송|착불
+		    			var bndlDlvPrce = -1;           // 착불+선불 묶음 배송 : 배송비 지급 / 착불+착불 묶음 배송 : 배송비 0
+		    			var bndlQtySeq = -1;			// 묶음 배송시 수량 소계 변경에 이용하는 시퀀스
+		    			var dlvStandAmt = 0;			// 배송비 조건부 무료 
+		    			
+		    			htmlI = comHtml;
+			    		htmlI += "<p class='title'><input type='checkbox' id='checkedAllA' name='checkedAllA' onchange=\"checkedAll('')\"><label>전체선택</label> <span class='fr'>총 장바구니 상품 <span class='point_p'>("+result.result.length+"개)</span></span></p>";
+		    			htmlI += "<ul class='bask_list' id='ulResultA'>";
+		    			// 상품코드별로 
+		    			htmlI += "<input type='hidden' id='leng' name='leng' value='"+result.result.length+"'/>";
+		    		
+		    			
+		    			for(var c=0; c<result.result.length; c++){
+		    				
+							var sumPreProdAmt = 0;		
+		    				
+		    				// 옵션코드 
+		    				var optCd = '';
+							var optCdSplit = result.result[c].OPT_CD;
+							var opt_cd_cnt = 0;
+		    				//alert("ex:"+result.result[c].OPT_CD_CNT);
+		    				var statusCnt = 1;	// 여러건인지 단순건인지.
+		    				// 실제갯수 
+		    				var opt_cd_cnt_org_split = result.result[c].OPT_QTY;
+		    				var opt_cd_cnt_org = 0;
+		    				// [무조건 멀티건] 옵션명 optNm, 옵션금액 optAmt
+		    				var optNm = ''; var optAmt = '';
+		    				var optNmSplit = result.result[c].OPT_NM;
+		    				var optAmtSplit = result.result[c].OPT_PRCE;
+		    				// 개인인지 사업자인지 
+		    				var mberGbCd = '';
+							var mberGbCdSplit = result.result[c].MBER_GB_CD;
+							// 상품갯수
+		    				var prodQty = result.result[c].PROD_QTY;
+							
+		    				tarOptProdEXIAmt = 0;
+		    				bndlDlvYn = result.result[c].BNDL_DLV_YN; // 묶음배송 값
+		    				bndlDlvCnt = parseInt(result.result[c].BNDL_DLY_CNT); // 묶음배송 총건수
+		    				sumAmt += result.result[c].SELL_PRCE;
+		    				bndlDlvGrp = result.result[c].BNDL_DLV_GRP;
+		    				dlvStandAmt = result.result[c].DLV_STAND_AMT;
+		    					
+		    				if(bndlQtySeq < 0 &&	bndlDlvYn == 'Y'){
+    							bndlQtySeq = c;
+    						}else if(bndlDlvYn != 'Y'){
+    							bndlQtySeq = c;
+    						}
+							//console.log(">>>>> bndlQtySeq : "+bndlQtySeq+"   c : "+c);
+
+		    				if(result.result[c].OPT_CD_CNT > 0){
+		    					prodImgUrlR = result.result[c].PROD_IMG_URL.split('^');
+		    					prodImgUrl = prodImgUrlR[0];
+		    				}else{
+		    					prodImgUrl = result.result[c].PROD_IMG_URL;
+		    				}
+		    				
+		    				if(result.result[c].OPT_CD_CNT > 0){
+		    					sellPrceR = result.result[c].SELL_PRCE.split('^');
+		    					sellPrce = sellPrceR[0];
+		    				}else{
+		    					sellPrce = result.result[c].SELL_PRCE;
+		    				}
+		    				sellPrceCom = commify(sellPrce);
+		    				// 배송비-금액이없으면 착불(코드못찾음)
+// 		    				if(result.result[c].OPT_CD_CNT > 0){
+// 		    				if(result.result[c].DLV_WAY_CD == 1){
+// 		    					dlvPrceR = result.result[c].DLV_PRCE.split('^');
+// 		    					dlvPrce = dlvPrceR[0];
+// 		    				}else{
+		    					dlvPrce = result.result[c].DLV_PRCE;
+// 		    				}
+		    				
+		    				// 반복
+		    				if(parseInt(result.result[c].OPT_CD_CNT) > 0 ){		    					
+		    					opt_cd_cnt = result.result[c].OPT_CD_CNT;		    					
+		    					statusCnt = 'MULTI';
+		    				}else{
+		    					statusCnt = 'SINGLE';
+		    				} 
+		    				
+		    				if(opt_cd_cnt>0){
+		    					opt_cd_cnt_org = opt_cd_cnt_org_split.split("^");
+		    				}else{
+		    					opt_cd_cnt_org = opt_cd_cnt_org_split;
+		    				}
+		    				
+		    				if(opt_cd_cnt>0){
+		    					optNm = optNmSplit.split("^");		    					
+		    				}else{
+		    					optNm = optNmSplit;
+		    				}
+		    				
+		    				if(opt_cd_cnt>0){
+		    					optAmt = optAmtSplit.split("^");
+		    				}else{
+		    					optAmt = optAmtSplit;
+		    				}
+		    				
+		    				if(opt_cd_cnt>0){
+		    					optCd = optCdSplit.split("^");		    					
+		    				}else{
+		    					optCd = optCdSplit;
+		    				}
+		    				
+		    				if(opt_cd_cnt>0){
+		    					mberGbCd = mberGbCdSplit.split("^");		    					
+		    				}else{
+		    					mberGbCd = mberGbCdSplit;
+		    				}
+
+		    				
+		    				if(bndlDlvYn == 'Y'){
+		    					if(c==0){
+		    						htmlI += "<li>";
+		    					}else{
+			    					htmlI += "<li class='bundle'>";
+		    					}
+		    				}else{
+			    				htmlI += "<li>";
+		    					bndlAmt = 0; // 묶음배송이 아니면 초기화한다.
+		    					bndlQty = 0; // 묶음배송이 아니면 초기화한다.
+		    				}
+		    				
+		    				if(bndlDlvYn == 'Y'){
+		    					if( bndlDlvYnCnt >0){
+		    						//htmlI += "	<ul class='bundle2'>";
+		    						htmlI += "	<ul>";
+		    					}else{
+		    						htmlI += "	<ul>";	
+		    					}
+		    					// 처음이면 저장.
+		    					bndlDlvYnCnt += 1;
+		    				}else{
+		    					htmlI += "	<ul>";	
+		    				}
+		    				
+		    				htmlI += "		<li><div id='inputVal'><input type='hidden' id='chk"+c+"' name='chk01'  value='"+result.result[c].PROD_CODE+"'><input type='checkbox' id='inputChk"+c+"' name='inputChk01' onclick=\"preChk('inputChk"+c+"','"+c+"','"+bndlQtySeq+"')\" value='N' class='inputChk"+bndlQtySeq+"'/> <img onclick=\"javascript:detailProd('"+result.result[c].PROD_CODE+"');\" src=\"<custom:codeTag code='DEFAULT_IMG_URL' groupCode='SITE_DEFAULT' />\" alt=\""+prodImgUrl+"\" style='width:80px'></div></li>";
+		    				if(result.result[c].OPT_CD_CNT > 0){
+		    					prodNmR = result.result[c].PROD_NM.split('^');
+		    					prodNm = prodNmR[0];
+		    					htmlI += "		<li><a href=\"javascript:detailProd('"+result.result[c].PROD_CODE+"');\"><strong>"+prodNm+"</strong></a></li>";
+		    				}else{
+		    					prodNm = result.result[c].PROD_NM;
+		    					htmlI += "		<li><a href=\"javascript:detailProd('"+result.result[c].PROD_CODE+"');\"><strong>"+prodNm+"</strong></a></li>";
+		    				}
+		    				
+							// 20151105 redmine 배송비정보 수정
+		    				if(result.result[c].DLV_PAY_GB_CD == '2' && result.result[c].DLV_WAY_CD == '4' ){
+	    						// 퀵서비스 구배자 부담 착불
+		    					htmlI += "		<li class='tr'><span>상품금액  "+commify(sellPrce)+"원  |  배송비 착불</span></li>";
+
+		    				}else if(result.result[c].DLV_WAY_CD == 5){ 
+		    					htmlI += "		<li class='tr'><span>상품금액  "+commify(sellPrce)+"원  |  배송비 직거래</span></li>";
+	    					}else if(dlvStandAmt > 0 ){
+	    						
+		    					htmlI += "		<li class='tr'><span>배송비 "+commify(dlvPrce)+"원("+dlvStandAmt+"원 이상 무료)</span></li>";
+		    				}else{
+		    					
+		    					// 판매자부담 배송비무료
+		    					if(result.result[c].DLV_PAY_GB_CD == '1'){
+			    					dlvPrce = 0;
+		    						htmlI += "		<li class='tr'><span>상품금액  "+commify(sellPrce)+"원  |  배송비 무료배송</span></li>";
+		    					}else{
+		    						htmlI += "		<li class='tr'><span>상품금액  "+commify(sellPrce)+"원  |  배송비 "+commify(dlvPrce)+"</span></li>";
+		    					}
+		    				}
+							
+// 		    				if(result.result[c].OPT_CD_CNT > 0){
+// 		    					dlvPrceR = result.result[c].DLV_PRCE.split('^');
+// 		    					console.log(">>>>> dlvPrceR: "+dlvPrceR);
+// 		    					dlvPrce = dlvPrceR[0];
+// 		    				}else{
+// 		    					dlvPrce = result.result[c].DLV_PRCE;
+// 		    				}
+// 		    				if(dlvPrce < 1){ 
+// 		    					htmlI += "		<li class='tr'><span>상품금액  "+commify(sellPrce)+"원  |  배송비 착불</span></li>";
+// 		    					dlvPrce = 0;
+// 		    				}else{
+// 		    					htmlI += "		<li class='tr'><span>상품금액  "+commify(sellPrce)+"원  |  배송비 "+commify(dlvPrce)+"</span></li>";
+// 		    				}
+		    				
+		    				htmlI += "	</ul>";
+		    				
+		    				
+		    				//mberGbCd = 1;// shkim test
+		    				htmlI += "<input type='hidden' id='opt_cd_cnt"+c+"' name='opt_cd_cnt"+c+"' value='"+opt_cd_cnt+"' />"; // 옵션 갯수
+		    				htmlI += "<input type='hidden' id='prod_cnt"+c+"' name='prod_cnt"+c+"' value='"+prodQty+"' />"; // 상품 갯수
+		    				
+							
+		    				if(parseInt(opt_cd_cnt)>0){		// 옵션이 많으면
+		    					/**********************************************************
+		    					 **** 	옵션이 많으면
+		    					 **********************************************************/
+	    					 	var amtTot = 0; //총 판매금액(소계)
+			    				var qtyTot = 0; // 총 구매수량(소계)
+		    					/************************************/ 
+		    					/* [S] 추가상품만 존재할때 상품보이게 */ 
+		    					/************************************/ 
+		    					var exi = result.result[c].EXI;
+		    					htmlI += "	<input type='hidden' id='EXI"+c+"' name='EXI' value='"+exi+"' />";
+		    					
+		    					// OP_GB_CD = 20 = EXI (추가옵션)
+		    					if(exi == 'EXI'){
+		    						
+				    				var prodQtyEXI = result.result[c].PROD_QTY;					    				
+			    					tarOptProdEXIAmt = ( parseInt(sellPrce)  ) * parseInt(result.result[c].PROD_QTY);
+			    					htmlI += "	<div class='clear'>";
+			    					// 상품명
+			    					htmlI += "	     <p class='clear'><strong class='left'>"+prodNm+"</strong></p>";
+// 			    					htmlI += "	     <p class='clear'><strong class='left'>"+result.result[c].PROD_NM+"</strong></p>";
+				    				htmlI += "	     <p class='fl'>";
+				    				htmlI += "	         <a href=\"javascript:setTarOptEXI('minus','tarOptEXI"+c+"','"+prodQtyEXI+"','"+c+"','"+result.result[c].SELL_CNT+"','"+"P"+"','"+result.result[c].PROD_CODE+"','"+bndlQtySeq+"');\"><img src=\"http://static.ssocio.net/web/images/btn_minus.png\" alt=\"\"></a>";
+// 				    				htmlI += "	         <a href=\"javascript:setTarOptEXI('minus','tarOptEXI"+c+"','"+prodQtyEXI+"','"+c+"','"+result.result[c].SELL_CNT+"','"+result.result[c].OPT_CD+"');\"><img src=\"http://static.ssocio.net/web/images/btn_minus.png\" alt=\"\"></a>";
+			    					htmlI += "	         <input type='text' id='tarOptEXI"+c+"' name='tarOptEXI"+c+"' value='"+result.result[c].PROD_QTY+"' readonly>";
+				    				htmlI += "	         <a href=\"javascript:setTarOptEXI('plus','tarOptEXI"+c+"','"+prodQtyEXI+"','"+c+"','"+result.result[c].SELL_CNT+"','"+"P"+"','"+result.result[c].PROD_CODE+"','"+bndlQtySeq+"');\"><img src=\"http://static.ssocio.net/web/images/btn_plus.png\" alt=\"\" ></a>";
+// 				    				htmlI += "	         <a href=\"javascript:setTarOptEXI('plus','tarOptEXI"+c+"','"+prodQtyEXI+"','"+c+"','"+result.result[c].SELL_CNT+"','"+result.result[c].OPT_CD+"');\"><img src=\"http://static.ssocio.net/web/images/btn_plus.png\" alt=\"\" ></a>";
+				    				htmlI += "	     </p> ";
+				    				htmlI += "	         <input type='hidden' id='tarOptQty"+c+"' name='tarOptQty"+c+"' value='0'>";
+				    				// 옵션이 존재할때 (상품금액 + 옵션금액) * 옵션갯수
+				    				// 옵션이 없을때 (상품금액*상품갯수)
+				    				htmlI += "	     <span class='fr'><strong id='tarOptEXI"+c+"Amt'>"+commify(tarOptProdEXIAmt)+"원</strong></span>";
+				    				htmlI += "	</div>";
+				    				
+				    				//////////////////////////////////////////////////////////
+				    				var dlvPrceEXI = result.result[c].DLV_PRCE;	
+				    				var optCdEXI = parseInt(result.result[c].OPT_CD_CNT);
+				    				var dlvPrceEXISlit ;
+				    				var dlvPrceEXISlitV = '';
+				    				if( optCdEXI < 1){
+				    					dlvPrceEXISlitV = optCdEXI;
+				    				}else{
+				    					dlvPrceEXISlit = dlvPrceEXI.split('^');
+				    					dlvPrceEXISlitV = dlvPrceEXISlit[0];
+				    				}
+				    				sumPreProdAmt  += parseInt(tarOptProdEXIAmt);
+				    				qtyTot += parseInt(prodQtyEXI);
+				    				bndlQty += parseInt(result.result[c].PROD_QTY);
+// 					    			htmlI += "	<p class='bot'><strong>구매수량 <font id='tarOptEXI"+c+"ProdQty'	>"+prodQtyEXI+"</font>개   |  상품금액 <font id='tarOptEXI"+c+"ProdAmt'	>";
+// 					    			htmlI +=  ( commify(parseInt(tarOptProdEXIAmt)) )+"</font>";
+// // 			    					htmlI += "원   |  배송비 <font id='tarOptEXI"+c+"Dlv'	>"+commify(dlvPrceEXISlitV)+"원</font></strong></p>";
+// 			    					// 20151105 redmine 배송비정보 수정
+// 									if(result.result[c].DLV_PAY_F_CD == '20'){ 
+// 										htmlI += "원   |  배송비 0원(착불)</font></strong></p>";
+// 				    				}else if(result.result[c].DLV_WAY_CD == 5){ 
+// 				    					htmlI += "원   |  배송비 0원(직거래)</font></strong></p>";
+// 				    				}else{
+// 			    						htmlI += "원   |  배송비 <font id='tarOptEXI"+c+"Dlv'	>"+commify(dlvPrceEXISlitV)+"원</font></strong></p>";
+// 				    				}
+									
+									if(parseInt(result.result[c].PROD_QTY) > parseInt(result.result[c].SELL_CNT) || result.result[c].PROD_STAT_CD != '0'){
+										sellStopYn == 'Y';
+									}
+				    				if(sellStopYn=='Y'){
+					    				// 	[D] 게재중지시 노출-->
+					    				htmlI += "<div class='prod_stop_area'>";
+					    				htmlI += "    <span>해당 상품은 상품정보 변경/재고부족 등으로<br>주문이 불가합니다.</span>";
+// 					    				htmlI += "    <div><a href=\"#\" class='btn_detail'>삭제</a></div>";
+					    				htmlI += "    <div><a href=\"javascript:deleteMyBacketChangeDel('"+result.result[c].PROD_CODE+"','','1')\" class='btn_detail'>삭제</a></div>";
+					    				htmlI += "</div>";	        
+					                    //	[D] 게재중지시 노출-->
+					                    /*
+					    				alert("해당상품은 노출여부을 'N'으로 세팅하고 있습니다.["+viewYn[cc]+"]"
+						    					+"\n"+"해당상품은 판매중(0)이 아닙니다.["+prodStatCd+"]"
+						    					+"\n"+"해당상품은 옵션수량체크입니다.["+optProdYn+"]"
+						    					+"\n"+"현재상품의 옵션 재고 수량이 0입니다.["+sellCnt[cc]+"]"
+						    					+"\n"+"현재상품의 상품 재고 수량이 0입니다."+sellCnt[cc]
+				    							+"\n"+"현재 상품의 옵션은 사용하지않습니다. ["+optUseYn+"]"
+				    							+"\n"+"해당상품은 상품수량체크입니다.["+optProdYn[cc]+"]");
+					                    */
+				    				}
+		    					}
+			    				/************************************/ 
+			    				/* [E] 추가상품만 존재할때 상품보이게 */  // 부가상품 + 추가 상품
+		    					/************************************/ 
+		    					var optSellCnt = 0;
+								var optSellCntSplit = result.result[c].OPT_SELL_CNT;							
+								optSellCnt = optSellCntSplit.split("^");		    					
+			    				
+								var opGbCd = '';	// 10.부가옵션 , 20.추가구성
+								
+								var opGbCdSplit = result.result[c].OP_GB_CD;							
+								opGbCd = opGbCdSplit.split("^");	
+		    				
+								var countQty = qtyTot; // 옵션별 누적수량 
+// 								var countQty = 0; // 옵션별 누적수량 
+								
+								/*
+			    				판매중지조건
+			    				PROD.VIEW_YN = 'Y'		(노출여부)
+			    				PROD.PROD_STAT_CD = 0 	(판매중 )
+			    				PROD.OPT_PROD_YN 		옵션상품여부
+			    					부가옵션 : 옵션
+			    					추가구성 옵션
+								PROD_OP.OPT_USE_YN		(옵션사용여부)
+			    				*/
+			    				var sellStopYn='N';			  
+			    				
+			    				var viewYnSplit = result.result[c].VIEW_YN;
+			    				if(opt_cd_cnt>1){ viewYn = viewYnSplit.split("^"); }else{	viewYn = viewYnSplit;}
+			    				
+			    				var prodStatCdSplit = result.result[c].PROD_STAT_CD;
+			    				if(opt_cd_cnt>1){	prodStatCd = prodStatCdSplit.split("^");}else{ prodStatCd = prodStatCdSplit; }	
+			    				
+			    				var optProdYnSplit = result.result[c].OPT_PROD_YN;
+			    				if(opt_cd_cnt>1){	optProdYn = optProdYnSplit.split("^");	}else{	optProdYn =optProdYnSplit; }		
+			    				
+		    					var sellCntSplit = result.result[c].SELL_CNT;
+		    					if(opt_cd_cnt>1){	sellCnt = sellCntSplit.split("^");	}else{	sellCnt = sellCntSplit; }		
+		    					
+		    					var optSellCntSplit = result.result[c].OPT_SELL_CNT;
+		    					if(opt_cd_cnt>1){	optSellCnt = optSellCntSplit.split("^");	}else{	optSellCnt = optSellCntSplit; }
+
+		    					var optUseYnSplit = result.result[c].OPT_USE_YN;
+			    				if(opt_cd_cnt>1){	optUseYn = optUseYnSplit.split("^");	}else{ optUseYn = optUseYnSplit; }
+			    				
+			    				for(var cc=0;cc<parseInt(opt_cd_cnt);cc++){
+			    					
+				    				htmlI += "	<div class='clear'>";
+				    				if(opt_cd_cnt>0){
+				 				   		// 부가 상품
+				    					if(opGbCd[cc]=='10'){
+															    						
+				    						htmlI += "	     <p class='clear'><strong class='left'>"+optNm[cc]+" (+"+optAmt[cc]+"원)</strong>";
+				    						htmlI += "		 </p>";
+				    					}else if(opGbCd[cc]=='20'){
+				    						htmlI += "	     <p class='clear'><strong class='left'>[추가상품]"+optNm[cc]+" (+"+optAmt[cc]+"원)</strong>";
+				    						if(opt_cd_cnt>0){
+				    							htmlI += "<a href=\"javascript:deleteMyBacketChangeDel('"+result.result[c].PROD_CODE+"','"+optCd[cc]+"','1')\" class='right'><img src='http://static.ssocio.net/web/images/btn_layer_close.png' alt='삭제' width='12'></a>";
+				    						}
+				    						htmlI += "		 </p>";
+				    					}
+				    				}
+				    				/**********************
+			    						옵션 [옵션이 많으면]
+			    				 	 **********************/
+				    				htmlI += "	     <p class='fl'>";					    				
+				    				htmlI += "	         <a href=\"javascript:setTarOptEXI('minus','tarOpt"+c+"_"+cc+"','"+statusCnt+"','"+c+"','"+optSellCnt[cc]+"','"+"O"+"','"+(typeof(optCd) == 'String' ? optCd : optCd[cc]) +"','"+bndlQtySeq+"');\"><img src=\"http://static.ssocio.net/web/images/btn_minus.png\" alt=\"\" ></a>";
+// 				    				htmlI += "	         <a href=\"javascript:setTarOpt('minus','tarOpt"+c+"_"+cc+"','"+statusCnt+"','"+c+"','"+optSellCnt[cc]+"','"+opGbCd[cc]+"','"+bndlDlvCnt+"','"+bndlDlvYnCnt+"','"+result.result[c].OPT_CD+"');\"><img src=\"http://static.ssocio.net/web/images/btn_minus.png\" alt=\"\" ></a>";
+				    				if(opt_cd_cnt>0){
+				    					htmlI += "	         <input type='text' id='tarOpt"+c+"_"+cc+"' name='tarOpt"+cc+"' value='"+opt_cd_cnt_org[cc]+"' readonly>";
+				    				}else{
+				    					htmlI += "	         <input type='text' id='tarOpt"+c+"_"+cc+"' name='tarOpt"+cc+"' value='"+opt_cd_cnt_org+"' readonly>";
+// 				    					htmlI += "	         <input type='text' id='tarOpt"+c+"_"+cc+"' name='tarOpt"+cc+"' value='"+opt_cd_cnt_org[cc]+"' readonly>";
+				    				}
+				    				htmlI += "	         <a href=\"javascript:setTarOptEXI('plus','tarOpt"+c+"_"+cc+"','"+statusCnt+"','"+c+"','"+optSellCnt[cc]+"','"+"O"+"','"+(typeof(optCd) == 'String' ? optCd : optCd[cc])+"','"+bndlQtySeq+"');\"><img src=\"http://static.ssocio.net/web/images/btn_plus.png\" alt=\"\"></a>";
+// 				    				htmlI += "	         <a href=\"javascript:setTarOpt('plus','tarOpt"+c+"_"+cc+"','"+statusCnt+"','"+c+"','"+optSellCnt[cc]+"','"+opGbCd[cc]+"','"+bndlDlvCnt+"','"+bndlDlvYnCnt+"','"+result.result[c].OPT_CD+"');\"><img src=\"http://static.ssocio.net/web/images/btn_plus.png\" alt=\"\"></a>";
+				    				htmlI += "	     </p> ";
+				    				/******************************************************
+				    					부가옵션 : (상품금액+옵션금액) * 옵션갯수
+				    				 	추가구성 : 추가옵션 * 수량
+				    				 ******************************************************/
+				    				var tarOptProdAmt = 0;
+				    				var intOptAmt = 0;	
+				    				var intOpt_cd_cnt_org = 0;	
+				    				
+				    				// 옵션이 있는 경우
+				    				if(opt_cd_cnt>0){
+				    					intOptAmt 			= parseInt(optAmt[cc]);				// 옵션금액
+				    					intOpt_cd_cnt_org 	= parseInt(opt_cd_cnt_org[cc]);		// 옵션갯수
+				    					if(opGbCd[cc]=='10'){ // 부가옵션이면
+				    						
+				    						amtTot += ( parseInt(sellPrce) +  intOptAmt ) * intOpt_cd_cnt_org;
+				    						qtyTot += intOpt_cd_cnt_org;
+			    							tarOptProdAmt = ( parseInt(sellPrce) +  intOptAmt ) * intOpt_cd_cnt_org ;	// 상품금액 + ( 옵션금액 * 옵션갯수)
+				    					}else if(opGbCd[cc]=='20'){	// 추가구성이면
+				    						amtTot += intOptAmt  * intOpt_cd_cnt_org;
+				    						qtyTot += intOpt_cd_cnt_org;
+				    						tarOptProdAmt = ( intOptAmt * intOpt_cd_cnt_org );	// ( 옵션금액 * 옵션갯수)
+				    					}
+				    				
+				    				// 옵션이 없는 경우
+				    				}else{
+				    					amtTot += parseInt(sellPrce) + optAmt  * opt_cd_cnt_org ;
+// 				    					amtTot += ( parseInt(sellPrce) + optAmt ) * opt_cd_cnt_org ;
+			    						qtyTot += opt_cd_cnt_org;				    					
+				    					tarOptProdAmt = parseInt(sellPrce) + ( optAmt * opt_cd_cnt_org );
+				    				}
+				    				
+				    				htmlI += "<span class='fr'><strong id='tarOpt"+c+"_"+cc+"Amt'>"+commify(tarOptProdAmt)+"원</strong></span>";
+				    				htmlI += "<input type='hidden' id='opGbCd_"+c+"_"+cc+"' name='opGbCd_"+c+"_"+cc+"' value='"+opGbCd[cc]+"' />";	// 옵션구분코드 10.부가 , 20.추가 (사용 : 주문시)
+				    				sumPreProdAmt += parseInt(tarOptProdAmt);
+				    				/*
+				    				판매중지조건
+				    				PROD.VIEW_YN = 'Y'		(노출여부)
+				    				PROD.PROD_STAT_CD = 0 	(판매중 )
+				    				PROD.OPT_PROD_YN 		옵션상품여부
+				    					부가옵션 : 옵션
+				    					추가구성 옵션
+									PROD_OP.OPT_USE_YN		(옵션사용여부)
+				    				*/
+				    				sellStopYn='N';
+				    				//console.log(">>>>> sellStopYn : "+sellStopYn);
+				    				if(opt_cd_cnt>1){	
+					    				if( (prodStatCd[cc] != '0') || (optUseYn[cc]=='N') ){ 
+					    					sellStopYn = 'Y'; 
+					    				}
+				    				}else{
+				    					if( (prodStatCd != '0') || (optUseYn=='N') ){ 
+				    						sellStopYn = 'Y'; 
+				    					}
+				    				}
+				    				
+				    				if(optProdYn[cc]== 'Y'){ 
+				    					if( opt_cd_cnt>1 && parseInt(optSellCnt[cc]) < parseInt(intOpt_cd_cnt_org)) { sellStopYn = 'Y'; } 
+				    					else if(opt_cd_cnt <= 1 && parseInt(optSellCnt) < parseInt(intOpt_cd_cnt_org)){sellStopYn = 'Y';}
+				    				}
+				    				else{ 						
+				    					if( opt_cd_cnt>1 && parseInt(optSellCnt[cc]) < parseInt(intOpt_cd_cnt_org)) { sellStopYn = 'Y'; } 
+				    					else if(opt_cd_cnt <= 1 && parseInt(optSellCnt) < parseInt(intOpt_cd_cnt_org)){sellStopYn = 'Y';}
+				    				}
+// 				    				if(optProdYn[cc]== 'Y'){ if(parseInt(sellCnt[cc]) < 1) { sellStopYn = 'Y'; } }
+// 				    				else{ 						if(parseInt(optSellCnt[cc]) < 1 ){ sellStopYn = 'Y'; }		}
+				    				
+				    				if(sellStopYn=='Y'){
+					    				// 	[D] 게재중지시 노출-->
+					    				htmlI += "<div class='prod_stop_area'>";
+					    				htmlI += "    <span>해당 상품은 상품정보 변경/재고부족 등으로<br>주문이 불가합니다.</span>";
+// 					    				htmlI += "    <div><a href=\"#\" class='btn_detail'>삭제</a></div>";
+					    				htmlI += "    <div><a href=\"javascript:deleteMyBacketChangeDel('"+result.result[c].PROD_CODE+"','','1')\" class='btn_detail'>삭제</a></div>";
+					    				htmlI += "</div>";	        
+					                    //	[D] 게재중지시 노출-->
+					                    /*
+					    				alert("해당상품은 노출여부을 'N'으로 세팅하고 있습니다.["+viewYn[cc]+"]"
+						    					+"\n"+"해당상품은 판매중(0)이 아닙니다.["+prodStatCd+"]"
+						    					+"\n"+"해당상품은 옵션수량체크입니다.["+optProdYn+"]"
+						    					+"\n"+"현재상품의 옵션 재고 수량이 0입니다.["+sellCnt[cc]+"]"
+						    					+"\n"+"현재상품의 상품 재고 수량이 0입니다."+sellCnt[cc]
+				    							+"\n"+"현재 상품의 옵션은 사용하지않습니다. ["+optUseYn+"]"
+				    							+"\n"+"해당상품은 상품수량체크입니다.["+optProdYn[cc]+"]");
+					                    */
+				    				}
+				    					
+				    				htmlI += "	 </div>";
+				    				
+				    				// 옵션코드  OPT_CD
+				    				if(opt_cd_cnt>1){
+				    					htmlI += "<input type='hidden' id='optCd"+c+"_"+cc+"' name='optCd"+c+"_"+cc+"' value='"+optCd[cc]+"' />";
+				    				}else{
+				    					htmlI += "<input type='hidden' id='optCd"+c+"_"+cc+"' name='optCd"+c+"_"+cc+"' value='"+optCd+"' />";
+				    				}
+				    				
+				    				countQty += intOpt_cd_cnt_org;
+				    				// [묶음수량  += 옵션수량] 을 누적한다.
+				    				if(opt_cd_cnt>0){
+				    					bndlQty += parseInt(opt_cd_cnt_org[cc]);
+				    				}else{
+				    					bndlQty += parseInt(opt_cd_cnt_org);
+				    				}
+				    				
+			    				} // end for for option
+			    				
+// 			    				htmlI += "	<p class='bot'><strong>구매수량 <font id='tarOptEXI"+c+"ProdQty'	>"+qtyTot+"</font>개   |  상품금액 <font id='tarOptEXI"+c+"ProdAmt'	>";
+// 				    			htmlI +=  ( commify(amtTot) )+"</font>";
+// //			    					htmlI += "원   |  배송비 <font id='tarOptEXI"+c+"Dlv'	>"+commify(dlvPrceEXISlitV)+"원</font></strong></p>";
+// 		    					// 20151105 redmine 배송비정보 수정
+// 								if(result.result[c].DLV_PAY_F_CD == '20'){ 
+// 									htmlI += "원   |  배송비 0원(착불)</font></strong></p>";
+// 			    				}else if(result.result[c].DLV_WAY_CD == 5){ 
+// 			    					htmlI += "원   |  배송비 0원(직거래)</font></strong></p>";
+// 			    				}else{
+			    					
+// 		    						htmlI += "원   |  배송비 <font id='tarOptEXI"+c+"Dlv'	>"+commify(dlvPrce)+"원</font></strong></p>";
+// 			    				}
+		    					
+		    				}else{	// 옵션이 존재하지 않으면
+		    					/**************************************************************			    					
+		    					* [옵션] 이 존재하지 않으면
+		    					**************************************************************/
+		    					htmlI += "	<div class='clear'>";
+			    				if(opt_cd_cnt>0){
+			    					htmlI += "	     <p class='clear'>"+optNm[0]+" (+"+optAmt[0]+"원)</p>";
+			    				}else{
+			    					// 상품명
+			    					htmlI += "	     <p class='clear'><strong class='left'>"+result.result[c].PROD_NM+"</strong></p>";
+			    				}
+			    				htmlI += "	     <p class='fl'>";
+			    				var sellCnt = result.result[c].SELL_CNT;
+			    				/**********************
+			    					옵션 [옵션이 존재하지 않으면]
+			    				 **********************/	
+			    				htmlI += "	         <a href=\"javascript:setTarOptEXI('minus','tarOpt"+c+"_0','"+statusCnt+"','"+c+"','"+sellCnt+"','"+"P"+"','"+result.result[c].PROD_CODE+"','"+bndlQtySeq+"');\"><img src=\"http://static.ssocio.net/web/images/btn_minus.png\" alt=\"\"></a>";
+// 			    				htmlI += "	         <a href=\"javascript:setTarOpt('minus','tarOpt"+c+"_0','"+statusCnt+"','"+c+"','"+sellCnt+"','','"+bndlDlvCnt+"','"+bndlDlvYnCnt+"','"+result.result[c].PROD_CODE+"');\"><img src=\"http://static.ssocio.net/web/images/btn_minus.png\" alt=\"\"></a>";
+		    					htmlI += "	         <input type='text' id='tarOpt"+c+"_0' name='tarOpt0' value='"+prodQty+"' readonly>";
+			    				htmlI += "	         <a href=\"javascript:setTarOptEXI('plus','tarOpt"+c+"_0','"+statusCnt+"','"+c+"','"+sellCnt+"','"+"P"+"','"+result.result[c].PROD_CODE+"','"+bndlQtySeq+"');\"><img src=\"http://static.ssocio.net/web/images/btn_plus.png\" alt=\"\" ></a>";
+// 			    				htmlI += "	         <a href=\"javascript:setTarOpt('plus','tarOpt"+c+"_0','"+statusCnt+"','"+c+"','"+sellCnt+"','','"+bndlDlvCnt+"','"+bndlDlvYnCnt+"','"+result.result[c].PROD_CODE+"');\"><img src=\"http://static.ssocio.net/web/images/btn_plus.png\" alt=\"\" ></a>";
+			    				htmlI += "	     </p> ";
+			    				htmlI += "	         <input type='hidden' id='tarOptQty"+c+"_0' name='tarOptQty0' value='0'>";
+			    				// 옵션이 존재할때 (상품금액 + 옵션금액) * 옵션갯수
+			    				// 옵션이 없을때 (상품금액*상품갯수)
+			    				var tarOptProdAmt =  ( parseInt(sellPrce)  ) * parseInt(prodQty);
+			    				htmlI += "	     <span class='fr'><strong id='tarOpt"+c+"_0Amt'>"+commify(tarOptProdAmt)+"원</strong></span>";
+			    				/* [판매중지조건]		PROD.VIEW_YN = 'Y'		(노출여부)		PROD.PROD_STAT_CD = 0 	(판매중 )
+			    									PROD.OPT_PROD_YN 		옵션상품여부
+			    										- 부가옵션 : 옵션,
+			    										- 추가구성 옵션
+													PROD_OP.OPT_USE_YN		(옵션사용여부) 				*/
+			    				var sellStopYn='N';
+			    				var viewYn = result.result[c].VIEW_YN;
+			    				var prodStatCd = result.result[c].PROD_STAT_CD;
+			    				var optProdYn = result.result[c].OPT_PROD_YN;
+		    					var optSellCnt = result.result[c].OPT_SELL_CNT;
+		    					var sellCnt = result.result[c].SELL_CNT;
+		    					var opGbCd = result.result[c].OP_GB_CD;
+			    				
+			    				if( (prodStatCd != '0') ){	sellStopYn = 'Y'; }
+// 			    				console.log("optProdYn : " + optProdYn);
+			    				if(optProdYn == 'Y' && parseInt(optSellCnt) < parseInt(result.result[c].OPT_QTY)){	// Y이면 옵션수량체크
+			    					sellStopYn = 'Y'; 
+			    				}else if(optProdYn != 'Y' && parseInt(sellCnt) < parseInt(result.result[c].PROD_QTY)){
+			    					sellStopYn = 'Y'; 
+			    				}
+
+// 			    				if(optProdYn == 'Y'){	// Y이면 옵션수량체크
+// 			    					var sellCnt = result.result[c].SELL_CNT;
+// 			    					if(sellCnt < 1){ sellStopYn = 'Y'; }
+// 			    				}else{
+// 			    					var optSellCnt = result.result[c].OPT_SELL_CNT;
+// 			    					if(optSellCnt < 1 ){ sellStopYn = 'Y'; }
+// 			    				}
+			    				if(sellStopYn=='Y'){
+				    				// 	[D] 게재중지시 노출-->
+				    				htmlI += "<div class='prod_stop_area'>" + optSellCnt;
+				    				htmlI += "    <span>해당 상품은 상품정보 변경/재고부족 등으로<br>주문이 불가합니다.</span>";
+				    				htmlI += "    <div><a href=\"javascript:deleteMyBacketChangeDel('"+result.result[c].PROD_CODE+"','','1')\" class='btn_detail'>삭제</a></div>";
+				    				htmlI += "</div>";	        
+				                    //	[D] 게재중지시 노출-->
+				                    /*
+									alert("해당상품은 노출여부을 'N'으로 세팅하고 있습니다."+viewYn
+			    					+"\n"+"해당상품은 판매중이 아닙니다.["+prodStatCd+"]"			    				
+			    					+"\n"+"해당상품은 옵션수량체크입니다.["+optProdYn+"]"
+			    					+"\n"+"현재상품의 옵션 재고 수량이 0입니다."
+			    					+"\n"+"현재상품의 상품 재고 수량이 0입니다."+optSellCnt
+			    					+"\n"+"해당상품은 상품수량체크입니다.["+optProdYn+"]");
+				                    */
+			    				}
+			    				htmlI += "<input type='hidden' id='sellStopYn_"+c+"' name='sellStopYn_"+c+"' value='"+sellStopYn+"' />";
+			    				htmlI += "	 </div>";
+			    				sumPreProdAmt += parseInt(tarOptProdAmt);
+			    				// 옵션코드  OPT_CD
+		    					htmlI += "<input type='hidden' id='optCd"+c+"_0' name='optCd"+c+"_0' value='"+optCd+"' />";
+			    				countQty = prodQty;
+		    					// [묶음수량  += 옵션수량] 을 누적한다.
+			    				bndlQty += parseInt(prodQty);
+		    				}
+		    				
+			    			// S 합계	
+				    		if(result.result[c].OPT_CD_CNT > 1){// 옵션 반복
+			    					//htmlI += "	<p class='total'><strong class='fl'>총 상품금액</strong> <strong class='fr point_r' id='"+c+"'>"+commify(parseInt()+parseInt(bndlAmt))+"원</strong></p>";
+				    		}
+			    			
+				    		// 착불 정보 추가
+				    		if(result.result[c].DLV_PAY_F_CD == "20"){
+			    				htmlI += "<input type='hidden' id='thisDlvPrce"+c+"' value='"+dlvPrce+"' class='bndlDlvPrce"+bndlQtySeq+" dlvPayFcd'>";// 상품 배송비
+	    					}else{
+			    				htmlI += "<input type='hidden' id='thisDlvPrce"+c+"' value='"+dlvPrce+"' class='bndlDlvPrce"+bndlQtySeq+" '>";// 상품 배송비
+	    					}
+		    				//상품당 총합 가격
+			    			htmlI += "<input type='hidden' id='tarOpt"+c+"ProdAmt' value='"+sumPreProdAmt+"'>";
+			    			htmlI += "<input type='hidden' id='tarOpt"+c+"dlvStandAmt' value='"+dlvStandAmt+"'>";
+				    		/* 
+			    			 *	[묶음배송] BNDL_DLV_YN
+			    			 *		- 단 묶음배송 마지막에는 [ 상품금액|구매수량|배송비 ] 보여준다.(bndlDlvCnt)
+			    			 */
+				    		if(bndlDlvYn != 'Y'){
+				    			
+				    				htmlI += "	<p class='bot'><strong>구매수량 <font id='tarOptEXI"+bndlQtySeq+"ProdQty'	>"+countQty+"</font>개   |  상품금액 <font id='tarOptEXI"+bndlQtySeq+"ProdAmt' class='subSumAmt'>";
+				    				htmlI +=  (commify(sumPreProdAmt))+"</font>";
+// 	    						  	htmlI += "원   |  배송비 "+commify(dlvPrce)+"원</strong></p>";
+			    					// 20151105 redmine 배송비정보 수정
+									if(result.result[c].DLV_PAY_GB_CD == '1'){
+			    						
+				    					dlvPrce = 0;
+				    					htmlI += "원   |  배송비 <font id='tarOpt"+bndlQtySeq+"DlvPrce'>0</font>원</strong></p>";
+			    					}else if(result.result[c].DLV_PAY_F_CD == '20'){
+			    						
+				    					dlvPrce = 0;
+			    						htmlI += "원   |  배송비 <font id='tarOpt"+bndlQtySeq+"DlvPrce'>0</font>원(착불)</strong></p>";
+			    					}else if(result.result[c].DLV_WAY_CD == 5){ 
+			    						
+				    					dlvPrce = 0;
+			    						htmlI += "원   |  배송비 <font id='tarOpt"+bndlQtySeq+"DlvPrce'>0</font>원(직거래)</strong></p>";
+				    				}else if(result.result[c].DLV_PAY_GB_CD == '2' && result.result[c].DLV_WAY_CD == '4' ){
+				    					
+				    					dlvPrce = 0;
+				    					htmlI += "원   |  배송비 <font id='tarOpt"+bndlQtySeq+"DlvPrce'>0</font>원(착불)</font></strong></p>";
+			    					}else if(parseInt(dlvStandAmt) > 0 && parseInt(sumPreProdAmt) >= parseInt(dlvStandAmt) ){
+			    						
+				    					dlvPrce = 0;
+				    					htmlI += "원   |  배송비 <font id='tarOpt"+bndlQtySeq+"DlvPrce'>0</font>원("+commify(dlvStandAmt)+"원 이상 무료)</strong></p>";
+			    					}else{
+			    						
+			    						htmlI += "원   |  배송비 <font id='tarOpt"+bndlQtySeq+"DlvPrce'>"+commify(dlvPrce)+"</font>원</strong></p>";
+			    					}
+									totPreProdAmt += parseInt(sumPreProdAmt);
+// 				    				if(result.result[c].DLV_PAY_F_CD == '20'){ 
+// 				    					htmlI += "원   |  배송비 0원(착불)</font></strong></p>";
+// 				    				}else if(result.result[c].DLV_PAY_GB_CD == '2' && result.result[c].DLV_WAY_CD == '4' ){
+// 				    					htmlI += "원   |  배송비 0원(착불)</font></strong></p>";
+// 				    				}else if(result.result[c].DLV_WAY_CD == '5'){ 
+// 				    					htmlI += "원   |  배송비 0원(직거래)</font></strong></p>";
+// 				    				}else{
+// 				    					htmlI += "원   |  배송비 "+commify(dlvPrce)+"원</strong></p>";
+// 				    				}
+				    				htmlI += "<input type='hidden' id='subSumDlvPrce"+c+"' name='dlvPrce"+c+"' value='"+dlvPrce+"' class='subSumDlvPrce' />"; // 소계 배송비
+				    		}else{	
+				    			//alert(bndlDlvCnt + "==" + bndlDlvYnCnt	+"누적된 값 bndlAmt:"+bndlAmt			);
+				    			
+				    			// 묶음배송일 경우 착불이 있는 경우 확인
+			    				if(bndlDlvPayF == "-1"){
+			    					bndlDlvPayF = result.result[c].DLV_PAY_F_CD;
+			    					
+			    				// 착불이 아닌 경우 값 저장
+			    				}else if(result.result[c].DLV_PAY_F_CD != "20"){
+			    					bndlDlvPayF = result.result[c].DLV_PAY_F_CD;
+			    				}
+				    			
+				    			// 무료 배송 및 조건부 무료 제외 배송비 있음
+				    			if(bndlDlvPrce < 0){
+				    				bndlDlvPrce = parseInt(dlvPrce);
+				    			}else{
+				    				
+				    				if(parseInt(dlvStandAmt) > 0 && parseInt(sumPreProdAmt) >= parseInt(dlvStandAmt) ){
+		    							dlvPrce = 0;
+		    						}
+				    				// 배송비가 큰 값을 묶음 배송비에 적용
+				    				bndlDlvPrce = parseInt(dlvPrce) < parseInt(bndlDlvPrce) ? parseInt(dlvPrce) : parseInt(bndlDlvPrce);
+				    			}
+				    			// 착불이 포함되어 있는 경우 모두 선결제
+				    			if(bndlDlvCnt == bndlDlvYnCnt && bndlDlvPayF != "20" ){
+				    				htmlI += "	<p class='bot'><strong>구매수량 <font id='tarOptEXI"+bndlQtySeq+"ProdQty'	>"+bndlQty+"</font>개   |  상품금액 <font id='tarOptEXI"+bndlQtySeq+"ProdAmt'	 class='subSumAmt'>"
+// 				    				htmlI += "	<p class='bot'><strong>구매수량 <font id='tarOptEXI"+c+"ProdQty'	>"+bndlQty+"</font>개   |  상품금액 <font id='tarOptEXI"+c+"ProdAmt'	>"
+		    						  +  ( commify(parseInt(sumPreProdAmt)+parseInt(bndlAmt)) )+"</font>"
+		    						  +  "원   |  배송비 <font id='tarOpt"+bndlQtySeq+"DlvPrce'>"+commify(bndlDlvPrce)+"</font>원(묶음배송)</strong></p>";
+// 		    						  +  "원   |  배송비 "+commify(dlvPrce)+"원(묶음배송)</strong></p>";
+									dlvPrce = bndlDlvPrce;
+									htmlI += "<input type='hidden' id='subSumDlvPrce"+bndlQtySeq+"' name='dlvPrce"+bndlQtySeq+"' value='"+dlvPrce+"' class='subSumDlvPrce bndlDlv' />"; //배송비
+									bndlQtySeq = -1;
+									bndlDlvPrce = -1;
+									bndlDlvYnCnt = 0;
+									// 묶음 배송인 경우 최종 배송비만 더함
+									totDlvPrce += parseInt(dlvPrce);
+									totPreProdAmt += parseInt(sumPreProdAmt);
+									bndlAmt = 0;
+									bndlQty = 0;
+								// 모두 착불인 경우 착불
+				    			}else if(bndlDlvCnt == bndlDlvYnCnt  && bndlDlvPayF == "20"){
+				    				htmlI += "	<p class='bot'><strong>구매수량 <font id='tarOptEXI"+bndlQtySeq+"ProdQty'	>"+bndlQty+"</font>개   |  상품금액 <font id='tarOptEXI"+bndlQtySeq+"ProdAmt'	 class='subSumAmt'>"
+// 				    				htmlI += "	<p class='bot'><strong>구매수량 <font id='tarOptEXI"+c+"ProdQty'	>"+bndlQty+"</font>개   |  상품금액 <font id='tarOptEXI"+c+"ProdAmt'	>"
+		    						  +  ( commify(parseInt(sumPreProdAmt)+parseInt(bndlAmt)) )+"</font>"
+		    						  +  "원   |  배송비 <font id='tarOpt"+bndlQtySeq+"DlvPrce'>0</font>원(묶음배송|착불)</strong></p>";
+// 		    						  +  "원   |  배송비 "+commify(dlvPrce)+"원(묶음배송)</strong></p>";
+				    				dlvPrce = 0;
+				    				htmlI += "<input type='hidden' id='subSumDlvPrce"+bndlQtySeq+"' name='dlvPrce"+bndlQtySeq+"' value='"+dlvPrce+"' class='subSumDlvPrce bndlDlv' />"; // 소계 배송비
+				    				bndlQtySeq = -1;
+				    				bndlDlvPrce = -1;
+				    				bndlDlvYnCnt = 0;
+									// 묶음 배송인 경우 최종 배송비만 더함
+				    				totDlvPrce += parseInt(dlvPrce);
+				    				totPreProdAmt += parseInt(sumPreProdAmt);
+				    				bndlAmt = 0;
+				    				bndlQty = 0;
+				    			}else{	// 묶음배송 마지막이 아니면 누적한다. 
+				    				bndlAmt += sumPreProdAmt;
+				    				totPreProdAmt += parseInt(sumPreProdAmt);
+// 				    			    // 묶음배송일 경우 착불이 있는 경우 확인
+// 				    				if(bndlDlvPayF == "-1"){
+// 				    					bndlDlvPayF = result.result[c].DLV_PAY_F_CD;
+				    					
+// 				    				// 착불이 아닌 경우 값 저장
+// 				    				}else if(result.result[c].DLV_PAY_F_CD != "20"){
+// 				    					bndlDlvPayF = result.result[c].DLV_PAY_F_CD;
+// 				    				}
+// 				    			    // 배송비가 큰 값을 묶음 배송비에 적용
+// 				    			    if(bndlDlvPrce == -1){
+// 				    			    	bndlDlvPrce = parseInt(dlvPrce);
+// 				    			    }else{
+// 					    				bndlDlvPrce = parseInt(dlvPrce) < bndlDlvPrce ? parseInt(dlvPrce) : parseInt(bndlDlvPrce);
+// 				    			    }
+				    			}
+				    			
+// 				    			htmlI += "	<input type='hidden' id='tarOpt"+c+"ProdAmt' value="+commify(sumPreProdAmt)+">";
+				    		}				
+		    								
+		    				// E 합계
+		    				htmlI += "<input type='hidden' id='dlvPrce"+c+"' name='dlvPrce"+c+"' value='"+dlvPrce+"' class='dlvPrceGrp"+bndlQtySeq+"'/>"; // 상품에 적용된 배송비			
+		    				// 전체 주문금액 = ( 전체 주문금액 + ( 추가구성만 존재할때 상품금액 ) )
+// 		    				totPreProdAmt += ( parseInt(sumPreProdAmt) + parseInt(tarOptProdEXIAmt) );
+// 		    				console.log(">>>>> totPreProdAmt : "+totPreProdAmt+"   sumPreProdAmt : "+sumPreProdAmt);
+		    				// 묶음 배송이 아닌 경우
+		    				if(bndlDlvYn != 'Y'){
+			    				// 전체 배송비
+			    				totDlvPrce += parseInt(dlvPrce);
+		    				}
+		    				
+		    				// [배송비 결제 10.선불, 20.착불]
+				    		var dlvPayFCd = result.result[c].DLV_PAY_F_CD;	
+				    		htmlI += "<input type='hidden' id='dlvPayFCd_"+c+"' name='dlvPayFCd_"+c+"' value='"+dlvPayFCd+"' />";
+				    		
+				    		// 마지막일때만 닫는다.
+	    					htmlI += "</li>";		    
+		    				
+		    			}	// for문 end
+		    			
+		    			htmlI += "</ul>";
+		    			htmlI += "<p class='title'>주문정보</p>";
+		    			htmlI += "<div class='sbox04'>";
+		    			htmlI += "	<ul>";
+		    			htmlI += "        <li><span class='fl'>상품금액</span> <span class='fr' id='totProdAmt'>"+commify(totPreProdAmt)+"원</span></li>";
+		    			htmlI += "        <li><span class='fl'>배송비</span> <span class='fr' id='totDlvPrce'>"+commify(totDlvPrce)+"원</span></li>";
+		    			htmlI += "        <li><span class='fl'><strong>결제예정금액</strong></span> <span class='fr'><strong class='point_r' id='payCanAmt' >"+commify(parseInt(totPreProdAmt)+parseInt(totDlvPrce))+"원</strong></span></li>";
+		    			htmlI += "    </ul>";
+		    			htmlI += "</div>";
+		    			htmlI += "<div class='btn_enter'>";
+		    			htmlI += "	<ul>";
+		    			
+		    			htmlI += "    	<li><a href=\"javascript:del();\" class='btn_b-line'>선택삭제</a></li>";
+		    			htmlI += "    	<li><a href=\"javascript:order();\" class='btn_r'>선택주문</a></li>";
+		    			
+		    			htmlI += "    </ul>";
+		    			htmlI += "</div>";
+		    			totAmount = commify(parseInt(totPreProdAmt)+parseInt(totDlvPrce));
+		    			StotProdAmt = commify(totPreProdAmt);
+		    			StotDlvPrce = commify(totDlvPrce);
+		    			
+		    		}
+		    		
+		    	// 셰어링 상품	///////////////////////////////////////////////////////////////
+		    	}else if(arg == 'B'){	
+		    		$('#PROD_TYPE_CD').val(2);
+		    		if(!result || !result.result || result.result.length <1){
+		    			comHtml += "<div class='sha_nodata'>"; 
+		    			comHtml += "	<p>장바구니에 담긴 상품이 없습니다.</p>";
+		    			comHtml += "</div>";
+		    			htmlI = comHtml;
+		    		}else{
+		    			var sellPrceR, sellPrce = 0;
+		    			var sellPrceCom = 0;	// 판매가격의 콤마
+		    			var sumAmt = 0;			// 총 판매가격의 합계
+		    			var prodImgUrlR,prodImgUrl = "";
+		    			var prodNmR,prodNm = "";
+		    			var dlvPrceR, dlvPrce = 0; // 배송비
+		    			var sumDlvPrce = 0;	// 총배송비
+		    			var totPreProdAmt =0; // 전체주문금액
+		    			var totDlvPrce = 0; // 전체배송비
+		    			var deposit = 0; // 보증금
+		    			var sharingPrice = 0; // 쉐어링 금액
+		    			var sumPreProdAmt = 0;		// 주문정보 - 상품금액
+		    			var bndlDlvYn = ""; 	// [org]묶음배송 값
+		    			var bndlDlvCnt = 0; 	// [org]묶음배송의 총건수(마지막을 체크하기위해 만듦)
+		    			var bndlDlvYnCnt = 0; 	// 묶음배송 카운터
+		    			var bndlDlvPayF = "-1";        // 착불+선불 묶음 배송 : 선불 / 착불+착불 묶음 배송 : 묶음배송|착불
+		    			var bndlDlvPrce = -1;          
+		    			var bndlQtySeq = -1;			// 묶음 배송시 그룹 수량 소계 변경에 이용하는 시퀀스
+		    			var subSumDlv = -1;		 // 착불+선불 묶음 배송 : 배송비 지급 / 착불+착불 묶음 배송 : 배송비 0
+		    			var subSumDeposit = 0;
+		    			var subSumSharingPrce = 0;
+		    			var subSumQty = 0;
+		    			var dlv_stand_amt = 0; // 조건부 무료
+		    			
+		    			htmlI = comHtml;
+			    		htmlI += "<p class='title'><input type='checkbox' id='checkedAllA' name='checkedAllA' onchange=\"checkedAllSharing('')\"><label>전체선택</label> <span class='fr'>총 장바구니 상품 <span class='point_p'>("+result.result.length+"개)</span></span></p>";
+		    			htmlI += "<ul class='bask_list' id='ulResultA'>";
+		    			// 상품코드별로 
+		    			htmlI += "<input type='hidden' id='leng' name='leng' value='"+result.result.length+"'/>";
+		    			
+		    			for(var c=0;c<result.result.length;c++){
+		    				/*
+		    				판매중지조건
+		    				PROD.VIEW_YN = 'Y'		(노출여부)
+		    				PROD.PROD_STAT_CD = 0 	(판매중 )
+		    				PROD.OPT_PROD_YN 		옵션상품여부
+		    					부가옵션 : 옵션
+		    					추가구성 옵션
+							PROD_OP.OPT_USE_YN		(옵션사용여부)
+		    				*/
+		    				var sellStopYn='N';
+		    				var viewYn = result.result[c].VIEW_YN;
+		    				var prodStatCd = result.result[c].PROD_STAT_CD;
+		    				// 개인인지 사업자인지 
+							var mberGbCdSplit = result.result[c].MBER_GB_CD;
+							var mberGbCd = mberGbCdSplit;
+// 		    				statusCnt = 1;	// 여러건인지 단순건인지.
+		    				var statusCnt = 'SINGLE';
+		    				// 실제갯수 
+		    				var opt_cd_cnt_org_split = result.result[c].PROD_QTY;
+		    				var opt_cd_cnt_org = opt_cd_cnt_org_split;
+		    				
+		    				// 옵션코드 
+							var optCdSplit = result.result[c].OPT_CD;
+							var optCd = optCdSplit;
+		    				var prodQty = result.result[c].PROD_QTY;	//sharingPrice
+		    				var sellCnt = result.result[c].SELL_CNT;
+		    				var shareDay = result.result[c].SHARE_DAY;
+		    				// 2015-11-06 redmine 개인 쉐어링 사용기간 최대 일
+	    					var day = result.result[c].SHARE_DAY;
+// 		    				var day = result.result[c].DAY==null?0:result.result[c].DAY;
+		    				var sharingMinTeam = result.result[c].SHARING_MIN_TERM==null?0:result.result[c].SHARING_MIN_TERM;
+    						var sharingMaxTeam = result.result[c].SHARING_MAX_TERM==null?0:result.result[c].SHARING_MAX_TERM;
+		    				
+// 	    					mberGbCd = 1;		//테스트 관계로 추가 shkim
+		    				sumAmt += result.result[c].SELL_PRCE;
+		    				bndlDlvYn = result.result[c].BNDL_DLV_YN;
+	    					prodImgUrl = result.result[c].PROD_IMG_URL;
+	    					deposit = result.result[c].DEPOSIT;
+	    					prodNm = result.result[c].PROD_NM;
+	    					sharingPrice = result.result[c].SHARING_PRICE;
+	    					dlvStandAmt = result.result[c].DLV_STAND_AMT;
+	    					dlvPrce = result.result[c].DLV_PRCE;
+	    					sellPrce = result.result[c].SELL_PRCE;
+		    				sellPrceCom = commify(sellPrce);
+	    					
+		    				// 보증금 deposit + ( 셰어링요금 sharingPrice  * 갯수 prodQty )
+		    				var tarOptProdAmt = 0;
+		    				var subSharingPrice = 0;
+		    				
+			    			if(mberGbCd == 0){	// 0.개인 , 1.사업자
+			    				//  [개인]셰어링요금 sharingPrice  * 갯수 prodQty 
+			    				subSharingPrice =  0 ;
+// 			    				subSharingPrice =  parseInt(sharingPrice) * parseInt(prodQty) ;
+			    				tarOptProdAmt =  parseInt(deposit)* parseInt(prodQty) ;
+			    			}else if(mberGbCd == 1){	// 0.개인 , 1.사업자
+		    					//  [개인]셰어링요금 sharingPrice  * 갯수 prodQty 
+		    					subSharingPrice =  parseInt(sharingPrice) * parseInt(prodQty) * parseInt(shareDay);
+		    					tarOptProdAmt =  (parseInt(deposit) + ( parseInt(sharingPrice) * parseInt(shareDay) )) * parseInt(prodQty);
+			    			}
+			    			
+		    				//var tarOptProdAmtStr = comm ify(tarOptProdAmt);
+		    				// 전체 보증금(보증금 + 쉐어링금액)
+		    				sumPreProdAmt = parseInt(sumPreProdAmt) + parseInt(tarOptProdAmt);
+			    			
+							//alert("prodStatCd:"+prodStatCd);
+		    				if( prodStatCd != '0' || sellCnt < 1 || prodQty > sellCnt){	
+		    					sellStopYn = 'Y';
+		    				}
+		    				if(bndlQtySeq < 0 &&	bndlDlvYn == 'Y'){
+    							bndlQtySeq = c;
+    						}else if(bndlDlvYn != 'Y'){
+    							bndlQtySeq = c;
+    						}
+		    				
+		    				// 묶음배송일 경우 착불이 있는 경우 확인
+		    				if(bndlDlvPayF == "-1"){
+		    					bndlDlvPayF = result.result[c].DLV_PAY_F_CD;
+		    					
+		    				// 착불이 아닌 경우 값 저장
+		    				}else if(result.result[c].DLV_PAY_F_CD != "20"){
+		    					bndlDlvPayF = result.result[c].DLV_PAY_F_CD;
+		    				}
+		    				
+		    				if(bndlDlvYn == 'Y'){
+			    				if(c==0){
+			    					htmlI += "<li>";
+			    				}else{
+			    					htmlI += "<li class='bundle'>";
+			    				}
+			    				bndlDlvYnCnt += 1;
+			    				bndlDlvCnt = parseInt(result.result[c].BNDL_DLY_CNT);		
+		    				}else{
+		    					if(c==0){
+			    					htmlI += "<li>";
+			    				}else{
+			    					htmlI += "<li>";
+			    				}
+		    				}
+		    				
+		    				htmlI += "	<ul>";
+		    				htmlI += "		<li><div id='inputVal'><input type='hidden' id='chk"+c+"' name='chk01'  value='"+result.result[c].PROD_CODE+"'><input type='checkbox' id='inputChk"+c+"' name='inputChk01' onclick=\"preChkSharing('inputChk"+c+"','"+c+"','"+bndlQtySeq+"')\" value='N'/> <img onclick=\"javascript:detailProd('"+result.result[c].PROD_CODE+"');\" src=\"<custom:codeTag code='DEFAULT_IMG_URL' groupCode='SITE_DEFAULT' />\" alt=\""+prodImgUrl+"\" style='width:80px'></div></li>";
+	    					htmlI += "		<li><a href=\"javascript:detailProd('"+result.result[c].PROD_CODE+"');\"><strong>"+prodNm+"</strong></a></li>";
+	    					htmlI += "		<li class='tr'><span>보증금 "+commify(deposit)+"원 </span></li><li class='tr'><span>   일 셰어링료 <span id='tarOpt"+c+"_0Amt'>"+commify(sharingPrice)+"</span>원</span></li>";
+	    					
+	    					if(mberGbCd == 0){		// 0.개인 , 1.사업자
+	    						
+		    					htmlI += "		<li class='tr'><span>사용기간   최대 "+day+"일 이내 반납가능</span></li>";
+	    					}else if(mberGbCd == 1){	// 0.개인 , 1.사업자
+	    						
+		    					htmlI += "		<li class='tr'><span>사용기간   최소 "+sharingMinTeam+"일 ~ 최대 "+sharingMaxTeam+"일</span></li>";
+	    					}
+		    					
+		    				// 쉐어링 배송비
+	    					//20151105 redmine 배송비수정
+	    					if(result.result[c].DLV_PAY_GB_CD == '1'){
+	    						
+		    					dlvPrce = 0;
+		    					htmlI += "		<li class='tr'><span>배송비 무료배송</span></li>";
+	    					}else if(result.result[c].DLV_WAY_CD == 5){ 
+
+	    						htmlI += "		<li class='tr'><span>배송비 직거래</span></li>";
+
+		    					// 퀵서비스 구매자 부담(착불)
+	    					}else if(result.result[c].DLV_PAY_GB_CD == '2' && result.result[c].DLV_WAY_CD == '4' ){
+	    						// 퀵서비스 구배자 부담 착불
+
+	    						htmlI += "		<li class='tr'><span>배송비 착불</span></li>";
+	    					}else if(dlvStandAmt > 0 ){
+	    						
+		    					htmlI += "		<li class='tr'><span>배송비 "+commify(dlvPrce)+"원("+commify(dlvStandAmt)+"원 이상 무료)</span></li>";
+	    					}else{
+	    						
+		    					htmlI += "		<li class='tr'><span>배송비 "+commify(dlvPrce)+"원</span></li>";
+	    					}
+		    				htmlI += "	</ul>";
+		    				if(mberGbCd == 1){	// 0.개인 , 1.사업자
+		    					
+		    					if(sellStopYn=='Y'){
+		    						htmlI += "		<p class='clear'><span class='fl mt10'>사용기간</span> <span class='fr'><input type='text' id='dayTarget"+c+"Day' name='dayTarget"+c+"Day' style='width:50px' value='"+sharingMinTeam+"' class='numType' readonly> 일</span></p>";
+		    					}else{
+		    						htmlI += "		<p class='clear'><span class='fl mt10'>사용기간</span> <span class='fr'><input type='text' id='dayTarget"+c+"Day' name='dayTarget"+c+"Day' style='width:50px' value='"+result.result[c].SHARE_DAY+"' onchange=\"numberOnlyBasket(this,\'"+sharingMinTeam+"\',\'"+sharingMaxTeam+"\',"+c+");\" class='numType' > 일</span></p>";	
+		    					}
+		    					
+		    				}
+		    				
+		    				//console.log(">>>>> 1264  c : "+c+" minShare : "+sharingMinTeam+" maxShare : "+sharingMaxTeam);
+		    				htmlI += "<input type='hidden' id='minShare"+c+"' name='minShare"+c+"' value='"+sharingMinTeam+"' />"; // 쉐어링일수
+		    				htmlI += "<input type='hidden' id='maxShare"+c+"' name='maxShare"+c+"' value='"+sharingMaxTeam+"' />"; // 쉐어링일수
+		    				htmlI += "<input type='hidden' id='day"+c+"' name='day"+c+"' value='"+day+"' />"; // 쉐어링일수
+		    				htmlI += "<input type='hidden' id='opt_cd_cnt"+c+"' name='opt_cd_cnt"+c+"' value='0' />"; // 옵션 없음
+		    				htmlI += "<input type='hidden' id='prod_cnt"+c+"' name='prod_cnt"+c+"' value='"+prodQty+"' />"; // 상품 갯수
+							htmlI += "<input type='hidden' id='bndlDlvYn"+c+"' name='bndlDlvYn"+c+"' value='"+bndlDlvYn+"' />"; // 묶음배송여부
+							htmlI += "<input type='hidden' id='bndlDlvCnt"+c+"' name='bndlDlvCnt"+c+"' value='"+bndlDlvCnt+"' />"; // 묶음배송 총건수
+	    					htmlI += "	<div class='clear'>";
+	    					// 상품명
+	    					htmlI += "	     <p class='clear'><strong class='left'>"+result.result[c].PROD_NM+"</strong></p>";
+		    				htmlI += "	     <p class='fl'>";
+		    				htmlI += "	         <a href=\"javascript:setTarOptShing('minus','tarOpt"+c+"_0','"+c+"','"+sellCnt+"','"+mberGbCd+"','"+bndlDlvCnt+"','"+bndlDlvYnCnt+"','"+result.result[c].PROD_CODE+"','"+bndlQtySeq+"');\"><img src=\"http://static.ssocio.net/web/images/btn_minus.png\" alt=\"\" ></a>";
+	    					htmlI += "	         <input type='text' id='tarOpt"+c+"_0' name='tarOpt"+c+"_0' value='"+prodQty+"' readonly>";
+		    				htmlI += "	         <a href=\"javascript:setTarOptShing('plus','tarOpt"+c+"_0','"+c+"','"+sellCnt+"','"+mberGbCd+"','"+bndlDlvCnt+"','"+bndlDlvYnCnt+"','"+result.result[c].PROD_CODE+"','"+bndlQtySeq+"');\"><img src=\"http://static.ssocio.net/web/images/btn_plus.png\" alt=\"\" ></a>";
+		    				htmlI += "	     </p> ";
+		    				
+		    				if(sellStopYn=='Y'){
+			    				// 	[D] 게재중지시 노출-->
+			    				htmlI += "<div class='prod_stop_area'>";
+			    				htmlI += "    <span>해당 상품은 상품정보 변경/재고부족 등으로<br>주문이 불가합니다.</span>";
+			    				htmlI += "    <div><a href=\"javascript:deleteMyBacketChangeDel('"+result.result[c].PROD_CODE+"','','2')\" class='btn_detail'>삭제</a></div>";
+			    				htmlI += "</div>";	        
+			                    //	[D] 게재중지시 노출-->
+			    				//alert("해당상품은 노출여부을 'N'으로 세팅하고 있습니다."+viewYn
+		    					//		+"\n"+"해당상품은 판매중이 아닙니다.["+prodStatCd+"]");
+		    				}
+		    				htmlI += "<input type='hidden' id='sellStopYn_"+c+"' name='sellStopYn_"+c+"' value='"+sellStopYn+"' />";
+		    				htmlI += "	 </div>";
+		    			
+		    				
+		    				// 옵션코드  OPT_CD
+	    					htmlI += "<input type='hidden' id='optCd"+c+"_0' name='optCd"+c+"_0' value='"+optCd+"' />";
+	    					
+		    				// 묶음 배송 시 각 상품별 정보 저장
+			    			htmlI 	+= "<input type='hidden' id='tarSharing"+c+"Stand'  value='"+dlvStandAmt+"' class='tarSharing"+bndlQtySeq+"Stand'/>"; // 조건부 무료
+			    			htmlI 	+= "<input type='hidden' id='tarSharing"+c+"Deposit'  value='"+deposit+"' class='tarSharing"+bndlQtySeq+"Deposit'/>";
+	    					htmlI 	+= "<input type='hidden' id='tarSharing"+c+"Amt'  value='"+(mberGbCd == '0' ? 0 : sharingPrice)+"' class='tarSharing"+bndlQtySeq+"Amt'/>";
+    						htmlI 	+= "<input type='hidden' id='tarSharing"+c+"Sum' value='"+tarOptProdAmt+"' class='tarSharing"+bndlQtySeq+"Sum'/>";
+    						htmlI 	+= "<input type='hidden' id='tarSharing"+c+"DlvPrce' value='"+dlvPrce+"' class='tarSharing"+bndlQtySeq+"DlvPrce'/>";
+			    
+    						if( bndlDlvYn !='Y'){	// 묶음배송이아니거나      	
+				    			subSumDeposit = parseInt(deposit) * parseInt(prodQty);
+				    			subSumSharingPrce = parseInt(subSharingPrice);
+				    			subSumQty = prodQty;
+				    			
+								if(mberGbCd == 0){	// 0 개인 1 사업자				    					
+				    				htmlI += "	<p class='bot'><strong>구매수량 <font id='tarOptShing"+c+"ProdCnt'	>"
+				    								+prodQty+"</font>개"
+													+"   |  보증금 <font id='tarOpt"+c+"ProdAmt'	>"
+				    								+(commify(parseInt(subSumDeposit)) )+"</font>";
+		// 		    				htmlI += "원   |  배송비 "+commify(parseInt(dlvPrce)*parseInt(prodQty))+"원</strong></p>";
+				    				
+				    				//20151105 redmine 배송비수정
+									if(result.result[c].DLV_PAY_GB_CD == '1'){
+			    						
+				    					dlvPrce = 0;
+				    					htmlI += "원   |  배송비 <font id='tarOptShing"+bndlQtySeq+"DlvPrce'>0</font>원</strong></p>";
+			    					}else if(result.result[c].DLV_PAY_F_CD == '20'){
+			    						
+				    					dlvPrce = 0;
+			    						htmlI += "원   |  배송비 <font id='tarOptShing"+bndlQtySeq+"DlvPrce'>0</font>원(착불)</strong></p>";
+			    					}else if(result.result[c].DLV_WAY_CD == 5){ 
+
+				    					dlvPrce = 0;
+			    						htmlI += "원   |  배송비 <font id='tarOptShing"+bndlQtySeq+"DlvPrce'>0</font>원(직거래)</strong></p>";
+				    				}else if(result.result[c].DLV_PAY_GB_CD == '2' && result.result[c].DLV_WAY_CD == '4' ){
+				    					
+				    					dlvPrce = 0;
+				    					htmlI += "원   |  배송비 <font id='tarOptShing"+bndlQtySeq+"DlvPrce'>0</font>원(착불)</font></strong></p>";
+			    					}else if(parseInt(dlvStandAmt) > 0 && parseInt(tarOptProdAmt) >= parseInt(dlvStandAmt) ){
+			    						
+				    					dlvPrce = 0;
+				    					htmlI += "원   |  배송비 <font id='tarOptShing"+bndlQtySeq+"DlvPrce'>0</font>원("+commify(dlvStandAmt)+"원 이상 무료)</strong></p>";
+			    					}else{
+			    						
+			    						htmlI += "원   |  배송비 <font id='tarOptShing"+bndlQtySeq+"DlvPrce'>"+commify(dlvPrce)+"</font>원</strong></p>";
+			    					}
+			    					htmlI 	+= "<input type='hidden' id='subSum"+bndlQtySeq+"DlvPrce' value='"+dlvPrce+"' class='subSum"+bndlQtySeq+"DlvPrce'/>";				
+			    					// 상품개별
+			    					if(result.result[c].DLV_PAY_F_CD != "20"){
+										htmlI += "<input type='hidden' id='dlvPrce"+c+"' name='dlvPrce"+c+"' value='"+dlvPrce+"' class='dlvPrceGrp"+bndlQtySeq+"'/>"; // 적용된배송비			
+		    						}else{
+										htmlI += "<input type='hidden' id='dlvPrce"+c+"' name='dlvPrce"+c+"' value='"+dlvPrce+"' class='dlvPrceGrp"+bndlQtySeq+" dlvPayFcd'/>"; // 적용된배송비			
+		    						}	
+			    					
+			    					subSumDeposit = 0;
+					    			subSumSharingPrce = 0;
+					    			subSumQty = 0;
+			    					subSumDlv = -1;
+					    			bndlDlvYnCnt = 0;
+			    					bndlQtySeq = -1;
+			    					bndlDlvPayF = "-1";
+// 			    					htmlI 	+= "<input type='hidden' id='tarSharing"+c+"Deposit'  value='"+deposit+"' class='tarSharing"+bndlQtySeq+"Deposit'/>";
+// 			    					htmlI 	+= "<input type='hidden' id='tarSharing"+c+"Amt'  value='"+sharingPrice+"' class='tarSharing"+bndlQtySeq+"Amt'/>";
+// 		    						htmlI 	+= "<input type='hidden' id='tarSharing"+c+"Sum' value='"+subSharingPrice+"' class='tarSharing"+bndlQtySeq+"Sum'/>";
+// 		    						htmlI 	+= "<input type='hidden' id='tarSharing"+c+"DlvPrce' value='"+dlvPrce+"' class='tarSharing"+bndlQtySeq+"DlvPrce'/>";
+				    				//htmlI += "<input type='hidden' id='tarSharing"+c+"ProdAmtHidden' name='tarSharing"+c+"ProdAmtHidden' value='0' />";		    								
+								}else{
+									htmlI += "	<p class='bot'><strong>구매수량 <font id='tarOptShing"+c+"ProdCnt'	>";
+									htmlI += prodQty+"</font>개";
+									htmlI += "   |  보증금 <font id='tarOpt"+c+"ProdAmt'	>";
+									htmlI += (commify(parseInt(subSumDeposit)) )+"</font>";
+// 									htmlI += (commify(parseInt(deposit)*parseInt(prodQty)) )+"</font>";
+									htmlI += "원	   |  셰어링요금 <font id='tarSharing"+c+"ProdAmt'	>";
+									htmlI += (commify(subSharingPrice))+"</font>";
+		// 							htmlI += "원   |  배송비 "+commify(dlvPrce)+"원</strong></p>";
+									//20151105 redmine 배송비수정
+			    					if(result.result[c].DLV_PAY_GB_CD == '1'){
+			    						
+				    					dlvPrce = 0;
+				    					htmlI += "원   |  배송비 <font id='tarOptShing"+bndlQtySeq+"DlvPrce'>0</font>원</strong></p>";
+			    					}else if(result.result[c].DLV_PAY_F_CD == '20'){
+			    						
+				    					dlvPrce = 0;
+			    						htmlI += "원   |  배송비 <font id='tarOptShing"+bndlQtySeq+"DlvPrce'>0</font>원(착불)</strong></p>";
+			    					}else if(result.result[c].DLV_WAY_CD == 5){ 
+
+				    					dlvPrce = 0;
+			    						htmlI += "원   |  배송비 <font id='tarOptShing"+bndlQtySeq+"DlvPrce'>0</font>원(직거래)</strong></p>";
+				    				}else if(result.result[c].DLV_PAY_GB_CD == '2' && result.result[c].DLV_WAY_CD == '4' ){
+				    					
+				    					dlvPrce = 0;
+				    					htmlI += "원   |  배송비 <font id='tarOptShing"+bndlQtySeq+"DlvPrce'>0</font>원(착불)</font></strong></p>";
+			    					}else if(parseInt(dlvStandAmt) > 0 && parseInt(tarOptProdAmt) >= parseInt(dlvStandAmt) ){
+			    						
+				    					dlvPrce = 0;
+				    					htmlI += "원   |  배송비 <font id='tarOptShing"+bndlQtySeq+"DlvPrce'>0</font>원("+commify(dlvStandAmt)+"원 이상 무료)</strong></p>";
+			    					}else{
+			    						
+			    						htmlI += "원   |  배송비 <font id='tarOptShing"+bndlQtySeq+"DlvPrce'>"+commify(dlvPrce)+"</font>원</strong></p>";
+			    					}
+			    					htmlI 	+= "<input type='hidden' id='subSum"+bndlQtySeq+"DlvPrce' value='"+dlvPrce+"' class='subSum"+bndlQtySeq+"DlvPrce  bndlDlv'/>";				
+			    					// 상품 개별
+			    					if(result.result[c].DLV_PAY_F_CD != "20"){
+										htmlI += "<input type='hidden' id='dlvPrce"+c+"' name='dlvPrce"+c+"' value='"+dlvPrce+"' class='dlvPrceGrp"+bndlQtySeq+"'/>"; // 적용된배송비			
+		    						}else{
+										htmlI += "<input type='hidden' id='dlvPrce"+c+"' name='dlvPrce"+c+"' value='"+dlvPrce+"' class='dlvPrceGrp"+bndlQtySeq+" dlvPayFcd'/>"; // 적용된배송비			
+		    						}	
+			    					subSumDeposit = 0;
+					    			subSumSharingPrce = 0;
+					    			subSumQty = 0;
+			    					subSumDlv = -1;
+					    			bndlDlvYnCnt = 0;
+			    					bndlQtySeq = -1;
+			    					bndlDlvPayF = "-1";
+// 			    					htmlI 	+= "<input type='hidden' id='tarSharing"+c+"Deposit'  value='"+deposit+"' class='tarSharing"+bndlQtySeq+"Deposit'/>";
+// 			    					htmlI 	+= "<input type='hidden' id='tarSharing"+c+"Amt'  value='"+sharingPrice+"' class='tarSharing"+bndlQtySeq+"Amt'/>";
+// 		    						htmlI 	+= "<input type='hidden' id='tarSharing"+c+"Sum' value='"+subSharingPrice+"' class='tarSharing"+bndlQtySeq+"Sum'/>";
+// 		    						htmlI 	+= "<input type='hidden' id='tarSharing"+c+"DlvPrce' value='"+dlvPrce+"' class='tarSharing"+bndlQtySeq+"DlvPrce'/>";
+									//htmlI += "<input type='hidden' id='tarSharing"+c+"ProdAmtHidden' name='tarSharing"+c+"ProdAmtHidden' value='"+subSharingPrice+"' />";		
+								}		  
+		    					
+								// 전체 배송비
+			    				totDlvPrce += parseInt(dlvPrce);
+								bndlDlvYnCnt = 0;
+				    		// 묶음 배송
+				    		}else{
+				    			
+			    				if(subSumDlv < 0 ){
+									subSumDlv = dlvPrce;
+								}else{
+
+									// 조건무 무료 배송
+		    						if(parseInt(dlvStandAmt) > 0 && parseInt(tarOptProdAmt) >= parseInt(dlvStandAmt) ){
+		    							dlvPrce = 0;
+		    						}
+									subSumDlv = parseInt(dlvPrce) < parseInt(subSumDlv) ? dlvPrce : subSumDlv;
+								}			    			
+			    				subSumDeposit += parseInt(deposit) * parseInt(prodQty);
+				    			subSumSharingPrce += parseInt(subSharingPrice);
+				    			subSumQty += parseInt(prodQty);
+// 				    			// 묶음 배송 시 각 상품별 정보 저장
+// 				    			htmlI 	+= "<input type='hidden' id='tarSharing"+c+"Deposit'  value='"+deposit+"' class='tarSharing"+bndlQtySeq+"Deposit'/>";
+// 		    					htmlI 	+= "<input type='hidden' id='tarSharing"+c+"Amt'  value='"+(mberGbCd == 0 ? 0 : sharingPrice)+"' class='tarSharing"+bndlQtySeq+"Amt'/>";
+// 	    						htmlI 	+= "<input type='hidden' id='tarSharing"+c+"Sum' value='"+subSharingPrice+"' class='tarSharing"+bndlQtySeq+"Sum'/>";
+// 	    						htmlI 	+= "<input type='hidden' id='tarSharing"+c+"DlvPrce' value='"+dlvPrce+"' class='tarSharing"+bndlQtySeq+"DlvPrce'/>";
+				    			//console.log(">>>>> bndlDlvYn 2: "+subSumQty);
+				    			
+				    			if(  bndlDlvCnt == bndlDlvYnCnt ){	// 묶음배송 마지막이면
+// 				    			if(  (parseInt(bndlDlvCnt)-1)==bndlDlvYnCnt ){	// 묶음배송 마지막이면
+				    				if(mberGbCd == 0){	// 0 개인 1 사업자				    	
+				    					
+				    					
+					    				htmlI += "	<p class='bot'><strong>구매수량 <font id='tarOptShing"+bndlQtySeq+"ProdCnt'	>"
+					    								+subSumQty+"</font>개"
+														+"   |  보증금 <font id='tarOpt"+bndlQtySeq+"ProdAmt'	>"
+					    								+(commify(parseInt(subSumDeposit)) )+"</font>";
+// 					    				htmlI += "	<p class='bot'><strong>구매수량 <font id='tarOptShing"+c+"ProdCnt'	>"
+// 					    								+prodQty+"</font>개"
+// 														+"   |  보증금 <font id='tarOpt"+c+"ProdAmt'	>"
+// 					    								+(commify(parseInt(deposit)*parseInt(prodQty)) )+"</font>";
+// 					    				htmlI += "원   |  배송비 "+commify(parseInt(dlvPrce)*parseInt(prodQty))+"원</strong></p>";
+					    				//20151105 redmine 배송비수정
+					    				// 판매자 부담 (배송비 무료)
+				    					/* if(result.result[c].DLV_PAY_GB_CD == '1'){
+// 				    					if(result.result[c].DLV_PAY_GB_CD == '1'){
+				    						
+					    					dlvPrce = 0;
+					    					htmlI += "원   |  배송비 0원</strong></p>";
+					    				
+					    				// 묶음 배송 모두 착불인 경우
+				    					}else  */if(bndlDlvPayF == '20'){
+// 				    					}else if(result.result[c].DLV_PAY_F_CD == '20'){
+				    						
+					    					dlvPrce = 0;
+					    					htmlI += "원   |  배송비 <font id='tarOptShing"+bndlQtySeq+"DlvPrce'>0</font>원(묶음배송|착불)</strong></p>";
+				    					}else{
+				    						dlvPrce = subSumDlv;
+					    					htmlI += "원   |  배송비 <font id='tarOptShing"+bndlQtySeq+"DlvPrce'>"+commify(parseInt(dlvPrce))+"</font>원(묶음배송)</strong></p>";
+				    					}
+				    					htmlI 	+= "<input type='hidden' id='subSum"+bndlQtySeq+"DlvPrce' value='"+dlvPrce+"' class='subSum"+bndlQtySeq+"DlvPrce'/>";				
+				    					// 상품개별
+				    					if(result.result[c].DLV_PAY_F_CD != "20"){
+											htmlI += "<input type='hidden' id='dlvPrce"+c+"' name='dlvPrce"+c+"' value='"+dlvPrce+"' class='dlvPrceGrp"+bndlQtySeq+"'/>"; // 적용된배송비			
+			    						}else{
+											htmlI += "<input type='hidden' id='dlvPrce"+c+"' name='dlvPrce"+c+"' value='"+dlvPrce+"' class='dlvPrceGrp"+bndlQtySeq+" dlvPayFcd'/>"; // 적용된배송비			
+			    						}	
+				    					// 전체 배송비
+					    				totDlvPrce += parseInt(dlvPrce);
+					    				subSumDeposit = 0;
+						    			subSumSharingPrce = 0;
+						    			subSumQty = 0;
+				    					subSumDlv = -1;
+				    					bndlDlvYnCnt = 0;
+				    					bndlQtySeq = -1;
+				    					bndlDlvPayF = "-1";
+									}else{
+										
+										
+										htmlI += "	<p class='bot'><strong>구매수량 <font id='tarOptShing"+bndlQtySeq+"ProdCnt'	>";
+										htmlI += subSumQty+"</font>개";
+										htmlI += "   |  보증금 <font id='tarOpt"+bndlQtySeq+"ProdAmt'	>";
+										htmlI += (commify(parseInt(subSumDeposit)) )+"</font>";
+										htmlI += "원	   |  셰어링요금 <font id='tarSharing"+bndlQtySeq+"ProdAmt'	>";
+										htmlI += (commify(subSumSharingPrce))+"</font>";
+// 										htmlI += "	<p class='bot'><strong>구매수량 <font id='tarOptShing"+c+"ProdCnt'	>";
+// 										htmlI += prodQty+"</font>개";
+// 										htmlI += "   |  보증금 <font id='tarOpt"+c+"ProdAmt'	>";
+// 										htmlI += (commify(parseInt(deposit)*parseInt(prodQty)) )+"</font>";
+// 										htmlI += "원	   |  셰어링요금 <font id='tarSharing"+c+"ProdAmt'	>";
+// 										htmlI += (commify(subSharingPrice))+"</font>";
+// 										htmlI += "원   |  배송비 "+commify(dlvPrce)+"원</strong></p>";
+										//20151105 redmine 배송비수정
+				    					/* if(result.result[c].DLV_PAY_GB_CD == '1'){
+				    						
+					    					dlvPrce = 0;
+					    					htmlI += "원   |  배송비 0원</strong></p>";
+						    				
+						    			// 묶음 배송 모두 착불인 경우
+				    					}else  */if(bndlDlvPayF == '20'){
+// 				    					if(result.result[c].DLV_PAY_F_CD == '20'){
+				    						
+					    					dlvPrce = 0;
+					    					htmlI += "원   |  배송비 <font id='tarOptShing"+bndlQtySeq+"DlvPrce'>0</font>원(묶음배송|착불)</strong></p>";
+				    					}else{
+				    						dlvPrce = subSumDlv;
+					    					htmlI += "원   |  배송비 <font id='tarOptShing"+bndlQtySeq+"DlvPrce'>"+commify(parseInt(dlvPrce))+"</font>원(묶음배송)</strong></p>";
+				    					};				
+									}	
+									htmlI 	+= "<input type='hidden' id='subSum"+bndlQtySeq+"DlvPrce' value='"+dlvPrce+"' class='subSum"+bndlQtySeq+"DlvPrce'/>";		
+									// 상품개별
+									if(result.result[c].DLV_PAY_F_CD != "20"){
+										htmlI += "<input type='hidden' id='dlvPrce"+c+"' name='dlvPrce"+c+"' value='"+dlvPrce+"' class='dlvPrceGrp"+bndlQtySeq+"'/>"; // 적용된배송비			
+		    						}else{
+										htmlI += "<input type='hidden' id='dlvPrce"+c+"' name='dlvPrce"+c+"' value='"+dlvPrce+"' class='dlvPrceGrp"+bndlQtySeq+" dlvPayFcd'/>"; // 적용된배송비			
+		    						}	
+									// 전체 배송비
+				    				totDlvPrce += parseInt(dlvPrce);
+				    				subSumDeposit = 0;
+					    			subSumSharingPrce = 0;
+					    			subSumQty = 0;
+			    					subSumDlv = -1;
+				    				bndlDlvYnCnt = 0;
+				    				bndlQtySeq = -1;
+			    					bndlDlvPayF = "-1";
+				    				
+				    			}else{	// 묶음배송 마지막이 아니면
+				    				if(result.result[c].DLV_PAY_F_CD != "20"){
+										htmlI += "<input type='hidden' id='dlvPrce"+c+"' name='dlvPrce"+c+"' value='"+dlvPrce+"' class='dlvPrceGrp"+bndlQtySeq+"'/>"; // 적용된배송비			
+		    						}else{
+										htmlI += "<input type='hidden' id='dlvPrce"+c+"' name='dlvPrce"+c+"' value='"+dlvPrce+"' class='dlvPrceGrp"+bndlQtySeq+" dlvPayFcd'/>"; // 적용된배송비			
+		    						}	
+// 					    			bndlDlvYnCnt++; 	// 묶음배송 카운터	
+									
+// 					    			htmlI += "<input type='hidden' id='tarOptSharing"+c+"ProdCnt' value='"+prodQty+"' />";
+// 					    			htmlI += "<input type='hidden' id='tarOpt"+c+"ProdAmt'  	value='"+(parseInt(deposit)*parseInt(prodQty))+"' />";
+// 				    				htmlI += "<input type='hidden' id='tarSharing"+c+"ProdAmt'  value='"+subSharingPrice+"' />";
+				    			}
+				    		}
+				    		//console.log(">>>>> totDlvPrce : "+totDlvPrce);
+// 				    		if(result.result[c].DLV_PAY_F_CD != "20"){
+// 								htmlI += "<input type='hidden' id='dlvPrce"+c+"' name='dlvPrce"+c+"' value='"+dlvPrce+"' class='dlvPrceGrp"+bndlQtySeq+"'/>"; // 적용된배송비			
+//     						}else{
+// 								htmlI += "<input type='hidden' id='dlvPrce"+c+"' name='dlvPrce"+c+"' value='"+dlvPrce+"' class='dlvPrceGrp"+bndlQtySeq+" dlvPayFcd'/>"; // 적용된배송비			
+//     						}	
+		    				// E 합계
+		    				htmlI += "</li>";		    				
+		    				
+// 		    				// 전체 배송비
+// 		    				totDlvPrce += parseInt(subSumDlv);
+// 		    				totDlvPrce += parseInt(dlvPrce);
+		    				// 0개인, 1사업자 
+		    				htmlI += "<input type='hidden' id='mberGbCd"+c+"' name='mberGbCd"+c+"' value='"+mberGbCd+"' />";
+		    				// [배송비 결제 10.선불, 20.착불]
+				    		htmlI += "<input type='hidden' id='dlvPayFCd_"+c+"' name='dlvPayFCd_"+c+"' value='"+result.result[c].DLV_PAY_F_CD+"' />";
+				    		
+		    			}	// for문 end
+		    			
+		    			//sumAmtJstl = sumAmt.toLocaleString();
+		    			htmlI += "</ul>";
+		    			htmlI += "<p class='title'>주문정보</p>";
+		    			htmlI += "<div class='sbox04'>";
+		    			htmlI += "	<ul>";
+		    			htmlI += "        <li><span class='fl'>상품금액</span> <span class='fr' id='totProdAmt'>"+commify(sumPreProdAmt)+"원</span></li>";
+		    			htmlI += "        <li><span class='fl'>배송비</span> <span class='fr' id='totDlvPrce'>"+commify(totDlvPrce)+"원</span></li>";
+		    			htmlI += "        <li><span class='fl'><strong>결제예정금액</strong></span> <span class='fr'><strong class='point_r' id='payCanAmt' >"+commify(parseInt(sumPreProdAmt)+parseInt(totDlvPrce))+"원</strong></span></li>";
+		    			htmlI += "    </ul>";
+		    			htmlI += "</div>";
+		    	        
+		    			htmlI += "<div class='btn_enter'>";
+		    			htmlI += "	<ul>";
+		    			
+		    			htmlI += "    	<li><a href=\"javascript:del();\" class='btn_b-line'>선택삭제</a></li>";
+		    			htmlI += "    	<li><a href=\"javascript:order();\" class='btn_r'>선택주문</a></li>";
+		    			
+		    			htmlI += "    </ul>";
+		    			htmlI += "</div>";
+		    			
+		    			totAmount = commify(parseInt(sumPreProdAmt)+parseInt(totDlvPrce));
+		    			StotProdAmt = commify(totPreProdAmt);
+		    			StotDlvPrce = commify(totDlvPrce);
+		    		}
+		    	}
+		    	
+		    	
+		    	innerH.append(htmlI); 
+    			// 최초 조회시 전체선택 
+    			initCheckedAll();
+    			
+    			// CDN Reload
+    			cdnreload();
+    			
+    			// style .sha_nodata 실행 사이즈조절안됨.
+    			initShaNoData();
+		    },
+		    error : function(request, status, error) {
+				//통신 에러 발생시 처리
+				alert("통신 오류가 발생 하였습니다. 잠시 후 다시 시도해 주세요"   + status.toString()  + " request [" + request.toString()  + "] error[" + error.toString() +"]");
+			}
+		});
+	};
+	/*
+	 *	최초 조회시 전체체크한다.
+	 */
+	initCheckedAll = function(){
+		/*
+		 *	전체선택
+		 */
+		var chkBody = $("#ulResultA");
+		$("#checkedAllA").attr("checked", true);	
+ 			chkBody.children().each(function(){		// <ul> <li> 반복...
+			$("#inputVal input[name=inputChk01]").val("Y");
+			$("#inputVal input[name=inputChk01]").attr("checked", true);	 				
+		});
+	};
+	/*
+	 *	[판매금액용]옵션 + - 선택시 처리	 
+	 *		1.gubun (더하기 , 빼기)
+	 *		2.targetS ( 선택한 id )
+	 *		3.cntGubun ( 한개 SINGLE, 여러개 MULTI)
+	 *		4.c for문건수 ( 사용: 총상품금액 )
+	 *		5.최대수량
+	 *		6.옵션구분코드 ( '' 옵션없음 , '10' 부가상품 , '20' 추가구성)
+	 *		7.묶음배송 총건수
+	 *		8.묶음배송 순번
+	 */
+	setTarOpt = function(gubun, targetS, cntGubun, c, sellCnt, opGbCd, bndlCnt, bndlDlvYnCnt, cd, d){
+		
+		if (!$("#inputChk"+c).is(":checked")) {
+			alert("선택후 옵션추가 할수 있습니다."); return;
+		}
+		
+		var getQty = $("#"+targetS).val();
+		var getQtyChg = 1;
+		if(gubun=='minus'){
+			if(parseInt(getQty)>1){
+				getQtyChg = parseInt(getQty)-1;
+			}
+		}else if(gubun=='plus'){
+			getQtyChg = parseInt(getQty)+1;
+		}
+		// 재고계산
+		/**
+		*    targetS end _0  옵션 없음 (cd = prod_code)
+		*    else 옵션 있음 (cd = opt_cd)
+		*/
+					
+		if(checkStockCnt(targetS, cd, getQtyChg)){
+// 			alert("현재 재고가 존재하지 않습니다. 재고수량["+sellCnt+"]"); 
+			return;
+		}
+// 			if(getQtyChg == (parseInt(sellCnt)+1) ){
+// 				alert("현재 재고가 존재하지 않습니다. 재고수량["+sellCnt+"]"); 
+// 				return;
+// 			}
+		// 갯수을 변화시킨다.
+		$("#"+targetS).val(getQtyChg);
+		
+		/*********************************************** 
+			[갯수 조작 오른쪽 금액 부분]
+				- 현재 금액(현재 상품의 금액)을 가져와서 . 건수 증가될때마가 해당 금액을 가져와서 더한다.
+			 1. 현재금액,건수을 가져온다.
+			 2. 현재금액/건수을 나눈다.
+			 3. 세팅한다.
+		 ***********************************************/
+		var targetSAmt = $("#"+targetS+"Amt").text().replace(/,/g,'').replace('원','');
+		
+		/* 1개당 갯수 금액을 구한다. */
+		var targetSAmtOrg = parseInt(targetSAmt) / parseInt(getQty);
+		if((gubun=='minus') && (getQty != getQtyChg)){
+			
+			// 1개당 갯수 금액(targetSAmtOrg) + 원래 가져온 금액(targetSAmt) 
+			targetSAmt = targetSAmt == "" ? 0 : targetSAmt;
+			targetSAmtOrg = targetSAmtOrg == "" ? 0 : targetSAmtOrg;
+			
+			targetSAmt = parseInt(targetSAmt) - parseInt(targetSAmtOrg);
+			$("#"+targetS+"Amt").text(commify(targetSAmt)+"원");			// [옵션금액(옵션갯수 옆) tarOpt0_0Amt ] [옵션갯수 선택] tarOpt0_0
+			if ($("#inputChk"+c).is(":checked")) 
+			{
+				// [구매수량 1]
+				var targetSProdQty = $("#tarOpt"+c+"ProdQty").text().replace(/,/g,'').replace('원','');	
+				targetSProdQty = targetSProdQty == "" ? 0 : targetSProdQty;
+				targetSProdQty = parseInt(targetSProdQty) - 1;
+				
+				/* 묶음배송에 	bndlCnt-	7.묶음배송 총건수
+		 						bndlDlvYnCnt - 8.묶음배송 순번		*/
+				if( bndlCnt > 0){
+					if(bndlCnt == bndlDlvYnCnt){							
+						// 묶음배송건수가 마지막이면
+					}else{							
+						// 묶음배송의 마지막건수가 아니면 카운트을 늘린다.
+						c=(bndlCnt-1);
+					}
+				}	
+				// [구매수량 2]
+				$("#tarOpt"+c+"ProdQty").text(commify(targetSProdQty)+"");	// 상품금액 (총상품금액 밑) tarOpt ProdQty
+				// 상품금액 tarOptProdAmt : 원래가지고 있던 금액 + 1개당 갯수 금액)
+				var targetSProdAmt = $("#tarOpt"+c+"ProdAmt").text().replace(/,/g,'').replace('원','');	 
+				
+				targetSAmtOrg = targetSAmtOrg == "" ? 0 : targetSAmtOrg;
+				targetSProdAmt = targetSProdAmt == "" ? 0 : targetSProdAmt;
+				targetSProdAmt = parseInt(targetSProdAmt) - parseInt(targetSAmtOrg);
+				$("#tarOpt"+c+"ProdAmt").text(commify(targetSProdAmt)+"");		// 상품금액 (총상품금액 밑) tarOpt ProdAmt
+				
+				// 멀티건일경우 처리 
+				if(cntGubun == 'MULTI'){
+					// 총 상품금액 totProdAmt
+					var sumPreProdAmt = $("#sumPreProdAmt"+c).text().replace(/,/g,'').replace('원','');
+					sumPreProdAmt = sumPreProdAmt == "" ? 0 : sumPreProdAmt;
+					targetSAmtOrg = targetSAmtOrg == "" ? 0 : targetSAmtOrg;
+					sumPreProdAmt = parseInt(sumPreProdAmt) - parseInt(targetSAmtOrg);
+					$("#sumPreProdAmt"+c).text(commify(sumPreProdAmt)+"원" );	// 총 상품금액 sumPreProdAmt
+				}
+				/**** [주문서] 상품금액 totProdAmt *********************************************************/
+				var totProdAmt = $("#totProdAmt").text().replace(/,/g,'').replace('원','');	//주문정보에 상품금액 
+				totProdAmt = totProdAmt == "" ? 0 : totProdAmt;
+				targetSAmtOrg = targetSAmtOrg == "" ? 0 : targetSAmtOrg;
+				totProdAmt = parseInt(totProdAmt) - parseInt(targetSAmtOrg);
+				$("#totProdAmt").text(commify(totProdAmt)+"원" );
+				/* 배송비 totDlvPrce */
+				//$("#totDlvPrce").text("되나.배송비");
+				/* 결제예정금액 payCanAmt */
+				var payCanAmt = $("#payCanAmt").text().replace(/,/g,'').replace('원','');
+				payCanAmt = payCanAmt == "" ? 0 : payCanAmt;
+				targetSAmtOrg = targetSAmtOrg == "" ? 0 : targetSAmtOrg;
+				payCanAmt = parseInt(payCanAmt) - parseInt(targetSAmtOrg);
+				$("#payCanAmt").text(commify(payCanAmt)+"원" );
+			}
+				
+		}else if(gubun=='plus'){
+			// 1개당 갯수 금액(targetSAmtOrg) + 원래 가져온 금액(targetSAmt) 
+			targetSAmtOrg = targetSAmtOrg == "" ? 0 : targetSAmtOrg;
+			targetSAmt = targetSAmt == "" ? 0 : targetSAmt;
+			targetSAmt = parseInt(targetSAmt) + parseInt(targetSAmtOrg);
+			$("#"+targetS+"Amt").text(commify(targetSAmt)+"원");			// [옵션금액(옵션갯수 옆) tarOpt0_0Amt ] [옵션갯수 선택] tarOpt0_0
+			if ($("#inputChk"+c).is(":checked")) 
+			{
+				// [구매수량 1]
+				var targetSProdQty = $("#tarOpt"+c+"ProdQty").text().replace(/,/g,'').replace('원','');	
+				targetSProdQty = targetSProdQty == "" ? 0 : targetSProdQty;
+				targetSProdQty = parseInt(targetSProdQty) + 1;
+				
+				/* 묶음배송에 	bndlCnt-	7.묶음배송 총건수
+		 						bndlDlvYnCnt - 8.묶음배송 순번		*/
+				if( bndlCnt > 0){
+					if(bndlCnt == bndlDlvYnCnt){							
+						// 묶음배송건수가 마지막이면
+					}else{							
+						// 묶음배송의 마지막건수가 아니면 카운트을 늘린다.
+						c=(bndlCnt-1);
+					}
+				}	
+				// [구매수량 2]
+				$("#tarOpt"+c+"ProdQty").text(commify(targetSProdQty)+"");	// 상품금액 (총상품금액 밑) tarOpt ProdQty
+				// 상품금액 tarOptProdAmt : 원래가지고 있던 금액 + 1개당 갯수 금액)
+				var targetSProdAmt = $("#tarOpt"+c+"ProdAmt").text().replace(/,/g,'').replace('원','');	 
+				targetSProdAmt = targetSProdAmt == "" ? 0 : targetSProdAmt;
+				targetSAmtOrg = targetSAmtOrg == "" ? 0 : targetSAmtOrg;
+				targetSProdAmt = parseInt(targetSProdAmt) + parseInt(targetSAmtOrg);
+				$("#tarOpt"+c+"ProdAmt").text(commify(targetSProdAmt)+"");		// 상품금액 (총상품금액 밑) tarOpt ProdAmt
+				
+				// 멀티건일경우 처리 
+				if(cntGubun == 'MULTI'){
+					// 총 상품금액 totProdAmt
+					var sumPreProdAmt = $("#sumPreProdAmt"+c).text().replace(/,/g,'').replace('원','');
+					sumPreProdAmt = sumPreProdAmt == "" ? 0 : sumPreProdAmt;
+					targetSAmtOrg = targetSAmtOrg == "" ? 0 : targetSAmtOrg;
+					sumPreProdAmt = parseInt(sumPreProdAmt) + parseInt(targetSAmtOrg);
+					$("#sumPreProdAmt"+c).text(commify(sumPreProdAmt)+"원" );	// 총 상품금액 sumPreProdAmt
+				}
+				/**** [주문서] 상품금액 totProdAmt *********************************************************/
+				var totProdAmt = $("#totProdAmt").text().replace(/,/g,'').replace('원','');	//주문정보에 상품금액 
+				totProdAmt = totProdAmt == "" ? 0 : totProdAmt;
+				targetSAmtOrg = targetSAmtOrg == "" ? 0 : targetSAmtOrg;
+				totProdAmt = parseInt(totProdAmt) + parseInt(targetSAmtOrg);
+				$("#totProdAmt").text(commify(totProdAmt)+"원" );
+				/* 배송비 totDlvPrce */
+				//$("#totDlvPrce").text("되나.배송비");
+				/* 결제예정금액 payCanAmt */
+				var payCanAmt = $("#payCanAmt").text().replace(/,/g,'').replace('원','');
+				payCanAmt = payCanAmt == "" ? 0 : payCanAmt;
+				targetSAmtOrg = targetSAmtOrg == "" ? 0 : targetSAmtOrg;
+				payCanAmt = parseInt(payCanAmt) + parseInt(targetSAmtOrg);
+				$("#payCanAmt").text(commify(payCanAmt)+"원" );
+			}
+		}
+		
+	};
+	/*
+	 *	[쉐어링전용]옵션 + - 선택시 처리	 
+	 *		1.gubun (더하기 , 빼기)
+	 *		2.targetS ( 선택한 id )
+	 *		4.c for문건수 ( 사용: 총상품금액 )
+	 *		5.판매자가 개인인지 사업자인지(0.개인, 1.사업자)
+	 *		6.묶음배송 총건수
+	 *		7.묶음배송 순번
+	 */
+	setTarOptShing = function(gubun,targetS,c,sellCnt,mberGbCd,bndlDlvCnt,bndlDlvYnCnt,cd,d){
+		
+		if (!$("#inputChk"+c).is(":checked")) {
+			alert("선택후 변경 할 수 있습니다."); 
+			return;
+		}
+		
+		var getQty = $("#"+targetS).val();
+		var getQtyChg = 1;
+		if(gubun=='minus'){
+			if(parseInt(getQty)>1){
+				getQtyChg = parseInt(getQty)-1;
+			}
+		}else if(gubun=='plus'){
+			getQtyChg = parseInt(getQty)+1;
+		}
+		// 재고계산
+		if(checkStockCnt("P", cd, getQtyChg) ){
+// 			alert("현재 재고가 존재하지 않습니다. 재고수량["+sellCnt+"]"); 
+			return;
+		}
+		// [갯수]을 변화시킨다.
+		$("#"+targetS).val(getQtyChg);
+		// [구매수량]에 세팅한다. 
+		$("#prod_cnt"+c).val(getQtyChg);	// [hidden] 갯수 추가 
+		if(getQty != getQtyChg){
+			
+			var tarSharingStand = $("#tarSharing"+c+"Stand").val();   		// 조건 배송
+			var tarSharingDeposit = $("#tarSharing"+c+"Deposit").val(); 		// 보증금(단일)
+			var tarSharingAmt = $("#tarSharing"+c+"Amt").val(); 			// 쉐어링가격(단일)
+			var tarSharingDlvPrce = $("#tarSharing"+c+"DlvPrce").val(); // 쉐어링 배송비(본건)
+			var appSharingDlvPrce = $('#dlvPrce'+c).val();                  // 현재 적용된 배송비(본건)
+			var thisSum = 0;
+			
+			var subSumQtyOrg = $("#tarOptShing"+d+"ProdCnt").text();   // 소계 수량
+			var subSumDepositOrg = $("#tarOpt"+d+"ProdAmt").text().replace(/,/g,'').replace('원',''); // 소계 보증금
+			var subSumSharingPrceOrg = 0;				// 소계 쉐어링료
+			var subSumDlvPrce = $('#subSum'+d+'DlvPrce').val();
+			var subSumOrg = 0;
+			var subSumChg = 0;
+			var subSumQtyChg = 0; // 기존 갯수에서 이전 갯수 빼기 더하기 현재 갯수   // 소계 수량
+			var subSumDepositChg = 0 ; // 소계 보증금
+			var subSumSharingPrceChg = 0;				// 소계 쉐어링료
+			
+			var totProdAmt = $("#totProdAmt").text().replace(/,/g,'').replace('원','');
+			var totDlvPrce = $("#totDlvPrce").text().replace(/,/g,'').replace('원','');
+			var payCanAmt = $("#payCanAmt").text().replace(/,/g,'').replace('원','');
+			
+			// 묶음 배송
+			if(bndlDlvCnt > 0){
+				subSumQtyChg = parseInt(subSumQtyOrg) - parseInt(getQty) + parseInt(getQtyChg); // 기존 갯수에서 이전 갯수 빼기 더하기 현재 갯수   // 소계 수량
+				subSumDepositChg = parseInt(subSumDepositOrg) - (parseInt(tarSharingDeposit) * (parseInt(getQty) - parseInt(getQtyChg))) ; // 소계 보증금
+				subSumSharingPrceChg = 0;				// 소계 쉐어링료
+				thisSum = parseInt(tarSharingDeposit) * parseInt(getQtyChg);
+				
+				if( mberGbCd == 1){	// 사업자인 경우
+					var dayTargetCDay = $("#dayTarget"+c+"Day").val(); // 날짜
+					subSumSharingPrceOrg = $("#tarSharing"+d+"ProdAmt").text().replace(/,/g,'').replace('원','');
+					// [셰어링금액] = 셰어링금액X셰어링일수X수량
+					subSumSharingPrceChg = parseInt(subSumSharingPrceOrg) - (parseInt(tarSharingAmt) * parseInt(dayTargetCDay) * (parseInt(getQty) - parseInt(getQtyChg)));
+					$("#tarSharing"+d+"ProdAmt").text(commify(subSumSharingPrceChg));      // 쉐어링 가격
+					thisSum = (parseInt(tarSharingDeposit) + (parseInt(tarSharingAmt) * parseInt(dayTargetCDay)))* parseInt(getQtyChg);
+				}		
+				
+			}else{
+				subSumQtyChg = getQtyChg; // 기존 갯수에서 이전 갯수 빼기 더하기 현재 갯수   // 소계 수량
+				subSumDepositChg = (parseInt(tarSharingDeposit) * parseInt(getQtyChg)) ; // 소계 보증금
+				subSumSharingPrceChg = 0;				// 소계 쉐어링료
+				thisSum = parseInt(tarSharingDeposit) * parseInt(getQtyChg);
+	
+				if( mberGbCd == 1){	// 사업자인 경우
+					var dayTargetCDay = $("#dayTarget"+c+"Day").val(); // 날짜
+					subSumSharingPrceOrg = $("#tarSharing"+d+"ProdAmt").text().replace(/,/g,'').replace('원','');
+					// [셰어링금액] = 셰어링금액X셰어링일수X수량
+					subSumSharingPrceChg = parseInt(tarSharingAmt) * parseInt(dayTargetCDay) * parseInt(getQtyChg);
+					$("#tarSharing"+d+"ProdAmt").text(commify(subSumSharingPrceChg));      // 쉐어링 가격
+					thisSum = (parseInt(tarSharingDeposit) + (parseInt(tarSharingAmt) * parseInt(dayTargetCDay)))* parseInt(getQtyChg);
+				};	
+			}
+			
+			// 배송비가 있는 경우 조건부 무료에 걸릴 경우
+			if(parseInt(subSumDlvPrce) > 0 && parseInt(tarSharingStand) > 0 && parseInt(thisSum) >= parseInt(tarSharingStand)){
+				totDlvPrce = parseInt(totDlvPrce) - parseInt(subSumDlvPrce);
+				$("#totDlvPrce").text(commify(totDlvPrce)).replace(/,/g,'').replace('원','');
+				$('#dlvPrce'+c).val(0);
+				$("#tarOptShing"+d+"DlvPrce").val(0);
+				$('#subSum'+d+'DlvPrce').val(0); // 배송비 소계 저장된 값
+			}else if(parseInt(subSumDlvPrce) == 0 && parseInt(tarSharingStand) > 0 && parseInt(thisSum) < parseInt(tarSharingStand) ){
+				$('#dlvPrce'+c).val(tarSharingDlvPrce);
+				$("#tarOptShing"+d+"DlvPrce").val(tarSharingDlvPrce);
+				
+				var idx = 0;
+				$('.dlvPrceGrp'+d).each(function(index){
+					if($('#inputChk'+(parseInt(d)+index)).val() == "Y"){
+						
+						if(idx == 0 ){
+							subSumDlvPrce = $(this).val();
+						}else{
+							subSumDlvPrce = parseInt($(this).val()) < parseInt(subSumDlvPrce) ? $(this).val() : subSumDlvPrce;
+						}
+						idx++;
+					}
+				});
+				totDlvPrce = parseInt(totDlvPrce) + parseInt(subSumDlvPrce);
+				$('#subSum'+d+'DlvPrce').val(subSumDlvPrce); // 배송비 소계 저장된 값
+				$("#totDlvPrce").text(commify(totDlvPrce));
+			}
+			
+			$("#tarSharing"+c+"Sum").val(thisSum);
+			
+			subSumOrg = parseInt(subSumDepositOrg) + parseInt(subSumSharingPrceOrg);
+			subSumChg = parseInt(subSumDepositChg) + parseInt(subSumSharingPrceChg);
+			
+			$("#tarOptShing"+d+"ProdCnt").text(subSumQtyChg); // 수량
+			$("#tarOpt"+d+"ProdAmt").text(commify(subSumDepositChg)+"" );       // 보증금
+			
+			totProdAmt = parseInt(totProdAmt) - parseInt(subSumOrg) + parseInt(subSumChg);
+			payCanAmt = parseInt(totProdAmt) + parseInt(totDlvPrce);
+			
+			$("#totProdAmt").text(commify(totProdAmt)+"원" );
+			$("#payCanAmt").text(commify(payCanAmt)+"원" );
+				
+		}
+	};
+	/*
+	 *	[0.판매상품용]전체선택
+	 */
+	checkedAll = function(){
+		var chkBody = $("#ulResultA");   //Object
+		if ($("#checkedAllA").is(":checked")) {
+			//alert("1. 전체체크시");
+// 			var c=0;
+ 			chkBody.children().each(function(){		// <ul> <li> 반복... 	
+ 				$("#inputVal input[name=inputChk01]").val("Y");
+//  				$("#inputVal input[name=inputChk01]").attr("checked", true);
+ 				$("#inputVal input[name=inputChk01]").prop("checked",true);
+ 			});
+//  			var aLength = $("#inputVal input[name=inputChk01]").length;
+//  			var allTotProdAmt = 0;
+//  			var allTotDlvPrce = 0;
+//  			var allDlvPrce = 0;
+//  			var allTarOptEXI = 0;
+//  			var allPayCanAmt = 0;
+//  			var allAmt = 0;
+//  			var allDlv = 0;
+ 			var totDlvPrce = 0;		
+ 			var totSellAmt = 0;
+//  			for(var c=0;c<parseInt(aLength);c++){
+//  				//alert("c:"+c+"\n"+"aLength:"+aLength);
+//  				// 추가구성만 존재하는확인
+//  				var EXI = $("#EXI"+c).val();
+//  				var tarOptEXIProdAmt = 0;
+//  				var totProdAmt = 0;
+//  				var tarOptEXI = 0;
+//  				var dlvPrce = 0;
+// //  				if(EXI=='EXI'){
+//  					tarOptEXIProdAmt = $("#tarOptEXI"+c+"ProdAmt").text().replace(/,/g,'').replace('원','');
+//  					console.log(">>>>> tarOptEXIProdAmt : "+tarOptEXIProdAmt);
+// //  				}
+//  				// 각 상품의 [1.상품금액]을 가져와서 
+//  				var tarOptProdAmt = $("#tarOpt"+c+"ProdAmt").text().replace(/,/g,'').replace('원','');
+//  				// 총 상품금액에 더한다.
+//  				//var totProdAmt = $("#totProdAmt").text().replace(/,/g,'').replace('원','');			
+ 				
+//  				totProdAmt = totProdAmt == "" ? 0 : totProdAmt;
+//  				tarOptProdAmt = tarOptProdAmt == "" ? 0 : tarOptProdAmt;
+//  				tarOptEXIProdAmt = tarOptEXIProdAmt == "" ? 0 : tarOptEXIProdAmt;
+ 				
+//  				totProdAmt = parseInt(totProdAmt) + parseInt(tarOptProdAmt) + parseInt(tarOptEXIProdAmt); 
+// //  				// 각 [2.배송비]을 가져와서
+// // //  				if(EXI=='EXI'){
+// //  					tarOptEXI = $("#tarOptEXI"+c+"Dlv").text().replace(/,/g,'').replace('원','');			
+// // //  				}
+// //  				// 값이 있는 경우
+// //  				if($("#dlvPrce"+c+"").val() != null && $("#dlvPrce"+c+"").val() != ""){
+ 					
+// // 	 				dlvPrce = $("#dlvPrce"+c+"").val().replace(/,/g,'').replace('원','');			
+	 			
+// // 	 			// 값이 없는 경우
+// //  				}else{
+// //  					dlvPrce = 0;
+// //  				}
+				
+//  				//alert("1 체크시 c:"+c+" , name:"+name	+ "\n"+" , EXI:"+EXI	+ "\n"+" , tarOptEXIProdAmt:"+tarOptEXIProdAmt	+ "\n"+" , tarOptEXI:"+tarOptEXI	+ "\n"+" , dlvPrce:"+dlvPrce	);
+//  				// 총배송비
+//  				//var totDlvPrce = $("#totDlvPrce").text().replace(/,/g,'').replace('원','');			
+ 					
+//  				// 총배송비에 각배송비 더한다.
+//  				// [결제예정금액] (총상품금액 + 총배송비)
+//  				//var payCanAmt = $("#payCanAmt").text().replace(/,/g,'').replace('원','');			
+//  				var payCanAmt = 0;
+ 				
+//  				tarOptProdAmt = tarOptProdAmt == "" ? 0 : tarOptProdAmt;
+//  				tarOptEXIProdAmt = tarOptEXIProdAmt == "" ? 0 : tarOptEXIProdAmt;
+//  				dlvPrce = dlvPrce == "" ? 0 : dlvPrce;
+//  				tarOptEXI = tarOptEXI == "" ? 0 : tarOptEXI;
+//  				// 상품금액			
+//  				var amt = parseInt(tarOptProdAmt)+ parseInt(tarOptEXIProdAmt);
+//  				// 배송비			
+//  				var dlv = parseInt(dlvPrce)+parseInt(tarOptEXI);
+// //  				var dlv = parseInt(dlvPrce)+parseInt(tarOptEXI);
+ 				
+//  				allTotProdAmt = allTotProdAmt == "" ? 0 : allTotProdAmt;
+//  				totProdAmt = totProdAmt == "" ? 0 : totProdAmt;
+//  				allTotDlvPrce = allTotDlvPrce == "" ? 0 : allTotDlvPrce;
+//  				totDlvPrce = totDlvPrce == "" ? 0 : totDlvPrce;
+//  				allDlvPrce = allDlvPrce == "" ? 0 : allDlvPrce;
+//  				dlvPrce = dlvPrce == "" ? 0 : dlvPrce;
+//  				allTarOptEXI = allTarOptEXI == "" ? 0 : allTarOptEXI;
+//  				tarOptEXI = tarOptEXI == "" ? 0 : tarOptEXI;
+//  				allPayCanAmt = allPayCanAmt == "" ? 0 : allPayCanAmt;
+//  				payCanAmt = payCanAmt == "" ? 0 : payCanAmt;
+//  				allAmt = allAmt == "" ? 0 : allAmt;
+//  				amt = amt == "" ? 0 : amt;
+//  				allDlv = allDlv == "" ? 0 : allDlv;
+//  				dlv = dlv == "" ? 0 : dlv;
+ 				
+//  				allTotProdAmt = parseInt(allTotProdAmt)+parseInt(totProdAmt);
+//  	 			allTotDlvPrce = parseInt(allTotDlvPrce)+parseInt(totDlvPrce);
+//  	 			allDlvPrce = parseInt(allDlvPrce)+parseInt(dlvPrce);
+//  	 			allTarOptEXI = parseInt(allTarOptEXI)+parseInt(tarOptEXI);
+//  	 			allPayCanAmt = parseInt(allPayCanAmt)+parseInt(payCanAmt);
+//  	 			allAmt = parseInt(allAmt)+parseInt(amt);
+//  	 			allDlv = parseInt(allDlv)+parseInt(dlv);
+//  			}
+ 			$('.subSumDlvPrce').each(function(){
+				totDlvPrce += parseInt($(this).val());
+			});
+ 			$('.subSumAmt').each(function(){
+ 				totSellAmt += parseInt($(this).text().replace(/,/g,'').replace('원',''));
+ 			});
+ 			
+ 			$("#totProdAmt").text(commify(totSellAmt)+"원");
+//  			$("#totProdAmt").text(commify(allTotProdAmt)+"원");
+			$("#totDlvPrce").text(commify(totDlvPrce)+"원");
+// 			$("#totDlvPrce").text(commify(parseInt(allTotDlvPrce) + parseInt(allDlvPrce))+"원");
+// 			$("#totDlvPrce").text(commify(parseInt(allTotDlvPrce) + parseInt(allDlvPrce) + parseInt(allTarOptEXI))+"원");
+			$("#payCanAmt").text(commify( parseInt(totSellAmt) + parseInt(totDlvPrce)  )+"원");
+// 			$("#payCanAmt").text(commify( parseInt(allPayCanAmt) + parseInt(allAmt) + parseInt(totDlvPrce)  )+"원");
+// 			$("#payCanAmt").text(commify( parseInt(allPayCanAmt) + parseInt(allAmt) + parseInt(allDlv)  )+"원");
+		}else{
+	   		// 2. 전체체크해제시");
+			chkBody.children().each(function(){
+	   			$("#inputVal input[name=inputChk01]").val("N");
+ 				$("#inputVal input[name=inputChk01]").attr("checked", false);	 			
+ 			});
+	   		$("#totProdAmt").text("0원");	// 총 상품금액 
+	   		$("#totDlvPrce").text("0원");	// 총 배송비
+			$("#payCanAmt").text("0원");		// 결제예정금액
+	    }
+	};
+	
+	/*
+	 *	[0.판매상품용]개별선택
+	 *		1. name ( inputChk0, inputChk1, inputChk2 , inputChk3, ....... )
+	 *		2. c (해당 위치)
+	 *		각 상품금액 tarOpt0ProdAmt , 각 상품갯수 
+	 */
+	preChk = function(name,c,d){
+		$("#checkedAllA").attr("checked", false);
+		$inputName = $("#"+name);
+// 		var checkYn = $inputName.is(":checked");
+		if( $inputName.is(":checked") ){
+			$inputName.val("Y");
+			// 추가구성만 존재하는확인
+			var EXI = $("#EXI"+c).val();
+			var tarOptEXIProdAmt = 0;
+			var tarOptProdAmt = 0;
+// // 			if(EXI=='EXI'){
+// 				tarOptEXIProdAmt = $("#tarOptEXI"+c+"Amt").text().replace(/,/g,'').replace('원','');
+// // 				tarOptEXIProdAmt = $("#tarOptEXI"+c+"ProdAmt").text().replace(/,/g,'').replace('원','');
+// // 			}
+// 			// 각 상품의 [1.상품금액]을 가져와서 
+// 			tarOptProdAmt = $("#tarOpt"+c+"ProdAmt").text().replace(/,/g,'').replace('원','');
+			
+// 			$('[id^=tarOpt'+c+'][id$=Amt]').each(function(index,data){
+// // 			$('[id^=tarOpt1][id$=Amt],[id^=tarOptEXI1][id$=Amt]').each(function(index,data){
+// 				tarOptProdAmt += parseInt($(this).text().replace(/,/g,'').replace('원','') == "" ? 0 : $(this).text().replace(/,/g,'').replace('원',''));
+// 			});
+			tarOptProdAmt = parseInt($('#tarOpt'+c+'ProdAmt').val());
+		    console.log(">>>>> tarOptProdAmt : "+tarOptProdAmt);
+			// 총 상품금액에 더한다.
+			var totProdAmt = $("#totProdAmt").text().replace(/,/g,'').replace('원','');		
+			totProdAmt = totProdAmt == "" ? 0 : totProdAmt;
+			tarOptProdAmt = tarOptProdAmt == "" ? 0 : tarOptProdAmt;
+			totProdAmt = parseInt(totProdAmt) + parseInt(tarOptProdAmt); 
+// 			totProdAmt = parseInt(totProdAmt) + parseInt(tarOptProdAmt)+ parseInt(tarOptEXIProdAmt); 
+			$("#totProdAmt").text(commify(totProdAmt)+"원");
+			
+			// 각 [2.배송비]을 가져와서
+			var tarOptEXI = 0;
+			var dlvPrce = 0;
+// 			if(EXI=='EXI'){
+				tarOptEXI = $("#tarOptEXI"+c+"Dlv").text().replace(/,/g,'').replace('원','');	
+// 			}
+			var thisDlvPrce = $("#dlvPrce"+d).val();
+// 			var thisDlvPrce = $("#thisDlvPrce"+c+"").val().replace(/,/g,'').replace('원','');
+			var idx = 0;
+			var dlvPayFcdCnt = 0;
+			$('.bndlDlvPrce'+d).each(function(index){
+				if($('#inputChk'+(parseInt(d)+index)).val() == "Y"){
+					
+					if(idx == 0 ){
+						dlvPrce = $(this).val();
+					}else{
+						dlvPrce = parseInt($(this).val()) < parseInt(dlvPrce) ? $(this).val() : dlvPrce;
+					}
+					
+					if($(this).hasClass('dlvPayFcd')){
+						dlvPayFcdCnt++;
+					}
+					idx++;
+				}
+			});
+			// 묶음 배송
+			if(idx == dlvPayFcdCnt){
+				
+				$("#dlvPrce"+d+"").val(0);
+				dlvPrce = 0;
+			}else if(idx > 0){
+				
+				$("#dlvPrce"+d+"").val(dlvPrce);
+			}
+			
+			//alert("1 체크시 c:"+c+" , name:"+name	+ "\n"+" , EXI:"+EXI	+ "\n"+" , tarOptEXIProdAmt:"+tarOptEXIProdAmt	+ "\n"+" , tarOptEXI:"+tarOptEXI	+ "\n"+" , dlvPrce:"+dlvPrce	);
+			// 총배송비
+			var totDlvPrce = $("#totDlvPrce").text().replace(/,/g,'').replace('원','');			
+			totDlvPrce = totDlvPrce == "" ? 0 : totDlvPrce;
+			dlvPrce = dlvPrce == "" ? 0 : dlvPrce;
+			thisDlvPrce = thisDlvPrce == "" ? 0 : thisDlvPrce;
+			// 총배송비에 각배송비 더한다.
+			// 묶음 배송인 경우
+			if(idx > 1){
+				
+				// 현재 적용된 배송비를 제하고 새로운 배송비를 더함
+				$("#totDlvPrce").text(commify(parseInt(totDlvPrce)+parseInt(dlvPrce) - parseInt(thisDlvPrce))+"원");
+			}else{
+				$("#totDlvPrce").text(commify(parseInt(totDlvPrce)+parseInt(dlvPrce) )+"원");
+			}
+// 			$("#totDlvPrce").text(commify(parseInt(totDlvPrce)+parseInt(dlvPrce)+parseInt(tarOptEXI))+"원");
+			// [결제예정금액] (총상품금액 + 총배송비)
+			var payCanAmt = $("#payCanAmt").text().replace(/,/g,'').replace('원','');			
+			// 상품금액			
+// 			var amt = parseInt(totProdAmt);
+			var amt = $("#totProdAmt").text().replace(/,/g,'').replace('원','');			
+			// 배송비			
+			var dlv = $("#totDlvPrce").text().replace(/,/g,'').replace('원','');
+// 			var dlv = parseInt(dlvPrce) - parseInt(thisDlvPrce)+parseInt(tarOptEXI);
+			payCanAmt = payCanAmt == "" ? 0 : payCanAmt;
+			amt = amt == "" ? 0 : amt;
+			dlv = dlv == "" ? 0 : dlv;
+			$("#payCanAmt").text(commify(  parseInt(amt) + parseInt(dlv)  )+"원");
+// 			$("#payCanAmt").text(commify( parseInt(payCanAmt) + parseInt(amt) + parseInt(dlv)  )+"원");
+		}else{
+			//alert("2 체크해제시 c:"+c+" , name:"+name);
+			$("#checkedAllA").attr("checked", false);
+			$inputName.val("N");
+			// 추가구성만 존재하는확인
+			var EXI = $("#EXI"+c).val();
+			var tarOptEXIProdAmt = 0;
+// // 			if(EXI=='EXI'){
+// 				tarOptEXIProdAmt = $("#tarOptEXI"+c+"ProdAmt").text().replace(/,/g,'').replace('원','');
+// // 			}
+// 			// 각 상품의 [1.상품금액]을 가져와서 
+// 			var tarOptProdAmt = $("#tarOpt"+c+"ProdAmt").text().replace(/,/g,'').replace('원','');
+			var tarOptProdAmt = 0;
+			
+// 			$('[id^=tarOpt'+c+'][id$=Amt]').each(function(index,data){
+// //	 			$('[id^=tarOpt1][id$=Amt],[id^=tarOptEXI1][id$=Amt]').each(function(index,data){
+// 				tarOptProdAmt += parseInt($(this).text().replace(/,/g,'').replace('원','') == "" ? 0 : $(this).text().replace(/,/g,'').replace('원',''));
+// 			});
+			tarOptProdAmt = parseInt($('#tarOpt'+c+'ProdAmt').val());
+			// 총 상품금액에 더한다.
+			var totProdAmt = $("#totProdAmt").text().replace(/,/g,'').replace('원','');		
+			totProdAmt = totProdAmt == "" ? 0 : totProdAmt;
+			tarOptProdAmt = tarOptProdAmt == "" ? 0 : tarOptProdAmt;
+			tarOptEXIProdAmt = tarOptEXIProdAmt == "" ? 0 : tarOptEXIProdAmt;
+			//console.log(">>>>> tarOptProdAmt : "+tarOptProdAmt);
+			//console.log(">>>>> totProdAmt : "+totProdAmt);
+			//console.log(">>>>> tarOptEXIProdAmt : "+tarOptEXIProdAmt);
+			totProdAmt = parseInt(totProdAmt) - parseInt(tarOptProdAmt)- parseInt(tarOptEXIProdAmt); 
+			$("#totProdAmt").text(commify(totProdAmt)+"원");
+			// 각 [2.배송비]을 가져와서
+			var tarOptEXI = 0;
+			var dlvPrce = 0;
+// 			if(EXI=='EXI'){
+// 				tarOptEXI = $("#tarOptEXI"+c+"Dlv").text().replace(/,/g,'').replace('원','');			
+// 			}
+// 			dlvPrce = $("#dlvPrce"+c+"").val().replace(/,/g,'').replace('원','');		
+			
+			var thisDlvPrce = $("#dlvPrce"+d).val();
+// 			var thisDlvPrce = $("#thisDlvPrce"+c+"").val().replace(/,/g,'').replace('원','');
+			var idx = 0;
+			$('.bndlDlvPrce'+d).each(function(index){
+				if($('#inputChk'+(parseInt(d)+index)).val() == "Y"){
+					
+					if(idx == 0 ){
+						dlvPrce = $(this).val();
+					}else{
+						dlvPrce = parseInt($(this).val()) < parseInt(dlvPrce) ? $(this).val() : dlvPrce;
+					}
+					idx++;
+				}
+			});
+			
+			// 묶음 배송
+			if(idx > 0){
+				
+				$("#dlvPrce"+d+"").val(dlvPrce);
+			}else{
+				dlvPrce = thisDlvPrce;
+			}
+			//console.log(">>>>>ch dlvPrce :"+dlvPrce);
+			//alert("1 체크시 c:"+c+" , name:"+name	+ "\n"+" , EXI:"+EXI	+ "\n"+" , tarOptEXIProdAmt:"+tarOptEXIProdAmt	+ "\n"+" , tarOptEXI:"+tarOptEXI	+ "\n"+" , dlvPrce:"+dlvPrce	);
+			// 총배송비
+			var totDlvPrce = $("#totDlvPrce").text().replace(/,/g,'').replace('원','');			
+			//console.log(">>>>> totDlvPrce :"+totDlvPrce);
+			//console.log(">>>>> dlvPrce"+d+" :"+dlvPrce);
+			//console.log(">>>>> thisDlvPrce"+c+" :"+thisDlvPrce);
+			totDlvPrce = totDlvPrce == "" ? 0 : totDlvPrce;
+			dlvPrce = dlvPrce == "" ? 0 : dlvPrce;
+			thisDlvPrce = thisDlvPrce == "" ? 0 : thisDlvPrce;
+			// 총배송비에 각배송비 더한다.
+			if(idx > 0){
+				
+				// 현재 적용된 배송비를 제하고 새로운 배송비를 더함
+				$("#totDlvPrce").text(commify(parseInt(totDlvPrce)+parseInt(dlvPrce) - parseInt(thisDlvPrce))+"원");
+			}else{
+				$("#totDlvPrce").text(commify(parseInt(totDlvPrce)-parseInt(dlvPrce) )+"원");
+			}
+// 			$("#totDlvPrce").text(commify(parseInt(totDlvPrce)+parseInt(dlvPrce) - parseInt(thisDlvPrce))+"원");
+			// 총배송비에 각배송비 더한다.
+// 			$("#totDlvPrce").text(commify(parseInt(totDlvPrce) - parseInt(dlvPrce) - parseInt(tarOptEXI))+"원");
+			// [결제예정금액] (총상품금액 + 총배송비)
+			var payCanAmt = $("#payCanAmt").text().replace(/,/g,'').replace('원','');			
+			// 상품금액			
+			var amt = totProdAmt;
+// 			var amt = parseInt(tarOptProdAmt)+ parseInt(tarOptEXIProdAmt);
+			// 배송비			
+			var dlv = $("#totDlvPrce").text().replace(/,/g,'').replace('원','');
+// 			var dlv = parseInt(dlvPrce) - parseInt(thisDlvPrce) +parseInt(tarOptEXI);
+			
+			dlv = dlv == "" ? 0 : dlv;
+			amt = amt == "" ? 0 : amt;
+			payCanAmt = payCanAmt == "" ? 0 : payCanAmt;
+			$("#payCanAmt").text(commify(  parseInt(amt) + parseInt(dlv)  )+"원");
+// 			$("#payCanAmt").text(commify( parseInt(payCanAmt) - parseInt(amt) - parseInt(dlv)  )+"원");
+			
+		}
+	};
+	/*
+	 *	[1.셰어링용]전체선택
+	 */
+	checkedAllSharing = function(){
+		var chkBody = $("#ulResultA");   //Object
+		if ($("#checkedAllA").is(":checked")) {
+			//alert("1. 전체체크시");
+			var c=0;
+ 			chkBody.children().each(function(){		// <ul> <li> 반복... 	
+ 				$("#inputVal input[name=inputChk01]").val("Y");
+//  				$("#inputVal input[name=inputChk01]").attr("checked", true);
+ 				$("#inputVal input[name=inputChk01]").prop("checked",true);
+ 			});
+ 			var totProdAmt = 0;
+ 			var totDlvPrce = 0;
+ 			
+ 			$('[id^=tarSharing][id$=Sum]').each(function(){
+ 				totProdAmt += parseInt($(this).val());
+ 			});
+ 			
+ 			$('[id^=subSum][id$=DlvPrce]').each(function(){
+ 				totDlvPrce += parseInt($(this).val());
+ 			});
+ 			
+ 			$("#totProdAmt").text(commify(totProdAmt)+"원");
+			$("#totDlvPrce").text(commify(totDlvPrce)+"원");
+			$("#payCanAmt").text(commify( parseInt(totProdAmt) + parseInt(totDlvPrce))+"원");
+ 			
+//  			var aLength = $("#inputVal input[name=inputChk01]").length;
+//  			var allTotProdAmt = 0;
+//  			var allTotDlvPrce = 0;
+//  			var allDlvPrce = 0;
+//  			var allTarOptEXI = 0;
+//  			var allPayCanAmt = 0;
+//  			var allAmt = 0;
+//  			var allDlv = 0;
+//  			for(var c=0;c<parseInt(aLength);c++){
+//  				//alert("c:"+c+"\n"+"aLength:"+aLength);
+//  				// 추가구성만 존재하는확인
+//  				var EXI = $("#EXI"+c).val();
+//  				var tarOptEXIProdAmt = 0;
+//  				if(EXI=='EXI'){
+//  					tarOptEXIProdAmt = $("#tarOptEXI"+c+"ProdAmt").text().replace(/,/g,'').replace('원','');
+//  				}
+//  				// 각 상품의 [1.상품금액]을 가져와서 
+//  				var tarOptProdAmt = $("#tarOpt"+c+"ProdAmt").text().replace(/,/g,'').replace('원','');
+ 				
+//  				// 셰어링요금...
+//  				var tarSharingProdAmt = '0';
+//  				tarSharingProdAmt = $("#tarSharing"+c+"ProdAmt").text();
+//  				if( (tarSharingProdAmt!=null)&&(tarSharingProdAmt!='')){
+//  					tarSharingProdAmt = tarSharingProdAmt.replace(/,/g,'').replace('원','');
+//  				}else{
+//  					tarSharingProdAmt = '0';
+//  				}	
+ 				
+//  				// 총 상품금액에 더한다.
+//  				//var totProdAmt = $("#totProdAmt").text().replace(/,/g,'').replace('원','');			
+//  				var totProdAmt = 0;
+//  				totProdAmt = parseInt(totProdAmt) + parseInt(tarOptProdAmt) + parseInt(tarOptEXIProdAmt)+parseInt(tarSharingProdAmt); 
+ 				
+ 				
+//  				// 각 [2.배송비]을 가져와서
+//  				var tarOptEXI = 0;
+//  				var dlvPrce = 0;
+//  				if(EXI=='EXI'){
+//  					tarOptEXI = $("#tarOptEXI"+c+"Dlv").text().replace(/,/g,'').replace('원','');			;
+//  				}
+//  				dlvPrce = $("#dlvPrce"+c+"").val().replace(/,/g,'').replace('원','');			;
+ 				
+//  				//alert("1 체크시 c:"+c+" , name:"+name	+ "\n"+" , EXI:"+EXI	+ "\n"+" , tarOptEXIProdAmt:"+tarOptEXIProdAmt	+ "\n"+" , tarOptEXI:"+tarOptEXI	+ "\n"+" , dlvPrce:"+dlvPrce	);
+//  				// 총배송비
+//  				//var totDlvPrce = $("#totDlvPrce").text().replace(/,/g,'').replace('원','');			;
+//  				var totDlvPrce = 0;			;
+//  				// 총배송비에 각배송비 더한다.
+ 				
+ 				
+//  				// [결제예정금액] (총상품금액 + 총배송비)
+//  				//var payCanAmt = $("#payCanAmt").text().replace(/,/g,'').replace('원','');			
+//  				var payCanAmt = 0;
+//  				// 상품금액			
+//  				var amt = parseInt(tarOptProdAmt)+ parseInt(tarOptEXIProdAmt)+parseInt(tarSharingProdAmt);
+//  				// 배송비			
+//  				var dlv = parseInt(dlvPrce)+parseInt(tarOptEXI);
+ 				
+//  				allTotProdAmt = parseInt(allTotProdAmt)+parseInt(totProdAmt);
+//  	 			allTotDlvPrce = parseInt(allTotDlvPrce)+parseInt(totDlvPrce);
+//  	 			allDlvPrce = parseInt(allDlvPrce)+parseInt(dlvPrce);
+//  	 			allTarOptEXI = parseInt(allTarOptEXI)+parseInt(tarOptEXI);
+//  	 			allPayCanAmt = parseInt(allPayCanAmt)+parseInt(payCanAmt);
+//  	 			allAmt = parseInt(allAmt)+parseInt(amt);
+//  	 			allDlv = parseInt(allDlv)+parseInt(dlv);
+ 	 			
+//  			}
+//  			$("#totProdAmt").text(commify(allTotProdAmt)+"원");
+// 			$("#totDlvPrce").text(commify(parseInt(allTotDlvPrce) + parseInt(allDlvPrce) + parseInt(allTarOptEXI))+"원");
+// 			$("#payCanAmt").text(commify( parseInt(allPayCanAmt) + parseInt(allAmt) + parseInt(allDlv)  )+"원");
+		}else{
+	   		// 2. 전체체크해제시
+			chkBody.children().each(function(){
+	   			$("#inputVal input[name=inputChk01]").val("N");
+ 				$("#inputVal input[name=inputChk01]").attr("checked", false);	 			
+ 			});
+	   		$("#totProdAmt").text("0원");	// 총 상품금액 
+	   		$("#totDlvPrce").text("0원");	// 총 배송비
+			$("#payCanAmt").text("0원");		// 결제예정금액
+	    }
+	};
+	/*
+	 *	[1.셰어링용]개별선택
+	 *		1. name ( inputChk0, inputChk1, inputChk2 , inputChk3, ....... )
+	 *		2. c (해당 위치)
+	 *		각 상품금액 tarOpt0ProdAmt , 각 상품갯수 
+	 */
+	preChkSharing = function(name,c,d){
+		$("#checkedAllA").attr("checked", false);
+		$inputName = $("#"+name);
+
+		// 본 상품 정보
+		var tarSharingSum = $("#tarSharing"+c+"Sum").val();       // 본 상품금액
+
+		// 현재 소계
+		var subSumDlvPrce = $("#subSum"+d+"DlvPrce").val();
+		//console.log(">>>>> #subSum"+d+"DlvPrce  : "+$("#subSum"+d+"DlvPrce").val())
+		// 변경될 소계
+		var subSumDlvPrceChg = 0;
+		
+		// 현재 합계
+		var totProdAmt = $("#totProdAmt").text().replace(/,/g,'').replace('원','');		
+		var totDlvPrce = $("#totDlvPrce").text().replace(/,/g,'').replace('원','');	
+		var payCanAmt = $("#payCanAmt").text().replace(/,/g,'').replace('원','');		
+		
+		subSumPrce = $("#tarSharing"+d+"ProdAmt").text().replace(/,/g,'').replace('원','');
+		
+		if( $inputName.is(":checked") ){
+			
+			$inputName.val("Y");
+			
+			var idx = 0;
+			var dlvPayFcdCnt = 0;
+				console.log(">>>>> .dlvPrceGrp"+d);
+			$('.dlvPrceGrp'+d).each(function(index){
+				console.log(">>>>> thisval : " +$(this).val());
+				if($('#inputChk'+(parseInt(d)+index)).val() == "Y"){
+					
+					if(idx == 0 ){
+						subSumDlvPrceChg = $(this).val();
+					}else{
+						subSumDlvPrceChg = parseInt($(this).val()) < parseInt(subSumDlvPrceChg) ? $(this).val() : subSumDlvPrceChg;
+					}
+					
+					if($(this).hasClass('dlvPayFcd')){
+						dlvPayFcdCnt++;
+					}
+					
+					idx++;
+				}
+			});
+			
+			if(idx > 0 && idx == dlvPayFcdCnt){
+				subSumDlvPrceChg = 0;
+			}
+			console.log(">>>>> subSumDlvPrceChg : "+subSumDlvPrceChg);
+			console.log(">>>>> subSumDlvPrce : "+subSumDlvPrce);
+			// 변경된 배송비 소계 저장
+			$("#subSum"+d+"DlvPrce").val(subSumDlvPrceChg);
+			
+			
+			// 총 상품금액에 더한다.
+			totProdAmt = parseInt(totProdAmt) + parseInt(tarSharingSum); 
+			$("#totProdAmt").text(commify(totProdAmt)+"원");
+			
+			// 총배송비
+			totDlvPrce = parseInt(totDlvPrce) - (idx > 1 ? parseInt(subSumDlvPrce) : 0) + parseInt(subSumDlvPrceChg);
+			$("#totDlvPrce").text(commify(totDlvPrce)+"원");
+			
+			// [결제예정금액] (총상품금액 + 총배송비)
+			
+			payCanAmt = parseInt(totProdAmt) + parseInt(totDlvPrce);
+			$("#payCanAmt").text(commify(payCanAmt)+"원");
+			
+		}else{
+			//alert("2 체크해제시 c:"+c+" , name:"+name);
+			$("#checkedAllA").attr("checked", false);
+			$inputName.val("N");
+			
+			
+			var idx = 0;
+			var dlvPayFcdCnt = 0;
+			subSumDlvPrceChg = subSumDlvPrce;
+			console.log(">>>>> subSumDlvPrce : "+subSumDlvPrce);
+			console.log(">>>>> subSumDlvPrceChg : "+subSumDlvPrceChg);
+			$('.dlvPrceGrp'+d).each(function(index){
+				if($('#inputChk'+(parseInt(d)+index)).val() == "Y"){
+					
+					if(idx == 0 ){
+						subSumDlvPrceChg = $(this).val();
+					}else{
+						subSumDlvPrceChg = parseInt($(this).val()) < parseInt(subSumDlvPrceChg) ? $(this).val() : subSumDlvPrceChg;
+					}
+					if($(this).hasClass('dlvPayFcd')){
+						dlvPayFcdCnt++;
+					}
+					idx++;
+				}
+			});
+			
+			if(idx > 0 && dlvPayFcdCnt){
+				subSumDlvPrceChg = 0;
+			}
+			//console.log(">>>>> subSumDlvPrce : "+subSumDlvPrceChg);
+			// 변경된 배송비 소계 저장
+			$("#subSum"+d+"DlvPrce").val(subSumDlvPrceChg);
+			
+			// 총 상품금액에 더한다.
+			totProdAmt = parseInt(totProdAmt) - parseInt(tarSharingSum); 
+			$("#totProdAmt").text(commify(totProdAmt)+"원");
+			
+			// 총배송비
+// 			totDlvPrce = parseInt(totDlvPrce) - parseInt(subSumDlvPrce) + parseInt(subSumDlvPrceChg);
+			totDlvPrce = parseInt(totDlvPrce) - parseInt(subSumDlvPrce) + (idx > 1 ? parseInt(subSumDlvPrceChg) : 0);
+			$("#totDlvPrce").text(commify(totDlvPrce)+"원");
+			
+			// [결제예정금액] (총상품금액 + 총배송비)
+			
+			payCanAmt = parseInt(totProdAmt) + parseInt(totDlvPrce);
+			$("#payCanAmt").text(commify(payCanAmt)+"원");
+			
+		}
+	};
+	/*
+	 *	옵션 삭제
+	 */
+	optDel = function(PROD_CODE,OPT_CD){
+		//console.log("옵션 삭제 optDel - PROD_CODE:"+PROD_CODE+" , OPT_CD:"+OPT_CD);
+		var url = '<c:url value="/mobile/myBacket/deleteMyBasketOption.do"/>';
+		$.ajax({				
+		    url 	: url,
+		    data 	: {'PROD_CODE':PROD_CODE,'OPT_CD':OPT_CD},
+		    type 	: "post",
+		    dataType: 'json',
+		    success : function(result) {
+		    	targetS('A');
+		    },
+		    error 	: function(request, status, error) {
+				//통신 에러 발생시 처리
+				alert("통신 오류가 발생 하였습니다. 잠시 후 다시 시도해 주세요"   + status.toString()  + " request [" + request.toString()  + "] error[" + error.toString() +"]");
+			}
+		});
+		
+	};
+	/*
+	 *	[셰어링] 삭제
+	 *		- 재고부족이나 상품정보변경으로 삭제시
+	 *		3. 1.판매상품 , 2.셰어링상품
+	 */
+	deleteMyBacketChangeDel = function(PROD_CODE,OPT_CD,GUBUN){
+		//alert("옵션 삭제 deleteMyBacketChangeDel - PROD_CODE:"+PROD_CODE+" , OPT_CD : "+OPT_CD);
+		var url = '/mobile/myBacket/deleteMyBacketChangeDel.do';
+		if( (PROD_CODE=='undefined')||(PROD_CODE.trim().length<1) ){
+			alert("상품코드가 존재하지 않습니다. 확인바랍니다."); return;
+		}else{
+			$.ajax({				
+			    url 	: url,
+			    data 	: {'PROD_CODE':PROD_CODE,'OPT_CD':OPT_CD},
+			    type 	: "post",
+			    dataType: 'json',
+			    success : function(result) {
+			    	if(GUBUN == '2'){
+			    		targetS('B');			    	
+			    	}else{
+			    		targetS('A');
+			    	}
+			    },
+			    error 	: function(request, status, error) {
+					//통신 에러 발생시 처리
+					alert("통신 오류가 발생 하였습니다. 잠시 후 다시 시도해 주세요"   + status.toString()  + " request [" + request.toString()  + "] error[" + error.toString() +"]");
+				}
+			});
+		}
+	};
+	/*
+	 *	[판매금액용 - 추가구성일때 ]옵션 + - 선택시 처리	 
+	 *		1.gubun (더하기 , 빼기)
+	 *		2.targetS ( 선택한 id )
+	 *		3.상픔갯수 . 
+	 *		4.c for문건수 ( 사용: 총상품금액 )
+	 *		5.최대수량
+	 */
+	 setTarOptEXI = function(gubun, targetS, prodQtyEXI, c, sellCnt, chCd, cd, d){
+		
+		if (!$("#inputChk"+c).is(":checked")) {
+			alert("선택후 추가 할수 있습니다."); return;
+		}
+			
+		var getQty = $("#"+targetS).val();
+		var getQtyChg = 1;
+		if(gubun=='minus'){
+			if(parseInt(getQty)>1){
+				getQtyChg = parseInt(getQty)-1;
+			}
+		}else if(gubun=='plus'){
+			getQtyChg = parseInt(getQty)+1;
+		}
+		
+		// 재고계산
+		if(checkStockCnt(chCd, cd, getQtyChg)){
+// 			alert("현재 재고가 존재하지 않습니다. 재고수량["+sellCnt+"]"); 
+			return;
+		}
+// 		if(getQtyChg == (parseInt(sellCnt)+1) ){
+// 			alert("현재 재고가 존재하지 않습니다. 재고수량["+sellCnt+"]"); return;
+// 		}
+		// 갯수을 변화시킨다.
+		$("#"+targetS).val(getQtyChg);
+		
+		/*********************************************** 
+			[갯수 조작 오른쪽 금액 부분]
+				- 현재 금액(현재 상품의 금액)을 가져와서 . 건수 증가될때마가 해당 금액을 가져와서 더한다.
+			 1. 현재금액,건수을 가져온다.
+			 2. 현재금액/건수을 나눈다.
+			 3. 세팅한다.
+		 ***********************************************/
+		var targetSAmt = $("#"+targetS+"Amt").text().replace(/,/g,'').replace('원','');
+		//alert("targetSAmt:"+targetSAmt+" , targetS:"+targetS);
+		/* 1개당 갯수 금액을 구한다. */
+		var targetSAmtOrg = parseInt(targetSAmt) / parseInt(getQty);
+		var tarProdSum = $("#tarOpt"+c+"ProdAmt").val(); // 본 상품 총계
+		var tarDlvPrce = $("#thisDlvPrce"+c).val();     // 상품 배송비
+		var subSumDlvPrce = $("#subSumDlvPrce"+d).val(); // 소계 배송비 저장
+		var tarAppDlvPrce = $("#dlvPrce"+c).val();  // 적용된 배송비
+		var tarDlvStandAmt = $("#tarOpt"+c+"dlvStandAmt").val(); // 조건부 배송
+		var totDvlPrce = $("#totDlvPrce").text().replace(/,/g,'').replace('원','');	 // 배송비 총계
+		var payCanAmt = $("#payCanAmt").text().replace(/,/g,'').replace('원','');
+		var dlvPrce = 0;
+		
+		console.log(">>>>> tarProdSum : "+tarProdSum);
+		
+		if((gubun=='minus')&&(getQty != getQtyChg)){
+			// 1개당 갯수 금액(targetSAmtOrg) + 원래 가져온 금액(targetSAmt) 
+			targetSAmt = targetSAmt == "" ? 0 : targetSAmt;
+			targetSAmtOrg = targetSAmtOrg == "" ? 0 : targetSAmtOrg;
+			targetSAmt = parseInt(targetSAmt) - parseInt(targetSAmtOrg);
+			$("#"+targetS+"Amt").text(commify(targetSAmt)+"원");			// [옵션금액(옵션갯수 옆) tarOpt0_0Amt ] [옵션갯수 선택] tarOpt0_0
+			if ($("#inputChk"+c).is(":checked")) 
+			{
+				// [구매수량 1]
+				var targetSProdQty = $("#tarOptEXI"+d+"ProdQty").text().replace(/,/g,'').replace('원','');	
+				targetSProdQty = targetSProdQty == "" ? 0 : targetSProdQty;
+				targetSProdQty = parseInt(targetSProdQty) - 1;
+				
+				// [구매수량 2]
+				$("#tarOptEXI"+d+"ProdQty").text(commify(targetSProdQty)+"");	// 상품금액 (총상품금액 밑) tarOpt ProdQty
+				
+				// 상품금액 tarOptProdAmt : 원래가지고 있던 금액 + 1개당 갯수 금액)
+				var targetSProdAmt = $("#tarOptEXI"+d+"ProdAmt").text().replace(/,/g,'').replace('원','');	 
+				targetSProdAmt = targetSProdAmt == "" ? 0 : targetSProdAmt;
+				targetSAmtOrg = targetSAmtOrg == "" ? 0 : targetSAmtOrg;
+				targetSProdAmt = parseInt(targetSProdAmt) - parseInt(targetSAmtOrg);
+				console.log(">>>>> tarProdSum : "+tarProdSum);
+				console.log(">>>>> targetSAmtOrg : "+targetSAmtOrg);
+				tarProdSum = parseInt(tarProdSum) - parseInt(targetSAmtOrg);
+				
+				console.log(">>>>> tarProdSum : "+tarProdSum);
+				
+				$("#tarOpt"+c+"ProdAmt").val(tarProdSum); // 본 상품 총합
+				$("#tarOptEXI"+d+"ProdAmt").text(commify(targetSProdAmt)+"");		// 상품금액 (총상품금액 밑) tarOpt ProdAmt
+				
+				/**** [주문서] 상품금액 totProdAmt *********************************************************/
+				var totProdAmt = $("#totProdAmt").text().replace(/,/g,'').replace('원','');	//주문정보에 상품금액 
+				totProdAmt = totProdAmt == "" ? 0 : totProdAmt;
+				targetSAmtOrg = targetSAmtOrg == "" ? 0 : targetSAmtOrg;
+				totProdAmt = parseInt(totProdAmt) - parseInt(targetSAmtOrg);
+				$("#totProdAmt").text(commify(totProdAmt)+"원" );
+				/* 배송비 totDlvPrce */
+				
+				// 소계 배송비가 0인 경우에 확인
+				if(parseInt(tarDlvStandAmt) > 0 && parseInt(subSumDlvPrce) == 0 && parseInt(tarProdSum) <  parseInt(tarDlvStandAmt)){
+					$("#dlvPrce"+c).val(tarDlvPrce);  // 실 적용된 배송비에 상품 배송비 적용
+					
+					$('.dlvPrceGrp'+d).each(function(index){
+						if($('#inputChk'+(parseInt(d)+index)).val() == "Y"){
+							
+							if(idx == 0 ){
+								dlvPrce = $(this).val();
+							}else{
+								dlvPrce = parseInt($(this).val()) < parseInt(dlvPrce) ? $(this).val() : dlvPrce;
+							}
+							idx++;
+						}
+					});
+					totDvlPrce = parseInt(totDvlPrce) + parseInt(dlvPrce);
+					$("#tarOpt"+d+"DlvPrce").text(commify(dlvPrce));
+					$("#subSumDlvPrce"+bndlQtySeq).val(dlvPrce);
+					$("#totDlvPrce").text(commify(totDvlPrce));
+				}
+				
+				//$("#totDlvPrce").text("되나.배송비");
+				/* 결제예정금액 payCanAmt */
+				payCanAmt = parseInt(totProdAmt) + parseInt(totDvlPrce);
+				$("#payCanAmt").text(commify(payCanAmt)+"원" );
+			}				
+				
+				
+// 				// [구매수량 1]
+// 				var targetSProdQty = $("#tarOptEXI"+c+"ProdQty").text().replace(/,/g,'').replace('원','');	
+// 				targetSProdQty = parseInt(targetSProdQty) - 1;
+// 				$("#tarOpt"+c+"ProdQty").text(commify(targetSProdQty)+"");	// 상품금액 (총상품금액 밑) tarOpt ProdQty
+				
+// 				// 1개당 갯수 금액(targetSAmtOrg) - 원래 가져온 금액(targetSAmt) 
+// 				targetSAmt = parseInt(targetSAmt) - parseInt(targetSAmtOrg);
+// 				$("#"+targetS+"Amt").text(commify(targetSAmt)+"원");		// [옵션금액(옵션갯수 옆) tarOpt0_0Amt ] [옵션갯수 선택] tarOpt0_0
+// 				// 상품금액 tarOptProdAmt : 원래가지고 있던 금액 - 1개당 갯수 금액)					
+// 				var targetSProdAmt = $("#tarOptEXI"+c+"ProdAmt").text().replace(/,/g,'').replace('원','');	
+// 				targetSProdAmt = parseInt(targetSProdAmt) - parseInt(targetSAmtOrg);
+// 				$("#tarOpt"+c+"ProdAmt").text(commify(targetSProdAmt)+"");	// 상품금액 (총상품금액 밑) tarOpt ProdAmt
+				
+// 				if ($("#inputChk"+c).is(":checked")) {
+// 					/*** [주문서] 상품금액 totProdAmt ***************************************************/
+// 					var totProdAmt = $("#totProdAmt").text().replace(/,/g,'').replace('원','');
+// 					totProdAmt = parseInt(totProdAmt) - parseInt(targetSAmtOrg);
+// 					$("#totProdAmt").text(commify(totProdAmt)+"원" );	//주문정보에 상품금액 
+					
+// 					/* 배송비 totDlvPrce */
+// 					//$("#totDlvPrce").text("되나.배송비");
+					
+// 					/**** 결제예정금액 payCanAmt ************************************************/
+// 					var payCanAmt = $("#payCanAmt").text().replace(/,/g,'').replace('원','');
+// 					payCanAmt = parseInt(payCanAmt) - parseInt(targetSAmtOrg);
+// 					$("#payCanAmt").text(commify(payCanAmt)+"원" );
+// 				}
+					
+		}else if(gubun=='plus'){
+			// 1개당 갯수 금액(targetSAmtOrg) + 원래 가져온 금액(targetSAmt) 
+			targetSAmt = targetSAmt == "" ? 0 : targetSAmt;
+			targetSAmtOrg = targetSAmtOrg == "" ? 0 : targetSAmtOrg;
+			targetSAmt = parseInt(targetSAmt) + parseInt(targetSAmtOrg);
+			$("#"+targetS+"Amt").text(commify(targetSAmt)+"원");			// [옵션금액(옵션갯수 옆) tarOpt0_0Amt ] [옵션갯수 선택] tarOpt0_0
+			if ($("#inputChk"+c).is(":checked")) 
+			{
+				// [구매수량 1]
+				var targetSProdQty = $("#tarOptEXI"+d+"ProdQty").text().replace(/,/g,'').replace('원','');	
+				targetSProdQty = targetSProdQty == "" ? 0 : targetSProdQty;
+				targetSProdQty = parseInt(targetSProdQty) + 1;
+				
+				// [구매수량 2]
+				$("#tarOptEXI"+d+"ProdQty").text(commify(targetSProdQty)+"");	// 상품금액 (총상품금액 밑) tarOpt ProdQty
+				// 상품금액 tarOptProdAmt : 원래가지고 있던 금액 + 1개당 갯수 금액)
+				var targetSProdAmt = $("#tarOptEXI"+d+"ProdAmt").text().replace(/,/g,'').replace('원','');	 
+				targetSProdAmt = targetSProdAmt == "" ? 0 : targetSProdAmt;
+				targetSAmtOrg = targetSAmtOrg == "" ? 0 : targetSAmtOrg;
+				targetSProdAmt = parseInt(targetSProdAmt) + parseInt(targetSAmtOrg);
+				
+				console.log(">>>>> tarProdSum : "+tarProdSum);
+				console.log(">>>>> targetSAmtOrg : "+targetSAmtOrg);
+				
+				tarProdSum = parseInt(tarProdSum) + parseInt(targetSAmtOrg);
+				
+				console.log(">>>>> tarProdSum : "+tarProdSum);
+
+				$("#tarOpt"+c+"ProdAmt").val(tarProdSum); // 본 상품 총합
+				$("#tarOptEXI"+d+"ProdAmt").text(commify(targetSProdAmt)+"");		// 상품금액 (총상품금액 밑) tarOpt ProdAmt
+				
+				/**** [주문서] 상품금액 totProdAmt *********************************************************/
+				var totProdAmt = $("#totProdAmt").text().replace(/,/g,'').replace('원','');	//주문정보에 상품금액 
+				totProdAmt = totProdAmt == "" ? 0 : totProdAmt;
+				targetSAmtOrg = targetSAmtOrg == "" ? 0 : targetSAmtOrg;
+				totProdAmt = parseInt(totProdAmt) + parseInt(targetSAmtOrg);
+				$("#totProdAmt").text(commify(totProdAmt)+"원" );
+				/* 배송비 totDlvPrce */
+				
+				// 소계 배송비가 0인 경우에 확인
+				if(parseInt(tarDlvStandAmt) > 0 && parseInt(subSumDlvPrce) > 0 && parseInt(tarProdSum) >=  parseInt(tarDlvStandAmt)){
+					$("#dlvPrce"+c).val(0);  // 실 적용된 배송비에 상품 배송비 적용
+					
+					$('.dlvPrceGrp'+d).each(function(index){
+						if($('#inputChk'+(parseInt(d)+index)).val() == "Y"){
+							
+							if(idx == 0 ){
+								dlvPrce = $(this).val();
+							}else{
+								dlvPrce = parseInt($(this).val()) < parseInt(dlvPrce) ? $(this).val() : dlvPrce;
+							}
+							idx++;
+						}
+					});
+					totDvlPrce = parseInt(totDvlPrce) - parseInt(subSumDlvPrce) + parseInt(dlvPrce);
+					$("#tarOpt"+d+"DlvPrce").text(commify(dlvPrce)); // 소계 배송비
+					$("#subSumDlvPrce"+bndlQtySeq).val(dlvPrce);   // 소계 배송비 저장
+					$("#totDlvPrce").text(commify(totDvlPrce));
+				}
+				
+				/* 결제예정금액 payCanAmt */
+				payCanAmt = parseInt(totProdAmt) + parseInt(totDvlPrce);
+				$("#payCanAmt").text(commify(payCanAmt)+"원" );
+			}
+		}
+		
+	};
+	/*
+	 *	콤마처리
+	 */
+	function commify(n) {
+	  var reg = /(^[+-]?\d+)(\d{3})/;   // 정규식
+	  n += '';                          // 숫자를 문자열로 변환
+
+	  while (reg.test(n))
+	    n = n.replace(reg, '$1' + ',' + '$2');
+
+	  return n;
+	}
+	/*
+	 *	상품상세조회로 이동
+	 */
+	detailProd = function(PROD_CODE){
+		if(PROD_CODE.length<1){ 
+			alert("상품코드가 존재하지 않습니다."); return; 
+		}else{
+			$("#detailProdForm #PROD_CODE").val(PROD_CODE);
+			$("#detailProdForm").attr("action", '/mobile/prod/selectProd.do');
+			$("#detailProdForm").submit();
+		}
+	}; 
+	
+	/*
+	 *	셰어링 날짜 변경시 
+	 *		1. this
+	 *		2. c 순번
+	 */
+	sharingDayOnchange = function(arg,c){
+		var getQtyChg = $("#tarOpt"+c+"_0").val();
+		// 사업자이면
+		var targetSAmtOrg = $("#tarSharing"+c+"ProdAmt").text().replace(/,/g,'').replace('원',''); // 각각의 셰어링 합산 금액을 가져온다.
+		// [셰어링금액] = 셰어링금액X셰어링일수X수량
+		var dayTargetCDay = $("#dayTarget"+c+"Day").val(); // 수량
+		var targetSAmt = $("#tarOpt"+c+"_0Amt").text().replace(/,/g,'').replace('원','');	// 일 셰어링료 원금액
+		targetSAmt = parseInt(targetSAmt) * parseInt(getQtyChg) * parseInt(dayTargetCDay);
+		$("#tarSharing"+c+"ProdAmt").text(commify(targetSAmt));
+		
+		if ($("#inputChk"+c).is(":checked")) {			
+			// 1. 사업자 판매회원의 셰어링 상품인 경우
+			//		-> (보증금X수량)+(셰어링금액X셰어링일수X수량)+배송비
+			//		ㅁ 기존 셰어링 금액을 가져와서 
+			//		ㅁ 빼고 더한다.
+			//var addAmtT = tarOptCProdAmtOrg + targetSAmtOrg;
+			
+			// 총 상품금액 totProdAmt
+			var totProdAmt = $("#totProdAmt").text().replace(/,/g,'').replace('원','');
+			totProdAmt = parseInt(totProdAmt) - parseInt(targetSAmtOrg)+parseInt(targetSAmt);
+			$("#totProdAmt").text(commify(totProdAmt)+"" );				
+			// 배송비 totDlvPrce
+			//$("#totDlvPrce").text("되나.배송비");				
+			// 결제예정금액 payCanAmt
+			var payCanAmt = $("#payCanAmt").text().replace(/,/g,'').replace('원','');
+			payCanAmt = parseInt(payCanAmt) - parseInt(targetSAmtOrg)+parseInt(targetSAmt);
+			$("#payCanAmt").text(commify(payCanAmt)+"원" );
+			
+		}
+	}; 
+	/* ======================================================================
+	Function : 재고 확인
+	Return   : 
+	========================================================================= */
+	function checkStockCnt(targetS,cd,getQtyChg){
+		
+		var retVal = true;
+		$.ajax('/mobile/myBasket/getMyBasketStockCnt.do',{
+			data : {CD : cd , QTY : getQtyChg , GUBUN : targetS },
+		 	dataType : "json",
+		 	async : false,
+		 	type : "post",
+		 	success : function(data){
+		 		
+		 		if(data.result.cnt == undefined){
+		 			alert("다시 확인해 주세요.");
+		 			retVal = true;
+		 		}else if(parseInt(data.result.cnt) < 0){
+		 			alert("현재 재고가 존재하지 않습니다. 재고수량["+(parseInt(data.result.cnt)+ parseInt(getQtyChg))+"]"); 
+		 			retVal = true;
+		 		}else{
+		 			retVal = false;
+		 		}
+		 	},
+		 	error : function(){
+		 		
+		 	}
+		});
+		return retVal;
+	}
+	/* ======================================================================
+	Function : 숫자만입력받기
+	Return   : 
+	========================================================================= */
+	function numberOnlyBasket(obj,sharingMinTeam,sharingMaxTeam,c){		
+		var pattern = /^[0-9+]*$/;
+		if(!pattern.test($(obj).val())){
+			$(obj).val($(obj).val().replace(/[^0-9]/ig, ""));
+		}
+		if($(obj).hasClass("ip")){
+		    if($(obj).val() > 255){
+		      alert("잘못된 IP주소입니다.");
+		      $(obj).focus();
+		    }
+	    }else if($(obj).hasClass("numType")){
+	    	if($(obj).val()<1){
+	    		alert("셰어링 사용기간을 입력해주세요");	 //0은 등록할수 없습니다.   		
+	    		$(obj).val(sharingMinTeam);
+	    	}else if( $(obj).val() < parseInt(sharingMinTeam) ){
+	    		alert("입력하신 이용기간이 최소사용일보다 짧습니다.");	    		
+// 	    		alert("최소사용일["+sharingMinTeam+"]을 초과하였습니다.["+$(obj).val()+"]");	    		
+	    		$(obj).val(sharingMinTeam);
+	    	}else if( $(obj).val() > parseInt(sharingMaxTeam) ){
+	    		alert("입력하신 이용기간이 최대사용일을 초과하였습니다.");	    		
+// 	    		alert("최대사용일["+sharingMaxTeam+"]을 초과하였습니다.["+$(obj).val()+"]");	    		
+	    		$(obj).val(sharingMaxTeam);
+	    	}else if($(obj).val() != "" && $(obj).val() != "0" ){
+	    		$(obj).val(Number($(obj).val()));
+	    	}
+	    }
+		sharingDayOnchange(obj,c);
+		return false;
+	}
+</script>
+<!-- 상품상세조회로 이동 -->
+<form id='detailProdForm' name='detailProdForm' method='get' action=''>
+	<input type='hidden' id='PROD_CODE' 	name='PROD_CODE' 	/>
+</form>
+<!-- 주문하기 -->
+<form id='orderForm' name='orderForm' method='get' action=''>
+	<input type='hidden' id='ORD_INFO' 	name='ORD_INFO' 	/>
+	<input type='hidden' id='PROD_TYPE_CD' 	name='PROD_TYPE_CD' 	/>
+</form>
+<!-- 재조회 -->
+<form id='myBasketForm' name='myBasketForm' method='get' action=''>
+	<input type='hidden' id='GUBUN' name='GUBUN' 	/><!-- DEL 삭제 , ORDER 주문 -->
+</form>
+
+<!-- 주문하기 , 삭제 -->
+<form id='saveForm' name='saveForm' method='get' action=''>
+	<input type='hidden' id='inputArrayYn' 	name='inputArrayYn' 	/>
+	<input type='hidden' id='inputArrayVal' name='inputArrayVal' 	/>
+	<input type='hidden' id='GUBUN' name='GUBUN' 	/><!-- DEL 삭제 , ORDER 주문 -->
+</form>
+<form id='chiceForm' name='chiceForm' method='get' action=''>
+	<input type='hidden' id='GUBUN' name='GUBUN' />
+	<input type='hidden' id='targetS' name='targetS' value='A'/><!-- 선택한 탭 A.판매 , B.쉐어링 -->
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+		<div class="roc">
+			<ul class="inner">
+				<li><img src="http://static.ssocio.net/pc/img/common/section/roc_home.png" alt="홈"></li>
+				<li>마이페이지</li>
+				<li>장바구니</li>
+			</ul>
+		</div>
+		<jsp:include page="../common/mype_top.jsp" flush="false" />
+		<div class="mype_s_tit">
+			<p>장바구니</p>
+		</div>
+
+		<div class='content targetS'>
+		</div>
+		<jsp:include page="../common/mype_bottom.jsp" flush="false" />
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+		<div id="">
+		    <!-- container -->
+			<div id="container" class='targetS'>
+		        <!-- //review -->
+		    </div>
+		    <!-- //container -->
+		</div>
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>
+
+	<div class="popup email_conf">
+			<p class="title">
+				<strong>서비스 준비중</strong>
+				<a href="#" class="btn_close"><img src="http://static.ssocio.net/web/images/btn_layer_close.png" alt="닫기" /></a>
+			</p>
+            
+            <div class="pbox_03">
+            	<p class="tc"><img src="http://static.ssocio.net/web/images/ico_nodata.png" style="margin-right:auto" alt=""></p>
+                <p class="tc">장바구니 구매는 서비스 준비중입니다.</p>
+                <p class="tc mt10">장바구니 상품목록을 개별 선택하셔서, <br>상품페이지로 이동하신후 구매는 가능합니다.</p>
+            </div>
+            
+		    <div class="bot_btn">
+		    	<ul class="btn"><a href="javascript:popup_hide();" class="btn_r">확인</a></ul>
+		    </div>
+		</div>
+		
+	<div class="popup order_conf">
+			<p class="title">
+				<strong>서비스 준비중</strong>
+				<a href="#" class="btn_close"><img src="http://static.ssocio.net/web/images/btn_layer_close.png" alt="닫기" /></a>
+			</p>
+            
+            <div class="pbox_03">
+            	<p class="tc"><img src="http://static.ssocio.net/web/images/ico_nodata.png" style="margin-right:auto" alt=""></p>
+<!--                 <p class="tc">장바구니 구매는 서비스 준비중입니다.</p> -->
+                <p class="tc"></p>
+                <p class="tc mt10">장바구니 묶음상품 결제는<br>서비스 준비중입니다.</p>
+            </div>
+            
+		    <div class="bot_btn">
+		    	<ul class="btn"><a href="javascript:popup_hide();" class="btn_r">확인</a></ul>
+		    </div>
+		</div>
+	<div class="popup imp_order_conf">
+			<p class="title">
+				<strong>알림</strong>
+				<a href="#" class="btn_close"><img src="http://static.ssocio.net/web/images/btn_layer_close.png" alt="닫기" /></a>
+			</p>
+            
+            <div class="pbox_03">
+                <p class="tc mt10">구매하실 수 없는 상품 입니다.<br/> 확인 요청 드립니다.</p>
+            </div>
+            
+		    <div class="bot_btn">
+		    	<ul class="btn"><a href="javascript:popup_hide();" class="btn_r">확인</a></ul>
+		    </div>
+		</div>
+</form>

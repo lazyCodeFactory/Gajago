@@ -1,0 +1,440 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/web/common/cmmnHead.jsp"%>
+<script type="text/javascript" src="/js/web/cart.js" ></script> <!-- 장바구니용 js -->
+<script type="text/javascript">
+
+	var regData = '${regData}';
+	var mainYn = '${params.mainYn }';
+	var ctryCd = '${ctryCd}';
+	
+	//ready
+	$(document).ready(function(){
+		
+		$("#regData").val(regData);
+// 		console.log($("#regData").val())
+		// title 및 back 버튼 url set		
+		document.title = "상품 등록";
+// 		header.type	= 6;
+		header.type	= 4;
+		header.title = "상품 등록";
+		header.method = "POST";
+		if (mainYn == "Y") {
+			header.backUrl = "/mobile/main/main.do";
+		}
+		else {
+			header.backUrl = "/mobile/salemanage/main.do";
+		}
+		header.callback = headerCallback; // 장바구니용 callback
+		header.form = $("#form");
+		initHeader();
+		
+		// 뒤로가기 를 공통 제어를 쓰지 않고 재정의함
+		var data = JSON.parse(regData);
+		$("#id_btn_back").unbind('click');
+		$(".btn_back").click(function(event){
+			event.preventDefault();
+			location.href=data.refUrl;
+		});
+		
+		displayFooter(false);
+		
+		// 보증금 keyup
+		$("#depositView").bind('keyup input', function() {
+			proc.numberWithCommas(this);
+			proc.sharingMaxTerm();
+			proc.procBtnNext();
+		});
+		// 셰어링 keyup
+		$("#sharingPriceView").bind('keyup input', function() {
+			proc.numberWithCommas(this);
+			proc.sharingMaxTerm();
+			proc.procBtnNext();
+		});
+		
+		// 재고수량 keyup
+		$("#stockQtyView").bind('keyup input', function() {
+			proc.numberWithCommas(this);
+			proc.procBtnNext();
+		});
+		
+		// 카테고리 수수료 조회
+		proc.getCtryTax();
+		// 결제수수료 조회
+		proc.getSetlTax();
+		
+	});
+
+	// page 이동
+	var page = {
+			
+		// 다음 페이지 이동
+		goNextPage : function () {
+			if(!$("#btnNext").hasClass("btn_r")) {
+				if($("#depositView").val() == ''){
+					alert("보증금을 입력해 주세요.");
+					$("#deposit").focus();
+					return;
+				}
+				if($("#sharingPriceView").val() == ''){
+					alert("세어링 금액을 입력해 주세요.");
+					$("#sharingPrice").focus();
+					return;
+				}
+				if($("#stockQtyView").val() == ''){
+					alert("재고수량을 입력해 주세요.");
+					$("#stockQty").focus();
+					return;
+				}
+				return;
+			}
+			// 금액
+			$("#deposit").val(Number($("#depositView").val().replace(/,/g, "")));
+			$("#sharingPrice").val($("#sharingPriceView").val().replace(/,/g, ""));
+			$("#stockQty").val($("#stockQtyView").val().replace(/,/g, ""));
+			
+			var url = "/mobile/salemanage/procInsertProdSell.do";
+			form.action = url;
+			form.submit();
+			
+		},
+		
+		// 이전 페이지 이동
+		goPrePage : function () {
+var data = JSON.parse(regData);
+			
+			if("Y" == data.jusoPageFlag){
+				$("#movePage").val("7");
+			}else{
+				$("#movePage").val("8");
+			}
+			$("#moveBack").val("Y");
+			var url = "/mobile/salemanage/procInsertProdComm.do";
+			form.action = url;
+			form.submit();
+			
+		}
+			
+	};	
+	
+	// 처리
+	var proc = {
+			
+		// 금액 keyup
+		numberWithCommas : function (obj) {
+			var len = $(obj).val().length;
+			var maxLen = $(obj).attr("maxLength");
+			// 글자수 제한
+			if (len > maxLen) {
+				$(obj).val($(obj).val().slice(0,maxLen));
+			}
+			
+			numberOnly(obj);
+			var val = $(obj).val();
+			$(obj).val(numberWithCommas(val));
+		},
+			
+		// 최대이용일 계산
+		sharingMaxTerm : function () {
+			
+			var deposit = Number($("#depositView").val().replace(/,/g, ""));
+			var sharingPrice = Number($("#sharingPriceView").val().replace(/,/g, ""));
+			
+			if (deposit > 0 && sharingPrice > 0) {
+				if (deposit < sharingPrice) {
+					alert("셰어링금액은 보증금보다 높은 금액으로 입력할 수 없습니다.");
+					$("#sharingPriceView").val("");
+					return;
+				}
+
+				// 최대이용일 계산
+				var maxTerm = Math.ceil(deposit / sharingPrice);
+				$("#spanSharingMaxTerm").text(maxTerm);
+				$("#sharingMaxTerm").val(maxTerm);
+				
+				// 최종정산예정금액 계산
+				var ctryTax = $("#ctryTax").val();
+				var cardTax = $("#cardTax").val();
+				
+				if (sharingPrice == null || sharingPrice == '' || sharingPrice <= 0) {
+					$("#taxPrce").text("0");
+				}
+				else {
+					var taxPrce = 0;
+					taxPrce = sharingPrice * 5;		// 5일치 셰어링 금액
+					var ctryTaxMinus = parseInt(taxPrce * ctryTax * 0.01);		// 5일치 셰어링금액에 세금 제외 
+					
+					taxPrce = parseInt(taxPrce - ctryTaxMinus);
+// 					var cardTaxMinus = parseInt(taxPrce * cardTax);		// 카드수수료는 사라짐
+// 					taxPrce = parseInt(taxPrce - cardTaxMinus);
+
+					$("#taxPrce").text(numberWithCommas(taxPrce));
+				}
+				
+			}
+		
+		},
+		
+		// 다음 버튼
+		procBtnNext : function () {
+			
+			var deposit = Number($("#depositView").val().replace(/,/g, ""));
+			var sharingPrice = Number($("#sharingPriceView").val().replace(/,/g, ""));
+			var stockQty = Number($("#stockQtyView").val().replace(/,/g, ""));
+			
+			if (deposit > 0 && sharingPrice > 0 && stockQty > 0) {
+				// 버튼 활성화
+				//$("#btnNext").attr("disabled",false);
+				$("#btnNext").removeClass("btn_b");
+				$("#btnNext").addClass("btn_r");
+			}
+			else {
+				// 버튼 비활성화
+				//$("#btnNext").attr("disabled",true);
+				$("#btnNext").removeClass("btn_r");
+				$("#btnNext").addClass("btn_b");
+			}
+			
+		},
+		
+		// 카테고리 수수료 조회
+		getCtryTax : function () {
+			
+			$.ajax({
+				type: "post",
+				async: true,
+				url: "/mobile/salemanage/selectCtryTax.do",
+				dataType:"json",
+				data:  {
+						ctryCd : ctryCd
+				},
+				success: function(data) {
+					if (data.ctryTax != null) {
+						$("#spanCtryTax").text(data.ctryTax.TAX_SHARING_CHAR);
+						$("#ctryTax").val(data.ctryTax.TAX_SHARING_CHAR);
+					}
+					else {
+						$("#spanCtryTax").text("0");
+						$("#ctryTax").val("");
+					}
+				},
+				error: function(data, status, err) {
+					alert("통신에 실패하였습니다. 다시 시도해 주세요.");
+					btnFlag = true;
+				}
+			});
+			
+		},
+		
+		// 결제 수수료 조회
+		getSetlTax : function () {
+			
+			$.ajax({
+				type: "post",
+				async: true,
+				url: "/mobile/salemanage/selectSetlTax.do",
+				dataType:"json",
+				data:  {
+						grpCd : 'TAX_INFO'
+				},
+				success: function(data) {
+					if (data.setlTax != null) {
+						$("#spanCardTax").text(data.setlTax.CARD_TAX_TEXT);
+						$("#spanHpTax").text(data.setlTax.HP_TAX_TEXT);
+						$("#spanAccTax").text(data.setlTax.ACC_TAX_TEXT);
+						$("#cardTax").val(data.setlTax.CARD_TAX_VAL);
+					}
+					else {
+						$("#spanCardTax").text("0");
+						$("#spanHpTax").text("0");
+						$("#spanAccTax").text("0");
+						$("#cardTax").val("");
+					}
+				},
+				error: function(data, status, err) {
+					alert("통신에 실패하였습니다. 다시 시도해 주세요.");
+					btnFlag = true;
+				}
+			});
+			
+		}
+			
+	};
+
+</script>
+
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+		<div class="roc">
+			<ul class="inner">
+				<li><img src="http://static.ssocio.net/pc/img/common/section/roc_home.png" alt="홈"></li>
+				<li>판매관리</li>
+			</ul>
+		</div>
+		<jsp:include page="../common/sale_top.jsp" flush="false" />
+		<div class="mype_s_tit">
+			<p>상품 등록</p>
+		</div>
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+		<!-- container -->
+		<div id="container">
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>
+
+
+<form id="form" name="form" method="post" action="">
+	<input type="hidden" id="movePage" name="movePage" value="3" />
+	<input type="hidden" id="regData" name="regData" value="" />
+	<input type="hidden" id="moveBack" name="moveBack" value="" />
+	<input type="hidden" id="sharingMaxTerm" name="sharingMaxTerm" value="" />
+	<input type="hidden" id="dlvWayCd" name="dlvWayCd" value="1" />
+	<input type="hidden" id="shStatCd" name="shStatCd" value="01" />
+	<input type="hidden" id="deposit" name="deposit" value="" />
+	<input type="hidden" id="sharingPrice" name="sharingPrice" value="" />
+	<input type="hidden" id="mainYn" name="mainYn" value="${params.mainYn }" />
+	<input type="hidden" id="stockQty" name="stockQty" value="" />
+		<div class="completed">
+        	<p class="percent"><strong>70% Completed</strong></p>
+            <div class="bar"><p style="width:70%"></p></div>
+        </div>
+        <div class="contents pic_reg">
+        	<p class="purc-title"><strong>보증금(판매가)과 일 사용료</strong>를 입력해주세요.</p>
+        	<div class="tbl type4">
+				<table class="tbl-data">
+					<colgroup>
+						<col width="90px">
+						<col width="*">
+						<col width="20px">
+					</colgroup>
+					<tbody>
+						<tr>
+							<th>보증금<br/><span>(판매가)</span></th>
+							<td class="pd5">
+								<input type="text" id="depositView" name="" value="" maxlength="10" pattern="[0-9]*" class="numType" style="text-align:right !important;" autocomplete="off" />
+							</td>
+							<td class="tr">원</td>
+						</tr>
+						<tr>
+							<th>셰어링 금액<br/><span>(1일)</span></th>
+							<td class="pd5">
+								<input type="text" id="sharingPriceView" name="" value="" maxlength="10" pattern="[0-9]*" class="numType" style="text-align:right !important;" autocomplete="off" />
+							</td>
+							<td class="tr">원</td>
+						</tr>
+						<tr>
+							<th></th>
+							<td colspan="2">
+								<div class="tbl_inner_bx">
+									<span class="fl discount">
+										셰어링 최대 이용기간 <span id="spanSharingMaxTerm">0</span>일
+									</span>
+								</div>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+				<div class="mt10 sbox06">
+					<p>
+						<strong>[수수료]</strong>
+					</p>
+					<ul>
+						<li>
+							<p>카테고리 수수료 : <span id="spanCtryTax"></span>%</p>
+							<input type="hidden" id="ctryTax" name="" value="" />
+							<p class="ml5">- ${ctryNm }</p>
+						</li>
+<!-- 						<li> -->
+<!-- 							<p>② 결제 수수료 : 구매자가 상품 구매시 결제방식에 따라 적용</p> -->
+<!-- 							<p class="ml5">- 신용카드 <span id="spanCardTax"></span>%, 휴대폰 <span id="spanHpTax"></span>%, 계좌이체 <span id="spanAccTax"></span>% 적용</p> -->
+<!-- 							<input type="hidden" id="cardTax" name="" /> -->
+<!-- 						</li> -->
+					</ul>
+					<p>
+						<strong>[최종 정산 예정금액]<span class="text_r">약 <span id="taxPrce">0</span>원 (셰어링 5일 이용 기준)</span></strong>
+					</p>
+					<ul>
+	                	<li>
+	                    	<p>※ 정산 금액 = 셰어링금액 - 카테고리 수수료 - 기타비용</p>
+	                    	<p>※ 셰어링금액은 거래완료가 확인 된 후 고객님이 등록하신 은행계좌로 셰어링대금이 지급 되며, 셰어링대금 지급 시 수수료가 공제 된 후 입금됩니다.</p>
+	                    </li>
+	                </ul>
+				</div>
+				<div class="mt10 sbox02">
+					<p>
+						<strong> ■ 셰어링 상품 판매자 정산 안내</strong>
+					</p>
+					<ol>
+						<li>
+							<p>보증금은 구매자가 셰어링 상품 주문 시 결제하는 금액으로써</p>
+							<p>해당 보증금은 셰어링 이용기간에 따라 일 사용료 만큼 차감됩니다.</p>
+							<p>셰어링 이용기간에 대한 사용료는 판매자에게 예시와 같이 정산 처리 됩니다.</p>
+							<p>(셰어링 이용기간이 10일인 경우)</p>
+							<p>예시) 보증금 : 100,000원 / 셰어링 요금 : 1일 1,000원</p>
+							<p>- 구매자 : 100,000원 -(1,000원 X 10일) = 90,000원 환불</p>
+							<p>- 판매자 정산금액 : 10,000원 (수수료 제외)</p>
+						</li>
+						<li>
+							<p>구매자는 셰어링 이용 중 언제든지 상품 구매를 할 수 있으며</p>
+							<p>셰어링 최대 이용기간을 초과하여 사용한 경우 해당 상품에</p>
+							<p>대한 소유권은 자동으로 구매자에게 이관 됩니다.</p>
+						</li>
+						<li>
+							<p>구매자가 셰어링 이용 중 셰어링 상품에 대해 반납처리를</p>
+							<p>원하는 경우, 판매자는 반납에 대한 의무와 책임이 있습니다.</p>
+						</li>
+						<li>
+							<p>구매자의 과실로 인한 상품이 분실/파손/훼손시 구매자에게</p>
+							<p>손해배상 청구를 할 수 있습니다.</p>
+						</li>
+					</ol>
+				</div>
+				<table class="tbl-data">
+					<colgroup>
+						<col width="90px">
+						<col width="*">
+						<col width="20px">
+					</colgroup>
+					<tbody>
+						<tr>
+							<th>재고 수량</th>
+							<td class="pd5">
+								<input type="text" id="stockQtyView" name="" value="" maxlength="6" pattern="[0-9]*" class="numType" style="text-align:right !important;" autocomplete="off" />
+							</td>
+							<td class="tr">개</td>
+						</tr>
+						<tr>
+                            <td colspan="3">* 재고수량은 숫자만 입력 가능합니다.</td>
+                        </tr>
+				</table>
+			</div>
+			<div class="btn_enter">
+				<ul>
+					<li>
+						<input type="button" class="btn_r-line" onClick="javascript:page.goPrePage();" value="이전" title="이전" alt="이전" />
+					</li>
+					<li>
+						<input type="button" class="btn_b"  id="btnNext" onClick="javascript:page.goNextPage();" value="다음" title="다음" alt="다음" />
+					</li>
+				</ul>
+			</div>
+        </div>
+</form>
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+		<jsp:include page="../common/sale_bottom.jsp" flush="false" />
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+		    </div>
+		    <!-- //container -->
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>

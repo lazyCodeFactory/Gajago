@@ -1,0 +1,152 @@
+package com.ssocio.sharing.cmmn.util;
+
+import java.io.FileInputStream;
+import java.util.Iterator;
+
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.DateUtil;
+import org.apache.poi.ss.usermodel.FormulaEvaluator;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.ss.usermodel.WorkbookFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.ssocio.sharing.cmmn.instance.config.AppConfigManager;
+
+public class ExcelUploadUtil {
+	
+	
+	private static final Logger logger = LoggerFactory
+			.getLogger(ExcelUploadUtil.class);
+	
+	public static String[][] doExcel(String fileName) throws Exception {
+		
+		String uploadRootPath = AppConfigManager.getInstance().getUploadRootPath();
+		fileName = uploadRootPath + fileName.substring(1);
+		logger.debug("fileName : " + fileName);
+		FileInputStream inputStream = new FileInputStream(fileName);
+
+		Sheet sheet = null;
+		Cell cell = null;
+		String[][] data = null;
+
+		try {
+
+			Workbook workbook = WorkbookFactory.create(inputStream);
+			FormulaEvaluator evaluator = workbook.getCreationHelper().createFormulaEvaluator();
+			sheet = workbook.getSheetAt(0);
+			
+			int rows = 0;
+			int cells = sheet.getRow(0).getLastCellNum();
+			
+			for (Iterator all = sheet.iterator(); all.hasNext();) {
+				Row ds = (Row) all.next();
+
+				if(ds.getCell(0) == null){
+					break;
+				}
+				rows++;
+			}
+
+//			if (rows > 1000) {
+//				rows = 1000;
+//			}
+			
+			data = new String[rows][cells];
+			int idx = 0;
+
+			for (Iterator all = sheet.iterator(); all.hasNext();) {
+				Row ds = (Row) all.next();
+				
+				for (int i = 0; i < cells; i++) {
+					cell = ds.getCell(i);
+//					logger.debug(">>>>> cell : "+cell);
+					if(cell == null || "".equals(cell)){
+						break;
+					}
+					
+					switch (cell.getCellType()) {
+
+					case Cell.CELL_TYPE_NUMERIC:
+						if (DateUtil.isCellDateFormatted(cell)) {
+							
+							String[] dateArray = null;
+							dateArray = cell.toString().split("-");
+							String tempDate = "";
+							tempDate += dateArray[2];
+							tempDate += "-" + dateArray[1].substring(0, dateArray[1].length() -1);
+							tempDate += "-" + dateArray[0];
+
+							/*data[idx][i] = cell.getDateCellValue().toString();*/
+							data[idx][i] = tempDate;
+						} else {
+							String temp = ds.getCell(i).toString();
+							String[] array = temp.split("\\.");
+							
+//							if(array != null && array[0].equals("0")){
+								data[idx][i] = (Long.toString((long) cell.getNumericCellValue()));
+//							}else{
+//								data[idx][i] = Integer.toString((int) cell.getNumericCellValue());
+//							}
+						}
+						break;
+
+					case Cell.CELL_TYPE_STRING:
+//						logger.debug(">>>>> cell.getRichStringCellValue() : "+cell.getRichStringCellValue());
+						data[idx][i] = cell.getRichStringCellValue().getString();
+						break;
+
+					case Cell.CELL_TYPE_BOOLEAN:
+						data[idx][i] = cell.getBooleanCellValue() + "";
+						break;
+
+					case Cell.CELL_TYPE_FORMULA:
+						if (evaluator.evaluateFormulaCell(cell) == Cell.CELL_TYPE_NUMERIC) {
+							if (DateUtil.isCellDateFormatted(cell)) {
+								data[idx][i] = "";
+							} else {
+								Double value = new Double(cell.getNumericCellValue());
+								if ((double) value.longValue() == value.doubleValue()) {
+									data[idx][i] = data[idx][i] = Long.toString(value.longValue());
+								} else {
+									data[idx][i] = data[idx][i] = value.toString();
+								}
+							}
+						} else if (evaluator.evaluateFormulaCell(cell) == Cell.CELL_TYPE_STRING) {
+							data[idx][i] = cell.getStringCellValue();
+						} else if (evaluator.evaluateFormulaCell(cell) == Cell.CELL_TYPE_BOOLEAN) {
+							data[idx][i] = new Boolean(cell.getBooleanCellValue()).toString();
+						} else {
+							data[idx][i] = cell.toString();
+						}
+
+						break;
+					default:
+					}
+				}
+
+				/*if (idx == 200) {
+					break;
+				}*/
+				idx++;
+			}
+			
+			// 데이터 검증 테스트
+			for (int r = 0; r < data.length; r++) {
+				for (int c = 0; c < data[0].length; c++) {
+					logger.debug("index : " + r + " : " + data[r][c]);
+				}
+			}
+
+		} catch (Exception e) {
+			throw e;
+		}
+		
+		
+		logger.debug(" END -------------------");
+		return data;
+	}
+	
+}

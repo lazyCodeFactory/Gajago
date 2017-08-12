@@ -1,0 +1,309 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/admin/common/cmmnHead.jsp"%>
+<script src="/js/admin/statis/highcharts.js"></script>
+<script type="text/javascript">
+$(document).ready(function(){
+	$('.calendar').datepicker({
+      showOn: "button",
+      buttonImage: "http://static.ssocio.net/admin/images/ico_calendar.gif",
+      buttonImageOnly: true
+    });	
+	
+    prod_padding();
+	
+    var currentDate = '${params.date}';
+	var year = currentDate.substring(0,4);
+	var month = currentDate.substring(4,6);
+	var day = currentDate.substring(6,8);
+    $(".calendar").val(year + "-" + month + "-" + day);
+    $('.search_dt').html("구분<br>("+year + "-" + month + "-" + day+" 기준)");
+	var d = new Date();
+	if( $( ".calendar" ).val() == "" ){
+	    $( ".calendar" ).val("" + d.getFullYear() + ( d.getMonth() + 1 ) + d.getDate());
+	}
+	
+	// chart
+// 	var vTime = JSON.parse('${chartDate}');
+	var mw_acc_cnt = JSON.parse('${mw_acc_cnt}');
+	var ma_acc_cnt = JSON.parse('${ma_acc_cnt}');
+	var pw_acc_cnt = JSON.parse('${pw_acc_cnt}');
+	var cate_x = ['00','01','02','03','04','05','06','07','08','09','10','11','12','13','14','15','16','17','18','19','20','21','22','23'];
+	$('.statis_area').highcharts({
+        title: {
+            text: '일간 접속건수',
+            x: -20 //center
+        },
+        subtitle: {
+            text: 'ssocio',
+            x: -20
+        },
+        xAxis: {
+            categories: cate_x
+        },
+        yAxis: {
+            title: {
+                text: '접속건수 (명)'
+            },
+            plotLines: [{
+                value: 0,
+                width: 1,
+                color: '#808080'
+            }]
+        },
+        tooltip: {
+            valueSuffix: '명'
+        },
+        legend: {
+            layout: 'vertical',
+            align: 'right',
+            verticalAlign: 'middle',
+            borderWidth: 0
+        },
+        series: [{
+            name: '모바일 웹',
+            data: mw_acc_cnt
+        }, {
+            name: '모바일 앱',
+            data: ma_acc_cnt
+        }, {
+            name: 'PC 웹',
+            data: pw_acc_cnt
+        }]
+    });
+});
+
+
+function search(){
+	var currentDate = $('.calendar').val();
+	var year = currentDate.substring(0,4);
+	var month = currentDate.substring(5,7);
+	var day = currentDate.substring(8,10);
+	$('#date').val(""+year+month+day);
+	frm.action = "/admin/statis/selectAccStatis.do";
+	frm.submit();
+}
+
+function excel(){
+	var currentDate = $('.calendar').val();
+	var year = currentDate.substring(0,4);
+	var month = currentDate.substring(5,7);
+	var day = currentDate.substring(8,10);
+	$('#date').val(""+year+month+day);
+	frm.action = "/admin/statis/accStatisToExcel.do";
+	frm.submit();
+}
+
+function calendarAddDate(type){
+	var currentDate = $('.calendar').val();
+	var year = currentDate.substring(0,4);
+	var month = currentDate.substring(5,7) - 1;
+	var day = currentDate.substring(8,10);
+	var d = new Date();
+	d.setFullYear(year);
+	d.setMonth(month);
+	d.setDate(day);
+	
+	if(type == "up"){
+		d.setDate(d.getDate() + 1);
+	} else if (type == "down"){
+		d.setDate(d.getDate() - 1);
+	}
+	
+	var prevMonth = (d.getMonth() < 9 ? "0" + (d.getMonth() + 1): d.getMonth() + 1);
+	var prevDay = (d.getDate() < 10 ? "0" + d.getDate(): d.getDate());
+	$('.calendar').val(d.getFullYear() + "-" + ( prevMonth ) + "-" + prevDay);
+}
+
+</script>
+<form id="frm" method="post" name="frm">
+	<input type="hidden" id="PAGE_NO" name="PAGE_NO">
+	<input type="hidden" id="date" name="date" value="${params.date }">
+	<input type="hidden" id="syr" name="syr" value="${list.params.syr }">
+	<input type="hidden" id="eyr" name="eyr" value="${list.params.eyr }">
+	<input type="hidden" id="smon" name="smon" value="${list.params.smon }">
+	<input type="hidden" id="emon" name="emon" value="${list.params.emon }">
+	<input type="hidden" id="MBER_EMAIL" name="MBER_EMAIL" value="${list.params.MBER_EMAIL }">
+	<input type="hidden" id="PROD_TYPE_CD" name="PROD_TYPE_CD" value="${list.params.PROD_TYPE_CD }">
+</form>
+<!-- content -->
+	<div id="content">
+		<!-- top_content -->
+		<div class="top_content">
+			<!-- location -->
+			<div class="location">
+				<ul class="clear">
+					<li class="first-child"><a href="#">Home</a></li>
+					<li><a href="#">통계</a></li>
+					<li><a href="#" class="current">일간 접속건수 통계</a></li>
+				</ul>
+			</div>
+			<!-- //location -->
+		</div>
+		<!-- //top_content -->
+		
+		<div class="inner">
+			<div class="order_stats_bx mt10 clear">
+				<ul class="lst_type clear">
+					<li><span>누적 접속건수 : </span><span class="text_y"><fmt:formatNumber value="${selectTotalAccStatis.TOTAL_CNT }" type="number" />명</span> <span>[모바일웹 : <fmt:formatNumber value="${selectTotalAccStatis.MW_ACC_CNT }" type="number" />명 | 모바일앱 : <fmt:formatNumber value="${selectTotalAccStatis.MA_ACC_CNT }" type="number" />명 | PC웹 : <fmt:formatNumber value="${selectTotalAccStatis.PW_ACC_CNT }" type="number" />명]</span></li>
+				</ul>
+			</div>
+			
+			<!-- period_area -->
+			<div class="period_area">
+				<div class="btn_area clear">
+					<ul class="lst_period clear">
+						<li><a href="#" class="on">일간</a></li>
+						<li><a href="/admin/statis/selectAccWeekStatis.do">주간</a></li>
+						<li><a href="/admin/statis/selectAccMonthStatis.do">월간</a></li>
+					</ul>
+					<div class="period_sel_area">
+						<div class="period_sel_bx">
+							<a href="javascript:calendarAddDate('down')" class="btn_prev"><img src="http://static.ssocio.net/admin/images/ico_num_left2.png" alt="이전"></a>
+							<span><input type="text" id="" name="" class="calendar" style="width:82px;" readonly="readonly"/></span>
+							<a href="javascript:calendarAddDate('up')" class="btn_next"><img src="http://static.ssocio.net/admin/images/ico_num_right2.png" alt="다음"></a>
+						</div>
+					</div>
+					<a href="javascript:search();" class="btn_chk btn_r">조회</a>
+				</div>
+				<!-- statis_area -->
+				<div class="statis_area">
+					통계 그래프 영역
+				</div>
+				<!-- //statis_area -->	
+				
+				<!-- top_tbl -->
+				<div class="top_tbl mt20 clear">
+					<div class="right">
+						<a href="javascript:excel();" class="btn_excel mr0"><span>엑셀 다운로드</span></a>
+<!-- 						<a href="#" class="btn_excel mr0"><span>엑셀 다운로드</span></a> -->
+					</div>
+				</div>
+				<!-- //top_tbl -->
+				<!-- tbl -->
+				<div class="tbl">
+					<!-- list -->
+					<table class="list">
+						<colgroup>
+							<col style="width:16%" />
+							<col style="width:14%" />
+							<col style="width:14%" />
+							<col style="width:14%" />
+							<col style="width:14%" />
+							<col style="width:14%" />
+							<col style="width:14%" />
+						</colgroup>
+						<thead>	
+							<tr>
+								<th class="search_dt" scope="col" rowspan="2">구분<br/>(2015-05-06 기준)</th>
+								<th scope="col" colspan="2" class="bdb">모바일웹</th>
+								<th scope="col" colspan="2" class="bdb">모바일앱</th>
+								<th scope="col" colspan="2" class="bdb">PC웹</th>
+							</tr>
+							<tr>
+								<th scope="col">접속건수</th>
+								<th scope="col">전일대비</th>
+								<th scope="col">접속건수</th>
+								<th scope="col">전일대비</th>
+								<th scope="col">접속건수</th>
+								<th scope="col">전일대비</th>
+							</tr>
+						</thead>
+						<tbody>
+							<c:forEach var="list" items="${selectAccStatis }">
+							<c:if test="${empty list.TIME }">
+							<tr class="sum">
+								<td>합계</td>
+								<td><fmt:formatNumber value="${list.MW_ACC_CNT }" type="number" /></td>
+								<td>
+									<c:if test="${list.MW_ACC_CNT > list.LAST_MW_ACC_CNT}">
+									<span class="percent up"><fmt:formatNumber value="${list.MW_ACC_CNT - list.LAST_MW_ACC_CNT}" type="number" /></span>
+									</c:if>
+									<c:if test="${list.MW_ACC_CNT < list.LAST_MW_ACC_CNT}">
+									<span class="percent down"><fmt:formatNumber value="${list.LAST_MW_ACC_CNT - list.MW_ACC_CNT}" type="number" /></span>
+									</c:if>
+									<c:if test="${list.MW_ACC_CNT eq list.LAST_MW_ACC_CNT}">
+									<span>0</span>
+									</c:if>
+								</td>
+								<td>${list.MA_ACC_CNT }</td>
+								<td>
+									<c:if test="${list.MA_ACC_CNT > list.LAST_MA_ACC_CNT}">
+									<span class="percent up"><fmt:formatNumber value="${list.MA_ACC_CNT - list.LAST_MA_ACC_CNT}" type="number" /></span>
+									</c:if>
+									<c:if test="${list.MA_ACC_CNT < list.LAST_MA_ACC_CNT}">
+									<span class="percent down"><fmt:formatNumber value="${list.LAST_MA_ACC_CNT - list.MA_ACC_CNT}" type="number" /></span>
+									</c:if>
+									<c:if test="${list.MA_ACC_CNT eq list.LAST_MA_ACC_CNT}">
+									<span>0</span>
+									</c:if>
+								</td>
+								<td>${list.PW_ACC_CNT }</td>
+								<td>
+									<c:if test="${list.PW_ACC_CNT > list.LAST_PW_ACC_CNT}">
+									<span class="percent up"><fmt:formatNumber value="${list.PW_ACC_CNT - list.LAST_PW_ACC_CNT}" type="number" /></span>
+									</c:if>
+									<c:if test="${list.PW_ACC_CNT < list.LAST_PW_ACC_CNT}">
+									<span class="percent down"><fmt:formatNumber value="${list.LAST_PW_ACC_CNT - list.PW_ACC_CNT}" type="number" /></span>
+									</c:if>
+									<c:if test="${list.PW_ACC_CNT eq list.LAST_PW_ACC_CNT}">
+									<span>0</span>
+									</c:if>
+								</td>
+							</tr>
+							</c:if>
+							</c:forEach>
+							<c:forEach var="list" items="${selectAccStatis }" varStatus="status">
+							<c:if test="${not empty list.TIME }">
+							<tr>
+								<td>
+									<c:if test="${status.index < 10 }">0</c:if>${status.index }시
+								</td>
+								<td><fmt:formatNumber value="${list.MW_ACC_CNT }" type="number" /></td>
+								<td>
+									<c:if test="${list.MW_ACC_CNT > list.LAST_MW_ACC_CNT}">
+									<span class="percent up"><fmt:formatNumber value="${list.MW_ACC_CNT - list.LAST_MW_ACC_CNT}" type="number" /></span>
+									</c:if>
+									<c:if test="${list.MW_ACC_CNT < list.LAST_MW_ACC_CNT}">
+									<span class="percent down"><fmt:formatNumber value="${list.LAST_MW_ACC_CNT - list.MW_ACC_CNT}" type="number" /></span>
+									</c:if>
+									<c:if test="${list.MW_ACC_CNT eq list.LAST_MW_ACC_CNT}">
+									<span>0</span>
+									</c:if>
+								</td>
+								<td>${list.MA_ACC_CNT }</td>
+								<td>
+									<c:if test="${list.MA_ACC_CNT > list.LAST_MA_ACC_CNT}">
+									<span class="percent up"><fmt:formatNumber value="${list.MA_ACC_CNT - list.LAST_MA_ACC_CNT}" type="number" /></span>
+									</c:if>
+									<c:if test="${list.MA_ACC_CNT < list.LAST_MA_ACC_CNT}">
+									<span class="percent down"><fmt:formatNumber value="${list.LAST_MA_ACC_CNT - list.MA_ACC_CNT}" type="number" /></span>
+									</c:if>
+									<c:if test="${list.MA_ACC_CNT eq list.LAST_MA_ACC_CNT}">
+									<span>0</span>
+									</c:if>
+								</td>
+								<td>${list.PW_ACC_CNT }</td>
+								<td>
+									<c:if test="${list.PW_ACC_CNT > list.LAST_PW_ACC_CNT}">
+									<span class="percent up"><fmt:formatNumber value="${list.PW_ACC_CNT - list.LAST_PW_ACC_CNT}" type="number" /></span>
+									</c:if>
+									<c:if test="${list.PW_ACC_CNT < list.LAST_PW_ACC_CNT}">
+									<span class="percent down"><fmt:formatNumber value="${list.LAST_PW_ACC_CNT - list.PW_ACC_CNT}" type="number" /></span>
+									</c:if>
+									<c:if test="${list.PW_ACC_CNT eq list.LAST_PW_ACC_CNT}">
+									<span>0</span>
+									</c:if>
+								</td>
+							</tr>
+							</c:if>
+							</c:forEach>
+						</tbody>
+					</table>
+					<!-- //list -->
+				</div>
+				<!-- //tbl -->
+			</div>
+		</div>
+		<!-- //inner -->
+	</div>
+	<!-- //content -->

@@ -1,0 +1,423 @@
+$(function() {
+	// 레이어팝업 닫기
+	$(".lay_pop .btn_close").click(function(){
+		$(this).parents(".lay_pop").removeClass("on").css({"top":"50%","left":"50%"});
+		return false;
+	});
+	
+	// 레이어팝업 drag
+	$.fn.drag = function(){
+	var max_wd = $(document).width();
+	var max_ht = $(document).height(); 
+		$(this).find(".pop_header").mousedown(function(e){
+			var pop_wd = $(this).parent(".lay_pop").width();
+			var pop_ht = $(this).parent(".lay_pop").height();
+
+			$(this).data("clickPointX" , e.pageX - $(this).offset().left)
+			$(this).data("clickPointY" , e.pageY - $(this).offset().top);
+
+			$(this).mousemove(function(e){
+				var pop_top = e.pageY  - $(this).data("clickPointY");
+				var pop_left = e.pageX  - $(this).data("clickPointX");
+				if(pop_top <= 0){
+					pop_top = 0;
+				}else if(pop_top >= (max_ht-pop_ht)){
+					pop_top = (max_ht-pop_ht)-2;
+				}else if(pop_left <= 0){
+					pop_left = 0;
+				}else if(pop_left >= (max_wd-pop_wd)){
+					pop_left = (max_wd-pop_wd)-2;
+				};
+				$(".lay_pop").css({zIndex:1000});
+				$(this).parent(".lay_pop").css({
+					top:pop_top,
+					left:pop_left,
+					zIndex:10000
+				});
+			}).mouseup(function(){
+				$(".lay_pop").css({zIndex:1000});
+				$(this).parent(".lay_pop").css({zIndex:10000});
+				$(this).unbind("mousemove");
+			});
+		});
+	};
+	
+	/**
+	 * 레이어팝업
+	 */
+	function message_popup(){
+		var win_wd = $(window).width();
+		var win_height = $(window).height();
+		
+		// 대메뉴 추가
+		$(".btn_bmenu").click(function(){
+			var wd = $(".pop_bmenu").width();
+			var wh = $(".pop_bmenu").height();
+			$(".pop_bmenu").css({"left":(win_wd - wd)/2,"top":(win_height - wh)/2}).addClass("on");
+			$("#MAIN_MENU_NM").val("");
+			$("#MAIN_LINK_ADDR").val("");
+			return false;
+		});
+		
+		// 하위메뉴 추가
+		$(".btn_smenu").click(function(){
+			var wd = $(".pop_smenu").width();
+			var wh = $(".pop_smenu").height();
+			var menu_cd = $("#subMenuCd").val();
+			var menu_nm = $("#subMenuNm").val();
+			$(".pop_smenu").css({"left":(win_wd - wd)/2,"top":(win_height - wh)/2}).addClass("on");
+			$("#PARENT_MENU_CD").val(menu_cd);
+			$("#sub").text(menu_nm);
+			$("#SUB_MENU_NM").val("");
+			$("#SUB_LINK_ADDR").val("");
+			return false;
+		});
+		$(".lay_pop").drag();
+	}message_popup();
+});
+
+/* ======================================================================
+Function : 대메뉴추가(등록)
+Return   : 없음
+========================================================================= */
+function saveHigeMenu(){
+	var url = '/admin/menu/insertMenuReg.do';
+	if ($('#MAIN_MENU_NM').val() == "") {
+		alert("메뉴명을 입력해 주세요.");
+		$('#MAIN_MENU_NM').focus();
+		return;
+	}
+	
+	$.ajax({
+		type: 'post'
+		, async: true
+		, url: url
+		, dataType:'json'
+			, data:  $("#mainMenu").serialize()
+			, success: function(data) {
+				if (data.CNT == 0) {
+					alert("대메뉴 등록에 실패하였습니다.")
+				} else {
+					alert('저장 되었습니다.');
+					location.reload();
+				}
+			}
+		, error: function(data, status, err) {
+			alert('서버와의 통신이 실패했습니다.');
+		}
+	});
+}
+
+/* ======================================================================
+Function : 메뉴명 클릭 시 하위메뉴 Open
+Return   : 없음
+========================================================================= */
+$.selectRow = function (event, menucd, menunm) {
+	$('.menuSec.low').show();
+	var objTr = $(event.srcElement).parent().closest("tr");
+	var menu_cd = menucd;
+	$(objTr).css("backgroundColor", "#e3e3e3e3");   //.selected라는 background-color 지정 class 세팅
+	$(objTr).siblings().css("backgroundColor", "");   //클릭된 tr을 제외한 나머지 tr에서 class 제거
+	
+	$.ajax({
+		type: 'post'
+		, async: true
+		, url: '/admin/menu/selectListSubMenu.do'
+		, dataType:'json'
+		, data:  {"MENU_CD":menucd}
+		, success: function(data) {
+			$('#menuBody').html("");
+			if (data.list == "") {
+				var code = "";
+				code += "<tr>";
+				code += "  <td colspan='7'>조회된 데이터가 없습니다.</td>";
+				code += "  <input type='hidden' name='subMenuCd' id='subMenuCd' value='" + menucd + "'>"
+				code += "  <input type='hidden' name='subMenuNm' id='subMenuNm' value='" + menunm + "'>"
+				code += "</tr>";
+				$('#menuBody').append(code);
+			} else {
+				$.each(data.list, function(key,val) {
+					var selectedY = "";
+					var selectedN = "";
+					if (val.VIEW_YN == "Y") {selectedY = "selected='selected'";}
+					if (val.VIEW_YN == "N") {selectedN = "selected='selected'";}
+					//$("#CHILD_VIEW_YN").val(useYn).attr("selected", "selected");
+					var code = "";
+					code += "<tr id='SUB"+val.MENU_CD+"'>";
+					code += "  <td class='name'>" + val.MENU_NM + "</td>";
+					code += "  <td id='" + val.MENU_CD + "'>";
+					code += "    <div class='count'>";
+					code += "      <input type='text' id='SORT"+val.MENU_CD+"' name='I_SORT_SEQ' value='" + val.SORT_SEQ + "' maxlength='2' style='width:40px;' readonly='readonly' />";
+					code += "      <a href=\"javascript:updateCodeSort('"+val.MENU_CD+"','"+val.SORT_SEQ+"','UP')\" class='p'><img src='/resources/admin/images/btn_up.gif' alt='' /></a>";
+					code += "      <a href=\"javascript:updateCodeSort('"+val.MENU_CD+"','"+val.SORT_SEQ+"','DOWN')\" class='m'><img src='/resources/admin/images/btn_down.gif' alt='' /></a>";
+					code += "    </div>";
+					code += "  </td>";
+					code += "  <td>";
+					code += "    <select name='CHILD_VIEW_YN' id='CHILD_VIEW_YN' style='width:50px;' onchange='javascript:updateViewYn(\"" + val.MENU_CD + "\", this, \"\");'>";
+					code += "      <option value='Y' "+selectedY+">Y</option>";
+					code += "      <option value='N' "+selectedN+">N</option>";
+					code += "    </select>";
+					code += "  </td>";
+					code += "  <td><a href=\"javascript:updatePop('"+val.MENU_CD+"','"+val.MENU_NM+"','"+val.LINK_ADDR+"', 'sub')\" class='btn_w btn_dmenu'>수정</a></td>";
+					code += "  <td><a href=\"javascript:deleteMenu('"+val.MENU_CD+"','"+val.SORT_SEQ+"','sub')\" class='btn_w'>삭제</a></td>";
+					code += "  <td><a href=\"javascript:showAuth('"+val.MENU_CD+"','sub')\" class='btn_w btn_auth'>권한등록</a></td>";
+					code += "  <input type='hidden' name='subMenuCd' id='subMenuCd' value='" + menucd + "'>"
+					code += "  <input type='hidden' name='subMenuNm' id='subMenuNm' value='" + menunm + "'>"
+					code += "</tr>";
+					$('#menuBody').append(code);
+					$('#PARENT_MENU_CD').val(menucd);
+				});
+			}
+		}
+		, error: function(data, status, err) {
+			console.log("data : " + data);
+			console.log("status : " + status);
+			console.log("err : " + err);
+			alert('서버와의 통신이 실패했습니다.');
+		}
+	});
+};
+
+/* ======================================================================
+Function : 하위메뉴추가(등록)
+Return   : 없음
+========================================================================= */
+function saveSubMenu(){
+	var url = '/admin/menu/insertSubMenuReg.do';
+	if ($('#SUB_MENU_NM').val() == "") {
+		alert("메뉴명을 입력해 주세요.");
+		$('#SUB_MENU_NM').focus();
+		return;
+	}
+	
+	$.ajax({
+		type: 'post'
+		, async: true
+		, url: url
+		, dataType:'json'
+		, data:  $("#subMenu").serialize()
+		, success: function(data) {
+			if ( data.CNT ==  0) {
+				alert("하위메뉴 추가에 실패하였습니다.");
+			} else {
+				alert('저장 되었습니다.');
+				closePopup();
+				$.selectRow(event, $('#PARENT_MENU_CD').val());
+			}
+		}
+		, error: function(data, status, err) {
+			alert('서버와의 통신이 실패했습니다.');
+		}
+	});
+}
+
+/* ======================================================================
+Function : 정렬순서 변경
+Return   : 없음
+========================================================================= */
+function updateCodeSort(menuCd, code, direction) {
+	var $selectRow = $("#SUB"+menuCd);
+	
+	$("#ajaxFrm").empty();
+	
+	//정렬순서 위로
+	if (direction=='UP') {
+		var $prevRow = $selectRow.prev();
+		if ($prevRow.text()=='') {
+			alert('이미 첫번째 정렬된 코드 입니다.');
+		} else {
+			var prevID = $prevRow.attr('id').substring(3);
+			var selectVal = code;						// 선된 row 정렬순서
+			var prevVal = $("#SORT"+prevID).val();  	// 이전 row 정렬순서
+			$("#ajaxFrm").append("<input type='hidden' name='I_CODE' value='"+menuCd+"'>");
+			$("#ajaxFrm").append("<input type='hidden' name='I_CODE' value='"+$prevRow.attr('id').substring(3)+"'>");
+			$("#ajaxFrm").append("<input type='hidden' name='I_SORT' value='"+prevVal+"'>");
+			$("#ajaxFrm").append("<input type='hidden' name='I_SORT' value='"+selectVal+"'>");
+			
+			$.ajax({
+				type: 'post'
+				, async: true
+				, url: '/admin/menu/updateSortSeq.do'
+				, data: $("#ajaxFrm").serialize()
+				, beforeSend: function() {}
+				, success: function(data) {
+					//정렬순서 값 변경
+					$("#SORT"+code).val(prevVal);
+					$("#SORT"+prevID).val(selectVal);
+			
+					//tr위치 바꾸기
+					$selectRow.insertBefore($prevRow);
+					alert('정렬순서를 변경하였습니다.');
+					$.selectRow(event, $('#PARENT_MENU_CD').val());
+				}
+				, error: function(data, status, err) {
+					alert('서버와의 통신이 실패했습니다.');
+				}
+			});
+		}
+	} else { //정렬순서 아래로
+		var $nextRow = $selectRow.next();
+		
+		if($nextRow.text()=='') {
+			alert('이미 마지막 정렬된 코드 입니다.');
+		}else {
+			var nextID = $nextRow.attr('id').substring(3);
+			var selectVal = code;
+			var nextVal = $("#SORT"+nextID).val();
+			
+			$("#ajaxFrm").append("<input type='hidden' name='I_CODE' value='"+menuCd+"'>");
+			$("#ajaxFrm").append("<input type='hidden' name='I_CODE' value='"+$nextRow.attr('id').substring(3)+"'>");
+			$("#ajaxFrm").append("<input type='hidden' name='I_SORT' value='"+nextVal+"'>");
+			$("#ajaxFrm").append("<input type='hidden' name='I_SORT' value='"+selectVal+"'>");
+			
+			$.ajax({
+				type: 'post'
+				, async: true
+				, url: '/admin/menu/updateSortSeq.do'
+				, data: $("#ajaxFrm").serialize()
+				, beforeSend: function() {}
+				, success: function(data) {
+					//정렬순서 값 변경
+					$("#SORT"+code).val(nextVal);
+					$("#SORT"+nextID).val(selectVal);
+					
+					//tr위치 바꾸기
+					$nextRow.insertBefore($selectRow);          
+					alert('정렬순서를 변경하였습니다.');
+					//location.reload();
+					$.selectRow(event, $('#PARENT_MENU_CD').val());
+				}
+				, error: function(data, status, err) {
+					alert('서버와의 통신이 실패했습니다.');
+				}
+			});
+		}
+	}
+}
+
+/* ======================================================================
+Function : 노출여부 수정
+Return   : 없음
+========================================================================= */
+function updateViewYn(menuCd, obj){
+	$.ajax({
+		type: 'post'
+		, async: true
+		, url: '/admin/menu/updateViewYnReg.do'
+		, dataType:'json'
+		, data:  {"MENU_CD":menuCd, "VIEW_YN":$(obj).val()}
+		, success: function(data) {
+			if ( data.CNT == 0 ) {
+				alert('노출여부 변경에 실패하였습니다.');
+			} else {
+				alert('노출여부가 변경되었습니다.');
+			}
+		}
+		, error: function(data, status, err) {
+			alert('서버와의 통신이 실패했습니다.');
+		}
+	});
+}
+
+/* ======================================================================
+Function : 메뉴 수정 레이어 팝업 열기
+Return   : 없음
+========================================================================= */
+function updatePop(menucd, menunm, linkaddr, mode) {
+	$('#POP_MODE').val(mode);
+	$('#UPDATE_MENU_NM').val(menunm);
+	if(linkaddr == "undefined"){
+		$('#UPDATE_LINK_ADDR').val("");
+	} else {
+		$('#UPDATE_LINK_ADDR').val(linkaddr);
+	}
+	$('#UPDATE_VIEW_YN').val($('#SUB'+menucd).find('select').val());
+	
+	var win_wd = $(window).width();
+	var win_height = $(window).height();
+	
+	var wd = $(".pop_umenu").width();
+	var wh = $(".pop_umenu").height();
+	$(".pop_umenu").css({"left":(win_wd - wd)/2,"top":(win_height - wh)/2}).addClass("on");
+	$("#UPDATE_MENU_CD").val(menucd);
+}
+
+/* ======================================================================
+Function : 대메뉴/하위메뉴 수정
+Return   : 없음
+========================================================================= */
+function updateMenu() {
+	var url = '/admin/menu/updateMenuReg.do';
+
+	if ($('#UPDATE_MENU_NM').val() == "") {
+		alert("메뉴명을 입력해 주세요.");
+		$('#UPDATE_MENU_NM').focus();
+		return;
+	}
+	
+	$.ajax({
+		type: 'post'
+		, async: true
+		, url: url
+		, dataType:'json'
+		, data:  $("#upMenu").serialize()
+		, success: function(data) {
+			alert('저장 되었습니다.');
+			if($('#POP_MODE').val() == "main"){
+				location.reload();
+			} else {
+				closePopup();
+				$.selectRow(event, $('#PARENT_MENU_CD').val());
+			}
+		}
+		, error: function(data, status, err) {
+			alert('서버와의 통신이 실패했습니다.');
+		}
+	});
+}
+
+/* ======================================================================
+Function : 메뉴 삭제
+Return   : 없음
+========================================================================= */
+function deleteMenu(menucd, sortseq, mode){
+	
+	if(!confirm("한번 삭제된 코드는 복원이 불가합니다.\n정말 삭제하시겠습니까?")){
+		return;
+	}
+
+	$.ajax({
+		type: 'post'
+		, async: true
+		, url: '/admin/menu/deleteMenuReg.do'
+		, dataType:'json'
+		, data:  {"MENU_CD":menucd, "MODE":mode}
+		, beforeSend: function() {
+		//if(!confirm("한번 삭제된 코드는 복원이 불가합니다.\n정말 삭제하시겠습니까?")){
+		//  return true;
+		//}
+		}
+		, success: function(data) {
+			if ( data.CNT == 0 ) {
+				alert('메뉴 삭제에 실패하였습니다.');
+			} else {
+				alert('삭제 되었습니다.');
+			}
+			
+		}
+		, complete: function() {
+			$("#SUB"+menucd).remove();
+		}
+		, error: function(data, status, err) {
+			alert('서버와의 통신이 실패했습니다.');
+		}
+	});
+}
+
+/* ======================================================================
+Function : 레이어 팝업 닫기
+Return   : 없음
+========================================================================= */
+function closePopup(){
+  $(".lay_pop").removeClass("on").css({"top":"50%","left":"50%"});
+}

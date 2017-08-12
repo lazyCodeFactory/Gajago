@@ -1,0 +1,333 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/web/common/cmmnHead.jsp"%>
+<script type="text/javascript" src="/js/web/cart.js" ></script> <!-- 장바구니용 js -->
+<script type="text/javascript">
+
+	var grpProd = new Array();
+	var prodTypeCd = '${params.prodTypeCd }';
+
+	//ready
+	$(document).ready(function(){
+		
+		// title 및 back 버튼 url set		
+		document.title = "상품배송";
+// 		header.type	= 6;
+		header.type	= 4;
+		header.title = "상품배송";
+		header.method = "POST";
+		header.backUrl = "/mobile/salemanage/selectOrderShellDtl.do";
+		header.callback = headerCallback; // 장바구니용 callback
+		header.form = $("#form");
+		initHeader();
+		
+		displayFooter(false);
+		
+		$("#invcNo").bind('keyup input', function() {
+			proc.numberOnlyInvc(this);
+		});
+		
+	});
+	
+	var page = {
+			
+		// 상태변경 및 배송신청
+		updateOrderShare : function () {
+			
+			var invcNo = $("#invcNo").val();
+			if (invcNo == null || invcNo == "") {
+				alert("운송장 번호를 입력해 주세요.");
+				$("#invcNo").focus();
+				return;
+			}
+			
+			if (!confirm("입력하신 운송장 번호로 상품배송 등록을 하시겠습니까?")) {
+				return;
+			}
+			
+			var url = "";
+			if (prodTypeCd == "1") {
+				url = "/mobile/salemanage/updateOrderSellProcStat.do";
+			}
+			else if (prodTypeCd == "3") {
+				url = "/mobile/salemanage/updateOrderFreeProcStat.do";
+			}
+			
+			$.ajax({
+			    type: 'post'
+			    , async: true
+			    , dataType:'json'
+			    , url: url
+			    , data: $("#form").serialize()
+			    , success: function(data) {
+			    	
+			    	alert(data.rtnMsg);
+			    	
+			    	var dtlGb = data.params.dtlGb;
+			    	var rtnUrl = "";
+			    	if (prodTypeCd == "1") {
+			    		if (dtlGb == "Y") {
+			    			rtnUrl = "/mobile/salemanage/selectOrderSellDtl.do";
+			    		}
+			    		else {
+			    			rtnUrl = "/mobile/salemanage/selectListOrderSell.do";
+			    		}
+					}
+					else if (prodTypeCd == "3") {
+						if (dtlGb == "Y") {
+			    			rtnUrl = "/mobile/salemanage/selectOrderFreeDtl.do";
+			    		}
+			    		else {
+			    			rtnUrl = "/mobile/salemanage/selectListOrderFree.do";
+			    		}
+					}
+			    	
+					form.action = rtnUrl;
+					form.submit();
+			    	
+			    }
+			    , error: function(data, status, err) {
+			      alert('서버와의 통신이 실패했습니다.');
+			    }
+			
+			});
+			
+		}
+		
+	};
+	
+	// 처리
+	var proc = {
+		
+		numberOnlyInvc : function (obj) {
+		
+			var len = $(obj).val().length;
+			var maxLen = $(obj).attr("maxlength");
+			// 글자수 제한
+			if (len > maxLen) {
+				$(obj).val($(obj).val().slice(0,maxLen));
+			}
+			
+			numberOnly(obj);
+			
+		}
+			
+	};
+
+</script>
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+		<div class="roc">
+			<ul class="inner">
+				<li><img src="http://static.ssocio.net/pc/img/common/section/roc_home.png" alt="홈"></li>
+				<li>판매관리</li>
+			</ul>
+		</div>
+		<jsp:include page="../common/sale_top.jsp" flush="false" />
+		<div class="mype_s_tit">
+			<p>배송신청</p>
+		</div>
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+		<!-- container -->
+		<div id="container">
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>
+
+
+<form id="form" name="form" method="get" action="">
+	<input type="hidden" id="ordGb" name="ordGb" value="${params.ordGb }" />
+	<input type="hidden" id="ordCd" name="ordCd" value="${params.ordCd }" />
+	<input type="hidden" id="prodSeq" name="prodSeq" value="${params.prodSeq }" />
+	<input type="hidden" id="prodCode" name="prodCode" value="${params.prodCode }" />
+	<input type="hidden" id="upProcStatCd" name="upProcStatCd" value="${params.upProcStatCd }" />
+	<input type="hidden" id="mberSeq" name="mberSeq" value="${params.mberSeq }" />
+	<input type="hidden" id="dlvWayCd" name="dlvWayCd" value="${params.dlvWayCd }" />
+	<input type="hidden" id="dtlGb" name="dtlGb" value="${params.dtlGb }" />
+	<input type="hidden" id="prodTypeCd" name="prodTypeCd" value="${params.prodTypeCd }" />
+	<input type="hidden" id="reload" name="reload" value="" />
+
+		<c:if test="${params.reload ne 'Y' }">
+			<p class="title">상품 정보</p>
+	        <c:forEach var="subList" items="${orderSellDtl.subOrder }" varStatus="status">
+	       		<div class="sha_oder_area <c:if test="${status.index > 0 }">mt10</c:if>">
+			        <ul class="sha_oder">
+			        	<li>
+		                	<ul class="mt10">
+			                	<li>
+			                		<img src="<custom:codeTag code="DEFAULT_IMG_URL" groupCode="SITE_DEFAULT" />" alt="${subList.PROD_IMG_URL }" />
+			                	</li>
+			                	<li>
+			                		<strong>${subList.PROD_NM }</strong>
+			                	</li>
+			                	<li class="tr">
+			                		<span>
+			                			<c:if test="${subList.PROD_TYPE_CD eq '1' }">
+			                				상품금액  <fmt:formatNumber value="${subList.SELL_PRCE }" type="number" />원
+			                			</c:if>
+			                		</span>
+			                	</li>
+			                	<li>
+			                		<c:if test="${subList.PROD_TYPE_CD eq '1' }">
+				                		<c:choose>
+											<c:when test="${subList.DLV_PAY_GB_CD == '1' }">
+												<span>
+						                			배송비  무료배송  |  구매수량 ${subList.ORD_QTY }개
+						                		</span>
+											</c:when>
+											<c:otherwise>
+					                			<c:choose>
+					                				<c:when test="${subList.DLV_PAY_F_CD == '10' }">
+														<span>배송비 <fmt:formatNumber value="${subList.DLV_PRCE }" type="number" />원  |  구매수량 ${subList.ORD_QTY }개</span>
+													</c:when>
+													<c:otherwise>
+														<span>배송비 착불  |  구매수량 ${subList.ORD_QTY }개</span>
+													</c:otherwise>
+					                			</c:choose>
+											</c:otherwise>
+										</c:choose>
+									</c:if>
+			                	</li>
+			                </ul>
+			            </li>
+			        </ul>
+				</div>
+			</c:forEach>
+			
+			<p class="title">구매자 정보
+	        	<c:choose>
+              		<c:when test="${orderSellDtl.SECU_NO_USE_YN != null and orderSellDtl.SECU_NO_USE_YN == 'Y' }">
+              			<a href="TEL:${orderSellDtl.SECU_NO }" class="user_phone">
+		        		<strong>전화걸기</strong>
+		        	</a>
+              		</c:when>
+              		<c:otherwise>
+              			<c:choose>
+                		<c:when test="${orderSellDtl.RCV_HP != null and orderSellDtl.RCV_HP != '' }">
+                			<a href="TEL:${orderSellDtl.ORD_HP }" class="user_phone">
+			        		<strong>전화걸기</strong>
+			        	</a>
+                		</c:when>
+                		<c:otherwise>
+                			<a href="TEL:${orderSellDtl.ORD_TEL }" class="user_phone">
+			        		<strong>전화걸기</strong>
+			        	</a>
+                		</c:otherwise>
+                	</c:choose>
+              		</c:otherwise>
+              	</c:choose>
+	        	
+	        	
+            </p>
+			<div class="user_info">
+	        	<span class="fl">
+	        		<img src="<custom:codeTag code="DEFAULT_IMG_URL" groupCode="SITE_DEFAULT" />" alt="${orderSellDtl.MBER_IMG_URL }" />
+	        	</span>
+	        	<p class="fl ml5">
+	        		<span><img src="${orderSellDtl.MBER_LEV }" class="img_level"/>${orderSellDtl.ORD_EMAIL }</span>
+	        	</p>
+			</div>
+			
+			<p class="title">배송지 정보</p>
+	        <div class="tbl">
+	            <table class="tbl-data">
+	                <colgroup>
+	                    <col width="100px">
+	                    <col width="*">
+	                </colgroup>
+	                <tbody>
+	                    <tr>
+	                        <th>받는사람</th>
+	                        <td>${orderSellDtl.RCV_NM }</td>
+	                    </tr>
+	                    <tr>
+	                        <th>주소</th>
+	                        <td>
+	                        	<c:set var="dlvAddr" value="" />
+	                        	<c:set var="dlvAddrSplt" value="${fn:split(orderSellDtl.JUSO_JIBEN, ' ') }" />
+	                        	<c:forEach var="addr" items="${dlvAddrSplt }" varStatus="status">
+	                        		<c:if test="${status.last }">
+	                        			<c:set var="dlvAddr" value="${addr }" />
+	                        		</c:if>
+	                        	</c:forEach>
+	                        	${orderSellDtl.JUSO_DORO } (${dlvAddr }) ${orderSellDtl.JUSO_DTL }
+	                        </td>
+	                    </tr>
+	                    <tr>
+	                        <th>연락처</th>
+	                        <td>
+	                        	<c:choose>
+	                        		<c:when test="${orderSellDtl.SECU_NO_USE_YN != null and orderSellDtl.SECU_NO_USE_YN == 'Y' }">
+	                        			${orderSellDtl.SECU_NO }
+	                        		</c:when>
+	                        		<c:otherwise>
+	                        			<c:choose>
+			                        		<c:when test="${orderSellDtl.RCV_HP != null and orderSellDtl.RCV_HP != '' }">
+			                        			${orderSellDtl.RCV_HP }
+			                        		</c:when>
+			                        		<c:otherwise>
+			                        			${orderSellDtl.RCV_TEL }
+			                        		</c:otherwise>
+			                        	</c:choose>
+	                        		</c:otherwise>
+	                        	</c:choose>
+	                        </td>
+	                    </tr>
+	                    <tr>
+	                        <th>배송메모</th>
+	                        <td>
+	                        	${orderSellDtl.DLV_MSG }
+	                        </td>
+	                    </tr>
+	                </tbody>
+	            </table>
+	        </div>
+	        
+	        <p class="title">배송정보</p>
+	        <div class="tbl">
+	            <table class="tbl-data">
+	                <colgroup>
+	                    <col width="100px">
+	                    <col width="*">
+	                </colgroup>
+	                <tbody>
+	                    <tr>
+	                        <th>택배사</th>
+	                        <td>
+	                        	${orderSellDtl.subOrder[0].DLV_CMP_NM }
+	                        	<input type="hidden" id="dlvCmpCd" name="dlvCmpCd" value="${orderSellDtl.subOrder[0].DLV_CMP_CD }" />
+	                        </td>
+	                    </tr>
+	                    <tr>
+	                        <th>운송장번호</th>
+	                        <td>
+	                        	<input type="text" id="invcNo" name="invcNo" value="" maxlength="30" pattern="[0-9]*" autocomplete="off" />
+	                        </td>
+	                    </tr>
+	                </tbody>
+	            </table>
+	        </div>
+	        
+			<div class="btn_enter">
+				<a href="javascript:page.updateOrderShare();" class="btn_r">상품배송</a>
+			</div>
+		</c:if>
+</form>
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+		<jsp:include page="../common/sale_bottom.jsp" flush="false" />
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+		    </div>
+		    <!-- //container -->
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>

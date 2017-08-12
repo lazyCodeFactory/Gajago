@@ -1,0 +1,223 @@
+<%@ page language="java" contentType="text/html; charset=utf-8"
+    pageEncoding="utf-8"%>
+<!-- 태그는 cmmnHead.jsp 에 선언함 -->
+<%@ include file="/WEB-INF/views/web/common/webJSTL.jsp"%>
+<script type="text/javascript">
+
+$(document).ready(function() {
+	// 헤더 set	
+	var sScrId = "${searchParam.S_SCR_ID}";
+	var url = "";
+	
+	if(sScrId == "selectListRentalReqHist") {
+		url = "/mobile/buy/selectListRentalReqHist.do";
+	}else if(sScrId == "selectListRentalReqDtl") {
+		url = "/mobile/buy/selectListRentalReqDtl.do";
+	}
+	header.type	= 2; // 0 : 타이틀영역만존재, 1 : 검색HEADER, 2 : SELECT TYPE HEADER, 3 : AD MENU TYPE HEADER, 4 : SUB TYPE HEADER
+	header.title = "렌탈취소";
+	document.title = "렌탈취소";
+	header.method = "POST";
+	header.backUrl = url;
+	header.form = $("#frm");
+	header.callback = f_headerCallBack();
+	initHeader();
+	
+	// 2015.11.22 정명철 추가
+	displayFooter(false); 
+	
+	// 렌탈취소 클릭 이벤트
+	$("#btn_rentCancel").click(function() {
+		f_saveOrderCancel();
+	});
+	
+	// 주문취소 사유 keydown 이벤트
+	$("#I_CANC_REASON").keydown(function() {
+		var sCancReason = $("#I_CANC_REASON").val();
+		$("#inputByte").html(getByteLength(sCancReason));
+    });
+});
+
+/* ======================================================================
+Function : 헤더 콜백 처리
+Return   : 없음
+========================================================================= */
+function f_headerCallBack() {
+	$("#ACTION").val("list");
+}
+
+/* ======================================================================
+Function : 렌탈취소 저장
+Return   : 없음
+========================================================================= */
+function f_saveOrderCancel() {
+	var arrProdCd = new Array();
+	var arrMberSeq = new Array();
+	var arrReqSeq = new Array();
+	
+	if(gf_isNull($("#I_CANC_REASON_CD").val())) {
+    	alert("신청취소 사유를 선택해주세요.");
+    	$("#I_CANC_REASON_CD").focus();
+		return;
+    }
+	
+// 	if(gf_isNull($("#I_CANC_REASON").val())) {
+//     	alert("상세 사유를 입력해주세요.");
+//     	$("#I_CANC_REASON").focus();
+// 		return;
+//     }
+	
+	if(confirm("신청취소 하시겠습니까?") == false) { return; }
+	
+	<c:forEach var="buyRentProdList" items="${list.buyRentProdList}">
+		arrProdCd.push("${buyRentProdList.PROD_CODE}");
+		arrMberSeq.push("${buyRentProdList.MBER_SEQ}");
+		arrReqSeq.push("${buyRentProdList.REQ_SEQ}");
+	</c:forEach>
+	
+	$("#S_PROD_CD").val(arrProdCd);
+	$("#S_MBER_SEQ").val(arrMberSeq);
+	$("#S_REQ_SEQ").val(arrReqSeq);
+	
+	$.ajax({
+		type: "post",
+		async: true,
+		url: "/mobile/buy/saveRentalCancel.do",
+		dataType:"json",
+		data: $("#frm").serialize(),
+		success: function(data) {
+			if(data.result > 0) {
+				alert("신청이 취소 되었습니다.");
+				var sScrId = "${searchParam.S_SCR_ID}";
+				var url;
+				if(sScrId == "selectListRentalReqHist") {
+					url = "/mobile/buy/selectListRentalReqHist.do";
+				}else if(sScrId == "selectListRentalReqDtl") {
+					url = "/mobile/buy/selectListRentalReqDtl.do";
+				}
+				
+				$("#frm").attr("action", url).submit();
+			}else if(data.result < 0){
+				alert("이미 취소 신청된 상품 입니다.");
+				var sScrId = "${searchParam.S_SCR_ID}";
+				var url;
+				if(sScrId == "selectListRentalReqHist") {
+					url = "/mobile/buy/selectListRentalReqHist.do";
+				}else if(sScrId == "selectListRentalReqDtl") {
+					url = "/mobile/buy/selectListRentalReqDtl.do";
+				}
+				
+				$("#frm").attr("action", url).submit();
+			}else {
+				alert("신청 취소에 실패했습니다.");
+			}
+		},
+		error: function(data, status, err) {
+			alert("서버와의 통신이 실패했습니다.");
+		}
+	});
+}
+
+</script>
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+		<div class="roc">
+			<ul class="inner">
+				<li><img src="http://static.ssocio.net/pc/img/common/section/roc_home.png" alt="홈"></li>
+				<li>마이페이지</li>
+				<li>신청취소</li>
+			</ul>
+		</div>
+		<jsp:include page="../common/mype_top.jsp" flush="false" />
+		<div class="mype_s_tit">
+			<p>신청취소</p>
+		</div>
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+		<div id="">
+		
+			<!-- container -->
+			<div id="container">
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>
+
+<form name="frm" id="frm" method="post">
+<input type="hidden" id="ACTION" name="ACTION">
+<input type="hidden" id="S_SEARCH_PERI" name="S_SEARCH_PERI" value="${searchParam.S_SEARCH_PERI}">
+<input type="hidden" id="S_PROC_STAT_CD" name="S_PROC_STAT_CD" value="${searchParam.S_PROC_STAT_CD}">
+<input type="hidden" id="S_PROD_NM" name="S_PROD_NM" value="${searchParam.S_PROD_NM}">
+<input type="hidden" id="S_PROD_CD" name="S_PROD_CD" value="${searchParam.S_PROD_CD}">
+<input type="hidden" id="S_MBER_SEQ" name="S_MBER_SEQ" value="${searchParam.S_MBER_SEQ}">
+<input type="hidden" id="S_REQ_SEQ" name="S_REQ_SEQ" value="${searchParam.S_REQ_SEQ}">
+
+<input type="hidden" id="S_SCR_ID" name="S_SCR_ID" value="saveRentalCancel">
+
+
+        <p class="title">상품 정보</p>
+        <c:forEach var="buyRentProdList" items="${list.buyRentProdList}" varStatus="status">
+        	<ul class="sha_oder">
+	        	<li>
+	              <p class="phone"><span class="fl"><img src=<custom:codeTag groupCode='SITE_DEFAULT' code='DEFAULT_IMG_URL'/> alt="${buyRentProdList.MINI_SHOP_PATH}">${buyRentProdList.MINI_SHOP_NM}</span> 
+	              <a href="TEL:${buyRentProdList.MBER_PHONE }" class="fr">
+				        	<strong>전화걸기</strong>
+				        </a>
+	              </p>
+	                <ul>
+	                	<li><img src=<custom:codeTag groupCode='SITE_DEFAULT' code='DEFAULT_IMG_URL'/> alt="${buyRentProdList.IMG_URL}"></li>
+	                	<li><strong>${buyRentProdList.PROD_NM}</strong></li>
+	                </ul>
+	            </li>
+        	</ul>
+        </c:forEach>
+        
+		<p class="title">신청취소 사유</p>
+        <div class="content">
+            <ul class="sbox01">
+            	<li>
+            		<p class="sub_title">신청취소 사유를 선택주세요. <span class="text_r">(필수)</span></p>
+            	</li>
+                <li>
+                	<select id="I_CANC_REASON_CD" name="I_CANC_REASON_CD">
+                	    <custom:codeList var="cancReasonCd" groupCode="SCANC_REASON_CD" />
+                    	<option value="">선택</option>
+                    	<c:forEach var="list" items="${cancReasonCd}" varStatus="status">
+							<option value="${list.key}">${list.value}</option>
+			            </c:forEach>
+                    </select>
+                </li>
+                <li>
+                	<p class="sub_title">상세 사유를 입력해 주세요. (선택)</p>
+                </li>
+                <li>
+                	<div class="text_box">
+                        <textarea id="I_CANC_REASON" name="I_CANC_REASON" maxlength="1000"></textarea>
+                        <span class="byte"><span id="inputByte">0</span>/100</span>
+                    </div>
+                </li>
+            </ul>
+        </div>
+        
+        <div class="btn_enter"><a href="#" id="btn_rentCancel" class="btn_r">신청취소</a></div>
+
+</form>
+
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+		<jsp:include page="../common/mype_bottom.jsp" flush="false" />
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+		    </div>
+		    <!-- //container -->
+		</div>
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>

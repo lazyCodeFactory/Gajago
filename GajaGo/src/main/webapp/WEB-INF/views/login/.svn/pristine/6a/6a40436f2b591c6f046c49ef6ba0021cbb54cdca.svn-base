@@ -1,0 +1,209 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="MobileMyWishMapper">
+	<!-- 위시 카테고리 리스트 -->
+	<select id="getMyWishList" parameterType="HashMap" resultType="HashMap">
+		SELECT TIT.WISH_SEQ,
+			   TIT.MBER_SEQ,	
+		  	   TIT.WISH_NAME,
+		  	   TIT.REGIST_DT,
+		  	   COUNT(DTL.REG_SEQ) AS CNT
+		  FROM PROD_WISH DTL , WISH_CATE TIT
+		 WHERE TIT.WISH_SEQ = DTL.WISH_SEQ(+)
+		   AND TIT.MBER_SEQ = DTL.MBER_SEQ(+)
+		   AND TIT.MBER_SEQ =  <![CDATA[#{MBER_SEQ}]]>
+		 GROUP BY TIT.WISH_SEQ, TIT.MBER_SEQ, TIT.WISH_NAME,  TIT.REGIST_DT
+		 ORDER BY TIT.WISH_SEQ DESC
+	</select>
+	<!-- 위시리스트 타이틀 등록 처리 -->
+	<insert id="newMyWishTitle" parameterType="HashMap">
+      INSERT INTO WISH_CATE
+      (	WISH_SEQ,
+        MBER_SEQ,
+        WISH_NAME,
+        REGIST_DT
+      ) 
+      values(
+      	SEQ_WISH_CATE.NEXTVAL,
+      	<![CDATA[#{MBER_SEQ}]]>,      	
+      	#{WISH_NAME,jdbcType=VARCHAR},
+      	SYSDATE      	
+      )
+  	</insert>
+  	<!-- 위시리스트 타이틀 삭제 -->
+	<delete id="deleteMyWish" parameterType="HashMap">
+      DELETE FROM  WISH_CATE
+       WHERE WISH_SEQ = <![CDATA[#{WISH_SEQ}]]>
+		 AND MBER_SEQ = <![CDATA[#{MBER_SEQ}]]>
+  	</delete>
+  	<!-- 위시리스트 타이틀 이름변경 -->
+	<update id="renameMyWish" parameterType="HashMap">
+      UPDATE WISH_CATE
+      SET      	    	
+      	WISH_NAME = <![CDATA[#{WISH_NAME}]]>
+      WHERE WISH_SEQ = <![CDATA[#{WISH_SEQ}]]>
+		 AND MBER_SEQ = <![CDATA[#{MBER_SEQ}]]>
+  	</update>
+  	<!-- 위시 상세 리스트 -->
+	<select id="detailMyWishList" parameterType="HashMap" resultType="HashMap">
+		SELECT 
+			   *
+		  FROM(
+		  		SELECT
+		  			   ROWNUM RN,	   MM.REG_SEQ,
+					   MM.MBER_SEQ,	   MM.WISH_SEQ,	   MM.PROD_CODE,	   MM.OPT_CD,
+					   MM.REGIST_DT,   MM.UPDT_DT,
+					   MM.PROD_NM,	   MM.NRM_PRCE,	   MM.SELL_PRCE,	   MM.CPON_APPLY_PSBL_YN,   MM.PROD_TYPE_CD,
+		  			   MM.SHARING_PRICE,	MM.DEPOSIT,
+		  			   MM.PER_PRCE,
+		  			   MM.PROD_IMG_URL,
+		  			   MM.DLV_PAY_GB_CD,
+		  			   MM.SP_SHARING_PRICE
+		  		  FROM(		  		  		
+						SELECT 	M.REG_SEQ
+						,       		M.MBER_SEQ,       	M.WISH_SEQ,       M.PROD_CODE,       M.OPT_CD
+						,	 		M.REGIST_DT,       	M.UPDT_DT
+						, 			P.PROD_NM,       	NVL(P.NRM_PRCE,0) NRM_PRCE,       NVL(P.SELL_PRCE,0) SELL_PRCE,       P.CPON_APPLY_PSBL_YN,   P.PROD_TYPE_CD
+						,			NVL(SHR.SHARING_PRICE,0) AS SHARING_PRICE, 	NVL(SHR.DEPOSIT,0) AS DEPOSIT
+						,			CASE WHEN P.NRM_PRCE !=0 THEN ROUND((P.NRM_PRCE - P.SELL_PRCE) / P.NRM_PRCE * 100) ELSE NVL(P.NRM_PRCE,0) END  AS PER_PRCE
+						, 			CASE WHEN P.PROD_TYPE_CD = 4 THEN FI.FILE_URL ELSE IMG.PROD_IMG_URL END AS PROD_IMG_URL
+						,			P.DLV_PAY_GB_CD
+						,			NVL(SP.SHARING_PRICE,0) AS SP_SHARING_PRICE 
+                        FROM  	PROD_WISH 				M
+                       	JOIN  		PROD 						P
+                  		ON    	M.PROD_CODE     		= P.PROD_CODE
+                      	LEFT OUTER JOIN PROD_SHARING SHR
+                     	ON    	P.PROD_CODE     		= SHR.PROD_CODE
+                		AND   	P.PROD_TYPE_CD  		= 2
+                      	LEFT OUTER JOIN PROD_IMG 	IMG
+                      	ON    	P.PROD_CODE     		= IMG.PROD_CODE
+                      	AND   	IMG.PROD_IMG_GB_CD	= '11'
+                    	LEFT OUTER JOIN ( SELECT PROD_CODE, MIN(SHARING_PRICE) AS SHARING_PRICE  FROM SP_PROD_DTL GROUP BY PROD_CODE ) SP
+                     	ON    	P.PROD_CODE  			= SP.PROD_CODE
+                     	LEFT OUTER JOIN SP_IMAGE 		SPIMG
+                      	ON    	P.PROD_CODE  			= SPIMG.PROD_CODE
+                     	AND   	SPIMG.SP_IMG_GB_CD 	= '11'
+                     	LEFT OUTER JOIN FILE_INFO 		FI
+                      	ON    	SPIMG.FILE_NO 			= FI.FILE_SEQ 
+						WHERE 	M.MBER_SEQ 			=  <![CDATA[#{MBER_SEQ}]]>
+						AND 		M.WISH_SEQ 			=  <![CDATA[#{WISH_SEQ}]]>
+						ORDER BY M.UPDT_DT DESC,M.REG_SEQ DESC
+<!-- 						SELECT M.REG_SEQ, -->
+<!-- 							   M.MBER_SEQ,	   M.WISH_SEQ,	   M.PROD_CODE,	   M.OPT_CD, -->
+<!-- 							   M.REGIST_DT,	   M.UPDT_DT, -->
+<!-- 							   P.PROD_NM,	   P.NRM_PRCE,	   P.SELL_PRCE,	   P.CPON_APPLY_PSBL_YN,   P.PROD_TYPE_CD, -->
+<!-- 				  			   SHR.SHARING_PRICE, -->
+<!-- 				  			   SHR.DEPOSIT,  -->
+<!-- 				  			   ( CASE WHEN P.NRM_PRCE!=0 THEN ROUND((P.NRM_PRCE - P.SELL_PRCE) / P.NRM_PRCE * 100) ELSE P.NRM_PRCE END  ) PER_PRCE, -->
+<!-- 				  			   IMG.PROD_IMG_URL, -->
+<!-- 				  			   P.DLV_PAY_GB_CD, -->
+<!-- 				  			   SP.SHARING_PRICE AS SP_SHARING_PRICE  -->
+<!-- 						  FROM PROD_WISH M, PROD P, -->
+<!-- 						  	   (SELECT PROD_CODE ,SHARING_PRICE,DEPOSIT FROM PROD_SHARING ) SHR, -->
+<!-- 						  	   ( SELECT PROD_IMG_URL,PROD_CODE FROM PROD_IMG WHERE PROD_IMG_GB_CD = '11') IMG, -->
+<!-- 						  	   ( SELECT PROD_CODE, MIN(SHARING_PRICE) AS SHARING_PRICE  FROM SP_PROD_DTL GROUP BY PROD_CODE ) SP, -->
+<!-- 						  	    ( SELECT PROD_IMG_URL,PROD_CODE FROM SP_IMAGE WHERE SP_IMG_GB_CD = '11') SPIMG -->
+<!-- 						 WHERE M.PROD_CODE 	= P.PROD_CODE(+) -->
+<!-- 						   AND P.PROD_CODE 	= SHR.PROD_CODE(+) -->
+<!-- 						   AND P.PROD_CODE 	= IMG.PROD_CODE(+) -->
+<!-- 						   AND P.PROD_CODE  = SP.PROD_CODE(+) -->
+<!-- 						   AND M.MBER_SEQ 	=  <![CDATA[#{MBER_SEQ}]]> -->
+<!-- 						   AND M.WISH_SEQ 	=  <![CDATA[#{WISH_SEQ}]]> -->
+<!-- 						 ORDER BY M.UPDT_DT DESC,M.REG_SEQ DESC -->
+				) MM
+			) 		 
+		WHERE RN <![CDATA[>]]> <![CDATA[#{FIRST_SEQ}]]>
+		  AND RN <![CDATA[<=]]> <![CDATA[#{LAST_SEQ}]]>
+	</select>
+	<!-- 위시리스트 상세 개별 삭제 -->
+	<delete id="deleteMyWishProd" parameterType="HashMap">
+      DELETE FROM  PROD_WISH
+       WHERE REG_SEQ = <![CDATA[#{REG_SEQ}]]>
+		 AND MBER_SEQ = <![CDATA[#{MBER_SEQ}]]>
+		 AND WISH_SEQ = <![CDATA[#{WISH_SEQ}]]>
+  	</delete>
+  	<!-- 위시리스트 상세 전체 삭제 -->
+	<delete id="deleteMyWishProdAll" parameterType="HashMap">
+      DELETE FROM  PROD_WISH
+       WHERE MBER_SEQ = <![CDATA[#{MBER_SEQ}]]>
+         AND WISH_SEQ = <![CDATA[#{WISH_SEQ}]]>
+  	</delete>
+  	
+  	<!-- 페이징을 위한 위시 카테고리 개수 조회 -->
+  	<select id="selectCountWishCtry" parameterType="int" resultType="int">
+		SELECT COUNT(*)
+		FROM WISH_CATE
+		WHERE MBER_SEQ = #{mberSeq}
+  	</select>
+  	
+  	<!--  중복 체크를 위한 위키 카테고리 개수 조회 -->
+  	<select id="selectCountWishCtryByWishName" parameterType="hashmap" resultType="int">
+		SELECT COUNT(*)
+		FROM WISH_CATE
+		WHERE MBER_SEQ = #{MBER_SEQ}
+			AND WISH_NAME = #{WISH_NAME}
+  	</select>
+  	
+	<!-- 로그인 한 사용자의 위시 카테고리 목록 -->
+	<select id="selectListWishCtry" parameterType="hashmap" resultType="hashmap">
+		SELECT WISH_SEQ
+		    , WISH_NAME
+		FROM (
+		    SELECT ROWNUM   AS RNUM
+		        , WISH_SEQ  AS WISH_SEQ
+		        , WISH_NAME AS WISH_NAME
+		    FROM WISH_CATE
+		    WHERE MBER_SEQ = #{MBER_SEQ}
+		    ORDER BY WISH_SEQ DESC
+		) X
+		WHERE X.RNUM <![CDATA[>=]]> #{S_NUM}
+		    AND X.RNUM <![CDATA[<=]]> #{E_NUM}
+	</select>
+	
+	<!-- 로그인 한 사용자의 위시 카테고리의 상품 중복 체크 -->
+	<select id="selectWishRegSeq" parameterType="hashmap" resultType="int">
+		SELECT COUNT(REG_SEQ) 
+		FROM PROD_WISH 
+		WHERE MBER_SEQ = #{MBER_SEQ} 
+			AND PROD_CODE = #{PROD_CODE}
+			AND WISH_SEQ = #{WISH_SEQ}
+	</select>
+	
+	<!-- 위시 카테고리 등록 -->
+	<insert id="insertWishCtry" parameterType="hashmap" useGeneratedKeys="true" keyProperty="WISH_SEQ" keyColumn="WISH_SEQ">
+		INSERT INTO WISH_CATE(WISH_SEQ
+							, MBER_SEQ
+							, WISH_NAME
+							, REGIST_DT)
+		VALUES( SEQ_WISH_CATE.NEXTVAL
+			, #{MBER_SEQ}
+			, #{WISH_NAME}
+			, SYSDATE)
+	</insert>
+	
+	<!-- 위시 등록 -->
+	<insert id="insertWish" parameterType="hashmap">
+		INSERT INTO PROD_WISH(REG_SEQ
+							, MBER_SEQ
+							, WISH_SEQ
+							, PROD_CODE
+							, REGIST_DT
+							, UPDT_DT)
+		VALUES( SEQ_PROD_WISH.NEXTVAL
+				, #{MBER_SEQ}
+				, #{WISH_SEQ}
+				, #{PROD_CODE}
+				, SYSDATE
+				, SYSDATE)
+	</insert>  	
+	
+	<!-- 등록전 이름체크 , 이름수정전 이름체크 -->
+	<select id="nameAllCheckMyWish" parameterType="hashmap" resultType="int">
+		SELECT COUNT(WISH_NAME) 
+		  FROM WISH_CATE 
+		 WHERE MBER_SEQ = #{MBER_SEQ} 
+		   AND WISH_NAME = #{WISH_NAME}
+	</select>
+	
+</mapper>

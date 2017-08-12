@@ -1,0 +1,164 @@
+package com.ssocio.sharing.cmmn.util;
+
+import java.io.File;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.regex.Pattern;
+
+import org.json.simple.JSONArray;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.lambdaworks.redis.RedisClient;
+import com.lambdaworks.redis.RedisConnection;
+import com.lambdaworks.redis.RedisKeysConnection;
+import com.lambdaworks.redis.RedisURI;
+
+import net.sf.json.JSONException;
+import net.sf.json.JSONObject;
+
+public class Redis {
+
+	private static final Logger logger = LoggerFactory.getLogger(Redis.class);
+
+	public final static String REDIS_URL0 = "was0";
+	public final static String REDIS_URL1 = "was1";
+	public final static String REDIS_URL2 = "was2";
+	public final static String REDIS_URL_LOCAL = "127.0.0.1";
+	public final static String REDIS_PORT1 = "6379";
+	public final static String REDIS_PORT2 = "6379";
+	public final static String REDIS_PORT3 = "6379";
+	public final static String REDIS_PORT_LOCAL = "6379";
+	public final static String[] REDIS_URL_ARRAY = { REDIS_URL_LOCAL, REDIS_URL0, REDIS_URL1, REDIS_URL2 };
+	public final static String[] REDIS_PORT_ARRAY = { REDIS_PORT_LOCAL, REDIS_PORT1, REDIS_PORT2, REDIS_PORT3 };
+	
+//	public final static String[] REDIS_URL_ARRAY = { REDIS_URL_LOCAL, REDIS_URL0};
+//	public final static String[] REDIS_PORT_ARRAY = { REDIS_PORT_LOCAL, REDIS_PORT1};
+	
+	private static HashMap<String, RedisConnection<String, String>> ssocioRedisClientMap;
+
+	private static Redis redis;
+	
+//	dev? stg? vip? prod?
+	public final String REDIS_HOST_DIR = System.getProperty("user.dir");
+	public final String REDIS_HOST_PATTERN = Pattern.quote(File.separator);
+	public final String[] REDIS_HOST_SPLIT = REDIS_HOST_DIR.split(REDIS_HOST_PATTERN);
+	private String REDIS_HOST_SPLIT_PK = "";
+	
+	
+	public Redis() {
+
+	}
+	
+	public String getREDIS_HOST_SPLIT_PK() {
+		return REDIS_HOST_SPLIT_PK;
+	}
+
+	public void setREDIS_HOST_SPLIT_PK(String rEDIS_HOST_SPLIT_PK) {
+		
+		if (rEDIS_HOST_SPLIT_PK.toLowerCase().indexOf("dev") >= 0) {
+			REDIS_HOST_SPLIT_PK = "DEV_";
+		} else if (rEDIS_HOST_SPLIT_PK.toLowerCase().indexOf("stg") >= 0) {
+			REDIS_HOST_SPLIT_PK = "STG_";
+//		} else if (rEDIS_HOST_SPLIT_PK.toLowerCase().indexOf("vip") >= 0) {
+//			REDIS_HOST_SPLIT_PK = "VIP_";
+		} else {
+			REDIS_HOST_SPLIT_PK = "PROD_";
+		}
+	}
+
+	public synchronized static Redis getInstance() {
+		
+		if (redis == null) {
+			redis = new Redis();
+		}
+		
+		if (ssocioRedisClientMap == null || ssocioRedisClientMap.isEmpty() ) {
+			
+			ssocioRedisClientMap = new HashMap<String, RedisConnection<String, String>>();
+			for (int i = 0; i < REDIS_URL_ARRAY.length; i++) {
+				String url = REDIS_URL_ARRAY[i];
+				String port = "";
+				try {
+					port = REDIS_PORT_ARRAY[i];
+				} catch (Exception e) {
+					port = "6379";
+				}
+
+				String password = "";
+
+				String redisConnectionString = String.format("redis://%s@%s:%s", password, url, port);
+				logger.info("[redis] redisConnectionString : " + redisConnectionString);
+
+				try {
+					RedisClient redisClient = new RedisClient(RedisURI.create(redisConnectionString));
+					RedisConnection<String, String> connection = redisClient.connect();
+					ssocioRedisClientMap.put(String.valueOf(i), connection);
+				} catch( Exception e ) {
+					// return null;
+				}
+			}
+		} 
+		
+		return redis;
+	}
+	
+	public HashMap<String, RedisConnection<String, String>> getRedisClients() {
+		return ssocioRedisClientMap;
+	}
+	
+	public RedisConnection<String, String> getRedisClient(String cnt) {
+		if ( ssocioRedisClientMap.get(cnt) == null || !ssocioRedisClientMap.get(cnt).isOpen() ) {
+			try {
+				String password = "";
+				String redisConnectionString = String.format("redis://%s@%s:%s", password, REDIS_URL_ARRAY[Integer.parseInt(cnt)], REDIS_PORT_ARRAY[Integer.parseInt(cnt)]);
+				RedisClient redisClient = new RedisClient(RedisURI.create(redisConnectionString));
+				RedisConnection<String, String> connection = redisClient.connect();
+				ssocioRedisClientMap.put(cnt, connection);
+			} catch( Exception e ) {
+				return null;
+			}
+		}
+		return ssocioRedisClientMap.get(cnt);
+	}
+	
+	public static Map<String, Object> ssocioToMap(JSONObject object) throws JSONException {
+	    Map<String, Object> map = new HashMap<String, Object>();
+
+	    Iterator<String> keysItr = object.keys();
+	    while(keysItr.hasNext()) {
+	        String key = keysItr.next();
+	        Object value = object.get(key);
+
+	        if(value instanceof JSONArray) {
+	            value = ssocioToList((JSONArray) value);
+	        }
+
+	        else if(value instanceof JSONObject) {
+	            value = ssocioToMap((JSONObject) value);
+	        }
+	        map.put(key, value);
+	    }
+	    return map;
+	}
+
+	public static List<Object> ssocioToList(JSONArray array) throws JSONException {
+	    List<Object> list = new ArrayList<Object>();
+	    for(int i = 0; i < array.size(); i++) {
+	        Object value = array.get(i);
+	        if(value instanceof JSONArray) {
+	            value = ssocioToList((JSONArray) value);
+	        }
+
+	        else if(value instanceof JSONObject) {
+	            value = ssocioToMap((JSONObject) value);
+	        }
+	        list.add(value);
+	    }
+	    return list;
+	}
+
+}

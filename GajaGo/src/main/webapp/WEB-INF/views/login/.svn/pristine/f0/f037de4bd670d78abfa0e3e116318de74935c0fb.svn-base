@@ -1,0 +1,225 @@
+package com.ssocio.sharing.service.admin;
+
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Map;
+
+import javax.annotation.Resource;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpSession;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.ui.ModelMap;
+
+import com.ssocio.sharing.cmmn.admin.util.CommonUtil;
+import com.ssocio.sharing.cmmn.util.CmmnCnst;
+import com.ssocio.sharing.cmmn.util.LoggerUtil;
+import com.ssocio.sharing.cmmn.util.StringUtil;
+import com.ssocio.sharing.dao.admin.AdminPolicyDao;
+import com.ssocio.sharing.vo.admin.AdminSession;
+import com.ssocio.sharing.vo.admin.PageNavigation;
+
+/**
+ * <pre>
+ * 공통 서비스
+ * 공통 서비스
+ * @author J.K.CHOI
+ * @version
+ * @since 2015. 7. 31. 오후 7:33:23
+ * @see
+ * @History
+ * Date			|	author	| 변경 내용
+ * 2015. 7. 31.	|	J.K.CHOI	|신규
+ * @비고
+ * </pre>
+ */
+@Service
+public class AdminPolicyServiceImpl extends AdminReferServiceImpl implements AdminPolicyService {
+
+	// --------------------------------------------------------------------------
+	// # Log 설정
+	// --------------------------------------------------------------------------
+	private static final Logger logger = LoggerFactory.getLogger(AdminPolicyServiceImpl.class);
+	
+	// --------------------------------------------------------------------------
+	// # DAO 설정
+	// --------------------------------------------------------------------------
+	@Resource(name="adminPolicyDao")
+	private AdminPolicyDao adminPolicyDao;
+	
+	/**
+	 * <pre>
+	 * 게시글관리 리스트 조회
+	 * 
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 31. 오후 2:03:43
+	 * @author J.K.CHOI
+	 * @see @see com.ssocio.sharing.service.admin.AdminPolicyService#selectListPolicy(java.util.Map)
+	 * @비고
+	 * 
+	 * </pre>
+	 */
+	@Override
+	public ModelMap selectListPolicy(Map<String, Object> inParam) throws Exception{
+		ModelMap mm = new ModelMap();
+		try {
+			//조회조건 기간 처리 start
+			String today = StringUtil.getCurrentDate();
+			inParam.put("S_END_DATE", StringUtil.nvl((String)inParam.get("S_END_DATE"), today));
+			
+			SimpleDateFormat format = new SimpleDateFormat("yyyyMMdd");
+			Calendar cal = Calendar.getInstance();
+			cal.add(Calendar.DATE, -7);
+			inParam.put("S_START_DATE", StringUtil.nvl((String)inParam.get("S_START_DATE"), format.format(cal.getTime())));
+			
+			inParam.put("dateFlag", StringUtil.nvl((String)inParam.get("dateFlag"), "10"));
+			//조회조건 기간 처리 end
+			
+			LoggerUtil.writeMap(inParam);
+			inParam.put("PAGE_NO", StringUtil.nvl((String)inParam.get("PAGE_NO"), "1"));
+			int nowPage = StringUtil.nvlInt((String)inParam.get("PAGE_NO"), 1);
+			int rowCnt	= StringUtil.nvlInt((String)inParam.get("DISPLAY_CNT"), CmmnCnst.ADM_LIST_SIZE);
+			int rowTotal = adminPolicyDao.selectListPolicyCount(inParam);
+			PageNavigation pageNav= new PageNavigation(nowPage, rowTotal, rowCnt, CmmnCnst.ADM_BLOCK_SIZE );
+			mm.put("PAGE_NO", nowPage);
+			mm.put("pageNav", pageNav);
+		    inParam.put("START_ROW"	,pageNav.getStartRow());
+		    inParam.put("END_ROW"	,pageNav.getEndRow());
+		    
+		    String[] arryKey = {"CONTENTS"};
+			mm.put("selectListPolicy", CommonUtil.clobToString(adminPolicyDao.selectListPolicy(inParam), arryKey));	//리스트 조회
+			logger.debug(mm.toString());
+			//mm.put("params", inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+	
+	/**
+	 * <pre>
+	 * 게시글관리 상세 조회
+	 * 
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 31. 오후 4:24:44
+	 * @author J.K.CHOI
+	 * @see @see com.ssocio.sharing.service.admin.AdminPolicyService#selectPolicy(java.util.Map)
+	 * @비고
+	 * 
+	 * </pre>
+	 */
+	@Override
+	public ModelMap selectPolicy(Map<String, Object> inParam) throws Exception{
+		ModelMap mm = new ModelMap();
+		try {
+			String[] arryKey = {"CONTENTS"};
+			mm.put("selectPolicy", CommonUtil.clobToString(adminPolicyDao.selectPolicy(inParam), arryKey));
+			inParam.put("rowNum", "");
+			mm.put("selectListPolicyStat",adminPolicyDao.selectListPolicyStat(inParam));
+			inParam.put("rowNum", "1");	//최상위 row 추출을 위한 구분자
+			mm.put("selectPolicyStat",adminPolicyDao.selectPolicyStat(inParam));
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+	
+	/**
+	 * <pre>
+	 * 게시글관리 등록
+	 * 
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 31. 오후 3:21:24
+	 * @author J.K.CHOI
+	 * @see @see com.ssocio.sharing.service.admin.AdminPolicyService#insertPolicyReg(java.util.Map)
+	 * @비고
+	 * 
+	 * </pre>
+	 */
+	@Override
+	public int insertPolicyReg(Map<String, Object> inParam, HttpServletRequest request) throws Exception {
+		int outParam = 0;
+		try {
+			HttpSession session = request.getSession();
+			AdminSession sessionVO = (AdminSession)session.getAttribute("manager");
+			inParam.put("ADM_ID", sessionVO.getADM_ID());
+			inParam.put("ADM_NM", sessionVO.getADM_NM());
+			LoggerUtil.writeMap(inParam);
+			outParam = adminPolicyDao.insertPolicyReg(inParam);					//게시글관리 등록
+					  adminPolicyDao.updateBanPolicyReg(inParam);
+		}catch (Exception e) {
+			throw e;
+		}
+		return outParam;
+	}
+	
+	/**
+	 * <pre>
+	 * 게시글관리 수정
+	 * 
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 31. 오후 3:33:26
+	 * @author J.K.CHOI
+	 * @see @see com.ssocio.sharing.service.admin.AdminPolicyService#updatePolicyReg(java.util.Map)
+	 * @비고
+	 * 
+	 * </pre>
+	 */
+	@Override
+	public int updatePolicyReg(Map<String, Object> inParam, HttpServletRequest request) throws Exception {
+		int outParam = 0;
+		try {
+			HttpSession session = request.getSession();
+			AdminSession sessionVO = (AdminSession)session.getAttribute("manager");
+			inParam.put("WRITE_ID", sessionVO.getADM_ID());
+			inParam.put("WRITE_NM", sessionVO.getADM_NM());
+			LoggerUtil.writeMap(inParam);
+			outParam = adminPolicyDao.updatePolicyReg(inParam);		//게시글관리 수정
+		}catch (Exception e) {
+			throw e;
+		}
+		return outParam;
+	}
+	
+	
+	/**
+	 * <pre>
+	 * 게시글관리 삭제
+	 * 
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 31. 오후 3:21:24
+	 * @author J.K.CHOI
+	 * @see @see com.ssocio.sharing.service.admin.AdminPolicyService#insertPolicyReg(java.util.Map)
+	 * @비고
+	 * 
+	 * </pre>
+	 */
+	@Override
+	public int deletePolicy(Map<String, Object> inParam) throws Exception {
+		int outParam = 0;
+		try {
+			outParam = adminPolicyDao.deletePolicy(inParam);					//게시글관리 삭제
+			
+		}catch (Exception e) {
+			throw e;
+		}
+		return outParam;
+	}
+}

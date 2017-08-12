@@ -1,0 +1,484 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="adminEvtMapper">
+
+	<select id="selectEvtInfoSeq" resultType="String">
+    	SELECT TO_CHAR(SYSDATE, 'YYYYMMDD')||LPAD(SEQ_EVT_INFO.NEXTVAL,8,0) AS EVT_GRP_CD	
+    	FROM DUAL
+   	 </select>
+   	 
+   	 <select id="selectEvtImgSeq" resultType="String">
+    	SELECT TO_CHAR(SYSDATE, 'YYYYMMDD')||LPAD(SEQ_EVT_IMG.NEXTVAL,8,0) AS EVT_IMG_SEQ	
+    	FROM DUAL
+   	 </select>
+
+	
+	 <insert id="insertEvtInfo" parameterType="hashmap">
+        
+    	INSERT INTO EVT_INFO
+		(
+			EVT_GRP_CD, REGIST_DT, UPDT_DT, EVT_GB_CD, EVT_NM
+			,EVT_START_DT, EVT_END_DT, EXPOSURE_YN, EVT_STATE_YN ,DISPLAY_START_DT
+			,DISPLAY_END_DT, PC_COMMENT, MOBILE_COMMENT, PC_PROD_CHK
+		)
+		VALUES
+		(
+			#{evtGrpCd}, SYSDATE , NULL , #{evtGbCd} , #{evtNm}
+			,TO_DATE(#{evtStartDt}  ,'YYYYMMDD'), TO_DATE(#{evtEndDt}||' 23:59:59'  ,'YYYYMMDD HH24:MI:SS'), #{exposureYn} ,#{evtStateYn} , TO_DATE(#{displayStartDt}  ,'YYYYMMDD')
+			,TO_DATE(#{displayEndDt}||' 23:59:59'  ,'YYYYMMDD HH24:MI:SS'), #{pcComment} , #{mobileComment} , #{pcProdChk}
+		)
+
+    </insert>
+    
+    
+     <insert id="insertEvtImg" parameterType="hashmap">
+        
+    	INSERT INTO EVT_IMG
+		(
+			EVT_IMG_SEQ, EVT_GRP_CD, REGIST_DT, UPDT_DT
+			,EVT_IMG_URL_PC, EVT_IMG_URL_MOBILE
+		)
+		VALUES
+		(
+			#{evtImgSeq}, #{evtGrpCd} , SYSDATE , NULL
+			, #{evtImgUrlPc} , #{evtImgUrlMobile}
+		)
+
+    </insert>
+    
+    
+    <select id="selectEvtCount" parameterType="hashmap" resultType="int">
+	 
+	 	SELECT COUNT(1)
+		FROM (
+			SELECT EVT_GRP_CD
+		        ,(SELECT CD.COM_CD_NM FROM CODE CD WHERE CD.GRP_CD = 'EVT_GB_CD' AND COM_CD = EVT_GB_CD) AS EVT_GB_CD_NM		      
+		        ,REGIST_DT 
+		        ,UPDT_DT
+		        ,EVT_GB_CD
+		        ,EVT_NM		      
+		        , EVT_START_DT  
+		        , EVT_END_DT  
+		        ,EXPOSURE_YN
+		        ,DECODE (EXPOSURE_YN , 'Y' , '노출' , '미노출') AS EXPOSURE_YN_NM		        
+		        , DECODE(EVT_STATE_YN , 'Y' , '40' ,
+		              CASE
+		                WHEN TO_CHAR(SYSDATE, 'YYYYMMDD') <![CDATA[<]]> TO_CHAR(EVT_START_DT, 'YYYYMMDD') THEN '10'
+		                WHEN TO_CHAR(SYSDATE, 'YYYYMMDD') <![CDATA[>]]> TO_CHAR(EVT_END_DT, 'YYYYMMDD') THEN '30'
+		                ELSE    '20'
+		                END 
+		           ) AS EVT_STATE_YN     
+		    FROM EVT_INFO 
+		)A
+		<where>
+	    	1=1
+			<if test='dateChk == "A"'>
+			  AND TO_CHAR(REGIST_DT, 'YYYYMMDD') BETWEEN #{S_START_DATE} AND #{S_END_DATE}
+			</if>	
+			<if test='dateChk == "B"'>
+			  AND TO_CHAR(EVT_START_DT, 'YYYYMMDD') BETWEEN #{S_START_DATE} AND #{S_END_DATE}
+			</if>	
+			<if test='dateChk == "C"'>
+			  AND TO_CHAR(EVT_END_DT, 'YYYYMMDD') BETWEEN #{S_START_DATE} AND #{S_END_DATE}
+			</if>
+			<if test="evtNm != null and evtNm != ''">
+			  AND EVT_NM LIKE '%' || #{evtNm} || '%'
+			</if>	
+			<if test="evtGbCd != null and evtGbCd != ''">
+			  AND EVT_GB_CD IN
+			  <foreach collection="evtGbCd" item="cd" open="(" close=")" separator=",">
+			    #{cd}
+			  </foreach>
+			</if>	
+			<if test="exposureYn != null and exposureYn != ''">
+			  AND EXPOSURE_YN IN
+			  <foreach collection="exposureYn" item="cd" open="(" close=")" separator=",">
+			    #{cd}
+			  </foreach>
+			</if>	
+			<if test="evtStateYn != null and evtStateYn != ''">
+			  AND EVT_STATE_YN IN
+			  <foreach collection="evtStateYn" item="cd" open="(" close=")" separator=",">
+			   #{cd}
+			  </foreach>
+			</if>	
+		</where>
+	 
+	 </select>
+	 
+	 
+	 <select id="selectEvt" parameterType="hashmap" resultType="hashmap">
+		 <include refid="adminCommonMapper.pagingHeader" />
+	 
+		 SELECT EVT_GRP_CD 
+		      ,EVT_GB_CD_NM
+		      ,TO_CHAR(REGIST_DT, 'YYYY-MM-DD HH24:MI') AS REGIST_DT 
+		      ,UPDT_DT
+		      ,EVT_GB_CD
+		      ,EVT_NM
+		      , TO_CHAR(EVT_START_DT, 'YYYY-MM-DD') AS EVT_START_DT  
+		      , TO_CHAR(EVT_END_DT, 'YYYY-MM-DD') AS EVT_END_DT  
+		      ,EXPOSURE_YN
+		      ,EXPOSURE_YN_NM
+		      , ROW_NUMBER() OVER(ORDER BY REGIST_DT DESC ) AS NO
+		      ,EVT_STATE_YN
+		FROM(
+		    SELECT EVT_GRP_CD
+		        ,(SELECT CD.COM_CD_NM FROM CODE CD WHERE CD.GRP_CD = 'EVT_GB_CD' AND COM_CD = EVT_GB_CD) AS EVT_GB_CD_NM		      
+		        ,REGIST_DT 
+		        ,UPDT_DT
+		        ,EVT_GB_CD
+		        ,EVT_NM		      
+		        ,EVT_START_DT  
+		        ,EVT_END_DT  
+		        ,EXPOSURE_YN
+		        ,DECODE (EXPOSURE_YN , 'Y' , '노출' , '미노출') AS EXPOSURE_YN_NM		        
+		        , DECODE(EVT_STATE_YN , 'Y' , '40' ,
+		              CASE
+		                WHEN TO_CHAR(SYSDATE, 'YYYYMMDD') <![CDATA[<]]> TO_CHAR(EVT_START_DT, 'YYYYMMDD') THEN '10'
+		                WHEN TO_CHAR(SYSDATE, 'YYYYMMDD') <![CDATA[>]]> TO_CHAR(EVT_END_DT, 'YYYYMMDD') THEN '30'
+		                ELSE    '20'
+		                END 
+		           ) AS EVT_STATE_YN     
+		    FROM EVT_INFO 
+		)  A
+		<where>
+	    	1=1
+			<if test='dateChk == "A"'>
+			  AND TO_CHAR(REGIST_DT, 'YYYYMMDD') BETWEEN #{S_START_DATE} AND #{S_END_DATE}
+			</if>	
+			<if test='dateChk == "B"'>
+			  AND TO_CHAR(EVT_START_DT, 'YYYYMMDD') BETWEEN #{S_START_DATE} AND #{S_END_DATE}
+			</if>	
+			<if test='dateChk == "C"'>
+			  AND TO_CHAR(EVT_END_DT, 'YYYYMMDD') BETWEEN #{S_START_DATE} AND #{S_END_DATE}
+			</if>
+			<if test="evtNm != null and evtNm != ''">
+			  AND EVT_NM LIKE '%' || #{evtNm} || '%'
+			</if>	
+			<if test="evtGbCd != null and evtGbCd != ''">
+			  AND EVT_GB_CD IN
+			  <foreach collection="evtGbCd" item="cd" open="(" close=")" separator=",">
+			    #{cd}
+			  </foreach>
+			</if>	
+			<if test="exposureYn != null and exposureYn != ''">
+			  AND EXPOSURE_YN IN
+			  <foreach collection="exposureYn" item="cd" open="(" close=")" separator=",">
+			    #{cd}
+			  </foreach>
+			</if>	
+			<if test="evtStateYn != null and evtStateYn != ''">
+			  AND EVT_STATE_YN IN
+			  <foreach collection="evtStateYn" item="cd" open="(" close=")" separator=",">
+			   #{cd}
+			  </foreach>
+			</if>	
+		</where>	
+		
+		<if test='dateChk == "A"'>
+		 ORDER BY REGIST_DT DESC
+		</if>
+		<if test='dateChk == "B"'>
+		 ORDER BY EVT_START_DT DESC
+		</if>
+		<if test='dateChk == "C"'>
+		 ORDER BY EVT_END_DT DESC
+		</if>
+	 
+		<include refid="adminCommonMapper.pagingFooter" />	  
+	</select> 
+	
+	
+	<select id="selectEvtDtl" parameterType="String" resultType="hashmap">
+	
+		SELECT ei.EVT_GRP_CD
+		      ,(SELECT CD.COM_CD_NM FROM CODE CD WHERE CD.GRP_CD = 'EVT_GB_CD' AND COM_CD = ei.EVT_GB_CD) AS EVT_GB_CD_NM		      
+		      ,TO_CHAR(ei.REGIST_DT, 'YYYY-MM-DD HH24:MI') AS REGIST_DT 
+		      ,TO_CHAR(ei.UPDT_DT, 'YYYY-MM-DD HH24:MI') AS UPDT_DT 		     
+		      ,ei.EVT_GB_CD
+		      ,ei.EVT_NM
+		      , TO_CHAR(EVT_START_DT, 'YYYY-MM-DD') AS EVT_START_DT  
+              , TO_CHAR(EVT_END_DT, 'YYYY-MM-DD') AS EVT_END_DT  
+              , TO_CHAR(DISPLAY_START_DT, 'YYYY-MM-DD') AS DISPLAY_START_DT  
+              , TO_CHAR(DISPLAY_END_DT, 'YYYY-MM-DD') AS DISPLAY_END_DT  		     
+		      ,ei.EXPOSURE_YN
+		      ,DECODE (ei.EXPOSURE_YN , 'Y' , '노출' , '미노출') AS EXPOSURE_YN_NM		    
+		      ,ei.PC_COMMENT
+		      ,ei.MOBILE_COMMENT   
+		      ,ei.PC_PROD_CHK     
+		      ,img.EVT_IMG_URL_PC
+		      ,img.EVT_IMG_URL_MOBILE
+		      ,(SELECT FILE_TITLE FROM FILE_INFO WHERE FILE_SEQ = img.EVT_IMG_URL_PC) AS PC_TITLE
+		      ,(SELECT FILE_TITLE FROM FILE_INFO WHERE FILE_SEQ = img.EVT_IMG_URL_MOBILE) AS MOBILE_TITLE
+		      ,(SELECT FILE_PATH FROM FILE_INFO WHERE FILE_SEQ = img.EVT_IMG_URL_PC) AS PC_PATH
+		      ,(SELECT FILE_PATH FROM FILE_INFO WHERE FILE_SEQ = img.EVT_IMG_URL_MOBILE) AS MOBILE_PATH
+		      ,(SELECT FILE_URL FROM FILE_INFO WHERE FILE_SEQ = img.EVT_IMG_URL_PC) AS PC_URL
+		      ,(SELECT FILE_URL FROM FILE_INFO WHERE FILE_SEQ = img.EVT_IMG_URL_MOBILE) AS MOBILE_URL
+		      ,(SELECT COUNT(1) FROM EVT_MBER_INFO em WHERE ei.EVT_GRP_CD = em.EVT_GRP_CD AND PRIZE_YN = 'N') AS JOIN_CNT
+		      ,(SELECT COUNT(1) FROM EVT_MBER_INFO em WHERE ei.EVT_GRP_CD = em.EVT_GRP_CD AND PRIZE_YN = 'Y') AS WIN_CNT
+		      , DECODE(ei.EVT_STATE_YN , 'Y' , '40' ,
+		              CASE
+		                WHEN TO_CHAR(SYSDATE, 'YYYYMMDD') <![CDATA[<]]> TO_CHAR(EVT_START_DT, 'YYYYMMDD') THEN '10'
+		                WHEN TO_CHAR(SYSDATE, 'YYYYMMDD') <![CDATA[>]]> TO_CHAR(EVT_END_DT, 'YYYYMMDD') THEN '30'
+		                ELSE    '20'
+		                END 
+		           ) AS EVT_STATE_YN  
+		FROM EVT_INFO ei , EVT_IMG img 
+		WHERE ei.EVT_GRP_CD = #{evtGrpCd}
+		AND ei.EVT_GRP_CD = img.EVT_GRP_CD(+)
+	
+	</select>
+    
+    <update id="updateEvtJoinMber" parameterType="hashmap" >
+    
+    	UPDATE EVT_MBER_INFO SET
+				PRIZE_YN = 'Y'
+				,UPDT_DT = SYSDATE		
+				,WIN_DT = SYSDATE 
+		WHERE EVT_GRP_CD = #{evtGrpCd}
+		<if test="mberSeq != null and mberSeq != ''">
+		  AND MBER_SEQ IN
+	 	 <foreach collection="mberSeq" item="cd" open="(" close=")" separator=",">
+		   #{cd}
+		  </foreach>
+		</if>
+    
+    </update>
+    
+    <update id="updateEvtWinMber" parameterType="hashmap" >
+    
+    	UPDATE EVT_MBER_INFO SET
+				PRIZE_YN = 'N'
+				,UPDT_DT = SYSDATE		
+				,WIN_DT = null 
+		WHERE EVT_GRP_CD = #{evtGrpCd}
+		<if test="mberSeq != null and mberSeq != ''">
+		  AND MBER_SEQ IN
+	 	 <foreach collection="mberSeq" item="cd" open="(" close=")" separator=",">
+		   #{cd}
+		  </foreach>
+		</if>
+    
+    </update>
+    
+    
+   
+    
+    
+    <select id="selectEvtJoinMber" parameterType="hashmap" resultType="hashmap">
+    
+    	<include refid="adminCommonMapper.pagingHeader" />
+   	 
+   	 	SELECT TO_CHAR(A.REGIST_DT, 'YYYY-MM-DD HH24:MI') AS REGIST_DT 
+		      ,B.MBER_EMAIL
+		      ,B.MBER_SEQ
+		      ,B.MBER_GB_CD
+		      ,(SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'MBER_GB_CD' AND COM_CD = B.MBER_GB_CD) AS MBER_GB_CD_NM
+		      ,B.MBER_REG_GB_CD
+		      ,(SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'MBER_REG_GB_CD' AND COM_CD = B.MBER_REG_GB_CD) AS MBER_REG_GB_CD_NM
+		      ,ROW_NUMBER() OVER(ORDER BY A.REGIST_DT DESC ) AS NO 
+		FROM EVT_MBER_INFO A, MBER_INFO B		
+		<where>
+	  	1=1
+	  	AND EVT_GRP_CD =  #{evtGrpCd}
+	  	AND A.MBER_SEQ = B.MBER_SEQ
+	  	AND A.PRIZE_YN = 'N'
+	    <if test="S_START_DATE != null and S_START_DATE != ''">
+	  	  <if test="S_END_DATE != null and S_END_DATE != ''">
+	  	    AND TO_CHAR(A.REGIST_DT, 'YYYYMMDD') BETWEEN #{S_START_DATE} AND #{S_END_DATE}
+	  	  </if>
+	  	</if>	
+		<if test="mberEmail != null and mberEmail != ''">
+		  AND B.MBER_EMAIL LIKE '%' || #{mberEmail} || '%'
+		</if>	
+		<if test="mberGbCd != null and mberGbCd != ''">
+		  AND B.MBER_GB_CD IN
+		  <foreach collection="mberGbCd" item="cd" open="(" close=")" separator=",">
+		    #{cd}
+		  </foreach>
+		</if>	
+		<if test="mberRegGbCd != null and mberRegGbCd != ''">
+		  AND B.MBER_REG_GB_CD IN
+		  <foreach collection="mberRegGbCd" item="cd" open="(" close=")" separator=",">
+		    #{cd}
+		  </foreach>
+		</if>	
+	    </where>
+	    
+	    ORDER BY A.REGIST_DT DESC
+	     
+	    <include refid="adminCommonMapper.pagingFooter" />
+	    
+    </select>
+    
+    
+    <select id="selectEvtJoinMberCount" parameterType="hashmap" resultType="int">
+    	
+   	 	SELECT COUNT(1)
+		FROM EVT_MBER_INFO A, MBER_INFO B		
+		<where>
+	  	1=1
+	  	AND EVT_GRP_CD =  #{evtGrpCd}
+	  	AND A.MBER_SEQ = B.MBER_SEQ
+	  	AND A.PRIZE_YN = 'N'
+	  	<if test="S_START_DATE != null and S_START_DATE != ''">
+	  	  <if test="S_END_DATE != null and S_END_DATE != ''">
+	  	    AND TO_CHAR(A.REGIST_DT, 'YYYYMMDD') BETWEEN #{S_START_DATE} AND #{S_END_DATE}
+	  	  </if>
+	  	</if>	  	
+		<if test="mberEmail != null and mberEmail != ''">
+		  AND B.MBER_EMAIL LIKE '%' || #{mberEmail} || '%'
+		</if>	
+		<if test="mberGbCd != null and mberGbCd != ''">
+		  AND B.MBER_GB_CD IN
+		  <foreach collection="mberGbCd" item="cd" open="(" close=")" separator=",">
+		    #{cd}
+		  </foreach>
+		</if>	
+		<if test="mberRegGbCd != null and mberRegGbCd != ''">
+		  AND B.MBER_REG_GB_CD IN
+		  <foreach collection="mberRegGbCd" item="cd" open="(" close=")" separator=",">
+		    #{cd}
+		  </foreach>
+		</if>	
+	    </where>
+	    
+	   
+    </select>
+    
+    
+    <select id="selectEvtWinMber" parameterType="hashmap" resultType="hashmap">
+    
+    	<include refid="adminCommonMapper.pagingHeader" />
+   	 
+   	 	SELECT TO_CHAR(A.REGIST_DT, 'YYYY-MM-DD HH24:MI') AS REGIST_DT 
+   	 		  ,TO_CHAR(A.WIN_DT, 'YYYY-MM-DD HH24:MI') AS WIN_DT 
+		      ,B.MBER_EMAIL
+		      ,B.MBER_SEQ
+		      ,B.MBER_GB_CD
+		      ,(SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'MBER_GB_CD' AND COM_CD = B.MBER_GB_CD) AS MBER_GB_CD_NM
+		      ,B.MBER_REG_GB_CD
+		      ,(SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'MBER_REG_GB_CD' AND COM_CD = B.MBER_REG_GB_CD) AS MBER_REG_GB_CD_NM
+		      ,ROW_NUMBER() OVER(ORDER BY A.REGIST_DT DESC ) AS NO 
+		FROM EVT_MBER_INFO A, MBER_INFO B		
+		<where>
+	  	1=1
+	  	AND EVT_GRP_CD =  #{evtGrpCd}
+	  	AND A.MBER_SEQ = B.MBER_SEQ
+	  	AND A.PRIZE_YN = 'Y'
+	  	<if test='dateChk == "A"'>
+		  AND TO_CHAR(A.REGIST_DT, 'YYYYMMDD') BETWEEN #{S_START_DATE} AND #{S_END_DATE}
+		</if>	
+		<if test='dateChk == "B"'>
+		  AND TO_CHAR(A.WIN_DT, 'YYYYMMDD') BETWEEN #{S_START_DATE} AND #{S_END_DATE}
+		</if>	  		   
+		<if test="mberEmail != null and mberEmail != ''">
+		  AND B.MBER_EMAIL LIKE '%' || #{mberEmail} || '%'
+		</if>	
+		<if test="mberGbCd != null and mberGbCd != ''">
+		  AND B.MBER_GB_CD IN
+		  <foreach collection="mberGbCd" item="cd" open="(" close=")" separator=",">
+		    #{cd}
+		  </foreach>
+		</if>	
+		<if test="mberRegGbCd != null and mberRegGbCd != ''">
+		  AND B.MBER_REG_GB_CD IN
+		  <foreach collection="mberRegGbCd" item="cd" open="(" close=")" separator=",">
+		    #{cd}
+		  </foreach>
+		</if>	
+	    </where>
+	    
+	    ORDER BY A.REGIST_DT DESC
+	     
+	    <include refid="adminCommonMapper.pagingFooter" />
+	    
+    </select>
+    
+    
+    <select id="selectEvtWinMberCount" parameterType="hashmap" resultType="int">
+    	
+   	 	SELECT COUNT(1)
+		FROM EVT_MBER_INFO A, MBER_INFO B		
+		<where>
+	  	1=1
+	  	AND EVT_GRP_CD =  #{evtGrpCd}
+	  	AND A.MBER_SEQ = B.MBER_SEQ
+	  	AND A.PRIZE_YN = 'Y'
+	    <if test='dateChk == "A"'>
+		  AND TO_CHAR(A.REGIST_DT, 'YYYYMMDD') BETWEEN #{S_START_DATE} AND #{S_END_DATE}
+		</if>	
+		<if test='dateChk == "B"'>
+		  AND TO_CHAR(A.WIN_DT, 'YYYYMMDD') BETWEEN #{S_START_DATE} AND #{S_END_DATE}
+		</if>	
+		<if test="mberEmail != null and mberEmail != ''">
+		  AND B.MBER_EMAIL LIKE '%' || #{mberEmail} || '%'
+		</if>	
+		<if test="mberGbCd != null and mberGbCd != ''">
+		  AND B.MBER_GB_CD IN
+		  <foreach collection="mberGbCd" item="cd" open="(" close=")" separator=",">
+		    #{cd}
+		  </foreach>
+		</if>	
+		<if test="mberRegGbCd != null and mberRegGbCd != ''">
+		  AND B.MBER_REG_GB_CD IN
+		  <foreach collection="mberRegGbCd" item="cd" open="(" close=")" separator=",">
+		    #{cd}
+		  </foreach>
+		</if>	
+	    </where>
+	   
+    </select>
+    
+    <update id="updateEvt" parameterType="hashmap" >
+    
+    	UPDATE EVT_INFO SET
+		    EXPOSURE_YN = #{exposureYn}
+		    ,EVT_NM = #{evtNm}
+		    <if test="evtStartDt neq null and evtStartDt neq ''.toString()">
+		    ,EVT_START_DT= TO_DATE(#{evtStartDt}||' 000000'  ,'YYYYMMDD HH24MISS') 
+		    </if>
+		    <if test="evtEndDt neq null and evtEndDt neq ''.toString()">
+			,EVT_END_DT= TO_DATE(#{evtEndDt}||' 23:59:59'  ,'YYYYMMDD HH24:MI:SS')	
+		    </if>
+		    <if test="displayStartDt neq null and displayStartDt neq ''.toString()">
+			,DISPLAY_START_DT= TO_DATE(#{displayStartDt}||' 000000'  ,'YYYYMMDD HH24MISS') 
+		    </if>
+		    <if test="displayEndDt neq null and displayEndDt neq ''.toString()">
+			,DISPLAY_END_DT= TO_DATE(#{displayEndDt}||' 23:59:59'  ,'YYYYMMDD HH24:MI:SS') 
+		    </if>
+		    ,PC_PROD_CHK = #{pcProdChk}
+		    ,PC_COMMENT = #{pcComment}
+		    ,MOBILE_COMMENT = #{mobileComment}		   
+		    ,UPDT_DT = SYSDATE
+		WHERE EVT_GRP_CD = #{evtGrpCd}
+    
+    </update>
+    
+    
+    <update id="updateEvtImg" parameterType="hashmap" >
+    
+    	UPDATE EVT_IMG SET
+		    EVT_IMG_URL_PC = #{evtImgUrlPc}
+		    ,EVT_IMG_URL_MOBILE = #{evtImgUrlMobile}
+		    ,UPDT_DT = SYSDATE
+		WHERE EVT_GRP_CD = #{evtGrpCd}
+    
+    </update>
+    
+    
+    <update id="updateEvtState" parameterType="hashmap" >
+    
+    	UPDATE EVT_INFO SET
+		    EVT_STATE_YN = #{evtStateYn}	    
+		    ,UPDT_DT = SYSDATE
+		WHERE EVT_GRP_CD = #{evtGrpCd}
+    
+    </update>
+    
+    
+	 
+
+</mapper>

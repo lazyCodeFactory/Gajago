@@ -1,0 +1,428 @@
+<%
+	/*
+	 *	[구매회원용] 회원정보 정보조회
+	 */
+%>
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/web/common/cmmnHead.jsp"%>
+<title>SSOCIO</title>
+<script type="text/javascript">
+
+var baseImg = '<custom:codeTag code="DEFAULT_IMG_URL" groupCode="SITE_DEFAULT" />';
+var mberSeq = '${mberSeq}';
+var popupFrm = 'popup';
+	$(document).ready(function(){
+		console.log('${result.myInfoInfo}')
+
+		var bgUrl = '${result.myInfoInfo.MINI_BG_FILE_URL}';
+		var pfUrl = '${result.myInfoInfo.MINI_PROFILE_URL}';
+		if("" != pfUrl){
+			$("#imgView").attr("src",pfUrl)
+		}else{
+			$("#imgView").attr("src",baseImg)
+		}
+		if("" != bgUrl){
+			$("#imgView2").attr("src",bgUrl)
+		}else{
+			$("#imgView2").attr("src",baseImg)
+		}
+
+
+
+
+		$('.txt_limit').text('('+$('#miniShopNm').val().length+'/20)');
+		$('.txt_limit2').text('('+$('#miniShopPath').val().length+'/20)');
+
+		// 미니샵명 이벤트
+		$("#miniShopNm").keyup(function() {
+			$('.txt_limit').text('('+$('#miniShopNm').val().length+'/20)');
+
+			limitCharacters('miniShopNm',20,'charlimitid');
+		});
+
+		// 미니샵 패스 이벤트
+		$("#miniShopPath").keyup(function() {
+			$('.txt_limit2').text('('+$('#miniShopPath').val().length+'/20)');
+
+			var inputVal = $(this).val();
+			var firstInputVal = inputVal.substr(inputVal.length-1,inputVal.length);
+			var chkKorean = /[ㄱ-ㅎ|ㅏ-ㅣ|가-힣]/;
+			var chkEng = /[a-z]/;
+			var chkEngCha = /[A-Z]/;
+			var special =  /[~`!@#$%^*()_\-+|{}[\].?\/]/g;
+			var chkNum = /[0-9]/;
+			if( (!chkEng.test(firstInputVal))&&(!chkEngCha.test(firstInputVal))&&(!chkNum.test(firstInputVal)) ) {
+				$('#miniShopPath').val(inputVal.substr(0,inputVal.length-1));
+				$('#miniShopPath').focus();
+				return;
+			}else{
+				limitCharacters('miniShopPath',20,'charlimitid');
+			}
+		});
+
+	});
+
+
+	limitCharacters = function(textid, limit, limitid){
+		var text = $("#"+textid).val();
+		var textlength = text.length;
+		if(textlength > limit){
+			//$("#"+limitid).html("20자리까지 입력가능합니다.");
+			$("#"+textid).val(text.substr(0,limit));
+			return false;
+		}else{
+			return true;
+		}
+	};
+
+
+	function selectMiniShopCnt(){
+
+		var miniShopPath = $("#miniShopPath").val();
+		if(miniShopPath == ""){
+			alert('미니샵 이름을 입력 해 주세요.');
+			return false;
+		}
+		console.log(miniShopPath);
+		$.ajax({
+		      type: 'post'
+		      , async: true
+		      , url: '/seller/prodMgr/selectMiniShopCnt.do'
+		      , dataType:'json'
+		      , data: {"miniShopPath":miniShopPath}
+		      , before: function() {
+// 			        loadingForm.showDialog();
+			      }
+		      , success: function(data) {
+		    	  console.log(data);
+		    	  if(data.cnt > 0){
+		    		  alert('이미 사용중인 주소 입니다.');
+		    	  }else{
+		    		  alert('사용할수 있는 미니샵 주소 입니다.');
+		    	  }
+		      }
+		      , complete: function() {
+// 			        loadingForm.hideDialog();
+			      }
+
+		      , error : function(request, status, error) {
+					alert("통신 오류가 발생 하였습니다. 잠시 후 다시 시도해 주세요");
+				}
+		    });
+	}
+
+	/* ======================================================================
+	Function : 판매 신용 점수
+	Return   : 없음
+	========================================================================= */
+	function sellCreditPopup(point){
+		popup('/seller/prodMgr/sellerCreditPopup.do?MBER_SEQ='+mberSeq+'&CPOINT='+point ,popupFrm,'1100','760');
+		return;
+	}
+
+	/* ======================================================================
+	Function : 판매자 신고이력 조회
+	Return   : 없음
+	========================================================================= */
+	function sellerReportHist(){
+		popup('/seller/prodMgr/suspectPopup.do?MBER_SEQ='+mberSeq ,popupFrm,'1100','760');
+		return;
+	}
+
+	/* ======================================================================
+	Function : 판매 경고 조회
+	Return   : 없음
+	========================================================================= */
+	function sellWarnHist(){
+		popup('/seller/prodMgr/sellWarningPopup.do?MBER_SEQ='+mberSeq ,popupFrm,'1100','760');
+		return;
+	}
+
+
+	function delImgView(path,img){
+		// imgView : 대표 이미지
+		// imgView2 : 배경이미지
+		if("imgView" == img){
+			if("" != $("#MINI_PROFILE_SEQ").val()){
+				$("#profChk").val("Del");
+			}
+		}
+		if("imgView2" == img){
+			if("" != $("#BG_FILE_SEQ").val()){
+				$("#bgChk").val("Del");
+			}
+		}
+
+		if(path != '' ){
+			$("#"+path).val('');
+		}
+
+		if(img != '' ){
+			$("#"+img).attr("src", baseImg);
+
+		}
+
+		return;
+	}
+
+	function updateMyminiInfo(){
+
+		if(confirm("변경하시겠습니까??")){
+			 var options = {
+					 url : "/seller/MyInfo/updateMyminiInfoReg.do",
+					 success: function(data){
+						 if(0 < data.cnt){
+							 alert("정상적으로 변경 되었습니다.");
+							 window.location.reload(true);
+						 }else{
+							 alert("변경 실패하였습니다.");
+						 }
+					 }
+			 };
+		    $("#frm").ajaxSubmit(options);
+		}
+
+
+	}
+</script>
+
+<div id="content">
+	<!-- top_content -->
+	<div class="top_content">
+		<!-- location -->
+		<div class="location">
+			<ul class="clear">
+				<li class="first-child"><a href="#">Home</a></li>
+				<li><a href="/seller/myInfo/getMyInfo.do#">마이페이지</a></li>
+				<li><a href="/seller/myInfo/selectMiniShop.do" class="current">미니샵</a></li>
+			</ul>
+		</div>
+		<!-- //location -->
+	</div>
+	<!-- //top_content -->
+
+	<!-- inner -->
+	<div class="inner">
+
+		<ul class="tab_type mt10">
+			<li><a href="/seller/myInfo/getMyInfo.do">회원정보</a></li> <!-- [D] 해당 페이지 접속시 li class="on" 추가 -->
+			<li class="on"><a href="/seller/myInfo/selectMiniShop.do">미니샵</a></li>
+		</ul>
+<form id="frm" name="frm" method="post" action="/seller/MyInfo/updateMyminiInfoReg.do"  enctype="multipart/form-data" >
+	<input type="hidden" id="MINI_PROFILE_SEQ" name="MINI_PROFILE_SEQ" value="${result.myInfoInfo.MINI_PROFILE_SEQ}">
+	<input type="hidden" id="BG_FILE_SEQ" name="BG_FILE_SEQ" value="${result.myInfoInfo.FILE_SEQ}">
+	<input type="hidden" id="profChk" name="profChk" value="">
+	<input type="hidden" id="bgChk" name="bgChk" value="">
+
+
+		<!-- mem_minimall_area -->
+		<div class="mem_minimall_area">
+			<!-- tbl -->
+			<div class="tbl mt10">
+				<table class="list">
+					<colgroup>
+						<col style="width:50%">
+						<col style="width:50%">
+					</colgroup>
+					<thead>
+						<tr>
+							<th scope="col" class="first">상품 현황</th>
+							<th scope="col">미니샵 이미지</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>
+								<table class="infoTbl innerTbl v2">
+									<colgroup>
+										<col style="width:16%">
+										<col style="width:*">
+										<col style="width:15%">
+										<col style="width:15%">
+										<col style="width:15%">
+										<col style="width:15%">
+									</colgroup>
+									<thead>
+										<tr>
+											<th scope="col">구분</th>
+											<th scope="col">등록</th>
+											<th scope="col">판매중</th>
+											<th scope="col">판매완료</th>
+											<th scope="col">판매중지</th>
+											<th scope="col">상품삭제</th>
+										</tr>
+									</thead>
+									<tbody>
+										<c:choose>
+											<c:when test="${!empty stats.prodStats}">
+												<c:forEach var="list" items="${stats.prodStats }" varStatus="status">
+												<tr <c:if test="${status.index == 0 }"> class="sum" </c:if> >
+													<th scope="row">${list.PROD_TYPE_CD_NM }</th>
+													<td>${list.TOT_CNT }건</td>
+													<td>${list.SALE_CNT }건</td>
+													<td>${list.CLOSE_CNT }건</td>
+													<td>${list.STOP_CNT }건</td>
+													<td>${list.DELETE_CNT }건</td>
+												</tr>
+												</c:forEach>
+											</c:when>
+											<c:otherwise>
+												<tr class="sum">
+													<th scope="row">합계</th>
+													<td>0건</td>
+													<td>0건</td>
+													<td>0건</td>
+													<td>0건</td>
+													<td>0건</td>
+												</tr>
+												<tr>
+													<th scope="row">판매</th>
+													<td>0건</td>
+													<td>0건</td>
+													<td>0건</td>
+													<td>0건</td>
+													<td>0건</td>
+												</tr>
+												<tr>
+													<th scope="row">셰어링</th>
+													<td>0건</td>
+													<td>0건</td>
+													<td>0건</td>
+													<td>0건</td>
+													<td>0건</td>
+												</tr>
+												<c:if test="${MBER_GB_CD == 0 }">
+												<tr>
+													<th scope="row">나눔</th>
+													<td>0건</td>
+													<td>0건</td>
+													<td>0건</td>
+													<td>0건</td>
+													<td>0건</td>
+												</tr>
+												 </c:if>
+
+												 <c:if test="${MBER_GB_CD == 1 }">
+												<tr>
+													<th scope="row">렌탈</th>
+													<td>0건</td>
+													<td>0건</td>
+													<td>0건</td>
+													<td>0건</td>
+													<td>0건</td>
+												</tr>
+												</c:if>
+											</c:otherwise>
+										</c:choose>
+									</tbody>
+								</table>
+							</td>
+							<td class="bl">
+								<div class="clear">
+									<div class="left mini_img_area">
+										<img src=""  id="imgView">
+										<a href="javascript:delImgView('imgViewPath','imgView');" class="btn_img_del"><img src="http://static.ssocio.net/seller/images/btn_img_delete.png" alt="이미지 삭제"  ></a>
+									</div>
+
+									<div class="left tl">
+										<strong>대표이미지</strong>
+										<div class="file_upload_area mt5">
+											<input type="text" id="imgViewPath" name="imgViewPath" class="file_txt" style="width:260px;" >
+											<span class="txt_file">
+												<input type="file" id="mainImg" name="mainImg" class="inp_file" onchange="preView(this, 'imgView','imgViewPath');">
+												<a href="#" class="btn_w ml5 vmid file_add">찾아보기</a>
+											</span>
+										</div>
+										<div class="mt10">
+											- 이미지 사이즈 : 600 X 세로 600<br>
+											- jpg, png 형식의 이미지 파일만 등록 가능합니다.
+										</div>
+									</div>
+								</div>
+
+								<div class="left mini_img_area">
+										<img src="" alt="" id="imgView2">
+										<a href="javascript:delImgView('imgBackPath','imgView2');" class="btn_img_del"><img src="http://static.ssocio.net/seller/images/btn_img_delete.png" alt="이미지 삭제"  ></a>
+									</div>
+								<div class="mini_bg_bx mt10">
+									<strong>배경이미지</strong>
+									<div class="file_upload_area ml10">
+										<input type="text" id="imgBackPath" name="imgBackPath" class="file_txt" style="width:260px;">
+										<span class="txt_file">
+											<input type="file" id="BackgrdImg" name="BackgrdImg" class="inp_file" onchange="preView(this, 'imgView2','imgBackPath');">
+											<a href="#" class="btn_w ml5 vmid file_add">찾아보기</a>
+										</span>
+									</div>
+								</div>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+				<!-- upd -->
+				<table class="upd">
+					<colgroup>
+						<col style="width:13%">
+						<col style="width:*">
+					</colgroup>
+					<tbody>
+						<tr>
+							<th scope="row">판매자 등급</th>
+							<td>Level ${result.myInfoInfo.SELL_MBER_LEV_SEQ}</td>
+						</tr>
+						<tr>
+							<th scope="row">미니샵 이름</th>
+							<td>
+								<p class="posr">
+									<input type="text" id="miniShopNm" name="miniShopNm" style="width:345px;padding-right:10px" value="${result.myInfoInfo.MINI_SHOP_NM }">
+									<span class="txt_limit">(8/20)</span>
+									<span style="margin-left:70px;">미니샵 이름은 최대 20자 까지 입력 가능합니다.</span>
+								</p>
+							</td>
+						</tr>
+						<tr>
+							<th scope="row">미니샵 주소</th>
+							<td>
+								<p class="posr">http://mall.ssocio.com
+									<input type="text" id="miniShopPath" name="miniShopPath" style="width:255px;padding-right:10px"  value="${result.myInfoInfo.MINI_SHOP_PATH }">
+									<span class="txt_limit2">(8/20)</span>
+
+									<span style="margin-left:70px;" >
+									 	<a href="#" onclick="selectMiniShopCnt();return false;"  class="btn_r ml5 btn_overlap">중복확인</a>
+									 </span>
+								</p>
+							</td>
+						</tr>
+						<tr>
+							<th scope="row">판매자 신고이력</th>
+							<td>총 ${result.myInfoInfo.WARNING_CNT }건 <a href="javascript:sellerReportHist();" class="btn_w ml10">조회하기</a></td>
+						</tr>
+						<tr>
+							<th scope="row">판매자 신용점수</th>
+							<td>${result.myInfoInfo.CPOINT} 점 <a href="javascript:sellCreditPopup('${result.myInfoInfo.CPOINT}');" class="btn_w ml10">조회하기</a></td>
+						</tr>
+						<tr>
+							<th scope="row">판매경고</th>
+							<td>총 ${result.myInfoInfo.BOARD_SUSPECT_CNT }건 <a href="javascript:sellWarnHist();" class="btn_w ml10">조회하기</a></td>
+						</tr>
+						<tr>
+							<th scope="row">판매 수수료</th>
+							<td>${result.myInfoInfo.RATE }%</td>
+						</tr>
+					</tbody>
+				</table>
+				<!-- //upd -->
+			</div>
+			<!-- //tbl -->
+		</div>
+		<!-- mem_minimall_area -->
+</form>
+
+		<!-- btm_btn_area -->
+		<div class="btm_btn_area mt20">
+			<a href="javascript:updateMyminiInfo()" class="btn_r">변경</a>
+			<a href="#" class="btn_g2 ml10">취소</a>
+		</div>
+		<!-- //btm_btn_area -->
+	</div>
+	<!-- //inner -->
+</div>

@@ -1,0 +1,919 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt"%>
+<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c"%>
+<link rel="stylesheet" type="text/css" href="http://static.ssocio.net/admin/css/jquery.treeview.css" />
+<script type="text/javascript" src="http://static.ssocio.net/admin/js/ctry/ctry.js"></script>
+<script type="text/javascript">
+$(document).ready(function(){
+	initBrandList();
+	//등록 연결카테고리삭제
+	$(document).on("click", ".brandCtryDel", function(){
+	    $(this).parent().remove();//옵션 삭제
+    });
+    //브랜드 등록 달력 설정
+	$('.calendar').datepicker({
+	      showOn: "button",
+	      buttonImage: "http://static.ssocio.net/admin/images/ico_calendar.gif",
+	      buttonImageOnly: true
+	});
+});
+
+
+/* ======================================================================
+Function : 브랜드목록 초기화
+========================================================================= */
+function initBrandList(){
+	
+	var searchCtryGb = '${searchParam.searchCtryGb}';
+	
+	//선택된 tab
+	var tabIndex = '${searchParam.tabIndex}';
+	//카테고리검색구분
+	//탭구분
+	if(tabIndex == '3'){
+		//브랜드 등록
+		makeCtryBox('1', '', 'reg', '');
+		$('#brandSearch').hide();
+		$('#brandReqList').hide();
+		$('#brandReg').show();	
+		
+	
+	}else if(tabIndex == '2'){
+		//브랜드 신청 내역
+		$('#SEARCH_USER').val("${searchParam.SEARCH_USER}");
+		$('#SearchUserSel').val("${searchParam.SearchUserSel}");
+		$('#brandSearch').hide();
+		$('#brandReqList').show();
+		$('#brandReg').hide();
+	}else{
+		//브랜드 조회
+		$('#brandSearch').show();
+		$('#brandReqList').hide();
+		$('#brandReg').hide();	
+		makeCtryBox('1', '', 'list', '');
+		tabIndex = "1";
+	}
+	
+	$('#tab li').each(function(){
+		$(this).removeClass('on');
+	});
+	$('#tab'+tabIndex).addClass('on');
+	
+	//조회 조건 셋팅 
+	var searchCtryCd ="";
+	
+	if(searchCtryGb == '2'){
+		$('#searchCtryGb2').attr('checked', 'checked');
+		$('#searchCtryCd1').removeAttr("disabled");
+		$('#searchCtryCd2').removeAttr("disabled");
+		$('#searchCtryCd3').removeAttr("disabled");
+		$('#searchBrandNm').val('${searchParam.searchBrandNm}');
+		//카테고리 초기화
+		var searchCtryCd1 = '${searchParam.searchCtryCd1}';
+		var searchCtryCd2 = '${searchParam.searchCtryCd2}';
+		var searchCtryCd3 = '${searchParam.searchCtryCd3}';
+		
+		if(searchCtryCd1!=''){
+			searchCtryCd =searchCtryCd1;
+		}
+		if(searchCtryCd2!=''){
+			searchCtryCd =searchCtryCd2;
+		}
+		if(searchCtryCd3!=''){
+			searchCtryCd =searchCtryCd3;
+		}
+		initCtry('search', searchCtryCd);
+	}else{
+		makeCtryBox('1', '', 'search', '');
+		$('#searchCtryCdR1').attr("disabled","disabled");
+		$('#searchCtryCd2').attr("disabled","disabled");
+		$('#searchCtryCd3').attr("disabled","disabled");
+	}
+
+}
+//--------------------------------- SETTING Function ------------------------------------
+
+/* ======================================================================
+Function : 탭 클릭
+Return   : 없음
+========================================================================= */
+function clickTab(tap){
+	if(tap == 1){
+		$("#brandSearchFrm").attr('action', '/admin/prodMgr/procBrandMain.do');
+		$("#brandSearchFrm").submit();
+	}else if(tap == 2){
+		$("#S_START_DATE").val($("#S_START_DATE").val().replace(/\-/ig, ''));
+	 	$("#S_END_DATE").val($("#S_END_DATE").val().replace(/\-/ig, ''));
+		$("#reqBrandFrm").attr('action', '/admin/prodMgr/procBrandMain.do');
+		$("#reqBrandFrm").submit();
+	}else if(tap == 3){		
+		$("#regBrandFrm").attr('action', '/admin/prodMgr/procBrandMain.do');
+		$("#regBrandFrm").submit();
+	}
+}
+
+
+/* ======================================================================
+Function : 브랜드등록 연결카테고리 추가
+Return   : 없음
+========================================================================= */
+function addBrandCtry(){
+
+	var ctryTxt = '<li>';
+	
+	var ctryCd1 = $('#regCtryCd1').val();
+	var ctryCd2 = $('#regCtryCd2').val();
+	var ctryCd3 = $('#regCtryCd3').val();
+	
+	if(ctryCd1 == null || ctryCd1 == ''){
+		alert('카테고리를 선택해 주십시요.');
+		return;
+	}
+	var isCheck = false;
+	$('#regBrandCtryList input[name="brandCtryCd"]').each(function() {
+		if(this.value == ctryCd1){
+			isCheck = true;
+		}
+		if(this.value == ctryCd2){
+			isCheck = true;
+		}
+		if(this.value == ctryCd3){
+			isCheck = true;
+		}
+	});
+	
+	if(isCheck){
+		alert("동일한 카테고리가 존재합니다.");
+		return;
+	}
+	
+	ctryTxt += $('#regCtryCd1 option:selected').text();
+	if(ctryCd2 != null && ctryCd2 != ''){
+		ctryTxt += ' > ' + $('#regCtryCd2 option:selected').text();
+	}
+	if(ctryCd3 != null && ctryCd3 != ''){
+		ctryTxt += ' > ' + $('#regCtryCd3 option:selected').text();
+	}
+	ctryTxt += '<a href="#" class="btn_cate_del brandCtryDel"><img src="http://static.ssocio.net/admin/images/btn_b_close.gif" alt=""></a>';
+	ctryTxt += '<input type="hidden" name="brandCtryCd" value="'+getCtryCd('reg')+'"/></li>';
+	$('#regBrandCtryList').append(ctryTxt);
+	
+}
+
+//--------------------------------- SUBMIT Function ------------------------------------
+
+/* ======================================================================
+Function : 브랜드 검색
+Return   : 없음
+========================================================================= */
+function searchBrand(){
+	var searchCtryGb = $("input[name='searchCtryGb']:checked").val();
+	
+	if(searchCtryGb == '2'){
+		$('#searchCtryCd').val(getCtryCd('search'));
+	}
+	
+	$("#brandSearchFrm").attr('action', '/admin/prodMgr/procBrandMain.do');
+	$("#brandSearchFrm").submit();
+}
+
+/* ======================================================================
+Function : 브랜드정보 수정
+Return   : 없음
+========================================================================= */
+function updateBrandInfo(){
+	if(!$("#brandCd").val().length>0){
+	    alert("브랜드를 선택해주세요.");
+	    return;
+	}
+	
+	if(!$("#brandNm").val().length>0){
+	    alert("브랜드명을 입력해주세요.");
+	    $("#brandNm").focus();
+	    return;
+	}
+	
+	if($("#brandNm").val().length>30){
+	    alert("브랜드명은 30자이하로 입력해주세요.");
+	    $("#brandNm").focus();
+	    return;
+	} 
+	
+	var options = {
+        url : "/admin/prodMgr/updateBrandInfo.do",
+        success: function(data){
+        	if(data.RESULT =='FALSE')
+        	{
+        		alert(data.RESULT_MSG);
+        		
+        	}else{
+                alert("수정 되었습니다.");
+                $('#brandImg').remove();
+        	}
+        }
+	};
+	$("#brandSearchFrm").ajaxSubmit(options);
+}
+/* ======================================================================
+Function : 브랜드정보 삭제
+Return   : 없음
+========================================================================= */
+function deleteBrandInfo(){
+	if(!$("#brandCd").val().length>0){
+	    alert("브랜드를 선택해주세요.");
+	    return;
+	}
+	
+	if(confirm('삭제하시겠습니까?')){
+		var options = {
+	        url : "/admin/prodMgr/deleteBrandInfo.do",
+	        success: function(){
+	          alert("삭제 되었습니다.");
+	          $("#brandSearchFrm").attr('action', '/admin/prodMgr/procBrandMain.do').submit();
+	        }
+		};
+		$("#brandSearchFrm").ajaxSubmit(options);
+	}
+}
+ 
+/* ======================================================================
+Function : 브랜드정보 등록
+Return   : 없음
+========================================================================= */
+function insertBrandInfo(){
+	if(!$("#regBrandNm").val().length>0){
+	    alert("브랜드명을 입력해주세요.");
+	    $("#regBrandNm").focus();
+	    return;
+	}
+	
+	if($("#regBrandNm").val().length>30){
+	    alert("브랜드명은 30자이하로 입력해주세요.");
+	    $("#regBrandNm").focus();
+	    return;
+	} 
+	
+	if(confirm('등록하시겠습니까?')){
+		var options = {
+	        url : "/admin/prodMgr/insertBrandInfo.do",
+	        success: function(data){
+	        	if(data.RESULT =='FALSE')
+	        	{
+	        		alert(data.RESULT_MSG);
+	        		
+	        	}else{
+	        		$("#regBrandFrm").attr('action', '/admin/prodMgr/procBrandMain.do').submit();
+	        		alert("등록 되었습니다.");
+	        		clickTab('1');
+	        	}
+	        }
+		};
+		$("#regBrandFrm").ajaxSubmit(options);
+	}
+}
+ 
+
+//--------------------------------- AJAX Function ------------------------------------
+
+/* ======================================================================
+Function : 브랜드정보 조회
+Return   : 없음
+========================================================================= */
+function getBrandInfo(brandCd){  
+    
+  $("#brandCd").val(brandCd);
+  $('#brandList li').each(function(){
+      $(this).removeClass('on');
+  });
+  $("#brandCd_"+brandCd).addClass('on');
+  
+  
+  $.ajax({
+    type: 'post'
+    , async: true
+    , url: '/admin/prodMgr/selectBrandInfo.do'
+    , data: {"brandCd":brandCd}
+    , success: function(data) {
+    	var brandInfo = data.brandInfo;
+    	$('#brandCdSpan').text(brandInfo.BRAND_CD);
+    	$('#brandCd').val(brandInfo.BRAND_CD);
+    	$('#brandNm').val(brandInfo.BRAND_NM);
+    	var viewYn = brandInfo.VIEW_YN;
+    	if(viewYn == 'Y'){
+    		$('#viewY').attr('checked', 'checked');
+    	}else{
+    		$('#viewN').attr('checked', 'checked');
+    	}
+    	//브랜드이미지
+    	var fileUrl = brandInfo.FILE_URL;
+    	if(fileUrl != null && fileUrl.length > 0){
+    		$('#brandImgView').attr("src", fileUrl);
+    	}else{
+    		$('#brandImgView').attr("src", "");
+    	}
+    	$('#brandImgPath').val('');
+    	
+    	//브랜드카테고리작성
+    	makeBrandCtry(data.brandCtryList);
+    }
+    , error: function(data, status, err) {
+      alert('서버와의 통신이 실패했습니다.');
+    }
+  });
+}
+
+/* ======================================================================
+Function : 브랜드카테고리 삭제
+Return   : 없음
+========================================================================= */
+function deleteBrandCtry(brandCd, ctryCd){
+	
+	$.ajax({
+	    type: 'post'
+	    , async: true
+	    , url: '/admin/prodMgr/deleteBrandCtry.do'
+	    , data: {"brandCd":brandCd, "ctryCd":ctryCd}
+	    , success: function(data) {
+	    	alert('삭제되었습니다.');
+	    	//브랜드카테고리작성
+	    	makeBrandCtry(data.brandCtryList);
+	    }
+	    , error: function(data, status, err) {
+	      alert('서버와의 통신이 실패했습니다.');
+	    }
+	  });
+}
+
+/* ======================================================================
+Function : 연결카테고리 추가
+Return   : 없음
+========================================================================= */
+function insertBrandCtry(){
+
+	if($('#brandCd').val() == ''){
+		alert("선택된 브랜드가 없습니다.");
+		return;
+	}
+	var ctryCd = getCtryCd('list');
+	if(ctryCd =='')
+		return;
+	var isCheck = false;
+	$('#brandCtryList  input[name="brandCtryCd"]').each(function() {
+		if(this.value == ctryCd){
+			isCheck = true;
+		}
+	});
+	if(isCheck){
+		alert("동일한 카테고리가 존재합니다.");
+		return;
+	}
+	$.ajax({
+	    type: 'post'
+	    , async: true
+	    , url: '/admin/prodMgr/insertBrandCtry.do'
+	    , data: {"brandCd":$('#brandCd').val(), "ctryCd":ctryCd}
+	    , success: function(data) {
+	    	alert('등록되었습니다.');
+	    	//브랜드카테고리작성
+	    	makeBrandCtry(data.result.brandCtryList);
+	    }
+	    , error: function(data, status, err) {
+	      alert('서버와의 통신이 실패했습니다.');
+	    }
+	  });
+}
+
+/* ======================================================================
+Function : 연결카테고리 표시
+Return   : 없음
+========================================================================= */
+function makeBrandCtry(brandCtryList){
+	$('#brandCtryList').empty();
+	if(brandCtryList.length > 0){
+		for(var i=0; i<brandCtryList.length; i++){
+			var listHtml = '';
+			listHtml += '<li>' + brandCtryList[i].CTRY_NM;
+			listHtml += '<a href="javascript:deleteBrandCtry(\'' +brandCtryList[i].BRAND_CD+ '\', \'' +brandCtryList[i].CTRY_CD+ '\');" class="btn_cate_del">';
+			listHtml += '<input type="hidden" name="brandCtryCd"  value =\'' +brandCtryList[i].CTRY_CD+ '\'  >';
+			listHtml += '<img src="http://static.ssocio.net/admin/images/btn_b_close.gif" alt=""></a></li>';
+			
+			$('#brandCtryList').append(listHtml);
+		}
+	}
+}
+
+/* ======================================================================
+Function : 신청 브랜드 등록탭에 기본값 세팅
+Return   : 없음
+========================================================================= */
+function setBrandReg(req){
+	$('#regBrandFrm #reqSeq').val(req);
+	$("#regBrandFrm").attr('action', '/admin/prodMgr/procBrandMain.do');
+	$("#regBrandFrm").submit();
+}
+
+
+//전체선택 체크 박스
+function doToggleChkBox(obj){
+	var checkedStatus = obj.checked;
+	$('#reqTbl tbody tr').find('td :checkbox').each(function() {
+	  $(this).prop('checked', checkedStatus);
+	});
+}
+/* ======================================================================
+Function : 브랜드 신청 내역 - 페이지 이동 
+Return   : 없음
+========================================================================= */
+function GoPage(pageNo) {
+	$("#PAGE_NO").val(pageNo);
+	$("#S_START_DATE").val($("#S_START_DATE").val().replace(/\-/ig, ''));
+ 	$("#S_END_DATE").val($("#S_END_DATE").val().replace(/\-/ig, ''));
+ 	$("#PAGE_NO").val(pageNo);
+	$("#reqBrandFrm").attr("action","/admin/prodMgr/procBrandMain.do").submit();
+}
+/* ======================================================================
+Function : 브랜드 신청내역 - 브랜드 조회 
+Return   : 없음
+========================================================================= */
+function searchBrandReq(brandReq){  
+   $("#tab3 a").trigger('click');
+  $.ajax({
+    type: 'post'
+    , async: true
+    , url: '/admin/prodMgr/selectBrandReq.do'
+    , data: {"brandReq":brandReq}
+    , success: function(data) {
+    	var brandReq = data.brandReq;
+    	$('#brandCdSpan').text(brandInfo.BRAND_CD);
+    	$('#brandCd').val(brandInfo.BRAND_CD);
+    	$('#brandNm').val(brandInfo.BRAND_NM);
+    	var viewYn = brandInfo.VIEW_YN;
+    	if(viewYn == 'Y'){
+    		$('#viewY').attr('checked', 'checked');
+    	}else{
+    		$('#viewN').attr('checked', 'checked');
+    	}
+    	//브랜드이미지
+    	var fileUrl = brandInfo.FILE_URL;
+    	if(fileUrl != null && fileUrl.length > 0){
+    		$('#brandImgView').attr("src", fileUrl);
+    	}else{
+    		$('#brandImgView').attr("src", "");
+    	}
+    	$('#brandImgPath').val('');
+    	
+    	//브랜드카테고리작성
+    	makeBrandCtry(data.brandCtryList);
+    }
+    , error: function(data, status, err) {
+      alert('서버와의 통신이 실패했습니다.');
+    }
+  });
+}
+/* ======================================================================
+Function : 브랜드 조회 
+Return   : 없음
+========================================================================= */
+function checkSearchCtryGb(check){
+	if($(check).val() =='1'){
+		$('#searchCtryCd1').attr("disabled","disabled");
+		$('#searchCtryCd2').attr("disabled","disabled");
+		$('#searchCtryCd3').attr("disabled","disabled");
+	}else{
+		$('#searchCtryCd1').removeAttr("disabled");
+		$('#searchCtryCd2').removeAttr("disabled");
+		$('#searchCtryCd3').removeAttr("disabled");
+	}
+}
+/* ======================================================================
+Function : 검색
+Return   : 없음
+========================================================================= */
+function goSearch(){
+	if(validDate()){
+		$("#PAGE_NO").val("1");
+		$("#tabIndex").val("2");
+		$("#S_START_DATE").val($("#S_START_DATE").val().replace(/\-/ig, ''));
+	 	$("#S_END_DATE").val($("#S_END_DATE").val().replace(/\-/ig, ''));
+		$("#reqBrandFrm").attr("action","/admin/prodMgr/procBrandMain.do").submit();
+	}
+}
+//날짜유효성 체크
+function validDate(){
+	if($("#S_START_DATE").val() != "" || $("#S_END_DATE").val() != ""){
+		var startDate = $("#S_START_DATE").val().replace(/\-/ig, "");
+		var endDate = $("#S_END_DATE").val().replace(/\-/ig, "");
+		if(startDate > endDate){
+	      alert("시작일이 종료일보다 크게 설정될 수 없습니다.");
+	      $("#S_START_DATE").val('');
+	      $("#S_END_DATE").val('');
+	      return false;
+	    }
+	}
+	return true;
+}
+/* ======================================================================
+Function : 브랜드 조신청내역 선택 삭제 
+Return   : 없음
+========================================================================= */
+//선택 삭제 클릭시 체크된 row 삭제
+function deleteChkRows(){
+	var delArr='';
+	var delRow ='';
+	
+	var checkLen = $('input:checkbox[name="checkReqSeq"]:checked').length;
+	if(checkLen < 1){
+		alert("선택된 체크 박스가 없습니다.");
+		return false;
+	}
+	
+	if(!confirm("브랜드 신청내역을 삭제 하시겠습니까?")){
+		return false;
+	}
+	$('input:checkbox[name="checkReqSeq"]').each(function(){
+		if (this.checked){
+			if(delArr.length < 1){ 
+				delArr = this.value;	
+			}else{
+				delArr = delArr+','+this.value;
+			}	
+		}
+	});
+	 $.ajax({
+		    type: 'post'
+		    , async: true
+		    , url: '/admin/prodMgr/deleteBrandReq.do'
+		    , data: {"reqSeq":delArr}
+		    , success: function(data) {
+		    	alert('삭제되었습니다.');
+		    	goSearch();
+		    }
+		    , error: function(data, status, err) {
+		      alert('서버와의 통신이 실패했습니다.');
+		    }
+		  });
+	 
+}
+</script>
+
+<!-- content -->
+<div id="content">
+	<!-- top_content -->
+	<div class="top_content">
+		<!-- location -->
+		<div class="location">
+			<ul class="clear">
+				<li class="first-child"><a href="#">Home</a></li>
+				<li><a href="#">상품 관리</a></li>
+				<li><a href="#" class="current">브랜드 관리</a></li>
+			</ul>
+		</div>
+		<!-- //location -->
+	</div>
+	<!-- //top_content -->
+	
+	<div class="inner">
+		<ul class="lst_tab type2" id ="tab">
+			<li id="tab1"><a href="#" onclick="clickTab('1');">브랜드조회</a></li>
+			<li id="tab2"><a href="#" onclick="clickTab('2');">브랜드 신청 내역</a></li>
+			<li id="tab3"><a href="#" onclick="clickTab('3');">브랜드 등록</a></li>
+		</ul>
+		<div class="brand_tot_area">
+			<!-- brand_inquiry -->
+			<div id="brandSearch" class="brand_inquiry"  style="display: none">
+			<form id="brandSearchFrm" name="brandSearchFrm" method="post" enctype="multipart/form-data">
+			<input type="hidden" id="searchCtryCd" name="searchCtryCd" />
+			<input type="hidden" id="tabIndex1" name="tabIndex" value ="1" />
+				<div class="tbl">
+					<table class="search">
+						<colgroup>
+							<col style="width:8%" />
+							<col style="width:46%" />
+							<col style="width:8*" />
+							<col style="width:15%" />
+							<col style="width:*" />
+						</colgroup>
+						<tbody>
+							<tr>
+								<th scope="row">카테고리</th>
+								<td>
+									<input type="radio" id="searchCtryGb1" name="searchCtryGb" value="1" checked="checked"  onclick="checkSearchCtryGb(this)"/><label for="searchCtryGb1">전체</label>
+									<input type="radio" id="searchCtryGb2" name="searchCtryGb" value="2" onclick="checkSearchCtryGb(this)"/><label for="searchCtryGb2">선택</label>
+									<span class="select ml5">
+										<span id="searchCtryTxt1" class="sel_txt"></span>
+										<select id="searchCtryCd1" name="searchCtryCd1" onchange="chgCtryCd1Box('search');" disabled="disabled">
+											<option value="">대분류</option>
+										</select>
+									</span> 
+									<span class="select ml5" style="width:100px">
+										<span id="searchCtryTxt2" class="sel_txt"></span>
+										<select id="searchCtryCd2" name="searchCtryCd2" onchange="chgCtryCd2Box('search');" disabled="disabled">
+											<option value="">중분류</option>
+										</select>
+									</span>
+									<span class="select ml5" style="width:100px">
+										<span id="searchCtryTxt3" class="sel_txt"></span>
+										<select id="searchCtryCd3" name="searchCtryCd3" disabled="disabled">
+											<option value="">소분류</option>
+										</select>
+									</span>
+								</td>
+								<th scope="row">브랜드명</th>
+								<td class="nolineR"><input type="text" id="searchBrandNm" name="searchBrandNm" style="width:200px" /></td>
+								<td><a href="javascript:searchBrand();" class="btn_chk btn_r">조회</a></td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+				<div class="brand_inq_area clear">
+					<div class="brand_left_area">
+						<h2 class="brand_tit">브랜드</h2>
+						<ul id="brandList">
+						<c:forEach var="list" items="${brandList}" varStatus="status">
+							<li id="brandCd_${list.BRAND_CD}"><a href="javascript:getBrandInfo('${list.BRAND_CD}')">${list.BRAND_NM}</a></li>
+						</c:forEach>
+						</ul>
+					</div>
+					<!-- brand_right_area -->
+					<div class="brand_right_area">
+						<h2 class="brand_tit">브랜드 정보</h2>
+						<!-- tbl -->
+						<div class="tbl">
+							<!-- list -->
+							<table class="upd type2">
+								<colgroup>
+									<col style="width:16%" />
+									<col style="width:*" />
+								</colgroup>
+								<tbody>
+									<tr>
+										<th scope="row">브랜드코드</th>
+										<td>
+											<span id="brandCdSpan"></span>
+											<input type="hidden" id="brandCd" name="brandCd" />
+										</td>
+									<tr>
+										<th scope="row">브랜드명</th>
+										<td><input type="text" id="brandNm" name="brandNm" maxlength="30" style="width:370px" /></td>
+									</tr>
+									<tr>
+										<th scope="row">연결카테고리</th>
+										<td>
+											<div class="sel_area mt5">
+												<span class="select" style="width:100px">
+													<span id="listCtryTxt1" class="sel_txt"></span>
+													<select id="listCtryCd1" name="listCtryCd1" onchange="chgCtryCd1Box('list');">
+														<option value="">대분류</option>
+													</select>
+												</span> 
+												<span class="select ml5" style="width:100px">
+													<span id="listCtryTxt2" class="sel_txt"></span>
+													<select id="listCtryCd2" name="listCtryCd2" onchange="chgCtryCd2Box('list');">
+														<option value="">중분류</option>
+													</select>
+												</span>
+												<span class="select ml5" style="width:100px">
+													<span id="listCtryTxt3" class="sel_txt"></span>
+													<select id="listCtryCd3" name="listCtryCd3">
+														<option value="">소분류</option>
+													</select>
+												</span>
+												<a href="javascript:insertBrandCtry();" class="btn_b ml5"><span>추가</span></a>
+											</div>
+											<ul id="brandCtryList" class="lst_b_category">
+											</ul>
+										</td>
+									</tr>
+									<tr>
+										<th scope="row">아이콘</th>
+										<td>
+											<div class="img_attach_area clear">
+												<div class="img_bx">
+													<img src="http://static.ssocio.net/admin/images/img_dummy.gif" id="brandImgView" width="255" height="152" />
+												</div>
+												<div class="img_file_bx">
+													<div class="file_upload_area ml5">
+														<input type="text" id="brandImgPath" name="brandImgPath" class="file_txt" readonly="readonly" style="width:350px;" />
+														<span class="txt_file">
+															<input type="file" id="brandImg" name="brandImg" class="inp_file" onchange="preView(this, 'brandImgView', 'brandImgPath');"/>
+															<a href="#" class="btn_w ml5 vmid file_add">파일찾기</a>
+														</span>
+													</div>
+													<p>* jpg, png 파일만 등록 가능합니다.</p>
+												</div>
+											</div>
+										</td>
+									</tr>
+									<tr>
+										<th scope="row">노출여부</th>
+										<td>
+											<span><input type="radio" id="viewY" name="viewYn" value="Y"/> <label for="viewY">노출</label></span>
+											<span class="ml10"><input type="radio" id="viewN" name="viewYn" value="N"/> <label for="viewN">미노출</label></span>
+										</td>
+									</tr>
+								</tbody>
+							</table>
+							<!-- //list -->
+						</div>
+						<!-- //tbl -->
+						
+						<!-- bot_btn -->
+						<div class="btm_btn_area mt10">
+							<a href="javascript:updateBrandInfo();" class="btn_r">수정</a>
+							<a href="javascript:deleteBrandInfo();" class="btn_r btn_brand_del">삭제</a>
+						</div>
+						<!-- //bot_btn -->
+					</div>
+					<!-- //brand_right_area -->
+				</div>
+			</form>
+			</div>
+			
+			<!-- //brand_inquiry -->
+			<!-- brand_app_list -->
+			<div id="brandReqList" class="brand_app_list mt10" style="display: none;">
+			<form id="reqBrandFrm" name="reqBrandFrm" method="post" >
+				<input type="hidden" id="tabIndex2" name="tabIndex" value ="2" />
+				<input type="hidden" id="PAGE_NO" name="PAGE_NO">
+	
+				<!-- tbl -->
+				<div class="tbl">
+					<table class="search">
+						<colgroup>
+							<col style="width:8%">
+							<col style="width:30%">
+							<col style="width:37%">
+							<col style="width:*">
+						</colgroup>
+						<tbody>
+							<tr>
+								<th scope="row">신청일</th>
+								<td class="nolineR">
+									<fmt:parseDate value="${list.params.S_START_DATE }" var="S_START_DATE" pattern="yyyymmdd" scope="page" />
+									<fmt:parseDate value="${list.params.S_END_DATE }" var="S_END_DATE" pattern="yyyymmdd" scope="page" />
+									<input type="text" id="S_START_DATE" name="S_START_DATE" class="calendar" style="width:82px" value='<fmt:formatDate value="${S_START_DATE }" pattern="yyyy-mm-dd"/>' readonly="readonly" /> - 
+									<input type="text" id="S_END_DATE" name="S_END_DATE" class="calendar" style="width:82px" value='<fmt:formatDate value="${S_END_DATE }" pattern="yyyy-mm-dd"/>' readonly="readonly" />
+								</td>
+								<td class="nolineR">
+									<span class="select" style="width:150px;">
+										<span class="sel_txt" style="width: 143px;">신청자 ID</span>
+										<select id="SearchUserSel" name="SearchUserSel">
+											<option value="SEARCH_MBER_EMAIL" <c:if test="${searchParam.SearchUserSel == null or searchParam.SearchUserSel == 'SEARCH_MBER_EMAIL' }"> selected="selected" </c:if>>신청자 ID</option>
+											<option value="SEARCH_BRAND_NM" <c:if  test="${searchParam.SearchUserSel == 'SEARCH_BRAND_NM' }"> selected="selected" </c:if>>브랜드 명</option>
+										</select>
+										<input type="text" id="SEARCH_USER" name="SEARCH_USER" style="width:200px" value="${searchParam.SEARCH_USER}"/>
+									</span>
+								</td>
+								<td>
+		                            <a href="javascript:goSearch()" class="btn_chk btn_r">조회</a>
+		                        </td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+				<div class="tbl">
+					<!-- list -->
+					<table class="list" id="reqTbl">
+						<colgroup>
+							<col style="width:5%" />
+							<col style="width:15%" />
+							<col style="width:40%" />
+							<col style="width:40%" />
+						</colgroup>
+						<thead>	
+							<tr>
+								<th scope="col"><input type="checkbox" id="" name=""  onclick="doToggleChkBox(this);" /></th>
+								<th scope="col">신청일시</th>
+								<th scope="col">신청자 ID</th>
+								<th scope="col">브랜드명</th>
+							</tr>
+						</thead>
+						<tbody>
+							<c:forEach var="list" items="${list.brandReqList}">
+							<tr>
+								<td><input type="checkbox"  name="checkReqSeq" value="${list.REQ_SEQ}"/></td>
+								<td>${list.REGIST_DT}</td>
+								<td>${list.MBER_EMAIL}</td>
+								<td><a href="#none" class="alink" onclick="setBrandReg('${list.REQ_SEQ}')">${list.BRAND_NM}</a></td>
+							</tr>
+							</c:forEach>
+						</tbody>
+					</table>
+					<!-- //list -->
+				</div>
+				<!-- //tbl -->
+				<!-- bot_tbl -->
+				
+				<div class="bot_tbl">
+					<!-- <a href="#" class="btn_chk btn_r" id="reqDelBtn">삭제</a> -->
+					<!-- paging -->
+					<a href="javascript:deleteChkRows();" class="btn_r btn_prod_del"><span>선택 삭제</span></a>
+					<div class="paging">
+							<%@ include file="/WEB-INF/views/admin/common/PageView.jsp" %>
+					</div>
+					<!-- //paging -->
+				</div>
+				</form>
+				<!-- //bot_tbl -->
+			</div>
+			<!-- //brand_app_list -->
+			<!-- brand_reg_list -->
+			
+			<div id="brandReg" class="brand_reg_list mt10" style="display: none;">
+			<form id="regBrandFrm" name="regBrandFrm" method="post" enctype="multipart/form-data">
+				<!-- tbl -->
+				<input type="hidden" id="ADM_ID" name="ADM_ID">
+				<input type="hidden" id="tabIndex3" name="tabIndex" value ="3" />
+				<input type="hidden" id="reqSeq" name="reqSeq" value="${brandReq.REQ_SEQ}">
+				<div class="tbl">
+					<!-- list -->
+					<table class="upd type2">
+						<colgroup>
+							<col style="width:16%" />
+							<col style="width:*" />
+						</colgroup>
+						<tbody>
+							<tr>
+								<th scope="row">브랜드명</th>
+								<td><input type="text" id="regBrandNm" name="regBrandNm" maxlength="30" style="width:370px"  value="${brandReq.BRAND_NM}"/> <span class="ml10 bold">*브랜드명은 최대 30자까지 입력 가능 합니다.</span></td>
+							</tr>
+							<tr>
+								<th scope="row">카테고리</th>
+								<td>
+									<div class="sel_area mt5">
+										<span class="select" style="width:100px">
+											<span id="regCtryTxt1" class="sel_txt"></span>
+											<select id="regCtryCd1" name="regCtryCd1" onchange="chgCtryCd1Box('reg');">
+												<option value="">대분류</option>
+											</select>
+										</span> 
+										<span class="select ml5" style="width:100px">
+											<span id="regCtryTxt2" class="sel_txt"></span>
+											<select id="regCtryCd2" name="regCtryCd2" onchange="chgCtryCd2Box('reg');">
+												<option value="">중분류</option>
+											</select>
+										</span>
+										<span class="select ml5" style="width:100px">
+											<span id="regCtryTxt3" class="sel_txt"></span>
+											<select id="regCtryCd3" name="regCtryCd3">
+												<option value="">소분류</option>
+											</select>
+										</span>
+										<a href="javascript:addBrandCtry();" class="btn_b ml5"><span>추가</span></a>
+									</div>
+									<ul id="regBrandCtryList" class="lst_b_category">
+										<c:if test="${brandReq.CTRY_NM ne null}">
+										<li>${brandReq.CTRY_NM}
+										<input type="hidden" name="brandCtryCd" value="${brandReq.CTRY_CD}">
+										<a href="#" class="btn_cate_del brandCtryDel"><img src="http://static.ssocio.net/admin/images/btn_b_close.gif" alt=""></a>
+										</li>
+										</c:if>
+									</ul>
+
+								</td>
+							</tr>
+							<tr>
+								<th scope="row">카테고리</th>
+								<td>
+									<div class="img_attach_area clear">
+										<div class="img_bx">
+											<img src="http://static.ssocio.net/admin/images/img_dummy.gif" id="regBrandImgView" width="255" height="152"/>
+										</div>
+										<div class="img_file_bx">
+											<div class="file_upload_area ml5">
+												<input type="text" id="regBrandImgPath" name="regBrandImgPath" class="file_txt" readonly="readonly" style="width:350px;" />
+												<span class="txt_file">
+													<input type="file" id="regBrandImg" name="regBrandImg" class="inp_file" onchange="preView(this, 'regBrandImgView', 'regBrandImgPath');"/>
+													<a href="#" class="btn_w ml5 vmid file_add">파일찾기</a>
+												</span>
+											</div>
+											<p>* jpg, png 파일만 등록 가능합니다.</p>
+										</div>
+									</div>
+								</td>
+							</tr>
+							<tr>
+								<th scope="row">노출여부</th>
+								<td>
+									<span><input type="radio" id="regViewY" name="regViewYn" value="Y" checked="checked"/> <label for="regViewY">노출</label></span>
+									<span class="ml10"><input type="radio" id="regViewN" name="regViewYn" value="N"/> <label for="regViewN">미노출</label></span>
+								</td>
+							</tr>
+						</tbody>
+					</table>
+					<!-- //list -->
+				</div>
+				<!-- //tbl -->
+				
+				<!-- bot_btn -->
+				<div class="btm_btn_area mt10">
+					<a href="javascript:insertBrandInfo();" class="btn_r">등록</a>
+				</div>
+				<!-- //bot_btn -->
+			</form>
+			</div>
+			<!-- //brand_reg_list -->
+		</div>
+	</div>
+</div>
+<!-- //content -->

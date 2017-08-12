@@ -1,0 +1,232 @@
+package com.ssocio.sharing.cmmn.web.handler;
+
+import java.util.Enumeration;
+import java.util.HashMap;
+import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import net.sf.json.JSONObject;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.servlet.ModelAndView;
+
+import com.ssocio.sharing.cmmn.handler.AbstractHandlerInterceptor;
+import com.ssocio.sharing.cmmn.instance.config.AppConfigManager;
+import com.ssocio.sharing.cmmn.service.CommonService;
+import com.ssocio.sharing.cmmn.util.CmmnCnst;
+import com.ssocio.sharing.cmmn.util.Redis;
+import com.ssocio.sharing.cmmn.util.StringUtil;
+import com.ssocio.sharing.service.web.WebLogService;
+import com.ssocio.sharing.vo.web.WebSession;
+
+/**
+ * <pre>
+ * Batch Interceptor
+ * 
+ * @author adrra
+ * @version 
+ * @since 2014. 9. 5. 오전 9:00:35
+ * @see 
+ * @History 
+ *  Date          |    author    | 변경내용  
+ *  2014. 9. 5.  |    adrra            | 신규 
+ * @Todo
+ * </pre>
+ */
+public class WebLogInterceptor extends AbstractHandlerInterceptor {
+
+	private static final long serialVersionUID = -294001256580308350L;
+
+	// --------------------------------------------------------------------------
+	// # Log 설정
+	// --------------------------------------------------------------------------
+	private static final Logger logger = LoggerFactory.getLogger(WebLogInterceptor.class);
+	
+	// --------------------------------------------------------------------------
+	// # Service 설정
+	// --------------------------------------------------------------------------
+	//@Resource(name = "synchrnService")
+	@Autowired
+	private CommonService commonService;
+	@Autowired
+	private WebLogService webLogService;
+
+	/**
+	 * <pre>
+	 * preHandle
+	 * 
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 14. 오후 2:07:08
+	 * @author S.B.LEE
+	 * @see @see org.springframework.web.servlet.handler.HandlerInterceptorAdapter#preHandle(javax.servlet.http.HttpServletRequest, javax.servlet.http.HttpServletResponse, java.lang.Object)
+	 * </pre>
+	 */
+	@SuppressWarnings ("unchecked")
+	@Override
+	public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
+		
+		try {
+			String redisHostName = request.getServerName();
+			
+			Redis redis = Redis.getInstance();
+			redis.setREDIS_HOST_SPLIT_PK(redisHostName + "_");
+			
+			logger.info("setREDIS_HOST_SPLIT_PK : " + redis.getREDIS_HOST_SPLIT_PK());
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		try{
+
+			logger.info("# @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+			logger.info("# [MobileLogInterceptor] Start @@@@@@@@@@@@@@@@@@@");
+
+			// ----------------------------------------------------------------------
+			// request Info Log INSERT
+			// ----------------------------------------------------------------------
+			Map<String, Object> inParam = new HashMap<String, Object>();
+			WebSession session = (WebSession) request.getSession().getAttribute("user");
+			Integer userId = 0;
+			String device = "3";  // EVT_GB_CD - PC:2, Mobile:3(디폴트) 
+			
+			if(session != null) userId = session.getMBER_SEQ();
+			if(CmmnCnst.deviceMobile.equals(StringUtil.nvl((String)request.getAttribute(CmmnCnst.deviceKey), ""))) device = "2";
+			
+			//파라메터정보
+			StringBuffer paramVal = new StringBuffer();
+			StringBuffer headerVal = new StringBuffer();
+			JSONObject jsonObj = new JSONObject();
+			Enumeration<String> params  = request.getParameterNames();
+			Enumeration<String> headers = request.getHeaderNames();
+
+			if (params != null) {
+				while (params.hasMoreElements()) {
+					String name = params.nextElement();
+					paramVal.append("[" + name + "]" + (String)request.getParameter(name));
+					jsonObj.put(name, request.getParameter(name));
+				}
+			}
+			
+			if (headers != null) {
+				while (headers.hasMoreElements()) {
+					String name = headers.nextElement();
+					if(!("Cookie").equals(name) && !("cookie").equals(name)) headerVal.append("[" + name + "]" + (String)request.getHeader(name));
+				}
+			}
+
+			inParam.put("INIT_REFERER"   , request.getHeader("referer"));                     //유입경로URL
+			inParam.put("QUERY_STRING"   , request.getQueryString());                         //GET OR POST
+			inParam.put("METHOD"         , request.getMethod());                              //GET OR POST
+			inParam.put("IP_ADD"         , request.getRemoteAddr());                          //IP주소
+			inParam.put("WAS_SVR_IP_ADD" , AppConfigManager.getSystemIp());                   //WAS서버IP주소
+			inParam.put("UR_ACC_ID"      , userId);                                           //사용자계정ID
+			inParam.put("INFL_PH_URL"    , request.getRequestURI());                          //유입경로URL
+			inParam.put("WO_RCD_CN"      , paramVal.toString());                              //전체레코드내용 - 파라메터정보
+			inParam.put("RMK_CN"         , headerVal.toString());                             //비고내용 - 헤더정보
+			inParam.put("ACC_DVC_TC"     , device);                                           //디바이스 정보(2:PC, 3:Mobile)
+			inParam.put("SITE_PREFIX", "MOBILE");                                             //접근사이트
+			inParam.put("INIT_JSON_PARAM", jsonObj.toString());                               //전체레코드내용 - 파라메터정보(JSON DATA)
+			
+			logger.debug("# INIT_REFERER    : "+ request.getHeader("referer"));
+			logger.debug("# QUERY_STRING    : "+ request.getQueryString());
+			logger.debug("# METHOD          : "+ request.getMethod());
+			logger.debug("# IP_ADD          : "+ request.getRemoteAddr());
+			logger.debug("# WAS_SVR_IP_ADD  : "+ AppConfigManager.getSystemIp());
+			logger.debug("# UR_ACC_ID       : "+userId);
+			logger.debug("# INFL_PH_URL     : "+request.getRequestURI());
+			logger.debug("# WO_RCD_CN       : "+paramVal);
+			logger.debug("# RMK_CN          : "+headerVal);
+			logger.debug("# ACC_DVC_TC      : "+ device + " , " + request.getAttribute(CmmnCnst.deviceKey));
+			logger.debug("# SITE_PREFIX     : ", "MOBILE");
+			logger.debug("# INIT_JSON_PARAM : "+ jsonObj.toString());
+			
+			webLogService.insertMobileLog(inParam);
+		} catch (Exception e) {
+			logger.error("MobileLogInterceptor 오류 [" + e.toString() + "]");
+			e.printStackTrace();
+		}
+		return true;
+	}
+	
+	/**
+	 * <pre>
+	 * postHandle
+	 * 
+	 * @param request
+	 * @param response
+	 * @param handler
+	 * @param model
+	 * @throws Exception
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 14. 오후 2:14:13
+	 * @author S.B.LEE
+	 * @see @see org.springframework.web.servlet.handler.HandlerInterceptorAdapter#postHandle(javax.servlet.http.HttpServletRequest, javax.servlet.http.HttpServletResponse, java.lang.Object, org.springframework.web.servlet.ModelAndView)
+	 * </pre>
+	 */
+	@Override
+	public void postHandle(HttpServletRequest request, HttpServletResponse response, Object handler, ModelAndView model) throws Exception {
+		// TODO Auto-generated method stub
+	}
+	
+	/**
+	 * <pre>
+	 * afterCompletion
+	 * 
+	 * @param request
+	 * @param response
+	 * @param handler
+	 * @param exception
+	 * @throws Exception 
+	 * @exception 
+	 * @date 2014. 8. 20. 오후 4:28:44
+	 * @author adrra
+	 * @see org.springframework.web.servlet.handler.HandlerInterceptorAdapter#afterCompletion(javax.servlet.http.HttpServletRequest, javax.servlet.http.HttpServletResponse, java.lang.Object, java.lang.Exception)
+	 * @비고
+	 * 
+	 * </pre>
+	 */
+	@Override
+	public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler, Exception exception) throws Exception {
+		// TODO Auto-generated method stub
+	}
+	
+	/**
+	 * <pre>
+	 * AfterContextPathUri반환
+	 *  - request에서 가져옴
+	 * @param request
+	 * @return 
+	 * @exception 
+	 * @date 2014. 8. 6. 오전 10:43:38
+	 * @author adrra
+	 * @비고
+	 * 
+	 * </pre>
+	 */
+	public static String getAfterContextPathUri(HttpServletRequest request) {
+		
+		String requestUri             = "";
+		String strAfterContextPathUri = "";
+		
+		try {
+
+			requestUri = request.getRequestURI();   // ex) /lotteCardMall/web/web.apiTest
+			logger.debug("# requestUri          : " + requestUri);
+			strAfterContextPathUri = requestUri.substring(request.getContextPath().length());
+			//logger.debug("@@afterContextPathUri : " + strAfterContextPathUri);
+		} catch (Exception e) {
+			
+			logger.error("# MobileLogInterceptor 오류 [" + e.toString() + "]");
+			e.printStackTrace();
+		}
+
+		return strAfterContextPathUri;
+	}
+}

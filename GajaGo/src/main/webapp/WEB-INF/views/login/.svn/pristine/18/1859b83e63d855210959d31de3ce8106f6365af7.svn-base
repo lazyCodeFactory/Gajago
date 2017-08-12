@@ -1,0 +1,226 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="adminBrandMapper">
+	
+	<select id="selectBrandList" resultType="hashmap" parameterType="hashmap">
+	SELECT
+		DISTINCT A.BRAND_CD,
+		A.BRAND_NM
+	FROM 
+		BRAND_INFO A,
+		BRAND_CTRY_MAP B
+	WHERE
+		A.BRAND_CD = B.BRAND_CD(+)
+		<if test="viewYn != null and viewYn != ''" >
+		AND A.VIEW_YN = #{viewYn}
+    	</if>
+    	<if test="searchBrandNm != null and searchBrandNm != ''" >
+		AND A.BRAND_NM LIKE '%'|| #{searchBrandNm} ||'%'
+    	</if>
+    	<if test="searchCtryCd != null and searchCtryCd != ''" >
+		AND B.CTRY_CD IN (SELECT CTRY_CD FROM CTRY
+							START WITH PARENT_CTRY_CD = #{searchCtryCd}
+							CONNECT BY PRIOR CTRY_CD = PARENT_CTRY_CD
+						UNION ALL
+						SELECT #{searchCtryCd} FROM DUAL)
+    	</if>
+    	<if test="searchBrandCode != null and searchBrandCode != ''" >
+		AND A.BRAND_CD = #{searchBrandCode}
+    	</if>
+    ORDER BY
+    	A.BRAND_NM
+	</select>
+	
+	<select id="selectBrandInfo" parameterType="hashmap" resultType="hashmap">
+	SELECT
+		A.BRAND_CD,
+		A.BRAND_NM,
+		A.VIEW_YN,
+		B.FILE_URL
+	FROM 
+		BRAND_INFO A,
+		FILE_INFO B
+	WHERE
+		A.FILE_SEQ = B.FILE_SEQ(+)
+	AND	A.BRAND_CD = #{brandCd}
+	</select>
+	
+	<select id="selectBrandCtryList" parameterType="hashmap" resultType="hashmap">
+	SELECT
+		A.BRAND_CD,
+		A.CTRY_CD,
+		(SELECT CTRY_NM FROM CTRY WHERE CTRY_CD = (SUBSTR(A.CTRY_CD,0,4)||'000000000000')) ||
+		NVL((SELECT ' > ' || CTRY_NM FROM CTRY WHERE CTRY_CD = (SUBSTR(A.CTRY_CD,0,8)||'00000000')  AND LVL_SEQ = 2), '') ||
+		NVL((SELECT ' > ' || CTRY_NM FROM CTRY WHERE CTRY_CD = (SUBSTR(A.CTRY_CD,0,12)||'0000') AND LVL_SEQ = 3), '') AS CTRY_NM
+	FROM
+		BRAND_CTRY_MAP A
+	WHERE
+		A.BRAND_CD = #{brandCd}
+	</select>
+	
+	<!-- 브랜드 신청내역 조회 --> 
+	<select id="selectBrandReqList" resultType="hashmap" parameterType="hashmap">
+		<include refid="adminCommonMapper.pagingHeader" />
+	 	SELECT		  A.REQ_SEQ
+					, A.CTRY_CD
+					, A.MBER_SEQ
+					, A.BRAND_NM
+					, A.APPLY_YN
+					, TO_CHAR(A.REGIST_DT, 'YYYY-MM-DD HH24:MI') AS REGIST_DT
+					, B.MBER_EMAIL
+					, ROW_NUMBER() OVER(ORDER BY MAX(A.REQ_SEQ) DESC )                     AS NO         /* 페이징 필수 */
+		FROM 
+					BRAND_REQ A
+					, MBER_INFO B
+		WHERE		A.APPLY_YN = 'N' AND A.MBER_SEQ = B.MBER_SEQ
+		    <!-- 시작일자-->
+		    <if test="S_START_DATE != null and S_START_DATE != ''">
+		      AND A.REGIST_DT <![CDATA[>=]]> TO_DATE(#{S_START_DATE},'YYYYMMDDHH')
+		    </if>
+		    <!-- 끝일자-->
+		    <if test="S_END_DATE != null and S_END_DATE != ''">
+		      AND A.REGIST_DT <![CDATA[<=]]> TO_DATE(#{S_END_DATE},'YYYYMMDDHH') + 0.99999
+		    </if>					
+			<if test="SEARCH_USER != '' and SEARCH_USER != null">
+				<if test="SearchUserSel  == 'SEARCH_MBER_EMAIL'">
+					AND B.MBER_EMAIL LIKE '%'||<![CDATA[#{SEARCH_USER}]]>||'%'
+				</if>
+				<if test="SearchUserSel  == 'SEARCH_BRAND_NM'">
+					AND A.BRAND_NM LIKE '%'||<![CDATA[#{SEARCH_USER}]]>||'%'
+				</if>
+	  		</if>			
+		GROUP BY A.REQ_SEQ, A.CTRY_CD ,   A.MBER_SEQ ,    A.BRAND_NM ,  A.APPLY_YN , A.REGIST_DT , MBER_EMAIL	
+		<include refid="adminCommonMapper.pagingFooter" />	
+	</select>
+	
+  <!-- 리스트 카운트 조회 -->
+  <select id="selectBrandReqListCount" parameterType="HashMap" resultType="int">
+		/*adminBrandMapper.selectBrandReqListCount*/
+	    SELECT COUNT(1) AS TOTAL_COUNT
+		  FROM 	BRAND_REQ A	, MBER_INFO B
+		 WHERE	A.APPLY_YN = 'N' AND A.MBER_SEQ = B.MBER_SEQ
+		    <!-- 시작일자-->
+		    <if test="S_START_DATE != null and S_START_DATE != ''">
+		      AND A.REGIST_DT <![CDATA[>=]]>  TO_DATE(#{S_START_DATE},'YYYYMMDDHH')
+		    </if>
+		    <!-- 끝일자-->
+		    <if test="S_END_DATE != null and S_END_DATE != ''">
+		      AND A.REGIST_DT <![CDATA[<=]]> TO_DATE(#{S_END_DATE},'YYYYMMDDHH') + 0.99999
+		    </if>					
+			<if test="SEARCH_USER != '' and SEARCH_USER != null">
+				<if test="SearchUserSel  == 'SEARCH_MBER_EMAIL'">
+					AND B.MBER_EMAIL LIKE '%'||<![CDATA[#{SEARCH_USER}]]>||'%'
+				</if>
+				<if test="SearchUserSel  == 'SEARCH_BRAND_NM'">
+					AND A.BRAND_NM LIKE '%'||<![CDATA[#{SEARCH_USER}]]>||'%'
+				</if>
+	  		</if>			
+	</select>
+	
+	<insert id="insertBrandCtry" parameterType="hashmap">
+	INSERT INTO BRAND_CTRY_MAP(
+		BRAND_CD,
+		CTRY_CD,
+		REGIST_DT
+	) VALUES (
+		#{brandCd},
+		#{ctryCd},
+		SYSDATE
+		
+	)
+	</insert>
+	
+	<delete id="deleteBrandCtry" parameterType="hashmap">
+	DELETE FROM BRAND_CTRY_MAP WHERE BRAND_CD = #{brandCd} 
+	<if test="ctryCd != null and ctryCd != ''" >
+		AND CTRY_CD = #{ctryCd} 
+    </if>
+	</delete>
+	
+	<update id="updateBrandInfo" parameterType="hashmap">
+	UPDATE 
+		BRAND_INFO
+	SET
+		BRAND_NM = #{brandNm},
+		VIEW_YN = #{viewYn},
+		UPDT_DT = SYSDATE
+		<if test="fileSeq != null and fileSeq != ''" >
+		, FILE_SEQ =  #{fileSeq}
+    	</if>
+		
+	WHERE
+		BRAND_CD = #{brandCd}
+	</update>
+	
+	<!-- 브랜드 삭제--> 
+	<delete id="deleteBrandInfo" parameterType="hashmap">
+	DELETE FROM BRAND_INFO WHERE BRAND_CD = #{brandCd}
+	</delete>
+	
+	<!-- 브랜드 등록--> 
+	<insert id="insertBrandInfo" parameterType="hashmap" useGeneratedKeys="true" keyProperty="BRAND_CD" keyColumn="BRAND_CD">
+	INSERT INTO BRAND_INFO(
+			 BRAND_CD
+			,SORT_SEQ
+			,BRAND_NM
+			,VIEW_YN
+			,FILE_SEQ
+			,REGIST_DT
+			,UPDT_DT
+	)VALUES(
+ 		-- (SELECT * FROM (SELECT NVL(BRAND_CD, 0) + 1 FROM BRAND_INFO ORDER BY LENGTH(BRAND_CD) DESC, BRAND_CD DESC) WHERE ROWNUM = 1), 
+ 		-- (SELECT * FROM (SELECT NVL(SORT_SEQ, 0) + 1 FROM BRAND_INFO ORDER BY LENGTH(SORT_SEQ) DESC, SORT_SEQ DESC) WHERE ROWNUM = 1), 
+ 		--(SELECT MAX(TO_NUMBER(BRAND_CD)) + 1 FROM BRAND_INFO), 
+ 		--(SELECT MAX(TO_NUMBER(SORT_SEQ)) + 1 FROM BRAND_INFO),
+ 		 SEQ_BRAND_REQ.NEXTVAL
+ 		,(SELECT MAX(TO_NUMBER(SORT_SEQ)) + 1 FROM BRAND_INFO)
+		,#{regBrandNm}
+		,#{regViewYn}
+		,#{fileSeq, jdbcType=VARCHAR}
+		,SYSDATE
+		,SYSDATE
+	)
+	</insert>
+	
+	<!-- 브랜드 신청내역 상세 --> 
+	<select id="selectBrandReq" parameterType="hashmap" resultType="hashmap">
+		SELECT A.REQ_SEQ
+			  ,A.CTRY_CD
+			  ,A.MBER_SEQ
+			  ,A.BRAND_NM
+			  ,A.CTRY_CD
+			  ,(SELECT CTRY_NM FROM CTRY WHERE CTRY_CD = (SUBSTR(A.CTRY_CD,0,4)||'000000000000')) || 	NVL((SELECT ' > ' || CTRY_NM FROM CTRY WHERE CTRY_CD =
+				(SUBSTR(A.CTRY_CD,0,8)||'00000000') AND LVL_SEQ = 2), '') || NVL((SELECT ' > ' || CTRY_NM FROM CTRY WHERE CTRY_CD = (SUBSTR(A.CTRY_CD,0,12)||'0000') AND LVL_SEQ = 3), '') AS CTRY_NM
+		FROM  BRAND_REQ  A
+		WHERE A.REQ_SEQ = #{reqSeq}
+	</select>
+	 	
+	<!-- 브랜드 신청내역 등록흐 업데이트  --> 	
+	<update id="updateBrandReq" parameterType="hashmap">
+		UPDATE
+			BRAND_REQ
+		SET
+			APPLY_YN = 'Y'
+		WHERE
+			REQ_SEQ = #{reqSeq}
+	</update>
+	
+	<!-- 브랜드 신청내역 삭제 --> 	
+	<delete id="deleteBrandReq" parameterType="hashmap">
+		DELETE FROM BRAND_REQ WHERE REQ_SEQ = #{reqSeq}
+	</delete>
+	
+	
+	  <!--  브랜드명 중복 조회 -->
+   <select id="selectBrandInfoDupBrandNm" parameterType="HashMap" resultType="String">
+		SELECT BRAND_CD FROM BRAND_INFO
+		<if test="regBrandNm != null and regBrandNm != ''" >
+			WHERE BRAND_NM = #{regBrandNm}  AND ROWNUM = 1
+    	</if>
+ 		<if test="brandNm != null and brandNm != ''" >
+			WHERE BRAND_NM = #{brandNm}  AND ROWNUM = 1
+    	</if>   	
+		
+	</select>
+</mapper>

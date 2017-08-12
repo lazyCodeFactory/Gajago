@@ -1,0 +1,429 @@
+
+package com.ssocio.sharing.cmmn.util;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.gson.Gson;
+import com.ssocio.sharing.vo.web.Bank;
+import com.ssocio.sharing.vo.web.KCredit;
+import com.ssocio.sharing.vo.web.NoAuthIssueBill;
+import com.ssocio.sharing.vo.web.Phone;
+import com.util.PaycoUtil;
+
+public class PaymentUtil {
+	// --------------------------------------------------------------------------
+	// # Log 설정
+	// --------------------------------------------------------------------------
+	private static final Logger logger = LoggerFactory.getLogger(PaymentUtil.class);
+	
+
+	
+	/**
+	 *	신용카드 결제 취소 (부분 취소) 
+	 */
+	@SuppressWarnings("unchecked")
+	public static Map<String, Object> kCreditTradeCancel(String O_TID, int AMOUNT){
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("kcreditTradeCancelPart START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+
+		Map<String, Object> REQ_DATA = new HashMap<String, Object>();
+		Map<String, Object> RES_DATA = new HashMap<String, Object>();
+		
+		if(O_TID == null || O_TID.equals("")){
+			RES_DATA.put("RETURNCODE", "XXXX");
+			RES_DATA.put("RETURNMSG", "필수 데이터 정보 누락 입니다 [O_TID]");
+			return RES_DATA;
+		}
+		
+		REQ_DATA.put("COMMAND"	, "CARD_PART_CANCEL");
+		REQ_DATA.put("TID"	, O_TID);
+		REQ_DATA.put("ID_MERCHANT"	, CmmnCnst.KCREDIT_ID_MERCHANT);
+		REQ_DATA.put("PW_MERCHANT"	, CmmnCnst.KCREDIT_PW_MERCHANT);
+		REQ_DATA.put("MSG_CANCEL"	, "환불");
+		REQ_DATA.put("AMT_CANCEL"	, AMOUNT+"");
+		REQ_DATA.put("CANCELTYPE"	, "R");
+		
+		KCredit kCredit = new KCredit();
+		
+		logger.info("[cancel][request]" + new Gson().toJson(REQ_DATA));
+		RES_DATA = kCredit.CallCredit(REQ_DATA);		
+		logger.info("[cancel][response]" + new Gson().toJson(RES_DATA));
+		
+		
+		return RES_DATA;
+	}
+	
+	/**
+	 *	신용카드 결제 취소 (전체 취소) 
+	 */
+	@SuppressWarnings("unchecked")
+	public static Map<String, Object> kCreditTradeCancelAll(String O_TID){
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("kcreditTradeCancelAll START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+
+		Map<String, Object> REQ_DATA = new HashMap<String, Object>();
+		Map<String, Object> RES_DATA = new HashMap<String, Object>();
+		
+		if(O_TID == null || O_TID.equals("")){
+			RES_DATA.put("RETURNCODE", "XXXX");
+			RES_DATA.put("RETURNMSG", "필수 데이터 정보 누락 입니다 [O_TID]");
+			return RES_DATA;
+		}
+		
+		REQ_DATA.put("COMMAND"	, "CARD_CANCEL");
+		REQ_DATA.put("TID"	, O_TID);
+		REQ_DATA.put("ID_MERCHANT"	, CmmnCnst.KCREDIT_ID_MERCHANT);
+		REQ_DATA.put("PW_MERCHANT"	, CmmnCnst.KCREDIT_PW_MERCHANT);
+		REQ_DATA.put("MSG_CANCEL"	, "거래 취소");
+		
+		KCredit kCredit = new KCredit();
+		
+		logger.info("[cancel][request]" + new Gson().toJson(REQ_DATA));
+		RES_DATA = kCredit.CallCredit(REQ_DATA);		
+		logger.info("[cancel][response]" + new Gson().toJson(RES_DATA));
+
+		
+		return RES_DATA;
+	}
+
+
+
+	
+	
+	/**
+	 *	휴대폰결제 취소 (전체 취소)
+	 */
+	@SuppressWarnings("unchecked")
+	public static  Map<String, Object> phoneTradeCancelAll(String O_TID){
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("phoneTradeCancel START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+
+		Map<String, Object> REQ_DATA = new HashMap<String, Object>();
+
+		
+		Map<String,Object> RES_DATA = new HashMap<String,Object>();
+		if(O_TID == null || O_TID.equals("")){
+			RES_DATA.put("RETURNCODE", "XXXX");
+			RES_DATA.put("RETURNMSG", "필수 데이터 정보 누락 입니다 [O_TID]");
+			return RES_DATA;
+		}
+
+		REQ_DATA.put("TID", O_TID);
+		REQ_DATA.put("ID", CmmnCnst.PHONE_ID_MERCHANT);
+		REQ_DATA.put("PWD", CmmnCnst.PHONE_PW_MERCHANT);
+		Phone phone = new Phone();
+
+		logger.info("[cancel][request]"+ new Gson().toJson(REQ_DATA));
+		RES_DATA = phone.CallTeleditCancel(REQ_DATA);
+		logger.info("[cancel][response]"+ new Gson().toJson(RES_DATA));
+		
+
+
+		// 필수 결과코드 재정의 (휴대폰결제는 파라미터가 다른것들과 완전히 다르기 때문에 재 정의 해줌.)
+		String returnCode = (String) RES_DATA.get("Result");
+		if (returnCode.equals("0")){
+			returnCode = "0000";
+		}
+		
+		String returnMsg = (String) RES_DATA.get("ErrMsg");
+		if(returnMsg == null){
+			returnMsg = "success";
+		}
+		
+		Map<String,Object> RET_MAP = new HashMap<String,Object>();
+		RET_MAP.put("TID", RES_DATA.get("TID"));
+		RET_MAP.put("RETURNCODE",returnCode );
+		RET_MAP.put("RETURNMSG", returnMsg);
+		RET_MAP.put("DT_CANCEL", RES_DATA.get("Date"));
+
+		
+		return RET_MAP;
+	}
+	
+	
+	
+	/**
+	 * 계좌이체 결제 취소 (부분 취소)
+	 */
+	@SuppressWarnings("unchecked")
+	public static Map<String, Object> bankTradeCancel(String O_TID, Integer AMOUNT){
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("bankTradeCancelPart START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+
+		Map<String, Object> REQ_DATA = new HashMap<String, Object>();
+		Map<String, Object> RES_DATA = new HashMap<String, Object>();
+		if(O_TID == null || O_TID.equals("")){
+			RES_DATA.put("RETURNCODE", "XXXX");
+			RES_DATA.put("RETURNMSG", "필수 데이터 정보 누락 입니다 [O_TID]");
+			return RES_DATA;
+		}
+		
+		
+		REQ_DATA.put("TID"	, O_TID);
+		REQ_DATA.put("CPID"	, CmmnCnst.KCREDIT_ID_MERCHANT);
+		REQ_DATA.put("CPPWD"	, CmmnCnst.KCREDIT_PW_MERCHANT);
+		REQ_DATA.put("CANCELTYPE"	, "R");
+		REQ_DATA.put("TXTYPE"	, "CANCEL");
+		REQ_DATA.put("CHARSET"	, "EUC-KR");
+		REQ_DATA.put("AMOUNT"	, AMOUNT);
+		
+		Bank bank = new Bank();
+		logger.info("[cancel][request]" + new Gson().toJson(REQ_DATA));
+		RES_DATA = bank.CallTrans(REQ_DATA); 
+		logger.info("[cancel][response]" + new Gson().toJson(RES_DATA));
+	
+		
+
+
+		
+		return RES_DATA;
+	}
+	
+	
+	/**
+	 *	계좌이체 결제 취소 (전체 취소) 
+	 */
+	@SuppressWarnings("unchecked")
+	public static Map<String, Object> bankTradeCancelAll(String O_TID){
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("bankTradeCancelAll START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+
+		
+		
+		Map<String, Object> REQ_DATA = new HashMap<String, Object>();
+		Map<String, Object> RES_DATA = new HashMap<String, Object>();
+		if(O_TID == null || O_TID.equals("")){
+			RES_DATA.put("RETURNCODE", "XXXX");
+			RES_DATA.put("RETURNMSG", "필수 데이터 정보 누락 입니다 [O_TID]");
+			return RES_DATA;
+		}
+
+
+		
+		REQ_DATA.put("TID"	, O_TID);
+		REQ_DATA.put("CPID"	, CmmnCnst.KCREDIT_ID_MERCHANT);
+		REQ_DATA.put("CPPWD"	, CmmnCnst.KCREDIT_PW_MERCHANT);
+		REQ_DATA.put("CANCELTYPE"	, "C");
+		REQ_DATA.put("TXTYPE"	, "CANCEL");
+		REQ_DATA.put("CHARSET"	, "EUC-KR");
+		
+		Bank bank = new Bank();
+		logger.info("[cancel][request]" + new Gson().toJson(REQ_DATA));
+		RES_DATA = bank.CallTrans(REQ_DATA); 
+		logger.info("[cancel][response]" + new Gson().toJson(RES_DATA));
+	
+		
+		return RES_DATA;
+	}
+	
+	
+	
+	/**
+	 * 페이코 결제 취소
+	 * @param orderNo				페이코에서 발급해준 주문 번호
+	 * @param orderCertifyKey		페이코에서 발급해준 주문 번호 키
+	 * @param cancelTotalAmt		(필수). 전체 취소시에도 총 금액을 입력 해 주셔야 합니다.
+	 * @return
+	 * @throws Exception
+	 */
+	public static Map<String, Object> payco_cancel(
+			String orderNo
+			,String orderCertifyKey
+			,Integer cancelTotalAmt
+			)	{
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("payco_cancel START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+			ObjectMapper mapper = new ObjectMapper(); 					//jackson json object
+			PaycoUtil util = new PaycoUtil(CmmnCnst.PAYCO_SERVERTYPE_PROD);	//CommonUtil
+			String strResult = "";				  	  					//반환값
+			
+			/* orderNo 값이 없으면 로그를 기록한 뒤 JSON 형태로 오류를 돌려주고 API를 종료합니다. */
+			Map<String,Object> RES_DATA = new HashMap<String,Object>();
+			if(orderNo == null ||orderNo.equals("")){
+				RES_DATA.put("result", "주문번호 값이 전달되지 않았습니다.");
+				RES_DATA.put("RETURNMSG", "orderNo is Nothing.");
+				RES_DATA.put("RETURNCODE", "XXXX");
+				return RES_DATA;
+				
+			/* cancelTotalAmt 값이 없으면 로그를 기록한 뒤 JSON 형태로 오류를 돌려주고 API를 종료합니다. */
+			}else if(cancelTotalAmt == null || cancelTotalAmt.equals("")){
+				
+				RES_DATA.put("result", "총 취소 금액이 전달되지 않았습니다.");
+				RES_DATA.put("RETURNMSG", "cancelTotalAmt is Nothing.");
+				RES_DATA.put("RETURNCODE", "XXXX");
+				return RES_DATA;
+
+			}else if(orderCertifyKey == null || orderCertifyKey.equals("")){
+				
+				RES_DATA.put("result", "주문인증 key가 전달되지 않았습니다.");
+				RES_DATA.put("RETURNMSG", "CertifyKey is Nothing.");
+				RES_DATA.put("RETURNCODE", "XXXX");
+				return RES_DATA;
+
+			}
+			
+			
+			
+			/* 설정한 주문취소 정보로 Json String 을 작성합니다. */
+			Map<String, Object> param = new HashMap<String, Object>();
+			param.put("sellerKey", CmmnCnst.PAYCO_SELLERKEY_PROD);				//[필수]가맹점 코드
+			param.put("orderNo", orderNo);									//[필수]주문번호
+			param.put("orderCertifyKey", orderCertifyKey);					//[필수]주문인증 key
+			param.put("cancelTotalAmt",cancelTotalAmt);  					//[필수]취소할 총 금액(전체취소, 부분취소 전부다)
+			
+			
+			/* 주문 결제 취소 API 호출 */
+			logger.info("[payco_cancel][request]" + new Gson().toJson(param));
+			strResult = util.payco_cancel(param,CmmnCnst.PAYCO_LOGYN);
+			logger.info("[payco_cancel][request]" + strResult);
+			
+			Map<String, Object> jObject  = null;
+			try{
+				jObject  = mapper.readValue(strResult, new TypeReference<HashMap<String, Object>>(){});
+				Integer code = (Integer) jObject.get("code");
+				String message = (String) jObject.get("message");
+				String cancelTradeSeq = (String) jObject.get("cancelTradeSeq");
+
+				String RETURNCODE =  code==0? "0000" : String.valueOf(code);  
+				RES_DATA.put("RETURNCODE", RETURNCODE);
+				RES_DATA.put("RETURNMSG", message);
+				RES_DATA.put("TID", cancelTradeSeq);
+
+			}catch (Exception e){
+				e.printStackTrace();
+				RES_DATA.put("RETURNCODE", "XXXX");
+				RES_DATA.put("RETURNMSG", e.getMessage());
+			}
+			
+			
+			
+			
+			
+			return RES_DATA;			
+	}
+	
+
+	/**
+	 * 빌키 삭제 처리
+	 * @param BiilKey
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	public static Map<String, Object>  issuBiilCancel(String BiilKey){
+		
+		NoAuthIssueBill issueBill = new NoAuthIssueBill();
+		
+		Map<String,Object> REQ_DATA = new HashMap<String,Object>();
+		Map<String,Object> RES_DATA = new HashMap<String,Object>();
+		
+		if(BiilKey == null || BiilKey.equals("")){
+			RES_DATA.put("RETURNCODE", "XXXX");
+			RES_DATA.put("RETURNMSG", "Billkey는 필수 파라미터 입니다.");
+		}
+		
+
+
+		/**************************************************
+		 * CP 정보
+		 **************************************************/
+		REQ_DATA.put("CPID", 	CmmnCnst.NOAUTH_ID_MERCHANT);
+		REQ_DATA.put("CPPWD", 	CmmnCnst.NOAUTH_PW_MERCHANT);
+		
+		/**************************************************
+		 * 결제 정보
+		 **************************************************/
+		REQ_DATA.put("BILLKEY", BiilKey);
+		
+		/**************************************************
+		 * 기본 정보
+		 **************************************************/
+		REQ_DATA.put("TXTYPE", 	"DELBILLKEY");
+		REQ_DATA.put("CHARSET", "euc-kr");
+		
+		
+		logger.info("[cancel][request]" + new Gson().toJson(REQ_DATA));
+		RES_DATA = issueBill.CallCredit(REQ_DATA, true);
+		logger.info("[cancel][response]" + new Gson().toJson(RES_DATA));
+		
+		return RES_DATA;	
+	}
+	
+	
+	
+	/**
+	 * 정기결제 결제취소
+	 * @param O_TID
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	public static Map<String, Object> billCancel(String O_TID){
+		
+		Map<String,Object> REQ_DATA = new HashMap<String,Object>();
+		Map<String,Object> RES_DATA = new HashMap<String,Object>();
+		
+		NoAuthIssueBill issueBill = new NoAuthIssueBill();
+		
+		if(O_TID == null || O_TID.equals("")){
+			RES_DATA.put("RETURNCODE", "XXXX");
+			RES_DATA.put("RETURNMSG","required parameter is [O_TID]");
+
+			return RES_DATA;
+		}
+
+		String AMOUNT = "";		// 정기결제는 전체취소만 가능하기 때문에 금액을 넣지 않는다
+
+
+		/**************************************************
+		 * CP 정보
+		 **************************************************/
+		REQ_DATA.put("CPID", CmmnCnst.NOAUTH_ID_MERCHANT);
+		REQ_DATA.put("CPPWD", CmmnCnst.NOAUTH_PW_MERCHANT);
+		
+		/**************************************************
+		 * 결제 정보
+		 **************************************************/
+		REQ_DATA.put("O_TID", O_TID);
+		
+		/**************************************************
+		 * 기본 정보
+		 **************************************************/
+		REQ_DATA.put("CANCELTYPE", "C");
+		REQ_DATA.put("AMOUNT", AMOUNT);
+		REQ_DATA.put("CHARSET", "euc-kr");
+		REQ_DATA.put("TXTYPE", "CANCEL");
+		
+		
+		logger.info("[cancel][request]" + new Gson().toJson(REQ_DATA));
+		RES_DATA = issueBill.CallCredit(REQ_DATA, false);
+		logger.info("[cancel][response]" + new Gson().toJson(RES_DATA));
+		
+		return RES_DATA;
+	}
+	
+	
+	
+//	public static void main(String[] args) {
+//		Map<String,Object> map = PaymentUtil.kCreditTradeCancel("CD2015111309264070490501",4);
+//		Map<String,Object> map = PaymentUtil.kCreditTradeCancelAll("CD2015111309423184065702");
+//		Map<String,Object> map = PaymentUtil.phoneTradeCancelAll("110411242791892421");
+//		Map<String,Object> map = PaymentUtil.payco_cancel("201511042002008455", "t7OdUs67mckkiar4RGj9ANi9C9oBBHTubnwfuC0faxL4CC", 0);
+//		Map<String,Object> map = PaymentUtil.bankTradeCancel("201511041536558730661310", 804);
+//		System.out.println(PaymentUtil.issuBiilCancel("15102616009431AC").toString());
+		
+//		System.out.println(map.toString());
+//	}
+	
+	
+}

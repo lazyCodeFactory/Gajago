@@ -1,0 +1,310 @@
+package com.ssocio.sharing.vo.web;
+
+import java.io.IOException;
+import java.net.URLDecoder;
+import java.net.URLEncoder;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import kr.co.danal.crypto.DNCrypto;
+import kr.co.danal.jsinbi.HttpClient;
+
+public class NoAuthIssueBill {
+
+	private static final Logger logger = LoggerFactory.getLogger(KCredit.class);
+
+
+	
+	/*****************************************************
+	 * 다날 정기과금 인증키 발급 요청
+	 *****************************************************/
+	
+	/*****************************************************
+	 * 연동에 필요한 Function 및 변수값 설정
+     *
+	 * 연동에 대한 문의사항 있으시면 기술지원팀으로 연락 주십시오.
+	 * DANAL Commerce Division Technique supporting Team 
+	 * EMail : tech@danal.co.kr	 
+	 ******************************************************/
+
+	/******************************************************
+	 *  DN_CREDIT_URL	: 결제 서버 정의
+	 ******************************************************/
+	static final String DN_CREDIT_URL = "https://edi.teledit.com/edi/ ";
+
+	/******************************************************
+	 *  Set Timeout
+	 ******************************************************/
+	static final int DN_CONNECT_TIMEOUT = 5000;
+	static final int DN_TIMEOUT = 30000;
+	static final int DN_RTIME = 30000;
+	
+	static final String ERC_NETWORK_ERROR = "-1";
+	static final String ERM_NETWORK = "Network Error";
+
+
+	public String CHARSET = "euc-kr";
+
+	public Map CallCredit(Map REQ_DATA, boolean Debug) {
+
+		String REQ_STR = data2str(REQ_DATA);
+
+		HttpClient hc = new HttpClient();
+		hc.setConnectionTimeout(DN_CONNECT_TIMEOUT);
+		hc.setTimeout(DN_TIMEOUT);
+
+		int Result = hc.retrieve("POST", DN_CREDIT_URL, REQ_STR, CHARSET, CHARSET);
+
+		String RES_STR = "";
+		if (Result == HttpClient.EOK && hc.getResponseCode() == 200) {
+			RES_STR = hc.getResponseBody();
+		} else {
+			RES_STR = "RETURNCODE=" + ERC_NETWORK_ERROR + "&RETURNMSG="
+					+ ERM_NETWORK + "( " + Result + "/" + hc.getResponseCode()
+					+ " )";
+		}
+
+		if (Debug) {
+			logger.debug("Req[" + REQ_STR + "]");
+			logger.debug("Ret[" + Result + "/" + hc.getResponseCode() + "]");
+			logger.debug("Res[" + RES_STR + "]");
+		}
+
+		return str2data(RES_STR);
+	}
+
+	public Map str2data(String str) {
+		Map map = new HashMap();
+		String[] st = str.split("&");
+
+		for (int i = 0; i < st.length; i++) {
+			int index = st[i].indexOf('=');
+			if (index > 0)
+				map.put(st[i].substring(0, index),
+						urlDecode(st[i].substring(index + 1)));
+		}
+
+		return map;
+	}
+
+	public String data2str(Map data) {
+		Iterator i = data.keySet().iterator();
+		StringBuffer sb = new StringBuffer();
+		while (i.hasNext()) {
+			Object key = i.next();
+			Object value = data.get(key);
+			
+//			logger.debug("key {} | value {}",key,value);
+			
+			sb.append(key.toString());
+			sb.append('=');
+//			sb.append( toEuckr(value.toString()) ); // UTF-8
+			sb.append( value.toString() ); // EUC-KR
+			sb.append('&');
+			
+		}
+
+		if (sb.length() > 0)
+			return sb.substring(0, sb.length() - 1);
+		else
+			return "";
+	}
+	
+	public String MakeDataStr( Map arr, String[] except ){
+		String return_str = "";
+		StringBuffer sb = new StringBuffer();
+				
+		for(int i=0; i<except.length; i++){
+			if( arr.containsKey(except[i])){
+				arr.remove(except[i]);
+			}
+		}
+		
+		Iterator it = arr.keySet().iterator();
+		
+		while(it.hasNext()){
+			Object key = it.next();
+			Object value = arr.get(key);
+			
+			if( key.equals("") || key.equals(null) ){
+				continue;
+			}
+			
+			sb.append(key.toString());
+			sb.append("=");
+			sb.append(toEuckr( value.toString() ));
+			sb.append("|");
+		}
+		
+		return sb.toString();
+	}
+	
+	public String MakeDataStrHTTP(Map HTTPVAR, String[] arr){
+		StringBuffer ret = new StringBuffer();
+		String return_str;
+		String key = "";
+		String[] value = null;
+		
+		if( arr != null ){
+			for(int i=0; i<arr.length; i++){
+				if(HTTPVAR.containsKey(arr[i])){
+					HTTPVAR.remove(arr[i]);
+				}
+			}
+		}
+		
+		Iterator i = HTTPVAR.keySet().iterator();
+		
+		while(i.hasNext()){
+			key = (String)i.next();
+			value = (String[])HTTPVAR.get(key);
+			
+			for(int j=0; j<value.length; j++){
+				ret.append(key.toString());
+				ret.append("=");
+				ret.append(toEuckr(value[j]));
+				ret.append("|");
+				
+			}
+			
+		}
+
+		return_str = ret.toString();
+		return_str = return_str.substring(0, return_str.length() - 1);
+		
+		return return_str;
+	}
+	
+	public Map SplitEncData( String str ){
+		Map Return_arr = new HashMap();
+		
+		String[] arr1 = str.split("\\|");
+		
+		int i_cnt = arr1.length;
+		
+		for(int i=0; i<i_cnt; i++){
+			String[] arr2 = arr1[i].split("=");
+			
+			if(arr2[0].equals(null) || arr2[1].equals(null))
+				continue;
+			
+			Return_arr.put((String)arr2[0].trim(), (String)arr2[1].trim());
+		}
+
+		return Return_arr;
+	}
+
+	/*
+	 *  urlEncode
+	 */
+	public String urlEncode(Object obj) {
+		if (obj == null)
+			return null;
+
+		try {
+			return URLEncoder.encode(obj.toString(), "EUC-KR");
+		} catch (Exception e) {
+			return obj.toString();
+		}
+	}
+
+	/*
+	 *  urlDecode
+	 */
+	public String urlDecode(Object obj) {
+		if (obj == null)
+			return null;
+
+		try {
+			return URLDecoder.decode(obj.toString(), "EUC-KR");
+		} catch (Exception e) {
+			return obj.toString();
+		}
+	}
+
+	public String toEuckr(String str) {
+		if (str == null)
+			return "";
+		try {
+			return new String(str.getBytes("8859_1"), "euc-kr");
+		} catch (IOException e) {
+			return "";
+		}
+	}
+	
+	public String MakeFormInputHTTP(Map HTTPVAR , String[] arr) {
+		StringBuffer ret = new StringBuffer();
+		String key = "";
+		String[] value = null;
+
+		if(arr != null){
+			for(int i = 0; i < arr.length; i++)
+				if(HTTPVAR.containsKey(arr[i]))
+					HTTPVAR.remove(arr[i]);
+		}
+		
+		Iterator i = HTTPVAR.keySet().iterator();
+		while(i.hasNext()){
+			key = (String)i.next();
+
+			value = (String[])HTTPVAR.get(key);
+			
+			for(int j = 0; j < value.length; j++){
+				ret.append("<INPUT TYPE=\"HIDDEN\" NAME=\"");
+				ret.append(key);
+				ret.append("\" VALUE=\"");
+				if(key.equals("ItemName")) ret.append(toEuckr(value[j]));
+				else ret.append(value[j]);
+				ret.append("\">");
+				ret.append('\n');
+			}
+		}
+
+		return ret.toString();
+	}
+	
+	public String MakeFormInput(Map map , String[] arr) {
+		StringBuffer ret = new StringBuffer();
+
+		if(arr != null){
+			for(int i = 0; i < arr.length; i++)
+				if(map.containsKey(arr[i]))
+					map.remove(arr[i]);
+		}
+
+		Iterator i = map.keySet().iterator();
+		while(i.hasNext()){
+			String key = (String)i.next();
+			String value = (String)map.get(key);
+			
+			ret.append("<INPUT TYPE=\"HIDDEN\" NAME=\"");
+			ret.append(key);
+			ret.append("\" VALUE=\"");
+			ret.append(value);
+			ret.append("\">");
+			ret.append('\n');
+		}
+
+		return ret.toString();
+	}
+	
+	public String Map2Str(Map data){
+
+		StringBuffer sb = new StringBuffer();
+		Iterator it = data.keySet().iterator();
+		while(it.hasNext()){
+			Object key = it.next();
+			String[] value = (String[])data.get(key);
+
+			for(int i = 0; i<value.length;i++){
+				sb.append( "{"+key+"="+value[i]+"}" );
+			}
+		}
+		return sb.toString();
+	}
+	
+}

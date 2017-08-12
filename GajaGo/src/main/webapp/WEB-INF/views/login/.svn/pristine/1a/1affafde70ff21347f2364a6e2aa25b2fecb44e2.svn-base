@@ -1,0 +1,2743 @@
+package com.ssocio.sharing.service.seller;
+
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+import javax.servlet.http.HttpSession;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.interceptor.TransactionAspectSupport;
+import org.springframework.ui.ModelMap;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.multipart.MultipartHttpServletRequest;
+import org.springframework.web.servlet.ModelAndView;
+
+import com.ssocio.sharing.cmmn.admin.util.CommonUtil;
+import com.ssocio.sharing.cmmn.dao.CommonDao;
+import com.ssocio.sharing.cmmn.util.CmmnCnst;
+import com.ssocio.sharing.cmmn.util.LoggerUtil;
+import com.ssocio.sharing.cmmn.util.PaymentUtil;
+import com.ssocio.sharing.cmmn.util.StringUtil;
+import com.ssocio.sharing.dao.seller.SellerOrderDao;
+import com.ssocio.sharing.dao.seller.SellerSharOrderDao;
+import com.ssocio.sharing.vo.admin.AdminSession;
+import com.ssocio.sharing.vo.admin.PageNavigation;
+
+/**
+ * <pre>
+ * 주문관리 SERVICE
+ * 주문관리 SERVICEIMPL
+ * @author S.B.LEE
+ * @version
+ * @since 2015. 7. 10. 오후 6:09:53
+ * @see
+ * @History
+ * Date			|	author	| 변경 내용
+ * 2015. 7. 10.	|	S.B.LEE	|신규
+ * @비고
+ * </pre>
+ */
+@Service
+public class SellerOrderServiceImpl implements SellerOrderService {
+	// --------------------------------------------------------------------------
+	// # Log 설정
+	// --------------------------------------------------------------------------
+	private static final Logger logger = LoggerFactory.getLogger(SellerOrderServiceImpl.class);
+
+	// --------------------------------------------------------------------------
+	// # DAO 설정
+	// --------------------------------------------------------------------------
+	@Resource(name="sellerOrderDao")
+	private SellerOrderDao sellerOrderDao;
+	@Resource(name="sellerSharOrderDao")
+	private SellerSharOrderDao sellerSharOrderDao;
+	@Resource(name="commonDao")
+	private CommonDao commonDao;
+
+
+	/**
+	 * <pre>
+	 * 주문판매관리
+	 * 주문판매리스트내역을 조회합니다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 7. 10. 오후 6:12:26
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.service.admin
+	 * </pre>
+	 */
+	@Override
+	public ModelMap selectListOrder(Map<String, Object> inParam) throws Exception {
+		logger.debug("SellerOrderServiceImpl.selectListOrder [Start]");
+		ModelMap mm = new ModelMap();
+		try {
+
+			//페이지번호
+			int nowPage = StringUtil.nvlInt((String)inParam.get("PAGE_NO"), 1);
+			int rowCnt	= StringUtil.nvlInt((String)inParam.get("S_ROW_CNT"), CmmnCnst.ADM_LIST_SIZE);;
+			inParam.put("S_ROW_CNT", rowCnt);
+
+			String today = StringUtil.getCurrentDate();
+			inParam.put("S_END_DATE", StringUtil.nvl((String)inParam.get("S_END_DATE"), today));
+
+			SimpleDateFormat format = new SimpleDateFormat("yyyyMMdd");
+			Calendar cal = Calendar.getInstance();
+			cal.add(Calendar.DATE, -7);
+			inParam.put("S_START_DATE", StringUtil.nvl((String)inParam.get("S_START_DATE"), format.format(cal.getTime())));
+
+			LoggerUtil.writeMap(inParam);
+
+			int rowTotal = sellerOrderDao.selectListOrderCount(inParam); //전체 Row Count
+			PageNavigation pageNav= new PageNavigation(nowPage, rowTotal, rowCnt, CmmnCnst.ADM_BLOCK_SIZE);
+
+			inParam.put("L_DLV_DATE", today);
+
+			mm.put("PAGE_NO", nowPage);
+			mm.put("pageNav", pageNav);
+			inParam.put("START_ROW", pageNav.getStartRow());
+			inParam.put("END_ROW", pageNav.getEndRow());
+
+			mm.put("selectListOrder",sellerOrderDao.selectListOrder(inParam));
+			mm.put("statCnt",sellerOrderDao.selectOrdStatCnt(inParam));
+			mm.put("params", inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+
+	/**
+	 * <pre>
+	 * 택배사 정보 전체 조회
+	 * 택배사 정보 전체 조회 합니다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 14. 오후 2:19:05
+	 * @author SEOKBAE
+	 * @see @see com.ssocio.sharing.service.admin.AdminOrderService#selectListDlv(java.util.Map)
+	 * @비고
+	 *
+	 * </pre>
+	 */
+	@Override
+	public ModelMap selectListDlv(Map<String, Object> inParam) throws Exception {
+		logger.debug("SellerOrderServiceImpl.selectListDlv [Start]");
+		ModelMap mm = new ModelMap();
+		try {
+
+			mm.addAttribute("selectListDlv",sellerOrderDao.selectListDlv(inParam));
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+
+	/**
+	 * <pre>
+	 * 주문 리스트 엑셀조회
+	 * 주문 리스트 엑셀을 조회 합니다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 13. 오후 3:03:00
+	 * @author SEOKBAE
+	 * @see @see com.ssocio.sharing.service.admin.AdminOrderService#selectListOrdExcel(java.util.Map)
+	 * @비고
+	 *
+	 * </pre>
+	 */
+	@Override
+	public ModelMap selectListOrdExcel(Map<String, Object> inParam) throws Exception {
+		logger.debug("SellerOrderServiceImpl.selectListOrdExcel [Start]");
+		ModelMap mm = new ModelMap();
+		try {
+			mm.addAttribute("selectListOrdExcel", sellerOrderDao.selectListOrdExcel(inParam));
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+
+	/**
+	 * <pre>
+	 * 배송 리스트 엑셀 업로드
+	 *
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 27. 오후 2:45:47
+	 * @author SEOKBAE
+	 * @see @see com.ssocio.sharing.service.admin.AdminOrderService#insertListDlv(org.springframework.web.multipart.MultipartHttpServletRequest)
+	 * @비고
+	 *
+	 * </pre>
+	 */
+	@Override
+	public ModelMap excelFileUpload(MultipartHttpServletRequest inParam) throws Exception {
+		logger.debug("SellerOrderServiceImpl.excelFileUpload [Start]");
+		ModelMap mm = new ModelMap();
+		HttpSession session = inParam.getSession();
+		AdminSession sessionVO = (AdminSession)session.getAttribute("manager");
+
+		MultipartFile excelFile = inParam.getFile("I_UPLOAD_FILE");
+		int uploadCount = 0;
+		try {
+			List<Map<String, Object>> excelData = CommonUtil.getOldExcelList(excelFile);
+			String prodID="";
+			for(Map<String, Object> rowData:excelData){
+				String pdId = (String) rowData.get("CELL0");
+				if(pdId == null || pdId.equals("")){
+					break;
+				}
+				uploadCount++;
+				LoggerUtil.writeMap(rowData);
+				rowData.put("LOGIN_ADM_ID", sessionVO.getADM_ID());//등록회원ID, 수정회원ID
+			}
+			mm.put("excelList", excelData);
+			mm.put("uploadCount", uploadCount);
+//			mm.addAttribute("selectListOrdExcel", adminOrderDao.selectListOrdExcel(inParam));
+		} catch (Exception e) {
+			//e.printStackTrace();
+		}
+		return mm;
+	}
+
+	/**
+	 * <pre>
+	 * 배송지 등록
+	 *
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 29. 오전 11:12:05
+	 * @author SEOKBAE
+	 * @see @see com.ssocio.sharing.service.admin.AdminOrderService#insertListDlv(java.util.Map)
+	 * @비고
+	 *
+	 * </pre>
+	 */
+	@Override
+	public ModelMap insertListDlv(Map<String, Object> inParam) throws Exception {
+		logger.debug("SellerOrderServiceImpl.insertListDlv [Start]");
+		ModelMap mm = new ModelMap();
+		try {
+
+			String cell0Array = (String)inParam.get("CELL0");
+			String cell1Array = (String)inParam.get("CELL1");
+			String cell2Array = (String)inParam.get("CELL2");
+			String cell3Array = (String)inParam.get("CELL3");
+			String cell4Array = (String)inParam.get("CELL4");
+			String cell5Array = (String)inParam.get("CELL5");
+
+			String CELL0[] = cell0Array.split(",");
+			String CELL1[] = cell1Array.split(",");
+			String CELL2[] = cell2Array.split(",");
+			String CELL3[] = cell3Array.split(",");
+			String CELL4[] = cell4Array.split(",");
+			String CELL5[] = cell5Array.split(",");
+
+			String prodSeq = "";
+			int uploadCnt = 0;
+			int prodCnt = 0;
+
+			for (int i = 0; i < CELL0.length; i++) {
+				inParam.put("CELL0", CELL0[i]);
+				inParam.put("CELL1", CELL1[i]);
+				inParam.put("CELL2", CELL2[i]);
+				inParam.put("CELL3", CELL3[i]);
+				inParam.put("CELL4", CELL4[i]);
+				inParam.put("CELL5", CELL5[i]);
+				prodSeq = sellerOrderDao.selectProdSeq(inParam);
+				inParam.put("PROD_SEQ", prodSeq);
+
+				if ( prodSeq != null ) {
+					prodCnt = sellerOrderDao.selectProdCnt(inParam);
+					if ( prodCnt == 0 ) {
+						uploadCnt++;
+						mm.put("outParam", sellerOrderDao.insertListDlv(inParam));
+						mm.put("uploadCnt", uploadCnt);
+					} else {
+						mm.put("uploadCnt", uploadCnt);
+					}
+				}
+				if( uploadCnt == 100) {
+					break;
+				}
+			}
+//			mm.put("outParam", adminOrderDao.insertListDlv(inParam));
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+
+	/**
+	 * <pre>
+	 * 주문상세내역 조회
+	 * 주문상세내역 을 조회 합니다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 14. 오후 2:29:12
+	 * @author SEOKBAE
+	 * @see @see com.ssocio.sharing.service.admin.AdminOrderService#selectOrderDtl(java.util.Map)
+	 * @비고
+	 *
+	 * </pre>
+	 */
+	@Override
+	public ModelMap selectOrderDtl(Map<String, Object> inParam) throws Exception {
+		logger.debug("SellerOrderServiceImpl.selectOrderDtl [Start]");
+		ModelMap mm = new ModelMap();
+		try {
+			mm.put("selectOrderDtl", sellerOrderDao.selectOrderDtl(inParam));		//주문상품상세리스트
+			mm.put("selectSetlDtl", sellerOrderDao.selectOrdSetlDtl(inParam));		//주문결제상세
+			mm.put("selectOrdMberInfo", sellerOrderDao.selectOrdMberInfo(inParam));	//주문자 정보
+			mm.put("params", inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+
+	/**
+	 * <pre>
+	 * 주문상태변경
+	 *
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 16. 오전 12:40:45
+	 * @author SEOKBAE
+	 * @see @see com.ssocio.sharing.service.admin.AdminOrderService#updateOrderDtl(java.util.Map)
+	 * @비고
+	 *
+	 * </pre>
+	 */
+	@Override
+	public int updateOrderDtl(Map<String, Object> inParam) throws Exception {
+		logger.debug("SellerOrderServiceImpl.updateOrderDtl [Start]");
+		int outParam = 0;
+		try {
+			List<String> prodCodeList = (List<String>) inParam.get("L_PROD_CODE");
+			List<String> procStatCdList = (List<String>) inParam.get("L_PROC_STAT_CD");
+			List<String> ordStatCdList = (List<String>) inParam.get("L_ORD_STAT_CD");
+			List<String> prodSeqList = (List<String>) inParam.get("L_PROD_SEQ");
+			for (int i = 0; i < prodCodeList.size(); i++) {
+				inParam.put("P_PROD_CODE", prodCodeList.get(i));
+				inParam.put("P_PROC_STAT_CD", procStatCdList.get(i));
+				inParam.put("P_ORD_STAT_CD", ordStatCdList.get(i));
+				inParam.put("P_PROD_SEQ", prodSeqList.get(i));
+				outParam = sellerOrderDao.updateOrderProdStat(inParam);
+				outParam = sellerOrderDao.updateOrderProcStat(inParam);
+				sellerOrderDao.insertOrderShipping(inParam);
+				sellerOrderDao.insertOrdDlv(inParam);
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return outParam;
+	}
+
+	/**
+	 * <pre>
+	 * 선택 상품 취소
+	 *
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 24. 오후 2:16:21
+	 * @author SEOKBAE
+	 * @see @see com.ssocio.sharing.service.admin.AdminOrderService#updateOrdCncl(java.util.Map)
+	 * @비고
+	 *
+	 * </pre>
+	 */
+	@Override
+	public int updateOrdCncl(Map<String, Object> inParam) throws Exception {
+		logger.debug("SellerOrderServiceImpl.updateOrdCncl [Start]");
+		int outParam = 0;
+		try {
+
+			String prodCode = (String) inParam.get("P_PROD_CODE");
+			String prodSeq = (String) inParam.get("P_PROD_SEQ");
+			String[] codeArray = prodCode.split(",");
+			String[] seqArray = prodSeq.split(",");
+			System.out.println(inParam);
+			for (int i = 0; i < codeArray.length; i++) {
+				inParam.put("P_PROD_CODE", codeArray[i]);
+				inParam.put("P_PROD_SEQ", seqArray[i]);
+				outParam = sellerOrderDao.insertOrdCncl(inParam);
+				outParam = sellerOrderDao.updateOrdCncl(inParam);
+			}
+
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return outParam;
+	}
+
+	/**
+	 * <pre>
+	 * 주문상품 운송장등록
+	 *
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 16. 오후 1:46:14
+	 * @author SEOKBAE
+	 * @see @see com.ssocio.sharing.service.admin.AdminOrderService#insertOrderShipping(java.util.Map)
+	 * @비고
+	 *
+	 * </pre>
+	 */
+	@Override
+	public ModelMap insertOrderShipping(Map<String, Object> inParam) throws Exception {
+		logger.debug("SellerOrderServiceImpl.insertOrderShipping [Start]");
+		ModelMap mm = new ModelMap();
+		try {
+			inParam.put("L_ORD_CD", inParam.get("P_ORD_CD"));
+			inParam.put("L_ORD_STAT_CD", inParam.get("P_ORD_STAT_CD"));
+			inParam.put("L_PROC_STAT_CD", inParam.get("P_PROC_STAT_CD"));
+			inParam.put("L_PROD_CODE", inParam.get("P_PROD_CODE"));
+			inParam.put("L_PROD_SEQ", inParam.get("P_PROD_SEQ"));
+			sellerOrderDao.updateOrderProcStat(inParam);
+			sellerOrderDao.updateOrderProdStat(inParam);
+			mm.put("outParam", sellerOrderDao.insertOrderShipping(inParam));
+			mm.put("outParam", sellerOrderDao.insertOrdDlv(inParam));
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+
+	/**
+	 * <pre>
+	 * 교환/반품신청 조회
+	 * 설명
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 7. 29. 오후 7:14:08
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.service.admin
+	 * </pre>
+	 */
+	@Override
+	public ModelMap selectListRfnd(Map<String, Object> inParam) throws Exception {
+		logger.debug("SellerOrderServiceImpl.selectListRfnd [Start]");
+		ModelMap mm = new ModelMap();
+		try {
+
+			//페이지번호
+			int nowPage = StringUtil.nvlInt((String)inParam.get("PAGE_NO"), 1);
+			int rowCnt	= StringUtil.nvlInt((String)inParam.get("S_ROW_CNT"), CmmnCnst.ADM_LIST_SIZE);;
+			inParam.put("S_ROW_CNT", rowCnt);
+
+			String today = StringUtil.getCurrentDate();
+			inParam.put("S_END_DATE", StringUtil.nvl((String)inParam.get("S_END_DATE"), today));
+
+			SimpleDateFormat format = new SimpleDateFormat("yyyyMMdd");
+			Calendar cal = Calendar.getInstance();
+			cal.add(Calendar.DATE, -7);
+			inParam.put("S_START_DATE", StringUtil.nvl((String)inParam.get("S_START_DATE"), format.format(cal.getTime())));
+
+			LoggerUtil.writeMap(inParam);
+
+			int rowTotal = sellerOrderDao.selectListRfndCount(inParam); //전체 Row Count
+			PageNavigation pageNav= new PageNavigation(nowPage, rowTotal, rowCnt, CmmnCnst.ADM_BLOCK_SIZE);
+
+			inParam.put("L_DLV_DATE", today);
+
+			mm.put("PAGE_NO", nowPage);
+			mm.put("pageNav", pageNav);
+			inParam.put("START_ROW", pageNav.getStartRow());
+			inParam.put("END_ROW", pageNav.getEndRow());
+
+			mm.put("selectListRfnd",sellerOrderDao.selectListRfnd(inParam));
+			mm.put("statCnt",sellerOrderDao.selectRfndStatCnt(inParam));
+			mm.put("params", inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+
+	/**
+	 * <pre>
+	 * 교환/반품 주문 정보
+	 *
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 7. 31. 오후 2:27:11
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.service.admin
+	 * </pre>
+	 */
+	@Override
+	public ModelMap selectRfndDtl(Map<String, Object> inParam) throws Exception {
+		logger.debug("SellerOrderServiceImpl.selectRfndDtl [Start]");
+		ModelMap mm = new ModelMap();
+		try {
+			mm.put("ordInfo",sellerOrderDao.selectRfndOrdInfo(inParam));
+			mm.put("invcInfo",sellerOrderDao.selectRfndInvcInfo(inParam));
+			mm.put("rtnInfo",sellerOrderDao.selectRfndInfo(inParam));
+			mm.put("histList",sellerOrderDao.selectListHist(inParam));
+			mm.put("params", inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+
+	/**
+	 * <pre>
+	 * 교환/반품 상품 배송지 정보 변경
+	 *
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 3. 오후 6:11:32
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.service.admin
+	 * </pre>
+	 */
+	@Override
+	public ModelMap updateRfndDtl(Map<String, Object> inParam) throws Exception {
+		logger.debug("SellerOrderServiceImpl.updateRfndDtl [Start]");
+		ModelMap mm = new ModelMap();
+		try {
+			mm.put("outParam",sellerOrderDao.updateRfndDtl(inParam));
+			mm.put("outParam",sellerOrderDao.insertInvc(inParam));
+			mm.put("outParam",sellerOrderDao.updateProcStat(inParam));
+			mm.put("outParam",sellerOrderDao.insertRfndHist(inParam));
+			mm.put("params", inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+
+	/**
+	 * <pre>
+	 * 교환/반품 신청 상세 교환완료처리
+	 *
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 8. 3. 오후 9:25:39
+	 * @author SEOKBAE
+	 * @see @see com.ssocio.sharing.service.admin.AdminOrderService#insertRfndDtl(java.util.Map)
+	 * @비고
+	 *
+	 * </pre>
+	 */
+	@Override
+	public ModelMap insertRfndDtl(Map<String, Object> inParam) throws Exception {
+		logger.debug("AdminOrderServiceImpl.insertRfndDtl [Start]");
+		ModelMap mm = new ModelMap();
+		try {
+			mm.put("outParam",sellerOrderDao.updateRfndDtl(inParam));
+			mm.put("outParam",sellerOrderDao.updateProcStat(inParam));
+			mm.put("outParam",sellerOrderDao.updateInvcProcStat(inParam));
+			mm.put("outParam",sellerOrderDao.insertRfndHist(inParam));
+			mm.put("params", inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+
+	/**
+	 * <pre>
+	 * 주문취소조회
+	 *
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 6. 오후 7:02:57
+	 * @author S.B.LEE
+	 * @see @see com.ssocio.sharing.service.admin.AdminOrderService#selectListCncl(java.util.Map)
+	 * </pre>
+	 */
+	@Override
+	public ModelMap selectListCncl(Map<String, Object> inParam) throws Exception {
+		logger.debug("SellerOrderServiceImpl.selectListRfnd [Start]");
+		ModelMap mm = new ModelMap();
+		try {
+
+			//페이지번호
+			int nowPage = StringUtil.nvlInt((String)inParam.get("PAGE_NO"), 1);
+			int rowCnt	= StringUtil.nvlInt((String)inParam.get("S_ROW_CNT"), CmmnCnst.ADM_LIST_SIZE);;
+			inParam.put("S_ROW_CNT", rowCnt);
+
+			String today = StringUtil.getCurrentDate();
+			inParam.put("S_END_DATE", StringUtil.nvl((String)inParam.get("S_END_DATE"), today));
+
+			SimpleDateFormat format = new SimpleDateFormat("yyyyMMdd");
+			Calendar cal = Calendar.getInstance();
+			cal.add(Calendar.DATE, -7);
+			inParam.put("S_START_DATE", StringUtil.nvl((String)inParam.get("S_START_DATE"), format.format(cal.getTime())));
+
+			LoggerUtil.writeMap(inParam);
+
+			int rowTotal = sellerOrderDao.selectListCnclCount(inParam); //전체 Row Count
+			PageNavigation pageNav= new PageNavigation(nowPage, rowTotal, rowCnt, CmmnCnst.ADM_BLOCK_SIZE);
+
+			inParam.put("L_DLV_DATE", today);
+
+			mm.put("PAGE_NO", nowPage);
+			mm.put("pageNav", pageNav);
+			inParam.put("START_ROW", pageNav.getStartRow());
+			inParam.put("END_ROW", pageNav.getEndRow());
+
+			mm.put("selectListCncl",sellerOrderDao.selectListCncl(inParam));
+			mm.put("params", inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+
+
+	/*==================================================================================================================================================*/
+	//나눔 주문 관리
+
+	/**
+	 * <pre>
+	 * 나눔 내역 조회
+	 *
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 10. 12. 오후 11:34:12
+	 * @author Kang
+	 * @see com.ssocio.sharing.service.admin
+	 * </pre>
+	 */
+	@Override
+	public ModelMap selectListFreeShare(Map<String, Object> inParam, String[] procStatCd) throws Exception {
+
+		LoggerUtil.writeMap(inParam);
+
+		// return Map
+		ModelMap mm = new ModelMap();
+
+		try {
+
+			//페이지번호
+			inParam.put("PAGE_NO",StringUtil.nvl((String)inParam.get("PAGE_NO"), CmmnCnst.cmmn1));
+			int nowPage = StringUtil.nvlInt((String)inParam.get("PAGE_NO"), 1);
+			int rowCnt	= StringUtil.nvlInt((String)inParam.get("S_ROW_CNT"), CmmnCnst.ADM_LIST_SIZE);
+			inParam.put("S_ROW_CNT", rowCnt);
+
+			// 조회일자
+			String today = StringUtil.getCurrentDate();
+			inParam.put("S_END_DATE", StringUtil.nvl((String)inParam.get("S_END_DATE"), today));
+			SimpleDateFormat format = new SimpleDateFormat("yyyyMMdd");
+			Calendar cal = Calendar.getInstance();
+			cal.add(Calendar.DATE, -7);
+			inParam.put("S_START_DATE", StringUtil.nvl((String)inParam.get("S_START_DATE"), format.format(cal.getTime())));
+
+			inParam.put("PROC_STAT_CD", procStatCd);
+
+			logger.info("nowPage : " + nowPage);
+			logger.info("rowCnt : " + rowCnt);
+
+			// 총건수 조회
+			int rowTotal = sellerOrderDao.selectFreeShareTotCnt(inParam);
+			logger.info("@@@@@@@@@@@@@@@@@ rowTotal : " + rowTotal + "@@@@@@@@@@@@@@@@@@");
+			// paging
+			PageNavigation pageNav= new PageNavigation(nowPage, rowTotal, rowCnt, CmmnCnst.ADM_BLOCK_SIZE);
+			mm.put("PAGE_NO", nowPage);
+			mm.put("pageNav", pageNav);
+			inParam.put("START_ROW", pageNav.getStartRow());
+			inParam.put("END_ROW", pageNav.getEndRow());
+
+			// 리스트 조회
+			mm.put("selectListFreeShare",sellerOrderDao.selectListFreeShare(inParam));
+			mm.put("params", inParam);
+
+		}
+		catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+
+	}
+
+	/**
+	 * <pre>
+	 * 나눔 내역 엑셀다운로드
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 10. 13. 오후 1:17:12
+	 * @author Kang
+	 * @see com.ssocio.sharing.service.seller
+	 * </pre>
+	 */
+	@Override
+	public void selectListFreeShareExcel(ModelAndView mav, Map<String, Object> inParam, String[] procStatCd) throws Exception {
+
+		LoggerUtil.writeMap(inParam);
+
+		// 상태
+		inParam.put("PROC_STAT_CD", procStatCd);
+		// 날짜
+		inParam.put("S_START_DATE", StringUtil.getDigit((String)inParam.get("S_START_DATE")));
+		inParam.put("S_END_DATE", StringUtil.getDigit((String)inParam.get("S_END_DATE")));
+
+		// 조회
+		List<Map<String, Object>> selectListFreeShareExcel = sellerOrderDao.selectListFreeShareExcel(inParam);
+
+		// 엑셀 정보
+		String SheetName = "주문목록";
+
+		// title
+		List<String> excelTitle = new ArrayList<String>();
+		excelTitle.add("등록일시");
+		excelTitle.add("주문일시");
+		excelTitle.add("주문상태");
+		excelTitle.add("주문번호");
+		excelTitle.add("주문자명");
+		excelTitle.add("주문자ID");
+		excelTitle.add("판매자명");
+		excelTitle.add("판매자ID");
+		excelTitle.add("상품명");
+		excelTitle.add("나눔신청기간시작일");
+		excelTitle.add("나눔신청기간종료일");
+		excelTitle.add("신청자수");
+		excelTitle.add("이름");
+		excelTitle.add("연락처");
+		excelTitle.add("우편번호");
+		excelTitle.add("도로명 주소(기본주소+상세주소)");
+		excelTitle.add("지번 주소(기본주소+상세주소)");
+		excelTitle.add("배송메모");
+		excelTitle.add("택배사");
+		excelTitle.add("송장번호");
+		excelTitle.add("배송일자");
+		excelTitle.add("도착일자");
+
+		// cell
+		List<String> CellName = new ArrayList<String>();
+		CellName.add("REGIST_DT");
+		CellName.add("ORD_REGIST_DT");
+		CellName.add("PROC_STAT_CD_NM");
+		CellName.add("ORD_CD");
+		CellName.add("ORD_MBER_NM");
+		CellName.add("ORD_MBER_EMAIL");
+		CellName.add("SELLER_MBER_NM");
+		CellName.add("SELLER_MBER_EMAIL");
+		CellName.add("PROD_NM");
+		CellName.add("FREESHARE_START_DT");
+		CellName.add("FREESHARE_END_DT");
+		CellName.add("REQ_CNT");
+		CellName.add("RCV_NM");
+		CellName.add("RCV_TEL");
+		CellName.add("ZIP_CD");
+		CellName.add("JUSO_DORO");
+		CellName.add("JUSO_JIBEN");
+		CellName.add("DLV_MSG");
+		CellName.add("COM_CD_NM");
+		CellName.add("INVC_NO");
+		CellName.add("DLV_START_DT");
+		CellName.add("DLV_END_DT");
+
+		mav.addObject("SheetName", SheetName);
+		mav.addObject("excelTitle", excelTitle);
+		mav.addObject("CellName", CellName);
+		mav.addObject("excelList", selectListFreeShareExcel);
+		mav.addObject("param", inParam);
+	}
+
+	/**
+	 * <pre>
+	 * 나눔 상세 내역 조회
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 10. 13. 오전 1:45:12
+	 * @author Kang
+	 * @see com.ssocio.sharing.service.seller
+	 * </pre>
+	 */
+	@Override
+	public ModelMap selectFreeShareReqDtl(Map<String, Object> inParam) throws Exception {
+
+		ModelMap mm = new ModelMap();
+
+		// 이미지코드
+		inParam.put("prodImgGbCd", CmmnCnst.cmmn11);
+
+		// 상품정보
+		mm.put("selectFreeShareReqDtl", sellerOrderDao.selectFreeShareReqDtl(inParam));
+
+		//페이지번호
+		inParam.put("PAGE_NO",StringUtil.nvl((String)inParam.get("PAGE_NO"), CmmnCnst.cmmn1));
+		int nowPage = StringUtil.nvlInt((String)inParam.get("PAGE_NO"), 1);
+		int rowCnt	= StringUtil.nvlInt((String)inParam.get("S_ROW_CNT"), CmmnCnst.ADM_LIST_SIZE);
+		inParam.put("S_ROW_CNT", rowCnt);
+
+		// 총건수 조회
+		int rowTotal = sellerOrderDao.selectListFreeShareReqCnt(inParam);
+		logger.info("@@@@@@@@@@@@@@@@@ rowTotal : " + rowTotal + "@@@@@@@@@@@@@@@@@@");
+		// paging
+		PageNavigation pageNav= new PageNavigation(nowPage, rowTotal, rowCnt, CmmnCnst.ADM_BLOCK_SIZE);
+		mm.put("PAGE_NO", nowPage);
+		mm.put("pageNav", pageNav);
+		inParam.put("START_ROW", pageNav.getStartRow());
+		inParam.put("END_ROW", pageNav.getEndRow());
+
+		mm.put("selectListFreeShareReq", sellerOrderDao.selectListFreeShareReq(inParam));
+		mm.put("params", inParam);
+
+		return mm;
+
+	}
+
+	/**
+	 * <pre>
+	 * 나눔  수락
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 10. 13. 오전 2:27:12
+	 * @author Kang
+	 * @see com.ssocio.sharing.service.seller
+	 * </pre>
+	 */
+	@Transactional
+	@Override
+	public void updateFreeShareConfirm(ModelAndView mav, Map<String,Object> inParam) throws Exception {
+
+		LoggerUtil.writeMap(inParam);
+
+		// 수락할 회원일련번호
+		String mberSeq = (String)inParam.get("mberSeq");
+		inParam.remove("mberSeq");
+
+		//신청 완료 되었는지 확인(주문서 확인)
+		inParam.put("procStatCd", "95");
+		int freeCntRtn = sellerOrderDao.selectFreeShareOrdCount(inParam);
+
+
+		if(freeCntRtn > 0){
+
+			mav.addObject("rtnMsg", "해당 상품은 이미 수락이 완료 되었습니다.");
+			mav.addObject("rtnCode", "NO");
+
+		}else{
+			// 나눔신청한 회원 나눔거절
+			inParam.put("procStatCd", "96");
+			int rejRtn = sellerOrderDao.updateFreeShareReq(inParam);
+
+			if (rejRtn > 0) {
+				// 선택한 회원 나눔수락
+				inParam.put("procStatCd", "95");
+				inParam.put("mberSeq", mberSeq);
+				int confRtn = sellerOrderDao.updateFreeShareReq(inParam);
+
+				if (confRtn > 0) {
+
+					// 상품상태 나눔완료
+					inParam.put("prodStatCd", CmmnCnst.cmmn1);				// 나눔완료
+					sellerOrderDao.updateProdStatCd(inParam);
+
+					// 신청정보 조회
+					Map<String, Object> ordMap = new HashMap<String, Object>();
+					ordMap = sellerOrderDao.selectProdSubmitInfo(inParam);
+					String selectOrdCd = sellerOrderDao.selectOrdInfoSeq(inParam);
+					// 주문정보 생성
+					ordMap.put("ordCd",selectOrdCd);
+
+					// 주문정보 생성
+					String ordCd = sellerOrderDao.insertOrdInfo(ordMap);
+
+					if (!StringUtil.isEmpty(ordCd)) {
+						ordMap.put("ORD_CD", ordCd);
+
+						LoggerUtil.writeMap(ordMap);
+
+						// 주문 배송지정보 생성
+						int dlvCnt = sellerOrderDao.insertOrdDlvInfo(ordMap);
+
+						if (dlvCnt > 0) {
+
+							// 주문상품정보 생성
+							ordMap.put("PROC_STAT_CD", inParam.get("procStatCd"));
+							ordMap.put("PROD_SEQ", CmmnCnst.cmmn1);
+							ordMap.put("DLV_GRP_CODE", ordCd+"0001");
+							int ordProdCnt = sellerOrderDao.insertOrdProdInfo(ordMap);
+
+							if (ordProdCnt > 0) {
+								mav.addObject("rtnMsg", CmmnCnst.FREE_REQ_OK);
+								mav.addObject("rtnCode", "OK");
+							}
+							else {
+								mav.addObject("rtnMsg", CmmnCnst.PROC_MSG_N);
+								mav.addObject("rtnCode", "N");
+							}
+						}
+						else {
+							mav.addObject("rtnMsg", CmmnCnst.PROC_MSG_N);
+							mav.addObject("rtnCode", "N");
+						}
+					}
+					else {
+						mav.addObject("rtnMsg", CmmnCnst.PROC_MSG_N);
+						mav.addObject("rtnCode", "N");
+					}
+				}
+				else {
+					mav.addObject("rtnMsg", CmmnCnst.PROC_MSG_N);
+					mav.addObject("rtnCode", "N");
+				}
+			}
+			else {
+				mav.addObject("rtnMsg", CmmnCnst.PROC_MSG_N);
+				mav.addObject("rtnCode", "N");
+			}
+		}
+
+
+	}
+
+	/**
+	 * <pre>
+	 * 나눔 상세 내역 조회
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 10. 13. 오전 2:40:12
+	 * @author Kang
+	 * @see com.ssocio.sharing.service.seller
+	 * </pre>
+	 */
+	@Override
+	public ModelMap selectFreeShareConfDtl(Map<String, Object> inParam) throws Exception {
+
+		ModelMap mm = new ModelMap();
+
+		// 이미지코드
+		inParam.put("prodImgGbCd", CmmnCnst.cmmn11);
+
+		Map<String, Object> selectListFreeShareConf = sellerOrderDao.selectFreeShareConfDtl(inParam);
+
+		// 전화번호 format
+		selectListFreeShareConf.put("ORD_MBER_PHONE", StringUtil.getMdnFmt((String)selectListFreeShareConf.get("ORD_MBER_PHONE")));
+		String procStatCd = (String)selectListFreeShareConf.get("PROC_STAT_CD");
+		if ("22".equals(procStatCd) || "23".equals(procStatCd)) {
+			selectListFreeShareConf.put("RCV_TEL", StringUtil.getMdnFmt((String)selectListFreeShareConf.get("RCV_TEL")));
+		}
+
+		mm.put("selectListFreeShareConf", selectListFreeShareConf);
+		mm.put("params", inParam);
+
+		return mm;
+
+	}
+
+	/**
+	 * <pre>
+	 * 배송지정보 변경
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 10. 13. 오전 3:04:12
+	 * @author Kang
+	 * @see com.ssocio.sharing.service.seller
+	 * </pre>
+	 */
+	@Override
+	public void updateDlvInfo(ModelAndView mav, Map<String,Object> inParam) throws Exception {
+
+		LoggerUtil.writeMap(inParam);
+
+		// 배송지정보 저장 dao 호출
+		int rtn = sellerOrderDao.updateDlvInfo(inParam);
+
+		if (rtn > 0) {
+			mav.addObject("rtnMsg", CmmnCnst.PROC_MSG_Y);
+		}
+		else {
+			mav.addObject("rtnMsg", CmmnCnst.PROC_MSG_N);
+		}
+
+	}
+
+	/**
+	 * <pre>
+	 * 제휴택배 배송신청
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 10. 13. 오전 3:24:12
+	 * @author Kang
+	 * @see com.ssocio.sharing.service.seller
+	 * </pre>
+	 */
+	@Override
+	public void updateFreeShareDlvReq(ModelAndView mav, Map<String,Object> inParam) throws Exception {
+
+		LoggerUtil.writeMap(inParam);
+
+		// 저장정보 set
+		inParam.put("P_PROC_STAT_CD", inParam.get("procStatCd"));								 // 처리상태코드
+		inParam.put("P_ORD_CD", inParam.get("ordCd"));
+		inParam.put("P_PROD_CODE", inParam.get("prodCode"));
+		inParam.put("P_PROD_SEQ", inParam.get("prodSeq"));
+
+		// 상태변경
+		int rtn = sellerOrderDao.updateOrderProcStat(inParam);
+
+		if (rtn > 0) {
+			mav.addObject("rtnMsg", CmmnCnst.ORD_DLV_MSG_Y);
+		}
+		else {
+			mav.addObject("rtnMsg", CmmnCnst.PROC_MSG_N);
+		}
+
+	}
+
+	/**
+	 * <pre>
+	 * 일반택배, 우편/등기, 퀵서비스 상품배송
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 10. 13. 오전 3:29:12
+	 * @author Kang
+	 * @see com.ssocio.sharing.service.seller
+	 * </pre>
+	 */
+	@Transactional
+	@Override
+	public void updateFreeShareProdDlv(ModelAndView mav, Map<String,Object> inParam) throws Exception {
+
+		LoggerUtil.writeMap(inParam);
+
+		// 저장정보 set
+		inParam.put("P_PROC_STAT_CD", inParam.get("procStatCd"));								 // 처리상태코드
+		inParam.put("P_ORD_CD", inParam.get("ordCd"));
+		inParam.put("P_PROD_CODE", inParam.get("prodCode"));
+		inParam.put("P_PROD_SEQ", inParam.get("prodSeq"));
+
+		// 상태변경
+		int rtn = sellerOrderDao.updateOrderProcStat(inParam);
+
+		if (rtn > 0) {
+
+			// 일반 택배일 경우 운송장정보 생성
+			if (CmmnCnst.cmmn2.equals((String)inParam.get("dlvWayCd"))) {
+				inParam.put("dlvStatCd", CmmnCnst.cmmn10);
+				int invcRtn = sellerOrderDao.insertInvcInfo(inParam);
+				if (invcRtn > 0) {
+					mav.addObject("rtnMsg", CmmnCnst.ORD_INVC_DLV_Y);
+				}
+			}
+			else {
+				mav.addObject("rtnMsg", CmmnCnst.ORD_INVC_DLV_Y);
+			}
+
+		}
+		else {
+			mav.addObject("rtnMsg", CmmnCnst.PROC_MSG_N);
+		}
+
+	}
+
+	/**
+	 * <pre>
+	 * 일반택배, 우편/등기, 퀵서비스 배송완료
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 10. 13. 오전 3:32:12
+	 * @author Kang
+	 * @see com.ssocio.sharing.service.seller
+	 * </pre>
+	 */
+	@Override
+	public void updateDlvComplete(ModelAndView mav, Map<String,Object> inParam) throws Exception {
+
+		LoggerUtil.writeMap(inParam);
+
+		// 저장정보 set
+		inParam.put("P_PROC_STAT_CD", inParam.get("procStatCd"));								 // 처리상태코드
+		inParam.put("P_ORD_CD", inParam.get("ordCd"));
+		inParam.put("P_PROD_CODE", inParam.get("prodCode"));
+		inParam.put("P_PROD_SEQ", inParam.get("prodSeq"));
+
+		// 상태변경
+		int rtn = sellerOrderDao.updateOrderProcStat(inParam);
+
+		if (rtn > 0) {
+
+			// 일반 택배일 경우 운송장정보 생성
+			if (CmmnCnst.cmmn2.equals((String)inParam.get("dlvWayCd"))) {
+				// 운송장 정보 update
+				inParam.put("dlvStatCd", CmmnCnst.cmmn20);			// 배송완료
+				int invcCnt = sellerOrderDao.updateInvcInfo(inParam);
+
+				// return msg
+				if (invcCnt > 0) {
+					mav.addObject("rtnMsg", CmmnCnst.ORD_DLV_CMPT_Y);
+				}
+			}
+			else {
+				mav.addObject("rtnMsg", CmmnCnst.ORD_DLV_CMPT_Y);
+			}
+
+		}
+		else {
+			mav.addObject("rtnMsg", CmmnCnst.PROC_MSG_N);
+		}
+
+	}
+
+	/*==================================================================================================================================================*/
+
+
+	/*==================================================================================================================================================*/
+	//판매 주문 관리
+	/**
+	 * <pre>
+	 * 판매주문 조회
+	 * 판매주문 조회 리스트내역을 조회합니다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 11. 05
+	 * @author Y.S.KIM
+	 * @see com.ssocio.sharing.service.seller
+	 * </pre>
+	 */
+	@Override
+	public ModelMap selectListSaleOrd(Map<String, Object> inParam) throws Exception {
+		logger.debug("SellerOrderManageServiceImpl.selectListSaleOrder [Start]");
+		ModelMap mm = new ModelMap();
+		try {
+			//페이지번호
+			int nowPage = StringUtil.nvlInt((String)inParam.get("PAGE_NO"), 1);
+			int rowCnt	= StringUtil.nvlInt((String)inParam.get("S_ROW_CNT"), CmmnCnst.ADM_LIST_SIZE);
+
+			//검색일
+			String today = StringUtil.getCurrentDate();
+			inParam.put("S_END_DATE", StringUtil.nvl((String)inParam.get("S_END_DATE"), today));
+			SimpleDateFormat format = new SimpleDateFormat("yyyyMMdd");
+			Calendar cal = Calendar.getInstance();
+			cal.add(Calendar.DATE, -7);
+			inParam.put("S_START_DATE", StringUtil.nvl((String)inParam.get("S_START_DATE"), format.format(cal.getTime())));
+
+			//결제수단 CHECKBOX
+			if(null != inParam.get("CHECKBOX_SELT_GB_CD")){
+				inParam.put("SELT_CHK_BOX_RESULT", ((String)inParam.get("CHECKBOX_SELT_GB_CD")).split(","));
+			}
+			//주문상태 CHECKBOX
+			if(null != inParam.get("CHECKBOX_PROC_STAT_CD")){
+				inParam.put("PROC_CHK_BOX_RESULT", ((String)inParam.get("CHECKBOX_PROC_STAT_CD")).split(","));
+			}
+
+			//페이징
+			int rowTotal = sellerOrderDao.selectListSaleOrdCnt(inParam); //전체 Row Count
+			PageNavigation pageNav= new PageNavigation(nowPage, rowTotal, rowCnt, CmmnCnst.ADM_BLOCK_SIZE);
+			inParam.put("START_ROW", pageNav.getStartRow());
+			inParam.put("END_ROW", pageNav.getEndRow());
+
+			mm.put("groupList",sellerOrderDao.selectListSaleOrdGroup(inParam));		//조회 그룹 리스트
+			mm.put("productList",sellerOrderDao.selectListSaleOrdProduct(inParam));	//조회 상세 리스트
+			mm.put("PAGE_NO", nowPage);
+			mm.put("pageNav", pageNav);
+			mm.put("params", inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+
+	/**
+	 * <pre>
+	 * 판매주문 조회
+	 * 판매주문 조회 excel 다운로드
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 11. 05
+	 * @author Y.S.KIM
+	 * @see com.ssocio.sharing.service.seller
+	 * </pre>
+	 */
+	@Override
+	public Object selectListSaleOrdExcel(Map<String, Object> inParam) throws Exception {
+		//검색일
+		String today = StringUtil.getCurrentDate();
+		inParam.put("S_END_DATE", StringUtil.nvl((String)inParam.get("S_END_DATE"), today));
+		SimpleDateFormat format = new SimpleDateFormat("yyyyMMdd");
+		Calendar cal = Calendar.getInstance();
+		cal.add(Calendar.DATE, -7);
+		inParam.put("S_START_DATE", StringUtil.nvl((String)inParam.get("S_START_DATE"), format.format(cal.getTime())));
+
+		//결제수단 CHECKBOX
+		if(null != inParam.get("CHECKBOX_SELT_GB_CD")){
+			inParam.put("SELT_CHK_BOX_RESULT", ((String)inParam.get("CHECKBOX_SELT_GB_CD")).split(","));
+		}
+		//주문상태 CHECKBOX
+		if(null != inParam.get("CHECKBOX_PROC_STAT_CD")){
+			inParam.put("PROC_CHK_BOX_RESULT", ((String)inParam.get("CHECKBOX_PROC_STAT_CD")).split(","));
+		}
+		return sellerOrderDao.selectListSaleOrdExcel(inParam);
+	}
+
+	/**
+	 * <pre>
+	 * 판매주문 조회
+	 * 판매주문 조회 - 판매 주문 상세
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 11. 05
+	 * @author Y.S.KIM
+	 * @see com.ssocio.sharing.service.seller
+	 * </pre>
+	 */
+	@Override
+	public ModelMap selectSaleOrdDtl(Map<String, Object> inParam) throws Exception {
+		logger.debug("SellerOrderManageServiceImpl.selectSaleOrdDtl [Start]");
+		ModelMap mm = new ModelMap();
+		try {
+			mm.put("selectSaleDetailGroupList", sellerOrderDao.selectSaleDetailGroupList(inParam));					//판매 주문 상세 그룹 리스트
+			mm.put("selectSaleDetailGroupProductList", sellerOrderDao.selectSaleDetailGroupProductList(inParam));	//판매 주문 상세 그룹 상품 리스트
+			mm.put("selectSaleDetailProductOptionList", sellerOrderDao.selectSaleDetailProductOptionList(inParam));	//판매 주문 상세 옵션 상품 리스트
+			mm.put("selectSaleOrdInfo", sellerOrderDao.selectSaleOrdInfo(inParam));									//주문정보
+			mm.put("selectSaleOrdDlvInfo", sellerOrderDao.selectSaleOrdDlvInfo(inParam));							//배송지 정보
+			mm.put("selectUseCouponList", commonDao.getSelectUseCouponList(inParam));								//사용한 쿠폰 리스트
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+
+	/**
+	 * <pre>
+	 * 판매주문 조회
+	 * 판매주문 조회 - 배송지 정보를 수정 합니다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 11. 09
+	 * @author Y.S.KIM
+	 * @see com.ssocio.sharing.service.seller
+	 * </pre>
+	 */
+	public int insertOrdDlv(Map<String, Object> inParam) throws Exception {
+		logger.debug("SellerOrderManageServiceImpl.insertOrdDlv [Start]");
+		int outParam = 0;
+		try {
+			outParam = sellerOrderDao.insertOrdDlv(inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return outParam;
+	}
+
+	/**
+	 * <pre>
+	 * 주문메모 저장
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 11. 09
+	 * @author Y.S.KIM
+	 * @see com.ssocio.sharing.service.seller
+	 * </pre>
+	 */
+	@Override
+	public void updateAdminMemo(ModelAndView mav, Map<String,Object> inParam) throws Exception {
+		LoggerUtil.writeMap(inParam);
+		// 주문메모 저장 dao 호출
+		int rtn = sellerOrderDao.updateAdminMemo(inParam);
+		if (rtn > 0) {
+			mav.addObject("rtnMsg", CmmnCnst.PROC_MSG_Y);
+		}
+		else {
+			mav.addObject("rtnMsg", CmmnCnst.PROC_MSG_N);
+		}
+	}
+
+	/**
+	 * <pre>
+	 * 주문취소 - 단일,복합 상품 취소 구분 획득
+	 *
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 11. 09
+	 * @author Y.S.KIM
+	 * @see com.ssocio.sharing.service.seller.AdminOrderService.selectSaleAdminOrderCancelGroupInfo
+	 * @비고
+	 *
+	 * </pre>
+	 */
+	@Override
+	public Map<String, Object> selectSaleAdminOrderCancelGroupInfo(Map<String, Object> inParam) throws Exception {
+		return sellerOrderDao.selectSaleAdminOrderCancelGroupInfo(inParam);
+	}
+
+	/**
+	 * <pre>
+	 * 주문 취소 - 단일 상품
+	 *
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 11. 09
+	 * @author Y.S.KIM
+	 * @see com.ssocio.sharing.service.seller.AdminOrderService#cancelSaleAdminOrderOneItem(java.util.Map)
+	 * @비고
+	 *
+	 * </pre>
+	 */
+	@Transactional(rollbackFor=Exception.class)
+	@Override
+	public Map<String, Object> cancelSaleAdminOrderOneItem(Map<String, Object> inParam) throws Exception {
+		Map<String, Object> result = new HashMap<String, Object>();
+		int count = 0;
+		try {
+			//0.취소 코드 획득
+			String canCd = sellerSharOrderDao.selectSharOrderCancelCode(inParam);
+			inParam.put("CANC_CD",canCd);
+
+			//1.상품 취소 정보,사유 입력 (CANC_REASON_CD=40 , CANC_REASON=관리자 취소)
+			count += sellerSharOrderDao.insertSharOrderCancelReason(inParam);
+
+			//2.ORD_INFO 업데이트 ( ORD_STAT_CD=150)
+			count += sellerSharOrderDao.updateSharOrderTableCancelState(inParam);
+
+			//3.쿠폰 돌려주기
+			String couponTemp = (String)inParam.get("PROD_CPN_CD");
+			if(!couponTemp.equals("NO")){
+				inParam.put("CPN_NO",couponTemp);
+				count += sellerSharOrderDao.updateSharOrderCouponTable(inParam);
+			}else{
+				inParam.put("CPN_NO","");
+				count++;
+			}
+
+			//4.ORD_PROD_INFO 업데이트 (PROC_STAT_CD=50)
+			count += sellerSharOrderDao.updateSharOrderProductTableCancelState(inParam);
+
+			//5.포인트 돌려주기 (회원 , 이력쌓기)
+			int point = (int) inParam.get("POINT_USE_AMT");
+			if(point > 0){
+				count += sellerSharOrderDao.updateMemberTableForPoint(inParam);
+				inParam.put("POINT_COMMENT","주문취소");
+				count += sellerSharOrderDao.insertPointLogTable(inParam);
+			}else{
+				count = count +2;
+			}
+
+			if(count == 6){
+				//취소 통신
+				String seltGbCd = (String)inParam.get("SELT_GB_CD");	//결재 구분자
+				if(seltGbCd.equals("0")){
+					logger.info("[0원 결제]");
+					result.put("RESULT", "OK");
+				}else{
+					Map<String, Object> tradeInfo = null;
+					tradeInfo = sellerSharOrderDao.selectTradeNumber(inParam);	//결제 정보
+					if(tradeInfo == null){
+						logger.info("[TID 획득 실패로 RollBack !!!!!!]");
+						TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+						result.put("RESULT", "API");
+					}else{
+						String o_tid = tradeInfo.get("TRD_NO").toString();	//결제 TID
+						String amount = (String)inParam.get("REAL_SELT_AMT");			//취소 금액
+						Map<String, Object> cancelResult = new HashMap<String, Object>();
+						if(seltGbCd.equals("1")){
+							//신용카드
+							try {
+								cancelResult = PaymentUtil.kCreditTradeCancelAll(o_tid);
+								if(cancelResult.get("RETURNCODE").toString().equals("0000")){
+									System.err.println(cancelResult.toString());
+									result.put("RESULT", "OK");
+									//결제 정보 입력
+									inParam.put("TRD_NO",cancelResult.get("TID").toString());
+									inParam.put("TRD_AMT",Integer.parseInt(amount));
+									inParam.put("RLT_CD",cancelResult.get("RETURNCODE").toString());
+									inParam.put("RLT_MSG","SUCCESS");
+									sellerSharOrderDao.insertOrdCancelInfo(inParam);
+								}else{
+									logger.info("[카드 취소 연동 실패로 RollBack !!!!!!]");
+									TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+									result.put("RESULT", "API");
+								}
+							} catch (Exception e) {
+								logger.info("[카드 취소 연동 실패로 RollBack !!!!!!]");
+								TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+								result.put("RESULT", "API");
+							}
+						}else if(seltGbCd.equals("2")){
+							//무통장
+							try {
+								cancelResult = PaymentUtil.bankTradeCancel(o_tid, Integer.parseInt(amount));
+								if(cancelResult.get("RETURNCODE").toString().equals("0000")){
+									System.err.println(cancelResult.toString());
+									result.put("RESULT", "OK");
+									//결제 정보 입력
+									inParam.put("TRD_NO",cancelResult.get("TID").toString());
+									inParam.put("TRD_AMT",Integer.parseInt(amount));
+									inParam.put("RLT_CD",cancelResult.get("RETURNCODE").toString());
+									inParam.put("RLT_MSG","SUCCESS");
+									sellerSharOrderDao.insertOrdCancelInfo(inParam);
+								}else{
+									logger.info("[무통장 취소 연동 실패로 RollBack !!!!!!]");
+									TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+									result.put("RESULT", "API");
+								}
+							} catch (Exception e) {
+								logger.info("[무통장 취소 연동 실패로 RollBack !!!!!!]");
+								TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+								result.put("RESULT", "API");
+							}
+						}else if(seltGbCd.equals("3")){
+							String isPhoneCancel = (String)inParam.get("PHONE_CANCEL_YN");
+							try {
+								String RFND_CD = sellerOrderDao.createRfndCode();
+								if(isPhoneCancel.equals("Y")){
+									cancelResult = PaymentUtil.phoneTradeCancelAll(o_tid);
+									if(cancelResult.get("RETURNCODE").toString().equals("0000")){
+										System.err.println(cancelResult.toString());
+										result.put("RESULT", "OK");
+										//결제 정보 입력
+										inParam.put("TRD_NO",cancelResult.get("TID").toString());
+										inParam.put("TRD_AMT",Integer.parseInt(amount));
+										inParam.put("RLT_CD",cancelResult.get("RETURNCODE").toString());
+										inParam.put("RLT_MSG","SUCCESS");
+										sellerSharOrderDao.insertOrdCancelInfo(inParam);
+									}else{
+										logger.info("[휴대폰 취소 연동 실패로 RollBack !!!!!!]");
+										TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+										result.put("RESULT", "API");
+									}
+								}else{
+									//휴대폰 : 환불계좌 입력
+									inParam.put("RFND_CD",RFND_CD);
+									inParam.put("RFND_AMT",Integer.parseInt(amount));
+									sellerOrderDao.insertRefund(inParam);
+									sellerOrderDao.insertRefundProduct(inParam);
+									result.put("RESULT", "OK");
+								}
+
+							} catch (Exception e) {
+								logger.info("[휴대폰 취소 연동 실패로 RollBack !!!!!!]");
+								TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+								result.put("RESULT", "API");
+							}
+						}else if(seltGbCd.equals("4")){
+							//payCo
+							String orderNo = tradeInfo.get("PAYCO_NO").toString();	//페이코 거래 번호
+							String orderCertifyKey = tradeInfo.get("PAYCO_CER_KEY").toString();	//페이코 거래 인증 키
+							try {
+								cancelResult = PaymentUtil.payco_cancel(orderNo, orderCertifyKey, Integer.parseInt(amount));
+								if(cancelResult.get("RETURNCODE").toString().equals("0000")){
+									System.err.println(cancelResult.toString());
+									result.put("RESULT", "OK");
+									//결제 정보 입력
+									inParam.put("TRD_NO",cancelResult.get("TID").toString());
+									inParam.put("TRD_AMT",Integer.parseInt(amount));
+									inParam.put("RLT_CD",cancelResult.get("RETURNCODE").toString());
+									inParam.put("RLT_MSG","SUCCESS");
+									sellerSharOrderDao.insertOrdCancelInfo(inParam);
+								}else{
+									logger.info("[페이코 취소 연동 실패로 RollBack !!!!!!]");
+									TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+									result.put("RESULT", "API");
+								}
+							} catch (Exception e) {
+								logger.info("[페이코 취소 연동 실패로 RollBack !!!!!!]");
+								TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+								result.put("RESULT", "API");
+							}
+						}
+					}
+				}
+			}else{
+				logger.info("[DB 저장,업데이트 실패로 RollBack !!!!!!]");
+				TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+				result.put("RESULT", "DB");
+			}
+
+		} catch (Exception e) {
+			e.printStackTrace();
+			TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+			result.put("RESULT", "ETC");
+		}
+		return result;
+	}
+
+	/**
+	 * <pre>
+	 * 주문 취소 - 복합 상품
+	 *
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 11. 09
+	 * @author Y.S.KIM
+	 * @see com.ssocio.sharing.service.seller.AdminOrderService#cancelSaleAdminOrderMultiItem(java.util.Map)
+	 * @비고
+	 *
+	 * </pre>
+	 */
+	@Transactional(rollbackFor=Exception.class)
+	@Override
+	public Map<String, Object> cancelSaleAdminOrderMultiItem(Map<String, Object> inParam) throws Exception {
+		Map<String, Object> result = new HashMap<String, Object>();										//Return map
+		Map<String, Object> productInfo = sellerOrderDao.selectDefaultProductSaleCancelInfo(inParam);	//기본정보 획득 - 구매자, 쿠폰, 상품 결재비 , 배송비 , Point
+		int MBER_SEQ = Integer.parseInt(productInfo.get("MBER_SEQ").toString());						//구매자
+		int POINT_USE_AMT = Integer.parseInt(productInfo.get("POINT_USE_AMT").toString());				//Point
+		int DLV_PRCE = Integer.parseInt(productInfo.get("DLV_PRCE").toString());						//배송비
+		int TOTAL_CANCEL_PRICE = Integer.parseInt(productInfo.get("TOTAL_CANCEL_PRICE").toString());	//상품결재비
+		String PROD_CPN_CD = productInfo.get("PROD_CPN_CD").toString();									//쿠폰
+		int finalCancelMoney = 0;																		//최종 취소 금액
+		int finalReturnPoint = 0;																		//최종 반환 포인트
+
+		//1.묶음배송 유무
+		String dlvGrpCode = (String)inParam.get("DLV_GRP_CODE");
+		if(dlvGrpCode.equals("NO")){
+			//묶음배송 아님
+			//2.주문 최종상품 유무
+			int checkFinalOrderProduct = sellerSharOrderDao.selectOrderNotCancelCount(inParam);
+			if(checkFinalOrderProduct > 1){
+				//최종상품 아님
+				finalCancelMoney = TOTAL_CANCEL_PRICE + DLV_PRCE;	//배송비 돌려줌
+			}else{
+				//최종상품
+				finalCancelMoney = TOTAL_CANCEL_PRICE + DLV_PRCE;	//배송비 돌려줌
+				if(finalCancelMoney > POINT_USE_AMT){
+					finalCancelMoney = finalCancelMoney - POINT_USE_AMT;	//포인트 소멸
+				}else{
+					finalReturnPoint = POINT_USE_AMT;	//포인트 반환
+				}
+			}
+		}else{
+			//묶음배송
+			//2.묶음 최종상품 유무
+			int checkFinalGroupProduct = sellerSharOrderDao.selectNotCancelDlvGroupCount(inParam);
+			if(checkFinalGroupProduct > 1){
+				//묶음 최종상품 아님
+				finalCancelMoney = TOTAL_CANCEL_PRICE;
+			}else{
+				//묶음 최종상품
+				finalCancelMoney = TOTAL_CANCEL_PRICE + DLV_PRCE;	//배송비 돌려줌
+			}
+			//3.주문 최종상품 유무
+			int checkFinalOrderProducts = sellerSharOrderDao.selectOrderNotCancelCount(inParam);
+			if(checkFinalOrderProducts == 1){
+				//최종상품
+				if(finalCancelMoney > POINT_USE_AMT){
+					finalCancelMoney = finalCancelMoney - POINT_USE_AMT;	//포인트 소멸
+				}else{
+					finalReturnPoint = POINT_USE_AMT;	//포인트 반환
+				}
+			}
+		}
+		//취소로직 시작
+		inParam.put("BUYER_SEQ",MBER_SEQ);
+		inParam.put("POINT_USE_AMT",finalReturnPoint);
+		int count = 0;
+		try {
+			//0.취소 코드 획득
+			String canCd = sellerSharOrderDao.selectSharOrderCancelCode(inParam);
+			inParam.put("CANC_CD",canCd);
+
+			//1.상품 취소 정보,사유 입력 (CANC_REASON_CD=40 , CANC_REASON=관리자 취소)
+			count += sellerSharOrderDao.insertSharOrderCancelReason(inParam);
+
+			//2.ORD_INFO 업데이트 ( ORD_STAT_CD=150)
+			count += sellerSharOrderDao.updateSharOrderTableCancelState(inParam);
+
+			//3.쿠폰 돌려주기
+			if(!PROD_CPN_CD.equals("NO")){
+				inParam.put("CPN_NO",PROD_CPN_CD);
+				count += sellerSharOrderDao.updateSharOrderCouponTable(inParam);
+			}else{
+				inParam.put("CPN_NO","");
+				count++;
+			}
+
+			//4.ORD_PROD_INFO 업데이트 (PROC_STAT_CD=50)
+			count += sellerSharOrderDao.updateSharOrderProductTableCancelState(inParam);
+
+			//5.포인트 돌려주기 (회원 , 이력쌓기)
+			if(finalReturnPoint > 0){
+				count += sellerSharOrderDao.updateMemberTableForPoint(inParam);
+				inParam.put("POINT_COMMENT","주문취소");
+				count += sellerSharOrderDao.insertPointLogTable(inParam);
+			}else{
+				count = count +2;
+			}
+
+			if(count == 6){
+				//취소 통신
+				String seltGbCd = (String)inParam.get("SELT_GB_CD");	//결재 구분자
+				Map<String, Object> tradeInfo = null;
+				tradeInfo = sellerSharOrderDao.selectTradeNumber(inParam);	//결제 정보
+				if(tradeInfo == null){
+					logger.info("[TID 획득 실패로 RollBack !!!!!!]");
+					TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+					result.put("RESULT", "API");
+				}else{
+					String o_tid = tradeInfo.get("TRD_NO").toString();	//결제 TID
+					String amount = Integer.toString(finalCancelMoney);			//취소 금액
+					Map<String, Object> cancelResult = new HashMap<String, Object>();
+					if(seltGbCd.equals("1")){
+						//신용카드
+						try {
+							cancelResult = PaymentUtil.kCreditTradeCancel(o_tid, Integer.parseInt(amount));
+							if(cancelResult.get("RETURNCODE").toString().equals("0000")){
+								System.err.println(cancelResult.toString());
+								result.put("RESULT", "OK");
+								//결제 정보 입력
+								inParam.put("TRD_NO",cancelResult.get("TID").toString());
+								inParam.put("TRD_AMT",Integer.parseInt(amount));
+								inParam.put("RLT_CD",cancelResult.get("RETURNCODE").toString());
+								inParam.put("RLT_MSG","SUCCESS");
+								sellerSharOrderDao.insertOrdCancelInfo(inParam);
+							}else{
+								logger.info("[카드 취소 연동 실패로 RollBack !!!!!!]");
+								TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+								result.put("RESULT", "API");
+							}
+						} catch (Exception e) {
+							logger.info("[카드 취소 연동 실패로 RollBack !!!!!!]");
+							TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+							result.put("RESULT", "API");
+						}
+					}else if(seltGbCd.equals("2")){
+						//무통장
+						try {
+							cancelResult = PaymentUtil.bankTradeCancel(o_tid, Integer.parseInt(amount));
+							if(cancelResult.get("RETURNCODE").toString().equals("0000")){
+								System.err.println(cancelResult.toString());
+								result.put("RESULT", "OK");
+								//결제 정보 입력
+								inParam.put("TRD_NO",cancelResult.get("TID").toString());
+								inParam.put("TRD_AMT",Integer.parseInt(amount));
+								inParam.put("RLT_CD",cancelResult.get("RETURNCODE").toString());
+								inParam.put("RLT_MSG","SUCCESS");
+								sellerSharOrderDao.insertOrdCancelInfo(inParam);
+							}else{
+								logger.info("[무통장 취소 연동 실패로 RollBack !!!!!!]");
+								TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+								result.put("RESULT", "API");
+							}
+						} catch (Exception e) {
+							logger.info("[무통장 취소 연동 실패로 RollBack !!!!!!]");
+							TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+							result.put("RESULT", "API");
+						}
+					}else if(seltGbCd.equals("3")){
+						//휴대폰
+						try {
+							String RFND_CD = sellerOrderDao.createRfndCode();
+							inParam.put("RFND_CD",RFND_CD);
+							inParam.put("RFND_AMT",Integer.parseInt(amount));
+							sellerOrderDao.insertRefund(inParam);
+							sellerOrderDao.insertRefundProduct(inParam);
+						} catch (Exception e) {
+							logger.info("[환불계좌 입력 실패로 RollBack !!!!!!]");
+							TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+							result.put("RESULT", "DB");
+						}
+					}else if(seltGbCd.equals("4")){
+						//payCo
+						String orderNo = tradeInfo.get("PAYCO_NO").toString();	//페이코 거래 번호
+						String orderCertifyKey = tradeInfo.get("PAYCO_CER_KEY").toString();	//페이코 거래 인증 키
+						try {
+							cancelResult = PaymentUtil.payco_cancel(orderNo, orderCertifyKey, Integer.parseInt(amount));
+							if(cancelResult.get("RETURNCODE").toString().equals("0000")){
+								System.err.println(cancelResult.toString());
+								result.put("RESULT", "OK");
+								//결제 정보 입력
+								inParam.put("TRD_NO",cancelResult.get("TID").toString());
+								inParam.put("TRD_AMT",Integer.parseInt(amount));
+								inParam.put("RLT_CD",cancelResult.get("RETURNCODE").toString());
+								inParam.put("RLT_MSG","SUCCESS");
+								sellerSharOrderDao.insertOrdCancelInfo(inParam);
+							}else{
+								logger.info("[페이코 취소 연동 실패로 RollBack !!!!!!]");
+								TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+								result.put("RESULT", "API");
+							}
+						} catch (Exception e) {
+							logger.info("[페이코 취소 연동 실패로 RollBack !!!!!!]");
+							TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+							result.put("RESULT", "API");
+						}
+					}
+				}
+			}else{
+				logger.info("[DB 저장,업데이트 실패로 RollBack !!!!!!]");
+				TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+				result.put("RESULT", "DB");
+			}
+
+		} catch (Exception e) {
+			e.printStackTrace();
+			TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+			result.put("RESULT", "ETC");
+		}
+
+		return result;
+	}
+
+	/**
+	 * <pre>
+	 * 주문 취소 - 0원 결제
+	 *
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 11. 18
+	 * @author Y.S.KIM
+	 * @see com.ssocio.sharing.service.seller.SellerOrderService#cancelSaleAdminOrderMultiItemZero(java.util.Map)
+	 * @비고
+	 *
+	 * </pre>
+	 */
+	@Transactional(rollbackFor=Exception.class)
+	@Override
+	public Map<String, Object> cancelSaleAdminOrderMultiItemZero(Map<String, Object> inParam) throws Exception {
+		Map<String, Object> result = new HashMap<String, Object>();										//Return map
+		Map<String, Object> productInfo = sellerOrderDao.selectDefaultProductSaleCancelInfo(inParam);	//기본정보 획득 - 구매자, 쿠폰, 상품 결재비 , 배송비 , Point
+		int MBER_SEQ = Integer.parseInt(productInfo.get("MBER_SEQ").toString());						//구매자
+		int DLV_PRCE = Integer.parseInt(productInfo.get("DLV_PRCE").toString());						//배송비
+		int TOTAL_CANCEL_PRICE = Integer.parseInt(productInfo.get("TOTAL_CANCEL_PRICE").toString());	//상품결재비
+		String PROD_CPN_CD = productInfo.get("PROD_CPN_CD").toString();									//쿠폰
+		int finalReturnPoint = 0;																		//최종 반환 포인트
+
+		//1.묶음배송 유무
+		String dlvGrpCode = (String)inParam.get("DLV_GRP_CODE");
+		if(dlvGrpCode.equals("NO")){
+			//묶음배송 아님
+			//2.주문 최종상품 유무
+			finalReturnPoint = TOTAL_CANCEL_PRICE + DLV_PRCE;	//배송비 돌려줌
+		}else{
+			//묶음배송
+			//2.묶음 최종상품 유무
+			int checkFinalGroupProduct = sellerSharOrderDao.selectNotCancelDlvGroupCount(inParam);
+			if(checkFinalGroupProduct > 1){
+				//묶음 최종상품 아님
+				finalReturnPoint = TOTAL_CANCEL_PRICE;
+			}else{
+				//묶음 최종상품
+				finalReturnPoint = TOTAL_CANCEL_PRICE + DLV_PRCE;	//배송비 돌려줌
+			}
+		}
+		//취소로직 시작
+		inParam.put("BUYER_SEQ",MBER_SEQ);
+		inParam.put("POINT_USE_AMT",finalReturnPoint);
+		int count = 0;
+		try {
+			//0.취소 코드 획득
+			String canCd = sellerSharOrderDao.selectSharOrderCancelCode(inParam);
+			inParam.put("CANC_CD",canCd);
+
+			//1.상품 취소 정보,사유 입력 (CANC_REASON_CD=40 , CANC_REASON=관리자 취소)
+			count += sellerSharOrderDao.insertSharOrderCancelReason(inParam);
+
+			//2.ORD_INFO 업데이트 ( ORD_STAT_CD=150)
+			count += sellerSharOrderDao.updateSharOrderTableCancelState(inParam);
+
+			//3.쿠폰 돌려주기
+			if(!PROD_CPN_CD.equals("NO")){
+				inParam.put("CPN_NO",PROD_CPN_CD);
+				count += sellerSharOrderDao.updateSharOrderCouponTable(inParam);
+			}else{
+				inParam.put("CPN_NO","");
+				count++;
+			}
+
+			//4.ORD_PROD_INFO 업데이트 (PROC_STAT_CD=50)
+			count += sellerSharOrderDao.updateSharOrderProductTableCancelState(inParam);
+
+			//5.포인트 돌려주기 (회원 , 이력쌓기)
+			if(finalReturnPoint > 0){
+				count += sellerSharOrderDao.updateMemberTableForPoint(inParam);
+				inParam.put("POINT_COMMENT","주문취소");
+				count += sellerSharOrderDao.insertPointLogTable(inParam);
+			}else{
+				count = count +2;
+			}
+
+			if(count == 6){
+				logger.info("[0원 결제]");
+				result.put("RESULT", "OK");
+			}else{
+				logger.info("[0원결제 DB 저장,업데이트 실패로 RollBack !!!!!!]");
+				TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+				result.put("RESULT", "DB");
+			}
+
+		} catch (Exception e) {
+			e.printStackTrace();
+			TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+			result.put("RESULT", "ETC");
+		}
+
+		return result;
+	}
+
+	/**
+	 * <pre>
+	 * 주문 관리 > 판매주문관리
+	 * 배송 조회 팝업
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 11. 10
+	 * @author Y.S.KIM
+	 * @see com.ssocio.sharing.service.seller
+	 * </pre>
+	 */
+	@Override
+	public ModelMap selectDvlStateInfo(Map<String, Object> inParam) throws Exception {
+		logger.debug("SellerOrderManageServiceImpl.selectDvlStateInfo [Start]");
+		ModelMap mm = new ModelMap();
+		try {
+			Map<String, Object> result = sellerOrderDao.selectDlvInfomation(inParam);
+			inParam.put("INVC_NO",result.get("INVC_NO").toString());
+			mm.put("dlvInfo", result);	//택배사, 운송장 정보
+			mm.put("dlvList", sellerOrderDao.selectListDlvState(inParam));	//택배 히스토리 조회
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+
+	/**
+	 * <pre>
+	 * 주문 관리 > 판매주문관리
+	 * 배송 업체 URL 링크 팝업
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 11. 10
+	 * @author Y.S.KIM
+	 * @see com.ssocio.sharing.service.seller
+	 * </pre>
+	 */
+	@Override
+	public String selectDlvCompanyURL(Map<String,Object> inParam) throws Exception {
+		LoggerUtil.writeMap(inParam);
+		String result = "";
+		try {
+			result = sellerOrderDao.selectDlvCompanyURL(inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return result;
+	}
+
+	/**
+	 * <pre>
+	 * 주문 관리 > 판매주문관리
+	 * 배송 업체 운송장 정보 입력 , 상태값 변경
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 11. 10
+	 * @author Y.S.KIM
+	 * @see com.ssocio.sharing.service.seller
+	 * </pre>
+	 */
+	@Transactional(rollbackFor=Exception.class)
+	@Override
+	public int insertDlvInvcNumber(Map<String,Object> inParam) throws Exception {
+		LoggerUtil.writeMap(inParam);
+		String prodStatCd = (String)inParam.get("PROD_STAT_CD");	//상태코드
+		int result = 0;
+		int result_check = -1;
+		try {
+			if(prodStatCd.equals("21")){
+				//상품준비중
+				inParam.put("NEXT_ORD_STAT_CD","40");
+				inParam.put("NEXT_PROC_STAT_CD","22");
+				result += sellerSharOrderDao.updateSharOrdState(inParam);
+				result += sellerSharOrderDao.updateSharProcState(inParam);
+				result += sellerOrderDao.insertDlvInvcNumber(inParam);	//주문 택배 신청 테이블 삽입
+
+				String flag = StringUtil.nvl(sellerSharOrderDao.selectInvcFlag(inParam), "N");
+				if(CmmnCnst.cmmnY.equals(flag)){
+					inParam.put("CPOINT_GB_CD", CmmnCnst.cmmn40);
+					inParam.put("CPOINT", CmmnCnst.cmmn2);
+					inParam.put("ADD_YN", CmmnCnst.cmmnN);
+					inParam.put("CPOINT_REASON_CD", "42");
+					sellerSharOrderDao.insertCredPoint(inParam); // 신용점수로직추가
+				}
+
+				result_check = 3;
+			}else if(prodStatCd.equals("31")){
+				//반품신청
+				inParam.put("NEXT_ORD_STAT_CD","250");
+				inParam.put("NEXT_PROC_STAT_CD","32");
+				inParam.put("NEXT_CHG_PROC_TYPE_CD","60");
+				result += sellerSharOrderDao.updateSharOrdStateChg(inParam);
+				result += sellerSharOrderDao.updateSharProcStateChg(inParam);
+				result += sellerSharOrderDao.updateSharOrdState(inParam);
+				result += sellerSharOrderDao.updateSharProcState(inParam);
+				result += sellerOrderDao.insertDlvChgInvcNumber(inParam);	//반품 택배 신청 테이블 삽입
+				result_check = 5;
+			}else if(prodStatCd.equals("41")){
+				//교환신청
+				inParam.put("NEXT_ORD_STAT_CD","220");
+				inParam.put("NEXT_PROC_STAT_CD","43");
+				inParam.put("NEXT_CHG_PROC_TYPE_CD","20");
+				result += sellerSharOrderDao.updateSharOrdStateChg(inParam);
+				result += sellerSharOrderDao.updateSharProcStateChg(inParam);
+				result += sellerSharOrderDao.updateSharOrdState(inParam);
+				result += sellerSharOrderDao.updateSharProcState(inParam);
+				result += sellerOrderDao.insertDlvChgInvcNumber(inParam);	//반품 택배 신청 테이블 삽입
+				result_check = 5;
+			}
+			//배송중 으로 변경
+
+			if(result != result_check){
+				logger.info("[DB 저장,업데이트 실패로 RollBack !!!!!!]");
+				TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+				result = 0;
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+			TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+			result = 0;
+			logger.info("[DB 저장,업데이트 에러로 RollBack !!!!!!]");
+		}
+		return result;
+	}
+
+	/**
+	 * <pre>
+	 * 주문 관리 > 판매주문관리
+	 * 판매 반품신청 조회
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 11. 10
+	 * @author Y.S.KIM
+	 * @see com.ssocio.sharing.service.seller
+	 * </pre>
+	 */
+	@Override
+	public ModelMap selectListTakeBackOrd(Map<String, Object> inParam) throws Exception {
+		logger.debug("SellerOrderManageServiceImpl.selectListTakeBackOrd [Start]");
+		ModelMap mm = new ModelMap();
+		int nowPage = StringUtil.nvlInt((String)inParam.get("PAGE_NO"), 1);
+		int rowCnt	= StringUtil.nvlInt((String)inParam.get("S_ROW_CNT"), CmmnCnst.ADM_LIST_SIZE);
+		try {
+			String today = StringUtil.getCurrentDate();
+			inParam.put("S_END_DATE", StringUtil.nvl((String)inParam.get("S_END_DATE"), today));
+
+			SimpleDateFormat format = new SimpleDateFormat("yyyyMMdd");
+			Calendar cal = Calendar.getInstance();
+			cal.add(Calendar.DATE, -7);
+			inParam.put("S_START_DATE", StringUtil.nvl((String)inParam.get("S_START_DATE"), format.format(cal.getTime())));
+
+			if(null != inParam.get("CHK_BOX_RESULT")){
+				inParam.put("INS_CHK_BOX_RESULT", ((String)inParam.get("CHK_BOX_RESULT")).split(","));
+			}
+
+			int rowTotal = sellerOrderDao.selectListTakeBackOrdCnt(inParam); //전체 Row Count
+			PageNavigation pageNav= new PageNavigation(nowPage, rowTotal, rowCnt, CmmnCnst.ADM_BLOCK_SIZE);
+			inParam.put("START_ROW", pageNav.getStartRow());
+			inParam.put("END_ROW", pageNav.getEndRow());
+
+			mm.put("PAGE_NO", nowPage);
+			//판매 반품신청 그룹 리스트
+			mm.put("selectListGroup",sellerOrderDao.selectListTakeBackGroup(inParam));
+			//판매 반품신청 그룹 상세 리스트
+			mm.put("selectListGroupList",sellerOrderDao.selectListTakeBackGroupList(inParam));
+			mm.put("params", inParam);
+			mm.put("pageNav", pageNav);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+
+	/**
+	 * <pre>
+	 * 주문 관리 > 판매주문관리
+	 * 판매 반품상세 조회
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 11. 10
+	 * @author Y.S.KIM
+	 * @see com.ssocio.sharing.service.seller
+	 * </pre>
+	 */
+	@Override
+	public ModelMap selectTakeBackOrdDtl(Map<String, Object> inParam) throws Exception {
+		logger.debug("SellerOrderManageServiceImpl.selectExcOrdDtl [Start]");
+		ModelMap mm = new ModelMap();
+		try {
+			inParam.put("CHG_GB_CD","50");
+			//주문정보
+			mm.put("ordInfo", sellerOrderDao.selectSaleOrdInfo(inParam));
+			//판매 주문 상세 그룹 리스트
+			mm.put("selectSaleDetailGroupList", sellerOrderDao.selectSaleDetailGroupList(inParam));
+			//판매 주문 상세 그룹 상품 리스트
+			mm.put("selectSaleDetailGroupProductList", sellerOrderDao.selectSaleDetailGroupProductList(inParam));
+			//배송지 정보
+			mm.put("dlvInfo", sellerSharOrderDao.selectOrdDlvInfo(inParam));
+			//반품,교환 상품정보 리스트
+			mm.put("productList", sellerOrderDao.selectOrderDetailProductList(inParam));
+			//반품,교환 상품정보 - 옵션 정보 리스트
+			mm.put("productOptionList", sellerOrderDao.selectSaleDetailProductOptionList(inParam));
+			//반품,교환 배송지 정보
+			mm.put("reDlvInfo", sellerSharOrderDao.selectExcDlvInfo(inParam));
+			//사용한 쿠폰 리스트
+			mm.put("selectUseCouponList", commonDao.getSelectUseCouponList(inParam));
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+
+	/**
+	 * <pre>
+	 * 주문 관리 > 판매주문관리
+	 * 단일 상품 반품 처리
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 11. 11
+	 * @author Y.S.KIM
+	 * @see com.ssocio.sharing.service.seller
+	 * @비고
+	 *
+	 * </pre>
+	 */
+	@Transactional(rollbackFor=Exception.class)
+	@Override
+	public Map<String, Object> takeBackOrderOneItem(Map<String, Object> inParam) throws Exception {
+		Map<String, Object> result = new HashMap<String, Object>();
+		int count = 0;
+		try {
+			//1.반품 완료 업데이트
+			inParam.put("NEXT_ORD_STAT_CD","260");
+			inParam.put("NEXT_PROC_STAT_CD","33");
+			inParam.put("NEXT_CHG_PROC_TYPE_CD","70");
+			count += sellerSharOrderDao.updateSharOrdStateChg(inParam);
+			count += sellerSharOrderDao.updateSharProcStateChg(inParam);
+			count += sellerSharOrderDao.updateSharOrdState(inParam);
+			count += sellerSharOrderDao.updateSharProcState(inParam);
+
+			//2.쿠폰 돌려주기
+			String couponTemp = (String)inParam.get("PROD_CPN_CD");
+			if(couponTemp.equals("NO")){
+				inParam.put("CPN_NO","");
+				count++;
+			}else{
+				inParam.put("CPN_NO",couponTemp);
+				count += sellerSharOrderDao.updateSharOrderCouponTable(inParam);
+			}
+
+			//3.포인트 돌려주기 (회원 , 이력쌓기)
+			int point = (int) inParam.get("POINT_USE_AMT");
+			if(point > 0){
+				count += sellerSharOrderDao.updateMemberTableForPoint(inParam);
+				inParam.put("POINT_COMMENT","반품");
+				count += sellerSharOrderDao.insertPointLogTable(inParam);
+			}else{
+				count = count +2;
+			}
+
+			if(count == 7){
+				//취소 통신
+				String seltGbCd = (String)inParam.get("SELT_GB_CD");	//결재 구분자
+				if(seltGbCd.equals("0")){
+					logger.info("[0원 결제]");
+					result.put("RESULT", "OK");
+				}else{
+					Map<String, Object> tradeInfo = null;
+					tradeInfo = sellerSharOrderDao.selectTradeNumber(inParam);	//결제 정보
+					if(tradeInfo == null){
+						logger.info("[TID 획득 실패로 RollBack !!!!!!]");
+						TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+						result.put("RESULT", "API");
+					}else{
+						String o_tid = tradeInfo.get("TRD_NO").toString();	//결제 TID
+						String amount = (String)inParam.get("REAL_SELT_AMT");			//취소 금액
+						Map<String, Object> cancelResult = new HashMap<String, Object>();
+						if(seltGbCd.equals("1")){
+							//신용카드
+							try {
+								cancelResult = PaymentUtil.kCreditTradeCancelAll(o_tid);
+								if(cancelResult.get("RETURNCODE").toString().equals("0000")){
+									System.err.println(cancelResult.toString());
+									result.put("RESULT", "OK");
+									//결제 정보 입력
+									inParam.put("TRD_NO",cancelResult.get("TID").toString());
+									inParam.put("TRD_AMT",Integer.parseInt(amount));
+									inParam.put("RLT_CD",cancelResult.get("RETURNCODE").toString());
+									inParam.put("RLT_MSG","SUCCESS");
+									sellerSharOrderDao.insertOrdCancelInfo(inParam);
+								}else{
+									logger.info("[카드 취소 연동 실패로 RollBack !!!!!!]");
+									TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+									result.put("RESULT", "API");
+								}
+							} catch (Exception e) {
+								logger.info("[카드 취소 연동 실패로 RollBack !!!!!!]");
+								TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+								result.put("RESULT", "API");
+							}
+						}else if(seltGbCd.equals("2")){
+							//무통장
+							try {
+								cancelResult = PaymentUtil.bankTradeCancel(o_tid, Integer.parseInt(amount));
+								if(cancelResult.get("RETURNCODE").toString().equals("0000")){
+									System.err.println(cancelResult.toString());
+									result.put("RESULT", "OK");
+									//결제 정보 입력
+									inParam.put("TRD_NO",cancelResult.get("TID").toString());
+									inParam.put("TRD_AMT",Integer.parseInt(amount));
+									inParam.put("RLT_CD",cancelResult.get("RETURNCODE").toString());
+									inParam.put("RLT_MSG","SUCCESS");
+									sellerSharOrderDao.insertOrdCancelInfo(inParam);
+								}else{
+									logger.info("[무통장 취소 연동 실패로 RollBack !!!!!!]");
+									TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+									result.put("RESULT", "API");
+								}
+							} catch (Exception e) {
+								logger.info("[무통장 취소 연동 실패로 RollBack !!!!!!]");
+								TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+								result.put("RESULT", "API");
+							}
+						}else if(seltGbCd.equals("3")){
+							String isPhoneCancel = (String)inParam.get("PHONE_CANCEL_YN");
+							try {
+								String RFND_CD = sellerOrderDao.createRfndCode();
+								if(isPhoneCancel.equals("Y")){
+									cancelResult = PaymentUtil.phoneTradeCancelAll(o_tid);
+									if(cancelResult.get("RETURNCODE").toString().equals("0000")){
+										System.err.println(cancelResult.toString());
+										result.put("RESULT", "OK");
+										//결제 정보 입력
+										inParam.put("TRD_NO",cancelResult.get("TID").toString());
+										inParam.put("TRD_AMT",Integer.parseInt(amount));
+										inParam.put("RLT_CD",cancelResult.get("RETURNCODE").toString());
+										inParam.put("RLT_MSG","SUCCESS");
+										sellerSharOrderDao.insertOrdCancelInfo(inParam);
+									}else{
+										logger.info("[휴대폰 취소 연동 실패로 RollBack !!!!!!]");
+										TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+										result.put("RESULT", "API");
+									}
+								}else{
+									//휴대폰 : 환불계좌 입력
+									inParam.put("RFND_CD",RFND_CD);
+									inParam.put("RFND_AMT",Integer.parseInt(amount));
+									sellerOrderDao.insertRefund(inParam);
+									sellerOrderDao.insertRefundProduct(inParam);
+									result.put("RESULT", "OK");
+								}
+
+							} catch (Exception e) {
+								logger.info("[휴대폰 취소 연동 실패로 RollBack !!!!!!]");
+								TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+								result.put("RESULT", "API");
+							}
+						}else if(seltGbCd.equals("4")){
+							//payCo
+							String orderNo = tradeInfo.get("PAYCO_NO").toString();	//페이코 거래 번호
+							String orderCertifyKey = tradeInfo.get("PAYCO_CER_KEY").toString();	//페이코 거래 인증 키
+							try {
+								cancelResult = PaymentUtil.payco_cancel(orderNo, orderCertifyKey, Integer.parseInt(amount));
+								if(cancelResult.get("RETURNCODE").toString().equals("0000")){
+									System.err.println(cancelResult.toString());
+									result.put("RESULT", "OK");
+									//결제 정보 입력
+									inParam.put("TRD_NO",cancelResult.get("TID").toString());
+									inParam.put("TRD_AMT",Integer.parseInt(amount));
+									inParam.put("RLT_CD",cancelResult.get("RETURNCODE").toString());
+									inParam.put("RLT_MSG","SUCCESS");
+									sellerSharOrderDao.insertOrdCancelInfo(inParam);
+								}else{
+									logger.info("[페이코 취소 연동 실패로 RollBack !!!!!!]");
+									TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+									result.put("RESULT", "API");
+								}
+							} catch (Exception e) {
+								logger.info("[페이코 취소 연동 실패로 RollBack !!!!!!]");
+								TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+								result.put("RESULT", "API");
+							}
+						}
+					}
+				}
+			}else{
+				logger.info("[DB 저장,업데이트 실패로 RollBack !!!!!!]");
+				TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+				result.put("RESULT", "DB");
+			}
+
+		} catch (Exception e) {
+			e.printStackTrace();
+			TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+			result.put("RESULT", "ETC");
+		}
+		return result;
+	}
+
+	/**
+	 * <pre>
+	 * 주문 관리 > 판매주문관리
+	 * 복합 상품 반품 처리
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 11. 11
+	 * @author Y.S.KIM
+	 * @see com.ssocio.sharing.service.seller
+	 * @비고
+	 *
+	 * </pre>
+	 */
+	@Transactional(rollbackFor=Exception.class)
+	@Override
+	public Map<String, Object> takeBackOrderMultiItem(Map<String, Object> inParam) throws Exception {
+		Map<String, Object> result = new HashMap<String, Object>();										//Return map
+		Map<String, Object> productInfo = sellerSharOrderDao.selectDefaultProductRejectInfo(inParam);	//기본정보 획득 - 구매자, 쿠폰, 상품 결재비 , 배송비 , Point
+		int MBER_SEQ = Integer.parseInt(productInfo.get("MBER_SEQ").toString());						//구매자
+		int POINT_USE_AMT = Integer.parseInt(productInfo.get("POINT_USE_AMT").toString());				//Point
+		int DLV_PRCE = Integer.parseInt(productInfo.get("DLV_PRCE").toString());						//배송비
+		int TOTAL_CANCEL_PRICE = Integer.parseInt(productInfo.get("TOTAL_CANCEL_PRICE").toString());	//상품결재비
+		String PROD_CPN_CD = productInfo.get("PROD_CPN_CD").toString();									//쿠폰
+		int finalCancelMoney = 0;																		//최종 취소 금액
+		int finalReturnPoint = 0;																		//최종 반환 포인트
+
+		//1.묶음배송 유무
+		String dlvGrpCode = (String)inParam.get("DLV_GRP_CODE");
+		if(dlvGrpCode.equals("NO")){
+			//묶음배송 아님
+			//2.주문 최종상품 유무
+			int checkFinalOrderProduct = sellerSharOrderDao.selectOrderNotCancelCount(inParam);
+			if(checkFinalOrderProduct > 1){
+				//최종상품 아님
+				finalCancelMoney = TOTAL_CANCEL_PRICE + DLV_PRCE;	//배송비 추가
+			}else{
+				//최종상품
+				finalCancelMoney = TOTAL_CANCEL_PRICE + DLV_PRCE;	//배송비 추가
+				if(finalCancelMoney > POINT_USE_AMT){
+					finalCancelMoney = finalCancelMoney - POINT_USE_AMT;	//포인트 소멸
+				}else{
+					finalReturnPoint = POINT_USE_AMT;	//포인트 반환
+				}
+			}
+		}else{
+			//묶음배송
+			//2.묶음 최종상품 유무
+			int checkFinalGroupProduct = sellerSharOrderDao.selectNotCancelDlvGroupCount(inParam);
+			if(checkFinalGroupProduct > 1){
+				//묶음 최종상품 아님
+				finalCancelMoney = TOTAL_CANCEL_PRICE;
+			}else{
+				//묶음 최종상품
+				finalCancelMoney = TOTAL_CANCEL_PRICE + DLV_PRCE;	//배송비 추가
+			}
+			//3.주문 최종상품 유무
+			int checkFinalOrderProducts = sellerSharOrderDao.selectOrderNotCancelCount(inParam);
+			if(checkFinalOrderProducts == 1){
+				//최종상품
+				if(finalCancelMoney > POINT_USE_AMT){
+					finalCancelMoney = finalCancelMoney - POINT_USE_AMT;	//포인트 소멸
+				}else{
+					finalReturnPoint = POINT_USE_AMT;	//포인트 반환
+				}
+			}
+		}
+		//취소로직 시작
+		inParam.put("BUYER_SEQ",MBER_SEQ);
+		inParam.put("POINT_USE_AMT",finalReturnPoint);
+		int count = 0;
+		try {
+			//1.반품 완료 업데이트
+			inParam.put("NEXT_ORD_STAT_CD","260");
+			inParam.put("NEXT_PROC_STAT_CD","33");
+			inParam.put("NEXT_CHG_PROC_TYPE_CD","70");
+			count += sellerSharOrderDao.updateSharOrdStateChg(inParam);
+			count += sellerSharOrderDao.updateSharProcStateChg(inParam);
+			count += sellerSharOrderDao.updateSharOrdState(inParam);
+			count += sellerSharOrderDao.updateSharProcState(inParam);
+
+			//2.쿠폰 돌려주기
+			if(!PROD_CPN_CD.equals("NO")){
+				inParam.put("CPN_NO",PROD_CPN_CD);
+				count += sellerSharOrderDao.updateSharOrderCouponTable(inParam);
+			}else{
+				inParam.put("CPN_NO","");
+				count++;
+			}
+
+			//3.포인트 돌려주기 (회원 , 이력쌓기)
+			if(finalReturnPoint > 0){
+				count += sellerSharOrderDao.updateMemberTableForPoint(inParam);
+				inParam.put("POINT_COMMENT","반품");
+				count += sellerSharOrderDao.insertPointLogTable(inParam);
+			}else{
+				count = count +2;
+			}
+
+			if(count == 7){
+				//취소 통신
+				String seltGbCd = (String)inParam.get("SELT_GB_CD");	//결재 구분자
+				Map<String, Object> tradeInfo = null;
+				tradeInfo = sellerSharOrderDao.selectTradeNumber(inParam);	//결제 정보
+				if(tradeInfo == null){
+					logger.info("[TID 획득 실패로 RollBack !!!!!!]");
+					TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+					result.put("RESULT", "API");
+				}else{
+					String o_tid = tradeInfo.get("TRD_NO").toString();	//결제 TID
+					String amount = Integer.toString(finalCancelMoney);			//취소 금액
+					Map<String, Object> cancelResult = new HashMap<String, Object>();
+					if(seltGbCd.equals("1")){
+						//신용카드
+						try {
+							cancelResult = PaymentUtil.kCreditTradeCancel(o_tid, Integer.parseInt(amount));
+							if(cancelResult.get("RETURNCODE").toString().equals("0000")){
+								System.err.println(cancelResult.toString());
+								result.put("RESULT", "OK");
+								//결제 정보 입력
+								inParam.put("TRD_NO",cancelResult.get("TID").toString());
+								inParam.put("TRD_AMT",Integer.parseInt(amount));
+								inParam.put("RLT_CD",cancelResult.get("RETURNCODE").toString());
+								inParam.put("RLT_MSG","SUCCESS");
+								sellerSharOrderDao.insertOrdCancelInfo(inParam);
+							}else{
+								logger.info("[카드 취소 연동 실패로 RollBack !!!!!!]");
+								TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+								result.put("RESULT", "API");
+							}
+						} catch (Exception e) {
+							logger.info("[카드 취소 연동 실패로 RollBack !!!!!!]");
+							TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+							result.put("RESULT", "API");
+						}
+					}else if(seltGbCd.equals("2")){
+						//무통장
+						try {
+							cancelResult = PaymentUtil.bankTradeCancel(o_tid, Integer.parseInt(amount));
+							if(cancelResult.get("RETURNCODE").toString().equals("0000")){
+								System.err.println(cancelResult.toString());
+								result.put("RESULT", "OK");
+								//결제 정보 입력
+								inParam.put("TRD_NO",cancelResult.get("TID").toString());
+								inParam.put("TRD_AMT",Integer.parseInt(amount));
+								inParam.put("RLT_CD",cancelResult.get("RETURNCODE").toString());
+								inParam.put("RLT_MSG","SUCCESS");
+								sellerSharOrderDao.insertOrdCancelInfo(inParam);
+							}else{
+								logger.info("[무통장 취소 연동 실패로 RollBack !!!!!!]");
+								TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+								result.put("RESULT", "API");
+							}
+						} catch (Exception e) {
+							logger.info("[무통장 취소 연동 실패로 RollBack !!!!!!]");
+							TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+							result.put("RESULT", "API");
+						}
+					}else if(seltGbCd.equals("3")){
+						//휴대폰
+						try {
+							String RFND_CD = sellerOrderDao.createRfndCode();
+							inParam.put("RFND_CD",RFND_CD);
+							inParam.put("RFND_AMT",Integer.parseInt(amount));
+							sellerOrderDao.insertRefund(inParam);
+							sellerOrderDao.insertRefundProduct(inParam);
+						} catch (Exception e) {
+							logger.info("[환불계좌 입력 실패로 RollBack !!!!!!]");
+							TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+							result.put("RESULT", "DB");
+						}
+					}else if(seltGbCd.equals("4")){
+						//payCo
+						String orderNo = tradeInfo.get("PAYCO_NO").toString();	//페이코 거래 번호
+						String orderCertifyKey = tradeInfo.get("PAYCO_CER_KEY").toString();	//페이코 거래 인증 키
+						try {
+							cancelResult = PaymentUtil.payco_cancel(orderNo, orderCertifyKey, Integer.parseInt(amount));
+							if(cancelResult.get("RETURNCODE").toString().equals("0000")){
+								System.err.println(cancelResult.toString());
+								result.put("RESULT", "OK");
+								//결제 정보 입력
+								inParam.put("TRD_NO",cancelResult.get("TID").toString());
+								inParam.put("TRD_AMT",Integer.parseInt(amount));
+								inParam.put("RLT_CD",cancelResult.get("RETURNCODE").toString());
+								inParam.put("RLT_MSG","SUCCESS");
+								sellerSharOrderDao.insertOrdCancelInfo(inParam);
+							}else{
+								logger.info("[페이코 취소 연동 실패로 RollBack !!!!!!]");
+								TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+								result.put("RESULT", "API");
+							}
+						} catch (Exception e) {
+							logger.info("[페이코 취소 연동 실패로 RollBack !!!!!!]");
+							TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+							result.put("RESULT", "API");
+						}
+					}
+				}
+			}else{
+				logger.info("[DB 저장,업데이트 실패로 RollBack !!!!!!]");
+				TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+				result.put("RESULT", "DB");
+			}
+
+		} catch (Exception e) {
+			e.printStackTrace();
+			TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+			result.put("RESULT", "ETC");
+		}
+
+		return result;
+	}
+
+	/**
+	 * <pre>
+	 * 주문 관리 > 판매주문관리
+	 * 교환신청 조회
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 11. 11
+	 * @author Y.S.KIM
+	 * @see com.ssocio.sharing.service.seller
+	 * @비고
+	 *
+	 * </pre>
+	 */
+	@Override
+	public ModelMap selectListExcOrd(Map<String, Object> inParam) throws Exception {
+		logger.debug("SellerOrderManageServiceImpl.selectListExcOrd [Start]");
+		ModelMap mm = new ModelMap();
+		int nowPage = StringUtil.nvlInt((String)inParam.get("PAGE_NO"), 1);
+		int rowCnt	= StringUtil.nvlInt((String)inParam.get("S_ROW_CNT"), CmmnCnst.ADM_LIST_SIZE);
+		try {
+			String today = StringUtil.getCurrentDate();
+			inParam.put("S_END_DATE", StringUtil.nvl((String)inParam.get("S_END_DATE"), today));
+
+			SimpleDateFormat format = new SimpleDateFormat("yyyyMMdd");
+			Calendar cal = Calendar.getInstance();
+			cal.add(Calendar.DATE, -7);
+			inParam.put("S_START_DATE", StringUtil.nvl((String)inParam.get("S_START_DATE"), format.format(cal.getTime())));
+
+			if(null != inParam.get("CHK_BOX_RESULT")){
+				inParam.put("INS_CHK_BOX_RESULT", ((String)inParam.get("CHK_BOX_RESULT")).split(","));
+			}
+
+			int rowTotal = sellerOrderDao.selectListExcOrdCnt(inParam); //전체 Row Count
+			PageNavigation pageNav= new PageNavigation(nowPage, rowTotal, rowCnt, CmmnCnst.ADM_BLOCK_SIZE);
+			inParam.put("START_ROW", pageNav.getStartRow());
+			inParam.put("END_ROW", pageNav.getEndRow());
+
+			mm.put("PAGE_NO", nowPage);
+			//셰어링 교환신청 그룹 리스트
+			mm.put("selectListGroup",sellerOrderDao.selectListSaleExcGroup(inParam));
+			//셰어링 교환신청 그룹 상세 리스트
+			mm.put("selectList",sellerOrderDao.selectListSaleExcGroupList(inParam));
+			mm.put("params", inParam);
+			mm.put("pageNav", pageNav);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return mm;
+	}
+
+	/**
+	 * <pre>
+	 * 주문 관리 > 판매주문관리
+	 * 교환신청 상세
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 11. 11
+	 * @author Y.S.KIM
+	 * @see com.ssocio.sharing.service.seller
+	 * @비고
+	 *
+	 * </pre>
+	 */
+	@Override
+	public ModelMap selectExcOrdDtl(Map<String, Object> inParam) throws Exception {
+		logger.debug("SellerOrderManageServiceImpl.selectExcOrdDtl [Start]");
+		ModelMap mm = new ModelMap();
+		try {
+			inParam.put("CHG_GB_CD","10");
+			//주문정보
+			mm.put("ordInfo", sellerOrderDao.selectSaleOrdInfo(inParam));
+			//판매 주문 상세 그룹 리스트
+			mm.put("selectSaleDetailGroupList", sellerOrderDao.selectSaleDetailGroupList(inParam));
+			//판매 주문 상세 그룹 상품 리스트
+			mm.put("selectSaleDetailGroupProductList", sellerOrderDao.selectSaleDetailGroupProductList(inParam));
+			//배송지 정보
+			mm.put("dlvInfo", sellerSharOrderDao.selectOrdDlvInfo(inParam));
+			//반품,교환 상품정보 리스트
+			mm.put("productList", sellerOrderDao.selectOrderDetailProductList(inParam));
+			//반품,교환 상품정보 - 옵션 정보 리스트
+			mm.put("productOptionList", sellerOrderDao.selectSaleDetailProductOptionList(inParam));
+			//반품,교환 배송지 정보
+			mm.put("reDlvInfo", sellerSharOrderDao.selectExcDlvInfo(inParam));
+			//사용한 쿠폰 리스트
+			mm.put("selectUseCouponList", commonDao.getSelectUseCouponList(inParam));
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+
+	/**
+	 * <pre>
+	 * 주문 관리 > 판매주문관리
+	 * 판매 주문취소 조회
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 11. 11
+	 * @author Y.S.KIM
+	 * @see com.ssocio.sharing.service.seller
+	 * @비고
+	 *
+	 * </pre>
+	 */
+	@Override
+	public ModelMap selectListCnclOrd(Map<String, Object> inParam) throws Exception {
+		logger.debug("SellerOrderManageServiceImpl.selectListCnclOrd [Start]");
+		ModelMap mm = new ModelMap();
+		int nowPage = StringUtil.nvlInt((String)inParam.get("PAGE_NO"), 1);
+		int rowCnt	= StringUtil.nvlInt((String)inParam.get("S_ROW_CNT"), CmmnCnst.ADM_LIST_SIZE);
+		try {
+			String today = StringUtil.getCurrentDate();
+			inParam.put("S_END_DATE", StringUtil.nvl((String)inParam.get("S_END_DATE"), today));
+
+			SimpleDateFormat format = new SimpleDateFormat("yyyyMMdd");
+			Calendar cal = Calendar.getInstance();
+			cal.add(Calendar.DATE, -7);
+			inParam.put("S_START_DATE", StringUtil.nvl((String)inParam.get("S_START_DATE"), format.format(cal.getTime())));
+
+			if(null != inParam.get("CHK_BOX_RESULT")){
+				inParam.put("INS_CHK_BOX_RESULT", ((String)inParam.get("CHK_BOX_RESULT")).split(","));
+			}
+
+			int rowTotal = sellerOrderDao.selectListCancelOrderCnt(inParam); //전체 Row Count
+			PageNavigation pageNav= new PageNavigation(nowPage, rowTotal, rowCnt, CmmnCnst.ADM_BLOCK_SIZE);
+			inParam.put("START_ROW", pageNav.getStartRow());
+			inParam.put("END_ROW", pageNav.getEndRow());
+
+			mm.put("PAGE_NO", nowPage);
+			//판매 주문취소 그룹 리스트
+			mm.put("selectListGroup",sellerOrderDao.sselectListCancelOrderGroup(inParam));
+			//판매 주문취소 그룹 상세 리스트
+			mm.put("selectList",sellerOrderDao.selectListCancelOrderGroupList(inParam));
+			mm.put("params", inParam);
+			mm.put("pageNav", pageNav);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return mm;
+	}
+
+	/**
+	 * <pre>
+	 * 주문 관리 > 판매주문관리
+	 * 주문 취소 상세
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 11. 11
+	 * @author Y.S.KIM
+	 * @see com.ssocio.sharing.service.seller
+	 * @비고
+	 *
+	 * </pre>
+	 */
+	@Override
+	public ModelMap selectCnclDtl(Map<String, Object> inParam) throws Exception {
+		logger.debug("SellerOrderManageServiceImpl.selectCnclDtl [Start]");
+		ModelMap mm = new ModelMap();
+		try {
+			//주문정보
+			mm.put("ordInfo", sellerSharOrderDao.selectOrdInfo(inParam));
+			//판매 주문 상세 그룹 리스트
+			mm.put("selectSaleDetailGroupList", sellerOrderDao.selectSaleDetailGroupList(inParam));
+			//판매 주문 상세 그룹 상품 리스트
+			mm.put("selectSaleDetailGroupProductList", sellerOrderDao.selectSaleDetailGroupProductList(inParam));
+			//배송지 정보
+			mm.put("dlvInfo", sellerSharOrderDao.selectOrdDlvInfo(inParam));
+			//취소 상품정보 리스트
+			mm.put("productList", sellerOrderDao.selectOrderDetailCancelProductList(inParam));
+			//취소 상품정보 - 옵션 정보 리스트
+			mm.put("productOptionList", sellerOrderDao.selectSaleDetailProductOptionList(inParam));
+			//사용한 쿠폰 리스트
+			mm.put("selectUseCouponList", commonDao.getSelectUseCouponList(inParam));
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+
+	/**
+	 * <pre>
+	 * 배송완료 상태 변경
+	 *
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 10. 28
+	 * @author Y.S.KIM
+	 * @see com.ssocio.sharing.service.seller
+	 * @비고
+	 *
+	 * </pre>
+	 */
+	@Override
+	public int updateDlvClose(Map<String, Object> inParam) throws Exception {
+
+		//반품완료 처리
+		inParam.put("NEXT_ORD_STAT_CD","140");
+		inParam.put("NEXT_PROC_STAT_CD","23");
+		int outParam = 0;
+		try {
+			outParam += sellerSharOrderDao.updateSharOrdState(inParam);
+			outParam += sellerSharOrderDao.updateSharProcState(inParam);
+			outParam += sellerSharOrderDao.updateSharInvcState(inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return outParam;
+	}
+
+	/**
+	 * <pre>
+	 * 주문 관리 > 판매주문관리
+	 * 판매 교환 excel 다운로드
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 11. 18
+	 * @author Y.S.KIM
+	 * @see com.ssocio.sharing.service.seller
+	 * </pre>
+	 */
+	@Override
+	public Object selectListSaleOrdExcExcel(Map<String, Object> inParam) throws Exception {
+		String today = StringUtil.getCurrentDate();
+		inParam.put("S_END_DATE", StringUtil.nvl((String)inParam.get("S_END_DATE"), today));
+
+		SimpleDateFormat format = new SimpleDateFormat("yyyyMMdd");
+		Calendar cal = Calendar.getInstance();
+		cal.add(Calendar.DATE, -7);
+		inParam.put("S_START_DATE", StringUtil.nvl((String)inParam.get("S_START_DATE"), format.format(cal.getTime())));
+
+		if(null != inParam.get("CHK_BOX_RESULT")){
+			inParam.put("INS_CHK_BOX_RESULT", ((String)inParam.get("CHK_BOX_RESULT")).split(","));
+		}
+		return sellerOrderDao.selectListSaleOrdExcExcel(inParam);
+	}
+
+	/**
+	 * <pre>
+	 * 주문 관리 > 판매주문관리
+	 * 판매 반품 excel 다운로드
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 11. 18
+	 * @author Y.S.KIM
+	 * @see com.ssocio.sharing.service.seller
+	 * </pre>
+	 */
+	@Override
+	public Object selectListSaleOrdTakeBackExcel(Map<String, Object> inParam) throws Exception {
+		String today = StringUtil.getCurrentDate();
+		inParam.put("S_END_DATE", StringUtil.nvl((String)inParam.get("S_END_DATE"), today));
+
+		SimpleDateFormat format = new SimpleDateFormat("yyyyMMdd");
+		Calendar cal = Calendar.getInstance();
+		cal.add(Calendar.DATE, -7);
+		inParam.put("S_START_DATE", StringUtil.nvl((String)inParam.get("S_START_DATE"), format.format(cal.getTime())));
+
+		if(null != inParam.get("CHK_BOX_RESULT")){
+			inParam.put("INS_CHK_BOX_RESULT", ((String)inParam.get("CHK_BOX_RESULT")).split(","));
+		}
+		return sellerOrderDao.selectListSaleOrdTakeBackExcel(inParam);
+	}
+
+	/**
+	 * <pre>
+	 * 주문 관리 > 판매주문관리
+	 * 판매 취소 excel 다운로드
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 11. 18
+	 * @author Y.S.KIM
+	 * @see com.ssocio.sharing.service.seller
+	 * </pre>
+	 */
+	@Override
+	public Object selectListSaleOrdCancelExcel(Map<String, Object> inParam) throws Exception {
+		String today = StringUtil.getCurrentDate();
+		inParam.put("S_END_DATE", StringUtil.nvl((String)inParam.get("S_END_DATE"), today));
+
+		SimpleDateFormat format = new SimpleDateFormat("yyyyMMdd");
+		Calendar cal = Calendar.getInstance();
+		cal.add(Calendar.DATE, -7);
+		inParam.put("S_START_DATE", StringUtil.nvl((String)inParam.get("S_START_DATE"), format.format(cal.getTime())));
+
+		if(null != inParam.get("CHK_BOX_RESULT")){
+			inParam.put("INS_CHK_BOX_RESULT", ((String)inParam.get("CHK_BOX_RESULT")).split(","));
+		}
+		return sellerOrderDao.selectListSaleOrdCancelExcel(inParam);
+	}
+
+	/*==================================================================================================================================================*/
+}

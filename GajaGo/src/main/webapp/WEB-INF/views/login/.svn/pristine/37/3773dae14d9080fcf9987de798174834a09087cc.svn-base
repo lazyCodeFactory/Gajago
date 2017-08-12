@@ -1,0 +1,406 @@
+<%@ page language="java" contentType="text/html; charset=utf-8"
+    pageEncoding="utf-8"%>
+<!-- 태그는 cmmnHead.jsp 에 선언함 -->
+<%@ include file="/WEB-INF/views/admin/common/cmmnHead.jsp"%>
+
+<script type="text/javascript">
+$(document).ready(function(){
+	$('.calendar').datepicker({
+		showOn: "button",
+		buttonImage: "http://static.ssocio.net/admin/images/ico_calendar.gif",
+		buttonImageOnly: true
+	});
+	
+	// 2015-07-13 수정
+	fixed_tbl_height();
+	prod_padding();
+});
+
+/* ======================================================================
+Function : 날짜 유효성 체크
+Return   : true, false
+========================================================================= */
+function validDate(){
+	if($("#S_START_DATE").val() != "" || $("#S_END_DATE").val() != ""){
+		var startDate = $("#S_START_DATE").val().replace(/\-/ig, "");
+		var endDate = $("#S_END_DATE").val().replace(/\-/ig, "");
+		var now = $.datepicker.formatDate('yymmdd', new Date());
+		if(startDate > now){
+			alert("시작일 > 오늘");
+			return ;
+		}
+		if(endDate > now){
+			alert("종료일 > 오늘");
+			return ;
+		}
+		if(startDate > endDate){
+			alert("시작일 > 종료일");
+			return ;
+		}
+	}
+	return true;
+}
+
+/* ======================================================================
+Function : 배송 일괄 처리
+Return   : 
+========================================================================= */
+function openOrdPop(url, width, height, inOrdCd){
+	var left = screen.width;
+	var top = (screen.height/2) - (height/2);
+	$("#P_ORD_CD").val(inOrdCd);
+	window.open('', 'popupForm','width=' + width + ', height=' + height + ', screenY=' + top + ', screenX=' + left + ',toolbar=no, menubar=no, scrollbars=yes, resizeable=no');
+	$("#popupForm").attr("action", url).attr("target", "popupForm").submit();
+}
+
+/* ======================================================================
+Function : 회원 목록 엑셀 다운로드
+Return   : 없음
+========================================================================= */
+function go_excel(){
+
+	var f = document.frm;
+	if(validDate()){
+		$("#S_START_DATE").val($("#S_START_DATE").val().replace(/\-/ig, ''));
+		$("#S_END_DATE").val($("#S_END_DATE").val().replace(/\-/ig, ''));
+
+		f.action = "/admin/order/selectOrdListExcelDownload.do";
+		f.target = "submitFrame";
+		f.method="post";
+		f.submit();
+	}
+}
+
+/* ======================================================================
+Function : 주문상세페이지
+Return   : 없음
+========================================================================= */
+function go_ordDtl(ordCd, orgOrdCd, ordRegDate, prodTypeCd, sellerCh, ordStatCd, seltGbCd) {
+	var frm = document.dtlForm;
+	frm.P_ORD_CD.value = ordCd;
+	frm.P_ORG_ORD_CD.value = orgOrdCd;
+	frm.P_ORD_REG_DATE.value = ordRegDate;
+	frm.P_PROD_TYPE_CD.value = prodTypeCd;
+	frm.P_SELLER_CH.value = sellerCh;
+	frm.S_ORD_STAT_CD.value = ordStatCd;
+	frm.S_SELT_GB_CD.value = seltGbCd;
+
+	frm.method="post";
+	frm.action="/admin/order/selectOrderDtl.do";
+	frm.submit();
+	
+};
+
+/* ======================================================================
+Function : 주문리스트조회
+Return   : 없음
+========================================================================= */
+function searchForm(){
+	if(validDate()){
+		$("#S_START_DATE").val($("#S_START_DATE").val().replace(/\-/ig, ''));
+		$("#S_END_DATE").val($("#S_END_DATE").val().replace(/\-/ig, ''));
+		$("#frm").attr("action", "/admin/order/selectListOrder.do").submit();
+	}
+}
+
+/* ======================================================================
+Function : 다른페이지 이동
+Return   : 없음
+========================================================================= */
+function GoPage(pageNo) {
+	$("#PAGE_NO").val(pageNo);
+	$("#S_START_DATE").val($("#S_START_DATE").val().replace(/\-/ig, ''));
+	$("#S_END_DATE").val($("#S_END_DATE").val().replace(/\-/ig, ''));
+	$("#frm").attr("action","/admin/order/selectListOrder.do").submit();
+}
+</script>
+	<!-- content -->
+	<div id="content">
+		<!-- top_content -->
+		<div class="top_content">
+			<!-- location -->
+			<div class="location">
+				<ul class="clear">
+					<li class="first-child"><a href="#">주문관리</a></li>
+					<li><a href="#" class="current">주문조회</a></li>
+				</ul>
+			</div>
+			<!-- //location -->
+		</div>
+		<!-- //top_content -->
+		
+		<div class="inner">
+			<div class="member_info_bx mt10 clear">
+				<div class="mem_bx">
+					<p>
+						<!-- 2015-07-27 수정 시작 -->
+						입금확인 : <span class="text_r">${list.statCnt.ORD_DESP_COM_CNT }</span> 건 <span class="ml5 mr5">|</span>
+						<!-- //2015-07-27 수정 끝 -->
+						주문완료 : <span class="text_r">${list.statCnt.ORD_COM_CNT }</span> 건 <span class="ml5 mr5">|</span> 
+						상품준비중 : <span class="text_r">${list.statCnt.ORD_READY_CNT }</span>건 <span class="ml5 mr5">|</span> 
+						배송중 : <span class="text_r">${list.statCnt.ORD_SHIP_CNT }</span>건 <span class="ml5 mr5">|</span> 
+						주문완료 : <span class="text_r">${list.statCnt.ORD_SHIP_COM_CNT }</span>건
+					</p>
+				</div>
+			</div>
+			<!-- tbl -->
+			<form id="frm" name="frm" method="post">
+			<div class="tbl mt20">
+			<fmt:parseDate value="${list.params.S_START_DATE }" var="S_START_DATE" pattern="yyyymmdd" scope="page" />
+			<fmt:parseDate value="${list.params.S_END_DATE }" var="S_END_DATE" pattern="yyyymmdd" scope="page" />
+				<table class="search">
+					<colgroup>
+						<col style="width:8%" />
+						<col style="width:32%" />
+						<col style="width:8%" />
+						<col style="width:*" />
+					</colgroup>
+					<tbody>
+						<tr>
+							<td colspan="4">
+								<span class="select" style="width:100px">
+									<span class="sel_txt"></span>
+									<select name="S_DATE_OPTION" id="S_DATE_OPTION">
+										<option value="01">등록일</option>
+										<option value="02">주문일</option>
+										<option value="03">상품출고일</option>
+										<option value="04">상품발송완료일</option>
+									</select>
+								</span>
+								<input type="text" id="S_START_DATE" name="S_START_DATE" class="calendar" style="width:82px" value='<fmt:formatDate value="${S_START_DATE }" pattern="yyyy-mm-dd"/>' readonly="readonly" /> - <input type="text" id="S_END_DATE" name="S_END_DATE" class="calendar" style="width:82px" value='<fmt:formatDate value="${S_END_DATE }" pattern="yyyy-mm-dd"/>' readonly="readonly" />
+								<span class="ml5">
+									<a href="javascript:getDateInterval('0D');" class="btn_w">오늘</a>
+									<a href="javascript:getDateInterval('3D');" class="btn_w">3일</a>
+									<a href="javascript:getDateInterval('7D');" class="btn_w">7일</a>
+									<a href="javascript:getDateInterval('1M');" class="btn_w">1개월</a>
+									<a href="javascript:getDateInterval('3M');" class="btn_w">3개월</a>
+									<a href="javascript:getDateInterval('6M');" class="btn_w">6개월</a>
+								</span> 
+							</td>
+						</tr>
+						<tr>
+							<td colspan="2">
+								<span class="select" style="width:100px">
+									<span class="sel_txt"></span>
+									<select name="S_SEARCH_ID" id="S_SEARCH_ID">
+										<option value="ORD_NO" <c:if test="${'ORD_NO' == list.params.S_SEARCH_ID}"> selected="selected" </c:if> >주문번호</option>
+										<option value="ORD_ID" <c:if test="${'ORD_ID' == list.params.S_SEARCH_ID}"> selected="selected" </c:if> >주문자ID</option>
+										<option value="SELLER_ID" <c:if test="${'SELLER_ID' == list.params.S_SEARCH_ID}"> selected="selected" </c:if> >판매자ID</option>
+										<option value="PROD_NM" <c:if test="${'PROD_NM' == list.params.S_SEARCH_ID}"> selected="selected" </c:if> >상품명</option>
+										<option value="PROD_CD" <c:if test="${'PROD_CD' == list.params.S_SEARCH_ID}"> selected="selected" </c:if> >상품코드</option>
+									</select>
+								</span>
+								<input type="text" id="S_SEARCH_WORD" name="S_SEARCH_WORD" value="${list.params.S_SEARCH_WORD }" style="width:200px" />
+							</td>
+							<th scope="row">판매구분</th>
+							<td>
+								<custom:codeList groupCode="PROD_TYPE_CD" var="prodTypeCd"/>
+								<c:forEach var="cdList" items="${prodTypeCd }" >
+									<c:choose>
+										<c:when test="${cdList.key != '4' }">
+											<span><input type="checkbox" id="overlap${cdList.key }" name="S_PURC_GB" value="${cdList.key }"
+												<c:forEach var="evtList" items="${list.params.PURC_GB_ARR }">
+													<c:if test="${evtList == cdList.key }">checked</c:if>
+												</c:forEach>
+											 /> <label for="overlap${cdList.key }">${cdList.value }</label></span>
+										</c:when>
+									</c:choose>
+								</c:forEach>
+							</td>
+						</tr>
+						<tr>
+							<th scope="row">결제수단</th>
+							<td>
+								<custom:codeList var="setlGbCd" groupCode="SELT_GB_CD" />
+								<c:forEach var="seltCdList" items="${setlGbCd }" >
+									<span><input type="checkbox" id="seltOverlap${seltCdList.key }" name="S_SELT_GB" value="${seltCdList.key }"
+										<c:forEach var="seltList" items="${list.params.SELT_GB_ARR }">
+											<c:if test="${seltList == seltCdList.key }">checked</c:if>
+										</c:forEach>
+									 /> <label for="seltOverlap${seltCdList.key }">${seltCdList.value }</label></span>
+								</c:forEach>
+							</td>
+							<th scope="row">주문상태</th>
+							<td colspan="3">
+								<custom:codeList var="ordStatCd" groupCode="ORD_STAT_CD" />
+								<c:forEach var="ordCdList" items="${ordStatCd }" >
+									<c:if test="${ordCdList.key eq '10' || ordCdList.key eq '20' || ordCdList.key eq '30' || ordCdList.key eq '40' || ordCdList.key eq '50' }">
+										<span><input type="checkbox" id="seltOverlap${ordCdList.key }" name="S_ORD_GB" value="${ordCdList.key }"
+											<c:forEach var="seltList" items="${list.params.ORD_GB_ARR }">
+												<c:if test="${seltList == ordCdList.key }">checked</c:if>
+											</c:forEach>
+										 /> <label for="seltOverlap${ordCdList.key }">${ordCdList.value }</label></span>
+									</c:if>
+								</c:forEach>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+				<p class="btn_area type"><a href="javascript:searchForm();" class="btn_chk btn_r">조회</a></p>
+			</div>
+			<!-- //tbl -->
+			
+			<!-- top_tbl -->
+			<div class="top_tbl mt20 clear">
+				<div class="right">
+					<span class="select" style="width:130px;">
+						<span class="sel_txt"></span>
+						<select name="S_ROW_CNT" id="S_ROW_CNT" onchange="searchForm();">
+							<option value="20" <c:if test="${list.params.S_ROW_CNT == '20' }"> selected="selected" </c:if>>20개씩</option>
+							<option value="40" <c:if test="${list.params.S_ROW_CNT == '40' }"> selected="selected" </c:if>>40개씩</option>
+							<option value="60" <c:if test="${list.params.S_ROW_CNT == null or list.params.S_ROW_CNT == '60' }"> selected="selected" </c:if>>60개씩</option>
+						</select>
+					</span>
+					<a href="#" class="btn_w ml5" onclick="openOrdPop('/admin/order/selectListDlv.do','1044','500','');"><span>배송 일괄 처리</span></a>
+					<a href="javascript:go_excel();" class="btn_excel ml5 mr0"><span>엑셀 다운로드</span></a>
+				</div>
+			</div>
+			
+			<!-- //top_tbl -->
+			
+			<!-- fixed_tbl_list -->
+			<div class="fixed_tbl_list mt10">
+				<!-- thead -->
+				<div class="tbl thead" style="height:39px;">
+					<table class="list">
+						<colgroup>
+							<col style="width:8%" />
+							<col style="width:5%" />
+							<col style="width:8%" />
+							<col style="width:10%" />
+							<col style="width:5%" />
+							<col style="width:*" />
+							<col style="width:6%" />
+							<col style="width:7%" />
+							<col style="width:5%" />
+							<col style="width:7%" />
+							<col style="width:5%" />
+							<col style="width:5%" />
+							<col style="width:7%" />
+						</colgroup>
+						<thead>	
+							<tr>
+								<th scope="col" class="first">주문일시</th>
+								<th scope="col">주문상태</th>
+								<th scope="col">주문번호</th>
+								<th scope="col">주문사ID</th>
+								<th scope="col">판매구분</th>
+								<th scope="col">상품명</th>
+								<th scope="col">판매채널</th>
+								<th scope="col">결제수단</th>
+								<th scope="col">주문수량</th>
+								<th scope="col">상품금액</th>
+								<th scope="col">배송비</th>
+								<th scope="col">할인금액</th>
+								<th scope="col">최종결제금액</th>
+							</tr>
+						</thead>
+					</table>
+				</div>
+				<!-- //thead -->
+
+				<!-- tbody -->
+				<div class="tbl tbody" style="top:42px;">
+					<table class="list">
+						<colgroup>
+							<col style="width:8%" />
+							<col style="width:5%" />
+							<col style="width:8%" />
+							<col style="width:10%" />
+							<col style="width:5%" />
+							<col style="width:*" />
+							<col style="width:6%" />
+							<col style="width:7%" />
+							<col style="width:5%" />
+							<col style="width:7%" />
+							<col style="width:5%" />
+							<col style="width:5%" />
+							<col style="width:7%" />
+						</colgroup>
+						<tbody>
+							<c:forEach var="order" items="${list.selectListOrder }" varStatus="status">
+								<c:choose>
+									<c:when test="${order.NO eq 1 }">
+										<tr>
+											<td rowspan="${order.MAX_PROD_SEQ}" class="first"><fmt:formatDate value="${order.ORD_REG_DATE}" pattern="yyyy-MM-dd HH:mm" /></td>
+											<td><custom:codeTag code="${order.ORD_STAT_CD}" groupCode="ORD_STAT_CD" /></td>
+<%-- 											<td><custom:codeTag code="${order.PROC_STAT_CD}" groupCode="PROC_STAT_CD" /></td> --%>
+											<td rowspan="${order.MAX_PROD_SEQ}">
+												<a href="#" class="alink" onclick="go_ordDtl('${order.ORD_CD}','${order.ORG_ORD_CD}'
+																							, '<fmt:formatDate value="${order.ORD_REG_DATE}" pattern="yyyy-MM-dd HH:mm" />'
+																							, '${order.PROD_TYPE_CD}', '모바일웹', '${order.ORD_STAT_CD}'
+																							, '${order.SELT_GB_CD}');">${order.ORD_CD}</a>
+											</td>
+											<td rowspan="${order.MAX_PROD_SEQ}">[<custom:codeTag code="${order.MBER_GB_CD}" groupCode="MBER_GB_CD" />]${order.MBER_EMAIL}</td>
+											<td rowspan="${order.MAX_PROD_SEQ}"><custom:codeTag code="${order.PROD_TYPE_CD}" groupCode="PROD_TYPE_CD" /></td>
+											<td>
+												<div class="thumbnail_bx">
+													<img src="${order.PROD_IMG_URL}" alt="${order.PROD_NM}">
+													<a href="#" class="prod_name"><span class="ellipsis" style="width:250px;" >${order.PROD_NM}</span></a>
+												</div>
+											</td>
+											<td rowspan="${order.MAX_PROD_SEQ}">${order.SELLER_CH}</td>
+											<td rowspan="${order.MAX_PROD_SEQ}"><custom:codeTag code="${order.SELT_GB_CD}" groupCode="SELT_GB_CD" /></td>
+											<td>${order.ORD_QTY}</td>
+											<td><fmt:formatNumber value="${order.PROD_ORD_AMT}" pattern="#,###" /></td>
+											<td><fmt:formatNumber value="${order.DLV_PRCE}" pattern="#,###" /></td>
+											<td><fmt:formatNumber value="${order.DSCNT_AMT}" pattern="#,###" /></td>
+											<td><fmt:formatNumber value="${order.ORD_AMT}" pattern="#,###" /></td>
+										</tr>
+									</c:when>
+									<c:when test="${order.NO > 1 }">
+										<tr>
+											<td><custom:codeTag code="${order.ORD_STAT_CD}" groupCode="ORD_STAT_CD" /></td>
+<%-- 											<td><custom:codeTag code="${order.PROC_STAT_CD}" groupCode="PROC_STAT_CD" /></td> --%>
+											<td>
+												<div class="thumbnail_bx">
+													<img src="${order.PROD_IMG_URL}" alt="${order.PROD_NM}">
+													<a href="#" class="prod_name"><span class="ellipsis" style="width:250px;" >${order.PROD_NM}</span></a>
+												</div>
+											</td>
+											<td>${order.ORD_QTY}</td>
+											<td><fmt:formatNumber value="${order.PROD_ORD_AMT}" pattern="#,###" /></td>
+											<td><fmt:formatNumber value="${order.DLV_PRCE}" pattern="#,###" /></td>
+											<td><fmt:formatNumber value="${order.DSCNT_AMT}" pattern="#,###" /></td>
+											<td><fmt:formatNumber value="${order.ORD_AMT}" pattern="#,###" /></td>
+										</tr>
+									</c:when>
+								</c:choose>
+							</c:forEach>
+						</tbody>
+					</table>
+				</div>
+				<!-- //tbody -->
+			</div>
+			<!-- bot_tbl -->
+			<div class="bot_tbl">
+				<!-- paging -->
+				<%@ include file="/WEB-INF/views/admin/common/PageView.jsp" %>
+				<!-- //paging -->
+			</div>
+			<!-- //bot_tbl -->
+			</form>
+			<!-- //fixed_tbl_list -->
+		</div>
+	</div>
+	<!-- //content -->
+	<iframe height="0" width="0" name="submitFrame" id="submitFrame"></iframe>
+	<!-- 주문상품목록조회팝업 -->
+	<form name="popupForm" id="popupForm" method="post">
+		<input type="hidden" name="P_ORD_CD" id="P_ORD_CD" />
+	</form>	
+	<!-- 주문상세조회 Form -->
+	<form name="dtlForm" id="dtlForm" method="post">
+		<input type="hidden" name="P_ORD_CD" id="P_ORD_CD" />													<!-- 주문코드 -->
+		<input type="hidden" name="P_ORG_ORD_CD" id="P_ORG_ORD_CD" />											<!-- 원주문코드 -->
+		<input type="hidden" name="P_PROD_CODE" id="P_PROD_CODE" />												<!-- 상품코드 -->
+		<input type="hidden" name="P_PROD_SEQ" id="P_PROD_SEQ" />												<!-- 상품일렬번호 -->
+		<input type="hidden" name="P_ORD_REG_DATE" id="P_ORD_REG_DATE" />										<!-- 주문접수일자 -->
+		<input type="hidden" name="P_PROD_TYPE_CD" id="P_PROD_TYPE_CD" />										<!-- 상품 구분코드 -->
+		<input type="hidden" name="P_SELLER_CH" id="P_SELLER_CH" />												<!-- 판매채널 -->
+		<input type="hidden" name="L_DLV_DATE" id="L_DLV_DATE" value="${list.params.L_DLV_DATE}"/>				<!-- 오늘날짜 -->
+		<input type="hidden" name="S_START_DATE" id="S_START_DATE" value="${list.params.S_START_DATE }"/>		<!-- 조회 시작일자 -->
+		<input type="hidden" name="S_END_DATE" id="S_END_DATE" value="${list.params.S_END_DATE }"/>				<!-- 조회 종료일자 -->
+		<input type="hidden" name="S_ORD_STAT_CD" id="S_ORD_STAT_CD" value="${list.params.S_ORD_STAT_CD }"/>	<!-- 상품 상태 코드 -->
+		<input type="hidden" name="S_SELT_GB_CD" id="S_SELT_GB_CD" value="${list.params.S_SELT_GB_CD }"/>		<!-- 결제 정보 코드 -->
+	</form>

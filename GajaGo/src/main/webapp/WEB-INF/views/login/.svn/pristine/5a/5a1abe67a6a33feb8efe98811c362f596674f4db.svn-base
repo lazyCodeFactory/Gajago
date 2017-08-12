@@ -1,0 +1,999 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="batchAdminPerfMapper">
+
+	<!-- 기간별 기간조회 -->
+	<select id="selectTermAdminPerfDate" resultType="hashmap">
+	SELECT NVL(LAST_DATE, '20150101') STRT_DATE, CURR_DATE
+	     , (CASE WHEN NVL(LAST_DATE, '20150101') > CURR_DATE THEN 'N' ELSE 'Y' END) AS EXC_FLAG
+	  FROM (
+	  			SELECT	(SELECT 	TO_CHAR(TO_DATE(SUBSTR(MAX(SALES_YYMMDD), 0, 8), 'YYYYMMDD')+1, 'YYYYMMDD') FROM 	SALES_DATE) 	AS LAST_DATE
+<!-- 	          	, 			(SELECT MAX(REG_YMD) FROM ADJUST_HIST)														AS CURR_DATE -->
+	          , 			TO_CHAR(SYSDATE-1, 'YYYYMMDD') 																	AS CURR_DATE
+	          	FROM 	DUAL) Z
+<!-- 	SELECT NVL(LAST_DATE, CURR_DATE) STRT_DATE, CURR_DATE -->
+<!-- 	     , (CASE WHEN NVL(LAST_DATE, CURR_DATE) > CURR_DATE THEN 'N' ELSE 'Y' END) AS EXC_FLAG -->
+<!-- 	  FROM ( -->
+<!-- 	          SELECT TO_CHAR(TO_DATE(SUBSTR(MAX(SALES_YYMMDD), 0, 8), 'YYYYMMDD')+1, 'YYYYMMDD') AS LAST_DATE -->
+<!-- 	               , TO_CHAR(SYSDATE-1, 'YYYYMMDD') AS CURR_DATE -->
+<!-- 	            FROM SALES_DATE) -->
+	</select>
+	
+	<insert id="mergeAdminPefDate" parameterType="HashMap">
+		MERGE INTO SALES_DATE DEST
+		USING	 (
+					SELECT SALES_YYMMDD
+				 	        , PROD_TYPE_CD
+				 	        , COUNT(PROD_CODE) AS SALES_CNT
+				 	        , NVL(SUM(SALES_PRCE),0) AS SALES_PRCE
+				 	 FROM (
+				 	 		SELECT TO_CHAR(OI.REGIST_DT,'YYYYMMDDHH') AS SALES_YYMMDD
+				 	 		        , OPI.PROD_TYPE_CD
+				 	 		        , CASE WHEN OPI.PROD_TYPE_CD IN (1,2) 
+				 	 		                  THEN AH.PROD_CD
+				 	 		                 WHEN OPI.PROD_TYPE_CD = '3'
+				 	 		                  THEN OPI.PROD_CODE
+				 	 		          END AS PROD_CODE
+				 	 		        , CASE WHEN OPI.PROD_TYPE_CD IN (1,2)
+				 	 		                  THEN AH.SELL_PRCE_SUM + OPT_PRCE_SUM
+				 	 		          END AS SALES_PRCE
+				 	 		 FROM ORD_INFO OI
+				 	 		  JOIN ORD_PROD_INFO OPI
+				 	 		    ON OI.ORD_CD = OPI.ORD_CD
+<!-- 				 	 		  JOIN ADJUST_HIST AH -->
+				 	 		   LEFT OUTER JOIN ADJUST_HIST AH
+				 	 		    ON OPI.ORD_CD =  AH.ORD_CD
+			               	  AND OPI.PROD_CODE = AH.PROD_CD
+				 	 		  AND OPI.PROD_SEQ = AH.PROD_SEQ	 	 
+<!-- 				 	 	   WHERE AH.REG_YMD BETWEEN #{STRT_DATE} AND #{CURR_DATE} -->
+<!-- 				 	 	   WHERE OI.REGIST_DT BETWEEN TO_DATE(#{STRT_DATE} || '000000' , 'YYYYMMDDHH24MISS') AND TO_DATE(#{CURR_DATE} || '235959' , 'YYYYMMDDHH24MISS') -->
+<!-- 				 	 	      AND ((OPI.PROD_TYPE_CD IN (1,2) AND AH.PROD_CD IS NOT NULL) -->
+<!-- 				 	 	      		OR -->
+<!-- 				 	 	      		 (OPI.PROD_TYPE_CD = '3' AND AH.PROD_CD IS NULL)) -->
+							WHERE ((AH.PROD_TYPE_CD IN (1,2) AND AH.PROD_CD IS NOT NULL AND AH.REGIST_DT &gt; TO_DATE(#{JOB_DATE}||#{START_TM},'YYYYMMDDHH24MISS') )
+				 	 	      		OR
+				 	 	      		 (OPI.PROD_TYPE_CD = '3' AND OI.REGIST_DT BETWEEN TO_DATE(#{STRT_DATE} || '000000' , 'YYYYMMDDHH24MISS') AND TO_DATE(#{CURR_DATE} || '235959' , 'YYYYMMDDHH24MISS')))
+				 	 	    UNION ALL
+				    	    SELECT TO_CHAR(REGIST_DT,'YYYYMMDDHH') AS SALES_YYMMDD
+				 	 		        , PROD_TYPE_CD
+				 	 		        , PROD_CODE
+				 	 		        , 0 AS SALES_PRCE
+					     	 FROM PROD_SUBMIT_INFO
+						    WHERE PROC_STAT_CD = '94'
+						  	   AND PROD_TYPE_CD = '5'
+						  	   AND REGIST_DT BETWEEN TO_DATE(#{STRT_DATE} || '000000' , 'YYYYMMDDHH24MISS') AND TO_DATE(#{CURR_DATE} || '235959' , 'YYYYMMDDHH24MISS')
+				 	 			)		
+				 	WHERE SALES_YYMMDD IS NOT NULL
+					GROUP BY SALES_YYMMDD, PROD_TYPE_CD
+				    ORDER BY SALES_YYMMDD
+		) DATA
+		ON (DEST.SALES_YYMMDD = DATA.SALES_YYMMDD
+		      AND DEST.PROD_TYPE_CD = DATA.PROD_TYPE_CD)
+		WHEN MATCHED 
+		THEN UPDATE
+		SET	DEST.SALES_CNT = DEST.SALES_CNT + DATA.SALES_CNT 
+	   	,    	DEST.SALES_PRCE = DEST.SALES_PRCE + DATA.SALES_PRCE
+	   	WHEN NOT MATCHED
+	   	THEN INSERT (
+	  			DEST.SALES_YYMMDD
+	  	, 		DEST.PROD_TYPE_CD
+	 	, 		DEST.SALES_CNT
+	 	, 		DEST.SALES_PRCE
+		)VALUES(
+				DATA.SALES_YYMMDD
+	  	, 		DATA.PROD_TYPE_CD
+	  	, 		DATA.SALES_CNT
+	  	, 		DATA.SALES_PRCE
+		)
+	</insert>
+
+	<!-- 어드민 실적관리 기간별 집계 -->
+	<select id="selectListAdminPerfDate" parameterType="HashMap" resultType="hashmap">
+		SELECT SALES_YYMMDD
+	 	        , PROD_TYPE_CD
+	 	        , COUNT(PROD_CODE) AS SALES_CNT
+	 	        , NVL(SUM(SALES_PRCE),0) AS SALES_PRCE
+	 	 FROM (
+	 	 		SELECT TO_CHAR(OI.REGIST_DT,'YYYYMMDDHH') AS SALES_YYMMDD
+	 	 		        , OPI.PROD_TYPE_CD
+	 	 		        , CASE WHEN OPI.PROD_TYPE_CD IN (1,2) 
+	 	 		                  THEN AH.PROD_CD
+	 	 		                 WHEN OPI.PROD_TYPE_CD = '3'
+	 	 		                  THEN OPI.PROD_CODE
+	 	 		          END AS PROD_CODE
+	 	 		        , CASE WHEN OPI.PROD_TYPE_CD IN (1,2)
+	 	 		                  THEN AH.SELL_PRCE_SUM + OPT_PRCE_SUM
+	 	 		          END AS SALES_PRCE
+	 	 		 FROM ORD_INFO OI
+	 	 		  JOIN ORD_PROD_INFO OPI
+	 	 		    ON OI.ORD_CD = OPI.ORD_CD
+	 	 		   LEFT OUTER JOIN ADJUST_HIST AH
+	 	 		    ON OPI.ORD_CD =  AH.ORD_CD
+               	  AND OPI.PROD_CODE = AH.PROD_CD
+	 	 		  AND OPI.PROD_SEQ = AH.PROD_SEQ	 	 
+	 	 	   WHERE OI.REGIST_DT BETWEEN TO_DATE(#{STRT_DATE} || '000000' , 'YYYYMMDDHH24MISS') AND TO_DATE(#{CURR_DATE} || '235959' , 'YYYYMMDDHH24MISS')
+	 	 	      AND ((OPI.PROD_TYPE_CD IN (1,2) AND AH.PROD_CD IS NOT NULL)
+	 	 	      		OR
+	 	 	      		 (OPI.PROD_TYPE_CD = '3' AND AH.PROD_CD IS NULL))
+	 	 	    UNION ALL
+	    	    SELECT TO_CHAR(REGIST_DT,'YYYYMMDDHH') AS SALES_YYMMDD
+	 	 		        , PROD_TYPE_CD
+	 	 		        , PROD_CODE
+	 	 		        , 0 AS SALES_PRCE
+		     	 FROM PROD_SUBMIT_INFO
+			    WHERE PROC_STAT_CD = '94'
+			  	   AND PROD_TYPE_CD = '5'
+			  	   AND REGIST_DT BETWEEN TO_DATE(#{STRT_DATE} || '000000' , 'YYYYMMDDHH24MISS') AND TO_DATE(#{CURR_DATE} || '235959' , 'YYYYMMDDHH24MISS')
+	 	 			)		
+		GROUP BY SALES_YYMMDD, PROD_TYPE_CD
+	    ORDER BY SALES_YYMMDD
+	    
+	 
+<!-- 	SELECT SALES_YYMMDD -->
+<!-- 	     , PROD_TYPE_CD -->
+<!-- 	     , COUNT(PROD_CODE) AS SALES_CNT -->
+<!-- 	     , SUM(SELL_PRCE + OPT_PRCE_SUM) AS SALES_PRCE -->
+<!-- 	  FROM ( -->
+<!-- 	       SELECT P.PROD_TYPE_CD -->
+<!-- 	            , P.PROD_CODE AS PROD_CODE -->
+<!-- 	            , NVL(P.SELL_PRCE, 0) * NVL(OPI.ORD_QTY, 0) AS SELL_PRCE -->
+<!-- 	            , NVL(OPOI.OPT_PRCE_SUM, 0) AS OPT_PRCE_SUM -->
+<!-- 	            , TO_CHAR(OI.REGIST_DT, 'YYYYMMDDHH') AS SALES_YYMMDD -->
+<!-- 	         FROM ORD_INFO OI JOIN ORD_PROD_INFO OPI ON OI.ORD_CD = OPI.ORD_CD JOIN PROD_BUY_CONF_INFO PBCI ON OPI.ORD_CD = PBCI.ORD_CD -->
+<!-- 	          AND OI.REGIST_DT BETWEEN TO_DATE(#{STRT_DATE} || '000000' , 'YYYYMMDDHH24MISS') AND TO_DATE(#{CURR_DATE} || '235959' , 'YYYYMMDDHH24MISS') -->
+<!-- 	          AND OPI.PROD_CODE = PBCI.PROD_CODE -->
+<!-- 	          AND OPI.PROD_SEQ = PBCI.PROD_SEQ JOIN PROD P ON OPI.PROD_CODE = P.PROD_CODE LEFT OUTER JOIN ( -->
+<!-- 	              SELECT OPOI.ORD_CD -->
+<!-- 	                   , OPOI.PROD_CODE -->
+<!-- 	                   , OPOI.PROD_SEQ -->
+<!-- 	                   , SUM(OPOI.OPT_QTY * PO.OPT_PRCE) AS OPT_PRCE_SUM -->
+<!-- 	                FROM ORD_PROD_OPT_INFO OPOI JOIN PROD_OPT PO ON OPOI.PROD_CODE = PO.PROD_CODE -->
+<!-- 	                 AND OPOI.OPT_CD = PO.OPT_CD -->
+<!-- 	               GROUP BY OPOI.ORD_CD -->
+<!-- 	                   , OPOI.PROD_CODE -->
+<!-- 	                   , OPOI.PROD_SEQ -->
+<!-- 	            ) OPOI ON OPOI.ORD_CD = OPI.ORD_CD -->
+<!-- 	          AND OPOI.PROD_CODE = OPI.PROD_CODE -->
+<!-- 	          AND OPOI.PROD_SEQ = OPI.PROD_SEQ -->
+<!-- 	     ) Z -->
+<!-- 	 GROUP BY SALES_YYMMDD, PROD_TYPE_CD -->
+<!-- 	 ORDER BY SALES_YYMMDD -->
+
+	</select>
+
+	<insert id="insertListAdminPerfDate" parameterType="hashmap">
+		insert into SALES_DATE(
+	      	 SALES_YYMMDD
+	       , PROD_TYPE_CD
+	       , SALES_CNT
+	       , SALES_PRCE
+		)values(
+			 #{SALES_YYMMDD}
+		   , #{PROD_TYPE_CD}
+		   , #{SALES_CNT}
+		   , #{SALES_PRCE}
+		)
+	</insert>
+
+	<!-- 카테고리별 기간조회 -->
+	<select id="selectTermAdminPerfCtry" resultType="hashmap">
+	SELECT NVL(LAST_DATE, '20150101') STRT_DATE, CURR_DATE
+	     , (CASE WHEN NVL(LAST_DATE, '20150101') > CURR_DATE THEN 'N' ELSE 'Y' END) AS EXC_FLAG
+	  FROM (
+	          SELECT	(SELECT TO_CHAR(TO_DATE(MAX(SALES_YYMMDD), 'YYYYMMDD')+1, 'YYYYMMDD') FROM SALES_CTRY)	AS LAST_DATE
+<!-- 	          , 			(SELECT MAX(REG_YMD) FROM ADJUST_HIST)								 		AS CURR_DATE -->
+	               , TO_CHAR(SYSDATE-1, 'YYYYMMDD') AS CURR_DATE
+	            FROM DUAL
+	       )
+<!-- 	SELECT NVL(LAST_DATE, CURR_DATE) STRT_DATE, CURR_DATE -->
+<!-- 	     , (CASE WHEN NVL(LAST_DATE, CURR_DATE) > CURR_DATE THEN 'N' ELSE 'Y' END) AS EXC_FLAG -->
+<!-- 	  FROM ( -->
+<!-- 	          SELECT TO_CHAR(TO_DATE(MAX(SALES_YYMMDD), 'YYYYMMDD')+1, 'YYYYMMDD') AS LAST_DATE -->
+<!-- 	               , TO_CHAR(SYSDATE-1, 'YYYYMMDD') AS CURR_DATE -->
+<!-- 	            FROM SALES_CTRY -->
+<!-- 	       ) -->
+	</select>
+	
+	<insert id="mergeAdminPerfCtry" parameterType="HashMap">
+		MERGE INTO SALES_CTRY DEST
+		USING	 (
+					SELECT SALES_YYMMDD
+					        , CTRY1
+					        , CTRY2
+					        , CTRY3
+				 	        , PROD_TYPE_CD
+				 	        , COUNT(PROD_CODE) AS SALES_CNT
+				 	        , NVL(SUM(SALES_PRCE),0) AS SALES_PRCE
+				 	 FROM (
+				 	 		SELECT TO_CHAR(OI.REGIST_DT,'YYYYMMDD') AS SALES_YYMMDD
+				 	 		        , OPI.PROD_TYPE_CD
+				 	 		        , CASE WHEN OPI.PROD_TYPE_CD IN (1,2) 
+				 	 		                  THEN AH.PROD_CD
+				 	 		                 WHEN OPI.PROD_TYPE_CD = '3'
+				 	 		                  THEN OPI.PROD_CODE
+				 	 		          END AS PROD_CODE
+				 	 		        , CASE WHEN OPI.PROD_TYPE_CD IN (1,2)
+				 	 		                  THEN AH.SELL_PRCE_SUM + AH.OPT_PRCE_SUM
+				 	 		                  ELSE 0
+				 	 		          END AS SALES_PRCE
+						            , C.CTRY_CD AS CTRY1
+						            , CI.CTRY_CD AS CTRY2
+						            , CII.CTRY_CD AS CTRY3
+				 	 		 FROM ORD_INFO OI
+				 	 		  JOIN ORD_PROD_INFO OPI
+				 	 		    ON OI.ORD_CD = OPI.ORD_CD
+				 	 		  JOIN PROD P
+				 	 		    ON OPI.PROD_CODE = P.PROD_CODE
+<!-- 				 	 		  JOIN ADJUST_HIST AH -->
+				 	 		   LEFT OUTER JOIN ADJUST_HIST AH
+				 	 		    ON OPI.ORD_CD =  AH.ORD_CD
+			               	  AND OPI.PROD_CODE = AH.PROD_CD
+				 	 		  AND OPI.PROD_SEQ = AH.PROD_SEQ	
+				              JOIN CTRY C 
+				            INNER JOIN CTRY CI 
+				                ON C.CTRY_CD = CI.PARENT_CTRY_CD 
+				            INNER JOIN CTRY CII 
+				                ON CI.CTRY_CD = CII.PARENT_CTRY_CD 
+				                ON CII.CTRY_CD = P.CTRY_CD 	 
+<!-- 				 	 	   WHERE AH.REG_YMD BETWEEN #{STRT_DATE} AND #{CURR_DATE} -->
+<!-- 				 	 	   WHERE OI.REGIST_DT BETWEEN TO_DATE(#{STRT_DATE} || '000000' , 'YYYYMMDDHH24MISS') AND TO_DATE(#{CURR_DATE} || '235959' , 'YYYYMMDDHH24MISS') -->
+<!-- 				 	 	      AND ((OPI.PROD_TYPE_CD IN (1,2) AND AH.PROD_CD IS NOT NULL) -->
+<!-- 				 	 	      		OR -->
+<!-- 				 	 	      		 (OPI.PROD_TYPE_CD = '3' AND AH.PROD_CD IS NULL)) -->
+							WHERE ((AH.PROD_TYPE_CD IN (1,2) AND AH.PROD_CD IS NOT NULL AND AH.REGIST_DT &gt; TO_DATE(#{JOB_DATE}||#{START_TM},'YYYYMMDDHH24MISS') )
+				 	 	      		OR
+				 	 	      		 (OPI.PROD_TYPE_CD = '3' AND OI.REGIST_DT BETWEEN TO_DATE(#{STRT_DATE} || '000000' , 'YYYYMMDDHH24MISS') AND TO_DATE(#{CURR_DATE} || '235959' , 'YYYYMMDDHH24MISS')))
+				 	 	    UNION ALL
+				    	    SELECT TO_CHAR(PSI.REGIST_DT,'YYYYMMDD') AS SALES_YYMMDD
+				 	 		        , PSI.PROD_TYPE_CD
+				 	 		        , PSI.PROD_CODE
+				 	 		        , 0 AS SALES_PRCE
+			                        , C.CTRY_CD AS CTRY1
+			                        , CI.CTRY_CD AS CTRY2
+			                        , CII.CTRY_CD AS CTRY3
+					     	 FROM PROD_SUBMIT_INFO PSI
+					     	  JOIN PROD P
+					     	    ON PSI.PROD_CODE = P.PROD_CODE
+				              JOIN CTRY C 
+				            INNER JOIN CTRY CI 
+				                ON C.CTRY_CD = CI.PARENT_CTRY_CD 
+				            INNER JOIN CTRY CII 
+				                ON CI.CTRY_CD = CII.PARENT_CTRY_CD 
+				                ON CII.CTRY_CD = P.CTRY_CD  	 
+						    WHERE PSI.PROC_STAT_CD = '94'
+						  	   AND PSI.PROD_TYPE_CD = '5'
+						  	   AND PSI.REGIST_DT BETWEEN TO_DATE(#{STRT_DATE} || '000000' , 'YYYYMMDDHH24MISS') AND TO_DATE(#{CURR_DATE} || '235959' , 'YYYYMMDDHH24MISS')
+				 	 			)		
+					 GROUP BY SALES_YYMMDD, CTRY1, CTRY2, CTRY3, PROD_TYPE_CD
+		) DATA
+		ON (
+						DEST.SALES_YYMMDD = DATA.SALES_YYMMDD
+		      AND 	DEST.PROD_TYPE_CD = DATA.PROD_TYPE_CD
+		      AND 	DEST.CTRY1 = DATA.CTRY1
+		      AND 	DEST.CTRY2 = DATA.CTRY2
+		      AND 	DEST.CTRY3 = DATA.CTRY3
+		      )
+		WHEN MATCHED 
+		THEN UPDATE
+		SET	DEST.SALES_CNT = DEST.SALES_CNT + DATA.SALES_CNT 
+	   	,    	DEST.SALES_PRCE = DEST.SALES_PRCE + DATA.SALES_PRCE
+	   	WHEN NOT MATCHED
+	   	THEN INSERT (
+	  			DEST.SALES_YYMMDD
+		,		DEST.CTRY1
+		,		DEST.CTRY2
+		,		DEST.CTRY3
+		,		DEST.PROD_TYPE_CD
+		,		DEST.SALES_CNT
+		,		DEST.SALES_PRCE
+		)VALUES(
+				DATA.SALES_YYMMDD
+		,		DATA.CTRY1
+		,		DATA.CTRY2
+		,		DATA.CTRY3
+		,		DATA.PROD_TYPE_CD
+		,		DATA.SALES_CNT
+		,		DATA.SALES_PRCE
+		)
+	</insert>
+
+<!-- 어드민 실적관리 카테고리별 집계 -->
+	<select id="selectListAdminPerfCtry" parameterType="HashMap" resultType="hashmap">
+		SELECT SALES_YYMMDD
+		        , CTRY1
+		        , CTRY2
+		        , CTRY3
+	 	        , PROD_TYPE_CD
+	 	        , COUNT(PROD_CODE) AS SALES_CNT
+	 	        , NVL(SUM(SALES_PRCE),0) AS SALES_PRCE
+	 	 FROM (
+	 	 		SELECT TO_CHAR(OI.REGIST_DT,'YYYYMMDD') AS SALES_YYMMDD
+	 	 		        , OPI.PROD_TYPE_CD
+	 	 		        , CASE WHEN OPI.PROD_TYPE_CD IN (1,2) 
+	 	 		                  THEN AH.PROD_CD
+	 	 		                 WHEN OPI.PROD_TYPE_CD = '3'
+	 	 		                  THEN OPI.PROD_CODE
+	 	 		          END AS PROD_CODE
+	 	 		        , CASE WHEN OPI.PROD_TYPE_CD IN (1,2)
+	 	 		                  THEN AH.SELL_PRCE_SUM + AH.OPT_PRCE_SUM
+	 	 		          END AS SALES_PRCE
+			            , C.CTRY_CD AS CTRY1
+			            , CI.CTRY_CD AS CTRY2
+			            , CII.CTRY_CD AS CTRY3
+	 	 		 FROM ORD_INFO OI
+	 	 		  JOIN ORD_PROD_INFO OPI
+	 	 		    ON OI.ORD_CD = OPI.ORD_CD
+	 	 		  JOIN PROD P
+	 	 		    ON OPI.PROD_CODE = P.PROD_CODE
+	 	 		   LEFT OUTER JOIN ADJUST_HIST AH
+	 	 		    ON OPI.ORD_CD =  AH.ORD_CD
+               	  AND OPI.PROD_CODE = AH.PROD_CD
+	 	 		  AND OPI.PROD_SEQ = AH.PROD_SEQ	
+	              JOIN CTRY C 
+	            INNER JOIN CTRY CI 
+	                ON C.CTRY_CD = CI.PARENT_CTRY_CD 
+	            INNER JOIN CTRY CII 
+	                ON CI.CTRY_CD = CII.PARENT_CTRY_CD 
+	                ON CII.CTRY_CD = P.CTRY_CD 	 
+	 	 	   WHERE OI.REGIST_DT BETWEEN TO_DATE(#{STRT_DATE} || '000000' , 'YYYYMMDDHH24MISS') AND TO_DATE(#{CURR_DATE} || '235959' , 'YYYYMMDDHH24MISS')
+	 	 	      AND ((OPI.PROD_TYPE_CD IN (1,2) AND AH.PROD_CD IS NOT NULL)
+	 	 	      		OR
+	 	 	      		 (OPI.PROD_TYPE_CD = '3' AND AH.PROD_CD IS NULL))
+	 	 	    UNION ALL
+	    	    SELECT TO_CHAR(PSI.REGIST_DT,'YYYYMMDD') AS SALES_YYMMDD
+	 	 		        , PSI.PROD_TYPE_CD
+	 	 		        , PSI.PROD_CODE
+	 	 		        , 0 AS SALES_PRCE
+                        , C.CTRY_CD AS CTRY1
+                        , CI.CTRY_CD AS CTRY2
+                        , CII.CTRY_CD AS CTRY3
+		     	 FROM PROD_SUBMIT_INFO PSI
+		     	  JOIN PROD P
+		     	    ON PSI.PROD_CODE = P.PROD_CODE
+	              JOIN CTRY C 
+	            INNER JOIN CTRY CI 
+	                ON C.CTRY_CD = CI.PARENT_CTRY_CD 
+	            INNER JOIN CTRY CII 
+	                ON CI.CTRY_CD = CII.PARENT_CTRY_CD 
+	                ON CII.CTRY_CD = P.CTRY_CD  	 
+			    WHERE PSI.PROC_STAT_CD = '94'
+			  	   AND PSI.PROD_TYPE_CD = '5'
+			  	   AND PSI.REGIST_DT BETWEEN TO_DATE(#{STRT_DATE} || '000000' , 'YYYYMMDDHH24MISS') AND TO_DATE(#{CURR_DATE} || '235959' , 'YYYYMMDDHH24MISS')
+	 	 			)		
+		 GROUP BY SALES_YYMMDD, CTRY1, CTRY2, CTRY3, PROD_TYPE_CD
+		
+		
+		
+<!-- 	SELECT SALES_YYMMDD -->
+<!-- 	     , CTRY1 -->
+<!-- 	     , CTRY2 -->
+<!-- 	     , CTRY3 -->
+<!-- 	     , PROD_TYPE_CD -->
+<!-- 	     , COUNT(PROD_CD) AS SALES_CNT -->
+<!-- 	     , SUM(SELL_PRCE + OPT_PRCE_SUM) AS SALES_PRCE -->
+<!-- 	  FROM ( -->
+<!-- 	       SELECT P.PROD_TYPE_CD -->
+<!-- 	            , P.PROD_CODE AS PROD_CD -->
+<!-- 	            , NVL(P.SELL_PRCE, 0) * NVL(OPI.ORD_QTY, 0) AS SELL_PRCE -->
+<!-- 	            , NVL(OPOI.OPT_PRCE_SUM, 0) AS OPT_PRCE_SUM -->
+<!-- 	            , TO_CHAR(OI.REGIST_DT, 'YYYYMMDD') AS SALES_YYMMDD -->
+<!-- 	            , C.CTRY_CD AS CTRY1 -->
+<!-- 	            , CI.CTRY_CD AS CTRY2 -->
+<!-- 	            , CII.CTRY_CD AS CTRY3 -->
+<!-- 	         FROM ORD_INFO OI JOIN ORD_PROD_INFO OPI ON OI.ORD_CD = OPI.ORD_CD JOIN PROD_BUY_CONF_INFO PBCI ON OPI.ORD_CD = PBCI.ORD_CD -->
+<!-- 	          AND OI.REGIST_DT BETWEEN TO_DATE(#{STRT_DATE} || '000000' , 'YYYYMMDDHH24MISS') AND TO_DATE(#{CURR_DATE} || '235959' , 'YYYYMMDDHH24MISS') -->
+<!-- 	          AND OPI.PROD_CODE = PBCI.PROD_CODE -->
+<!-- 	          AND OPI.PROD_SEQ = PBCI.PROD_SEQ JOIN PROD P ON OPI.PROD_CODE = P.PROD_CODE LEFT OUTER JOIN ( -->
+<!-- 	              SELECT OPOI.ORD_CD -->
+<!-- 	                   , OPOI.PROD_CODE -->
+<!-- 	                   , OPOI.PROD_SEQ -->
+<!-- 	                   , SUM(OPOI.OPT_QTY * PO.OPT_PRCE) AS OPT_PRCE_SUM -->
+<!-- 	                FROM ORD_PROD_OPT_INFO OPOI JOIN PROD_OPT PO ON OPOI.PROD_CODE = PO.PROD_CODE -->
+<!-- 	                 AND OPOI.OPT_CD = PO.OPT_CD -->
+<!-- 	               GROUP BY OPOI.ORD_CD -->
+<!-- 	            ) OPOI ON OPOI.ORD_CD = OPI.ORD_CD -->
+<!-- 	          AND OPOI.PROD_CODE = OPI.PROD_CODE -->
+<!-- 	          AND OPOI.PROD_SEQ = OPI.PROD_SEQ JOIN CTRY C INNER JOIN CTRY CI ON C.CTRY_CD = CI.PARENT_CTRY_CD INNER JOIN CTRY CII ON CI.CTRY_CD = CII.PARENT_CTRY_CD ON CII.CTRY_CD = P.CTRY_CD -->
+<!-- 	     ) Z -->
+<!-- 	 GROUP BY SALES_YYMMDD, CTRY1, CTRY2, CTRY3, PROD_TYPE_CD -->
+
+	</select>
+
+	<insert id="insertListAdminPerfCtry" parameterType="hashmap">
+		INSERT INTO SALES_CTRY
+		(
+			 SALES_YYMMDD
+			,CTRY1
+			,CTRY2
+			,CTRY3
+			,PROD_TYPE_CD
+			,SALES_CNT
+			,SALES_PRCE
+		)VALUES(
+			  #{SALES_YYMMDD}
+			, #{CTRY1}
+			, #{CTRY2}
+			, #{CTRY3}
+			, #{PROD_TYPE_CD}
+			, #{SALES_CNT}
+			, #{SALES_PRCE}
+		)
+
+	</insert>
+
+	<!-- 상품별 기간조회 -->
+	<select id="selectTermAdminPerfProd" resultType="hashmap">
+	SELECT NVL(LAST_DATE, '20150101') STRT_DATE, CURR_DATE
+	     , (CASE WHEN NVL(LAST_DATE, '20150101') > CURR_DATE THEN 'N' ELSE 'Y' END) AS EXC_FLAG
+	  FROM (
+	          SELECT	(SELECT TO_CHAR(TO_DATE(MAX(SALES_YYMMDD), 'YYYYMMDD')+1, 'YYYYMMDD') FROM SALES_PROD) AS LAST_DATE
+<!-- 	          , 			(SELECT MAX(REG_YMD) FROM ADJUST_HIST)								 		AS CURR_DATE -->
+	               , TO_CHAR(SYSDATE-1, 'YYYYMMDD') AS CURR_DATE
+	            FROM DUAL)
+<!-- 	SELECT NVL(LAST_DATE, CURR_DATE) STRT_DATE, CURR_DATE -->
+<!-- 	     , (CASE WHEN NVL(LAST_DATE, CURR_DATE) > CURR_DATE THEN 'N' ELSE 'Y' END) AS EXC_FLAG -->
+<!-- 	  FROM ( -->
+<!-- 	          SELECT TO_CHAR(TO_DATE(MAX(SALES_YYMMDD), 'YYYYMMDD')+1, 'YYYYMMDD') AS LAST_DATE -->
+<!-- 	               , TO_CHAR(SYSDATE-1, 'YYYYMMDD') AS CURR_DATE -->
+<!-- 	            FROM SALES_PROD) -->
+	</select>
+	
+	<insert id="mergeAdminPerfProd" parameterType="HashMap">
+		MERGE INTO SALES_PROD DEST
+		USING	 (
+					SELECT SALES_YYMMDD
+					        , CTRY1
+					        , CTRY2
+					        , CTRY3
+					        , PROD_CD
+				 	        , PROD_TYPE_CD
+				 	        , COUNT(PROD_CD) AS SALES_CNT
+				 	        , NVL(SUM(SALES_PRCE),0) AS SALES_PRCE
+				 	 FROM (
+				 	 		SELECT TO_CHAR(OI.REGIST_DT,'YYYYMMDD') AS SALES_YYMMDD
+				 	 		        , OPI.PROD_TYPE_CD
+				 	 		        , CASE WHEN OPI.PROD_TYPE_CD IN (1,2) 
+				 	 		                  THEN AH.PROD_CD
+				 	 		                 WHEN OPI.PROD_TYPE_CD = '3'
+				 	 		                  THEN OPI.PROD_CODE
+				 	 		          END AS PROD_CD
+				 	 		        , CASE WHEN OPI.PROD_TYPE_CD IN (1,2)
+				 	 		                  THEN AH.SELL_PRCE_SUM + AH.OPT_PRCE_SUM
+				 	 		                  ELSE 0
+				 	 		          END AS SALES_PRCE
+						            , C.CTRY_CD AS CTRY1
+						            , CI.CTRY_CD AS CTRY2
+						            , CII.CTRY_CD AS CTRY3
+				 	 		 FROM ORD_INFO OI
+				 	 		  JOIN ORD_PROD_INFO OPI
+				 	 		    ON OI.ORD_CD = OPI.ORD_CD
+				 	 		  JOIN PROD P
+				 	 		    ON OPI.PROD_CODE = P.PROD_CODE
+<!-- 				 	 		   JOIN ADJUST_HIST AH -->
+				 	 		   LEFT OUTER JOIN ADJUST_HIST AH
+				 	 		    ON OPI.ORD_CD =  AH.ORD_CD
+			               	  AND OPI.PROD_CODE = AH.PROD_CD
+				 	 		  AND OPI.PROD_SEQ = AH.PROD_SEQ	
+				              JOIN CTRY C 
+				            INNER JOIN CTRY CI 
+				                ON C.CTRY_CD = CI.PARENT_CTRY_CD 
+				            INNER JOIN CTRY CII 
+				                ON CI.CTRY_CD = CII.PARENT_CTRY_CD 
+				                ON CII.CTRY_CD = P.CTRY_CD  	 
+<!-- 				 	 	   WHERE AH.REG_YMD BETWEEN #{STRT_DATE} AND #{CURR_DATE} -->
+<!-- 				 	 	   WHERE OI.REGIST_DT BETWEEN TO_DATE(#{STRT_DATE} || '000000' , 'YYYYMMDDHH24MISS') AND TO_DATE(#{CURR_DATE} || '235959' , 'YYYYMMDDHH24MISS') -->
+<!-- 				 	 	      AND ((OPI.PROD_TYPE_CD IN (1,2) AND AH.PROD_CD IS NOT NULL) -->
+<!-- 				 	 	      		OR -->
+<!-- 				 	 	      		 (OPI.PROD_TYPE_CD = '3' AND AH.PROD_CD IS NULL)) -->
+							WHERE ((AH.PROD_TYPE_CD IN (1,2) AND AH.PROD_CD IS NOT NULL AND AH.REGIST_DT &gt; TO_DATE(#{JOB_DATE}||#{START_TM},'YYYYMMDDHH24MISS') )
+				 	 	      		OR
+				 	 	      		 (OPI.PROD_TYPE_CD = '3' AND OI.REGIST_DT BETWEEN TO_DATE(#{STRT_DATE} || '000000' , 'YYYYMMDDHH24MISS') AND TO_DATE(#{CURR_DATE} || '235959' , 'YYYYMMDDHH24MISS')))
+				 	 	    UNION ALL
+				    	    SELECT TO_CHAR(PSI.REGIST_DT,'YYYYMMDD') AS SALES_YYMMDD
+				 	 		        , PSI.PROD_TYPE_CD
+				 	 		        , PSI.PROD_CODE
+				 	 		        , 0 AS SALES_PRCE
+			                        , C.CTRY_CD AS CTRY1
+			                        , CI.CTRY_CD AS CTRY2
+			                        , CII.CTRY_CD AS CTRY3
+					     	 FROM PROD_SUBMIT_INFO PSI
+					     	  JOIN PROD P
+					     	    ON PSI.PROD_CODE = P.PROD_CODE
+				              JOIN CTRY C 
+				            INNER JOIN CTRY CI 
+				                ON C.CTRY_CD = CI.PARENT_CTRY_CD 
+				            INNER JOIN CTRY CII 
+				                ON CI.CTRY_CD = CII.PARENT_CTRY_CD 
+				                ON CII.CTRY_CD = P.CTRY_CD  	 
+						    WHERE PSI.PROC_STAT_CD = '94'
+						  	   AND PSI.PROD_TYPE_CD = '5'
+						  	   AND PSI.REGIST_DT BETWEEN TO_DATE(#{STRT_DATE} || '000000' , 'YYYYMMDDHH24MISS') AND TO_DATE(#{CURR_DATE} || '235959' , 'YYYYMMDDHH24MISS')
+				 	 			)		
+					 GROUP BY SALES_YYMMDD, CTRY1, CTRY2, CTRY3, PROD_TYPE_CD, PROD_CD
+		) DATA
+		ON (
+						DEST.SALES_YYMMDD = DATA.SALES_YYMMDD
+		      AND 	DEST.PROD_TYPE_CD = DATA.PROD_TYPE_CD
+		      AND 	DEST.CTRY1 = DATA.CTRY1
+		      AND 	DEST.CTRY2 = DATA.CTRY2
+		      AND 	DEST.CTRY3 = DATA.CTRY3
+		      AND 	DEST.PROD_CD = DATA.PROD_CD
+		      )
+		WHEN MATCHED 
+		THEN UPDATE
+		SET	DEST.SALES_CNT 	= DEST.SALES_CNT + DATA.SALES_CNT 
+	   	,    	DEST.SALES_PRCE 	= DEST.SALES_PRCE + DATA.SALES_PRCE
+	   	WHEN NOT MATCHED
+	   	THEN INSERT (
+	  			DEST.SALES_YYMMDD
+		,		DEST.CTRY1
+		,		DEST.CTRY2
+		,		DEST.CTRY3
+		,		DEST.PROD_CD
+		,		DEST.PROD_TYPE_CD
+		,		DEST.SALES_CNT
+		,		DEST.SALES_PRCE
+		)VALUES(
+				DATA.SALES_YYMMDD
+		,		DATA.CTRY1
+		,		DATA.CTRY2
+		,		DATA.CTRY3
+		,		DATA.PROD_CD
+		,		DATA.PROD_TYPE_CD
+		,		DATA.SALES_CNT
+		,		DATA.SALES_PRCE
+		)
+	</insert>
+
+<!-- 어드민 실적관리 상품별 집계 -->
+	<select id="selectListAdminPerfProd" parameterType="HashMap" resultType="hashmap">
+		SELECT SALES_YYMMDD
+		        , CTRY1
+		        , CTRY2
+		        , CTRY3
+		        , PROD_CD
+	 	        , PROD_TYPE_CD
+	 	        , COUNT(PROD_CD) AS SALES_CNT
+	 	        , NVL(SUM(SALES_PRCE),0) AS SALES_PRCE
+	 	 FROM (
+	 	 		SELECT TO_CHAR(OI.REGIST_DT,'YYYYMMDD') AS SALES_YYMMDD
+	 	 		        , OPI.PROD_TYPE_CD
+	 	 		        , CASE WHEN OPI.PROD_TYPE_CD IN (1,2) 
+	 	 		                  THEN AH.PROD_CD
+	 	 		                 WHEN OPI.PROD_TYPE_CD = '3'
+	 	 		                  THEN OPI.PROD_CODE
+	 	 		          END AS PROD_CD
+	 	 		        , CASE WHEN OPI.PROD_TYPE_CD IN (1,2)
+	 	 		                  THEN AH.SELL_PRCE_SUM + AH.OPT_PRCE_SUM
+	 	 		          END AS SALES_PRCE
+			            , C.CTRY_CD AS CTRY1
+			            , CI.CTRY_CD AS CTRY2
+			            , CII.CTRY_CD AS CTRY3
+	 	 		 FROM ORD_INFO OI
+	 	 		  JOIN ORD_PROD_INFO OPI
+	 	 		    ON OI.ORD_CD = OPI.ORD_CD
+	 	 		  JOIN PROD P
+	 	 		    ON OPI.PROD_CODE = P.PROD_CODE
+	 	 		   LEFT OUTER JOIN ADJUST_HIST AH
+	 	 		    ON OPI.ORD_CD =  AH.ORD_CD
+               	  AND OPI.PROD_CODE = AH.PROD_CD
+	 	 		  AND OPI.PROD_SEQ = AH.PROD_SEQ	
+	              JOIN CTRY C 
+	            INNER JOIN CTRY CI 
+	                ON C.CTRY_CD = CI.PARENT_CTRY_CD 
+	            INNER JOIN CTRY CII 
+	                ON CI.CTRY_CD = CII.PARENT_CTRY_CD 
+	                ON CII.CTRY_CD = P.CTRY_CD  	 
+	 	 	   WHERE OI.REGIST_DT BETWEEN TO_DATE(#{STRT_DATE} || '000000' , 'YYYYMMDDHH24MISS') AND TO_DATE(#{CURR_DATE} || '235959' , 'YYYYMMDDHH24MISS')
+	 	 	      AND ((OPI.PROD_TYPE_CD IN (1,2) AND AH.PROD_CD IS NOT NULL)
+	 	 	      		OR
+	 	 	      		 (OPI.PROD_TYPE_CD = '3' AND AH.PROD_CD IS NULL))
+	 	 	    UNION ALL
+	    	    SELECT TO_CHAR(PSI.REGIST_DT,'YYYYMMDD') AS SALES_YYMMDD
+	 	 		        , PSI.PROD_TYPE_CD
+	 	 		        , PSI.PROD_CODE
+	 	 		        , 0 AS SALES_PRCE
+                        , C.CTRY_CD AS CTRY1
+                        , CI.CTRY_CD AS CTRY2
+                        , CII.CTRY_CD AS CTRY3
+		     	 FROM PROD_SUBMIT_INFO PSI
+		     	  JOIN PROD P
+		     	    ON PSI.PROD_CODE = P.PROD_CODE
+	              JOIN CTRY C 
+	            INNER JOIN CTRY CI 
+	                ON C.CTRY_CD = CI.PARENT_CTRY_CD 
+	            INNER JOIN CTRY CII 
+	                ON CI.CTRY_CD = CII.PARENT_CTRY_CD 
+	                ON CII.CTRY_CD = P.CTRY_CD  	 
+			    WHERE PSI.PROC_STAT_CD = '94'
+			  	   AND PSI.PROD_TYPE_CD = '5'
+			  	   AND PSI.REGIST_DT BETWEEN TO_DATE(#{STRT_DATE} || '000000' , 'YYYYMMDDHH24MISS') AND TO_DATE(#{CURR_DATE} || '235959' , 'YYYYMMDDHH24MISS')
+	 	 			)		
+		 GROUP BY SALES_YYMMDD, CTRY1, CTRY2, CTRY3, PROD_TYPE_CD, PROD_CD
+	
+	
+	
+	
+	
+<!-- 	SELECT SALES_YYMMDD -->
+<!-- 	     , CTRY1 -->
+<!-- 	     , CTRY2 -->
+<!-- 	     , CTRY3 -->
+<!-- 	     , PROD_CD -->
+<!-- 	     , PROD_TYPE_CD -->
+<!-- 	     , COUNT(SALES_YYMMDD) AS SALES_CNT -->
+<!-- 	     , SUM(SELL_PRCE + OPT_PRCE_SUM) AS SALES_PRCE -->
+<!-- 	  FROM ( -->
+<!-- 	       SELECT P.PROD_TYPE_CD -->
+<!-- 	            , P.PROD_CODE AS PROD_CD -->
+<!-- 	            , NVL(P.SELL_PRCE, 0) * NVL(OPI.ORD_QTY, 0) AS SELL_PRCE -->
+<!-- 	            , NVL(OPOI.OPT_PRCE_SUM, 0) AS OPT_PRCE_SUM -->
+<!-- 	            , TO_CHAR(OI.REGIST_DT, 'YYYYMMDD') AS SALES_YYMMDD -->
+<!-- 	            , C.CTRY_CD AS CTRY1 -->
+<!-- 	            , CI.CTRY_CD AS CTRY2 -->
+<!-- 	            , CII.CTRY_CD AS CTRY3 -->
+<!-- 	         FROM ORD_INFO OI JOIN ORD_PROD_INFO OPI ON OI.ORD_CD = OPI.ORD_CD JOIN PROD_BUY_CONF_INFO PBCI ON OPI.ORD_CD = PBCI.ORD_CD -->
+<!-- 	          AND OI.REGIST_DT BETWEEN TO_DATE(#{STRT_DATE} || '000000' , 'YYYYMMDDHH24MISS') AND TO_DATE(#{CURR_DATE} || '235959' , 'YYYYMMDDHH24MISS') -->
+<!-- 	          AND OPI.PROD_CODE = PBCI.PROD_CODE -->
+<!-- 	          AND OPI.PROD_SEQ = PBCI.PROD_SEQ JOIN PROD P ON OPI.PROD_CODE = P.PROD_CODE LEFT OUTER JOIN ( -->
+<!-- 	              SELECT OPOI.ORD_CD -->
+<!-- 	                   , OPOI.PROD_CODE -->
+<!-- 	                   , OPOI.PROD_SEQ -->
+<!-- 	                   , SUM(OPOI.OPT_QTY * PO.OPT_PRCE) AS OPT_PRCE_SUM -->
+<!-- 	                FROM ORD_PROD_OPT_INFO OPOI JOIN PROD_OPT PO ON OPOI.PROD_CODE = PO.PROD_CODE -->
+<!-- 	                 AND OPOI.OPT_CD = PO.OPT_CD -->
+<!-- 	               GROUP BY OPOI.ORD_CD -->
+<!-- 	                   , OPOI.PROD_CODE -->
+<!-- 	                   , OPOI.PROD_SEQ -->
+<!-- 	            ) OPOI ON OPOI.ORD_CD = OPI.ORD_CD -->
+<!-- 	          AND OPOI.PROD_CODE = OPI.PROD_CODE -->
+<!-- 	          AND OPOI.PROD_SEQ = OPI.PROD_SEQ JOIN CTRY C INNER JOIN CTRY CI ON C.CTRY_CD = CI.PARENT_CTRY_CD INNER JOIN CTRY CII ON CI.CTRY_CD = CII.PARENT_CTRY_CD ON CII.CTRY_CD = P.CTRY_CD -->
+<!-- 	     ) Z -->
+<!-- 	 GROUP BY SALES_YYMMDD, CTRY1, CTRY2, CTRY3, PROD_CD, PROD_TYPE_CD -->
+	</select>
+
+	<insert id="insertListAdminPerfProd" parameterType="hashmap">
+		INSERT INTO SALES_PROD
+		(
+			 SALES_YYMMDD
+			,CTRY1
+			,CTRY2
+			,CTRY3
+			,PROD_CD
+			,PROD_TYPE_CD
+			,SALES_CNT
+			,SALES_PRCE
+		)VALUES(
+			  #{SALES_YYMMDD}
+			, #{CTRY1}
+			, #{CTRY2}
+			, #{CTRY3}
+			, #{PROD_CD}
+			, #{PROD_TYPE_CD}
+			, #{SALES_CNT}
+			, #{SALES_PRCE}
+		)
+	</insert>
+
+	<!-- 사용자별 기간조회 -->
+	<select id="selectTermAdminPerfMber" resultType="hashmap">
+	SELECT NVL(LAST_DATE, '20150101') STRT_DATE, CURR_DATE
+	     , (CASE WHEN NVL(LAST_DATE, '20150101') > CURR_DATE THEN 'N' ELSE 'Y' END) AS EXC_FLAG
+	  FROM (
+	          SELECT	(SELECT TO_CHAR(TO_DATE(MAX(SALES_YYMMDD), 'YYYYMMDD')+1, 'YYYYMMDD') FROM SALES_MBER) AS LAST_DATE
+<!-- 	          , 			(SELECT MAX(REG_YMD) FROM ADJUST_HIST)								 		AS CURR_DATE -->
+	               , TO_CHAR(SYSDATE-1, 'YYYYMMDD') AS CURR_DATE
+	            FROM DUAL)
+<!-- 	SELECT NVL(LAST_DATE, CURR_DATE) STRT_DATE, CURR_DATE -->
+<!-- 	     , (CASE WHEN NVL(LAST_DATE, CURR_DATE) > CURR_DATE THEN 'N' ELSE 'Y' END) AS EXC_FLAG -->
+<!-- 	  FROM ( -->
+<!-- 	          SELECT TO_CHAR(TO_DATE(MAX(SALES_YYMMDD), 'YYYYMMDD')+1, 'YYYYMMDD') AS LAST_DATE -->
+<!-- 	               , TO_CHAR(SYSDATE-1, 'YYYYMMDD') AS CURR_DATE -->
+<!-- 	            FROM SALES_MBER) -->
+	</select>
+	
+	<insert id="mergeAdminPerfMber" parameterType="HashMap">
+		MERGE INTO SALES_MBER DEST
+		USING	 (
+					SELECT Z.SALES_YYMMDD
+				 	        , Z.PROD_TYPE_CD
+				 	        , Z.MBER_SEQ
+				 	        , COUNT(Z.PROD_CODE) AS SALES_CNT
+				 	        , NVL(SUM(Z.SALES_PRCE),0) AS SALES_PRCE
+				 	        , SUM(PCNT.REG_CNT) AS REG_CNT
+				 	 FROM (
+				 	 		SELECT TO_CHAR(OI.REGIST_DT,'YYYYMMDD') AS SALES_YYMMDD
+				 	 		        , OPI.PROD_TYPE_CD
+				 	 		        , CASE WHEN OPI.PROD_TYPE_CD IN (1,2) 
+				 	 		                  THEN AH.PROD_CD
+				 	 		                 WHEN OPI.PROD_TYPE_CD = '3'
+				 	 		                  THEN OPI.PROD_CODE
+				 	 		          END AS PROD_CODE
+				 	 		        , CASE WHEN OPI.PROD_TYPE_CD IN (1,2)
+				 	 		                  THEN AH.SELL_PRCE_SUM + AH.OPT_PRCE_SUM
+				 	 		                  ELSE 0
+				 	 		          END AS SALES_PRCE
+						            , P.MBER_SEQ
+				 	 		 FROM ORD_INFO OI
+				 	 		  JOIN ORD_PROD_INFO OPI
+				 	 		    ON OI.ORD_CD = OPI.ORD_CD
+				 	 		  JOIN PROD P
+				 	 		    ON OPI.PROD_CODE = P.PROD_CODE
+<!-- 				 	 		   JOIN ADJUST_HIST AH -->
+				 	 		   LEFT OUTER JOIN ADJUST_HIST AH
+				 	 		    ON OPI.ORD_CD =  AH.ORD_CD
+			               	  AND OPI.PROD_CODE = AH.PROD_CD
+				 	 		  AND OPI.PROD_SEQ = AH.PROD_SEQ	
+<!-- 				 	 	   WHERE AH.REG_YMD BETWEEN #{STRT_DATE} AND #{CURR_DATE} -->
+<!-- 				 	 	   WHERE OI.REGIST_DT BETWEEN TO_DATE(#{STRT_DATE} || '000000' , 'YYYYMMDDHH24MISS') AND TO_DATE(#{CURR_DATE} || '235959' , 'YYYYMMDDHH24MISS') -->
+				 	 	      WHERE ((AH.PROD_TYPE_CD IN (1,2) AND AH.PROD_CD IS NOT NULL AND AH.REGIST_DT &gt; TO_DATE(#{JOB_DATE}||#{START_TM},'YYYYMMDDHH24MISS') )
+				 	 	      		OR
+				 	 	      		 (OPI.PROD_TYPE_CD = '3' AND OI.REGIST_DT BETWEEN TO_DATE(#{STRT_DATE} || '000000' , 'YYYYMMDDHH24MISS') AND TO_DATE(#{CURR_DATE} || '235959' , 'YYYYMMDDHH24MISS')))
+				 	 	    UNION ALL
+				    	    SELECT TO_CHAR(PSI.REGIST_DT,'YYYYMMDD') AS SALES_YYMMDD
+				 	 		        , PSI.PROD_TYPE_CD
+				 	 		        , PSI.PROD_CODE
+				 	 		        , 0 AS SALES_PRCE
+				 	 		        , P.MBER_SEQ
+					     	 FROM PROD_SUBMIT_INFO PSI
+					     	  JOIN PROD P
+					     	    ON PSI.PROD_CODE = P.PROD_CODE
+						    WHERE PSI.PROC_STAT_CD = '94'
+						  	   AND PSI.PROD_TYPE_CD = '5'
+						  	   AND PSI.REGIST_DT BETWEEN TO_DATE(#{STRT_DATE} || '000000' , 'YYYYMMDDHH24MISS') AND TO_DATE(#{CURR_DATE} || '235959' , 'YYYYMMDDHH24MISS')
+				 	 			   ) Z
+				 	 		JOIN (
+				 	 		  		SELECT COUNT(*) AS REG_CNT
+				 	 		  		        , MBER_SEQ
+				 	 		  		        , TO_CHAR(REGIST_DT, 'YYYYMMDD') SALES_YYMMDD
+				 	 		  		 FROM PROD P
+				 	 		  		WHERE P.PROD_TYPE_CD IN (1,2,3,5)
+				 	 		  	    GROUP BY MBER_SEQ, TO_CHAR(REGIST_DT, 'YYYYMMDD')
+				 	 		  		 ) PCNT
+				 	 		  	ON Z.MBER_SEQ = PCNT.MBER_SEQ
+				 	 		  AND Z.SALES_YYMMDD = PCNT.SALES_YYMMDD
+					       GROUP BY Z.SALES_YYMMDD, Z.MBER_SEQ, Z.PROD_TYPE_CD
+		) DATA
+		ON (
+						DEST.SALES_YYMMDD = DATA.SALES_YYMMDD
+		      AND 	DEST.PROD_TYPE_CD = DATA.PROD_TYPE_CD
+		      AND 	DEST.MBER_SEQ = DATA.MBER_SEQ
+		      )
+		WHEN MATCHED 
+		THEN UPDATE
+		SET	DEST.SALES_CNT 	= DEST.SALES_CNT + DATA.SALES_CNT 
+	   	,    	DEST.SALES_PRCE 	= DEST.SALES_PRCE + DATA.SALES_PRCE
+	   	,    	DEST.REG_CNT 		= DEST.REG_CNT + DATA.REG_CNT
+	   	WHEN NOT MATCHED
+	   	THEN INSERT (
+	  			DEST.SALES_YYMMDD
+       	,		DEST.MBER_SEQ
+       	,		DEST.PROD_TYPE_CD
+       	,		DEST.REG_CNT
+       	,		DEST.SALES_CNT
+       	,		DEST.SALES_PRCE
+		)VALUES(
+				DATA.SALES_YYMMDD
+		,		DATA.MBER_SEQ
+       	,		DATA.PROD_TYPE_CD
+       	,		DATA.REG_CNT
+       	,		DATA.SALES_CNT
+       	,		DATA.SALES_PRCE
+		)
+	</insert>
+
+<!-- 어드민 실적관리 사용자별 집계 -->
+	<select id="selectListAdminPerfMber" parameterType="HashMap" resultType="hashmap">
+		SELECT Z.SALES_YYMMDD
+	 	        , Z.PROD_TYPE_CD
+	 	        , Z.MBER_SEQ
+	 	        , COUNT(Z.PROD_CODE) AS SALES_CNT
+	 	        , NVL(SUM(Z.SALES_PRCE),0) AS SALES_PRCE
+	 	        , SUM(PCNT.REG_CNT) AS REG_CNT
+	 	 FROM (
+	 	 		SELECT TO_CHAR(OI.REGIST_DT,'YYYYMMDD') AS SALES_YYMMDD
+	 	 		        , OPI.PROD_TYPE_CD
+	 	 		        , CASE WHEN OPI.PROD_TYPE_CD IN (1,2) 
+	 	 		                  THEN AH.PROD_CD
+	 	 		                 WHEN OPI.PROD_TYPE_CD = '3'
+	 	 		                  THEN OPI.PROD_CODE
+	 	 		          END AS PROD_CODE
+	 	 		        , CASE WHEN OPI.PROD_TYPE_CD IN (1,2)
+	 	 		                  THEN AH.SELL_PRCE_SUM + AH.OPT_PRCE_SUM
+	 	 		          END AS SALES_PRCE
+			            , P.MBER_SEQ
+	 	 		 FROM ORD_INFO OI
+	 	 		  JOIN ORD_PROD_INFO OPI
+	 	 		    ON OI.ORD_CD = OPI.ORD_CD
+	 	 		  JOIN PROD P
+	 	 		    ON OPI.PROD_CODE = P.PROD_CODE
+	 	 		   LEFT OUTER JOIN ADJUST_HIST AH
+	 	 		    ON OPI.ORD_CD =  AH.ORD_CD
+               	  AND OPI.PROD_CODE = AH.PROD_CD
+	 	 		  AND OPI.PROD_SEQ = AH.PROD_SEQ	
+	 	 	   WHERE OI.REGIST_DT BETWEEN TO_DATE(#{STRT_DATE} || '000000' , 'YYYYMMDDHH24MISS') AND TO_DATE(#{CURR_DATE} || '235959' , 'YYYYMMDDHH24MISS')
+	 	 	      AND ((OPI.PROD_TYPE_CD IN (1,2) AND AH.PROD_CD IS NOT NULL)
+	 	 	      		OR
+	 	 	      		 (OPI.PROD_TYPE_CD = '3' AND AH.PROD_CD IS NULL))
+	 	 	    UNION ALL
+	    	    SELECT TO_CHAR(PSI.REGIST_DT,'YYYYMMDD') AS SALES_YYMMDD
+	 	 		        , PSI.PROD_TYPE_CD
+	 	 		        , PSI.PROD_CODE
+	 	 		        , 0 AS SALES_PRCE
+	 	 		        , P.MBER_SEQ
+		     	 FROM PROD_SUBMIT_INFO PSI
+		     	  JOIN PROD P
+		     	    ON PSI.PROD_CODE = P.PROD_CODE
+			    WHERE PSI.PROC_STAT_CD = '94'
+			  	   AND PSI.PROD_TYPE_CD = '5'
+			  	   AND PSI.REGIST_DT BETWEEN TO_DATE(#{STRT_DATE} || '000000' , 'YYYYMMDDHH24MISS') AND TO_DATE(#{CURR_DATE} || '235959' , 'YYYYMMDDHH24MISS')
+	 	 			   ) Z
+	 	 		JOIN (
+	 	 		  		SELECT COUNT(*) AS REG_CNT
+	 	 		  		        , MBER_SEQ
+	 	 		  		        , TO_CHAR(REGIST_DT, 'YYYYMMDD') SALES_YYMMDD
+	 	 		  		 FROM PROD P
+	 	 		  		WHERE P.PROD_TYPE_CD IN (1,2,3,5)
+	 	 		  	    GROUP BY MBER_SEQ, TO_CHAR(REGIST_DT, 'YYYYMMDD')
+	 	 		  		 ) PCNT
+	 	 		  	ON Z.MBER_SEQ = PCNT.MBER_SEQ
+	 	 		  AND Z.SALES_YYMMDD = PCNT.SALES_YYMMDD
+		       GROUP BY Z.SALES_YYMMDD, Z.MBER_SEQ, Z.PROD_TYPE_CD
+	
+	
+<!-- 		SELECT Z.SALES_YYMMDD -->
+<!-- 		     , Z.MBER_SEQ -->
+<!-- 		     , Z.PROD_TYPE_CD -->
+<!-- 		     , COUNT(Z.PROD_CD) AS SALES_CNT -->
+<!-- 		     , SUM(Z.SELL_PRCE + Z.OPT_PRCE_SUM) AS SALES_PRCE -->
+<!-- 		     , SUM(NVL(Y.REG_CNT, 0)) AS REG_CNT -->
+<!-- 		  FROM ( -->
+<!-- 		       SELECT P.PROD_TYPE_CD -->
+<!-- 		            , P.MBER_SEQ -->
+<!-- 		            , P.PROD_CODE AS PROD_CD -->
+<!-- 		            , NVL(P.SELL_PRCE, 0) * NVL(OPI.ORD_QTY, 0) AS SELL_PRCE -->
+<!-- 		            , NVL(OPOI.OPT_PRCE_SUM, 0) AS OPT_PRCE_SUM -->
+<!-- 		            , TO_CHAR(OI.REGIST_DT, 'YYYYMMDD') AS SALES_YYMMDD -->
+<!-- 		         FROM ORD_INFO OI JOIN ORD_PROD_INFO OPI ON OI.ORD_CD = OPI.ORD_CD JOIN PROD_BUY_CONF_INFO PBCI ON OPI.ORD_CD = PBCI.ORD_CD -->
+<!-- 		          AND OI.REGIST_DT BETWEEN TO_DATE(#{STRT_DATE} || '000000' , 'YYYYMMDDHH24MISS') AND TO_DATE(#{CURR_DATE} || '235959' , 'YYYYMMDDHH24MISS') -->
+<!-- 		          AND OPI.PROD_CODE = PBCI.PROD_CODE -->
+<!-- 		          AND OPI.PROD_SEQ = PBCI.PROD_SEQ JOIN PROD P ON OPI.PROD_CODE = P.PROD_CODE LEFT OUTER JOIN ( -->
+<!-- 		              SELECT OPOI.ORD_CD -->
+<!-- 		                   , OPOI.PROD_CODE -->
+<!-- 		                   , OPOI.PROD_SEQ -->
+<!-- 		                   , SUM(OPOI.OPT_QTY * PO.OPT_PRCE) AS OPT_PRCE_SUM -->
+<!-- 		                FROM ORD_PROD_OPT_INFO OPOI JOIN PROD_OPT PO ON OPOI.PROD_CODE = PO.PROD_CODE -->
+<!-- 		                 AND OPOI.OPT_CD = PO.OPT_CD -->
+<!-- 		               GROUP BY OPOI.ORD_CD -->
+<!-- 		                   , OPOI.PROD_CODE -->
+<!-- 		                   , OPOI.PROD_SEQ -->
+<!-- 		            ) OPOI ON OPOI.ORD_CD = OPI.ORD_CD -->
+<!-- 		          AND OPOI.PROD_CODE = OPI.PROD_CODE -->
+<!-- 		          AND OPOI.PROD_SEQ = OPI.PROD_SEQ LEFT OUTER JOIN ORD_CANC_INFO OCI ON OPI.CANC_CD = OCI.CANC_CD -->
+<!-- 		        WHERE PBCI.CONF_GB = 'Y' -->
+<!-- 		          AND OPI.CANC_CD IS NULL -->
+<!-- 		     ) Z LEFT OUTER JOIN ( -->
+<!-- 		       SELECT MBER_SEQ -->
+<!-- 		            , COUNT(PROD_CODE) AS REG_CNT -->
+<!-- 		            , TO_CHAR(REGIST_DT, 'YYYYMMDD') SALES_YYMMDD -->
+<!-- 		         FROM PROD -->
+<!-- 		        GROUP BY MBER_SEQ -->
+<!-- 		            , TO_CHAR(REGIST_DT, 'YYYYMMDD') -->
+<!-- 		     ) Y ON Z.MBER_SEQ = Y.MBER_SEQ -->
+<!-- 		   AND Z.SALES_YYMMDD = Y.SALES_YYMMDD -->
+<!-- 		 GROUP BY Z.SALES_YYMMDD, Z.MBER_SEQ, Z.PROD_TYPE_CD -->
+
+	</select>
+
+	<insert id="insertListAdminPerfMber" parameterType="hashmap">
+		INSERT INTO SALES_MBER
+		(
+		        SALES_YYMMDD
+		       ,MBER_SEQ
+		       ,PROD_TYPE_CD
+		       ,REG_CNT
+		       ,SALES_CNT
+		       ,SALES_PRCE
+		)VALUES(
+		        #{SALES_YYMMDD}
+		       ,#{MBER_SEQ}
+		       ,#{PROD_TYPE_CD}
+		       ,#{REG_CNT}
+		       ,#{SALES_CNT}
+		       ,#{SALES_PRCE}
+		)
+
+	</insert>
+
+	<select id="selectBatchJobCfgInfo" parameterType="String" resultType="String">
+		SELECT	BATCH_ID
+		FROM		BATCH_JOB_CFG
+		WHERE	BATCH_NM = #{batch_nm}
+	</select>
+
+	<insert id="insertBatchJobCfg" parameterType="hashmap">
+		INSERT INTO BATCH_JOB_CFG (
+					BATCH_ID
+		,			BATCH_NM
+		,			BATCH_TERM_GB
+		,			USE_YN
+		,			RM
+		,			REGIST_DT
+		,			UPDT_DT
+		) VALUES (
+					(SELECT DECODE(COUNT(*),0,'B0000000001','B'||LPAD(SUBSTR(MAX(BATCH_ID),2)+1,10,0)) FROM BATCH_JOB_CFG)
+		,			#{batch_nm}
+		,			#{batch_term_gb}
+		,			'Y'
+		,			#{rm}
+		,			SYSDATE
+		,			SYSDATE
+		)
+	</insert>
+
+	<select id="selectBatchJobCfgStat" parameterType="String" resultType="String">
+		SELECT	BATCH_ID
+		FROM		BATCH_JOB_CFG
+		WHERE	BATCH_NM = #{batch_nm}
+		AND		USE_YN = 'Y'
+	</select>
+
+	<update id="updateBatchJobCfg" parameterType="hashmap">
+		UPDATE	BATCH_JOB_CFG
+		SET		UPDT_DT	= SYSDATE
+		<if test="use_yn neq null and use_yn neq ''.toString()">
+		,			USE_YN = #{use_yn}
+		</if>
+		,			RM = #{rm}
+		<if test="batch_term_gb neq null and batch_term_gb neq ''.toString()">
+		,			BATCH_TERM_GB = #{batch_term_gb}
+		</if>
+		<if test="start neq null and start neq ''.toString()">
+		,			START_DAY = TO_CHAR(SYSDATE, 'YYYYMMDD')
+		,			START_TM = TO_CHAR(SYSDATE, 'HH24MI')
+		</if>
+		WHERE	BATCH_ID = #{batch_id}
+	</update>
+
+	<insert id="insertBatchJobHist" parameterType="hashmap">
+		INSERT INTO BATCH_JOB_HIST (
+					HIST_SEQ
+		,			JOB_DATE
+		,			BATCH_ID
+		,			START_TM
+		,			JOB_STAT
+		,			RM
+		,			REGIST_DT
+		,			UPDT_DT
+		) VALUES (
+					SEQ_BATCH_JOB_HIST.NEXTVAL
+		,			TO_CHAR(SYSDATE, 'YYYYMMDD')
+		,			#{batch_id}
+		,			TO_CHAR(SYSDATE, 'HH24MISS')
+		,			#{job_stat}
+		,			#{rm}
+		,			SYSDATE
+		,			SYSDATE
+		)
+		<selectKey keyProperty="hist_seq" resultType="String" order="AFTER">
+		SELECT	SEQ_BATCH_JOB_HIST.CURRVAL FROM DUAL
+		</selectKey>
+	</insert>
+	
+	<select id="selectBatchJobHist" parameterType="hashmap" resultType="hashmap">
+		SELECT 	JOB_DATE
+		,			START_TM
+		FROM		BATCH_JOB_HIST
+		WHERE	HIST_SEQ = (SELECT MAX(HIST_SEQ) FROM BATCH_JOB_HIST WHERE BATCH_ID = #{batch_id})
+	</select>
+
+	<update id="updateBatchJobHist" parameterType="hashmap">
+		UPDATE 	BATCH_JOB_HIST
+		SET		END_TM = TO_CHAR(SYSDATE, 'HH24MISS')
+		,			ERR_DTL = #{err_dtl}
+		,			JOB_STAT = 'F'
+		,			UPDT_DT	= SYSDATE
+		WHERE	HIST_SEQ = #{hist_seq}
+	</update>
+
+</mapper>

@@ -1,0 +1,371 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/web/common/cmmnHead.jsp"%>
+<script type="text/javascript" src="/js/web/function.js"/></script>
+<script type="text/javascript" src="/js/web/class.js"/></script>
+<script type="text/javascript" src="/js/web/ctry/product.js"/></script>
+<script type="text/javascript" src="/js/web/ctry/order.js"/></script>
+<script type="text/javascript">
+var order = null;
+$(document).ready(function(){
+	if( '${data}' == '99'){
+		alert("주문에 실패하였습니다,\n다시 시도해 주세요.");
+		history.go(-1); 
+		return;
+	}
+	header.type = 0;
+	header.title = "주문완료";
+	initHeader();
+	document.title = header.title;
+	
+	$(".btn_r").click(function(){
+		if( '${sessionScope.APP}' == 'SSOCIO'){
+			document.location.replace('ssocio://web/closeWebViewAndMain');	
+		}
+		else{
+			location.href = "/mobile/main/main.do";	
+		}
+	});
+	
+	initialize();
+	
+	displayFooter(false);
+});
+
+function initialize(){
+	order = new Order('${ordInfo.ordCd }');
+	order.pointUseAmt = nvlInt('${ordInfo.pointUseAmt}', 0);
+	order.cpnUseAmt = nvlInt('${ordInfo.cpnUseAmt}', 0);
+	order.dlvSeltAmt = nvlInt('${ordInfo.dlvSeltAmt}', 0);
+	order.seltGbCd = '${ordInfo.seltGbCd}';
+	order.seltInfo.freeIntYn = '${ordInfo.seltInfo.freeIntYn}' == '' ? 'N' : '${ordInfo.seltInfo.freeIntYn}';
+	order.seltInfo.easyTerm = nvlInt('${ordInfo.seltInfo.easyTerm}', 0);
+	order.seltInfo.cardCompNm = '${ordInfo.seltInfo.cardCompNm}';
+	order.seltInfo.cardNo = '${ordInfo.seltInfo.cardNo}';
+	order.seltInfo.carrier = '${ordInfo.seltInfo.carrier}';
+	order.seltInfo.dstAddr = '${ordInfo.seltInfo.dstAddr}';
+	
+	var prod = null;
+	<c:forEach var="prod" items="${ordInfo.prods}" varStatus="status">
+		var prod = new Product(true);
+		prod.prodCode = '${prod.prodCode}';
+		prod.prodNm = '${prod.prodNm}';
+		prod.prodImgUrl = '${prod.prodImgUrl}';
+		prod.prodTypeCd = '${prod.prodTypeCd}';
+		//	옵션 구성 여부 파악
+		prod.optProdYn = isNull('${prod.optProdYn }') ? 'N' : '${prod.optProdYn }';
+		prod.extProdYn = isNull('${prod.extProdYn }') ? 'N' : '${prod.extProdYn }';
+		
+		prod.ctryCd = '${prod.ctryCd}';
+		prod.mberSeq = '${prod.mberSeq}';
+		prod.mberGbCd = '${prod.mberGbCd}';
+		prod.sellPrce = nvlInt('${prod.sellPrce}', 0);
+		prod.nrmPrce = nvlInt('${prod.nrmPrce}', 0);
+		prod.ordQty = nvlInt('${prod.ordQty}', 0);
+		prod.ordAmt = nvlInt('${prod.ordAmt}', 0);
+		
+		prod.shar.prce = nvlInt('${prod.shar.prce}', 0);
+		prod.shar.deposit = nvlInt('${prod.shar.deposit}', 0);
+		prod.shar.minTerm = nvlInt('${prod.shar.minTerm}', 0);
+		prod.shar.maxTerm = nvlInt('${prod.shar.maxTerm}', 0);
+		prod.shar.startDt = '${prod.shar.startDt}';
+		prod.shar.endDt = '${prod.shar.endDt}';
+		prod.shar.shareDay = nvlInt('${prod.shar.shareDay}', 1);
+		
+		prod.dlv.dlvWayCd = '${prod.dlv.dlvWayCd}';
+		prod.dlv.dlvPayGbCd = '${prod.dlv.dlvPayGbCd}';
+		prod.dlv.dlvPrce = nvlInt('${prod.dlv.dlvPrce}', 0);
+		prod.dlv.dlvPayFCd = '${prod.dlv.dlvPayFCd}';
+		prod.dlv.bndlDlvYn = isNull('${prod.dlv.bndlDlvYn }') ? 'N' : '${prod.dlv.bndlDlvYn }';
+		prod.dlv.dlvStandYn = isNull('${prod.dlv.dlvStandYn }') ? 'N' : '${prod.dlv.dlvStandYn }';
+		prod.dlv.dlvStandAmt = nvlInt('${prod.dlv.dlvStandAmt}', 0);
+		prod.dlv.dlvGrpProdSeq = '${prod.dlv.dlvPayGbCd}';
+
+		<c:forEach var="opt" items="${prod.options}" varStatus="optStatus">
+			prod.setSelected(new Option('${opt.optCd}', '${opt.opGbCd}', '${opt.optNm}', 0, nvlInt('${opt.prce}', 0), nvlInt('${opt.ordQty}', 0)));
+		</c:forEach>
+		
+		order.add(prod);
+		order.setProdTypeCd(prod.prodTypeCd);
+	</c:forEach>
+	
+	order.setDlvBand();
+	
+	displayProducts();
+}
+
+function displayProducts(){
+	var html = '';
+	for( var i=0 ; i<order.sellers.length ; i++){
+		var seller = order.sellers[i];
+		for(var j=0 ; j<seller.prods.length ; j++ ){
+			var prod = seller.prods[j]; 
+			html += '<li>';
+			html += '<div class="none-delivery" id="id_div_ext_land" style="display:none;">';
+			html += '<p>제주/도서산간 배송 불가 상품입니다.</p>';
+			html += '</div>';
+			html += '<ul class="mt10">';
+			html += '<li><img src="<custom:codeTag code="DEFAULT_IMG_URL" groupCode="SITE_DEFAULT" />" alt="' + prod.prodImgUrl + '"></li>';
+			html += '<li><strong>' + prod.prodNm + '</strong></li>';
+			html += '<li>';
+			if(prod.prodTypeCd == '1'){
+				html += '<span>상품금액 ' + formatNumber(prod.sellPrce) + '원<br>';
+			}
+			else if( prod.prodTypeCd == '2'){
+				// 20151114 개인 쉐어링 구매 조건 추가
+				if( prod.mberGbCd == '0' && '${inParam.ordFlag}' != '1'){
+					html += '<li><span>보증금  ' + formatNumber(prod.shar.deposit) + '원<br>사용기간 최대 ' + Math.ceil(prod.shar.deposit / prod.shar.prce) + '일 이내 반납가능<br>'
+				}
+				else if(prod.mberGbCd == '0' && '${inParam.ordFlag}' == '1'){
+					html += '<li><span>상품금액  ' + formatNumber(prod.shar.deposit) + '원<br>'
+				}
+				else if(prod.mberGbCd == '1'){
+					html += '<li><span>보증금  ' + formatNumber(prod.shar.deposit) + '원<br>셰어링료 ' + formatNumber(prod.shar.prce * prod.shar.shareDay) + '원 (일 ' + formatNumber(prod.shar.prce) + '원  X ' + prod.shar.shareDay + '일)<br>';	
+				}
+			}
+			
+			html += prod.getDlvAmountText(true) + ' | 구매수량' + formatNumber(prod.ordQty) + '개';
+			
+			html += '</span>';
+			html += '</li>';
+			html += '</ul>';
+			//	옵션 영역			
+			if(prod.option.select.length > 0 ){
+				html += '<div class="option">';
+				for(var k=0 ; k<prod.option.select.length ; k++){
+					var option = prod.option.select[k];
+					if(option.opGbCd == '10'){
+						html += '<p class="clear"><span class="fl">' + option.optNm + '</span> <span class="fr">+' + formatNumber(option.prce) + '원 | ' + option.ordQty + '개</span>';	
+					}
+					else if( option.opGbCd == '20'){
+						html += '<p class="clear"><span class="fl">[추가상품]' + option.optNm + '</span> <span class="fr">' + formatNumber(option.prce) + '원 | ' + option.ordQty + '개</span>';	
+					}
+				}
+				html += '</div>';
+			}
+			
+			html += '</li>';
+		}
+		//	주문 금액
+		html += '<li class="total">';
+		html += '<p class="clear mt10"><strong>구매수량 ' + formatNumber(seller.getAccount()) + '개 | 상품금액 ' +  formatNumber(seller.getAmount()) + '원 | ' + seller.getDlvAmountText() + '</strong></p>';
+		html += '<p class="clear mt10 tr"><strong class="point_r" id="id_account_' + i + '">' + formatNumber(seller.getTotalAmount()) + '원</strong></p>';
+		html += '</li>';
+	}
+	$(".sha_oder").append(html);
+	
+	cdnreload();
+	
+	displayAmount();
+}
+
+function displayAmount(){
+	if(order.prodTypeCd == '1'){
+		$("#id_tr_sell_prce").show();
+		$("#id_tr_ps_deposit").hide();
+		$("#id_tr_ps_prce").hide();
+		$("#id_tr_ps_qty").hide();
+		
+		//	상품 금액
+		$("#id_sell_prce").text(formatNumber(order.getOrdAmount()) + ' 원');
+	}
+	else if( order.prodTypeCd == '2'){
+		$("#id_tr_sell_prce").hide();
+		$("#id_tr_ps_deposit").show();
+		$("#id_tr_ps_prce").show();
+		$("#id_tr_ps_qty").show();
+		//	보증금 금액
+		$("#id_ps_deposit").text(formatNumber(order.getOrdDeposit()) + ' 원');
+		//	셰어링 금액
+		$("#id_ps_prce").text(formatNumber(order.getOrdSharPrce()) + " 원");
+		//	구매수량
+		$("#id_ps_qty").text(formatNumber(order.getAccount()) + " 개");
+	}
+	
+	//	배송비
+	if(order.dlvSeltAmt > 0 ){
+		$("#id_dlv_prce").text(formatNumber(order.dlvSeltAmt) + " 원");	
+	}
+	else{
+		$("#id_dlv_prce").text("0 원");
+	}
+	
+	//	쿠폰할인
+	if(order.cpnUseAmt > 0){
+		$("#id_coupon_prce").text("-" + formatNumber(order.cpnUseAmt) + " 원");
+	}
+	else{
+		$("#id_coupon_prce").text("0 원");
+	}
+	
+	//	포인트 사용
+	if(order.pointUseAmt > 0){
+		$("#id_point_prce").text("-" + formatNumber(order.pointUseAmt) + " P");
+	}
+	else{
+		$("#id_point_prce").text("0 P");
+	}
+	
+	//	결제 정보
+	var payText = '';
+	if(order.seltGbCd == '1'){
+		payText += order.seltInfo.cardCompNm;
+		if(order.seltInfo.easyTerm == 0 || order.seltInfo.easyTerm == 1){
+			payText += '(일시불)';
+		}
+		else{
+			payText += '(' + order.seltInfo.easyTerm + '개월)';
+		}
+		payText += ' ' + order.seltInfo.cardNo;
+		$("#id_tr_pay").show();
+		$("#id_th_pay").text("신용카드 결제");
+		$("#id_td_pay").text(payText);
+	}
+	else if( order.seltGbCd == '3'){
+		payText += order.seltInfo.carrier;
+		payText += ' ' + order.seltInfo.dstAddr;
+		$("#id_tr_pay").show();
+		$("#id_th_pay").text("휴대폰 결제");
+		$("#id_td_pay").text(payText);
+	}
+	//	총 결제 금액
+	//	상품금액 + 배송비 - 쿠폰할인 - 포인트 사용
+	var totalAmount = 0;
+	totalAmount += order.getOrdAmount();
+	totalAmount += order.dlvSeltAmt;
+	totalAmount -= order.cpnUseAmt;
+	totalAmount -= order.pointUseAmt;
+	$("#id_tot_prce").text(formatNumber(totalAmount) + " 원");
+}
+
+</script>
+</head>
+<body>
+<form name="form" id="form" method="get">
+
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+
+        <div class="roc">
+        	<ul class="inner">
+            	<li><img src="http://static.ssocio.net/pc/img/common/section/roc_home.png" alt="홈"></li>
+                <li>주문완료</li>
+            </ul>
+        </div>
+        
+        <!-- inner -->
+		<div class="inner ord_contents">
+
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+
+		<!-- container -->
+		<div id="container">
+
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>
+
+
+
+	<h3 class="title"><strong class="fl">${ordInfo.ordCd }</strong> <span class="fr">주문일 : <fmt:formatDate value="<%=new java.util.Date()%>" pattern="yyyy-MM-dd HH:mm" /></span></h3>
+	
+
+	<div class="info-box">
+		<p><strong class="point_r">주문완료</strong></p>
+		<p>상품 주문이 완료 되었습니다.</p>
+	</div>
+	<p class="title">1. 주문상품정보</p>
+	<!-- [D] 주문상품정보 반복 영역 -->
+	<ul class="sha_oder">
+	</ul>
+	<p class="title">2. 결제정보</p>
+	<div class="tbl">
+		<table class="tbl-data">
+			<colgroup>
+				<col width="80px">
+				<col width="*">
+			</colgroup>
+			<tbody>
+				<tr>
+				<tr id="id_tr_sell_prce">
+					<th>상품금액</th>
+					<td class="tr" id="id_sell_prce"></td>
+				</tr>
+				<tr id="id_tr_ps_deposit">
+					<th>보증금</th>
+					<td class="tr" id="id_ps_deposit"></td>
+				</tr>
+				<tr id="id_tr_ps_prce">
+					<th>셰어링금액</th>
+					<td class="tr" id="id_ps_prce"></td>
+				</tr>
+				<tr id="id_tr_ps_qty">
+					<th>구매수량</th>
+					<td class="tr" id="id_ps_qty"></td>
+				</tr>
+				<tr>
+					<th>배송비</th>
+					<td class="tr" id="id_dlv_prce"></td>
+				</tr>
+				<tr>
+					<th>쿠폰할인</th>
+					<td class="tr" id="id_coupon_prce"></td>
+				</tr>
+				<tr class="line">
+					<th>포인트 사용</th>
+					<td class="tr" id="id_point_prce"></td>
+				</tr>
+				<tr class="line" id="id_tr_pay" style="display:none;">
+					<th id="id_th_pay"></th>
+					<td class="tr" id="id_td_pay"></td>
+				</tr>
+				<tr>
+					<th>총 결제 금액</th>
+					<td class="tr"><strong class="point_r" id="id_tot_prce"></strong></td>
+				</tr>
+			</tbody>
+		</table>
+	</div>
+
+	<p class="title clear">3. 배송지 정보 </p>
+	<div class="tbl">
+		<table class="tbl-data">
+			<colgroup>
+				<col width="100px">
+				<col width="*">
+			</colgroup>
+			<tbody>
+				<tr>
+					<th>수령인</th>
+					<td class="pd5" id="id_dlv_rcv_nm">${ordInfo.dlvInfo.rcvNm }</td>
+				</tr>
+				<tr>
+					<th class="stop">배송지</th>
+					<td class="pd5" id="id_dlv_juso">(${ordInfo.dlvInfo.zipCd }) ${ordInfo.dlvInfo.jusoDoro } ${ordInfo.dlvInfo.jusoDtl }</td>
+				</tr>
+					<tr>
+						<th>연락처</th>
+						<td class="pd5" id="id_dlv_tel">${ordInfo.dlvInfo.rcvTel }
+						<c:if test="${ordInfo.dlvInfo.secuNoUseYn == 'Y' }">
+						(${ordInfo.dlvInfo.ansimNo })
+						</c:if>
+						</td>
+					</tr>
+				<tr>
+					<th class="vtop">배송메모</th>
+					<td class="pd5" id="id_dlv_memo">${ordInfo.dlvInfo.dlvMsg }</td>
+				</tr>
+			</tbody>
+		</table>
+	</div>
+
+	<div class="btn_enter"><a href="#" class="btn_r">쇼핑계속하기</a></div>		
+</div>
+<!-- //container -->
+</form>
+</body>
+</html>

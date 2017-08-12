@@ -1,0 +1,2069 @@
+package com.ssocio.sharing.service.admin;
+
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.ui.ModelMap;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.multipart.MultipartHttpServletRequest;
+
+import com.ssocio.sharing.cmmn.admin.util.CommonUtil;
+import com.ssocio.sharing.cmmn.util.CmmnCnst;
+import com.ssocio.sharing.cmmn.util.CreateCoupon;
+import com.ssocio.sharing.cmmn.util.LoggerUtil;
+import com.ssocio.sharing.cmmn.util.StringUtil;
+import com.ssocio.sharing.dao.admin.AdminCodeDao;
+import com.ssocio.sharing.dao.admin.AdminCpnDao;
+import com.ssocio.sharing.vo.admin.PageNavigation;
+
+/**
+ * <pre>
+ * 카테고리 서비스
+ * 카테고리 관리를 위한 서비스
+ * @author Y.I.Chun
+ * @version 
+ * @since 2015. 7. 6. 오후 6:41:07
+ * @see 
+ * @History 
+ *  Date          |    author    | 변경내용  
+ *	2015. 7. 6.   |    Y.I.Chun  | 신규
+ * @Todo
+ * </pre>
+ */
+@Service
+public class AdminCpnServiceImpl implements AdminCpnService{
+	
+	// --------------------------------------------------------------------------
+	// # Log 설정
+	// --------------------------------------------------------------------------
+	private static final Logger logger = LoggerFactory.getLogger(AdminCpnServiceImpl.class);
+
+	// --------------------------------------------------------------------------
+	// # DAO 설정
+	// --------------------------------------------------------------------------
+	@Resource(name="adminCpnDao")
+	private AdminCpnDao adminCpnDao;
+	
+	@Resource(name="adminCodeDao")
+	private AdminCodeDao adminCodeDao;
+
+	@Override
+	public ModelMap selectListCpn(Map<String, Object> inParam,String cpnGbCd[], String cpnUseCd[], String issueMth[]) throws Exception {
+		ModelMap mm = new ModelMap();
+		try {
+									
+			// 공통 코드 조회 - 쿠폰구분코드
+			inParam.put("S_GROUP_CODE", CmmnCnst.cpnGbCd);
+			mm.put("cpnGbCd",adminCodeDao.selectListCodeGroup(inParam));
+			// 공통 코드 조회 - 쿠폰사용채널
+			inParam.put("S_GROUP_CODE", CmmnCnst.cpnChanCd);
+			mm.put("cpnChanCd",adminCodeDao.selectListCodeGroup(inParam));
+			// 공통 코드 조회 - 리스트표시갯수
+			inParam.put("S_GROUP_CODE", CmmnCnst.displayCnt);
+			mm.put("displayCnt",adminCodeDao.selectListCodeGroup(inParam));
+			
+			//페이지번호
+			inParam.put("PAGE_NO",StringUtil.nvl((String)inParam.get("PAGE_NO"), "1"));
+			int nowPage = StringUtil.nvlInt((String)inParam.get("PAGE_NO"), 1);
+			int rowCnt	= StringUtil.nvlInt((String)inParam.get("S_ROW_CNT"), 20);
+			inParam.put("S_ROW_CNT", rowCnt);
+			
+			String today = StringUtil.getCurrentDate();
+			inParam.put("S_END_DATE", StringUtil.nvl((String)inParam.get("S_END_DATE"), today));
+			
+			SimpleDateFormat format = new SimpleDateFormat("yyyyMMdd");
+			Calendar cal = Calendar.getInstance();
+			cal.add(Calendar.DATE, -7);
+			inParam.put("S_START_DATE", StringUtil.nvl((String)inParam.get("S_START_DATE"), format.format(cal.getTime())));
+			
+			LoggerUtil.writeMap(inParam);		
+			
+			int rowTotal = adminCpnDao.selectListCpnCount(inParam);
+			
+			PageNavigation pageNav= new PageNavigation(nowPage, rowTotal, rowCnt, CmmnCnst.ADM_BLOCK_SIZE);
+			mm.put("PAGE_NO", nowPage);
+			mm.put("pageNav", pageNav);
+			inParam.put("START_ROW", pageNav.getStartRow());
+			inParam.put("END_ROW", pageNav.getEndRow());
+			
+			inParam.put("cpnGbCd", cpnGbCd);
+			inParam.put("cpnUseCd", cpnUseCd);
+			inParam.put("issueMth", issueMth);
+			
+			mm.put("selectListCpn",adminCpnDao.selectListCpn(inParam));
+			
+			// 공통 코드 조회 - 리스트표시갯수
+			inParam.put("S_GROUP_CODE", CmmnCnst.issueMth);
+			mm.put("issueMth",adminCodeDao.selectListCodeGroup(inParam));		
+			inParam.put("CPN_GB_CD", cpnGbCd);
+			inParam.put("CPN_USE_CD", cpnUseCd);
+			inParam.put("ISSUE_MTH", issueMth);
+			mm.put("params", inParam);
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+
+	@Override
+	public ModelMap startCpn(Map<String, Object> inParam) throws Exception {
+		
+		ModelMap mm = new ModelMap();
+		
+		/// 공통 코드 조회 - 쿠폰구분코드
+		inParam.put("S_GROUP_CODE", CmmnCnst.inflowRouteSearchCd);
+		mm.put("inflowRouteSearchCd",adminCodeDao.selectListCodeGroup(inParam));
+		
+		String today = StringUtil.getCurrentDate();
+		inParam.put("S_END_DATE", StringUtil.nvl((String)inParam.get("S_END_DATE"), today));
+		
+		SimpleDateFormat format = new SimpleDateFormat("yyyyMMdd");
+		Calendar cal = Calendar.getInstance();
+		cal.add(Calendar.DATE, -7);
+		inParam.put("S_START_DATE", StringUtil.nvl((String)inParam.get("S_START_DATE"), format.format(cal.getTime())));
+		
+		inParam.put("ISSUE_CD", "A");
+	
+		mm.put("params", inParam);
+		
+		return mm;
+		
+	}
+
+	@Override
+	public ModelMap selectCpnDtl(Map<String, Object> inParam,String cpnGrpCd) {
+		
+		ModelMap mm = new ModelMap();
+		Map<String, Object> mmTemp = new ModelMap();
+			
+		try {
+			
+			mmTemp = adminCpnDao.selectCpnDtl(cpnGrpCd);
+			mmTemp.put("TOT_PROD_CNT", adminCpnDao.selectProdCnt());
+			mm.put("selectCpnDtl",mmTemp);
+			mm.put("cpnMarket",adminCpnDao.selectCpnMarket(cpnGrpCd));
+			
+			if(mmTemp.get("CPN_ISSUE_TGT_GB_CD").equals("A")){
+				mm.put("cpnProd","");
+				mm.put("cpnCtry","");
+				mm.put("cpnPlan","");
+			}else if(mmTemp.get("CPN_ISSUE_TGT_GB_CD").equals("B")){
+				mm.put("cpnProd",adminCpnDao.selectCpnProd(cpnGrpCd));
+				mm.put("cpnCtry","");
+				mm.put("cpnPlan","");
+			}else if(mmTemp.get("CPN_ISSUE_TGT_GB_CD").equals("C")){
+				mm.put("cpnProd","");
+				mm.put("cpnCtry",adminCpnDao.selectCpnCtry(cpnGrpCd));				
+				mm.put("cpnPlan","");
+			}else if(mmTemp.get("CPN_ISSUE_TGT_GB_CD").equals("D")){
+				mm.put("cpnProd","");
+				mm.put("cpnCtry","");
+				mm.put("cpnPlan",adminCpnDao.selectCpnPlan(cpnGrpCd));
+			}
+			
+			if(mmTemp.get("ISSUE_CD").equals("A")){
+				mm.put("cpnUse","");
+			}else if(mmTemp.get("ISSUE_CD").equals("B")){				
+	//			mm.put("cpnUse",adminCpnDao.selectCpnUseListAll(cpnGrpCd));
+				mm.put("cpnUse",adminCpnDao.selectCpnUse(cpnGrpCd));
+			}
+			
+			// 공통 코드 조회 - 리스트표시갯수
+			inParam.put("S_GROUP_CODE", CmmnCnst.cpnChanCd);
+			mm.put("cpnChanCd",adminCodeDao.selectListCodeGroup(inParam));			
+			mm.put("planList",adminCpnDao.selectPlanList());			
+			mm.put("marketList",adminCpnDao.selectMarketList());
+			mm.put("params", inParam);
+			mm.put("dtlFlag","A");	
+			
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return mm;
+		
+	}
+
+
+	@Override
+	public ModelMap selectMarket(String cmpnyNm) throws Exception {
+		
+		ModelMap mm = new ModelMap();
+		mm.put("selectMarket",adminCpnDao.selectMarket(cmpnyNm));
+		return mm;
+		
+	}
+
+	@Override
+	public ModelMap selectCpnUseList(Map<String, Object> inParam,String cpnGrpCd) throws Exception {
+		
+		ModelMap mm = new ModelMap();
+		
+		try {
+			
+			inParam.put("cpnGrpCd", cpnGrpCd);
+			mm.put("cpnUse",adminCpnDao.selectCpnUseList(inParam));
+				
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return mm;
+		
+	}
+
+	@Override
+	public ModelMap selectUseList(Map<String, Object> inParam, String registDt, String mberEmail, String[] useYn, String cpnGrpCd) throws Exception {
+		
+		ModelMap mm = new ModelMap();
+				
+		
+		inParam.put("registDt", registDt);
+		inParam.put("mberEmail", mberEmail);
+		inParam.put("useYn", useYn);
+		inParam.put("cpnGrpCd", cpnGrpCd);
+		
+		inParam.put("PAGE_NO",StringUtil.nvl((String)inParam.get("PAGE_NO"), "1"));
+		int nowPage = StringUtil.nvlInt((String)inParam.get("PAGE_NO"), 1);
+		
+		LoggerUtil.writeMap(inParam);				
+		int rowTotal = adminCpnDao.selectCpnUseListCount(inParam);		
+		
+		PageNavigation pageNav= new PageNavigation(nowPage, rowTotal, 5, CmmnCnst.ADM_BLOCK_SIZE);
+		mm.put("PAGE_NO", nowPage);
+		mm.put("pageNav", pageNav);
+		inParam.put("START_ROW", pageNav.getStartRow());
+		inParam.put("END_ROW", pageNav.getEndRow());
+		
+		mm.put("useList",adminCpnDao.selectCpnUseList(inParam));
+		
+		inParam.put("registDt", registDt);
+		inParam.put("mberEmail", mberEmail);
+		inParam.put("useYn", useYn);
+		inParam.put("cpnGrpCd", cpnGrpCd);
+		mm.put("MBER_CNT", rowTotal);
+		
+		mm.put("params", inParam);
+		
+		
+		
+		return mm;
+		
+	}
+
+	@Override
+	public void deleteUse(Map<String, Object> inParam, String[] mberSeq, String cpnGrpCd) throws Exception {
+
+		int cnt = 0;
+		inParam.put("mberSeq", mberSeq);
+		inParam.put("cpnGrpCd", cpnGrpCd);
+		adminCpnDao.deleteUse(inParam);		
+		
+		
+	}
+
+	@Override
+	public ModelMap selectTotUseList(Map<String, Object> inParam,String mberEmail, String[] mberGbCd, String[] joinChal, String dateChk) throws Exception {
+		
+		ModelMap mm = new ModelMap();
+		try {
+			
+			// 공통 코드 조회 - 쿠폰구분코드
+			inParam.put("S_GROUP_CODE", CmmnCnst.joinChanCd);
+			mm.put("joinChanCd",adminCodeDao.selectListCodeGroup(inParam));			
+			
+			inParam.put("mberEmail", mberEmail);		
+			inParam.put("mberGbCd", mberGbCd);
+			inParam.put("joinChal", joinChal);		
+			inParam.put("dateChk", dateChk);		
+			
+			inParam.put("PAGE_NO",StringUtil.nvl((String)inParam.get("PAGE_NO"), "1"));
+			int nowPage = StringUtil.nvlInt((String)inParam.get("PAGE_NO"), 1);
+			
+			LoggerUtil.writeMap(inParam);		
+			
+			int rowTotal = adminCpnDao.selectTotUseListCount(inParam);		
+			
+			PageNavigation pageNav= new PageNavigation(nowPage, rowTotal, 5, CmmnCnst.ADM_BLOCK_SIZE);
+			mm.put("PAGE_NO", nowPage);
+			mm.put("pageNav", pageNav);
+			inParam.put("START_ROW", pageNav.getStartRow());
+			inParam.put("END_ROW", pageNav.getEndRow());
+			
+			mm.put("selectTotUseList",adminCpnDao.selectTotUseList(inParam));
+			
+			inParam.put("MBER_EMAIL", mberEmail);		
+			inParam.put("MBER_GB_CD", mberGbCd);
+			inParam.put("JOIN_CHAL", joinChal);					
+			inParam.put("DATE_CHK", inParam.get("dateChk"));						
+			
+			mm.put("params", inParam);
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	
+	}
+
+	@Override
+	public ModelMap selectTotProdList(Map<String, Object> inParam, String prodNm, String prodTypeCd, String mberEmail,
+			String step1Cd, String step2Cd, String step3Cd) {
+	
+		ModelMap mm = new ModelMap();
+		try {
+			
+			// 공통 코드 조회 - 상품유형코드
+			inParam.put("S_GROUP_CODE", CmmnCnst.prodTypeCd);
+			mm.put("prodTypeCd",adminCodeDao.selectListCodeGroup(inParam));
+			
+			inParam.put("prodNm", prodNm);		
+			inParam.put("prodTypeCd", prodTypeCd);
+			inParam.put("mberEmail", mberEmail);		
+			inParam.put("step1Cd", step1Cd);	
+			inParam.put("step2Cd", step2Cd);		
+			inParam.put("step3Cd", step3Cd);	
+			
+			inParam.put("PAGE_NO",StringUtil.nvl((String)inParam.get("PAGE_NO"), "1"));
+			int nowPage = StringUtil.nvlInt((String)inParam.get("PAGE_NO"), 1);
+			
+			int rowTotal = adminCpnDao.selectTotProdListCount(inParam);		
+			
+			PageNavigation pageNav= new PageNavigation(nowPage, rowTotal, 5, CmmnCnst.ADM_BLOCK_SIZE);
+			mm.put("PAGE_NO", nowPage);
+			mm.put("pageNav", pageNav);
+			inParam.put("START_ROW", pageNav.getStartRow());
+			inParam.put("END_ROW", pageNav.getEndRow());
+			
+			mm.put("prodList",adminCpnDao.selectTotProdList(inParam));
+			mm.put("prodCnt", rowTotal);
+			
+			inParam.put("PROD_NM", prodNm);		
+			inParam.put("PROD_TYPE_CD", prodTypeCd);
+			inParam.put("MBER_EAMIL", mberEmail);		
+			inParam.put("STEP1_CD", step1Cd);	
+			inParam.put("STEP2_CD", step2Cd);		
+			inParam.put("STEP3_CD", step3Cd);	
+			
+			mm.put("params", inParam);
+		
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return mm;
+		
+	}
+
+	@Override
+	public ModelMap updateCpnInfo(Map<String, Object> inParam,String[] cpnUseCdChnl) throws Exception {
+
+		
+		ModelMap mm ;
+		ModelMap map = new ModelMap();;
+		Map<String, Object> mapTemp = new ModelMap();
+		
+		List<Map<String, Object>> mmTempChan = null;
+		List<Map<String, Object>> mmTempMber = null;
+		
+		String mberSeqMarketList[] = null;
+		String prodCodeList[]=null;
+		String mberSeqOldList[] = null;
+		String mberSeqNewList[] = null;
+		String mberSeqTotalList[] = null;
+		String cpnCtryList[] = null;
+		String cpnPlanList[] = null;
+		
+		String cpnGrpCd = ""; 
+		String mberSeqMarketTemp = "";
+		String prodCodeTemp = "";  
+		String mberSeqOldTemp =  "";  
+		String mberSeqNewTemp = ""; 
+		String mberSeqTotalTemp = "";
+		String cpnCtryTemp = ""; 
+		String cpnPlanTemp = "";  
+		String certCnt= "";  
+		String certStartDt= "";  
+		String certEndDt="";  
+		String cpnNm= "";  
+		String cpnDtl="";  
+		String bnfitChk= "";   //BNFIT_DSCNT_PRCE  BNFIT_DSCNT_RATE  BNFIT_MAX_DSCNT_PRCE
+		String bnfitDscntPrce="";
+		String bnfitDscntRate="";
+		String bnfitMaxDscntPrce="";
+		String prodPrce= ""; 
+		String expStartDt="";
+		String expEndDt= "";
+		String cpnUseCd= "";  // CPN_USE_CD_CHNL
+		String cpnIssueTgtGbCd= ""; 
+		String issueCdOld= ""; 	// A B
+		String issueCd= ""; 	// A B MBER_SEQ_TOTAL
+		String duplUseYn=""; 	// A B		
+		String delyFreeChk ="";		
+		String danalBurDen = "";
+		String marketBurDen = "";
+		String expChk="";
+		String expDay="";
+	    String delyDscntPrce="";
+		
+		cpnGrpCd		  	= (String) inParam.get("CPN_GRP_CD");
+		mberSeqMarketTemp 	= (String) inParam.get("MBER_SEQ_MARKET");
+		prodCodeTemp 	  	= (String) inParam.get("PROD_CODE");
+		mberSeqOldTemp		= (String) inParam.get("MBER_SEQ_OLD");		
+		mberSeqNewTemp		= (String) inParam.get("MBER_SEQ_NEW");		
+		mberSeqTotalTemp	= (String) inParam.get("MBER_SEQ_TOTAL");		
+		cpnCtryTemp			= (String) inParam.get("CPN_CTRY");	
+		cpnPlanTemp 		= (String) inParam.get("CPN_PLAN");	
+		certCnt 		= StringUtil.nvl((String) inParam.get("CERT_CNT"), "0");
+		certStartDt 		=  StringUtil.nvl((String) inParam.get("CERT_START_DT"), "");
+		certEndDt 		=  StringUtil.nvl((String) inParam.get("CERT_END_DT"), "");
+		cpnNm 		=  StringUtil.nvl((String) inParam.get("CPN_NM"), "");
+		cpnDtl 		=  StringUtil.nvl((String) inParam.get("CPN_DTL"), "");
+		bnfitChk 		=  StringUtil.nvl((String) inParam.get("BNFIT_CHK"), "");
+		bnfitDscntPrce 		= StringUtil.nvl((String) inParam.get("BNFIT_DSCNT_PRCE"), "0");
+		bnfitDscntRate 		=  StringUtil.nvl((String) inParam.get("BNFIT_DSCNT_RATE"), "0");
+		bnfitMaxDscntPrce 		=  StringUtil.nvl((String) inParam.get("BNFIT_MAX_DSCNT_PRCE"), "0");	
+		prodPrce 		=  StringUtil.nvl((String) inParam.get("PROD_PRCE"), "0");			
+		expStartDt 		=  StringUtil.nvl((String) inParam.get("EXP_START_DT"), "");	
+		expEndDt 		=  StringUtil.nvl((String) inParam.get("EXP_END_DT"), "");	
+		cpnUseCd 		=  StringUtil.nvl((String) inParam.get("CPN_USE_CD"), "");	
+		cpnIssueTgtGbCd 		=  StringUtil.nvl((String) inParam.get("CPN_ISSUE_TGT_GB_CD"), "");	
+		issueCd 		=  StringUtil.nvl((String) inParam.get("ISSUE_CD"), "");	
+		issueCdOld			= (String) inParam.get("ISSUE_CD_OLD");	
+		duplUseYn 		=  StringUtil.nvl((String) inParam.get("DUPL_USE_YN"), "");	
+		delyFreeChk 		=  StringUtil.nvl((String) inParam.get("DELY_FREE_CHK"), "");				
+		danalBurDen 		=  StringUtil.nvl((String) inParam.get("DANAL_BURDEN"), "0");					
+		marketBurDen 		=  StringUtil.nvl((String) inParam.get("MARKET_BURDEN"), "0");				
+		
+		expChk 		=  StringUtil.nvl((String) inParam.get("EXP_CHK"), "");	
+		expDay 		=  StringUtil.nvl((String) inParam.get("EXP_DAY"), "0");					
+		delyDscntPrce = StringUtil.nvl((String) inParam.get("DELY_DSCNT_PRCE"), "0");
+		
+		try {
+						
+			
+			if(!"".equals(prodCodeTemp) && prodCodeTemp != null){
+				prodCodeList = prodCodeTemp.split(",");
+				for(int i=0; i<prodCodeList.length ; i++){
+					
+				}
+			}
+			if(!"".equals(mberSeqOldTemp) && mberSeqOldTemp != null){			
+				mberSeqOldList = mberSeqOldTemp.split(",");
+				
+			}
+			if(!"".equals(mberSeqNewTemp) && mberSeqNewTemp != null){			
+				mberSeqNewList = mberSeqNewTemp.split(",");
+				
+			}
+			if(!"".equals(mberSeqTotalTemp) && mberSeqTotalTemp != null){				
+				mberSeqTotalList = mberSeqTotalTemp.split(",");
+				
+			}
+			if(!"".equals(cpnCtryTemp) && cpnCtryTemp != null){					
+				cpnCtryList = cpnCtryTemp.split(",");
+				
+			}
+			if(!"".equals(cpnPlanTemp) && cpnPlanTemp != null){					
+				cpnPlanList = cpnPlanTemp.split(",");
+				
+			}
+					
+			
+			
+			
+			
+			
+			if(!"".equals(mberSeqMarketTemp) && mberSeqMarketTemp != null){			
+				mberSeqMarketList = mberSeqMarketTemp.split(",");
+				mm = new ModelMap();
+				mm.put("cpnGrpCd", cpnGrpCd);
+				adminCpnDao.deleteCpnMarket(cpnGrpCd);
+				for(int i=0; i<mberSeqMarketList.length ; i++){
+					mm.put("mberSeq", mberSeqMarketList[i]); 				
+					adminCpnDao.insertCpnMarket(mm);
+				}
+			}
+			
+			adminCpnDao.deleteCpnProd(cpnGrpCd);
+			adminCpnDao.deleteCpnCtry(cpnGrpCd);
+			adminCpnDao.deleteCpnPlan(cpnGrpCd);
+			
+			if(cpnIssueTgtGbCd.equals("B")){
+				mm = new ModelMap();
+				mm.put("cpnGrpCd", cpnGrpCd);			
+				for(int i=0; i<prodCodeList.length;i++){
+					mm.put("prodCode", prodCodeList[i]); 
+					adminCpnDao.insertCpnProd(mm);
+				}
+			}else if(cpnIssueTgtGbCd.equals("C")){
+				mm = new ModelMap();
+				mm.put("cpnGrpCd", cpnGrpCd);		
+				for(int i=0; i<cpnCtryList.length;i++){
+					mm.put("ctryCd", cpnCtryList[i]); 
+					adminCpnDao.insertCpnCtry(mm);
+				}
+			}else if(cpnIssueTgtGbCd.equals("D")){
+				mm = new ModelMap();
+				mm.put("cpnGrpCd", cpnGrpCd);		
+				for(int i=0; i<cpnPlanList.length;i++){
+					mm.put("planCd", cpnPlanList[i]); 
+					adminCpnDao.insertCpnPlan(mm);
+				}
+			} 
+						
+			adminCpnDao.deleteCpnChan(cpnGrpCd);
+			
+			if(cpnUseCd.equals("A")){		
+				String code="CPN_CHAN_CD";
+				mm = new ModelMap();
+				mm.put("cpnGrpCd", cpnGrpCd);
+				mmTempChan = adminCpnDao.selectChanCode(code);
+				for(int i=0; i<mmTempChan.size(); i++){
+					mm.put("cpnChanCd", mmTempChan.get(i).get("COM_CD"));
+					adminCpnDao.insertCpnChan(mm);
+				}
+			}else if(cpnUseCd.equals("B")){
+				String code="CPN_CHAN_CD";
+				mm = new ModelMap();
+				mm.put("cpnGrpCd", cpnGrpCd);
+				for(int i=0; i<cpnUseCdChnl.length; i++){
+					mm.put("cpnChanCd", cpnUseCdChnl[i]);
+					adminCpnDao.insertCpnChan(mm);				
+				}
+			}
+			
+			
+			
+			boolean step1 = false;	
+			List<String> mberSeq = new ArrayList<String>();			
+				
+			// 지정회원일경우	
+			if(issueCd.equals("B")){
+				mm = new ModelMap();
+				mm.put("cpnGrpCd", cpnGrpCd);
+				
+				// 기존에 전체 회원일 경우
+				if(issueCdOld.equals("A")){
+					// 쿠폰사용한 회원조회
+					mmTempMber = adminCpnDao.selectCpnMber(cpnGrpCd);				
+					// 사용한 회원이 있다면
+					if(mmTempMber != null  &&  mmTempMber.size() >0 ) {
+						// 지정회원 만큼 돌려서						
+						for(int i=0; i<mberSeqTotalList.length; i++){
+							
+							String mbertemp ="";
+							 // 사용한 회원만큼 비교하고
+							for(int j=0; j<mmTempMber.size() ; j++){
+								// 지정회원과 사용한 회원이 같다면 
+								mbertemp = (String)mmTempMber.get(j).get("MBER_SEQ");
+								
+								if(mberSeqTotalList[i].equals(mbertemp)){									
+									step1 = false;
+									break;
+								//같지 않다면	
+								}else{									
+									step1 = true;
+								}
+								
+							}
+							// i x j.leng = 같은게 하나도없다면
+							if(step1){
+								mberSeq.add(mberSeqTotalList[i]);
+							}						
+							
+						}
+						
+						// 중복되지 않는 값을 insert 
+						if(mberSeq.size()>0){
+							adminCpnDao.deleteCpnMber(cpnGrpCd);
+							for(int i=0; i<mberSeq.size() ; i ++){						
+								mm.put("mberSeq", mberSeq.get(i));
+								adminCpnDao.insertCpnMber(mm);
+							}
+						}
+						
+					}else{
+						
+						adminCpnDao.deleteCpnMber(cpnGrpCd);
+						for(int i=0; i<mberSeqTotalList.length ; i ++){						
+							mm.put("mberSeq", mberSeqTotalList[i]);
+							adminCpnDao.insertCpnMber(mm);
+						}
+					}				
+					
+				}else if(issueCdOld.equals("B")){	//기존과 현재도 지정회원일 경우				
+					
+					if( !"".equals(mberSeqTotalTemp) && mberSeqTotalTemp != null ){			
+						
+						for(int i=0; i<mberSeqTotalList.length ; i ++){						
+							mm.put("mberSeq", mberSeqTotalList[i]);
+							adminCpnDao.insertCpnMber(mm);
+						}
+						
+					}
+					
+				}
+				
+			}
+			
+						
+		
+			mm = new ModelMap();		
+			mm.put("cpnGrpCd", cpnGrpCd);
+			mm.put("certCnt", certCnt);
+			mm.put("certStartDt", certStartDt);
+			mm.put("certEndDt", certEndDt);
+			mm.put("cpnNm", cpnNm);
+			mm.put("cpnDtl", cpnDtl);
+			mm.put("bnfitChk", bnfitChk);
+			mm.put("bnfitDscntPrce", bnfitDscntPrce);
+			mm.put("bnfitDscntRate", bnfitDscntRate);
+			mm.put("bnfitMaxDscntPrce", bnfitMaxDscntPrce);
+			mm.put("prodPrce", prodPrce);
+			mm.put("expStartDt", expStartDt);
+			mm.put("expEndDt", expEndDt);
+			mm.put("cpnUseCd", cpnUseCd);
+			mm.put("cpnIssueTgtGbCd", cpnIssueTgtGbCd);
+			mm.put("issueCd", issueCd);
+			mm.put("cpnUseCd", cpnUseCd);
+			mm.put("duplUseYn", duplUseYn);
+			mm.put("delyFreeChk", delyFreeChk);
+			mm.put("danalBurDen", danalBurDen);
+			mm.put("marketBurDen", marketBurDen);
+			mm.put("expChk", expChk);
+			mm.put("expDay", expDay);
+			mm.put("delyDscntPrce", delyDscntPrce);
+
+			
+			adminCpnDao.updateCpnInfo(mm);		
+			
+			
+			mapTemp = adminCpnDao.selectCpnDtl(cpnGrpCd);
+			mapTemp.put("TOT_PROD_CNT", adminCpnDao.selectProdCnt());
+			map.put("selectCpnDtl",mapTemp);
+			map.put("cpnMarket",adminCpnDao.selectCpnMarket(cpnGrpCd));
+			
+			if(mapTemp.get("CPN_ISSUE_TGT_GB_CD").equals("A")){
+				map.put("cpnProd","");
+				map.put("cpnCtry","");
+				map.put("cpnPlan","");
+			}else if(mapTemp.get("CPN_ISSUE_TGT_GB_CD").equals("B")){
+				map.put("cpnProd",adminCpnDao.selectCpnProd(cpnGrpCd));
+				map.put("cpnCtry","");
+				map.put("cpnPlan","");
+			}else if(mapTemp.get("CPN_ISSUE_TGT_GB_CD").equals("C")){
+				map.put("cpnProd","");
+				map.put("cpnCtry",adminCpnDao.selectCpnCtry(cpnGrpCd));				
+				map.put("cpnPlan","");
+			}else if(mapTemp.get("CPN_ISSUE_TGT_GB_CD").equals("D")){
+				map.put("cpnProd","");
+				map.put("cpnCtry","");
+				map.put("cpnPlan",adminCpnDao.selectCpnPlan(cpnGrpCd));
+			}
+			
+			if(mapTemp.get("ISSUE_CD").equals("A")){
+				map.put("cpnUse","");
+			}else if(mapTemp.get("ISSUE_CD").equals("B")){				
+//				mm.put("cpnUse",adminCpnDao.selectCpnUseListAll(cpnGrpCd));
+				mm.put("cpnUse",adminCpnDao.selectCpnUse(cpnGrpCd));
+			}
+			
+			// 공통 코드 조회 - 리스트표시갯수
+			inParam.put("S_GROUP_CODE", CmmnCnst.cpnChanCd);
+			map.put("cpnChanCd",adminCodeDao.selectListCodeGroup(inParam));			
+			map.put("dtlFlag","B");	
+			map.put("planList",adminCpnDao.selectPlanList());			
+			map.put("marketList",adminCpnDao.selectMarketList());
+			
+		
+		
+		} 
+		catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return map;
+		
+	}
+	
+	
+	/**
+	 * <pre>
+	 * 지정회원 리스트 엑셀 업로드
+	 * 
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 8. 07. 오후 2:45:47
+	 * @author Kang
+	 * @see @see com.ssocio.sharing.service.admin.AdminCpnService
+	 * @비고
+	 * 
+	 * </pre>
+	 */
+	@Override
+	public ModelMap excelFileUpload(MultipartHttpServletRequest inParam) throws Exception {
+		
+		ModelMap mm = new ModelMap();
+		MultipartFile excelFile = inParam.getFile("CPN_USE_FILE");
+		
+		List<String> tempList = new ArrayList<String>();
+		List<String> list = null;
+		String mberSeqArr = "";
+		int totCnt = 0;
+		int succCnt = 0;
+		int duplCnt = 0 ;
+		int etcCnt = 0;
+		
+		try {
+			
+			// 엑셀 읽기
+			List<Map<String, Object>> excelData = CommonUtil.getOldExcelList(excelFile);
+			
+			if (excelData != null) {
+				// 총 건수
+				totCnt = excelData.size();
+				for(Map<String, Object> rowData : excelData){
+					// 첫번째 cell에서 유저seq get
+					String mberSeq = ((String)rowData.get("CELL0")).replace(".0", "");
+					tempList.add(mberSeq);
+					// 없을때까지
+					if(mberSeq == null || mberSeq.equals("")){
+						break;
+					}
+				}
+				// 중복 제거
+				list = new ArrayList<String>(new HashSet<String>(tempList));
+			}
+			
+			if (list != null) {
+				for(String seq : list) {
+					Boolean chkFlag = true;
+					// 숫자형이 아닐 경우 기타오류
+					for (int i=0; i<seq.length(); i++) {
+						char charVal = seq.charAt(i);
+						if (charVal<48 || charVal>57) {
+							etcCnt++;
+							chkFlag = false;
+							break;
+						}
+					}
+					
+					// 모든 경우가 정상일 경우
+					if (chkFlag) {
+						if ("".equals(mberSeqArr)) {
+							mberSeqArr = seq;
+						}
+						else {
+							mberSeqArr = mberSeqArr + "," + seq;
+						}
+						succCnt++;
+					}
+				}
+			}
+			
+			duplCnt = totCnt - (succCnt + etcCnt);
+			
+			mm.put("totCnt", totCnt);
+			mm.put("succCnt", succCnt);
+			mm.put("duplCnt", duplCnt);
+			mm.put("etcCnt", etcCnt);
+			mm.put("mberSeq", mberSeqArr);
+			mm.put("path", inParam.getParameter("CPN_USE_FILE_PATH"));
+			
+		} 
+		catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return mm;
+	}
+
+	@Override
+	public ModelMap insertCpnInfo(Map<String, Object> inParam, String[] cpnUseCdChnl) {
+	
+		ModelMap mm ;
+		ModelMap map = new ModelMap();;
+		Map<String, Object> mapTemp = new ModelMap();
+		
+		List<Map<String, Object>> mmTempChan = null;
+		List<Map<String, Object>> mmTempMber = null;
+		
+		String mberSeqMarketList[] = null;
+		String prodCodeList[]=null;
+		String mberSeqOldList[] = null;
+		String mberSeqNewList[] = null;
+		String mberSeqTotalList[] = null;
+		String cpnCtryList[] = null;
+		String cpnPlanList[] = null;
+		
+		String cpnGrpCd = ""; 
+		String mberSeqMarketTemp = "";
+		String prodCodeTemp = "";  
+		String mberSeqOldTemp =  "";  
+		String mberSeqNewTemp = ""; 
+		String mberSeqTotalTemp = "";
+		String cpnCtryTemp = ""; 
+		String cpnPlanTemp = "";  
+		String certCnt= "";  
+		String certStartDt= "";  
+		String certEndDt="";  
+		String cpnNm= "";  
+		String cpnDtl="";  
+		String bnfitChk= "";   //BNFIT_DSCNT_PRCE  BNFIT_DSCNT_RATE  BNFIT_MAX_DSCNT_PRCE
+		String bnfitDscntPrce="";
+		String bnfitDscntRate="";
+		String bnfitMaxDscntPrce="";
+		String prodPrce= ""; 
+		String expStartDt="";
+		String expEndDt= "";
+		String cpnUseCd= "";  // CPN_USE_CD_CHNL
+		String cpnIssueTgtGbCd= ""; 
+		String issueCdOld= ""; 	// A B
+		String issueCd= ""; 	// A B MBER_SEQ_TOTAL
+		String duplUseYn=""; 	// A B		
+		String delyFreeChk ="";		
+		String delyDscntPrce="";
+		String danalBurDen = "";
+		String marketBurDen = "";
+		String expChk="";
+		String expDay="";
+	//	String issueMth ="";
+		String cpnGbCd="";
+		String certCpnCnt="";
+		
+		
+	
+		mberSeqMarketTemp 	= (String) inParam.get("MBER_SEQ_MARKET");
+		prodCodeTemp 	  	= (String) inParam.get("PROD_CODE");
+		mberSeqOldTemp		= (String) inParam.get("MBER_SEQ_OLD");		
+		mberSeqNewTemp		= (String) inParam.get("MBER_SEQ_NEW");		
+		mberSeqTotalTemp	= (String) inParam.get("MBER_SEQ_TOTAL");		
+		cpnCtryTemp			= (String) inParam.get("CPN_CTRY");	
+		cpnPlanTemp 		= (String) inParam.get("CPN_PLAN");	
+		certCnt 		= StringUtil.nvl((String) inParam.get("CERT_CNT"), "0");
+		certStartDt 		=  StringUtil.nvl((String) inParam.get("CERT_START_DT"), "");
+		certEndDt 		=  StringUtil.nvl((String) inParam.get("CERT_END_DT"), "");
+		cpnNm 		=  StringUtil.nvl((String) inParam.get("CPN_NM"), "");
+		cpnDtl 		=  StringUtil.nvl((String) inParam.get("CPN_DTL"), "");
+		bnfitChk 		=  StringUtil.nvl((String) inParam.get("BNFIT_CHK"), "");
+		bnfitDscntPrce 		= StringUtil.nvl((String) inParam.get("BNFIT_DSCNT_PRCE"), "0");
+		bnfitDscntRate 		=  StringUtil.nvl((String) inParam.get("BNFIT_DSCNT_RATE"), "0");
+		bnfitMaxDscntPrce 		=  StringUtil.nvl((String) inParam.get("BNFIT_MAX_DSCNT_PRCE"), "0");	
+		prodPrce 		=  StringUtil.nvl((String) inParam.get("PROD_PRCE"), "0");			
+		expStartDt 		=  StringUtil.nvl((String) inParam.get("EXP_START_DT"), "");	
+		expEndDt 		=  StringUtil.nvl((String) inParam.get("EXP_END_DT"), "");	
+		cpnUseCd 		=  StringUtil.nvl((String) inParam.get("CPN_USE_CD"), "");	
+		cpnIssueTgtGbCd 		=  StringUtil.nvl((String) inParam.get("CPN_ISSUE_TGT_GB_CD"), "");	
+		issueCd 		=  StringUtil.nvl((String) inParam.get("ISSUE_CD"), "");	
+		issueCdOld			= (String) inParam.get("ISSUE_CD_OLD");	
+		duplUseYn 		=  StringUtil.nvl((String) inParam.get("DUPL_USE_YN"), "");	
+		delyFreeChk 		=  StringUtil.nvl((String) inParam.get("DELY_FREE_CHK"), "");	
+		delyDscntPrce 		=  StringUtil.nvl((String) inParam.get("DELY_DSCNT_PRCE"), "0");			
+		danalBurDen 		=  StringUtil.nvl((String) inParam.get("DANAL_BURDEN"), "0");					
+		marketBurDen 		=  StringUtil.nvl((String) inParam.get("MARKET_BURDEN"), "0");				
+		
+		expChk 		=  StringUtil.nvl((String) inParam.get("EXP_CHK"), "");	
+		expDay 		=  StringUtil.nvl((String) inParam.get("EXP_DAY"), "0");					
+	//	issueMth 		=  StringUtil.nvl((String) inParam.get("ISSUE_MTH"), "");		
+		cpnGbCd		= StringUtil.nvl((String) inParam.get("CPN_GB_CD"), "");
+		certCpnCnt		= StringUtil.nvl((String) inParam.get("CERT_CPN_CNT"), "0");
+		
+		
+		
+		try {
+						
+			cpnGrpCd = adminCpnDao.selectCpnSeq();
+			
+			
+			if(!"".equals(prodCodeTemp) && prodCodeTemp != null){
+				prodCodeList = prodCodeTemp.split(",");
+				for(int i=0; i<prodCodeList.length ; i++){
+					
+				}
+			}
+			if(!"".equals(mberSeqOldTemp) && mberSeqOldTemp != null){			
+				mberSeqOldList = mberSeqOldTemp.split(",");
+				
+			}
+			if(!"".equals(mberSeqNewTemp) && mberSeqNewTemp != null){			
+				mberSeqNewList = mberSeqNewTemp.split(",");
+				
+			}
+			if(!"".equals(mberSeqTotalTemp) && mberSeqTotalTemp != null){				
+				mberSeqTotalList = mberSeqTotalTemp.split(",");
+				
+			}
+			if(!"".equals(cpnCtryTemp) && cpnCtryTemp != null){					
+				cpnCtryList = cpnCtryTemp.split(",");
+				
+			}
+			if(!"".equals(cpnPlanTemp) && cpnPlanTemp != null){					
+				cpnPlanList = cpnPlanTemp.split(",");
+				
+			}
+					
+							
+			if(!"".equals(mberSeqMarketTemp) && mberSeqMarketTemp != null){			
+				mberSeqMarketList = mberSeqMarketTemp.split(",");
+				mm = new ModelMap();
+				mm.put("cpnGrpCd", cpnGrpCd);
+				for(int i=0; i<mberSeqMarketList.length ; i++){
+					mm.put("mberSeq", mberSeqMarketList[i]); 				
+					adminCpnDao.insertCpnMarket(mm);
+				}
+			}
+		
+			if(cpnIssueTgtGbCd.equals("B")){
+				mm = new ModelMap();
+				mm.put("cpnGrpCd", cpnGrpCd);			
+				for(int i=0; i<prodCodeList.length;i++){
+					mm.put("prodCode", prodCodeList[i]); 
+					adminCpnDao.insertCpnProd(mm);
+				}
+			}else if(cpnIssueTgtGbCd.equals("C")){
+				mm = new ModelMap();
+				mm.put("cpnGrpCd", cpnGrpCd);		
+				for(int i=0; i<cpnCtryList.length;i++){
+					mm.put("ctryCd", cpnCtryList[i]); 
+					adminCpnDao.insertCpnCtry(mm);
+				}
+			}else if(cpnIssueTgtGbCd.equals("D")){
+				mm = new ModelMap();
+				mm.put("cpnGrpCd", cpnGrpCd);		
+				for(int i=0; i<cpnPlanList.length;i++){
+					mm.put("planCd", cpnPlanList[i]); 
+					adminCpnDao.insertCpnPlan(mm);
+				}
+			} 						
+		
+			if(cpnUseCd.equals("A")){		
+				String code="CPN_CHAN_CD";
+				mm = new ModelMap();
+				mm.put("cpnGrpCd", cpnGrpCd);
+				mmTempChan = adminCpnDao.selectChanCode(code);
+				for(int i=0; i<mmTempChan.size(); i++){
+					mm.put("cpnChanCd", mmTempChan.get(i).get("COM_CD"));
+					adminCpnDao.insertCpnChan(mm);
+				}
+			}else if(cpnUseCd.equals("B")){
+				String code="CPN_CHAN_CD";
+				mm = new ModelMap();
+				mm.put("cpnGrpCd", cpnGrpCd);
+				for(int i=0; i<cpnUseCdChnl.length; i++){
+					mm.put("cpnChanCd", cpnUseCdChnl[i]);
+					adminCpnDao.insertCpnChan(mm);				
+				}
+			}
+			
+			// 지정회원일경우	
+			if(issueCd.equals("B")){
+				
+				mm = new ModelMap();
+				mm.put("cpnGrpCd", cpnGrpCd);
+				
+				for(int i=0; i<mberSeqTotalList.length; i++){
+					
+					mm.put("mberSeq", mberSeqTotalList[i]);
+					adminCpnDao.insertCpnMber(mm);
+					
+				}
+				
+			}
+			
+			
+			mm = new ModelMap();		
+			mm.put("cpnGrpCd", cpnGrpCd);
+			mm.put("certCnt", certCnt);
+			mm.put("certStartDt", certStartDt);
+			mm.put("certEndDt", certEndDt);
+			mm.put("cpnNm", cpnNm);
+			mm.put("cpnDtl", cpnDtl);
+			mm.put("bnfitChk", bnfitChk);
+			mm.put("bnfitDscntPrce", bnfitDscntPrce);
+			mm.put("bnfitDscntRate", bnfitDscntRate);
+			mm.put("bnfitMaxDscntPrce", bnfitMaxDscntPrce);
+			mm.put("prodPrce", prodPrce);
+			mm.put("expStartDt", expStartDt);
+			mm.put("expEndDt", expEndDt);
+			mm.put("cpnUseCd", cpnUseCd);
+			mm.put("cpnIssueTgtGbCd", cpnIssueTgtGbCd);
+			mm.put("issueCd", issueCd);
+			mm.put("cpnUseCd", cpnUseCd);
+			mm.put("duplUseYn", duplUseYn);
+			mm.put("delyFreeChk", delyFreeChk);
+			mm.put("delyDscntPrce", delyDscntPrce);
+			mm.put("danalBurDen", danalBurDen);
+			mm.put("marketBurDen", marketBurDen);
+			mm.put("expChk", expChk);
+			mm.put("expDay", expDay);
+			mm.put("issueMth", "10"); 
+			mm.put("cpnGbCd", cpnGbCd);
+			mm.put("certCpnCnt", certCpnCnt); 
+			mm.put("inflowRouteCpnYn", "N");
+			
+			adminCpnDao.insertCpnInfo(mm);		
+			
+			Map<String, Object> param = new ModelMap();
+					
+			String today = StringUtil.getCurrentDate();
+			param.put("S_END_DATE", StringUtil.nvl((String)inParam.get("S_END_DATE"), today));
+			
+			SimpleDateFormat format = new SimpleDateFormat("yyyyMMdd");
+			Calendar cal = Calendar.getInstance();
+			cal.add(Calendar.DATE, -7);
+			param.put("S_START_DATE", StringUtil.nvl((String)param.get("S_START_DATE"), format.format(cal.getTime())));
+						
+			param.put("ISSUE_CD", "A");
+		
+			map.put("params", param);
+			
+			// 공통 코드 조회 - 쿠폰구분코드
+			inParam.put("S_GROUP_CODE", CmmnCnst.cpnGbCd);
+			map.put("cpnGbCd",adminCodeDao.selectListCodeGroup(inParam));
+			// 공통 코드 조회 - 쿠폰사용채널
+			inParam.put("S_GROUP_CODE", CmmnCnst.cpnChanCd);
+			map.put("cpnChanCd",adminCodeDao.selectListCodeGroup(inParam));
+			// 공통 코드 조회 - 리스트표시갯수
+			inParam.put("S_GROUP_CODE", CmmnCnst.displayCnt);
+			map.put("displayCnt",adminCodeDao.selectListCodeGroup(inParam));
+			// 공통 코드 조회 - 리스트표시갯수
+			inParam.put("S_GROUP_CODE", CmmnCnst.issueMth);
+			map.put("issueMth",adminCodeDao.selectListCodeGroup(inParam));	
+			
+			
+			
+		
+		} 
+		catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return map;
+		
+		
+	}
+
+	@Override
+	public ModelMap insertPrintCpnInfo(Map<String, Object> inParam, String[] cpnUseCdChnl) {
+
+		ModelMap mm ;
+		ModelMap map = new ModelMap();;
+		Map<String, Object> mapTemp = new ModelMap();
+		
+		List<Map<String, Object>> mmTempChan = null;
+		List<Map<String, Object>> mmTempMber = null;
+		
+		String mberSeqMarketList[] = null;
+		String prodCodeList[]=null;
+		String mberSeqOldList[] = null;
+		String mberSeqNewList[] = null;
+		String mberSeqTotalList[] = null;
+		String cpnCtryList[] = null;
+		String cpnPlanList[] = null;
+		
+		String cpnGrpCd = ""; 
+		String mberSeqMarketTemp = "";
+		String prodCodeTemp = "";  
+		String mberSeqOldTemp =  "";  
+		String mberSeqNewTemp = ""; 
+		String mberSeqTotalTemp = "";
+		String cpnCtryTemp = ""; 
+		String cpnPlanTemp = "";  
+		String certCnt= "";  
+		String certStartDt= "";  
+		String certEndDt="";  
+		String cpnNm= "";  
+		String cpnDtl="";  
+		String bnfitChk= "";   //BNFIT_DSCNT_PRCE  BNFIT_DSCNT_RATE  BNFIT_MAX_DSCNT_PRCE
+		String bnfitDscntPrce="";
+		String bnfitDscntRate="";
+		String bnfitMaxDscntPrce="";
+		String prodPrce= ""; 
+		String expStartDt="";
+		String expEndDt= "";
+		String cpnUseCd= "";  // CPN_USE_CD_CHNL
+		String cpnIssueTgtGbCd= ""; 
+		String issueCdOld= ""; 	// A B
+		String issueCd= ""; 	// A B MBER_SEQ_TOTAL
+		String duplUseYn=""; 	// A B		
+		String delyFreeChk ="";		
+		String delyDscntPrce="";
+		String danalBurDen = "";
+		String marketBurDen = "";
+		String expChk="";
+		String expDay="";
+	//	String issueMth ="";
+		String cpnGbCd="";
+		String certCpnCnt="";
+		
+		
+		
+		mberSeqMarketTemp 	= (String) inParam.get("MBER_SEQ_MARKET");
+		prodCodeTemp 	  	= (String) inParam.get("PROD_CODE");
+		mberSeqOldTemp		= (String) inParam.get("MBER_SEQ_OLD");		
+		mberSeqNewTemp		= (String) inParam.get("MBER_SEQ_NEW");		
+		mberSeqTotalTemp	= (String) inParam.get("MBER_SEQ_TOTAL");		
+		cpnCtryTemp			= (String) inParam.get("CPN_CTRY");	
+		cpnPlanTemp 		= (String) inParam.get("CPN_PLAN");	
+		certCnt 		= StringUtil.nvl((String) inParam.get("CERT_CNT"), "0");
+		certStartDt 		=  StringUtil.nvl((String) inParam.get("CERT_START_DT"), "");
+		certEndDt 		=  StringUtil.nvl((String) inParam.get("CERT_END_DT"), "");
+		cpnNm 		=  StringUtil.nvl((String) inParam.get("CPN_NM"), "");
+		cpnDtl 		=  StringUtil.nvl((String) inParam.get("CPN_DTL"), "");
+		bnfitChk 		=  StringUtil.nvl((String) inParam.get("BNFIT_CHK"), "");
+		bnfitDscntPrce 		= StringUtil.nvl((String) inParam.get("BNFIT_DSCNT_PRCE"), "0");
+		bnfitDscntRate 		=  StringUtil.nvl((String) inParam.get("BNFIT_DSCNT_RATE"), "0");
+		bnfitMaxDscntPrce 		=  StringUtil.nvl((String) inParam.get("BNFIT_MAX_DSCNT_PRCE"), "0");	
+		prodPrce 		=  StringUtil.nvl((String) inParam.get("PROD_PRCE"), "0");			
+		expStartDt 		=  StringUtil.nvl((String) inParam.get("EXP_START_DT"), "");	
+		expEndDt 		=  StringUtil.nvl((String) inParam.get("EXP_END_DT"), "");	
+		cpnUseCd 		=  StringUtil.nvl((String) inParam.get("CPN_USE_CD"), "");	
+		cpnIssueTgtGbCd 		=  StringUtil.nvl((String) inParam.get("CPN_ISSUE_TGT_GB_CD"), "");	
+		issueCd 		=  StringUtil.nvl((String) inParam.get("ISSUE_CD"), "");	
+		issueCdOld			= (String) inParam.get("ISSUE_CD_OLD");	
+		duplUseYn 		=  StringUtil.nvl((String) inParam.get("DUPL_USE_YN"), "");	
+		delyFreeChk 		=  StringUtil.nvl((String) inParam.get("DELY_FREE_CHK"), "");	
+		delyDscntPrce 		=  StringUtil.nvl((String) inParam.get("DELY_DSCNT_PRCE"), "0");			
+		danalBurDen 		=  StringUtil.nvl((String) inParam.get("DANAL_BURDEN"), "0");					
+		marketBurDen 		=  StringUtil.nvl((String) inParam.get("MARKET_BURDEN"), "0");				
+		
+		expChk 		=  StringUtil.nvl((String) inParam.get("EXP_CHK"), "");	
+		expDay 		=  StringUtil.nvl((String) inParam.get("EXP_DAY"), "");					
+	//	issueMth 		=  StringUtil.nvl((String) inParam.get("ISSUE_MTH"), "");		
+		cpnGbCd		= StringUtil.nvl((String) inParam.get("EXP_CHK"), "");	
+		certCpnCnt		= StringUtil.nvl((String) inParam.get("CERT_CPN_CNT"), "0");
+		
+		
+		try {
+						
+			
+			cpnGrpCd = adminCpnDao.selectCpnSeq();
+			
+			
+			if(!"".equals(prodCodeTemp) && prodCodeTemp != null){
+				prodCodeList = prodCodeTemp.split(",");
+				for(int i=0; i<prodCodeList.length ; i++){
+					
+				}
+			}
+			if(!"".equals(mberSeqOldTemp) && mberSeqOldTemp != null){			
+				mberSeqOldList = mberSeqOldTemp.split(",");
+				
+			}
+			if(!"".equals(mberSeqNewTemp) && mberSeqNewTemp != null){			
+				mberSeqNewList = mberSeqNewTemp.split(",");
+				
+			}
+			if(!"".equals(mberSeqTotalTemp) && mberSeqTotalTemp != null){				
+				mberSeqTotalList = mberSeqTotalTemp.split(",");
+				
+			}
+			if(!"".equals(cpnCtryTemp) && cpnCtryTemp != null){					
+				cpnCtryList = cpnCtryTemp.split(",");
+				
+			}
+			if(!"".equals(cpnPlanTemp) && cpnPlanTemp != null){					
+				cpnPlanList = cpnPlanTemp.split(",");
+				
+			}
+					
+							
+			if(!"".equals(mberSeqMarketTemp) && mberSeqMarketTemp != null){			
+				mberSeqMarketList = mberSeqMarketTemp.split(",");
+				mm = new ModelMap();
+				mm.put("cpnGrpCd", cpnGrpCd);
+				for(int i=0; i<mberSeqMarketList.length ; i++){
+					mm.put("mberSeq", mberSeqMarketList[i]); 				
+					adminCpnDao.insertCpnMarket(mm);
+				}
+			}
+		
+			if(cpnIssueTgtGbCd.equals("B")){
+				mm = new ModelMap();
+				mm.put("cpnGrpCd", cpnGrpCd);			
+				for(int i=0; i<prodCodeList.length;i++){
+					mm.put("prodCode", prodCodeList[i]); 
+					adminCpnDao.insertCpnProd(mm);
+				}
+			}else if(cpnIssueTgtGbCd.equals("C")){
+				mm = new ModelMap();
+				mm.put("cpnGrpCd", cpnGrpCd);		
+				for(int i=0; i<cpnCtryList.length;i++){
+					mm.put("ctryCd", cpnCtryList[i]); 
+					adminCpnDao.insertCpnCtry(mm);
+				}
+			}else if(cpnIssueTgtGbCd.equals("D")){
+				mm = new ModelMap();
+				mm.put("cpnGrpCd", cpnGrpCd);		
+				for(int i=0; i<cpnPlanList.length;i++){
+					mm.put("planCd", cpnPlanList[i]); 
+					adminCpnDao.insertCpnPlan(mm);
+				}
+			} 						
+		
+			if(cpnUseCd.equals("A")){		
+				String code="CPN_CHAN_CD";
+				mm = new ModelMap();
+				mm.put("cpnGrpCd", cpnGrpCd);
+				mmTempChan = adminCpnDao.selectChanCode(code);
+				for(int i=0; i<mmTempChan.size(); i++){
+					mm.put("cpnChanCd", mmTempChan.get(i).get("COM_CD"));
+					adminCpnDao.insertCpnChan(mm);
+				}
+			}else if(cpnUseCd.equals("B")){
+				String code="CPN_CHAN_CD";
+				mm = new ModelMap();
+				mm.put("cpnGrpCd", cpnGrpCd);
+				for(int i=0; i<cpnUseCdChnl.length; i++){
+					mm.put("cpnChanCd", cpnUseCdChnl[i]);
+					adminCpnDao.insertCpnChan(mm);				
+				}
+			}
+			
+			// 지정회원일경우	
+			if(issueCd.equals("B")){
+				
+				mm = new ModelMap();
+				mm.put("cpnGrpCd", cpnGrpCd);
+				
+				for(int i=0; i<mberSeqTotalList.length; i++){
+					
+					mm.put("mberSeq", mberSeqTotalList[i]);
+					adminCpnDao.insertCpnMber(mm);
+					
+				}
+				
+			}
+			
+			
+			
+			int cpnCnt = 0;
+			cpnCnt = Integer.parseInt(certCpnCnt);
+			CreateCoupon cc = new CreateCoupon();
+			List<String> cpnNoDB = new ArrayList<>();
+			List<String> cpnNo = new ArrayList<>();
+			String gubun = "P";
+			cpnNoDB = adminCpnDao.selectPrintCpnNo(cpnGbCd);						
+			cpnNo = cc.getCuponNum(cpnCnt,cpnNoDB,gubun);
+			
+			for(int i=0; i<cpnNo.size() ; i++){
+				mm = new ModelMap();		
+				mm.put("cpnGrpCd", cpnGrpCd);
+				mm.put("cpnNo", cpnNo.get(i));
+				adminCpnDao.insertCpnPrint(mm);
+			}
+			
+			if(!"B".equals(issueCd)){
+				issueCd = "A";
+			}			 
+			
+			mm = new ModelMap();		
+			mm.put("cpnGrpCd", cpnGrpCd);
+			mm.put("certCnt", certCnt);
+			mm.put("certStartDt", certStartDt);
+			mm.put("certEndDt", certEndDt);
+			mm.put("cpnNm", cpnNm);
+			mm.put("cpnDtl", cpnDtl);
+			mm.put("bnfitChk", bnfitChk);
+			mm.put("bnfitDscntPrce", bnfitDscntPrce);
+			mm.put("bnfitDscntRate", bnfitDscntRate);
+			mm.put("bnfitMaxDscntPrce", bnfitMaxDscntPrce);
+			mm.put("prodPrce", prodPrce);
+			mm.put("expStartDt", expStartDt);
+			mm.put("expEndDt", expEndDt);
+			mm.put("cpnUseCd", cpnUseCd);
+			mm.put("cpnIssueTgtGbCd", cpnIssueTgtGbCd);
+			mm.put("issueCd", issueCd);
+			mm.put("cpnUseCd", cpnUseCd);
+			mm.put("duplUseYn", duplUseYn);
+			mm.put("delyFreeChk", delyFreeChk);
+			mm.put("delyDscntPrce", delyDscntPrce);
+			mm.put("danalBurDen", danalBurDen);
+			mm.put("marketBurDen", marketBurDen);
+			mm.put("expChk", expChk);
+			mm.put("expDay", expDay);
+			mm.put("issueMth", "10"); 
+			mm.put("cpnGbCd", "50"); 
+			mm.put("certCpnCnt", cpnCnt); 
+			mm.put("inflowRouteCpnYn", "N");
+			
+			adminCpnDao.insertCpnInfo(mm);		
+						
+			
+			Map<String, Object> param = new ModelMap();
+					
+			String today = StringUtil.getCurrentDate();
+			param.put("S_END_DATE", StringUtil.nvl((String)inParam.get("S_END_DATE"), today));
+			
+			SimpleDateFormat format = new SimpleDateFormat("yyyyMMdd");
+			Calendar cal = Calendar.getInstance();
+			cal.add(Calendar.DATE, -7);
+			param.put("S_START_DATE", StringUtil.nvl((String)param.get("S_START_DATE"), format.format(cal.getTime())));
+						
+			param.put("ISSUE_CD", "A");
+		
+			
+			map.put("params", param);
+			
+			// 공통 코드 조회 - 쿠폰구분코드
+			inParam.put("S_GROUP_CODE", CmmnCnst.cpnGbCd);
+			map.put("cpnGbCd",adminCodeDao.selectListCodeGroup(inParam));
+			// 공통 코드 조회 - 쿠폰사용채널
+			inParam.put("S_GROUP_CODE", CmmnCnst.cpnChanCd);
+			map.put("cpnChanCd",adminCodeDao.selectListCodeGroup(inParam));
+			// 공통 코드 조회 - 리스트표시갯수
+			inParam.put("S_GROUP_CODE", CmmnCnst.displayCnt);
+			map.put("displayCnt",adminCodeDao.selectListCodeGroup(inParam));
+			// 공통 코드 조회 - 리스트표시갯수
+			inParam.put("S_GROUP_CODE", CmmnCnst.issueMth);
+			map.put("issueMth",adminCodeDao.selectListCodeGroup(inParam));	
+			
+		
+		
+		} 
+		catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return map;
+		
+	}
+
+	@Override
+	public ModelMap selectPrintCpnNoList(Map<String, Object> inParam) {
+		
+		ModelMap mm = new ModelMap();
+		try {
+						
+			inParam.put("PAGE_NO",StringUtil.nvl((String)inParam.get("PAGE_NO"), "1"));
+			int nowPage = StringUtil.nvlInt((String)inParam.get("PAGE_NO"), 1);
+			
+			int rowTotal = adminCpnDao.selectPrintCpnNoCount(inParam);		
+			
+			PageNavigation pageNav= new PageNavigation(nowPage, rowTotal, 10, CmmnCnst.ADM_BLOCK_SIZE);
+			mm.put("PAGE_NO", nowPage);
+			mm.put("pageNav", pageNav);
+			inParam.put("START_ROW", pageNav.getStartRow());
+			inParam.put("END_ROW", pageNav.getEndRow());
+			
+			mm.put("printList",adminCpnDao.selectPrintCpnNoList(inParam));
+			mm.put("print", rowTotal);
+					
+			mm.put("params", inParam);
+		
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return mm;
+		
+	}
+
+	@Override
+	public ModelMap printCpnExcel(Map<String, Object> inParam) {
+		
+		ModelMap mm = new ModelMap();
+		
+		try {
+												
+			mm.addAttribute("printList",adminCpnDao.selectPrintCpnNoAll(inParam));			
+		
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return mm;
+		
+	}
+
+	@Override
+	public ModelMap updateCpnIssueMth(Map<String, Object> inParam) {
+	
+		ModelMap mm = new ModelMap();
+		Map<String, Object> mmTemp = new ModelMap();
+		Map<String, Object> param = new ModelMap();
+		
+		String cpnGrpCd = "";
+		String issueMth ="";
+		
+		try{
+			
+			issueMth 		=  StringUtil.nvl((String) inParam.get("ISSUE_MTH"), "");		
+			cpnGrpCd		= StringUtil.nvl((String) inParam.get("CPN_GRP_CD"), "");	
+						
+			param.put("issueMth", issueMth);
+			param.put("cpnGrpCd", cpnGrpCd);
+			
+			adminCpnDao.updateCpnIssueMth(param);
+			
+		
+			mmTemp = adminCpnDao.selectCpnDtl(cpnGrpCd);			
+			mmTemp.put("TOT_PROD_CNT", adminCpnDao.selectProdCnt());
+			
+			mm.put("selectCpnDtl",mmTemp);
+			mm.put("cpnMarket",adminCpnDao.selectCpnMarket(cpnGrpCd));
+			
+			if(mmTemp.get("CPN_ISSUE_TGT_GB_CD").equals("A")){
+				mm.put("cpnProd","");
+				mm.put("cpnCtry","");
+				mm.put("cpnPlan","");
+			}else if(mmTemp.get("CPN_ISSUE_TGT_GB_CD").equals("B")){
+				mm.put("cpnProd",adminCpnDao.selectCpnProd(cpnGrpCd));
+				mm.put("cpnCtry","");
+				mm.put("cpnPlan","");
+			}else if(mmTemp.get("CPN_ISSUE_TGT_GB_CD").equals("C")){
+				mm.put("cpnProd","");
+				mm.put("cpnCtry",adminCpnDao.selectCpnCtry(cpnGrpCd));				
+				mm.put("cpnPlan","");
+			}else if(mmTemp.get("CPN_ISSUE_TGT_GB_CD").equals("D")){
+				mm.put("cpnProd","");
+				mm.put("cpnCtry","");
+				mm.put("cpnPlan",adminCpnDao.selectCpnPlan(cpnGrpCd));
+			}
+			
+			if(mmTemp.get("ISSUE_CD").equals("A")){
+				mm.put("cpnUse","");
+			}else if(mmTemp.get("ISSUE_CD").equals("B")){				
+	//			mm.put("cpnUse",adminCpnDao.selectCpnUseListAll(cpnGrpCd));
+				mm.put("cpnUse",adminCpnDao.selectCpnUse(cpnGrpCd));
+			}
+			
+			// 공통 코드 조회 - 리스트표시갯수
+			inParam.put("S_GROUP_CODE", CmmnCnst.cpnChanCd);
+			mm.put("cpnChanCd",adminCodeDao.selectListCodeGroup(inParam));			
+			mm.put("planList",adminCpnDao.selectPlanList());			
+			mm.put("marketList",adminCpnDao.selectMarketList());
+			mm.put("params", inParam);
+			mm.put("dtlFlag","B");	
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return mm;
+		
+		
+	}
+
+	@Override
+	public void insertInflowRoute(Map<String, Object> inParam, String[] cpnUseCdChnl) {
+		
+		ModelMap mm ;
+		ModelMap map = new ModelMap();;
+		Map<String, Object> mapTemp = new ModelMap();
+		
+		List<Map<String, Object>> mmTempChan = null;
+		List<Map<String, Object>> mmTempMber = null;
+		
+		String mberSeqMarketList[] = null;
+		String prodCodeList[]=null;
+		String mberSeqOldList[] = null;
+		String mberSeqNewList[] = null;
+		String mberSeqTotalList[] = null;
+		String cpnCtryList[] = null;
+		String cpnPlanList[] = null;
+		
+		String cpnGrpCd = ""; 
+		String mberSeqMarketTemp = "";
+		String prodCodeTemp = "";  
+		String mberSeqOldTemp =  "";  
+		String mberSeqNewTemp = ""; 
+		String mberSeqTotalTemp = "";
+		String cpnCtryTemp = ""; 
+		String cpnPlanTemp = "";  
+		String certCnt= "";  
+		String certStartDt= "";  
+		String certEndDt="";  
+		String cpnNm= "";  
+		String cpnDtl="";  
+		String bnfitChk= "";   //BNFIT_DSCNT_PRCE  BNFIT_DSCNT_RATE  BNFIT_MAX_DSCNT_PRCE
+		String bnfitDscntPrce="";
+		String bnfitDscntRate="";
+		String bnfitMaxDscntPrce="";
+		String prodPrce= ""; 
+		String expStartDt="";
+		String expEndDt= "";
+		String cpnUseCd= "";  // CPN_USE_CD_CHNL
+		String cpnIssueTgtGbCd= ""; 
+		String issueCdOld= ""; 	// A B
+		String issueCd= ""; 	// A B MBER_SEQ_TOTAL
+		String duplUseYn=""; 	// A B		
+		String delyFreeChk ="";		
+		String delyDscntPrce="";
+		String danalBurDen = "";
+		String marketBurDen = "";
+		String expChk="";
+		String expDay="";
+	//	String issueMth ="";
+		String cpnGbCd="";
+		String certCpnCnt="";
+		String inflowRouteGbCd = "";
+		String inflowRouteNm = "";
+		String inflowRouteUrl = "";
+		String inflowRouteUrlMatch="";
+		
+	
+		mberSeqMarketTemp 	= (String) inParam.get("MBER_SEQ_MARKET");
+		prodCodeTemp 	  	= (String) inParam.get("PROD_CODE");
+		mberSeqOldTemp		= (String) inParam.get("MBER_SEQ_OLD");		
+		mberSeqNewTemp		= (String) inParam.get("MBER_SEQ_NEW");		
+		mberSeqTotalTemp	= (String) inParam.get("MBER_SEQ_TOTAL");		
+		cpnCtryTemp			= (String) inParam.get("CPN_CTRY");	
+		cpnPlanTemp 		= (String) inParam.get("CPN_PLAN");	
+		certCnt 		= StringUtil.nvl((String) inParam.get("CERT_CNT"), "0");
+		certStartDt 		=  StringUtil.nvl((String) inParam.get("CERT_START_DT"), "");
+		certEndDt 		=  StringUtil.nvl((String) inParam.get("CERT_END_DT"), "");
+		cpnNm 		=  StringUtil.nvl((String) inParam.get("CPN_NM"), "");
+		cpnDtl 		=  StringUtil.nvl((String) inParam.get("CPN_DTL"), "");
+		bnfitChk 		=  StringUtil.nvl((String) inParam.get("BNFIT_CHK"), "");
+		bnfitDscntPrce 		= StringUtil.nvl((String) inParam.get("BNFIT_DSCNT_PRCE"), "0");
+		bnfitDscntRate 		=  StringUtil.nvl((String) inParam.get("BNFIT_DSCNT_RATE"), "0");
+		bnfitMaxDscntPrce 		=  StringUtil.nvl((String) inParam.get("BNFIT_MAX_DSCNT_PRCE"), "0");	
+		prodPrce 		=  StringUtil.nvl((String) inParam.get("PROD_PRCE"), "0");			
+		expStartDt 		=  StringUtil.nvl((String) inParam.get("EXP_START_DT"), "");	
+		expEndDt 		=  StringUtil.nvl((String) inParam.get("EXP_END_DT"), "");	
+		cpnUseCd 		=  StringUtil.nvl((String) inParam.get("CPN_USE_CD"), "");	
+		cpnIssueTgtGbCd 		=  StringUtil.nvl((String) inParam.get("CPN_ISSUE_TGT_GB_CD"), "");	
+		issueCd 		=  StringUtil.nvl((String) inParam.get("ISSUE_CD"), "");	
+		issueCdOld			= (String) inParam.get("ISSUE_CD_OLD");	
+		duplUseYn 		=  StringUtil.nvl((String) inParam.get("DUPL_USE_YN"), "");	
+		delyFreeChk 		=  StringUtil.nvl((String) inParam.get("DELY_FREE_CHK"), "");	
+		delyDscntPrce 		=  StringUtil.nvl((String) inParam.get("DELY_DSCNT_PRCE"), "0");			
+		danalBurDen 		=  StringUtil.nvl((String) inParam.get("DANAL_BURDEN"), "0");					
+		marketBurDen 		=  StringUtil.nvl((String) inParam.get("MARKET_BURDEN"), "0");				
+		
+		expChk 		=  StringUtil.nvl((String) inParam.get("EXP_CHK"), "");	
+		expDay 		=  StringUtil.nvl((String) inParam.get("EXP_DAY"), "0");					
+	//	issueMth 		=  StringUtil.nvl((String) inParam.get("ISSUE_MTH"), "");		
+		cpnGbCd		= StringUtil.nvl((String) inParam.get("CPN_GB_CD"), "");
+		certCpnCnt		= StringUtil.nvl((String) inParam.get("CERT_CPN_CNT"), "0");
+		inflowRouteGbCd		= StringUtil.nvl((String) inParam.get("INFLOW_ROUTE_GB_CD"), "");
+		inflowRouteNm		= StringUtil.nvl((String) inParam.get("INFLOW_ROUTE_NM"), "");
+		inflowRouteUrl		= StringUtil.nvl((String) inParam.get("INFLOW_ROUTE_URL"), "");
+		inflowRouteUrlMatch		= StringUtil.nvl((String) inParam.get("INFLOW_ROUTE_URL_MATCH"), "");
+		
+		
+		try {
+						
+			cpnGrpCd = adminCpnDao.selectCpnSeq();
+			
+			
+			if(!"".equals(prodCodeTemp) && prodCodeTemp != null){
+				prodCodeList = prodCodeTemp.split(",");
+				for(int i=0; i<prodCodeList.length ; i++){
+					
+				}
+			}
+			if(!"".equals(mberSeqOldTemp) && mberSeqOldTemp != null){			
+				mberSeqOldList = mberSeqOldTemp.split(",");
+				
+			}
+			if(!"".equals(mberSeqNewTemp) && mberSeqNewTemp != null){			
+				mberSeqNewList = mberSeqNewTemp.split(",");
+				
+			}
+			if(!"".equals(mberSeqTotalTemp) && mberSeqTotalTemp != null){				
+				mberSeqTotalList = mberSeqTotalTemp.split(",");
+				
+			}
+			if(!"".equals(cpnCtryTemp) && cpnCtryTemp != null){					
+				cpnCtryList = cpnCtryTemp.split(",");
+				
+			}
+			if(!"".equals(cpnPlanTemp) && cpnPlanTemp != null){					
+				cpnPlanList = cpnPlanTemp.split(",");
+				
+			}
+					
+							
+			if(!"".equals(mberSeqMarketTemp) && mberSeqMarketTemp != null){			
+				mberSeqMarketList = mberSeqMarketTemp.split(",");
+				mm = new ModelMap();
+				mm.put("cpnGrpCd", cpnGrpCd);
+				for(int i=0; i<mberSeqMarketList.length ; i++){
+					mm.put("mberSeq", mberSeqMarketList[i]); 				
+					adminCpnDao.insertCpnMarket(mm);
+				}
+			}
+		
+			if(cpnIssueTgtGbCd.equals("B")){
+				mm = new ModelMap();
+				mm.put("cpnGrpCd", cpnGrpCd);			
+				for(int i=0; i<prodCodeList.length;i++){
+					mm.put("prodCode", prodCodeList[i]); 
+					adminCpnDao.insertCpnProd(mm);
+				}
+			}else if(cpnIssueTgtGbCd.equals("C")){
+				mm = new ModelMap();
+				mm.put("cpnGrpCd", cpnGrpCd);		
+				for(int i=0; i<cpnCtryList.length;i++){
+					mm.put("ctryCd", cpnCtryList[i]); 
+					adminCpnDao.insertCpnCtry(mm);
+				}
+			}else if(cpnIssueTgtGbCd.equals("D")){
+				mm = new ModelMap();
+				mm.put("cpnGrpCd", cpnGrpCd);		
+				for(int i=0; i<cpnPlanList.length;i++){
+					mm.put("planCd", cpnPlanList[i]); 
+					adminCpnDao.insertCpnPlan(mm);
+				}
+			} 						
+		
+			if(cpnUseCd.equals("A")){		
+				String code="CPN_CHAN_CD";
+				mm = new ModelMap();
+				mm.put("cpnGrpCd", cpnGrpCd);
+				mmTempChan = adminCpnDao.selectChanCode(code);
+				for(int i=0; i<mmTempChan.size(); i++){
+					mm.put("cpnChanCd", mmTempChan.get(i).get("COM_CD"));
+					adminCpnDao.insertCpnChan(mm);
+				}
+			}else if(cpnUseCd.equals("B")){
+				String code="CPN_CHAN_CD";
+				mm = new ModelMap();
+				mm.put("cpnGrpCd", cpnGrpCd);
+				for(int i=0; i<cpnUseCdChnl.length; i++){
+					mm.put("cpnChanCd", cpnUseCdChnl[i]);
+					adminCpnDao.insertCpnChan(mm);				
+				}
+			}
+			
+			// 지정회원일경우	
+			if(issueCd.equals("B")){
+				
+				mm = new ModelMap();
+				mm.put("cpnGrpCd", cpnGrpCd);
+				
+				for(int i=0; i<mberSeqTotalList.length; i++){
+					
+					mm.put("mberSeq", mberSeqTotalList[i]);
+					adminCpnDao.insertCpnMber(mm);
+					
+				}
+				
+			}
+			
+			
+			mm = new ModelMap();		
+			mm.put("cpnGrpCd", cpnGrpCd);
+			mm.put("certCnt", certCnt);
+			mm.put("certStartDt", certStartDt);
+			mm.put("certEndDt", certEndDt);
+			mm.put("cpnNm", cpnNm);
+			mm.put("cpnDtl", cpnDtl);
+			mm.put("bnfitChk", bnfitChk);
+			mm.put("bnfitDscntPrce", bnfitDscntPrce);
+			mm.put("bnfitDscntRate", bnfitDscntRate);
+			mm.put("bnfitMaxDscntPrce", bnfitMaxDscntPrce);
+			mm.put("prodPrce", prodPrce);
+			mm.put("expStartDt", expStartDt);
+			mm.put("expEndDt", expEndDt);
+			mm.put("cpnUseCd", cpnUseCd);
+			mm.put("cpnIssueTgtGbCd", cpnIssueTgtGbCd);
+			mm.put("issueCd", issueCd);
+			mm.put("cpnUseCd", cpnUseCd);
+			mm.put("duplUseYn", duplUseYn);
+			mm.put("delyFreeChk", delyFreeChk);
+			mm.put("delyDscntPrce", delyDscntPrce);
+			mm.put("danalBurDen", danalBurDen);
+			mm.put("marketBurDen", marketBurDen);
+			mm.put("expChk", expChk);
+			mm.put("expDay", expDay);
+			mm.put("issueMth", "10"); 
+			mm.put("cpnGbCd", cpnGbCd);
+			mm.put("certCpnCnt", certCpnCnt); 
+			mm.put("inflowRouteCpnYn", "Y");
+			mm.put("inflowRouteGbCd", inflowRouteGbCd);
+			mm.put("inflowRouteNm", inflowRouteNm);
+			mm.put("inflowRouteUrl", inflowRouteUrl);
+			mm.put("inflowRouteUrlMatch", inflowRouteUrlMatch);
+						
+			adminCpnDao.insertCpnInfo(mm);		
+			adminCpnDao.insertInflowRouteInfo(mm);
+			
+		
+		} 
+		catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+	}
+
+	@Override
+	public int commProdCnt() {
+		
+		int cnt=0;
+	
+		try{
+			
+			cnt = adminCpnDao.selectProdCnt();			
+			
+		}catch (Exception e) {
+			e.printStackTrace();
+		}
+				
+		return cnt;
+		
+	}
+
+	@Override
+	public ModelMap selectInflowRouteInfo(Map<String, Object> inParam, String[] inflowRouteUseYn) {
+
+		ModelMap mm = new ModelMap();
+		String dateChk="";
+		String inflowRouteSerchCd = "";
+		String serchNm="";
+		
+		
+		try {
+			
+			dateChk 				=  StringUtil.nvl((String) inParam.get("DATE_CHK"), "");	
+			inflowRouteSerchCd 		=  StringUtil.nvl((String) inParam.get("INFLOW_ROUTE_SEARCH_CD"), "");	
+			serchNm 				=  StringUtil.nvl((String) inParam.get("SEARCH_NM"), "");	
+												
+			//페이지번호
+			inParam.put("PAGE_NO",StringUtil.nvl((String)inParam.get("PAGE_NO"), "1"));
+			int nowPage = StringUtil.nvlInt((String)inParam.get("PAGE_NO"), 1);
+			int rowCnt	= StringUtil.nvlInt((String)inParam.get("S_ROW_CNT"), 20);
+			inParam.put("S_ROW_CNT", rowCnt);
+			
+			String today = StringUtil.getCurrentDate();
+			inParam.put("S_END_DATE", StringUtil.nvl((String)inParam.get("S_END_DATE"), today));
+			
+			SimpleDateFormat format = new SimpleDateFormat("yyyyMMdd");
+			Calendar cal = Calendar.getInstance();
+			cal.add(Calendar.DATE, -7);
+			inParam.put("S_START_DATE", StringUtil.nvl((String)inParam.get("S_START_DATE"), format.format(cal.getTime())));
+			
+			LoggerUtil.writeMap(inParam);		
+			
+			inParam.put("dateChk", dateChk);
+			inParam.put("inflowRouteSerchCd", inflowRouteSerchCd);
+			inParam.put("serchNm", serchNm);
+			inParam.put("inflowRouteUseYn", inflowRouteUseYn);
+			
+			int rowTotal = adminCpnDao.selectInflowRouteInfoCount(inParam);
+			
+			PageNavigation pageNav= new PageNavigation(nowPage, rowTotal, rowCnt, CmmnCnst.ADM_BLOCK_SIZE);
+			mm.put("PAGE_NO", nowPage);
+			mm.put("pageNav", pageNav);
+			inParam.put("START_ROW", pageNav.getStartRow());
+			inParam.put("END_ROW", pageNav.getEndRow());
+						
+			
+			mm.put("selectListUrl",adminCpnDao.selectInflowRouteInfo(inParam));
+			
+			/// 공통 코드 조회 - 쿠폰구분코드
+			inParam.put("S_GROUP_CODE", CmmnCnst.inflowRouteSearchCd);
+			mm.put("inflowRouteSearchCd",adminCodeDao.selectListCodeGroup(inParam));
+			
+			inParam.put("DATE_CHK", dateChk);
+			inParam.put("INFLOW_ROUTE_SEARCH_CD", inflowRouteSerchCd);
+			inParam.put("SEARCH_NM", serchNm);
+			inParam.put("INFLOW_ROUTE_USE_YN", inflowRouteUseYn);
+			
+			mm.put("params", inParam);
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+		
+	}
+
+	@Override
+	public ModelMap selectInflowRouteDtl(Map<String, Object> inParam, String cpnGrpCd) {
+		
+		ModelMap mm = new ModelMap();
+		Map<String, Object> mmTemp = new ModelMap();		
+		ModelMap map = new ModelMap();;
+		
+			
+		try {
+			
+			mmTemp = adminCpnDao.selectInflowRouteDtl(cpnGrpCd);
+			mmTemp.put("TOT_PROD_CNT", adminCpnDao.selectProdCnt());
+			mm.put("selectUrlDtl",mmTemp);			
+			
+			if(mmTemp.get("CPN_ISSUE_TGT_GB_CD").equals("A")){
+				mm.put("cpnProd","");
+				mm.put("cpnCtry","");				
+			}else if(mmTemp.get("CPN_ISSUE_TGT_GB_CD").equals("B")){
+				mm.put("cpnProd",adminCpnDao.selectCpnProd(cpnGrpCd));
+				mm.put("cpnCtry","");
+			
+			}else if(mmTemp.get("CPN_ISSUE_TGT_GB_CD").equals("C")){
+				mm.put("cpnProd","");
+				mm.put("cpnCtry",adminCpnDao.selectCpnCtry(cpnGrpCd));								
+			}						
+			
+			// 공통 코드 조회 - 리스트표시갯수
+			inParam.put("S_GROUP_CODE", CmmnCnst.cpnChanCd);
+			mm.put("cpnChanCd",adminCodeDao.selectListCodeGroup(inParam));			
+			
+			mm.put("params", inParam);
+			mm.put("dtlFlag","A");	
+			
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return mm;
+		
+	}
+
+	@Override
+	public ModelMap updateInflowRoute(Map<String, Object> inParam, String[] cpnUseCdChnl) {
+		
+		ModelMap mm ;
+		ModelMap map = new ModelMap();;
+		Map<String, Object> mapTemp = new ModelMap();
+		
+		List<Map<String, Object>> mmTempChan = null;
+						
+		String prodCodeList[]=null;		
+		String cpnCtryList[] = null;
+				
+		String cpnGrpCd = ""; 		
+		String prodCodeTemp = "";  		
+		String cpnCtryTemp = ""; 		
+		String bnfitChk= "";   //BNFIT_DSCNT_PRCE  BNFIT_DSCNT_RATE  BNFIT_MAX_DSCNT_PRCE
+		String bnfitDscntPrce="";
+		String bnfitDscntRate="";
+		String bnfitMaxDscntPrce="";
+		String prodPrce= ""; 
+		String expStartDt="";
+		String expEndDt= "";
+		String cpnUseCd= "";  // CPN_USE_CD_CHNL
+		String cpnIssueTgtGbCd= ""; 	
+		String inflowRouteNm ="";
+		String inflowRouteUrl ="";
+		String inflowRouteUseYn ="";
+		String inflowRouteUrlMatch ="";	
+		String duplUseYn=""; 	// A B		
+		
+		cpnGrpCd		  	= (String) inParam.get("CPN_GRP_CD");		
+		prodCodeTemp 	  	= (String) inParam.get("PROD_CODE");		
+		cpnCtryTemp			= (String) inParam.get("CPN_CTRY");			
+		bnfitChk 		=  StringUtil.nvl((String) inParam.get("BNFIT_CHK"), "");
+		bnfitDscntPrce 		= StringUtil.nvl((String) inParam.get("BNFIT_DSCNT_PRCE"), "0");
+		bnfitDscntRate 		=  StringUtil.nvl((String) inParam.get("BNFIT_DSCNT_RATE"), "0");
+		bnfitMaxDscntPrce 		=  StringUtil.nvl((String) inParam.get("BNFIT_MAX_DSCNT_PRCE"), "0");	
+		prodPrce 		=  StringUtil.nvl((String) inParam.get("PROD_PRCE"), "0");			
+		expStartDt 		=  StringUtil.nvl((String) inParam.get("EXP_START_DT"), "");	
+		expEndDt 		=  StringUtil.nvl((String) inParam.get("EXP_END_DT"), "");	
+		cpnUseCd 		=  StringUtil.nvl((String) inParam.get("CPN_USE_CD"), "");	
+		cpnIssueTgtGbCd 		=  StringUtil.nvl((String) inParam.get("CPN_ISSUE_TGT_GB_CD"), "");	
+	
+		inflowRouteNm 		=  StringUtil.nvl((String) inParam.get("INFLOW_ROUTE_NM"), "");	
+		inflowRouteUrl 		=  StringUtil.nvl((String) inParam.get("INFLOW_ROUTE_URL"), "");	
+		inflowRouteUseYn 		=  StringUtil.nvl((String) inParam.get("INFLOW_ROUTE_USE_YN"), "");	
+		inflowRouteUrlMatch 		=  StringUtil.nvl((String) inParam.get("INFLOW_ROUTE_URL_MATCH"), "");			
+		duplUseYn 		=  StringUtil.nvl((String) inParam.get("DUPL_USE_YN"), "");	
+				
+	
+		
+		try {
+						
+			
+			if(!"".equals(prodCodeTemp) && prodCodeTemp != null){
+				prodCodeList = prodCodeTemp.split(",");
+				for(int i=0; i<prodCodeList.length ; i++){
+					
+				}
+			}
+			
+			if(!"".equals(cpnCtryTemp) && cpnCtryTemp != null){					
+				cpnCtryList = cpnCtryTemp.split(",");
+				
+			}
+			
+						
+			adminCpnDao.deleteCpnProd(cpnGrpCd);
+			adminCpnDao.deleteCpnCtry(cpnGrpCd);
+			
+			
+			if(cpnIssueTgtGbCd.equals("B")){
+				mm = new ModelMap();
+				mm.put("cpnGrpCd", cpnGrpCd);			
+				for(int i=0; i<prodCodeList.length;i++){
+					mm.put("prodCode", prodCodeList[i]); 
+					adminCpnDao.insertCpnProd(mm);
+				}
+			}else if(cpnIssueTgtGbCd.equals("C")){
+				mm = new ModelMap();
+				mm.put("cpnGrpCd", cpnGrpCd);		
+				for(int i=0; i<cpnCtryList.length;i++){
+					mm.put("ctryCd", cpnCtryList[i]); 
+					adminCpnDao.insertCpnCtry(mm);
+				}
+			}
+						
+			adminCpnDao.deleteCpnChan(cpnGrpCd);
+			
+			if(cpnUseCd.equals("A")){		
+				String code="CPN_CHAN_CD";
+				mm = new ModelMap();
+				mm.put("cpnGrpCd", cpnGrpCd);
+				mmTempChan = adminCpnDao.selectChanCode(code);
+				for(int i=0; i<mmTempChan.size(); i++){
+					mm.put("cpnChanCd", mmTempChan.get(i).get("COM_CD"));
+					adminCpnDao.insertCpnChan(mm);
+				}
+			}else if(cpnUseCd.equals("B")){
+			
+				mm = new ModelMap();
+				mm.put("cpnGrpCd", cpnGrpCd);
+				for(int i=0; i<cpnUseCdChnl.length; i++){
+					mm.put("cpnChanCd", cpnUseCdChnl[i]);
+					adminCpnDao.insertCpnChan(mm);				
+				}
+			}
+				
+			mm = new ModelMap();		
+			mm.put("cpnGrpCd", cpnGrpCd);			
+			mm.put("bnfitChk", bnfitChk);
+			mm.put("bnfitDscntPrce", bnfitDscntPrce);
+			mm.put("bnfitDscntRate", bnfitDscntRate);
+			mm.put("bnfitMaxDscntPrce", bnfitMaxDscntPrce);
+			mm.put("prodPrce", prodPrce);
+			mm.put("expStartDt", expStartDt);
+			mm.put("expEndDt", expEndDt);
+			mm.put("cpnUseCd", cpnUseCd);
+			mm.put("cpnIssueTgtGbCd", cpnIssueTgtGbCd);		
+			
+			mm.put("inflowRouteNm", inflowRouteNm);
+			mm.put("inflowRouteUrl", inflowRouteUrl);
+			mm.put("inflowRouteUseYn", inflowRouteUseYn);
+			mm.put("inflowRouteUrlMatch", inflowRouteUrlMatch);			
+			mm.put("duplUseYn", duplUseYn);			
+			
+			adminCpnDao.updateCpnInfoUrl(mm);					
+			adminCpnDao.updateInflowRoute(mm);					
+			
+						
+			// 공통 코드 조회 - 리스트표시갯수
+			inParam.put("S_GROUP_CODE", CmmnCnst.cpnChanCd);
+			map.put("cpnChanCd",adminCodeDao.selectListCodeGroup(inParam));			
+			map.put("dtlFlag","B");	
+			
+			mapTemp = adminCpnDao.selectInflowRouteDtl(cpnGrpCd);
+			map.put("TOT_PROD_CNT", adminCpnDao.selectProdCnt());
+			map.put("selectUrlDtl",mapTemp);			
+			
+			if(mapTemp.get("CPN_ISSUE_TGT_GB_CD").equals("A")){
+				map.put("cpnProd","");
+				map.put("cpnCtry","");				
+			}else if(mapTemp.get("CPN_ISSUE_TGT_GB_CD").equals("B")){
+				map.put("cpnProd",adminCpnDao.selectCpnProd(cpnGrpCd));
+				map.put("cpnCtry","");
+			
+			}else if(mapTemp.get("CPN_ISSUE_TGT_GB_CD").equals("C")){
+				map.put("cpnProd","");
+				map.put("cpnCtry",adminCpnDao.selectCpnCtry(cpnGrpCd));								
+			}						
+			
+			// 공통 코드 조회 - 리스트표시갯수
+			inParam.put("S_GROUP_CODE", CmmnCnst.cpnChanCd);
+			map.put("cpnChanCd",adminCodeDao.selectListCodeGroup(inParam));			
+			
+			map.put("params", inParam);
+			map.put("dtlFlag","A");	
+					
+		
+		} 
+		catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return map;
+		
+	}
+
+	@Override
+	public void deleteInflowRoute(String cpnGrpCd) {
+		
+		try{
+			
+			adminCpnDao.deleteCpnProd(cpnGrpCd);
+			adminCpnDao.deleteCpnCtry(cpnGrpCd);
+			adminCpnDao.deleteCpnChan(cpnGrpCd);
+			adminCpnDao.deleteCpnInfoUrl(cpnGrpCd);
+			adminCpnDao.deleteInflowRouteInfo(cpnGrpCd);
+			
+		}
+		catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+	}
+
+	@Override
+	public ModelMap startUrl() {
+		
+		ModelMap mm = new ModelMap();
+		ModelMap mmTemp = new ModelMap();
+		
+		try{
+		
+			/// 공통 코드 조회 - 쿠폰구분코드
+			mmTemp.put("S_GROUP_CODE", CmmnCnst.inflowRouteSearchCd);
+			mm.put("inflowRouteSearchCd",adminCodeDao.selectListCodeGroup(mmTemp));
+			
+			String today = StringUtil.getCurrentDate();
+			mmTemp.put("S_END_DATE",  today);
+			
+			SimpleDateFormat format = new SimpleDateFormat("yyyyMMdd");
+			Calendar cal = Calendar.getInstance();
+			cal.add(Calendar.DATE, -7);
+			mmTemp.put("S_START_DATE",  format.format(cal.getTime()));
+			
+			mm.put("params", mmTemp);
+		
+		}
+		catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return mm;
+		
+	}
+
+	@Override
+	public ModelMap selectPlanList() {
+		// TODO Auto-generated method stub
+		ModelMap mm = new ModelMap();
+		
+		try{
+			
+			mm.put("planList",adminCpnDao.selectPlanList());	
+			
+			
+		}catch(Exception e){
+			e.printStackTrace();
+		}
+		
+		return mm;
+	}
+
+	
+
+	
+	
+
+}

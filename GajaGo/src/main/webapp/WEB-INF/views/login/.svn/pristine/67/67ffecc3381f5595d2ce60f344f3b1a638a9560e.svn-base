@@ -1,0 +1,273 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="adminSmartStockMapper">
+     <!-- 검색조건 재고관리 -->
+  <sql id="SearchProd_Order">  
+		<!--   제조사 -->
+      <if test="SH_STAT_CD  != '' and SH_STAT_CD  != null">
+         AND SSP.SH_STAT_CD = #{SH_STAT_CD}
+      </if>
+      <!-- 통신사 -->
+       <if test="PROD_UNIQUENO  != '' and PROD_UNIQUENO != null">
+         AND SSP.PROD_UNIQUENO LIKE '%'||<![CDATA[#{PROD_UNIQUENO}]]>||'%'
+      </if>
+  </sql>
+  
+  <sql id="SearchProd">  
+		<!--   제조사 -->
+      <if test="SP_MAKER  != '' and SP_MAKER  != null">
+         AND A.MAKER_CD = #{SP_MAKER}
+      </if>
+      <!-- 통신사 -->
+       <if test="SP_TEL  != '' and SP_TEL != null">
+         AND A.TELCOM_CODE = #{SP_TEL}
+      </if>
+      <!-- 옵션여부 -->
+      <if test="SP_PROD_NM != null and SP_PROD_NM != ''" >
+         AND UPPER(replace(A.PROD_NM,' ','')) LIKE '%'|| UPPER(replace(<![CDATA[#{SP_PROD_NM}]]>,' ',''))||'%'
+      </if>
+   
+          <!-- 옵션여부 -->
+      <if test="SP_MODEL_NM != null and SP_MODEL_NM != ''" >
+       AND UPPER(replace(A.MODEL_NM,' ','')) LIKE '%'|| UPPER(replace(<![CDATA[#{SP_MODEL_NM}]]>,' ',''))||'%'
+      </if>
+  </sql>
+    
+	<select id="selectListSmartProdCount"  parameterType="HashMap" resultType="Integer">
+		SELECT COUNT(*)
+		  FROM SP_PROD A 
+		  INNER JOIN SP_COLOR B ON B.PROD_CODE = A.PROD_CODE
+		  INNER JOIN SP_TELCOM TC ON TC.TELCOM_CODE = A.TELCOM_CODE 
+		<include refid="SearchProd" />
+	</select>
+		
+	<select id="selectListSmartProd" resultType="HashMap">
+		SELECT *
+		  FROM(
+				SELECT C.TOTALCNT 
+<!-- 					 , C.TOTALCNT - C.SHARINGCNT - RTNCNT - PREPARINGCNT - NOUSECNT AS WAITCNT -->
+					, C.SHARINGCNT
+					, C.RTNCNT
+					, C.PREPARINGCNT
+					, C.NOUSECNT
+					, C.RTNCOMPCNT
+					, C.WAITCNT
+					, C.PROD_CODE
+					, C.TELCOM_CODE
+					, C.PROD_NM
+					, C.MAKER_CD
+					, C.SP_SIZE_CD
+					, C.MODEL_NM 
+					, C.COLOR_NAME
+					, C.COLOR_SEQ
+					, C.TELCOM_NM
+					, ROW_NUMBER() OVER(ORDER BY C.REGIST_DT DESC ) AS NO
+				FROM(
+					 SELECT (SELECT COUNT(*) FROM SP_SH_PROD WHERE PROD_CODE = A.PROD_CODE AND COLOR_SEQ = B.COLOR_SEQ) AS TOTALCNT
+							, (SELECT COUNT(*) FROM SP_SH_PROD WHERE PROD_CODE = A.PROD_CODE AND COLOR_SEQ = B.COLOR_SEQ AND SH_STAT_CD = '01') AS SHARINGCNT
+							, (SELECT COUNT(*) FROM SP_SH_PROD WHERE PROD_CODE = A.PROD_CODE AND COLOR_SEQ = B.COLOR_SEQ AND SH_STAT_CD = '02') AS RTNCNT
+							, (SELECT COUNT(*) FROM SP_SH_PROD WHERE PROD_CODE = A.PROD_CODE AND COLOR_SEQ = B.COLOR_SEQ AND SH_STAT_CD = '03') AS PREPARINGCNT
+							, (SELECT COUNT(*) FROM SP_SH_PROD WHERE PROD_CODE = A.PROD_CODE AND COLOR_SEQ = B.COLOR_SEQ AND SH_STAT_CD = '04') AS NOUSECNT
+							, (SELECT COUNT(*) FROM SP_SH_PROD WHERE PROD_CODE = A.PROD_CODE AND COLOR_SEQ = B.COLOR_SEQ AND SH_STAT_CD = '05') AS RTNCOMPCNT
+							, (SELECT COUNT(*) FROM SP_SH_PROD WHERE PROD_CODE = A.PROD_CODE AND COLOR_SEQ = B.COLOR_SEQ AND SH_STAT_CD = '06') AS WAITCNT
+							, A.PROD_CODE
+							, A.TELCOM_CODE
+							, A.PROD_NM
+							, A.MAKER_CD
+							, A.SP_SIZE_CD
+							, A.MODEL_NM
+							, B.COLOR_NAME
+							, B.COLOR_SEQ
+							, A.REGIST_DT 
+							, TC.TELCOM_NM
+					   FROM SP_PROD A 
+					  INNER JOIN SP_COLOR B ON B.PROD_CODE = A.PROD_CODE 
+				      INNER JOIN SP_TELCOM TC ON TC.TELCOM_CODE = A.TELCOM_CODE
+				      WHERE 1=1
+ 	 				 <include refid="SearchProd" />
+					) C
+		) D WHERE D.NO BETWEEN #{START_ROW} AND #{END_ROW}
+		    
+	</select>
+	
+	
+	<select id="selectListDefaultTelinfo" resultType="HashMap">
+	    SELECT TELCOM_CODE
+			 , TELCOM_NM 
+		 FROM SP_TELCOM 
+		 WHERE USE_YN = 'Y'
+	</select>
+	
+	<select id="selectSmartDtl" resultType="HashMap">
+	 SELECT * 
+	 	FROM(  
+<!-- 		 SELECT T3.*  -->
+<!-- 	        , T4.STIP_CODE -->
+<!-- 	        , T5.USIM_SEQ_CODE          -->
+<!-- 	        , T5.USIM_PHONE            -->
+<!-- 	        , T5.ORD_NAME         -->
+<!-- 	        , T5.BIRTH_YYYYMMDD    -->
+<!-- 	        , T6.PAYPLAN_NM -->
+<!--             , TO_CHAR(T4.SHARE_OK_DT,'YYYYMMDD') AS SP_START_DAY  -->
+<!--               , ROW_NUMBER() OVER(ORDER BY T3.REGIST_DT DESC ) AS NO -->
+<!-- 			, TO_CHAR(ADD_MONTHS(T4.SHARE_OK_DT, (SELECT STIP_PERIOD FROM SP_STIP WHERE STIP_CODE = T3.PROD_CODE )* 12  ), 'YYYYMMDD') AS SP_END_DAY -->
+<!-- 			FROM ( -->
+<!-- 			        SELECT T1.PROD_CODE , T1.PROD_UNIQUENO, T1.SH_STAT_CD -->
+<!-- 			        , (SELECT MAX(ORD_CD) -->
+<!-- 			             FROM ORD_PROD_INFO T2 -->
+<!-- 			             WHERE T1.PROD_UNIQUENO =  T2.PROD_UNIQUENO -->
+<!-- 			               AND T1.COLOR_SEQ =  T2.COLOR_SEQ -->
+<!-- 			          ) ORD_CD -->
+<!-- 			         , T1.REGIST_DT -->
+<!-- 			          FROM SP_SH_PROD T1  -->
+<!-- 			          WHERE T1.PROD_CODE = #{PROD_CODE} AND T1.COLOR_SEQ = #{COLOR_SEQ} -->
+<!-- 			    ) T3 -->
+<!-- 			    , ORD_PROD_INFO T4 -->
+<!-- 			    , SP_OPEN_DETAIL T5 -->
+<!-- 			    , SP_PAYPLAN T6  -->
+<!-- 			WHERE T3.ORD_CD = T4.ORD_CD(+) -->
+<!-- 			  AND T3.ORD_CD = T5.ORD_CD(+) -->
+<!-- 			 	  AND T6.PAYPLAN_CODE(+) = T4.PAYPLAN_CODE -->
+			SELECT SSP.PROD_UNIQUENO
+				  , SSP.SH_STAT_CD
+				  , SOD.BIRTH_YYYYMMDD
+				  , SSP.PROD_SERIAL
+				  , TO_CHAR(SOD.END_DT,'YYYYMMDD') as END_DT
+				  , TO_CHAR(SOD.OPEN_DT,'YYYYMMDD') as OPEN_DT
+				  , SOD.ORD_NAME
+				  , SOD.USIM_SEQ_CODE
+				  , SPP.PAYPLAN_NM 
+				  , (SELECT USIM_PHONE FROM SP_OPEN_DETAIL WHERE ORD_CD = OPI.ORD_CD) AS USIM_PHONE
+				   , ROW_NUMBER() OVER(ORDER BY SSP.REGIST_DT DESC ) AS NO
+			FROM  SP_SH_PROD SSP
+				, SP_PROD SP
+				, ORD_PROD_INFO OPI 
+				, SP_OPEN_DETAIL SOD 
+				, SP_PAYPLAN SPP
+			WHERE SSP.PROD_CODE = SP.PROD_CODE 
+			AND SSP.PROD_UNIQUENO = OPI.PROD_UNIQUENO(+)
+			AND OPI.PAYPLAN_CODE = SPP.PAYPLAN_CODE(+)
+			AND OPI.ORD_CD = SOD.ORD_CD(+)
+			AND  SSP.PROD_CODE = #{PROD_CODE}
+			AND SSP.COLOR_SEQ = #{COLOR_SEQ}
+			 <include refid="SearchProd_Order" />
+			) C WHERE C.NO BETWEEN #{START_ROW} AND #{END_ROW}
+	</select>
+	
+	<select id="seelectSmartDtlCount" resultType="Integer">
+	   SELECT COUNT(*)    
+	     FROM(
+		 		SELECT SSP.PROD_UNIQUENO
+				  , SSP.SH_STAT_CD
+				  , SOD.BIRTH_YYYYMMDD
+				  , TO_CHAR(SOD.END_DT,'YYYYMMDD') as END_DT
+				  , TO_CHAR(SOD.OPEN_DT,'YYYYMMDD') as OPEN_DT
+				  , SOD.ORD_NAME
+				  , SOD.USIM_SEQ_CODE
+				  , SPP.PAYPLAN_NM 
+			FROM  SP_SH_PROD SSP
+				, SP_PROD SP
+				, ORD_PROD_INFO OPI 
+				, SP_OPEN_DETAIL SOD 
+				, SP_PAYPLAN SPP
+			WHERE SSP.PROD_CODE = SP.PROD_CODE 
+					AND SSP.PROD_UNIQUENO = OPI.PROD_UNIQUENO(+)
+			AND OPI.PAYPLAN_CODE = SPP.PAYPLAN_CODE(+)
+			AND OPI.ORD_CD = SOD.ORD_CD(+)
+			AND  SSP.PROD_CODE = #{PROD_CODE}
+				AND SSP.COLOR_SEQ = #{COLOR_SEQ}
+		 <include refid="SearchProd_Order" />
+		 )
+	</select>
+	
+	<update id="updateProdStat">
+		UPDATE SP_SH_PROD
+		   SET SH_STAT_CD = #{POP_UP_SEL_STAT}
+		 WHERE PROD_UNIQUENO = #{POP_UP_SEL_UNIQUENO}   
+	</update>
+	
+	<delete id="delUniqueNo">
+	    DELETE FROM SP_SH_PROD 
+	     WHERE PROD_UNIQUENO = #{POP_UP_SEL_UNIQUENO}
+	</delete>
+	
+	<select id="CheckStokprod" resultType="int">
+		SELECT COUNT(1) FROM SP_SH_PROD
+		<where>
+		PROD_UNIQUENO IN
+       	<foreach item="item" index="index" collection="bulkData" open="(" separator="," close=")">
+			#{item}
+		</foreach>
+		</where>
+	</select>
+	
+	<select id="CheckStokprodForList"  parameterType="java.util.List"  resultType="int">
+		SELECT COUNT(1) FROM SP_SH_PROD
+		<where>
+		PROD_UNIQUENO IN
+       	<foreach item="item" index="index" collection="list" open="(" separator="," close=")">
+			#{item}
+		</foreach>
+		</where>
+	</select>
+	
+	
+	<select id="CheckStokprod2" resultType="int">
+		SELECT COUNT(1) FROM SP_SH_PROD
+		<where>
+		PROD_UNIQUENO = #{pdId}
+		
+		</where>
+	</select>
+	
+	
+<!-- 	일련번호 대량 등록하기  -->
+	<insert id="inserProdExcelreg">
+	    INSERT INTO SP_SH_PROD(
+	    		COLOR_SEQ
+	    		,PROD_CODE
+	    		,PROD_UNIQUENO
+	    		,USED_YN
+	    		,REGIST_DT
+	    		,SH_STAT_CD
+	    		)VALUES(
+	    		#{COLOR_SEQ}
+	    		,#{PROD_CODE}
+	    		,#{REG_UNIQUENO}
+	    		,'Y'
+	    		,SYSDATE
+	    		,'06'
+	    		)
+	</insert>
+  
+	<select id="getProdListExcelDownload"  resultType="HashMap">
+	  SELECT * 
+	 	FROM(  
+			SELECT SSP.PROD_UNIQUENO
+           		 , (SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'SH_STAT_CD' AND COM_CD =  SSP.SH_STAT_CD) AS STAT_NM
+           		 , SSP.SH_STAT_CD as SH_STAT_CD
+				  , SOD.BIRTH_YYYYMMDD
+				  , SSP.PROD_SERIAL
+				  , TO_CHAR(SOD.END_DT,'YYYYMMDD') as END_DT
+				  , TO_CHAR(SOD.OPEN_DT,'YYYYMMDD') as OPEN_DT
+				  , SOD.ORD_NAME
+				  , SOD.USIM_SEQ_CODE
+				  , SPP.PAYPLAN_NM 
+				  , (SELECT USIM_PHONE FROM SP_OPEN_DETAIL WHERE ORD_CD = OPI.ORD_CD) AS USIM_PHONE
+				   , ROW_NUMBER() OVER(ORDER BY SSP.REGIST_DT DESC ) AS NO
+			FROM  SP_SH_PROD SSP
+				, SP_PROD SP
+				, ORD_PROD_INFO OPI 
+				, SP_OPEN_DETAIL SOD 
+				, SP_PAYPLAN SPP
+			WHERE SSP.PROD_CODE = SP.PROD_CODE 
+			AND SSP.PROD_UNIQUENO = OPI.PROD_UNIQUENO(+)
+			AND OPI.PAYPLAN_CODE = SPP.PAYPLAN_CODE(+)
+			AND OPI.ORD_CD = SOD.ORD_CD(+)
+			AND  SSP.PROD_CODE = #{PROD_CODE}
+			AND SSP.COLOR_SEQ = #{COLOR_SEQ}
+			 <include refid="SearchProd_Order" />
+			) C WHERE C.NO BETWEEN #{START_ROW} AND #{END_ROW}
+	</select>
+ </mapper>

@@ -1,0 +1,1103 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/web/common/cmmnHead.jsp"%>
+<%@ include file="/WEB-INF/views/web/common/CmmnJuso.jsp"%> 
+<script type="text/javascript" src="/js/web/cart.js" ></script> <!-- 장바구니용 js -->
+<script type="text/javascript" src="/js/web/saleMng/byteCheckUtil.js" ></script> <!-- 장바구니용 js -->
+
+
+
+
+
+
+<script type="text/javascript">
+//	$("#inputByte").html($(this).val().replace(/\\r\\n/g,"").length);
+
+
+	
+	
+	//ready
+	$(document).ready(function(){
+		
+		var regData = '${regData}';
+		var parseData = regData.replace(/\r\n/g, "\\r\\n");
+		
+		$("#regData").val(parseData);
+		
+		var data = JSON.parse(parseData);
+		
+		tap($('.sell-prod'));
+		tap($('.sell-nProd'));
+		tap($('.prod-cond'));
+		tap($('.ship-type'));
+		tap($('.sell-dlv'));
+		tap($('.sell-dlv_payment'));
+		
+		tooltip('list-deal');
+		tooltip('sell-prod');
+		tooltip('sell-nProd');
+		
+		var mainYn = '${params.mainYn }';
+		
+		// title 및 back 버튼 url set		
+		document.title = "상품 등록";
+// 		header.type	= 6;
+		header.type	= 4;
+		header.title = "상품 등록";
+		header.method = "POST";
+		if (mainYn == "Y") {
+			header.backUrl = "/mobile/main/main.do";
+		}
+		else {
+			header.backUrl = "/mobile/salemanage/main.do";
+		}
+		header.callback = headerCallback; // 장바구니용 callback
+		header.form = $("#form");
+		initHeader();
+		
+
+
+		
+		displayFooter(false);
+		
+		
+		
+
+		
+		
+		
+		// 상품 거래방식 이벤트
+		$("#prodTypeCd li a").click(function(){
+			
+			$("#dlvPayGbCdArea").show();
+			$("#nProdGbCdArea").show();		
+			
+			if($(this).parent().text() == '판매'){
+				
+				// li버튼 셋팅
+				$("#dlvWayCd").attr('class','list-tab sell-prod mt10');
+				tap($(".sell-prod"));
+				$("#dlvWayCd li a").click(dlvWayCdChgFunc);
+
+				
+				// 셰어링은 제휴택배만 이요이 가능합니다 Tip 문구
+				$("#sharTipText").hide();
+				
+				
+				// 금액 입력타입
+				$("#sellDiv").show();
+				$("#sharDiv").hide();
+				$("#nanumDiv").hide();
+				
+				// 배송가능지역, 거래가능지역 hide 
+				$("#dlvWayDlv").show();
+				$("#dlvWayCdOffLine").hide();
+				$("#dlvWayCdQuick").hide();
+				
+			}else if($(this).parent().text() == '셰어링'){
+				
+				// li 버튼 셋팅
+				$("#dlvWayCd").attr('class','list-tab share_ship-type mt10');
+				$("#dlvWayCd li a").unbind('click');
+				$("#dlvWayCd li").removeClass('active');
+				$("#dlvWayCd li:contains('제휴택배')").attr('class','active');
+
+				// 셰어링은 제휴택배만 이용이 가능합니다 Tip 문구
+				$("#sharTipText").show();
+				
+				// 제휴사로 셀렉트박스 셋팅
+				$("#dlvCmpSelectEl").html(getDlvOptionHtml.dlvWayOptEl());
+
+				// 금액 입력타입
+				$("#sellDiv").hide();
+				$("#sharDiv").show();
+				$("#nanumDiv").hide();
+				
+				// 배송가능지역, 거래가능지역 hide 
+				$("#dlvWayDlv").show();
+				$("#dlvTitArea").show();
+				$("#dlvCmpArea").show();
+				$("#dlvWayCdOffLine").hide();
+				$("#dlvWayCdQuick").hide();
+				
+			}else if($(this).parent().text() == '나눔'){
+				
+				// li 버튼 셋팅
+				$("#dlvWayCd").attr('class','list-tab sell-prod mt10');
+				tap($(".sell-prod"));
+				$("#dlvWayCd li a").click(dlvWayCdChgFunc);
+
+
+				// 셰어링은 제휴택배만 이요이 가능합니다 Tip 문구
+				$("#sharTipText").hide();
+				
+				// 금액 입력타입
+				$("#sellDiv").hide();
+				$("#sharDiv").hide();
+				$("#nanumDiv").show();
+				
+				$("#nProdGbCdArea").hide();
+				
+
+			}
+			dlvWayCdChgFunc();	// 배송방법 변경 이벤트
+			dlvAmtInit();		// 배송비 init
+		});
+		$("#prodTypeCd li a").eq(0).trigger('click');
+		
+		
+		// 제휴택배 입력폼으로 셋팅
+		$("#dlvCmpSelectEl").html(getDlvOptionHtml.dlvWayOptEl()).eq(0).prop('selected','selected').trigger('change');
+		$("#dlvWayDlv").show();
+		$("#dlvWayCdOffLine").hide();
+		$("#dlvWayCdQuick").hide();
+		
+		
+		// 배송방식 선택 이벤트 1:제휴, 2:일반, 3:우편/등기, 4:퀵서비스 5:직거래		
+		$("#dlvWayCd li a").click(dlvWayCdChgFunc);
+		
+		
+		
+		
+		// 판매상품 상태 이벤트 (새상품:10, 미사용:20, 중고:30, 전시상품:40)
+		$("#nProdGbCd li a").click(function(){
+			console.log(this);
+			if($(this).parent().text() == '새상품'){
+			}else if($(this).parent().text() == '미사용'){
+			}else if($(this).parent().text() == '중고'){
+			}else if($(this).parent().text() == '전시상품'){
+			}
+		});
+		
+		
+		
+		
+		// 배송비 부담여부 이벤트 (1:판매자부담, 2:구매자부담)
+		$("input[name=dlvPayGbCd]").change(function(){
+			dlvAmtInit();
+		});
+		
+		
+		
+		// 기본출하지 변경 이벤트
+		$("#sellerGrpSelectEl").change(function(){
+			$("#addrView").html($("#sellerGrpSelectEl option:selected").attr('id'));
+		});
+		$("#sellerGrpSelectEl").trigger('change');
+		
+		
+		// 보증금 keyup
+		$("#deposit").bind('keyup', function() {
+			proc.sharingMaxTerm();
+		});
+		// 셰어링 keyup
+		$("#sharingPrice").bind('keyup',  function() {
+			proc.sharingMaxTerm();
+// 			$("#sharingPrice").focus();
+		});
+		
+		$("#deposit").on('blur', function() {
+			proc.sharingMaxTerm();
+// 			$("#sharingPrice").focus();
+			
+		});
+		
+		$("#sharingPrice").on('blur', function() {
+			proc.sharingMaxTerm();
+// 			$("#sharingPrice").focus();
+			
+		});
+		
+		// 판매금액 keyup
+		$("input[name=sellPrce]").bind('keyup input', function() {
+		});
+		// 배송비 keyup
+		$("input[name=dlvAmt]").bind('keyup input', function() {
+		});
+		proc.setYear();
+		// 년도 변경
+		$("#freeEndYear").change(function () {
+			proc.setMonth();
+		});
+		// 월 변경
+		$("#freeEndMonth").change(function () {
+			proc.setDay();
+		});
+		
+		
+		
+		// 제휴택배사 select box 선택시, 택배비 셋팅 이벤트
+  		$("#dlvCmpSelectEl").change(function(){
+  			dlvAmtInit();
+		});
+  		$("#dlvCmpSelectEl").trigger('change');
+
+  		
+  		$("input[name=sellPrce],input[name=deposit],input[name=sharingPrice],input[name=dlvAmt]").bind('keyup keydown', function(evt) {
+  			proc.deciChkFnc(this,evt);			
+		});
+  		
+	});
+	
+	
+function nanumDateValide(){
+	// 나눔신청마감일
+
+		var yearIdx = $("#freeEndYear option").index($("#freeEndYear option:selected"));
+		var monthIdx = $("#freeEndMonth option").index($("#freeEndMonth option:selected"));
+		var dayIdx = $("#freeEndDay option").index($("#freeEndDay option:selected"));
+		var freeShareEndDt = $("#freeShareEndDt").val().substr(0,8);
+		var date = new Date();
+		var year = date.getFullYear();
+		var month = date.getMonth() + 1;
+		var day = date.getDate();
+		
+		if (month < 10) {
+			month = "0"+month;
+		}
+		
+		if (day < 10) {
+			day = "0"+day;
+		}
+		var today = year+""+month+""+day;
+		
+		// 날짜 선택
+		if (yearIdx == null || yearIdx <= 0) {
+			alert("마감년도를 선택해 주세요.");
+			$("#freeEndYear").focus();
+			return false;
+		}
+		if (monthIdx == null || monthIdx <= 0) {
+			alert("마감월을 선택해 주세요.");
+			$("#freeEndMonth").focus();
+			return false;
+		}
+		if (dayIdx == null || dayIdx <= 0) {
+			alert("마감일을 선택해 주세요.");
+			$("#freeEndDay").focus();
+			return false;
+		}
+		// 날짜크기
+		if (freeShareEndDt < today) {
+			alert("나눔 신청 종료일은 오늘 날짜보다 이전일 수 없습니다.");
+			return false;
+		}
+		return true;
+}	
+
+
+var dlvAmtInit = function(){
+
+	var obj = $("#dlvAmt");
+	var readOnly = function (flag){
+		if(flag)
+			obj.prop('readonly','readonly');
+		else
+			obj.prop('readonly','');	
+	}
+	
+	readOnly(false);
+	
+	/*
+		ㄱ. 배송방식을 선택했는가
+		ㄴ. 판매자 부담인가? ==> 무조건 0원
+		ㄷ. 구매자 부담인가?
+			1. 제휴택배면, 택배사꺼 가져오기
+			2. 일반택배면, 사용자 입력받도록 처리
+	*/
+	if (getParam.dlvWayCd() == 1 || getParam.dlvWayCd() == 2 || getParam.dlvWayCd() == 4 ){
+		
+		// 1. 판매자 부담 (무조건 0원)
+		if($("input[name=dlvPayGbCd]:checked").val() == 1){
+			readOnly(true);
+			obj.val(0);
+		}
+		
+		// 2. 구매자 부담
+		else if($("input[name=dlvPayGbCd]:checked").val() == 2){
+			
+			// 1. 제휴택배  (무조건 selec box의 값 참조)
+			if(getParam.dlvWayCd() == 1){
+				readOnly(true);
+				obj.val(parseInt($("#dlvCmpSelectEl option:selected").attr("dlv_amt")));
+			}
+			// 2. 일반택배
+			else if(getParam.dlvWayCd() == 2){
+				obj.val(0);
+			}
+		}
+	}else{
+		obj.val(0);
+	}
+}
+
+
+
+function dlvWayCdChgFunc(){
+	
+	
+	
+	/*
+		dlvWayDlv : 제휴택배 + 일반택배
+		dlvWayCdOffLine : 직거래
+		dlvWayCdQuick : 퀵
+		??? : 우편등기
+ 	*/
+ 	
+	
+	// 퀵
+	$("#dlvWayCdQuick").hide();
+
+	// 직거래
+	$("#dlvWayCdOffLine").hide();
+
+	// 택배방식
+	$("#dlvWayDlv").hide();
+	// 택배방식 상세
+ 	$("#dlvTitArea").hide();
+	$("#dlvCmpArea").hide();
+		
+	// 구매자부담 판매자부담
+	$("#dlvPayGbCdArea").hide();
+	
+	// 배송비
+	$("#dlvAmtArea").hide();
+	
+	if($("#dlvWayCd li.active").text() == '제휴택배'){
+		
+		$("input[name=dlvPayGbCd]").eq(0).prop('checked','checked');
+		$("#dlvCmpSelectEl").html( getDlvOptionHtml.dlvWayOptEl() ).eq(0).prop('selected','selected').trigger('change');
+		$("#dlvWayDlv").show();
+		$("#dlvTitArea").show();
+		$("#dlvCmpArea").show();
+
+		/*
+			나눔일때 
+			1. 판매자 구매자 부담 라디오버튼 비노출 (무조건 판매자부담으로 저장)
+			2. 배송비 비노출 (부조건 0원)
+		*/
+		if(getParam.prodTypeCd()!=3){
+			$("#dlvPayGbCdArea").show();
+			$("#dlvAmtArea").show();
+		}
+		
+	}else if($("#dlvWayCd li.active").text() == '일반택배'){
+		
+		$("#dlvCmpSelectEl").html( getDlvOptionHtml.dlvAllOptEl() ).eq(0).prop('selected','selected').trigger('change');
+		$("#dlvWayDlv").show();
+		$("#dlvTitArea").show();
+		$("#dlvCmpArea").show();
+		
+		/*
+			나눔일때 
+			1. 판매자 구매자 부담 라디오버튼 비노출 (무조건 판매자부담으로 저장)
+			2. 배송비 비노출 (부조건 0원)
+		*/
+		if(getParam.prodTypeCd()!=3){
+			$("#dlvPayGbCdArea").show();
+			$("#dlvAmtArea").show();
+		}
+		
+		
+	}else if($("#dlvWayCd li.active").text() == '우편/등기'){
+		
+		
+	}else if($("#dlvWayCd li.active").text() == '퀵서비스'){
+		$("#dlvWayDlv").show();
+		$("#dlvWayCdQuick").show();
+		$("#dlvPayGbCdArea").show();
+		$("#dlvWayCdQuick").show();
+		
+	}else if($("#dlvWayCd li.active").text() == '직거래'){
+		
+		$("#dlvWayCdOffLine").show();
+		$("#dlvTitArea").show();
+		$("#dlvCmpArea").show();
+		$("#dlvAmtArea").show();
+		
+	}
+		
+}
+	
+function donTouch(event){
+	event.preventDefault();
+	console.log(this);
+	alert('클릭 ㄴㄴ');
+	return;
+}
+	
+var getDlvOptionHtml = {
+	// private 제휴택배 엘리먼트 HTML String
+	dlvWayOptEl  : function (){
+		var optElEmList = "";
+		<custom:codeList var="dlvCmpCd" groupCode="DLV_CMP_CD" />
+		<c:forEach var="list" items="${dlvCmpCd}" varStatus="status">
+			<c:forEach var="dlv" items="${relDlvInfo }">
+				<c:if test="${list.key eq dlv.DLV_CMP_CD }">
+					var opt = document.createElement("OPTION");								
+					opt.text = '${list.value}';
+					opt.value = '${list.key}';
+					opt.setAttribute("dlv_amt", '${dlv.DLV_AMT}');
+					optElEmList += opt.outerHTML;
+				</c:if>
+			</c:forEach>
+      		</c:forEach>
+
+    		$("#dlvCmpSelectEl").trigger('change');
+    		$("input[name=dlvAmt]").prop('readonly','readonly');
+		return optElEmList;
+	},
+	
+	// 일반택배 엘리먼트 HTML String
+	dlvAllOptEl : function (){
+		var optElEmList = "";
+		<custom:codeList var="dlvCmpCd" groupCode="DLV_CMP_CD" />
+		<c:forEach var="list" items="${dlvCmpCd}" varStatus="status">
+			var opt = document.createElement("OPTION");								
+			opt.text = '${list.value}';
+			opt.value = '${list.key}';
+			console.log('${list}');
+			optElEmList += opt.outerHTML;
+      	</c:forEach>				
+      	$("input[name=dlvAmt]").prop('readonly','');
+      	return optElEmList;
+	}
+}
+	
+	
+	
+
+
+var getParam = {
+	prodTypeCd: function (){
+		// 1:판매, 2:셰어링, 3:나눔
+		switch($("#prodTypeCd li.active").find('a').html()){
+			case '판매' :{return 1;} break;
+			case '셰어링' :{return 2;} break;
+			case '나눔' :{return 3;} break;
+			default: return null;
+		}
+	},
+	nProdGbCd: function(){
+		// 10:새상품, 20:미사용, 30:중고상품, 40:전시상품
+		switch($("#nProdGbCd li.active").find('a').html()){
+			case '새상품' :{return 10;} break;
+			case '미사용' :{return 20;} break;
+			case '중고' :{return 30;} break;
+			case '전시상품' :{return 40;} break;
+			default: return null;
+		}
+	},
+	dlvWayCd: function(){
+		// 1:제휴택배, 2:일반택배, 5:직거래
+		switch($("#dlvWayCd li.active").find('a').html()){
+			case '제휴택배' :{return 1;} break;
+			case '일반택배' :{return 2;} break;
+			case '우편/등기' :{return 3;} break;
+			case '퀵서비스' :{return 4;} break;
+			case '직거래' :{return 5;} break;
+			default: return null;
+		}
+	},
+	grpRegTypeFlag: function(){
+		// NEW , OLD
+		switch($("#newGrp").css('display')){
+			case 'block' :{return "NEW";} break;
+			case 'none' :{return "OLD";} break;
+			default: return null;
+		}
+	},
+	
+// 	dlvPayGbCd: function(){
+// 		// 1:구매자부담, 2:판매자부담
+// 		return $("input[name=dlvPayGbCd]:checked").val();
+// 	},
+	dlvCmpCd: function(){
+		return $("#dlvCmpSelectEl").val();
+	}
+	
+};
+	
+var page = {
+		loading : false,
+		goNextPage : function () {
+		
+
+			$("input[name=prodTypeCd]").val(getParam.prodTypeCd());				// 1:판매, 2:셰어링, 3:나눔
+			$("input[name=nProdGbCd]").val(getParam.nProdGbCd()); 				// 10:새상품, 20:미사용, 30:중고상품, 40:전시상품
+			$("input[name=dlvWayCd]").val(getParam.dlvWayCd()); 				// 1:제휴택배, 2:일반택배, 5:직거래
+			$("input[name=grpRegTypeFlag]").val(getParam.grpRegTypeFlag());		// NEW , OLD
+			$("input[name=dlvCmpCd]").val(getParam.dlvCmpCd()); 	// 택배사 코드
+			$("input[name=freeShareEndDt]").val($("#freeEndYear").val() + $("#freeEndMonth").val() + $("#freeEndDay").val());
+
+			if('4' == getParam.dlvWayCd()){
+				$("#tradLoc").val($("#tradLoc4").val());
+				
+			}else if('5' == getParam.dlvWayCd()){
+				$("#tradLoc").val($("#tradLoc5").val());
+			}
+	
+			
+			if (getParam.prodTypeCd() == "3") {
+				if (!nanumDateValide()){
+					return false;
+				}
+			}
+			
+			
+			if (page.loading==true) {
+				alert('처리중 입니다. 잠시만 기다려 주세요.');	
+				return;
+			}
+			page.loading = true;
+			
+			$("form input").each(function(){
+				console.log($(this).attr('name'));
+			});
+
+			
+			$.ajax({
+				type: "post",
+				async: true,
+				url: "/mobile/salemanage/insertSellProdInfoV2.do",
+				dataType:"json",
+				data:  $("#form").serialize(),
+				success: function(data) {
+					
+					if (data.rtn.rtnMsgCd == "Y") {
+						alert("상품 등록이 완료되었습니다.");
+
+						// 상품상세로 이동해야함
+						if('${sessionScope.APP}'=='SSOCIO'){
+							var data = '{"PROD_CODE":"'+data.rtn.prodCode+'"}';
+							document.location.replace('ssocio://web/prodRegFinish?'+encodeURIComponent(data));
+// 							document.location.replace('ssocio://web/closeWebViewAndMain');
+						}else{
+							location.href = '/mobile/prod/selectProd.do?PROD_CODE=' + data.rtn.prodCode;
+// 							location.href = '/mobile/main/main.do';
+						}
+					}
+					else {
+						alert(data.rtn.rtnMsgCd);
+						page.loading = false;
+					}
+				},
+				error: function(data, status, err) {
+					alert("상품 등록에 실패하였습니다. 다시 시도해 주세요.");
+					page.loading = false;
+				}
+			});
+				
+			
+		
+			
+		},
+		
+		// 이전 페이지 이동
+		goPrevPage : function () {
+
+				$("#movePage").val("2");
+				$("#moveBack").val("Y");
+				var url = "/mobile/salemanage/procInsertProdCommV2.do";
+				form.action = url;
+				form.submit();
+
+		}
+						
+};
+
+
+
+
+	
+// 우편번호
+function selAddr(gubun,addr,jiben_addr,road_addr){
+	
+	console.log(gubun+"|"+addr+"|"+jiben_addr+"|"+road_addr);		
+
+
+	$('.add_layer').hide(); 
+	$('#wrap div#container').show(); 
+	 if(gubun == "1"){
+			
+			$("#ADDR_GB").val(gubun); // 우편번호
+			$("#zipCode").val(addr); // 우편번호
+			$("#jusoDoro").val(road_addr);
+			$("#jusoJiben").val(jiben_addr);
+			$("#juso").val(road_addr);
+	 }else if(gubun == "2"){
+			
+		    $("#ADDR_GB").val(gubun); // 우편번호
+			$("#zipCode").val(addr); // 우편번호    
+			$("#jusoDoro").val(road_addr);
+			$("#jusoJiben").val(jiben_addr);
+			$("#juso").val(road_addr);
+	 }
+	popup_hide();
+}	// 우편번호 끝
+
+	
+
+proc = {
+		
+		maxLengthSlice : function(obj){
+			
+			
+			
+		},
+		
+		// 금액 keyup
+		numberWithCommas : function (obj) {
+// 			var len = $(obj).val().length;
+// 			var maxLen = $(obj).attr("maxLength");
+// 			// 글자수 제한
+// 			if (len > maxLen) {
+// 				$(obj).val($(obj).val().slice(0,maxLen));
+// 			}
+			
+// 			var val = $(obj).val();
+// 			$(obj).val(numberWithCommas(val));
+			
+			numberOnly(obj);
+		},
+		
+		// 금액관련
+		deciChkFnc : function(obj, evt ){
+			
+			// length 에 맞춰서 자름
+			if(evt.type == 'keydown' || evt.type=='keyup'){
+				var len = obj.getAttribute('maxlength');
+				if(len == null || len == "")
+					len = 10;
+				
+				if(obj.value.length >= len){
+					obj.value = obj.value.substring(0,len);
+				}
+				
+				if(obj.value == "") obj.value = 0;
+				obj.value=parseInt(obj.value);
+			}
+
+		},
+		
+		// 년도
+		setYear : function () {
+			
+			var date = new Date();
+			var curYear = date.getFullYear();
+			var nextYear = date.getFullYear()+5;
+			var yearHtml = "";
+			for (var i = curYear ; i < nextYear ; i++) {
+				yearHtml += "<option value='";
+				yearHtml += i;
+				yearHtml += "'>";
+				yearHtml += i+"년";
+				yearHtml += "</option>";
+			}
+			$("#freeEndYear").append(yearHtml);
+			
+		},
+		
+		// 월
+		setMonth : function () {
+			
+			var date = new Date();
+			var curMon = date.getMonth()+1;
+			
+			if (curMon < 10) {
+				curMon = "0"+curMon;
+			}
+			else {
+				curMon = curMon;
+			}
+			
+			$("#freeEndMonth option[value="+curMon+"]").attr("selected", true);	
+			
+			proc.setDay();
+		},
+		
+		// 일
+		setDay : function () {
+			
+			var year = $("#freeEndYear option:selected").val();
+			var month = $("#freeEndMonth option:selected").val();
+			var dayArr = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+			var maxDay = dayArr[month-1];  
+			var dayHtml = "";
+			
+			// 윤년 체크
+			if( month==2 &&	( year%4==0 && year%100!=0 || year%400==0 ) ) {
+				maxDay = 29;
+			}
+			
+			// 일 set
+			$("#freeEndDay").empty();
+			dayHtml += "<option value=''>일</option>";
+			for (var i = 1 ; i <= maxDay ; i++) {
+				dayHtml += "<option value='";
+				if (i < 10) {
+					dayHtml += "0"+i;
+				}
+				else {
+					dayHtml += i;
+				}
+				dayHtml += "'>";
+				dayHtml += i+"일";
+				dayHtml += "</option>";
+			}
+			$("#freeEndDay").append(dayHtml);
+		},
+		// 최대이용일 계산
+		sharingMaxTerm : function () {
+			
+			console.log(this);
+			
+			var deposit = Number($("#deposit").val().replace(/,/g, ""));
+			var sharingPrice = Number($("#sharingPrice").val().replace(/,/g, ""));
+
+			if (deposit > 0 && sharingPrice > 0) {
+				if (deposit < sharingPrice) {
+					alert("셰어링금액은 보증금보다 높은 금액으로 입력할 수 없습니다.");
+					$("#sharingPrice").val("");
+					$("#spanSharingMaxTerm").html(0);
+					return;
+				}
+
+				// 최대이용일 계산
+				var maxTerm = Math.ceil(deposit / sharingPrice);
+				$("#spanSharingMaxTerm").text(maxTerm);
+				$("#sharingMaxTerm").val(maxTerm);
+			}else{
+				$("#sharingMaxTerm").val(0);
+			}
+		
+		},
+}
+
+
+</script>
+
+
+<div id="container">
+
+<form id="form" name="form" method="post" action="">
+	<input type="hidden" id="movePage" name="movePage" value="4" />
+	<input type="hidden" id="regData" name="regData" value="" />
+	<input type="hidden" id="moveBack" name="moveBack" value="2" />
+	<input type="hidden" id="mainYn" name="mainYn" value="${inParam.mainYn }" />
+	
+	<input type="hidden" id="jusoDoro" name="jusoDoro" value=""/>
+	<input type="hidden" id="jusoJiben" name="jusoJiben" value=""/>
+	<input type="hidden" id="hdlvPay" value=""/>
+	<input type="hidden" name="prodTypeCd" value=""/>
+	<input type="hidden" name="prodStatCd" value=""/>
+	<input type="hidden" name="ctryCd" value=""/>
+	<input type="hidden" name="brandCd" value=""/>
+	<input type="hidden" name="nProdGbCd" value=""/>
+	<input type="hidden" name="dlvWayCd" value=""/>
+	<input type="hidden" name="dlvCmpCd" value=""/>
+	<input type="hidden" name="bndlDlvYn" value=""/>
+	<input type="hidden" name="freeShareEndDt" id="freeShareEndDt" value=""/>
+<!-- 	<input type="hidden" name="sharingMaxTerm" id="sharingMaxTerm" value=""/> -->
+	
+	<input type="hidden" name="grpRegTypeFlag" id="grpRegTypeFlag" value=""/>
+
+	<input type="hidden" id="tradLoc" name="tradLoc" value=""/>
+<!-- 	<input type="hidden" name="prodNm" value=""/> -->
+<!-- 	<input type="hidden" name="sellPrce" value=""/> -->
+<!-- 	<input type="hidden" name="prodPcDtl" value=""/> -->
+<!-- 	<input type="hidden" name="prodMbDtl" value=""/> -->
+<!-- 	<input type="hidden" name="dlvAmt" value=""/> -->
+	
+<!-- 	<input type="hidden" name="dlvPayGbCd" value=""/> -->
+
+
+
+<ul class="step2">
+        	<li><a href="javascript:void(0)">사진등록</a></li>
+        	<li><a href="javascript:void(0)">상품정보</a></li>
+        	<li class="active"><a href="javascript:void(0)">판매정보</a></li>
+        </ul>
+
+
+<div class="content">
+			<div class="purc_area">
+				<p class="tit"><span class="bold">상품거래 방식</span>을 선택해 주세요.</p>
+				
+				<ul class="list-tab list-deal mt10" id="prodTypeCd">
+					<li class="active"><a href="#">판매</a></li>
+					<li><a href="#">셰어링</a></li>
+					<li><a href="#">나눔</a></li>
+				</ul>
+				<div class="tooltip active">
+                    <p class="arrow"></p>
+                    <p class="box"><strong>상품을 유료로 판매합니다.</strong></p>
+                </div>
+                <div class="tooltip">
+                    <p class="arrow"></p>
+                    <p class="box"><strong>판매와 동일하지만, 구매자가 원할 경우 사용일만큼 <br/>셰어링금액을 차감하고 상품을 돌려받습니다.</strong></p>
+                </div>
+                <div class="tooltip">
+                    <p class="arrow"></p>
+                    <p class="box"><strong>신청자중 1명을 선정하여 무료로 상품을 나눠드립니다.</strong></p>
+                </div>
+			</div>
+			
+			<div class="purc_area" id="nProdGbCdArea">
+				<p class="tit"><span class="bold">판매상품의 상태</span>를 선택해주세요.</p>
+				<ul class="list-tab sell-nProd mt10" id="nProdGbCd">
+					<li class="active"><a href="#">중고</a></li>
+					<li><a href="#">새상품</a></li>
+					<li><a href="#">미사용</a></li>
+					<li><a href="#">전시상품</a></li>
+				</ul>
+				<div class="tooltip active">
+                    <p class="arrow"></p>
+                    <p class="box"><strong>상품을 사용한 상태 입니다.</strong></p>
+                </div>
+                <div class="tooltip">
+                    <p class="arrow"></p>
+                    <p class="box"><strong>포장도 뜯지 않은 상태 입니다.</strong></p>
+                </div>
+                <div class="tooltip">
+                    <p class="arrow"></p>
+                    <p class="box"><strong>포장은 뜯은 상태이나 실사용은 하지 않은 상태 입니다.</strong></p>
+                </div>
+                <div class="tooltip">
+                    <p class="arrow"></p>
+                    <p class="box"><strong>전시된 상품입니다.</strong></p>
+                </div>
+			</div>
+			
+			<div class="purc_area" id="sellDiv">
+				<p class="tit"><span class="bold">판매금액</span>을 입력해주세요. <span class="txt">(숫자만 입력 가능)</span></p>
+				<div class="tbl type4">
+	            	<table class="tbl-data">
+	                	<colgroup>
+	                    	<col width="*">
+	                    	<col width="20px">
+	                    </colgroup>
+	                    <tbody>
+	                    	<tr>
+	                            <td class="pd5">
+	                            
+	                            <input name="sellPrce" type="number" maxlength="8" class="numType" pattern="[0-9]*">
+	                            
+	                            </td>
+	                            <td class="tr">원</td>
+	                        </tr>
+	                    </tbody>
+	                </table>
+	            </div>
+			</div>
+			
+			
+			
+			<div class="purc_area"  id="sharDiv">
+	            <p class="tit"><span class="bold">보증금과 셰어링 금액</span>을 입력해주세요. <span class="txt">(숫자만 입력 가능)</span></p>
+	            <div class="tbl type4 none-bg">
+	                <table class="tbl-data tbl-deposit">
+	                    <colgroup>
+	                        <col width="30%">
+	                        <col width="*">
+	                        <col width="20px">
+	                    </colgroup>
+	                    <tbody>
+	                        <tr>
+	                            <th>보증금<br/><span>(판매가)</span></th>
+	                            <td class="pd5"><input name="deposit" id="deposit" maxlength="8"  type="number" class="deposit_num numType"  placeholder="보증금을 입력하여 주세요." pattern="[0-9]*"></td>
+	                            <td class="tr">원</td>
+	                        </tr>
+	                        <tr class="tool_deposit">
+	                            <td colspan="3">
+	                                <div class="tooltip">
+	                                    <p class="arrow"></p>
+	                                    <p class="box"><strong>보증금은 셰어링하고자 하는 제품의 중고가(판매가)를 적용하여 주시기 바랍니다.</strong></p>
+	                                </div>
+	                            </td>
+	                        </tr>
+	                        <tr>
+	                            <th>셰어링 금액<br/><span>(1일)</span></th>
+	                            <td class="pd5"><input name="sharingPrice" id="sharingPrice" maxlength="8" type="number" pattern="[0-9]*"></td>
+	                            <td class="tr">원</td>
+	                        </tr>
+	                        <tr>
+	                            <th></th>
+	                            <td colspan="2">
+	                                <div class="tbl_inner_bx">
+	                                    <span class="fl discount">셰어링 최대 이용 기간 
+	                                    	<span id="spanSharingMaxTerm">0</span>일
+	                                    </span>
+	                                </div>
+	                            </td>
+	                        </tr>
+	                    </tbody>
+	                </table>
+	            </div>
+	        </div>
+			
+			 <!-- 나눔 신청시에만 보이는 layout -->
+	        <div class="purc_area" style="display: none;" id="nanumDiv">
+	            <p class="tit"><span class="bold">나눔 신청 종료일</span>를 설정해 주세요.<br/><span class="txt">(신청시작일은 오늘입니다.)</span></p>
+	            <ul class="list-sel mt10">
+	                <li>
+	                    <select id="freeEndYear" name="freeEndYear">
+	                    	<option value="">년도</option>
+	                    </select>
+	                </li>
+	                <li>
+	                    <select id="freeEndMonth" name="freeEndMonth">
+	                    	<option value="">월</option>
+	                    	<option value="01">1월</option>
+	                    	<option value="02">2월</option>
+	                    	<option value="03">3월</option>
+	                    	<option value="04">4월</option>
+	                    	<option value="05">5월</option>
+	                    	<option value="06">6월</option>
+	                    	<option value="07">7월</option>
+	                    	<option value="08">8월</option>
+	                    	<option value="09">9월</option>
+	                    	<option value="10">10월</option>
+	                    	<option value="11">11월</option>
+	                    	<option value="12">12월</option>
+	                    </select>
+	                </li>
+	                <li>
+	                    <select id="freeEndDay" name="freeEndDay">
+		                   	<option value="">일</option>
+		                 </select>
+	                </li>
+	            </ul>
+	        </div>
+			
+			<div class="purc_area" id="dlvWayCdArea">
+			<!-- share_ship-type ,  sell-prod-->
+				<p class="tit"><span class="bold">배송 방식</span>을 선택해주세요.</p>
+				<ul class="list-tab sell-prod mt10" id="dlvWayCd">
+					<li class="active"><a href="javascript:;">제휴택배</a></li>
+					<li><a href="javascript:;">일반택배</a></li>
+					<li><a href="javascript:;">우편/등기</a></li>
+					<li><a href="javascript:;">퀵서비스</a></li>
+					<li><a href="javascript:;">직거래</a></li>
+				</ul>
+				<p id="sharTipText" class="txt-type mt10 ml10">* 셰어링 상품은 제휴택배만 이용이 가능합니다.</p>
+			</div>
+			
+			<!-- 
+				dlvWayDlv : 제휴택배 + 일반택배
+				dlvWayCdOffLine : 직거래
+				dlvWayCdQuick : 퀵
+				??? : 우편등기
+			 -->
+			
+			
+			<div class="purc_area" id="dlvWayDlv">
+				<p class="tit" id="dlvTitArea"><span class="bold">택배사</span>를 선택해주세요.</p>
+				<ul class="mt10" id="dlvCmpArea">
+	                <li>
+	                	<select id="dlvCmpSelectEl">
+	            		</select>
+					</li>
+	            </ul>
+	            <ul class="mt10" id="dlvPayGbCdArea">
+	                <li>
+	                <input id="rd1" type="radio" name="dlvPayGbCd" value="2" checked="checked"/><label for="rd1">구매자 부담</label>
+	                <input id="rd2" type="radio" name="dlvPayGbCd" value="1" class="ml10" /><label for="rd2">판매자 부담</label></li>
+	            </ul>
+	            <div class="tbl type4" id="dlvAmtArea">
+	            	<table class="tbl-data">
+	                	<colgroup>
+	                		<col width="15%">
+	                    	<col width="*">
+	                    	<col width="20px">
+	                    </colgroup>
+	                    <tbody>
+	                    	<tr>
+	                    		<th>배송비</th>
+	                            <td class="pd5"><input type="number" id="dlvAmt" name="dlvAmt" class="tr"  maxlength="8" pattern="[0-9]*"></td>
+	                            <td class="tr">원</td>
+	                        </tr>
+	                    </tbody>
+	                </table>
+	            </div>
+			</div>
+			
+
+			
+			<div class="purc_area" id="dlvWayCdQuick">
+				<p class="tit"><span class="bold">배송가능 지역</span>을 입력해 주세요.</p>
+				<ul class="mt10">
+	                <li><input type="text" id="tradLoc4" maxlength="100" placeholder="ex) 서울 전지역" /></li>
+	            </ul>
+			</div>
+			
+			<div class="purc_area" id="dlvWayCdOffLine">
+				<p class="tit"><span class="bold">거래가능 지역</span>을 입력해 주세요.</p>
+				<ul class="mt10">
+	                <li><input type="text" id="tradLoc5" maxlength="100" placeholder="ex) 서울시 강남구 대치동" /></li>
+	            </ul>
+			</div>
+
+			<!-- 판매자 주소 선택 -->
+			<div id="oldGrp" class="purc_area sell_addr_bx" style="display: ${fn:length(myDlvList) > 0? 'block':'none'} ">
+				<p class="tit"><span class="bold">판매자 주소</span>를 선택해 주세요.</p>
+				<ul class="mt10">
+	                <li>
+	                	<select id="sellerGrpSelectEl" name="grpProdSeq">
+          					<c:forEach var="list" items="${myDlvList}" varStatus="status">
+        						<option ${list.BASE_YN eq 'Y'? 'selected':'' } value="${list.GRP_PROD_SEQ}" id="[${list.ZIP_CD}] ${list.CUST_ADDR} ${list.JUSO_DTL}">${list.GRP_NM}</option>
+				      		</c:forEach>
+	            		</select>
+					</li>
+	            </ul>
+	            <div class="info">
+		            <div class="basic_addr mt10" id="addrView" ></div>
+		            <p class="txt-type mt10">* 판매자 주소 수정은 '마이페이지 > 판매관리 > 출하지 관리' 에서 가능합니다.</p>
+	            </div>
+	            <a href="javascript:$('#oldGrp').hide();$('#newGrp').show();" class="ico_write">새로 입력</a>
+			</div>
+			<!-- 판매자 주소 선택 -->
+			
+			<!-- 판매자 주소 입력 -->
+			<div id="newGrp" class="purc_area bb0" style="display:  ${fn:length(myDlvList) eq 0? 'block':'none'}">
+				<p class="tit"><span class="bold">판매자 주소</span>를 입력해 주세요.</p>
+				<ul class="add mt10">
+	                <li><input type="text" id="zipCode" name="zipCode" class="fl" readonly="readonly"> <a href="javascript:postShow()" class="btn_b fr">우편번호</a></li>
+	                <li><input type="text" id="juso" name="juso" readonly="readonly"></li>
+	                <li><input type="text" id="jusoDtl" name="jusoDtl"  maxlength="100" placeholder="상세 주소 입력"></li>
+	            </ul>
+	            
+	            <c:if test="${fn:length(myDlvList) > 0 }">
+	            	<a href="javascript:$('#oldGrp').show();$('#newGrp').hide();" class="ico_write">주소 선택</a>
+	            </c:if>
+			</div>
+			<!-- 판매자 주소 입력 -->
+			
+			
+        </div>
+
+
+		<div class="btn_enter">
+            <ul>
+            	<li><a href="javascript:page.goPrevPage();" class="btn_b-line">이전</a></li>
+            	<li><a href="javascript:page.goNextPage();" class="btn_r">등록</a></li>
+            </ul>
+        </div>
+
+
+
+</form>
+
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+		<jsp:include page="../common/sale_bottom.jsp" flush="false" />
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+		    </div>
+		    <!-- //container -->
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>

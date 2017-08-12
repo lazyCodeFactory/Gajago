@@ -1,0 +1,384 @@
+package com.ssocio.sharing.service.web;
+
+import java.math.BigDecimal;
+import java.sql.SQLException;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.ui.ModelMap;
+
+import com.ssocio.sharing.cmmn.util.CmmnCnst;
+import com.ssocio.sharing.cmmn.util.LoggerUtil;
+import com.ssocio.sharing.cmmn.util.PushUtil;
+import com.ssocio.sharing.cmmn.util.StringUtil;
+import com.ssocio.sharing.cmmn.web.util.WebMobilePaging;
+import com.ssocio.sharing.dao.web.WebBoardDao;
+
+@Service
+public class WebBoardServiceImpl implements WebBoardService {
+
+
+	// --------------------------------------------------------------------------
+	// # Log 설정
+	// --------------------------------------------------------------------------
+	private static final Logger logger = LoggerFactory.getLogger(WebBoardServiceImpl.class);
+
+	// --------------------------------------------------------------------------
+	// # DAO 설정
+	// --------------------------------------------------------------------------
+	@Resource(name="webBoardDao")
+	private WebBoardDao webBoardDao;
+
+	@Override
+	public ModelMap selectListTypeCd(String typeCd) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆SERVICE selectListQnaType START☆★☆★☆★☆★☆★☆★☆");
+
+		ModelMap mm = new ModelMap();
+		mm.put("typeCd", webBoardDao.selectListTypeCd(typeCd));
+		return mm;
+	}
+
+	/**
+	 * <pre>
+	 * 자주묻는 질문 리스트
+	 * 자주묻는 질문 리스트
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 8. 18. 오후 8:12:34
+	 * @author LeeJinSe
+	 * @see com.ssocio.sharing.service.web.WebBoardService#selectFaqList()
+	 * @비고
+	 *
+	 * </pre>
+	*/
+	@Override
+	public List<Map<String, Object>> selectListFaq(Map<String, Object> inParam) throws Exception {
+		return webBoardDao.selectFaqList(inParam);
+	}
+
+	/**
+	 * <pre>
+	 * 공지사항 리스트 가져오기
+	 * 공지사항 리스트 가져오기
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 8. 17. 오후 4:56:39
+	 * @author LeeJinSe
+	 * @see com.ssocio.sharing.service.web.WebNoticeBoradService#selectboardlist()
+	 * @비고
+	 *
+	 * </pre>
+	*/
+	@Override
+	public List<Map<String, Object>> selectListNotice() throws Exception {
+		return webBoardDao.selectListNotice();
+	}
+
+	@Override
+	public Map<String, Object> selectNotice(Map<String, Object> inParam) throws Exception {
+
+		return webBoardDao.selectNotice((String)inParam.get("BOARD_SEQ"));
+	}
+
+	/**
+	 * <pre>
+	 * 1:1문의시 기본정보 가져오기
+	 * 1:1문의시 기본정보 가져오기
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 8. 19. 오후 2:21:54
+	 * @author LeeJinSe
+	 * @see com.ssocio.sharing.service.web.WebOneBoradService#insertOneBoardInfo(java.util.Map)
+	 * @비고
+	 *
+	 * </pre>
+	*/
+	@Override
+	public ModelMap insertOneInfo(Map<String, Object> inParam) throws Exception {
+		ModelMap mm = new ModelMap();
+		Map<String,Object> resultData = new HashMap<String,Object>();
+		resultData = webBoardDao.selectUserInfo(inParam);
+		String user_phone  = (String) resultData.get("MBER_PHONE");
+		String first_phone = "";
+		String second_phone = "";
+		String third_phone = "";
+		System.out.println(user_phone);
+		if(null != user_phone){
+			if(user_phone.length() > 10){
+				first_phone = user_phone.substring(0, 3);
+				second_phone = user_phone.substring(3, 7);
+				third_phone = user_phone.substring(7);
+
+			}else{
+				first_phone = user_phone.substring(0, 3);
+				second_phone = user_phone.substring(3, 6);
+				third_phone = user_phone.substring(6);
+			}
+			logger.debug("first_phone : " + first_phone);
+			logger.debug("second_phone : " + second_phone);
+			logger.debug("third_phone : " + third_phone);
+		}
+
+
+		resultData.put("FIRST_PHONE", first_phone);
+		resultData.put("SECOND_PHONE", second_phone);
+		resultData.put("THIRD_PHONE", third_phone);
+
+		mm.put("defInfo", resultData);
+		return mm;
+	}
+
+
+	/**
+	 * <pre>
+	 * 1:1 문의 등록하기
+	 * 1:1 문의 등록하기
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 8. 19. 오후 5:35:52
+	 * @author LeeJinSe
+	 * @see com.ssocio.sharing.service.web.WebOneBoradService#insertOneBoardReg(java.util.Map)
+	 * @비고
+	 *
+	 * </pre>
+	*/
+	@Override
+	public ModelMap insertOneReg(Map<String, Object> inParam)throws Exception {
+		ModelMap mm = new ModelMap();
+		int cnt = 0;
+		try {
+			String first_phone= (String) inParam.get("FIRST_PHONE");
+			String second_phone= (String) inParam.get("SECOND_PHONE");
+			String third_phone= (String) inParam.get("THIRD_PHONE");
+
+
+			String sum_phone_number = first_phone+second_phone+third_phone;
+			inParam.put("TEL", sum_phone_number);
+
+			 cnt = webBoardDao.insertOneReg(inParam);
+//			System.out.println(test.toString());
+//			webBoardDao.insertSuspect(inParam);
+			mm.put("CNT", cnt);
+			// TODO Auto-generated method stub
+		} catch (Exception e) {
+			cnt=0;
+			throw e;
+		}
+		return mm;
+	}
+
+	@Override
+	@Transactional
+	public int insertProdQna(Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆SERVICE insertProdQna START☆★☆★☆★☆★☆★☆★☆");
+
+
+		int retVal = webBoardDao.insertProdQna(inParam);
+
+		if(retVal>0){
+			String BOARD_TYPE_CD = (String)inParam.get("BOARD_TYPE_CD");
+			logger.info("☆★☆★☆★☆★☆★☆★☆SERVICE insertProdQna BOARD_TYPE_CD☆★☆★☆★☆★☆★☆★☆"+BOARD_TYPE_CD);
+			if("72".equals(BOARD_TYPE_CD)){
+				try {
+
+
+					LoggerUtil.writeMap(inParam);
+					String toMber = webBoardDao.selectProdMberSeq(inParam);
+					PushUtil.sendPush(webBoardDao.selectPushIFUrl(), String.valueOf(inParam.get("MBER_SEQ")), toMber, "34");
+				} catch (Exception e) {
+					logger.info(e.toString());
+				}
+			}
+
+		}
+		return retVal;
+	}
+
+	@SuppressWarnings("unchecked")
+	@Override
+	public ModelMap selectListReview(String prodCode, int curPage) throws Exception{
+		ModelMap mm = new ModelMap();
+
+		int totCnt = webBoardDao.selectCountReview(prodCode);
+
+		//	페이징 클래스 initialize
+//		WebMobilePaging paging = new WebMobilePaging(totCnt, curPage, CmmnCnst.MOBILE_LIST_SIZE);
+		WebMobilePaging paging = new WebMobilePaging(totCnt, curPage, CmmnCnst.MOBILE_COMMENT_SIZE);
+
+		Map<String, Object> inParam = new HashMap<String, Object>();
+		inParam.put("PROD_CODE", prodCode);
+		inParam.put("S_NUM", paging.getStartContent());
+		inParam.put("E_NUM", paging.getEndContent());
+
+		Map<String, Object> map = webBoardDao.selectListReview(inParam);
+
+		// 아래내역은 로컬에서는 정상작동 안함 sso 개발서버 이상부터 작동하므로 참조 바람.
+		List<Map<String, Object>> list = (List<Map<String, Object>>)map.get("list");
+		for( int i=0 ; i<list.size() ; i++){
+			Map<String, Object> review = list.get(i);
+			logger.info("=================================================================== " + (String)review.get("CONTENTS"));
+			String temp = ((String)review.get("CONTENTS")).replaceAll("\r\n", "<br>");
+			logger.info("=================================================================== " + temp);
+			temp = temp.replaceAll(System.getProperty("line.separator"), "<br>");
+			logger.info("=================================================================== " + temp);
+			review.put("CONTENTS", temp);
+		}
+
+		paging.setTotCnt(((BigDecimal)map.get("CNT")).intValue());
+
+		mm.put("review", map);
+		mm.put("paging", paging);
+		return mm;
+	}
+
+	@Override
+	public ModelMap selectReview(String boardSeq) throws Exception{
+		ModelMap mm = new ModelMap();
+
+		Map<String, Object> map = webBoardDao.selectReview(boardSeq);
+
+		logger.info("=================================================================== " + (String)map.get("CONTENTS"));
+		String temp = ((String)map.get("CONTENTS")).replaceAll("\r\n", "<br>");
+		logger.info("=================================================================== " + temp);
+		temp = temp.replaceAll(System.getProperty("line.separator"), "<br>");
+		logger.info("=================================================================== " + temp);
+		map.put("CONTENTS", temp);
+
+		mm.put("review", map);
+
+		return mm;
+	}
+
+	@Override
+	public ModelMap selectReviewMod(Map<String, Object> inParam) throws Exception {
+		ModelMap mm = new ModelMap();
+		mm.put("review", webBoardDao.selectReviewMod(inParam));
+
+		return mm;
+	}
+
+	@Override
+	@Transactional
+	public int insertSuspect(Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆SERVICE insertWish START☆★☆★☆★☆★☆★☆★☆");
+
+		int retVal = webBoardDao.selectSuspect(inParam);
+
+		if( retVal == 0 ){
+			retVal = webBoardDao.insertSuspect(inParam);
+		}
+		else{
+			retVal = 0;
+		}
+
+		return retVal;
+	}
+
+	@Override
+	public ModelMap selectListComment(String prodCode, int totCnt, int curPage) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆SERVICE selectListComment START☆★☆★☆★☆★☆★☆★☆");
+
+		ModelMap mm = new ModelMap();
+
+		//	페이징 클래스 initialize
+		logger.info("@@@@@@@@@@@@@@@@@@@@@@@@@@ totCnt : " + totCnt);
+		WebMobilePaging paging = new WebMobilePaging(totCnt, curPage, CmmnCnst.MOBILE_COMMENT_SIZE);
+		Map<String, Object> inParam = new HashMap<String, Object>();
+		inParam.put("PROD_CODE", prodCode);
+		inParam.put("S_NUM", paging.getStartContent());
+		inParam.put("E_NUM", paging.getEndContent());
+
+		Map<String, Object> map = webBoardDao.selectListComment(inParam);
+
+//		List<Map<String, Object>> list = (List<Map<String, Object>>)map.get("list");
+//		for( int i=0 ; i<list.size() ; i++){
+//			Map<String, Object> review = list.get(i);
+//			String temp = ((String)review.get("CONTENTS")).replaceAll(System.getProperty("line.separator"), "<br>");
+//			logger.info("=================================================================== " + temp);
+//			review.put("CONTENTS", temp);
+//		}
+
+		mm.put("comment", map);
+		mm.put("paging", paging);
+		return mm;
+	}
+
+	@Override
+	@Transactional
+	public int insertComment(Map<String, Object> inParam) throws Exception{
+		return webBoardDao.insertComment(inParam);
+	}
+
+	@Override
+	@Transactional
+	public int updateComment(Map<String, Object> inParam) throws Exception {
+		return webBoardDao.updateComment(inParam);
+	}
+
+	@Override
+	@Transactional
+	public int deleteComment(Map<String, Object> inParam) throws Exception {
+		return webBoardDao.deleteComment(inParam);
+	}
+
+	@Override
+	public int insertSellerSuspect(Map<String, Object> inParam) throws Exception {
+logger.info("☆★☆★☆★☆★☆★☆★☆SERVICE insertWish START☆★☆★☆★☆★☆★☆★☆");
+
+		int retVal = webBoardDao.selectSellerSuspect(inParam);
+
+		if( retVal == 0 ){
+			retVal = webBoardDao.insertSellerSuspect(inParam);
+		}
+		else{
+			retVal = 0;
+		}
+
+		return retVal;
+	}
+
+
+	/**
+	 * 나눔신청 목록 가져오기
+	 */
+	@Override
+	public ModelMap selectProdNanum(String prodCode, int totCnt, int curPage) {
+		ModelMap mm = new ModelMap();
+
+		Map<String, Object> inParam = new HashMap<String, Object>();
+		System.out.println("prodCode ::::::::::::::::::::::" + prodCode);
+		inParam.put("PROD_CODE", prodCode);
+		//	페이징 클래스 initialize
+		totCnt = webBoardDao.selectCountProdNanumCnt(inParam);
+
+		WebMobilePaging paging = new WebMobilePaging(totCnt, curPage, CmmnCnst.MOBILE_LIST_SIZE);
+		System.out.println(paging.toString());
+		inParam.put("S_NUM", paging.getStartContent());
+		inParam.put("E_NUM", paging.getEndContent());
+
+
+		logger.debug("inParam : " + inParam.toString());
+
+		Map<String, Object> map = webBoardDao.selectProdNanum(inParam);
+		mm.put("comment", map);
+		mm.put("paging", paging);
+		return mm;
+	}
+
+}
+
+

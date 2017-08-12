@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="adminAgrMapper">
+	<!-- 검색조건 -->
+	<sql id="condition">  
+	    <!-- 약관구분-->
+	    <if test="AGR_GB_CD != null and AGR_GB_CD != ''">
+	      AND A.AGR_GB_CD = #{AGR_GB_CD}
+	    </if>
+	    <!-- 약관명-->
+	    <if test="AGR_NAME_CD != null and AGR_NAME_CD != ''">
+	      AND A.AGR_NAME_CD = #{AGR_NAME_CD}
+	    </if>
+	    <!-- 약관사용YN -->
+	    <if test="AGR_USE_YN != null and AGR_USE_YN != ''">
+	      AND A.AGR_USE_YN = #{AGR_USE_YN}
+	    </if>
+	</sql>
+	
+	<!-- 약관 리스트 조회 -->
+	<select id="selectListAgr" parameterType="HashMap" resultType="HashMap">
+		/*adminAgrMapper.selectListAgr*/
+		SELECT 
+			  A.AGR_SEQ			<!-- 약관일련번호 -->
+			, A.AGR_GB_CD		<!-- 약관구분 -->
+			, A.AGR_NAME_CD   	<!-- 약관종류 -->
+			, A.AGR_USE_YN    	<!-- 약관사용YN -->
+			, A.AGR_MUST_YN   	<!-- 필수동의YN -->
+			, A.REGIST_DT     	<!-- 등록일시 -->
+			, (SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'AGR_GB_CD' AND COM_CD = A.AGR_GB_CD) AGR_GB_NM 			<!-- 약관구분명 -->
+			, (SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'AGR_NAME_CD' AND COM_CD = A.AGR_NAME_CD) AGR_NAME_NM 		<!-- 약관종류명 -->
+			, TO_CHAR(A.REGIST_DT, 'YYYY-MM-DD HH24:MI')			AS REGIST_DT									<!-- 등록일 -->
+			, ROW_NUMBER() OVER(ORDER BY A.REGIST_DT ASC) 			AS NUM 											<!-- 역순 ROWNUM   -->
+			, NVL(B.AGR_VER, '-') 									AS AGR_VER										<!-- 최신버전 -->
+			, NVL(TO_CHAR(B.START_DT, 'YYYY-MM-DD HH24:MI'), '-') 	AS START_DT										<!-- 최신시작일시 -->
+		FROM 
+			AGR A
+		 , (
+              SELECT A.AGR_SEQ, A.AGR_VER, A.START_DT
+				FROM AGR_VER A
+					, (
+						SELECT MAX(AGR_VER) AGR_VER
+						     , AGR_SEQ
+						FROM AGR_VER
+						GROUP BY AGR_SEQ
+					) B
+				WHERE A.AGR_SEQ = B.AGR_SEQ
+				  AND A.AGR_VER = B.AGR_VER
+            ) B
+		WHERE A.AGR_SEQ = B.AGR_SEQ (+)
+		<include refid="condition"/>
+		ORDER BY NUM DESC
+	</select>
+	
+	<!-- 약관 상세 조회 -->
+	<select id="selectDtlAgr" parameterType="HashMap" resultType="HashMap">
+		/*adminAgrMapper.selectDtlAgr*/
+		SELECT 
+			  AGR_SEQ		<!-- 약관일련번호 -->
+			, AGR_GB_CD		<!-- 약관구분 -->
+			, AGR_NAME_CD   <!-- 약관종류 -->
+			, AGR_USE_YN    <!-- 약관사용YN -->
+			, AGR_MUST_YN   <!-- 필수동의YN -->
+			, (SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'AGR_GB_CD' AND COM_CD = AGR_GB_CD) AGR_GB_NM 			<!-- 약관구분명 -->
+			, (SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'AGR_NAME_CD' AND COM_CD = AGR_NAME_CD) AGR_NAME_NM 	<!-- 약관종류명 -->
+		FROM 
+			AGR
+		WHERE
+			AGR_SEQ = #{AGR_SEQ}
+	</select>
+	
+	<!-- 약관 상세 조회 -->
+	<select id="selectAgrVerMax" parameterType="HashMap" resultType="String">
+		/*adminAgrMapper.selectAgrVerMax*/
+		SELECT
+			  MAX(AGR_VER)	<!-- 약관버전 -->
+		FROM 
+			AGR_VER
+		WHERE AGR_SEQ = #{AGR_SEQ}
+	</select>
+	
+	<!-- 약관 상세 리스트 조회 -->
+	<select id="selectDtlListAgrVer" parameterType="HashMap" resultType="HashMap">
+		/*adminAgrMapper.selectDtlListAgrVer*/
+		SELECT
+			  AGR_SEQ		<!-- 약관일련번호 -->
+			, AGR_VER		<!-- 약관버전 -->
+			, AGR_DESC      <!-- 약관내용 -->
+			, AGR_USE_YN    <!-- 약관사용YN -->
+			, AGR_SHOW_YN   <!-- 동의노출YN -->
+			, TO_CHAR(START_DT, 'YYYY-MM-DD HH24:MI')	AS START_DT 	<!-- 적용시작일자 -->
+			, TO_CHAR(REGIST_DT, 'YYYY-MM-DD HH24:MI')	AS REGIST_DT 	<!-- 등록일 -->
+			, ROW_NUMBER() OVER(ORDER BY REGIST_DT ASC) AS NUM 			<!-- 역순 ROWNUM   -->
+		FROM 
+			AGR_VER
+		WHERE AGR_SEQ = #{AGR_SEQ}
+		ORDER BY NUM DESC
+	</select>
+	
+	<!-- 약관 상세 조회 -->
+	<select id="selectCheckDup" parameterType="HashMap" resultType="int">
+		/*adminAgrMapper.selectCheckDup*/
+		SELECT
+			  COUNT(1) AS CHK_COUNT
+		FROM 
+			AGR
+		WHERE AGR_GB_CD = #{AGR_GB_CD}
+		AND   AGR_NAME_CD = #{AGR_NAME_CD}
+	</select>
+	
+	<!-- 약관 정보 등록 -->
+	<insert id="insertAgrReg" parameterType="hashmap">
+		/*adminAgrMapper.insertAgrReg*/
+		INSERT INTO AGR (
+			  AGR_SEQ		<!-- 약관일련번호 -->
+			, AGR_GB_CD		<!-- 약관구분 -->
+			, AGR_NAME_CD   <!-- 약관종류 -->
+			, AGR_USE_YN    <!-- 약관사용YN -->
+			, AGR_MUST_YN   <!-- 필수동의YN -->
+			, REGIST_DT     <!-- 등록일시 -->
+			 )VALUES(
+			  (SELECT NVL(MAX(AGR_SEQ), 0) + 1 FROM AGR)
+			, #{AGR_GB_CD}
+			, #{AGR_NAME_CD}
+			, #{AGR_USE_YN}
+			, #{AGR_MUST_YN}
+			, SYSDATE
+			 )
+	</insert>
+	
+	<!-- 약관정보 수정 -->
+	<update id="updateAgrReg" parameterType="hashmap">
+		/*adminAgrMapper.updateAgrReg*/
+		UPDATE AGR
+		SET
+			  AGR_USE_YN  = #{AGR_USE_YN}       <!-- 약관사용YN -->
+			, AGR_MUST_YN = #{AGR_MUST_YN}      <!-- 필수동의YN -->
+		WHERE
+			AGR_SEQ = #{AGR_SEQ}				  <!-- 약관일련번호 -->
+	</update>
+	
+	<!-- 약관 정보 수정 -->
+	<update id="updateStatus" parameterType="hashmap">
+		/*adminAgrMapper.updateStatus*/
+		 UPDATE AGR_VER
+		 SET 
+			  AGR_SHOW_YN = #{AGR_SHOW_YN}        <!-- 동의노출YN -->
+		 WHERE                            
+			  AGR_SEQ = #{AGR_SEQ}				  <!-- 약관일련번호 -->
+	     AND  AGR_VER = #{AGR_VER}				  <!-- 약관버전 --> 
+	</update>
+  
+	<!-- 약관 정보 등록 -->
+	<insert id="insertAgrVerReg" parameterType="hashmap">
+		/*adminAgrMapper.insertAgrVerReg*/
+		INSERT INTO AGR_VER (
+			  AGR_SEQ		<!-- 약관일련번호 -->
+			, AGR_VER		<!-- 약관버전 -->
+			, AGR_DESC      <!-- 약관내용 -->
+			, AGR_USE_YN    <!-- 약관사용YN -->
+			, AGR_SHOW_YN   <!-- 동의노출YN -->
+			, START_DT      <!-- 적용시작일자 -->
+			, REGIST_DT     <!-- 등록일시 -->
+			, UPDT_DT       <!-- 수정일시 -->
+			 )VALUES(
+			  #{AGR_SEQ}
+			, #{AGR_VER}
+			, #{AGR_DESC}
+			, #{AGR_USE_YN}
+			, #{AGR_SHOW_YN}
+			, TO_DATE(#{START_DT}, 'yyyy-MM-dd HH24:MI')
+			, SYSDATE
+			, SYSDATE
+			 )
+	</insert>
+	
+	
+	
+</mapper>

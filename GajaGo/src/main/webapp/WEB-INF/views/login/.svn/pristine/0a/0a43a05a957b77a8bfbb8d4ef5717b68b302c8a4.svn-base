@@ -1,0 +1,1321 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="batchAdjustMapper">
+	
+	<sql id="pagingHeader">
+		SELECT * FROM (
+	</sql>
+
+	<sql id="pagingFooter">
+		)
+		WHERE NO BETWEEN #{START_ROW} AND #{END_ROW}
+	</sql>
+	
+	<!-- read 정산 tr txt 정책이 변경되어 사용안함 CONFIGURATION.XML에 정보 들어있음  -->
+	<select id="getAdjustFilePath" resultType="String">
+		SELECT	NVL(COM_CD_NM,'')
+		FROM		CODE
+		WHERE	GRP_CD = 'ADJUST_FILE_PATH'
+	</select>
+	
+	<!-- 다날 결제 정보 저장 -->
+	<insert id="insertAdjustTrInfo" parameterType="hashMap">
+		INSERT INTO ADJUST_TR_INFO (
+					TR_ID
+		,			CPID
+		,			AMT
+		,			TR_DT
+		,			SELT_GB_CD_NM
+		,			ORD_CD
+		,			REG_DTTI
+		) VALUES (
+					#{TR_ID}
+		,			#{CPID}
+		,			#{AMT}
+		,			#{TR_DT}
+		,			#{SELT_GB_CD_NM}
+		,			#{ORD_CD}
+		,			SYSDATE
+		)
+	</insert>
+	
+	<!-- 다날 결제 정보 저장 -->
+	<insert id="insertAdjustLogTr" parameterType="hashMap">
+		INSERT INTO ADJUST_LOG (
+					TR_ID
+		,			AMT
+		,			ORD_CD
+		,			REG_DTTI
+		) VALUES (
+					#{TR_ID}
+		,			#{AMT}
+		,			#{ORD_CD}
+		,			SYSDATE
+		)
+	</insert>
+
+	<!-- 다날 정산 정보 저장 -->
+	<insert id="insertAdjustPaymntInfo" parameterType="hashMap">
+		INSERT INTO ADJUST_PAYMNT_INFO (
+					IDX
+		,			BANK_CD
+		,			BANK_ACNT_NO
+		,			CRNCY
+		,			AMT
+		,			ACNT_NM
+		,			ORD_CD
+		,			PROD_CODE
+		,			STAT
+		,			RET_CD
+		,			RET_MSG
+		,			REG_DTTI
+		) VALUES (
+					SEQ_ADJUST_PAYMNT_INFO.NEXTVAL
+		,			#{BANK_CD, jdbcType=VARCHAR}
+		,			#{BANK_ACNT_NO, jdbcType=VARCHAR}
+		,			#{CRNCY, jdbcType=VARCHAR}
+		,			#{AMT}
+		,			#{ACNT_NM, jdbcType=VARCHAR}
+		,			#{ORD_CD, jdbcType=VARCHAR}
+		,			#{PROD_CODE, jdbcType=VARCHAR}
+		,			#{STAT, jdbcType=VARCHAR}
+		,			#{RET_CD, jdbcType=VARCHAR}
+		,			#{RET_MSG, jdbcType=VARCHAR}
+		,			SYSDATE
+		)
+		<selectKey keyProperty="IDX" order="AFTER" resultType="String">
+			SELECT SEQ_ADJUST_PAYMNT_INFO.CURRVAL FROM DUAL
+		</selectKey>
+	</insert>
+	
+	<!-- 다날 정산 정보 로그 저장 -->
+	<insert id="insertAdjustLog" parameterType="hashmap" >
+		INSERT INTO ADJUST_LOG (
+					SUB_IDX
+		,			BANK_CD
+		,			BANK_ACNT_NO
+		,			AMT
+		,			ACNT_NM
+		,			ORD_CD
+		,			PROD_CODE
+		,			REG_DTTI
+		) VALUES (
+					#{IDX}
+		,			#{BANK_CD}
+		,			#{BANK_ACNT_NO}
+		,			#{AMT} * -1
+		,			#{ACNT_NM}
+		,			#{ORD_CD}
+		,			#{PROD_CODE}
+		,			SYSDATE
+		)
+	</insert>
+	
+	
+	<!-- 정산대기 리스트 조회 -->
+	<select id="selectListAdjustCnt" parameterType="HashMap" resultType="int">
+		/*batchAdjustMapper.selectListAdjustCnt*/
+		SELECT 	COUNT(*)
+		FROM		ORD_INFO OI
+		JOIN		ORD_PROD_INFO OPI
+		ON		OI.ORD_CD = OPI.ORD_CD
+		JOIN		PROD P
+		ON		P.PROD_CODE = OPI.PROD_CODE
+		WHERE	P.PROD_TYPE_CD IN (1,2) /* 판매, 쉐어링 */
+		AND		(OPI.ADJ_COMP_YN IS NULL OR OPI.ADJ_COMP_YN = 'N')
+	</select>
+	
+	<select id="selectListAdjust" parameterType="HashMap" resultType="hashmap">
+		/*batchAdjustMapper.selectListAdjust*/
+		<include refid="pagingHeader" />
+		SELECT 	ROW_NUMBER() OVER(ORDER BY OPI.ORD_CD)        AS NO
+		,			OPI.PROD_CODE			AS PROD_CODE
+		,			OPI.ORD_CD				AS ORD_CD
+		,			OPI.PROD_SEQ			AS PROD_SEQ
+		FROM		ORD_INFO OI
+		JOIN		ORD_PROD_INFO OPI
+		ON		OI.ORD_CD = OPI.ORD_CD
+		JOIN		PROD P
+		ON		P.PROD_CODE = OPI.PROD_CODE
+		WHERE	P.PROD_TYPE_CD IN (1,2) /* 판매, 쉐어링 */
+		AND		(OPI.ADJ_COMP_YN IS NULL OR OPI.ADJ_COMP_YN = 'N')
+		<include refid="pagingFooter" />
+	</select>
+	
+	<select id="EXEC_PR_ADJUST_HIST" parameterType="String" statementType="CALLABLE">
+	 	EXEC PR_ADJUST_HIST(ord_cd)
+	</select>
+	
+	<update id="updateOrdInfo" parameterType="HashMap">
+		UPDATE	ORD_PROD_INFO
+		SET		ADJ_COMP_YN = 'Y'
+		WHERE	ORD_CD      = #{ORD_CD} 				       
+        AND		PROD_CODE	= #{PROD_CODE}
+        AND		PROD_SEQ	= #{PROD_SEQ}  
+	</update> 
+	
+	<select id="selectListChgRtnProcInfo" parameterType="HashMap" resultType="String">
+		SELECT	CHG_CD
+		FROM		CHG_RTN_PROC_INFO
+		WHERE	1=1 /* 정산배치완료상태확인 */
+		AND		CHG_PROC_TYPE_CD = 70 /* 반품완료 */
+	</select>
+	
+	<select id="EXEC_PR_CAL_RTN_HIST" parameterType="String" statementType="CALLABLE">
+	 	EXEC PR_CAL_RTN_HIST(chg_cd)
+	</select>
+	
+	<update id="updateChgRtnProcInfo" parameterType="String">
+		UPDATE	CHG_RTN_PROC_INFO
+		SET		MEMO = MEMO
+		WHERE	CHG_CD = #{chg_cd}
+	</update> 
+	
+	<select id="selectBatchJobCfgInfo" parameterType="String" resultType="String">
+		SELECT	BATCH_ID
+		FROM		BATCH_JOB_CFG
+		WHERE	BATCH_NM = #{batch_nm}
+	</select>
+	
+	<insert id="insertBatchJobCfg" parameterType="hashmap">
+		INSERT INTO BATCH_JOB_CFG (
+					BATCH_ID
+		,			BATCH_NM
+		,			BATCH_TERM_GB
+		,			USE_YN
+		,			RM
+		,			REGIST_DT
+		,			UPDT_DT
+		) VALUES (
+					(SELECT DECODE(COUNT(*),0,'B0000000001','B'||LPAD(SUBSTR(MAX(BATCH_ID),2)+1,10,0)) FROM BATCH_JOB_CFG)
+		,			#{batch_nm}
+		,			#{batch_term_gb}
+		,			'Y'
+		,			#{rm}
+		,			SYSDATE
+		,			SYSDATE
+		)
+	</insert>
+	
+	<select id="selectBatchJobCfgStat" parameterType="String" resultType="String">
+		SELECT	BATCH_ID
+		FROM		BATCH_JOB_CFG
+		WHERE	BATCH_NM = #{batch_nm}
+		AND		USE_YN = 'Y'
+	</select>
+	
+	<update id="updateBatchJobCfg" parameterType="hashmap">
+		UPDATE	BATCH_JOB_CFG
+		SET		UPDT_DT	= SYSDATE
+		<if test="use_yn neq null and use_yn neq ''.toString()">
+		,			USE_YN = #{use_yn}
+		</if>
+		,			RM = #{rm}
+		<if test="batch_term_gb neq null and batch_term_gb neq ''.toString()">
+		,			BATCH_TERM_GB = #{batch_term_gb}
+		</if>
+		<if test="start neq null and start neq ''.toString()">
+		,			START_DAY = TO_CHAR(SYSDATE, 'YYYYMMDD')
+		,			START_TM = TO_CHAR(SYSDATE, 'HH24MI')
+		</if>
+		WHERE	BATCH_ID = #{batch_id}
+	</update>
+	
+	<insert id="insertBatchJobHist" parameterType="hashmap">
+		INSERT INTO BATCH_JOB_HIST (
+					HIST_SEQ
+		,			JOB_DATE
+		,			BATCH_ID
+		,			START_TM
+		,			JOB_STAT
+		,			RM
+		,			REGIST_DT
+		,			UPDT_DT
+		) VALUES (
+					SEQ_BATCH_JOB_HIST.NEXTVAL
+		,			TO_CHAR(SYSDATE, 'YYYYMMDD')
+		,			#{batch_id}
+		,			TO_CHAR(SYSDATE, 'HH24MISS')
+		,			#{job_stat}
+		,			#{rm}
+		,			SYSDATE
+		,			SYSDATE
+		)
+		<selectKey keyProperty="hist_seq" resultType="String" order="AFTER">
+		SELECT	SEQ_BATCH_JOB_HIST.CURRVAL FROM DUAL
+		</selectKey>
+	</insert>
+	
+	<update id="updateBatchJobHist" parameterType="hashmap">
+		UPDATE 	BATCH_JOB_HIST
+		SET		END_TM 		= TO_CHAR(SYSDATE, 'HH24MISS')
+		,			ERR_DTL	 	= #{err_dtl}
+		,			JOB_STAT 	= #{stat}
+		,			UPDT_DT		= SYSDATE
+		WHERE	HIST_SEQ 	= #{hist_seq}
+	</update>
+	
+	<!-- 구매확정 배치 -->
+	<select id="selectOrdProdInfo" resultType="hashMap">
+		SELECT	OPI.ORD_CD
+		,       OPI.PROD_CODE
+		,       OPI.PROD_SEQ
+		,       TO_CHAR(II.DLV_END_DT + 7,'YYYYMMDD')  AS DLV_END_DT
+		FROM    ORD_PROD_INFO               OPI
+		LEFT OUTER JOIN PROD_BUY_CONF_INFO 	PBCI
+		ON		OPI.ORD_CD 					= PBCI.ORD_CD
+		AND		OPI.PROD_CODE               = PBCI.PROD_CODE
+		AND		OPI.PROD_SEQ                = PBCI.PROD_SEQ
+		AND     PBCI.CONF_GB                != 'Y'
+		JOIN		(SELECT 	ORD_CD					/* 발송완료및교환완료(정산시작일) */
+                    ,					PROD_CODE
+                    ,					PROD_SEQ
+                    ,					MAX(DLV_END_DT) 		AS DLV_END_DT
+                    FROM (	SELECT 	ORD_CD
+	                            ,       PROD_CODE
+	                            ,       PROD_SEQ
+	                            ,       DLV_END_DT
+	                            FROM    INVC_INFO
+	                            WHERE   DLV_END_DT IS NOT NULL
+	                            UNION
+	                            SELECT 	CII.ORD_CD
+	                            ,       CII.PROD_CODE
+	                            ,       CII.PROD_SEQ
+	                            ,       CII.DLV_END_DT
+	                            FROM    CHG_INVC_INFO 		CII
+	                            JOIN    CHG_PROD_INFO 		CPI
+	                            ON	    CII.CHG_CD 		    = CPI.CHG_CD
+	                            AND	    CII.ORD_CD		    = CPI.ORD_CD
+	                            AND	    CII.PROD_CODE	    = CPI.PROD_CODE
+	                            AND	    CII.PROD_SEQ	    = CPI.PROD_SEQ
+	                            AND	    CPI.PROC_STAT_CD 	= '42'				/* 교환완료 */
+	                            WHERE	CII.DLV_END_DT IS NOT NULL
+                         )
+                    GROUP BY ORD_CD, PROD_CODE, PROD_SEQ
+                    ) 								II
+		ON			II.PROD_CODE 			= OPI.PROD_CODE
+		AND			II.ORD_CD 				= OPI.ORD_CD
+		AND			II.PROD_SEQ 			= OPI.PROD_SEQ
+		WHERE	PROC_STAT_CD IN ( '23' , '42' )  /* 배송완료 , 교환완료 */
+		AND		PROD_TYPE_CD 				= '1'
+		AND		ADJ_COMP_YN 				!= 'Y'
+		AND		(PBCI.ORD_CD IS NULL
+		OR 		PBCI.PROD_CODE IS NULL
+		OR			PBCI.PROD_SEQ IS NULL
+					)
+		AND		II.DLV_END_DT &lt; TO_DATE(TO_CHAR(SYSDATE - 7,'YYYYMMDD')||'000000','YYYYMMDDHH24MISS')	
+	</select>	
+	
+	<update id="updateOrdProdInfo" >
+		UPDATE 	ORD_PROD_INFO
+		SET		PROC_STAT_CD = '99' /* 구매완료 */
+		WHERE	ORD_CD = #{ORD_CD}
+		AND		PROD_CODE = #{PROD_CODE}
+		AND		PROD_SEQ = #{PROD_SEQ}
+	</update>
+	
+	<insert id="insertProdBuyConfInfo" parameterType="hashMap">
+		INSERT INTO PROD_BUY_CONF_INFO (
+					ORD_CD
+		,			PROD_CODE
+		,			PROD_SEQ
+		,			CONF_GB
+		,			CONF_DATE
+		,			MBER_SEQ
+		,			REGIST_MBER_SN
+		,			REGIST_DT
+		,			UPDT_DT
+		) VALUES (
+					#{ORD_CD}
+		,			#{PROD_CODE}
+		,			#{PROD_SEQ}
+		,			'Y'
+		,			#{DLV_END_DT}
+		,			(SELECT MBER_SEQ FROM ORD_INFO WHERE ORD_CD = #{ORD_CD} AND ROWNUM = 1)
+		,			'SYSTEM'
+		,			SYSDATE
+		,			SYSDATE
+		)				
+	</insert>
+	
+	<!-- 스마트폰 쉐어링 배송완료 -> 쉐어링 중 상태 변경 배치 -->
+	<select id="selectOrdProdInfoForSp" resultType="hashMap">
+		SELECT 	OPI.ORD_CD
+		,			OPI.PROD_CODE
+		,			OPI.PROD_SEQ
+		,			CASE WHEN OPI.PROC_STAT_CD = '23' /* 배송완료 */
+						   THEN '10'
+						   WHEN OPI.PROC_STAT_CD = '42' /* 교환완료 */
+						   THEN '30'
+					END					HIST_GB_CD
+		FROM		ORD_PROD_INFO OPI
+		JOIN		(SELECT 	ORD_CD					/* 발송완료및교환완료(정산시작일) */
+                    ,					PROD_CODE
+                    ,					PROD_SEQ
+                    ,					MAX(DLV_END_DT) 		AS DLV_END_DT
+                    FROM (	SELECT 	ORD_CD
+	                            ,       PROD_CODE
+	                            ,       PROD_SEQ
+	                            ,       DLV_END_DT
+	                            FROM    INVC_INFO
+	                            WHERE   DLV_END_DT IS NOT NULL
+	                            AND		DLV_STAT_CD = '20' /* 배송완료 */
+	                            UNION
+	                            SELECT 	CII.ORD_CD
+	                            ,       CII.PROD_CODE
+	                            ,       CII.PROD_SEQ
+	                            ,       CII.DLV_END_DT
+	                            FROM    CHG_INVC_INFO 		CII
+	                            JOIN    CHG_PROD_INFO 		CPI
+	                            ON	    CII.CHG_CD 		    = CPI.CHG_CD
+	                            AND	    CII.ORD_CD		    = CPI.ORD_CD
+	                            AND	    CII.PROD_CODE	    = CPI.PROD_CODE
+	                            AND	    CII.PROD_SEQ	    = CPI.PROD_SEQ
+	                            AND	    CPI.PROC_STAT_CD 	= '42'				/* 교환완료 */
+	                            WHERE	CII.DLV_END_DT IS NOT NULL
+                         )
+                    GROUP BY ORD_CD, PROD_CODE, PROD_SEQ
+                    ) 								II
+		ON			II.PROD_CODE 			= OPI.PROD_CODE
+		AND			II.ORD_CD 				= OPI.ORD_CD
+		AND			II.PROD_SEQ 			= OPI.PROD_SEQ
+		WHERE	OPI.PROD_TYPE_CD 		= '4' 					/* 스마트폰 쉐어링 */
+		AND		OPI.PROC_STAT_CD 		IN ('23','42')  		 /* 배송, 교환 완료 */
+		AND		II.DLV_END_DT &lt; TO_DATE(TO_CHAR(SYSDATE - 7,'YYYYMMDD')||'000000','YYYYMMDDHH24MISS')	
+	</select>
+	
+	<update id="updateOrdProdInfoForSp" parameterType="hashMap">
+		UPDATE 	ORD_PROD_INFO
+		SET		PROC_STAT_CD 	= '85'
+		,			UPDT_DT 			= SYSDATE
+		WHERE	ORD_CD 			= #{ORD_CD}
+		AND		PROD_CODE 		= #{PROD_CODE}
+		AND		PROD_SEQ 		= #{PROD_SEQ}
+		AND		OPI.PROC_STAT_CD IN ('23','42') 
+		AND		PROD_TYPE_CD 	= '4'
+	</update>
+	
+	<insert id="insertOrdProdInfoHist" parameterType="hashmap">
+		INSERT INTO ORD_PROD_INFO_HIST (
+				ORD_CD
+		,		PROD_CODE
+		,		PROD_SEQ
+		,		PROC_SEQ
+		,		PROC_STAT_CD
+		,		ADM_ID
+		,		REGIST_DT
+		,		HIST_GB_CD
+		,		ORG_CD
+		) VALUE (
+				#{ORD_CD}
+		,		#{PROD_CODE}
+		,		#{PROD_SEQ}
+		,		1
+		,		'85'
+		,		'SYSTEM'
+		,		SYSDATE
+		,		#{HIST_GB_CD}
+		,		#{ORD_CD}
+		)
+	</insert>
+	
+	
+	<insert id="insertAdjustHist" parameterType="hashmap">
+		INSERT INTO ADJUST_HIST (
+				MBER_SEQ
+		,		MBER_GB_CD
+		,		ORD_CD
+		,		PROD_CD
+		,		PROD_SEQ
+		,		CTRY_CD
+		,		PROD_NM
+		,		SELL_PRCE
+		,		DEPOSIT
+		,		SHARE_TERM
+		,		ORD_QTY
+		,		SELT_GB_CD
+		,		OPT_PRCE_SUM
+		,		SELL_PRCE_SUM
+		,		CMTN
+		,		DNL_CMTN
+		,		DNL_CMTN_RATE
+		,		DNL_CMTN_RATE_NM
+		,		BILL_CMTN
+		,		ORD_AMT
+		,		DLV_PRCE
+		,		DSCNT_TOT_AMT
+		,		POINT_USE_AMT
+		,		CPN_USE_AMT
+		,		DSCNT_CASH_AMT
+		,		DSCNT_RATE_AMT
+		,		DSCNT_DLV_AMT
+		,		DSCNT_CASH_DNL_AMT
+		,		DSCNT_RATE_DNL_AMT
+		,		DSCNT_DLV_DNL_AMT
+		,		DSCNT_DNL_AMT
+		,		DSCNT_SEL_AMT
+		,		RTN_TO_SEL_DPST
+		,		DNL_AMT
+		,		ADJ_AMT
+		,		PROD_TYPE_CD
+		,		PLAN_YN
+		,		ORD_AGNT_CD
+		,		CNF_YMD
+		,		CNF_TMS
+		,		ODR_YMD
+		,		ODR_TMS
+		,		CHG_YMD
+		,		CHG_TMS
+		,		RTN_YMD
+		,		RTN_TMS
+		,		ADJ_EXP_YMD
+		,		CMP_SHARE_YMD
+		,		REG_YMD
+		,		REG_TMS
+		,       REGIST_DT
+		)
+		SELECT	MBER_SEQ
+		,		MBER_GB_CD
+		,		ORD_CD
+		,		PROD_CD
+		,		PROD_SEQ
+		,		CTRY_CD
+		,		PROD_NM
+		,		SELL_PRCE
+		,		DEPOSIT
+		,		SHARE_TERM
+		,		ORD_QTY
+		,		SELT_GB_CD
+		,		OPT_PRCE_SUM
+		,		SELL_PRCE_SUM
+		,		CMTN
+		,		DNL_CMTN
+		,		DNL_CMTN_RATE
+		,		DNL_CMTN_RATE_NM
+		,		BILL_CMTN
+		,		ORD_AMT
+		,		DLV_PRCE
+		,		DSCNT_TOT_AMT
+		,		POINT_USE_AMT
+		,		CPN_USE_AMT
+		,		DSCNT_CASH_AMT
+		,		DSCNT_RATE_AMT
+		,		DSCNT_DLV_AMT
+		,		DSCNT_CASH_DNL_AMT
+		,		DSCNT_RATE_DNL_AMT
+		,		DSCNT_DLV_DNL_AMT
+		,		DSCNT_DNL_AMT
+		,		DSCNT_SEL_AMT
+		,		RTN_TO_SEL_DPST
+		,		DNL_AMT
+		,		ADJ_AMT
+		,		PROD_TYPE_CD
+		,		PLAN_YN
+		,		ORD_AGNT_CD
+		,		CNF_YMD
+		,		CNF_TMS
+		,		ODR_YMD
+		,		ODR_TMS
+		,		CHG_YMD
+		,		CHG_TMS
+		,		RTN_YMD
+		,		RTN_TMS
+		,		ADJ_EXP_YMD
+		,		CMP_SHARE_YMD
+		,		REG_YMD
+		,		REG_TMS
+		,       SYSDATE
+		FROM (
+				SELECT 	Z.*
+				,  	    SELL_PRCE_SUM + ABS(DLV_PRCE) - DNL_CMTN - DSCNT_SEL_AMT
+				+ 	    CASE 	WHEN DLV_PRCE &lt; 0 /* 제휴택배이용X */
+							    THEN DLV_PRCE
+							    ELSE 0
+				        END	   													                        AS ADJ_AMT
+				FROM (
+						SELECT  Y.*													
+						,	    DNL_CMTN /*+ BILL_CMTN*/											    AS CMTN						        /* 통신판매수수료 */
+						,       SELL_PRCE_SUM - (DNL_CMTN /*+ BILL_CMTN*/)                              AS ORD_AMT           	            /* 판매금액 */
+						,  	    DSCNT_CASH_AMT + DSCNT_RATE_AMT + DSCNT_DLV_AMT            			    AS DSCNT_TOT_AMT
+						,	    DSCNT_CASH_MKT_AMT + DSCNT_RATE_MKT_AMT + DSCNT_DLV_MKT_AMT			    AS DSCNT_SEL_AMT	
+						,	    DSCNT_CASH_DNL_AMT + DSCNT_RATE_DNL_AMT + DSCNT_DLV_DNL_AMT 		    AS DSCNT_DNL_AMT
+						,	    DNL_CMTN /*+ BILL_CMTN*/ - (DSCNT_CASH_DNL_AMT + DSCNT_RATE_DNL_AMT + DSCNT_DLV_DNL_AMT) /*+ POINT_USE_AMT*/
+						+ 	    CASE WHEN DLV_PRCE &lt; 0 /* 제휴택배이용시 */
+								     THEN DLV_PRCE * -1
+								     ELSE 0
+							    END                                                                     AS DNL_AMT                          /* 포인트 공제를 제외한 다날 수익금 */
+						FROM (
+								SELECT	X.*
+								,       (SELL_PRCE_SUM - (DSCNT_CASH_AMT + DSCNT_RATE_AMT)) * DNL_CMTN_RATE * 0.01      AS DNL_CMTN         /* 통신판수수료 */
+								FROM    (
+										SELECT	P.MBER_SEQ								                AS MBER_SEQ
+										,	    MI.MBER_GB_CD										    AS MBER_GB_CD
+										,     	OI.ORD_CD                                               AS ORD_CD            			    /*주문번호 */
+										,       OPI.PROD_CODE                                           AS PROD_CD          			    /* 상품코드 */
+										,       OPI.PROD_SEQ                                            AS PROD_SEQ           				/* 상품넘버 */
+										,       P.PROD_NM                                               AS PROD_NM         			        /* 상품명 */
+										/** 주문 정보 **/
+										,       OPI.PROD_PRCE                                           AS PROD_PRCE        			    /*상품금액(판매금액) 비교값 */
+										,       P.SELL_PRCE                                             AS SELL_PRCE          				/*상품금액(판매금액) */
+										,       OPI.ORD_QTY                                             AS ORD_QTY           		        /* 주문수량 */
+										,       OI.SELT_GB_CD                                           AS SELT_GB_CD       			    /* 결재방법코드 */
+										,       OPI.PROD_ORD_AMT                                        AS SELL_PRCE_SUM    			    /* 주문금액 */
+										,	    P.CTRY_CD											    AS CTRY_CD						    /*카테고리코드 */
+										,     	P.PROD_TYPE_CD										    AS PROD_TYPE_CD
+										,	    'N'												        AS PLAN_YN						    /* 기획전여부 */
+										,	    CGC.COM_CD											    AS ORD_AGNT_CD					    /* 구매유입경로 */
+										,	    0													    AS DEPOSIT						    /* 판매경우보증금없음 */
+										,	    0													    AS RTN_TO_SEL_DPST 				    /* 판매경우회수보증금없음 */
+										,	    0													    AS SHARE_TERM       			    /* 판매경우쉐어링기간없음 */
+										,	    ''												        AS RTN_YMD						    /*판매경우반납/회수년월일없음 */
+										,	    ''													    AS RTN_TMS						    /* 판매경우반납/회수시분초없음 */
+										,	    ''													    AS CMP_SHARE_YMD				    /* 판매경우쉐어링완료기간없음 */
+										/** 판매 정보 **/
+										,       CASE WHEN P.PROD_TYPE_CD = 6 AND OPI.TAX_PLAN IS NOT NULL AND OPI.TAX_PLAN &gt; 0                                   /* 기획전확인조건(임시) */
+												     THEN CASE WHEN OPI.TAX_PLAN &lt; 1 THEN OPI.TAX_PLAN * 100 ELSE OPI.TAX_PLAN END /* OPI.TAX_PLAN  0.01 */
+												     ELSE CASE WHEN OPI.TAX_PROD IS NOT NULL AND OPI.TAX_PROD &gt; 0						    /* 상품수수료 */
+													           THEN CASE WHEN OPI.TAX_PROD &lt; 1 THEN OPI.TAX_PROD * 100 ELSE OPI.TAX_PROD END /* OPI.TAX_PROD * 100 */
+														       WHEN OPI.TAX_SELLER IS NOT NULL AND OPI.TAX_SELLER &gt; 0       							/* 판매자수수료 */
+														       THEN CASE WHEN OPI.TAX_SELLER &lt; 1 THEN OPI.TAX_SELLER * 100 ELSE OPI.TAX_SELLER END /* OPI.TAX_SELLER * 100 */
+														       ELSE ( CASE WHEN OPI.PROD_TYPE_CD = 1 AND OPI.TAX_CTRY IS NOT NULL AND OPI.TAX_CTRY &gt; 0     /* 카테고리수수료 */
+														                   THEN CASE WHEN OPI.TAX_CTRY &lt; 1 THEN OPI.TAX_CTRY * 100 ELSE OPI.TAX_CTRY END /* OPI.TAX_CTRY */  /** 0.01 */
+														                   ELSE 0
+														              END )
+														  END
+											    END  	    									        AS DNL_CMTN_RATE     				/* 통신판수수료율 */
+										,       CASE WHEN P.PROD_TYPE_CD = 6 AND OPI.TAX_PLAN IS NOT NULL AND OPI.TAX_PLAN &gt; 0                                    /* 기획전확인조건(임시) */
+												     THEN 'TAX_PLAN'
+												     ELSE CASE WHEN	OPI.TAX_PROD IS NOT NULL AND OPI.TAX_PROD &gt; 0						    /* 상품수수료 */
+														       THEN	'TAX_PROD'
+														       WHEN	OPI.TAX_SELLER IS NOT NULL AND OPI.TAX_SELLER &gt; 0       					        /* 판매자수수료 */
+														       THEN 'TAX_SELLER'
+														       ELSE ( CASE 	WHEN OPI.PROD_TYPE_CD = 1 AND OPI.TAX_CTRY IS NOT NULL AND OPI.TAX_CTRY &gt; 0    /* 카테고리수수료 */
+														                    THEN 'TAX_SELL' /** 0.01 */
+														                    ELSE ''
+														               END )
+														   END
+											    END  	    										    AS DNL_CMTN_RATE_NM     			/* 통신판수수료 */										
+										,	    (OPI.PROD_ORD_AMT - NVL(OI.POINT_USE_AMT,0)) * C.COM_CD_VAL * 0.01 	/* 결제 수수료 */           AS BILL_CMTN           	/* 결재수수료 */
+										,       CASE WHEN OPI.DLV_PAY_F_CD = '10' AND BDY.BNDL_DLY_CNT IS NOT NULL AND BDY.NO IS NOT NULL AND BDY.BNDL_DLY_CNT = BDY.NO 	/* 택배비선결재 AND 묶음 배송 마지막 상품 */
+													 THEN CASE 	WHEN P.DLV_WAY_CD = '1'  									                /* 제휴택배 이용시 */
+															    THEN BDY.DLV_PRCE * -1 										                /* 판매자에게 정산안함 */
+															    ELSE BDY.DLV_PRCE      										                /* 판매자에게 정산 */
+														  END
+												     WHEN OPI.DLV_PAY_F_CD = '10' AND (BDY.BNDL_DLY_CNT IS NULL OR BDY.NO IS NULL)
+													 THEN (	CASE 	WHEN P.DLV_WAY_CD = '1'  									            /* 제휴택배 이용시 */
+																    THEN OPI.DLV_PRCE * -1 										            /* 판매자에게 정산안함 */
+																    ELSE OPI.DLV_PRCE      										            /* 판매자에게 정산 */
+														    END )
+												    ELSE 0
+										 	    END                                                     AS DLV_PRCE                		    /* 배송비 */
+										/** 할인 정보 **/
+										,	    NVL(OI.POINT_USE_AMT,0)								    AS POINT_USE_AMT      				/* 포인트할인 */
+										,       NVL(OPI.CPN_USE_AMT,0)		                            AS CPN_USE_AMT        				/* 할인총액 */
+										,       CASE WHEN /*CI.CPN_GB_CD != 20 AND*/ CI.BNFIT_CHK = 'A' 			/* 금액할인 */
+										             THEN CI.BNFIT_DSCNT_PRCE
+										             ELSE 0
+										        END                                                     AS DSCNT_CASH_AMT    			    /* 금액할인 */
+										,       CASE WHEN /*CI.CPN_GB_CD != 20 AND*/ CI.BNFIT_CHK = 'B' 			/* 비율할인 */
+										             THEN (CASE WHEN OPI.PROD_ORD_AMT * CI.BNFIT_DSCNT_RATE * 0.01 &lt; CI.BNFIT_MAX_DSCNT_PRCE
+										                        THEN OPI.PROD_ORD_AMT * CI.BNFIT_DSCNT_RATE * 0.01
+										                        ELSE CI.BNFIT_MAX_DSCNT_PRCE
+										                        END )
+										             ELSE 0
+										        END                                                     AS DSCNT_RATE_AMT  					/* 비율할인 */
+										,       CASE WHEN BDY.BNDL_DLY_CNT IS NOT NULL AND BDY.NO IS NOT NULL AND BDY.BNDL_DLY_CNT = BDY.NO
+													 THEN CASE WHEN /*CI.CPN_GB_CD != 20 AND*/ CI.DELY_FREE_CHK = 'A'      	                /* 배송비 무료 */
+															   THEN NVL(BDY.DLV_PRCE,0)
+															   WHEN /*CI.CPN_GB_CD != 20 AND*/ CI.DELY_FREE_CHK = 'B' AND NVL(BDY.DLV_PRCE,0) &gt; 0    /* 배송비 금액 할인 */
+															   THEN  CASE WHEN BDY.DLV_PRCE &gt; CI.BNFIT_DSCNT_PRCE                                    /* 배송비가 금액할인 보다 큰 경우 */
+															      	      THEN CI.BNFIT_DSCNT_PRCE                                            			/* 배송비가 금액할인 보다 작은 경우 */
+															      	      ELSE BDY.DLV_PRCE
+															      	  END
+															    ELSE 0
+														  END
+										      		 ELSE CASE WHEN /*CI.CPN_GB_CD != 20 AND*/ CI.DELY_FREE_CHK = 'A'      	                /* 배송비 무료 */
+															   THEN NVL(OPI.DLV_PRCE,0)
+															   WHEN /*CI.CPN_GB_CD != 20 AND*/ CI.DELY_FREE_CHK = 'B' AND NVL(OPI.DLV_PRCE,0) &gt; 0    /* 배송비 금액 할인 */
+															   THEN  CASE WHEN OPI.DLV_PRCE &gt; CI.BNFIT_DSCNT_PRCE                        /* 배송비가 금액할인 보다 큰 경우 */
+															      	      THEN CI.BNFIT_DSCNT_PRCE                                          /* 배송비가 금액할인 보다 작은 경우 */
+															      	      ELSE OPI.DLV_PRCE
+															      	 END
+															   ELSE 0
+										      			  END
+										      	END                                                     AS DSCNT_DLV_AMT  				    /* 배송비할인 */
+										/** 할인 분담 **/
+										,       CASE WHEN /*CI.CPN_GB_CD != 20 AND*/ CI.BNFIT_CHK = 'A' 			                        /* 금액할인 */
+										             THEN CI.BNFIT_DSCNT_PRCE * CI.DANAL_BURDEN * 0.01
+										             ELSE 0
+										        END                                                     AS  DSCNT_CASH_DNL_AMT    		    /* 금액할인다날부담금 */
+										,       CASE WHEN /*CI.CPN_GB_CD != 20 AND*/ CI.BNFIT_CHK = 'A' 			                        /* 금액할인 */
+										             THEN CI.BNFIT_DSCNT_PRCE * CI.MARKET_BURDEN * 0.01
+										             ELSE 0
+										        END                                                     AS  DSCNT_CASH_MKT_AMT    		    /* 금액할인판매자부담금 */
+										,       CASE WHEN /*CI.CPN_GB_CD != 20 AND*/ CI.BNFIT_CHK = 'B' 			                        /* 비율할인 */
+										             THEN CASE WHEN OPI.PROD_ORD_AMT *  CI.BNFIT_DSCNT_RATE * 0.01 &lt; CI.BNFIT_MAX_DSCNT_PRCE
+										                       THEN OPI.PROD_ORD_AMT *  CI.BNFIT_DSCNT_RATE * 0.01 * CI.DANAL_BURDEN * 100
+										                       ELSE CI.BNFIT_MAX_DSCNT_PRCE * CI.DANAL_BURDEN * 0.01
+										                       END
+										             ELSE 0
+										        END                                                	    AS   DSCNT_RATE_DNL_AMT             /* 비율할인다날부담금 */
+										,       CASE WHEN /*CI.CPN_GB_CD != 20 AND*/ CI.BNFIT_CHK = 'B' 			                        /* 비율할인 */
+										             THEN CASE WHEN OPI.PROD_ORD_AMT *  CI.BNFIT_DSCNT_RATE * 0.01 &lt; CI.BNFIT_MAX_DSCNT_PRCE
+										                       THEN OPI.PROD_ORD_AMT *  CI.BNFIT_DSCNT_RATE * 0.01 * CI.MARKET_BURDEN * 100
+										                       ELSE CI.BNFIT_MAX_DSCNT_PRCE * CI.MARKET_BURDEN * 0.01
+										                       END
+										             ELSE 0
+										        END                                                	    AS   DSCNT_RATE_MKT_AMT             /* 비율할인판매자부담금 */
+										,       CASE WHEN BDY.BNDL_DLY_CNT IS NOT NULL AND BDY.NO IS NOT NULL AND BDY.BNDL_DLY_CNT = BDY.NO
+																 THEN CASE WHEN /*CI.CPN_GB_CD != 20 AND*/ CI.DELY_FREE_CHK = 'A'           /* 배송비 무료 */
+															             THEN  NVL(BDY.DLV_PRCE,0) * CI.DANAL_BURDEN * 0.01
+															             WHEN /*CI.CPN_GB_CD != 20 AND*/ DELY_FREE_CHK = 'B' AND NVL(BDY.DLV_PRCE,0) &gt; 0 /* 배송비 금액 할인 */
+															             THEN  CASE WHEN BDY.DLV_PRCE &gt; CI.BNFIT_DSCNT_PRCE              /* 배송비가 금액할인 보다 큰 경우 */
+															                        THEN CI.BNFIT_DSCNT_PRCE * CI.DANAL_BURDEN * 0.01       /* 배송비가 금액할인 보다 작은 경우 */
+															                        ELSE BDY.DLV_PRCE * CI.DANAL_BURDEN * 0.01
+															                   END
+															             ELSE 0
+															       	END
+										      			 ELSE CASE WHEN /*CI.CPN_GB_CD != 20 AND*/ CI.DELY_FREE_CHK = 'A'                   /* 배송비 무료 */
+															             THEN  NVL(OPI.DLV_PRCE,0) * CI.DANAL_BURDEN * 0.01
+															             WHEN /*CI.CPN_GB_CD != 20 AND*/ DELY_FREE_CHK = 'B' AND NVL(OPI.DLV_PRCE,0) &gt; 0     /* 배송비 금액 할인 */
+															             THEN  CASE WHEN OPI.DLV_PRCE &gt; CI.BNFIT_DSCNT_PRCE              /* 배송비가 금액할인 보다 큰 경우 */
+															                        THEN CI.BNFIT_DSCNT_PRCE * CI.DANAL_BURDEN * 0.01       /* 배송비가 금액할인 보다 작은 경우 */
+															                        ELSE OPI.DLV_PRCE * CI.DANAL_BURDEN * 0.01
+															                   END
+															             ELSE 0
+															       	END
+										      	END  												    AS DSCNT_DLV_DNL_AMT                /* 배송비할인다날부담금 */
+										,       CASE WHEN BDY.BNDL_DLY_CNT IS NOT NULL AND BDY.NO IS NOT NULL AND BDY.BNDL_DLY_CNT = BDY.NO
+																 THEN CASE WHEN /*CI.CPN_GB_CD != 20 AND*/ CI.DELY_FREE_CHK = 'A'           /* 배송비 무료 */
+															             THEN  NVL(BDY.DLV_PRCE,0) * CI.MARKET_BURDEN * 0.01
+															             WHEN /*CI.CPN_GB_CD != 20 AND*/ DELY_FREE_CHK = 'B' AND NVL(BDY.DLV_PRCE,0) &gt; 0 /* 배송비 금액 할인 */
+															             THEN  CASE WHEN BDY.DLV_PRCE &gt; CI.BNFIT_DSCNT_PRCE              /* 배송비가 금액할인 보다 큰 경우 */
+															                        THEN CI.BNFIT_DSCNT_PRCE * CI.MARKET_BURDEN * 0.01      /* 배송비가 금액할인 보다 작은 경우 */
+															                        ELSE BDY.DLV_PRCE * CI.MARKET_BURDEN * 0.01
+															                   END
+															             ELSE 0
+															       	END
+										      			 ELSE CASE WHEN /*CI.CPN_GB_CD != 20 AND*/ CI.DELY_FREE_CHK = 'A'                   /* 배송비 무료 */
+															             THEN  NVL(OPI.DLV_PRCE,0) * CI.MARKET_BURDEN * 0.01
+															             WHEN /*CI.CPN_GB_CD != 20 AND*/ DELY_FREE_CHK = 'B' AND NVL(OPI.DLV_PRCE,0) &gt; 0 /* 배송비 금액 할인 */
+															             THEN  CASE WHEN OPI.DLV_PRCE &gt; CI.BNFIT_DSCNT_PRCE              /* 배송비가 금액할인 보다 큰 경우 */
+															                        THEN CI.BNFIT_DSCNT_PRCE * CI.MARKET_BURDEN * 0.01      /* 배송비가 금액할인 보다 작은 경우 */
+															                        ELSE OPI.DLV_PRCE * CI.MARKET_BURDEN * 0.01
+															                   END
+															             ELSE 0
+															       	END
+										      	END  												    AS DSCNT_DLV_MKT_AMT                /* 배송비할인판매자부담금 */
+										,	    NVL(OPOI.OPT_PRCE_SUM, 0)					            AS OPT_PRCE_SUM					    /* 추가옵션금액합 */
+										,	    TO_CHAR(SYSDATE + 11 - TO_CHAR(SYSDATE,'D')	, 'YYYYMMDD')   AS ADJ_EXP_YMD
+										,	    PBCI.CONF_DATE					                        AS CNF_YMD					        /* 구매확정년월일 */
+										,	    '000000'                        					    AS CNF_TMS					        /* 구매확정시분초 */
+										,       TO_CHAR(OI.ORD_REG_DATE, 'YYYYMMDD')     			    AS ODR_YMD       		            /* 주문년월일 */
+										,       TO_CHAR(OI.ORD_REG_DATE, 'HH24MISS')     			    AS ODR_TMS        	                /* 주문시분초 */
+										,       TO_CHAR(SYSDATE, 'YYYYMMDD')     					    AS CHG_YMD       		            /* 주문년월일 */
+										,       TO_CHAR(SYSDATE, 'HH24MISS')     					    AS CHG_TMS        		            /* 주문시분초 */
+										,       TO_CHAR(SYSDATE, 'YYYYMMDD')     					    AS REG_YMD       		            /* 주문년월일 */
+										,       TO_CHAR(SYSDATE, 'HH24MISS')     					    AS REG_TMS        		            /* 주문시분초 */
+										FROM   	ORD_INFO 		        OI                         	    /* 주문정보 */
+										JOIN    ORD_PROD_INFO 		    OPI                      	    /* 주문상품정보 */
+										ON      OPI.ORD_CD       	    = OI.ORD_CD								
+										LEFT OUTER JOIN ORD_CANC_INFO   OCI
+										ON	    OPI.CANC_CD             = OCI.CANC_CD    
+										LEFT OUTER JOIN CODE		    C
+										ON	    C.COM_CD                = OI.SELT_GB_CD
+										AND	    C.GRP_CD			    = 'TAX_INFO'
+										AND	    C.USE_YN			    = 'Y'
+										LEFT OUTER JOIN CODE			CGC
+										ON	    CGC.GRP_CD				= 'CON_GB_CD'
+										AND	    CGC.COM_CD				= OI.CON_GB_CD
+										AND	    CGC.USE_YN				= 'Y'
+										LEFT OUTER JOIN MBER_CPN_INFO   MCI
+										ON      MCI.MBER_SEQ   		    = OI.MBER_SEQ
+										AND     MCI.CPN_NO       	    = OPI.PROD_CPN_CD
+										LEFT OUTER JOIN    CPN_INFO     CI
+										ON      CI.CPN_GRP_CD    	    = MCI.CPN_GRP_CD
+										JOIN    PROD 				    P                     		    /*상품정보 */
+										ON      P.PROD_CODE   		    = OPI.PROD_CODE
+										AND	    P.PROD_TYPE_CD		    = OPI.PROD_TYPE_CD
+										JOIN  	MBER_INFO 				MI
+										ON	    MI.MBER_SEQ 			= P.MBER_SEQ
+										AND	    MI.MBER_REG_GB_CD       = '1'						    /* 판매회원 */
+										JOIN    PROD_BUY_CONF_INFO      PBCI                            /* 상품주문확정정보 */
+										ON      OPI.ORD_CD				= PBCI.ORD_CD
+										AND    	OPI.PROD_CODE  		    = PBCI.PROD_CODE
+										AND     OPI.PROD_SEQ     	    = PBCI.PROD_SEQ
+										LEFT OUTER JOIN    SELLER_INFO_CFG 	SIC
+										ON      SIC.MBER_SEQ     	    = P.MBER_SEQ
+										LEFT OUTER JOIN CTRY     	    CT
+										ON     	CT.CTRY_CD 				= P.CTRY_CD
+										LEFT OUTER JOIN ( 
+										            SELECT 	OPOI.ORD_CD
+													, 	    OPOI.PROD_CODE
+													, 	    OPOI.PROD_SEQ
+													, 	    SUM(OPOI.OPT_QTY * PO.OPT_PRCE)             AS OPT_PRCE_SUM																	
+													FROM    ORD_PROD_OPT_INFO OPOI
+													JOIN    PROD_OP         PO
+													ON	    OPOI.OPT_CD     = PO.OPT_CD
+													JOIN    PROD_OP_INFO    POI
+													ON	    POI.PROD_CODE   = OPOI.PROD_CODE
+													AND	    POI.OPT_GRP_CD  = PO.OPT_GRP_CD
+													AND	    POI.OP_GB_CD    = '20' 					    /* 추가옵션합 */
+													GROUP BY OPOI.ORD_CD, OPOI.PROD_CODE, OPOI.PROD_SEQ
+													    )               OPOI
+										ON	    OPOI.ORD_CD             = OPI.ORD_CD
+										AND	    OPOI.PROD_CODE          = OPI.PROD_CODE
+										AND	    OPOI.PROD_SEQ           = OPI.PROD_SEQ
+										LEFT OUTER JOIN (										        /* 묶음 배송 마지막 상품에 배송비 적용 */
+													SELECT	OPI.ORD_CD
+													,	    OPI.PROD_CODE
+													,       OPI.PROD_SEQ
+													,	    C.DLV_PRCE
+													,     	C.BNDL_DLY_CNT
+													,	    P.PROD_TYPE_CD
+													,      	CASE WHEN C.BNDL_DLY_CNT &gt; 1 THEN P.BNDL_DLV_YN ELSE 'N' END     AS BNDL_DLV_YN
+													,	    OI.MBER_SEQ 
+													,	    (ROW_NUMBER() OVER(PARTITION BY OI.ORD_CD, C.SELLER_SEQ, C.GRP_PROD_SEQ  ORDER BY OI.ORD_CD ))	AS NO  
+													FROM  	ORD_INFO      	OI
+													JOIN    ORD_PROD_INFO   OPI
+													ON	    OI.ORD_CD 	    = OPI.ORD_CD
+													JOIN   	PROD            P
+													ON     	OPI.PROD_CODE   = P.PROD_CODE
+													JOIN  	GRP_PROD_MAP    GRM
+													ON     	P.PROD_CODE     = GRM.PROD_CODE
+													AND   	P.MBER_SEQ     	= GRM.MBER_SEQ
+													JOIN    (
+																SELECT	OI.MBER_SEQ
+																,	    OI.ORD_CD
+																,     	GPM.GRP_PROD_SEQ
+																,      	GPM.MBER_SEQ            AS SELLER_SEQ
+																,	    MIN(OPI.DLV_PRCE)	    AS DLV_PRCE
+																,     	COUNT(GPM.PROD_CODE)    AS BNDL_DLY_CNT  
+																FROM   	ORD_INFO      	OI
+																JOIN    ORD_PROD_INFO   OPI
+																ON	    OI.ORD_CD 	    = OPI.ORD_CD
+																JOIN   	PROD           	P
+																ON    	OPI.PROD_CODE  	= P.PROD_CODE
+																JOIN   	GRP_PROD_MAP    GPM
+																ON     	GPM.PROD_CODE  	= P.PROD_CODE
+																AND    	P.MBER_SEQ    	= GPM.MBER_SEQ
+																WHERE  	P.BNDL_DLV_YN 	= 'Y'
+															    AND     P.PROD_TYPE_CD	= '1'
+																AND		OPI.CANC_CD	IS NULL
+																GROUP BY  OI.MBER_SEQ, OI.ORD_CD, GPM.MBER_SEQ,  GPM.GRP_PROD_SEQ
+													        )    		    C
+													ON	    C.GRP_PROD_SEQ	= GRM.GRP_PROD_SEQ
+													AND    	C.SELLER_SEQ   	= GRM.MBER_SEQ
+													AND   	C.MBER_SEQ     	= OI.MBER_SEQ
+													AND	    C.ORD_CD	    = OI.ORD_CD
+													WHERE  	P.BNDL_DLV_YN  	= 'Y'
+									--			    AND     	P.PROD_TYPE_CD	= '1'
+													    ) 	            BDY                             /** BUNDLE_DELIVERY_CNT */ 
+										ON	    BDY.MBER_SEQ 	        = OPI.MBER_SEQ
+										AND	    BDY.ORD_CD 		        = OPI.ORD_CD
+										AND	    BDY.PROD_CODE 		    = OPI.PROD_CODE
+										AND	    BDY.PROD_SEQ			= OPI.PROD_SEQ  
+										AND	    BDY.PROD_TYPE_CD        = P.PROD_TYPE_CD                                                                                                                                        
+										WHERE  	PBCI.CONF_GB     	    = 'Y'                                                                                                                                                             
+										AND    	(OPI.ADJ_COMP_YN IS NULL OR OPI.ADJ_COMP_YN = 'N' )     /* 정산 여부 확인 */                                                                                                                  
+										AND    	OI.ORD_DEL_YN           = 'N'                      	    /* 구매 삭제 확인 */      
+										AND	    (OCI.CANC_CD IS NULL OR OCI.CANC_CD  = '')              /* 주문취소상품제외 */                                                                                                           
+										AND	    P.PROD_TYPE_CD 		    = 1                             /* 판매 + 기획전 추가 고려 */                                                                                                                             
+										AND	    OPI.ORD_CD 				= #{ORD_CD} 				       
+										AND	    OPI.PROD_CODE			= #{PROD_CODE}
+										AND	    OPI.PROD_SEQ			= #{PROD_SEQ}    					            				                                                                                                                                                                                                                                                                                                                                                           
+                	                    ) X                                                                                                                                                     
+								) Y                                                                                                                                                                                           
+						) Z                                                                                                                                                                                             
+				)                                                                                                                                                                                                   
+		UNION ALL                                                                                                                                                                                        
+		SELECT 	MBER_SEQ
+		,		MBER_GB_CD
+		,		ORD_CD
+		,		PROD_CD
+		,		PROD_SEQ
+		,		CTRY_CD
+		,		PROD_NM
+		,		SELL_PRCE
+		,		DEPOSIT
+		,		SHARE_TERM
+		,		ORD_QTY
+		,		SELT_GB_CD
+		,		OPT_PRCE_SUM
+		,		SELL_PRCE_SUM
+		,		CMTN
+		,		DNL_CMTN
+		,		DNL_CMTN_RATE
+		,		DNL_CMTN_RATE_NM
+		,		BILL_CMTN
+		,		ORD_AMT
+		,		DLV_PRCE
+		,		DSCNT_TOT_AMT
+		,		POINT_USE_AMT
+		,		CPN_USE_AMT
+		,		DSCNT_CASH_AMT
+		,		DSCNT_RATE_AMT
+		,		DSCNT_DLV_AMT
+		,		DSCNT_CASH_DNL_AMT
+		,		DSCNT_RATE_DNL_AMT
+		,		DSCNT_DLV_DNL_AMT
+		,		DSCNT_DNL_AMT
+		,		DSCNT_SEL_AMT 	
+		,		RTN_TO_SEL_DPST
+		,		DNL_AMT
+		,		ADJ_AMT
+		,		PROD_TYPE_CD
+		,		PLAN_YN
+		,		ORD_AGNT_CD
+		,		CNF_YMD
+		,		CNF_TMS
+		,		ODR_YMD
+		,		ODR_TMS
+		,		CHG_YMD
+		,		CHG_TMS
+		,		RTN_YMD
+		,		RTN_TMS
+		,		ADJ_EXP_YMD
+		,		CMP_SHARE_YMD
+		,		REG_YMD
+		,		REG_TMS
+		,       SYSDATE
+		FROM (
+				SELECT  Z.*
+				,  	    SELL_PRCE_SUM + ABS(DLV_PRCE) -  DNL_CMTN - DSCNT_SEL_AMT - RTN_TO_SEL_DPST
+				+ 	    CASE WHEN DLV_PRCE &lt; 0 							                            /* 제휴택배이용 */
+						     THEN DLV_PRCE
+							 ELSE 0
+						END	   																	        AS ADJ_AMT
+				, 		DNL_CMTN /*+ BILL_CMTN*/											            AS CMTN								/* 통신판매수수료 */
+				,  		SELL_PRCE_SUM - (DNL_CMTN /*+ BILL_CMTN*/)                             	        AS ORD_AMT           	            /* 판매금액 */
+				FROM (
+						SELECT	Y.*
+						,	    SELL_PRCE_SUM - ADJUST_PRCE								                AS RTN_TO_SEL_DPST		            /* 반납/회수 보증금 */
+						,  	    DSCNT_CASH_AMT + DSCNT_RATE_AMT + DSCNT_DLV_AMT    					    AS DSCNT_TOT_AMT
+						,	    DSCNT_CASH_DNL_AMT + DSCNT_RATE_DNL_AMT + DSCNT_DLV_DNL_AMT 		    AS DSCNT_DNL_AMT
+						,	    DSCNT_CASH_MKT_AMT + DSCNT_RATE_MKT_AMT + DSCNT_DLV_MKT_AMT			    AS DSCNT_SEL_AMT
+						,	    DNL_CMTN /*+ BILL_CMTN*/ - (DSCNT_CASH_DNL_AMT + DSCNT_RATE_DNL_AMT + DSCNT_DLV_DNL_AMT) /*+ POINT_USE_AMT*/
+						+ 	    CASE WHEN DLV_PRCE &lt; 0 /* 제휴택배이용시 */
+									 THEN DLV_PRCE * -1
+									 ELSE 0
+							    END	  																     AS DNL_AMT
+						FROM (             
+								SELECT  X.*						
+								,	    (SELL_PRCE_SUM + DLV_PRCE_ORG - POINT_USE_AMT - DSCNT_CASH_DNL_AMT - DSCNT_RATE_DNL_AMT - DSCNT_DLV_DNL_AMT) * SELT_GB_RATE * 0.01 /* 결제 수수료 */        	AS BILL_CMTN          /* 결재수수료 */
+								FROM (                                                                                                                                                                 
+										SELECT 	W.*                                                            
+										, 	    ADJUST_PRCE * DNL_CMTN_RATE * 0.01					    AS DNL_CMTN						    /* 통신판매수수료 */                                                                
+										,      	CASE WHEN 	BNFIT_MAX_DSCNT_PRCE IS NOT NULL 
+													 AND 	SELL_PRCE_SUM * NVL(DSCNT_RATE, 0) &lt; BNFIT_MAX_DSCNT_PRCE
+													 THEN 	SELL_PRCE_SUM * NVL(DSCNT_RATE, 0)  
+													 WHEN	BNFIT_MAX_DSCNT_PRCE IS NOT NULL 
+													 AND 	SELL_PRCE_SUM * NVL(DSCNT_RATE, 0) &gt;= BNFIT_MAX_DSCNT_PRCE
+													 THEN 	BNFIT_MAX_DSCNT_PRCE 
+													 WHEN 	BNFIT_MAX_DSCNT_PRCE IS NULL 
+													 THEN 	SELL_PRCE_SUM * NVL(DSCNT_RATE, 0)
+												END                                                     AS DSCNT_RATE_AMT    	            /* 비율할인 */      
+										,      	CASE WHEN 	/* CPN_GB_CD != 20 AND*/ 	BNFIT_CHK = 'B' 								    /* 비율할인 */                                                                                                        
+										             THEN 	CASE WHEN SELL_PRCE_SUM *  DSCNT_RATE * 0.01 &lt; BNFIT_MAX_DSCNT_PRCE                                                                                       
+										                       	 THEN SELL_PRCE_SUM *  DSCNT_RATE * 0.01 * DANAL_BURDEN * 0.01                                                                                        
+										                       	 ELSE BNFIT_MAX_DSCNT_PRCE * DANAL_BURDEN * 0.01                                                                                                         
+										                   	END
+										             ELSE 0
+										        END                                                     AS DSCNT_RATE_DNL_AMT	            /* 비율할인다날부담금 */
+										,      	CASE WHEN 	/* CPN_GB_CD != 20 AND*/ 	BNFIT_CHK = 'B' 								    /* 비율할인 */                                                                                                        
+										             THEN 	CASE WHEN SELL_PRCE_SUM *  DSCNT_RATE * 0.01 &lt; BNFIT_MAX_DSCNT_PRCE                                                                                       
+										                       	 THEN SELL_PRCE_SUM *  DSCNT_RATE * 0.01 * MARKET_BURDEN * 0.01                                                                                        
+										                       	 ELSE BNFIT_MAX_DSCNT_PRCE * MARKET_BURDEN * 0.01                                                                                                         
+										                   	END
+										             ELSE 0
+										        END                                                     AS DSCNT_RATE_MKT_AMT	            /* 비율할인다날부담금 */
+										,	    TO_CHAR(CNF_DTTI, 'YYYYMMDD')						    AS CNF_YMD					        /* 쉐어링확정년월일 */
+										,	    TO_CHAR(CNF_DTTI, 'HH24MISS')						    AS CNF_TMS					        /* 쉐어링확정시분초 */	
+										FROM (
+												SELECT 	P.MBER_SEQ			                            AS MBER_SEQ
+												,	    MI.MBER_GB_CD								    AS MBER_GB_CD
+												,       OI.ORD_CD                                       AS ORD_CD               	        /*주문번호 */
+												,       OPI.PROD_CODE                                   AS PROD_CD           		        /* 상품코드 */
+												,       OPI.PROD_SEQ                                    AS PROD_SEQ           	            /* 상품넘버 */
+												,       P.PROD_NM                                       AS PROD_NM              	        /* 상품명 */
+												,       OPI.PROD_PRCE                                   AS PROD_PRCE            	        /*상품금액(판매금액) 비교값 */
+												,       OPI.ORD_QTY                                     AS ORD_QTY              	        /* 주문수량 */
+												,       OI.SELT_GB_CD                                   AS SELT_GB_CD           	        /* 결재방법코드 */
+												,	    C.COM_CD_VAL								    AS SELT_GB_RATE						/* 결재수수료율 */
+												,	    PS.SHARING_PRICE							    AS SELL_PRCE					    /* 쉐어링경우쉐어링가격 */
+												,	    PS.DEPOSIT									    AS DEPOSIT						    /* 보증금 */
+												,	    DECODE(MBER_GB_CD, 0, 0,OPI.SHARE_TERM)		    AS SHARE_TERM					    /* 쉐어링기간(법인만해당) */
+												,     	OPI.PROD_ORD_AMT   							    AS PROD_ORD_AMT    	                /* 주문금액 사용안함 */
+												,	    NVL(OI.POINT_USE_AMT,0)						    AS POINT_USE_AMT      	            /* 포인트할인 */
+												,     	NVL(OPI.CPN_USE_AMT,0)                          AS CPN_USE_AMT        	            /* 할인총액 */
+												,	    CI.BNFIT_CHK						            AS BNFIT_CHK
+												,	    CI.CPN_GB_CD								    AS CPN_GB_CD
+												,     	P.PROD_TYPE_CD								    AS PROD_TYPE_CD
+												,	    'N'											    AS PLAN_YN						    /* 기획전여부 */
+												,	    CGC.COM_CD 									    AS ORD_AGNT_CD				        /* 구매유입경로 */
+												,	    P.CTRY_CD									    AS CTRY_CD					        /* 카테고리코드 */
+												,	    CI.BNFIT_MAX_DSCNT_PRCE                         AS BNFIT_MAX_DSCNT_PRCE 	        /* 최대비율할인금액 */
+												,      	CASE WHEN MI.MBER_GB_CD = 0
+															 THEN PS.DEPOSIT * OPI.ORD_QTY
+															 ELSE (PS.SHARING_PRICE * OPI.SHARE_TERM + PS.DEPOSIT) * OPI.ORD_QTY
+													    END                                			    AS SELL_PRCE_SUM                    /* 판매금액합 */
+												,	    CASE WHEN MI.MBER_GB_CD = 0 													    /* 개인판매 */                                                                                                                              
+															 THEN (CASE WHEN CII.DLV_END_DT IS NOT NULL AND CPI.PROC_STAT_CD = '89' /*AND OPI.SHARE_OK_DT IS NOT NULL  				 반납이 일어난 경우 */                                                            
+														                THEN (CASE WHEN ( TRUNC(CPI.REGIST_DT) - TRUNC(II.DLV_END_DT) + 1 ) * PS.SHARING_PRICE &gt; DEPOSIT /* 쉐어링 금액이 보증금보다  큰 경우 */                                               
+																		           THEN PS.DEPOSIT * OPI.ORD_QTY                                                                                                                                                 
+																		           ELSE ( TRUNC(CPI.REGIST_DT) - TRUNC(II.DLV_END_DT) + 1 ) * PS.SHARING_PRICE * OPI.ORD_QTY
+																	           END)                                                                                                                                                                       
+															            WHEN	CPI.CHG_CD IS NULL AND ( TRUNC(SYSDATE - 1) - TRUNC(II.DLV_END_DT) + 1) * PS.SHARING_PRICE &gt;= DEPOSIT 			/* 회수가 발생하지 않은 경우 */                                                     
+															            THEN 	PS.DEPOSIT * OPI.ORD_QTY                                                                                                                                                                
+																	 END)                                                                                                                                                                              
+														     WHEN MI.MBER_GB_CD = 1 																							/* 법인판매 */                                                                                                                                
+														     THEN (CASE WHEN CII.DLV_END_DT IS NOT NULL AND CPI.PROC_STAT_CD = '92' /*AND OPI.SHARE_OK_DT IS NOT NULL  	 회수가 일어난 경우 */                                                          
+																	    THEN (CASE WHEN ( TRUNC(CPI.REGIST_DT) - TRUNC(II.DLV_END_DT) + 1 ) &gt; OPI.SHARE_TERM 				/* 쉐어링 사용일을 넘긴 경우 */                                           
+																		           /* 쉐어링 사용 금액이 보증금 이상이 되는 경우 */                                                                                                                        
+																			       THEN (CASE WHEN ( TRUNC(CPI.REGIST_DT) - TRUNC(II.DLV_END_DT) + 1 ) * PS.SHARING_PRICE &gt; OPI.SHARE_TERM * PS.SHARING_PRICE + PS.DEPOSIT                                                
+																				              THEN  (OPI.SHARE_TERM * PS.SHARING_PRICE + PS.DEPOSIT)  * OPI.ORD_QTY  						/* 결재 금액 모두 정산에 포함 */                                                        
+																							  ELSE ( TRUNC(CPI.REGIST_DT) - TRUNC(II.DLV_END_DT) + 1 ) * PS.SHARING_PRICE * OPI.ORD_QTY  				/* 일부 보증금도 정산에 포함 */                                                         
+																						 END)                                                                                                                                                              
+																				    /* ELSE ( TRUNC(CRPIDT.REGIST_DT) - TRUNC(II.DLV_END_DT) ) * PS.SHARING_PRICE  */
+																			        ELSE OPI.SHARE_TERM * PS.SHARING_PRICE * OPI.ORD_QTY
+																		        END)                                                                                                                                                                       
+																			    /* 회수가 일어나지 않음 and 쉐어링 사용 금액이 보증금 이상이 되는 경우 */                                                                                                       
+																		    WHEN CII.DLV_END_DT IS NULL AND ( TRUNC(SYSDATE - 1) - TRUNC(II.DLV_END_DT) + 1) * PS.SHARING_PRICE &gt; OPI.SHARE_TERM * PS.SHARING_PRICE + PS.DEPOSIT                                                   
+																		    THEN ( OPI.SHARE_TERM * PS.SHARING_PRICE + PS.DEPOSIT )  * OPI.ORD_QTY
+																    END)
+												        END																																			AS ADJUST_PRCE             	/* 수수료에 계산될 금액 */ 
+												,       CASE 	WHEN 	P.PROD_TYPE_CD = '6' 
+																			AND 	OPI.TAX_PLAN IS NOT NULL    	
+																			AND 	OPI.TAX_PLAN &gt; 0																/* 기획전확인조건(임시) */
+																		 	THEN 	CASE WHEN OPI.TAX_PLAN &lt; 1 THEN OPI.TAX_PLAN * 100 ELSE OPI.TAX_PLAN END			/* OPI.TAX_PLAN	* 100	 0.00 */
+																		 	ELSE 	CASE 	WHEN	OPI.TAX_PROD IS NOT NULL 
+																		 							AND 	OPI.TAX_PROD &gt; 0		/* 상품수수료 */
+																               		THEN	CASE WHEN OPI.TAX_PROD &lt; 1 THEN OPI.TAX_PROD * 100 ELSE OPI.TAX_PROD END /* OPI.TAX_PROD * 100 */
+																               		WHEN	OPI.TAX_SELLER IS NOT NULL 
+																               		AND 	OPI.TAX_SELLER &gt; 0      	/* 판매자수수료 */                                                                                                                                                 
+																               		THEN 	CASE WHEN OPI.TAX_SELLER &lt; 1 THEN OPI.TAX_SELLER * 100 ELSE OPI.TAX_SELLER END /* OPI.TAX_SELLER * 100 */
+																               		ELSE ( CASE 	WHEN 	OPI.PROD_TYPE_CD 	= 2 
+																               									AND 	OPI.TAX_CTRY IS NOT NULL 
+																               									AND 	OPI.TAX_CTRY 		&gt; 0 /* 카테고리수수료 */                                                                                                             
+																                            		THEN 	CASE WHEN OPI.TAX_CTRY &lt; 1 THEN OPI.TAX_CTRY * 100 ELSE OPI.TAX_CTRY END /* OPI.TAX_CTRY   * 0.01 */                                                                                                    
+																                            		ELSE 	0
+																                      		END )                                                                                                                                                          
+																          	END    
+														  	END  	    																															AS DNL_CMTN_RATE     			/* 통신판수수료율 */     
+												,       CASE 	WHEN 	P.PROD_TYPE_CD = '6'                                  				/* 기획전확인조건(임시) */
+																			AND 	OPI.TAX_PLAN IS NOT NULL    	
+																			AND 	OPI.TAX_PLAN &gt; 0		
+																		 	THEN 	'TAX_PLAN'
+																		 	ELSE 	CASE 	WHEN	OPI.TAX_PROD IS NOT NULL 
+																		 							AND 	OPI.TAX_PROD &gt; 0																/* 상품수수료 */																 						
+																               		THEN	'TAX_PROD'                                                                                                                                  
+																               		WHEN	OPI.TAX_SELLER IS NOT NULL 
+																               		AND 	OPI.TAX_SELLER &gt; 0      														/* 판매자수수료 */                                                                                                                                      
+																               		THEN 	'TAX_SELLER'                                                                                                                        
+																               		ELSE ( CASE 	WHEN 	OPI.PROD_TYPE_CD 	= '2' 
+																               									AND 	OPI.TAX_CTRY IS NOT NULL 
+																               									AND 	OPI.TAX_CTRY 		&gt; 0 					/* 카테고리수수료 */                                                                                                             
+																                            		THEN 	'TAX_SHARE' /** 0.01 */                                                                                                    
+																                            		ELSE 	''                                                                                                
+																                      		END )                                                                                                                                                          
+																          	END    
+														  	END  	    																															AS DNL_CMTN_RATE_NM     			/* 통신판수수료정책 */                                               
+												,     	CASE 	WHEN 	OPI.DLV_PAY_F_CD = '10' 
+																			AND 	BDY.BNDL_DLY_CNT IS NOT NULL 
+																			AND 	BDY.NO IS NOT NULL 
+																			AND 	BDY.BNDL_DLY_CNT = BDY.NO /* 묶음배송 마지막 상품에 배송비 적용 */
+																		 	THEN (	CASE 	WHEN P.DLV_WAY_CD = '1'  	/* 제휴택배 이용시 */                                                                                                                             
+																										THEN BDY.DLV_PRCE * -1 		/* 판매자에게 정산안함 */                                                                                                                           
+																										ELSE BDY.DLV_PRCE      		/* 판매자에게 정산 */                                                                                                                               
+																							END )
+																		 	WHEN 	OPI.DLV_PAY_F_CD = '10' 
+																		 	AND  (BDY.BNDL_DLY_CNT IS NULL OR BDY.NO IS NULL)
+																		 	THEN (	CASE 	WHEN P.DLV_WAY_CD = '1' 	/* 제휴택배 이용시 */                                                                                                                             
+																										THEN OPI.DLV_PRCE * -1 		/* 판매자에게 정산안함 */                                                                                                                           
+																										ELSE OPI.DLV_PRCE      		/* 판매자에게 정산 */                                                                                                                               
+																							END )
+																 		 	ELSE 0
+												 				END                                                   									AS DLV_PRCE                /* 배송비 제휴택배 마이너스 , 일반택배 플러스 */   
+								 				,     	CASE 	WHEN 	OPI.DLV_PAY_F_CD = '10' 
+								 											AND 	BDY.BNDL_DLY_CNT IS NOT NULL 
+								 											AND 	BDY.NO IS NOT NULL 
+								 											AND 	BDY.BNDL_DLY_CNT = BDY.NO /* 묶음배송 마지막 상품에 배송비 적용 */
+																		 	THEN 	BDY.DLV_PRCE 
+																		 	WHEN 	OPI.DLV_PAY_F_CD = '10' AND (BDY.BNDL_DLY_CNT IS NULL OR BDY.NO IS NULL)
+																		 	THEN 	OPI.DLV_PRCE
+																 		 	ELSE 	0
+												 				END                                                   									AS DLV_PRCE_ORG      		/* 배송비절대값 */                                                                   
+												,     	CASE WHEN /*CI.CPN_GB_CD != 20 AND*/ CI.BNFIT_CHK = 'A' /* 금액할인 */                                                                                                              
+												      	     THEN CI.BNFIT_DSCNT_PRCE                                                                                                                                            
+												      	     ELSE 0                                                                                                                                                                      
+												      	END                                                                   	AS DSCNT_CASH_AMT    		/* 금액할인 */                                                            
+												,     	CASE WHEN /*CI.CPN_GB_CD != 20 AND*/ CI.BNFIT_CHK = 'B' /* 비율할인 */                                                                                                              
+												      	     THEN CI.BNFIT_DSCNT_RATE * 0.01                                                                                                                                          
+												      	     ELSE 0                                                                                                                                                                  
+												      	END                                                                   	AS DSCNT_RATE   	 			/* 할인비율 */                                                                   
+												,     	CASE WHEN BDY.BNDL_DLY_CNT IS NOT NULL AND BDY.NO IS NOT NULL AND BDY.BNDL_DLY_CNT = BDY.NO   	/* 묶음배송시 */
+																		 THEN CASE WHEN /*CI.CPN_GB_CD != 20 AND*/ CI.DELY_FREE_CHK = 'A'      	/* 배송비 무료 */                                                                                                   
+																	      	     THEN NVL(BDY.DLV_PRCE,0)                                                                                                     
+																	      	     WHEN /*CI.CPN_GB_CD != 20 AND*/ CI.DELY_FREE_CHK = 'B' AND NVL(BDY.DLV_PRCE,0) &gt; 0 			/* 배송비 금액 할인 */                                                                      
+																	      	     THEN  CASE WHEN BDY.DLV_PRCE &gt; CI.BNFIT_DSCNT_PRCE                              			/* 배송비가 금액할인 보다 큰 경우 */                                                
+																	      	     						THEN CI.BNFIT_DSCNT_PRCE                                            			/* 배송비가 금액할인 보다 작은 경우 */                                    
+																	      	                ELSE BDY.DLV_PRCE
+																	      	           END                                                                                                                                                             
+																	      	     ELSE 0                                                                                                                                                                  
+																	      	END														
+												      			 ELSE CASE WHEN /*CI.CPN_GB_CD != 20 AND*/ CI.DELY_FREE_CHK = 'A'      													/* 묶음 배송이 아닌 경우 배송비 무료 */                                                                                                   
+																	      	     THEN NVL(OPI.DLV_PRCE,0)                                                                                                      
+																	      	     WHEN /*CI.CPN_GB_CD != 20 AND*/ CI.DELY_FREE_CHK = 'B' AND NVL(OPI.DLV_PRCE,0) &gt; 0 			/* 배송비 금액 할인 */                                                                      
+																	      	     THEN  CASE WHEN OPI.DLV_PRCE &gt; CI.BNFIT_DSCNT_PRCE                              			/* 배송비가 금액할인 보다 큰 경우 */                                                
+																	      	     						THEN CI.BNFIT_DSCNT_PRCE                                            			/* 배송비가 금액할인 보다 작은 경우 */                                    
+																	      	                ELSE OPI.DLV_PRCE
+																	      	           END                                                                                                                                                             
+																	      	     ELSE 0                                                                                                                                                                  
+												      						END
+												      	END                                                                   	AS DSCNT_DLV_AMT    	/* 배송비할인 */                                                            
+												,     	CASE WHEN /*CI.CPN_GB_CD != 20 AND*/ CI.BNFIT_CHK = 'A' 			/* 금액할인 */                                                                                                      
+												      	     THEN    CI.BNFIT_DSCNT_PRCE * CI.DANAL_BURDEN * 0.01                                                                                                                    
+												      	     ELSE 0                                                                                                                                                                      
+												      	END                                                                    	AS DSCNT_CASH_DNL_AMT			/* 금액할인다날부담금 */
+												,     	CASE WHEN /*CI.CPN_GB_CD != 20 AND*/ CI.BNFIT_CHK = 'A' 			/* 금액할인 */                                                                                                      
+												      	     THEN    CI.BNFIT_DSCNT_PRCE * CI.MARKET_BURDEN * 0.01                                                                                                                    
+												      	     ELSE 0                                                                                                                                                                      
+												      	END                                                                    	AS DSCNT_CASH_MKT_AMT			/* 금액할인다날부담금 */  
+												,				NVL(CI.MARKET_BURDEN,0)																								 	AS MARKET_BURDEN					/* 판매자부담비율 */
+												,				NVL(CI.DANAL_BURDEN,0)																									AS DANAL_BURDEN 					/* 다날부담비율 */       
+												,     	CASE WHEN BDY.BNDL_DLY_CNT IS NOT NULL AND BDY.NO IS NOT NULL AND BDY.BNDL_DLY_CNT = BDY.NO   	/* 묶음배송시 */
+																		 THEN CASE WHEN /*CI.CPN_GB_CD != 20 AND*/ CI.DELY_FREE_CHK = 'A'        					/* 배송비 무료 */                                                                                               
+																	      	     THEN  NVL(BDY.DLV_PRCE,0) * DANAL_BURDEN * 0.01                                                                                
+																	      	     WHEN /*CI.CPN_GB_CD != 20 AND*/ CI.DELY_FREE_CHK = 'B' AND NVL(BDY.DLV_PRCE,0) &gt; 0 				/* 배송비 금액 할인 */                                                                    
+																	      	     THEN  CASE WHEN BDY.DLV_PRCE &gt; CI.BNFIT_DSCNT_PRCE                              				/* 배송비가 금액할인 보다 큰 경우 */                                              
+																	      	                THEN CI.BNFIT_DSCNT_PRCE * CI.DANAL_BURDEN * 0.01                       	/* 배송비가 금액할인 보다 작은 경우 */                                        
+																	      	                ELSE BDY.DLV_PRCE * CI.DANAL_BURDEN * 0.01                                                                                                                
+																	      	           END                                                                                                                                                             
+																	      	     ELSE 0                                                                                                                                                                  
+																	      	END 													
+												      			 ELSE CASE WHEN /*CI.CPN_GB_CD != 20 AND*/ CI.DELY_FREE_CHK = 'A'        					/* 배송비 무료 */                                                                                               
+																	      	     THEN  NVL(OPI.DLV_PRCE,0) * NVL(DANAL_BURDEN,0) * 0.01                                                                                
+																	      	     WHEN /*CI.CPN_GB_CD != 20 AND*/ CI.DELY_FREE_CHK = 'B' AND NVL(OPI.DLV_PRCE,0) &gt; 0 				/* 배송비 금액 할인 */                                                                    
+																	      	     THEN  CASE WHEN OPI.DLV_PRCE &gt; CI.BNFIT_DSCNT_PRCE                              				/* 배송비가 금액할인 보다 큰 경우 */                                              
+																	      	                THEN CI.BNFIT_DSCNT_PRCE * CI.DANAL_BURDEN * 0.01                       	/* 배송비가 금액할인 보다 작은 경우 */                                        
+																	      	                ELSE OPI.DLV_PRCE * CI.DANAL_BURDEN * 0.01                                                                                                                
+																	      	           END                                                                                                                                                             
+																	      	     ELSE 0                                                                                                                                                                  
+																	      	END 
+												      	END                                                                   	AS DSCNT_DLV_DNL_AMT    /* 배송비할인다날부담금 */
+												,     	CASE WHEN BDY.BNDL_DLY_CNT IS NOT NULL AND BDY.NO IS NOT NULL AND BDY.BNDL_DLY_CNT = BDY.NO   	/* 묶음배송시 */
+																		 THEN CASE WHEN /*CI.CPN_GB_CD != 20 AND*/ CI.DELY_FREE_CHK = 'A'        					/* 배송비 무료 */                                                                                               
+																	      	     THEN  NVL(BDY.DLV_PRCE,0) * MARKET_BURDEN * 0.01                                                                                
+																	      	     WHEN /*CI.CPN_GB_CD != 20 AND*/ CI.DELY_FREE_CHK = 'B' AND NVL(BDY.DLV_PRCE,0) &gt; 0 				/* 배송비 금액 할인 */                                                                    
+																	      	     THEN  CASE WHEN BDY.DLV_PRCE &gt; CI.BNFIT_DSCNT_PRCE                              				/* 배송비가 금액할인 보다 큰 경우 */                                              
+																	      	                THEN CI.BNFIT_DSCNT_PRCE * CI.MARKET_BURDEN * 0.01                       	/* 배송비가 금액할인 보다 작은 경우 */                                        
+																	      	                ELSE BDY.DLV_PRCE * CI.MARKET_BURDEN * 0.01                                                                                                                
+																	      	           END                                                                                                                                                             
+																	      	     ELSE 0                                                                                                                                                                  
+																	      	END 													
+												      			 ELSE CASE WHEN /*CI.CPN_GB_CD != 20 AND*/ CI.DELY_FREE_CHK = 'A'        					/* 배송비 무료 */                                                                                               
+																	      	     THEN  NVL(OPI.DLV_PRCE,0) * NVL(MARKET_BURDEN,0) * 0.01                                                                                
+																	      	     WHEN /*CI.CPN_GB_CD != 20 AND*/ CI.DELY_FREE_CHK = 'B' AND NVL(OPI.DLV_PRCE,0) &gt; 0 				/* 배송비 금액 할인 */                                                                    
+																	      	     THEN  CASE WHEN OPI.DLV_PRCE &gt; CI.BNFIT_DSCNT_PRCE                              				/* 배송비가 금액할인 보다 큰 경우 */                                              
+																	      	                THEN CI.BNFIT_DSCNT_PRCE * CI.MARKET_BURDEN * 0.01                       	/* 배송비가 금액할인 보다 작은 경우 */                                        
+																	      	                ELSE OPI.DLV_PRCE * CI.MARKET_BURDEN * 0.01                                                                                                                
+																	      	           END                                                                                                                                                             
+																	      	     ELSE 0                                                                                                                                                                  
+																	      	END 
+												      	END                                                                   	AS DSCNT_DLV_MKT_AMT    /* 배송비할인다날부담금 */ 		
+												,				0																																				AS OPT_PRCE_SUM					/* 옵션금액합 */	   
+												,				TO_CHAR(SYSDATE + 11 - TO_CHAR(SYSDATE,'D')	, 'YYYYMMDD')								AS ADJ_EXP_YMD
+												,				CASE WHEN MI.MBER_GB_CD = 0 																						/* 개인판매 */                                                                                                                              
+																		 THEN (CASE WHEN CII.DLV_END_DT IS NOT NULL AND CPI.PROC_STAT_CD = '89' /*AND OPI.SHARE_OK_DT IS NOT NULL  				 반납이 일어난 경우 */                                                            
+														                 		THEN (CASE WHEN ( TRUNC(CPI.REGIST_DT) - TRUNC(II.DLV_END_DT) + 1 ) * PS.SHARING_PRICE &gt; DEPOSIT /* 쉐어링 금액이 보증금보다  큰 경우 */                                               
+																											  	 THEN II.DLV_END_DT + (PS.DEPOSIT / PS.SHARING_PRICE) - 1                                                                                                                                              
+																											  	 ELSE CPI.REGIST_DT
+																				 					 		END)                                                                                                                                                                       
+																								WHEN	CPI.CHG_CD IS NULL AND ( TRUNC(SYSDATE - 1) - TRUNC(II.DLV_END_DT) + 1) * PS.SHARING_PRICE &gt;= DEPOSIT 			/* 회수가 발생하지 않은 경우 */                                                     
+																								THEN 	II.DLV_END_DT + (PS.DEPOSIT / PS.SHARING_PRICE) - 1                                                                                                                                                               
+																					END)                                                                                                                                                                              
+																		WHEN MI.MBER_GB_CD = 1 																							/* 법인판매 */                                                                                                                                
+																		THEN (CASE WHEN CII.DLV_END_DT IS NOT NULL AND CPI.PROC_STAT_CD = '92' /*AND OPI.SHARE_OK_DT IS NOT NULL  	 회수가 일어난 경우 */                                                          
+																	             THEN (CASE WHEN ( TRUNC(CPI.REGIST_DT) - TRUNC(II.DLV_END_DT) + 1 ) &gt; OPI.SHARE_TERM 				/* 쉐어링 사용일을 넘긴 경우 */                                           
+																													/* 쉐어링 사용 금액이 보증금 이상이 되는 경우 */                                                                                                                        
+																													THEN (CASE WHEN ( TRUNC(CPI.REGIST_DT) - TRUNC(II.DLV_END_DT) + 1 ) * PS.SHARING_PRICE &gt; OPI.SHARE_TERM * PS.SHARING_PRICE + PS.DEPOSIT                                                
+																									               		 THEN  II.DLV_END_DT + OPI.SHARE_TERM + PS.DEPOSIT / PS.SHARING_PRICE - 1 						/* 결재 금액 모두 정산에 포함 */                                                        
+																											   						 ELSE  CPI.REGIST_DT  																																/* 일부 보증금도 정산에 포함 */                                                         
+																											  				END)                                                                                                                                                              
+																													/* ELSE ( TRUNC(CRPIDT.REGIST_DT) - TRUNC(II.DLV_END_DT) ) * PS.SHARING_PRICE  */
+																													ELSE CPI.REGIST_DT
+																							 				END)                                                                                                                                                                       
+																					 			/* 회수가 일어나지 않음 and 쉐어링 사용 금액이 보증금 이상이 되는 경우 */                                                                                                       
+																								WHEN CII.DLV_END_DT IS NULL AND ( TRUNC(SYSDATE - 1) - TRUNC(II.DLV_END_DT) + 1) * PS.SHARING_PRICE &gt; OPI.SHARE_TERM * PS.SHARING_PRICE + PS.DEPOSIT                                                   
+																								THEN II.DLV_END_DT + OPI.SHARE_TERM + PS.DEPOSIT / PS.SHARING_PRICE - 1 
+																			END)
+																END																																			AS CNF_DTTI	                                                                                                      
+												,     	TO_CHAR(OI.ORD_REG_DATE, 'YYYYMMDD')     																AS ODR_YMD        		/* 주문년월일 */                                                                                    
+												,     	TO_CHAR(OI.ORD_REG_DATE, 'HH24MISS')     																AS ODR_TMS        		/* 주문시분초 */                                                                                    
+												,     	TO_CHAR(SYSDATE, 'YYYYMMDD')     																				AS CHG_YMD       		/* 주문년월일 */                                                                                      
+												,     	TO_CHAR(SYSDATE, 'HH24MISS')     																				AS CHG_TMS        		/* 주문시분초 */                                                                                    
+												,     	TO_CHAR(SYSDATE, 'YYYYMMDD')     																				AS REG_YMD       		/* 주문년월일 */                                                                                      
+												,     	TO_CHAR(SYSDATE, 'HH24MISS')     																				AS REG_TMS        		/* 주문시분초 */ 
+												,				TO_CHAR(CII.DLV_END_DT, 'YYYYMMDD')																				AS RTN_YMD					/* 반납완료년월일 */
+												,				TO_CHAR(CII.DLV_END_DT, 'HH24MISS')																				AS RTN_TMS					/* 반납완료시분초 */
+												,				CASE WHEN MI.MBER_GB_CD = '0'																							/* 개인판매 */
+																		 THEN TO_CHAR(TRUNC(II.DLV_END_DT) + (PS.DEPOSIT / PS.SHARING_PRICE), 'YYYYMMDD')       /* 배송완료일 + 보증금 / 쉐어링가격 */
+																		 WHEN MI.MBER_GB_CD = '1' 																						/* 법인판매 */  
+																		 THEN TO_CHAR(TRUNC(II.DLV_END_DT) + SHARE_TERM, 'YYYYMMDD')
+																END																																			AS CMP_SHARE_YMD		/* 쉐어링종료년월일 */
+												FROM    ORD_INFO                OI                              /* 주문정보 */                                                                                                      
+												JOIN  	ORD_PROD_INFO           OPI                             /* 주문상품정보 */                                                                                                    
+												ON    	OPI.ORD_CD              = OI.ORD_CD         
+												LEFT OUTER JOIN ORD_CANC_INFO   OCI
+												ON      OPI.CANC_CD             = OCI.CANC_CD     
+												JOIN    CODE                    C
+												ON      C.COM_CD                = OI.SELT_GB_CD                                                                                                                                           
+												AND     C.GRP_CD                = 'TAX_INFO'       
+												AND     C.USE_YN                = 'Y'         
+												LEFT OUTER JOIN CODE            CGC
+												ON      CGC.GRP_CD              = 'CON_GB_CD'
+												AND     CGC.COM_CD              = OI.CON_GB_CD
+												AND     CGC.USE_YN              = 'Y'
+												LEFT OUTER JOIN MBER_CPN_INFO   MCI
+												ON    	MCI.MBER_SEQ            = OI.MBER_SEQ
+												AND   	MCI.CPN_NO              = OPI.PROD_CPN_CD
+												LEFT OUTER JOIN CPN_INFO        CI
+												ON    	CI.CPN_GRP_CD           = MCI.CPN_GRP_CD
+												JOIN  	PROD                    P
+												ON    	P.PROD_CODE             = OPI.PROD_CODE
+												AND     P.PROD_TYPE_CD          = OPI.PROD_TYPE_CD
+												JOIN  	MBER_INFO               MI
+												ON      MI.MBER_SEQ             = P.MBER_SEQ
+												AND     MI.MBER_REG_GB_CD       = '1'					        /* 판매회원 */                                                                                                                                
+												LEFT OUTER JOIN SELLER_INFO_CFG SIC
+												ON    	SIC.MBER_SEQ            = P.MBER_SEQ
+												LEFT OUTER JOIN CTRY            CT
+												ON    	CT.CTRY_CD              = P.CTRY_CD
+												LEFT OUTER JOIN (
+															SELECT 	MAX(CHG_CD)     AS CHG_CD
+															,       ORD_CD
+															,       PROD_CODE
+															,       PROD_SEQ 
+															FROM    CHG_PROD_INFO 
+															WHERE 	PROC_STAT_CD    = '92' 				        /* 회수완료 */ 
+															OR      PROC_STAT_CD    = '89' 					    /* 반납완료 */ 
+															GROUP BY ORD_CD, PROD_CODE, PROD_SEQ
+																)                   IDX90CPI 			        /* 회수시 ORD_CD, CHG_CD INDEX 필요 */       
+												ON      IDX90CPI.ORD_CD         = OPI.ORD_CD
+												AND     IDX90CPI.PROD_CODE      = OPI.PROD_CODE
+												AND     IDX90CPI.PROD_SEQ       = OPI.PROD_SEQ                                                                                                                                                  
+												LEFT OUTER JOIN CHG_PROD_INFO   CPI                                                                                                                                                            
+												ON	    CPI.CHG_CD 				= IDX90CPI.CHG_CD
+												AND	    CPI.ORD_CD				= IDX90CPI.ORD_CD
+												AND	    CPI.PROD_CODE			= IDX90CPI.PROD_CODE
+												AND	    CPI.PROD_SEQ			= IDX90CPI.PROD_SEQ
+												LEFT OUTER JOIN CHG_INVC_INFO   CII 				            /* 회수, 반납 시에만 고려(정산종료일) */
+												ON	    CII.ORD_CD 				= CPI.ORD_CD
+												AND	    CII.PROD_CODE 		    = CPI.PROD_CODE
+												AND	    CII.PROD_SEQ 			= CPI.PROD_SEQ
+												AND	    CII.CHG_CD 				= CPI.CHG_CD
+												JOIN    PROD_SHARING 			PS
+												ON	    PS.PROD_CODE 			= P.PROD_CODE
+												JOIN    (SELECT ORD_CD					                        /* 발송완료및교환완료(정산시작일) */							                                                                                                              
+														,       PROD_CODE
+														,       PROD_SEQ
+														,       MAX(DLV_END_DT) 		    AS DLV_END_DT
+														FROM (	SELECT 	ORD_CD
+																,       PROD_CODE
+																,       PROD_SEQ
+																,       DLV_END_DT       
+																FROM    INVC_INFO     
+																WHERE   DLV_END_DT IS NOT NULL                                                                                                                                                                
+																UNION
+																SELECT 	CII.ORD_CD
+																,       CII.PROD_CODE
+																,       CII.PROD_SEQ
+																,       CII.DLV_END_DT
+																FROM    CHG_INVC_INFO       CII
+																JOIN    CHG_PROD_INFO       CPI
+																ON      CII.CHG_CD          = CPI.CHG_CD
+																AND     CII.ORD_CD          = CPI.ORD_CD
+																AND     CII.PROD_CODE       = CPI.PROD_CODE
+																AND     CII.PROD_SEQ        = CPI.PROD_SEQ
+																AND     CPI.PROC_STAT_CD 	= '42'				/* 교환완료 */
+																WHERE   CII.DLV_END_DT IS NOT NULL
+																)
+															GROUP BY ORD_CD, PROD_CODE, PROD_SEQ
+															) 								II
+												ON      II.PROD_CODE 			= OPI.PROD_CODE
+												AND     II.ORD_CD 				= OPI.ORD_CD
+												AND     II.PROD_SEQ 			= OPI.PROD_SEQ
+												LEFT OUTER JOIN (                                               /* 묶음배송 배송료 할당 */
+															SELECT	OPI.ORD_CD
+															,       OPI.PROD_CODE
+															,       OPI.PROD_SEQ
+															,       C.DLV_PRCE
+															,     	C.BNDL_DLY_CNT
+															,       P.PROD_TYPE_CD
+															,      	CASE WHEN C.BNDL_DLY_CNT &gt; 1 THEN P.BNDL_DLV_YN ELSE 'N' END     																AS BNDL_DLV_YN
+															,	    OI.MBER_SEQ 
+															,	    (ROW_NUMBER() OVER(PARTITION BY OI.ORD_CD, C.SELLER_SEQ, C.GRP_PROD_SEQ  ORDER BY OI.ORD_CD ))	AS NO  
+															FROM  	ORD_INFO      	OI
+															JOIN    ORD_PROD_INFO   OPI
+															ON	    OI.ORD_CD       = OPI.ORD_CD
+															AND	    OPI.CANC_CD	IS NULL
+															JOIN   	PROD            P
+															ON     	OPI.PROD_CODE   = P.PROD_CODE
+															AND	    P.BNDL_DLV_YN 	= 'Y'               
+															JOIN  	GRP_PROD_MAP    GRM
+															ON     	P.PROD_CODE     = GRM.PROD_CODE
+															AND   	P.MBER_SEQ     	= GRM.MBER_SEQ
+															JOIN    (
+																		SELECT	OI.MBER_SEQ
+																		,       OI.ORD_CD
+																		,     	GPM.GRP_PROD_SEQ
+																		,      	GPM.MBER_SEQ              	AS SELLER_SEQ
+																		,	    MIN(OPI.DLV_PRCE)		    AS DLV_PRCE
+																		,     	COUNT(GPM.PROD_CODE)       	AS BNDL_DLY_CNT  
+																		FROM   	ORD_INFO      	OI
+																		JOIN    ORD_PROD_INFO   OPI
+																		ON	    OI.ORD_CD 	    = OPI.ORD_CD
+																		JOIN   	PROD           	P
+																		ON    	OPI.PROD_CODE  	= P.PROD_CODE
+																		JOIN   	GRP_PROD_MAP    GPM
+																		ON     	GPM.PROD_CODE  	= P.PROD_CODE
+																		AND    	P.MBER_SEQ    	= GPM.MBER_SEQ
+																		WHERE  	P.BNDL_DLV_YN 	= 'Y'
+																		AND	    OPI.CANC_CD	IS NULL
+																		AND     P.PROD_TYPE_CD	= '2'
+																		GROUP BY  OI.MBER_SEQ, OI.ORD_CD, GPM.MBER_SEQ,  GPM.GRP_PROD_SEQ
+															        )    		    C
+															ON	    C.GRP_PROD_SEQ	= GRM.GRP_PROD_SEQ
+															AND    	C.SELLER_SEQ   	= GRM.MBER_SEQ
+															AND   	C.MBER_SEQ     	= OI.MBER_SEQ
+															AND	    C.ORD_CD	    = OI.ORD_CD
+															WHERE  	P.BNDL_DLV_YN  	= 'Y'
+																) 	            BDY                             /** BUNDLE_DELIVERY_CNT */ 
+												ON      BDY.MBER_SEQ 			= OPI.MBER_SEQ
+												AND	    BDY.ORD_CD 				= OPI.ORD_CD
+												AND	    BDY.PROD_CODE 		    = OPI.PROD_CODE
+												AND	    BDY.PROD_SEQ			= OPI.PROD_SEQ   
+												AND	    BDY.PROD_TYPE_CD        = P.PROD_TYPE_CD                                                                                                                            
+												WHERE 	OI.ORD_DEL_YN     		= 'N'                      	    /* 구매 삭제 확인 */    
+												AND	    (OCI.CANC_CD IS NULL OR OCI.CANC_CD  = '')              /* 주문취소상품제외 */   
+												AND	    (OPI.ADJ_COMP_YN IS NULL OR OPI.ADJ_COMP_YN      = 'N' )  /* 정산 배치 확인 */                                                                                                
+												AND	    P.PROD_TYPE_CD 			= '2'                           /* 쉐어링 */         
+												AND	    ((MI.MBER_GB_CD = '0' 								    /* 개인판매자 */
+										                AND ((CII.DLV_END_DT IS NOT NULL /* 반납완료 */ AND CPI.PROC_STAT_CD = '89' /*AND OPI.SHARE_OK_DT IS NOT NULL*/ ) /*AND OPI.SHARE_OK_DT IS NOT NULL*/
+												        OR  ((CPI.CHG_CD IS NULL OR CPI.CHG_CD IS NOT NULL AND CPI.PROC_STAT_CD != '89' ) /* 교환 없는 또는 교환완료 쉐어링기간초과 */
+											            AND (TRUNC(SYSDATE - 1) - TRUNC(II.DLV_END_DT) + 1) * PS.SHARING_PRICE &gt;= DEPOSIT)))
+												OR	    (MI.MBER_GB_CD = '1' 								    /* 법인판매자 */
+													    AND	((CII.DLV_END_DT IS NOT NULL /* 회수완료 */ AND CPI.PROC_STAT_CD = '92' /*AND OPI.SHARE_OK_DT IS NOT NULL*/) /*AND OPI.SHARE_OK_DT IS NOT NULL*/
+														OR  (CII.DLV_END_DT IS NULL 
+														AND (TRUNC(SYSDATE - 1) - TRUNC(II.DLV_END_DT) + 1) * PS.SHARING_PRICE &gt; OPI.SHARE_TERM * PS.SHARING_PRICE + PS.DEPOSIT )
+														)))    
+												AND     OPI.ORD_CD 				= #{ORD_CD} 				       
+												AND     OPI.PROD_CODE			= #{PROD_CODE}
+												AND	    OPI.PROD_SEQ			= #{PROD_SEQ}    					            				                                                                                                                                                                                                                                                                                                                                                           
+												) W                                                                                                                                                                                             
+										) X                                                                                                                                                                                                 
+								) Y                                                                                                                                                                                                 
+						)Z
+				)         
+	</insert>
+
+	
+</mapper>

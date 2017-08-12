@@ -1,0 +1,425 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="MobileMyBasketMapper">
+	
+	<!-- 장바구니 > A.판매상품 옵션이 존재할때 -->	
+	<select id="getMySellList" parameterType="HashMap" resultType="HashMap">		
+		WITH T AS (   
+		    SELECT
+	      		CA.MBER_SEQ,				CA.PROD_CODE,					CA.REGIST_DT,
+				CA.UPDT_DT,					CA.PROD_QTY,					CA.DLV_PAY_F_CD,
+				CAO.OPT_CD ,				CAO.OPT_QTY ,      
+				MM.OP_GB_CD,				MM.OPT_PRCE,					MM.OPT_CD_OPT,
+				MM.OPT_NM,				MM.OPT_PRCE AS OPT_PRCE_OPT,	MM.OPT_USE_YN,
+				MM.OPT_STOCK_QTY      	AS OPT_STOCK_QTY,
+				MM.OPT_EXP_QTY          	AS OPT_EXP_QTY,
+				(MM.OPT_STOCK_QTY - MM.OPT_EXP_QTY) 				AS OPT_SELL_CNT
+	 	     FROM(     
+	 	     		SELECT 	M.OP_GB_CD,                       	M.PROD_CODE,						M.OPT_USE_YN,            
+                       			M.OPT_PRCE,                       	M.OPT_CD_OPT ,                  	M.OPT_NM,
+                       			NVL(M.OPT_STOCK_QTY,0) 		AS OPT_STOCK_QTY,                	
+                       			NVL(M.OPT_EXP_QTY,0) 			AS OPT_EXP_QTY,
+                       			M.MBER_SEQ
+                 	FROM 	(
+	                        SELECT	OPM.OP_GB_CD,               	OPM.PROD_CODE,
+	                               		OPD.OPT_PRCE,               	OPD.OPT_CD AS OPT_CD_OPT ,
+	                               		LTRIM (SYS_CONNECT_BY_PATH (OPD.OPT_NM, ' > '), ' > ') 	AS OPT_NM,
+	                               		OPD.OPT_USE_YN,             	OPD.OPT_STOCK_QTY,            	OPD.OPT_EXP_QTY,
+	                               		CA.MBER_SEQ
+	                    	FROM 	PROD_OP_INFO OPM
+	                    	JOIN	 	PROD_OP OPD
+	                    	ON		OPM.OPT_GRP_CD = OPD.OPT_GRP_CD
+	                    	JOIN 		CART CA
+	                    	ON		OPM.PROD_CODE = CA.PROD_CODE
+	                    	AND		CA.MBER_SEQ 		= #{MBER_SEQ}
+	                   		START WITH OPD.PAR_OPT_CD   = '0'
+	                       	CONNECT BY PRIOR OPD.OPT_CD = OPD.PAR_OPT_CD
+	                ) M
+	                JOIN  		CART_OPT 			CO
+	                ON    	M.OPT_CD_OPT 		= CO.OPT_CD
+	                AND   	M.MBER_SEQ 		= CO.MBER_SEQ
+	                WHERE 	CO.MBER_SEQ 		= #{MBER_SEQ}  
+	 	     
+	 	     
+<!-- 	        	SELECT M.OP_GB_CD,	                   M.PROD_CODE, -->
+<!-- 	                   M.OPT_PRCE,	                   M.OPT_CD_OPT ,                  M.OPT_NM, -->
+<!-- 	                   M.OPT_USE_YN,                   M.OPT_STOCK_QTY,                M.OPT_EXP_QTY -->
+<!-- 	        	 FROM ( -->
+<!-- 	                	SELECT OPM.OP_GB_CD,               OPM.PROD_CODE, -->
+<!-- 	                           OPD.OPT_PRCE,               OPD.OPT_CD AS OPT_CD_OPT , -->
+<!-- 	                           LTRIM (SYS_CONNECT_BY_PATH (OPD.OPT_NM, ' > '), ' > ') AS OPT_NM, -->
+<!-- 	                           OPD.OPT_USE_YN,             OPD.OPT_STOCK_QTY,            OPD.OPT_EXP_QTY -->
+<!-- 	                	  FROM PROD_OP_INFO OPM, PROD_OP OPD -->
+<!-- 	                	 WHERE OPM.OPT_GRP_CD = OPD.OPT_GRP_CD -->
+<!-- 	                	   AND OPM.PROD_CODE IN (SELECT PROD_CODE FROM CART WHERE MBER_SEQ = <![CDATA[#{MBER_SEQ}]]>   ) -->
+<!-- 	                	 START WITH OPD.PAR_OPT_CD   = '0' -->
+<!-- 	                   CONNECT BY PRIOR OPD.OPT_CD = OPD.PAR_OPT_CD -->
+<!-- 	        	) M -->
+<!-- 	        	WHERE OPT_CD_OPT IN ( SELECT OPT_CD FROM CART_OPT WHERE MBER_SEQ = <![CDATA[#{MBER_SEQ}]]>    )           -->
+			) MM ,
+			CART CA,
+			CART_OPT CAO
+			WHERE CA.PROD_CODE = MM.PROD_CODE
+			  AND CAO.OPT_CD = MM.OPT_CD_OPT
+			  AND CAO.MBER_SEQ = CA.MBER_SEQ
+			  AND CA.MBER_SEQ = <![CDATA[#{MBER_SEQ}]]>   
+			UNION ALL 
+      		SELECT CA.MBER_SEQ,CA.PROD_CODE,CA.REGIST_DT, CA.UPDT_DT, CA.PROD_QTY,
+      			   CA.DLV_PAY_F_CD, 
+      			   '' AS OPT_CD 		, 0 AS OPT_QTY 		, '0' AS OP_GB_CD, 
+                   0 AS OPT_PRCE		, '' AS OPT_CD_OPT	, '' AS OPT_NM,
+                   0 AS OPT_PRCE_OPT	, '' AS OPT_USE_YN	,
+                   0 AS OPT_STOCK_QTY	, 0 AS OPT_EXP_QTY	, 0 AS OPT_SELL_CNT     
+              FROM (  SELECT MBER_SEQ, PROD_CODE, REGIST_DT, UPDT_DT, PROD_QTY, DLV_PAY_F_CD
+                      FROM CART 
+                      WHERE MBER_SEQ   = <![CDATA[#{MBER_SEQ}]]>     
+                      AND PROD_CODE NOT IN (  SELECT PROD_CODE FROM CART_OPT CAO  WHERE MBER_SEQ   = <![CDATA[#{MBER_SEQ}]]>    ) 
+			) CA   	           
+      	)
+		SELECT MMM.PROD_CODE,		MMM.PROD_QTY,
+		  	   DECODE(MMM.DLV_PAY_F_CD,NULL,' ',MMM.DLV_PAY_F_CD) AS DLV_PAY_F_CD,
+		  	   MMM.SELL_CNT,  	   	MMM.STOCK_QTY, MMM.EXP_QTY,
+		  	   MMM.OP_GB_CD,
+			   DECODE(MMM.OPT_QTY,'0',MMM.OPT_QTY,MMM.OPT_CD_CNT) AS OPT_CD_CNT, 
+		       MMM.OPT_CD, 		    MMM.OPT_QTY,		   MMM.PROD_TYPE_CD, 
+		       MMM.PROD_NM, 	    MMM.MBER_GB_CD,	       MMM.MBER_REG_GB_CD, 
+		       MMM.PROD_IMG_URL,    MMM.SELL_PRCE,	       MMM.DLV_PRCE, MMM.DLV_PAY_GB_CD,
+		       MMM.OPT_PROD_YN, 	MMM.OPT_NM,		       MMM.OPT_PRCE,         
+		       MMM.OPT_CD_OPT,      MMM.OPT_PRCE_OPT,   			      
+		       MMM.OPT_STOCK_QTY,   MMM.OPT_EXP_QTY,
+		       MMM.OPT_USE_YN,		MMM.OPT_SELL_CNT,
+		       DECODE(PRS.BNDL_DLV_YN,NULL,' ',BNDL_DLV_YN) AS BNDL_DLV_YN,
+		       PRS.BNDL_DLY_CNT,    MMM.PROD_STAT_CD,      MMM.VIEW_YN	,
+		       PRS.BNDL_DLV_GRP,
+		       MMM.EXI,
+		       MMM.DLV_WAY_CD
+		  FROM(		      
+          			SELECT	MM.PROD_CODE,   	   MM.PROD_QTY,   	MM.DLV_PAY_F_CD,  MM.DLV_PAY_GB_CD,
+								MM.SELL_CNT,    	   MM.STOCK_QTY, 	MM.EXP_QTY,
+								COUNT(MM.PROD_CODE) AS OPT_CD_CNT, 
+								SUBSTR(MAX(SYS_CONNECT_BY_PATH(MM.OPT_CD,'^')),2) 												AS OPT_CD, 
+								SUBSTR(MAX(SYS_CONNECT_BY_PATH(DECODE(MM.OPT_QTY,NULL,0,MM.OPT_QTY),'^')),2) 		AS OPT_QTY,         
+								SUBSTR(MAX(SYS_CONNECT_BY_PATH(MM.PROD_TYPE_CD,'^')),2) 										AS PROD_TYPE_CD, 
+								SUBSTR(MAX(SYS_CONNECT_BY_PATH(MM.PROD_NM,'^')),2) 											AS PROD_NM, 
+								SUBSTR(MAX(SYS_CONNECT_BY_PATH(MM.MBER_GB_CD,'^')),2) 										AS MBER_GB_CD, 
+								SUBSTR(MAX(SYS_CONNECT_BY_PATH(MM.MBER_REG_GB_CD,'^')),2) 									AS MBER_REG_GB_CD, 
+								SUBSTR(MAX(SYS_CONNECT_BY_PATH(MM.PROD_IMG_URL,'^')),2) 										AS PROD_IMG_URL, 
+								SUBSTR(MAX(SYS_CONNECT_BY_PATH(DECODE(MM.SELL_PRCE,NULL,0,MM.SELL_PRCE),'^')),2) 	AS SELL_PRCE, 
+								MAX(DLV_PRCE) 																								AS DLV_PRCE, 
+								SUBSTR(MAX(SYS_CONNECT_BY_PATH(MM.OPT_PROD_YN,'^')),2) 										AS OPT_PROD_YN, 
+								SUBSTR(MAX(SYS_CONNECT_BY_PATH(DECODE(MM.OPT_NM,NULL,' ',MM.OPT_NM),'^')),2) 		AS OPT_NM, 
+								SUBSTR(MAX(SYS_CONNECT_BY_PATH(DECODE(MM.OPT_PRCE,NULL,0,MM.OPT_PRCE),'^')),2) 		AS OPT_PRCE,         
+								SUBSTR(MAX(SYS_CONNECT_BY_PATH(MM.OPT_CD_OPT,'^')),2) 										AS OPT_CD_OPT,        
+								
+								SUBSTR(MAX(SYS_CONNECT_BY_PATH(MM.OPT_PRCE_OPT,'^')),2) 										AS OPT_PRCE_OPT,        					           
+								SUBSTR(MAX(SYS_CONNECT_BY_PATH(MM.OPT_STOCK_QTY,'^')),2) 									AS OPT_STOCK_QTY,        
+								SUBSTR(MAX(SYS_CONNECT_BY_PATH(MM.OPT_EXP_QTY,'^')),2) 										AS OPT_EXP_QTY,
+								SUBSTR(MAX(SYS_CONNECT_BY_PATH(MM.OPT_USE_YN,'^')),2) 										AS OPT_USE_YN,
+								SUBSTR(MAX(SYS_CONNECT_BY_PATH(MM.OPT_SELL_CNT,'^')),2) 										AS OPT_SELL_CNT,
+								SUBSTR(MAX(SYS_CONNECT_BY_PATH(MM.OP_GB_CD,'^')),2) 											AS OP_GB_CD,
+								SUBSTR(MAX(SYS_CONNECT_BY_PATH(MM.PROD_STAT_CD,'^')),2) 										AS PROD_STAT_CD,
+								SUBSTR(MAX(SYS_CONNECT_BY_PATH(MM.VIEW_YN,'^')),2) 												AS VIEW_YN,
+								MIN(EXI) 																											AS EXI,
+								MAX(MM.DLV_STAND_AMT)																					AS DLV_STAND_AMT,
+								MAX(MM.DLV_WAY_CD)																						AS DLV_WAY_CD
+					  FROM(      
+                                  SELECT	row_number() over(partition BY T.PROD_CODE order by rownum) AS RN ,
+	                                        T.MBER_SEQ			, T.PROD_CODE		, T.REGIST_DT		, T.UPDT_DT	, T.PROD_QTY	, T.DLV_PAY_F_CD,
+	                                        T.OPT_CD 			, T.OPT_QTY 			, T.OPT_PRCE			,
+	                                        T.OPT_CD AS OPT_CD_OPT,      T.OPT_NM,      T.OPT_PRCE_OPT,  T.OPT_STOCK_QTY,  T.OPT_EXP_QTY,  T.OPT_USE_YN,    
+	                                        T.OPT_SELL_CNT,	T.OP_GB_CD ,
+	                                        PR.PROD_NM		, PR.PROD_TYPE_CD	, PR.SELL_PRCE		, PR.DLV_PRCE	, PR.OPT_PROD_YN,
+	                                        PR.PROD_STAT_CD	, PR.VIEW_YN 		, PR.DLV_PAY_GB_CD    , PR.DLV_STAND_AMT 	,PR.DLV_WAY_CD,
+	                                        MBER.MBER_GB_CD ,    MBER.MBER_REG_GB_CD,					IMG.PROD_IMG_URL,
+	                                        (DECODE(PR.STOCK_QTY,NULL,0,PR.STOCK_QTY)-DECODE(PR.EXP_QTY,NULL,0,PR.EXP_QTY)) 	AS SELL_CNT,
+	                                        DECODE(PR.STOCK_QTY,NULL,0,PR.STOCK_QTY) 														AS STOCK_QTY,
+	                                        DECODE(PR.EXP_QTY,NULL,0,PR.EXP_QTY)																AS EXP_QTY,
+	                                        DECODE(T.OP_GB_CD,'20','EXI','0') 																		AS EXI     
+                                  FROM  	T
+                                  ,			PROD 					PR
+                                  ,			( SELECT PROD_CODE, PROD_IMG_URL FROM PROD_IMG WHERE PROD_IMG_GB_CD = '11' ) IMG
+                                  , 			MBER_INFO 			MBER    
+                                  WHERE T.PROD_CODE 		= PR.PROD_CODE(+)
+                                  AND T.MBER_SEQ     		= MBER.MBER_SEQ(+)
+                                  AND T.PROD_CODE    		= IMG.PROD_CODE(+)
+                                  AND T.MBER_SEQ   			= <![CDATA[#{MBER_SEQ}]]>
+				  				  AND PR.PROD_TYPE_CD 		= '1'
+						) MM
+					start with MM.RN = 1 
+				  connect by prior MM.RN = MM.RN -1 
+			 		     and prior MM.PROD_CODE = MM.PROD_CODE 
+					GROUP BY MM.PROD_CODE,MM.PROD_QTY,MM.DLV_PAY_F_CD,MM.DLV_PAY_GB_CD,MM.SELL_CNT,MM.STOCK_QTY, MM.EXP_QTY         
+		) MMM, 
+		( 	 
+				SELECT	CA.PROD_CODE
+				, 			C.BNDL_DLY_CNT
+				,			C.BNDL_DLV_GRP
+				, 			CASE WHEN C.BNDL_DLY_CNT > 1 THEN P.BNDL_DLV_YN ELSE 'N' END 	AS BNDL_DLV_YN 
+				FROM		CART 					CA
+				JOIN		PROD 					P
+				ON		CA.PROD_CODE 		= P.PROD_CODE
+				JOIN		GRP_PROD_MAP 	GRM
+				ON		CA.PROD_CODE 		= GRM.PROD_CODE
+				AND		P.MBER_SEQ 		= GRM.MBER_SEQ
+				JOIN		(
+							SELECT	CT.MBER_SEQ
+							, 			GRP.GRP_PROD_SEQ
+							,			GRP.MBER_SEQ||GRP.GRP_PROD_SEQ		AS BNDL_DLV_GRP
+							, 			GRP.MBER_SEQ 								AS SELLER_SEQ
+							, 			COUNT(GRP.PROD_CODE) 					AS BNDL_DLY_CNT         
+							FROM    	CART 					CT
+							JOIN    	PROD            		PRS
+							ON     	CT.PROD_CODE    	= PRS.PROD_CODE
+							JOIN    	GRP_PROD_MAP    GRP
+							ON      	GRP.PROD_CODE   	= PRS.PROD_CODE
+							AND     	PRS.MBER_SEQ    	= GRP.MBER_SEQ
+							WHERE   	PRS.BNDL_DLV_YN 		= 'Y'
+							AND     	PRS.PROD_TYPE_CD 	= '1'
+							GROUP BY CT.MBER_SEQ, GRP.MBER_SEQ,  GRP_PROD_SEQ
+				)	C
+				ON		C.GRP_PROD_SEQ 	= GRM.GRP_PROD_SEQ
+				AND		C.SELLER_SEQ 		= GRM.MBER_SEQ
+				AND		C.MBER_SEQ 		= CA.MBER_SEQ
+				WHERE   P.BNDL_DLV_YN 		= 'Y'
+				AND     	P.PROD_TYPE_CD 	= '1'
+				AND		CA.MBER_SEQ 		= #{MBER_SEQ}
+
+<!-- 			SELECT B.PROD_CODE , P.BNDL_DLV_YN,C.BNDL_DLY_CNT  -->
+<!-- 	           FROM PROD P, GRP_PROD_MAP B, -->
+<!-- 	          		(	 -->
+<!-- 	          		SELECT GRP.GRP_PROD_SEQ,COUNT(GRP.PROD_CODE) BNDL_DLY_CNT          -->
+<!-- 	                  	  FROM GRP_PROD_MAP GRP,PROD PRS -->
+<!-- 	                  	 WHERE GRP.PROD_CODE = PRS.PROD_CODE -->
+<!-- 	                  	   AND GRP.MBER_SEQ = <![CDATA[#{MBER_SEQ}]]> -->
+<!-- 	                 	 GROUP BY GRP_PROD_SEQ	          ) C -->
+<!-- 	          WHERE P.PROD_CODE = B.PROD_CODE -->
+<!-- 	           AND B.GRP_PROD_SEQ = C.GRP_PROD_SEQ -->
+<!-- 	           AND B.MBER_SEQ = <![CDATA[#{MBER_SEQ}]]> -->
+<!-- 	           AND P.BNDL_DLV_YN = 'Y'   -->
+  		) PRS
+  		WHERE PRS.PROD_CODE(+) = MMM.PROD_CODE
+  		ORDER BY PRS.BNDL_DLV_GRP
+	</select>
+	
+	<!-- 장바구니 > B.셰어링 상품 -->
+	<!-- 	  P.PROD_NM, 상품명 -->
+	<!--  AND P.PROD_TYPE_CD = '1' 1.판매 , 2.쉐어링 -->
+	<!--  AND MBER.MBER_REG_GB_CD = '1' 현재 데이터가 맞지 않아. 나중에 넣을것... 0.구매,1.판매 -->
+	<select id="getMySharingList" parameterType="HashMap" resultType="HashMap">		
+		SELECT MMM.*,PRS.BNDL_DLY_CNT,DECODE(PRS.BNDL_DLV_YN,NULL,' ',BNDL_DLV_YN) AS BNDL_DLV_YN
+ 		  FROM (
+				SELECT 
+				  	   M.MBER_SEQ,  M.PROD_CODE,  DECODE(M.PROD_QTY,NULL,0,M.PROD_QTY) AS PROD_QTY, M.REGIST_DT,
+				  	   DECODE(M.DLV_PAY_F_CD,NULL,' ',M.DLV_PAY_F_CD) AS DLV_PAY_F_CD,
+				  	   DECODE(P.DLV_PAY_GB_CD,NULL,' ',P.DLV_PAY_GB_CD) AS DLV_PAY_GB_CD,
+				  	   DECODE(M.SHARE_DAY,NULL,0,M.SHARE_DAY) AS SHARE_DAY,  
+				  	   P.PROD_NM,  P.PROD_TYPE_CD,  MBER.MBER_GB_CD,  MBER.MBER_REG_GB_CD,
+				  	   IMG.PROD_IMG_URL,  DECODE(P.SELL_PRCE,NULL,0,P.SELL_PRCE) AS SELL_PRCE,  DECODE(P.DLV_PRCE,NULL,0,P.DLV_PRCE) AS DLV_PRCE,  P.OPT_PROD_YN,   
+				  	   SH.SHARING_UNIT, DECODE(SH.SHARING_PRICE,NULL,0,SH.SHARING_PRICE) AS SHARING_PRICE, 
+				  	   DECODE(SH.DEPOSIT,NULL,0,SH.DEPOSIT) AS DEPOSIT, 
+				  	   DECODE(SH.SHARING_MIN_TERM,NULL,0,SH.SHARING_MIN_TERM) AS SHARING_MIN_TERM,
+			  		   DECODE(SH.SHARING_MAX_TERM,NULL,0,SH.SHARING_MAX_TERM) AS SHARING_MAX_TERM,
+			  		   TRUNC( SH.SHARING_END_DT - SH.SHARING_START_DT) AS DAY,
+			  		   SH.SHARING_END_DT,
+			  		   SH.SHARING_START_DT,
+			  		   (DECODE(P.STOCK_QTY,NULL,0,P.STOCK_QTY)-DECODE(P.EXP_QTY,NULL,0,P.EXP_QTY)) AS SELL_CNT,
+			  		   DECODE(P.STOCK_QTY,NULL,0,P.STOCK_QTY) AS STOCK_QTY, 
+			  		   DECODE(P.EXP_QTY,NULL,0,P.EXP_QTY) AS EXP_QTY,
+			  		   P.PROD_STAT_CD,
+    				   P.VIEW_YN,
+    				   P.DLV_STAND_AMT ,
+    				   P.DLV_WAY_CD
+				  FROM CART M ,  PROD P ,  MBER_INFO MBER ,
+				  	   ( 	SELECT PROD_CODE, PROD_IMG_URL FROM PROD_IMG WHERE PROD_IMG_GB_CD = '11'  ) IMG,
+				  	   PROD_SHARING SH
+				 WHERE M.PROD_CODE    = P.PROD_CODE(+)
+				   AND P.PROD_TYPE_CD = '2'
+				   AND P.MBER_SEQ     = MBER.MBER_SEQ(+)
+				   AND P.PROD_CODE    = IMG.PROD_CODE(+)
+				   AND P.PROD_CODE 	  = SH.PROD_CODE		 
+				   AND M.MBER_SEQ   = <![CDATA[#{MBER_SEQ}]]>
+				 ORDER BY M.REGIST_DT
+		) MMM,
+  		( 	 
+  				 SELECT    CA.PROD_CODE
+                ,             C.BNDL_DLY_CNT
+                ,            C.BNDL_DLV_GRP
+                ,             CASE WHEN C.BNDL_DLY_CNT > 1 THEN P.BNDL_DLV_YN ELSE 'N' END     AS BNDL_DLV_YN 
+                FROM        CART                     CA
+                JOIN        PROD                     P
+                ON        CA.PROD_CODE         = P.PROD_CODE
+                JOIN        GRP_PROD_MAP     GRM
+                ON        CA.PROD_CODE         = GRM.PROD_CODE
+                AND        P.MBER_SEQ         = GRM.MBER_SEQ
+                JOIN        (
+                            SELECT    CT.MBER_SEQ
+                            ,             GRP.GRP_PROD_SEQ
+                            ,            GRP.MBER_SEQ||GRP.GRP_PROD_SEQ        AS BNDL_DLV_GRP
+                            ,             GRP.MBER_SEQ                                 AS SELLER_SEQ
+                            ,             COUNT(GRP.PROD_CODE)                     AS BNDL_DLY_CNT         
+                            FROM        CART                     CT
+                            JOIN        PROD                    PRS
+                            ON         CT.PROD_CODE        = PRS.PROD_CODE
+                            JOIN        GRP_PROD_MAP    GRP
+                            ON          GRP.PROD_CODE       = PRS.PROD_CODE
+                            AND         PRS.MBER_SEQ        = GRP.MBER_SEQ
+                            WHERE       PRS.BNDL_DLV_YN         = 'Y'
+                            AND         PRS.PROD_TYPE_CD     = '2'
+                            GROUP BY CT.MBER_SEQ, GRP.MBER_SEQ,  GRP_PROD_SEQ
+                )    C
+                ON        C.GRP_PROD_SEQ     = GRM.GRP_PROD_SEQ
+                AND        C.SELLER_SEQ         = GRM.MBER_SEQ
+                AND        C.MBER_SEQ         = CA.MBER_SEQ
+                WHERE   P.BNDL_DLV_YN         = 'Y'
+                AND         P.PROD_TYPE_CD     = '2'
+				AND		CA.MBER_SEQ 		= #{MBER_SEQ}
+				
+<!--   			SELECT B.PROD_CODE , P.BNDL_DLV_YN,C.BNDL_DLY_CNT  -->
+<!-- 	           FROM PROD P, GRP_PROD_MAP B, -->
+<!-- 	          		(	SELECT GRP.GRP_PROD_SEQ,COUNT(GRP.PROD_CODE) BNDL_DLY_CNT          -->
+<!-- 	                  	  FROM GRP_PROD_MAP GRP,PROD PRS -->
+<!-- 	                  	 WHERE GRP.PROD_CODE = PRS.PROD_CODE -->
+<!-- 	                  	   AND GRP.MBER_SEQ = <![CDATA[#{MBER_SEQ}]]> -->
+<!-- 	                 	 GROUP BY GRP_PROD_SEQ	          ) C -->
+<!-- 	          WHERE P.PROD_CODE = B.PROD_CODE -->
+<!-- 	           AND B.GRP_PROD_SEQ = C.GRP_PROD_SEQ -->
+<!-- 	           AND B.MBER_SEQ = <![CDATA[#{MBER_SEQ}]]> -->
+<!-- 	           AND P.BNDL_DLV_YN = 'Y'   -->
+  		) PRS
+  		WHERE PRS.PROD_CODE(+) = MMM.PROD_CODE		
+  		ORDER BY PRS.BNDL_DLV_GRP
+<!--   		AND		PRS.MBER_SEQ(+) = MMM.MBER_SEQ  -->
+<!--   		AND		MMM.MBER_SEQ = #{MBER_SEQ} -->
+	</select>
+	
+	<!-- 장바구니 NEW 표시 출력 여부 -->
+	<update id="updateCartViewYn" parameterType="hashmap">
+		UPDATE CART
+		   SET VIEW_YN = 'Y'
+		 WHERE MBER_SEQ = <![CDATA[#{MBER_SEQ}]]>
+		   AND VIEW_YN = 'N'
+	</update>
+	
+	<select id="selectCountCart" parameterType="int" resultType="int">
+		SELECT COUNT(PROD_CODE) AS CNT
+		FROM CART
+		WHERE MBER_SEQ = #{mberSeq}
+	</select>
+	<!-- shkim 상품정보변경/재고부족으로 삭제처리 -->
+	<select id="selectCountCartOptAll" parameterType="hashmap" resultType="int">
+		SELECT COUNT(PROD_CODE) AS CNT
+		  FROM CART_OPT
+		 WHERE MBER_SEQ  = <![CDATA[#{MBER_SEQ}]]>
+		   AND PROD_CODE = <![CDATA[#{PROD_CODE}]]>
+		   
+	</select>
+	<!-- 장바구니 담기-->
+	<update id="insertUpdateCart" parameterType="hashmap">
+		MERGE INTO CART
+			USING DUAL
+			ON (MBER_SEQ = #{MBER_SEQ} AND PROD_CODE = #{PROD_CODE})
+            WHEN MATCHED THEN
+				UPDATE SET PROD_QTY = NVL(PROD_QTY, 0) + #{PROD_QTY}
+						, UPDT_DT = SYSDATE
+						<if test='SHARE_DAY != null and SHAR_DAY != ""'>
+							, SHARE_DAY = #{SHARE_DAY}
+						</if>
+			WHEN NOT MATCHED THEN
+				INSERT (MBER_SEQ
+						, PROD_CODE
+						, PROD_QTY
+						, REGIST_DT
+						, UPDT_DT
+						<if test='SHARE_DAY != null and SHAR_DAY != ""'>
+							, SHARE_DAY
+						</if>
+						<if test='DLV_PAY_F_CD != null and DLV_PAY_F_CD != ""'>
+							, DLV_PAY_F_CD
+						</if>
+				) VALUES(#{MBER_SEQ}
+						, #{PROD_CODE}
+						, #{PROD_QTY}
+						, SYSDATE
+						, SYSDATE
+						<if test='SHARE_DAY != null and SHAR_DAY != ""'>
+							, #{SHARE_DAY}
+						</if>
+						<if test='DLV_PAY_F_CD != null and DLV_PAY_F_CD != ""'>
+							, #{DLV_PAY_F_CD}
+						</if>
+				)
+	</update>
+	 
+	<!-- 장바구니 옵션 담기 -->
+	<update id="insertUpdateCartOpt" parameterType="hashmap">
+		MERGE INTO CART_OPT
+			USING DUAL
+			ON (MBER_SEQ = #{MBER_SEQ} AND PROD_CODE = #{PROD_CODE} AND OPT_CD = #{OPT_CD})
+            WHEN MATCHED THEN
+				UPDATE SET OPT_QTY = NVL(OPT_QTY, 0) + #{OPT_QTY}
+			WHEN NOT MATCHED THEN
+				INSERT (MBER_SEQ
+						, PROD_CODE
+						, OPT_CD
+						, OPT_QTY
+				) VALUES(#{MBER_SEQ}
+						, #{PROD_CODE}
+						, #{OPT_CD}
+						, #{OPT_QTY}
+				)	
+	</update>
+	
+	<!-- 장바구니 삭제 -->
+	<delete id="deleteMyBasket" parameterType="HashMap">
+      DELETE FROM CART
+       WHERE MBER_SEQ = <![CDATA[#{MBER_SEQ}]]>
+		 AND PROD_CODE = <![CDATA[#{PROD_CODE}]]>		
+  	</delete>
+  	<!-- 장바구니 옵션 삭제(옵션코드 미포함) -->
+  	<delete id="deleteMyBasketOpt" parameterType="hashmap">
+  	<![CDATA[
+  		DELETE FROM CART_OPT
+  		 WHERE MBER_SEQ = #{MBER_SEQ}
+  		  AND PROD_CODE = #{PROD_CODE}  			
+  	]]>
+  	</delete>
+  	<!-- 장바구니 옵션 삭제(옵션코드 포함) -->
+  	<delete id="deleteCartOpt" parameterType="hashmap">
+  	<![CDATA[
+  		DELETE FROM CART_OPT
+  		 WHERE MBER_SEQ = #{MBER_SEQ}
+  		   AND PROD_CODE = #{PROD_CODE}
+  		   AND OPT_CD = #{OPT_CD}
+  	]]>
+  	</delete>
+  	
+  	<select id="getMyBasketStockCnt" parameterType="hashmap" resultType="int">
+  		SELECT	STOCK_QTY - #{QTY}								
+  		FROM		(
+	  		SELECT
+	  		<if test="GUBUN neq null and GUBUN eq 'P'.toString()">
+	  					P.STOCK_QTY - NVL(P.EXP_QTY,0)						AS STOCK_QTY
+	  		</if>
+	  		<if test="GUBUN neq null and GUBUN eq 'O'.toString()">
+	  					PO.OPT_STOCK_QTY - NVL(PO.OPT_EXP_QTY,0)		AS STOCK_QTY
+	  		</if>
+	  		
+	  		FROM 	CART C
+	  		JOIN		PROD P
+	  		ON 		C.PROD_CODE = P.PROD_CODE
+	  		LEFT OUTER JOIN CART_OPT CO
+	  		ON		C.PROD_CODE = CO.PROD_CODE
+	  		LEFT OUTER JOIN PROD_OP PO
+	  		ON		CO.OPT_CD = PO.OPT_CD
+	  		WHERE 	C.MBER_SEQ = #{MBER_SEQ}
+	  		<if test="GUBUN neq null and GUBUN eq 'P'.toString()">
+	  		AND		P.PROD_CODE = #{CD}
+	  		</if>
+	  		<if test="GUBUN neq null and GUBUN eq 'O'.toString()">
+	  		AND		PO.OPT_CD = #{CD}
+	  		</if>
+  		)
+  		GROUP BY STOCK_QTY
+  	</select>
+</mapper>

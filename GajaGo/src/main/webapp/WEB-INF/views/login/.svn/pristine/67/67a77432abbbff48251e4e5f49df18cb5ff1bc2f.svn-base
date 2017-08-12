@@ -1,0 +1,2031 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="adminSharingOrderMapper">
+     			  
+<resultMap type="hashmap"  id="searchDlvInfo">
+		<id property="INVC_NO" 			column="INVC_NO" />
+		<id property="DLV_CMP_CD" 			column="DLV_CMP_CD" />
+		<collection property="dlvCmpInfo" 			javaType="java.util.ArrayList" ofType="java.util.HashMap">
+			<id property="PROC_SEQ" 			column="PROC_SEQ" />
+			<result property="TREATREGIPONM"		column="TREATREGIPONM" />
+			<result property="TREATCDNM"	column="TREATCDNM" />
+			<result property="TREAT_DT"	column="TREAT_DT" />
+		</collection>
+
+</resultMap>
+	
+    	
+    <sql id="Termisearch">  
+  		<if test="SEARCH_APPLYDATE_SEL  == 'APPLYSTARTDATE'">
+	    	<if test="S_START_DATE != null and S_START_DATE != ''">
+	    	        AND S.TERMI_REQ_DT BETWEEN TO_DATE(#{S_START_DATE},'YYYYMMDDHH') AND TO_DATE(#{S_END_DATE},'YYYYMMDDHH') + 0.99999
+			</if>
+		</if>
+		<if test="SEARCH_APPLYDATE_SEL  == 'APPLYENDDATE'">
+	    	<if test="S_START_DATE != null and S_START_DATE != ''">
+	    	        AND  S.COMPLETE_DATE BETWEEN TO_DATE(#{S_START_DATE},'YYYYMMDDHH') AND TO_DATE(#{S_END_DATE},'YYYYMMDDHH') + 0.99999
+			</if>
+		</if>
+  		<if test="KEYWORD != '' and KEYWORD != null">
+		<if test="SEARCH_KEYWORD_SEL  == 'ORDERNO'">
+		       AND S.ORD_CD LIKE '%'||<![CDATA[#{KEYWORD}]]>||'%'
+		</if>
+		<if test="SEARCH_KEYWORD_SEL  == 'USERID'">
+		 	 AND S.MBER_EMAIL LIKE '%'||<![CDATA[#{KEYWORD}]]>||'%'
+		</if>
+		<if test="SEARCH_KEYWORD_SEL  == 'PRODNM'">
+		    AND S.PROD_NM LIKE '%'||<![CDATA[#{KEYWORD}]]>||'%'
+		</if>
+  		</if>
+     <if test="INS_CHK_BOX_RESULT != null and INS_CHK_BOX_RESULT.size > 0">
+	        AND S.PROC_STAT_CD IN
+	        	<foreach item="item" index="index" collection="INS_CHK_BOX_RESULT" open="(" separator="," close=")">
+				#{item}
+		</foreach>
+	</if>
+  </sql>
+ <sql id="OrderSearch">  
+   		<if test="S_START_DATE != null and S_START_DATE != ''">
+   		      AND  A.ORD_REG_DATE BETWEEN TO_DATE(#{S_START_DATE},'YYYYMMDDHH') AND TO_DATE(#{S_END_DATE},'YYYYMMDDHH') + 0.99999
+		</if>
+		
+   		<if test="KEYWORD != '' and KEYWORD != null">
+			<if test="SEARCH_KEYWORD_SEL  == 'ORDERNO'">
+			       AND A.ORD_CD LIKE '%'||<![CDATA[#{KEYWORD}]]>||'%'
+			</if>
+			<if test="SEARCH_KEYWORD_SEL  == 'USERID'">
+			  AND B.MBER_EMAIL LIKE '%'||<![CDATA[#{KEYWORD}]]>||'%'
+			</if>
+			<if test="SEARCH_KEYWORD_SEL  == 'PRODNM'">
+			    AND D.PROD_NM LIKE '%'||<![CDATA[#{KEYWORD}]]>||'%'
+			</if>
+   		</if>
+  </sql>
+  
+   <sql id="ChgSearch">  
+		<if test="SEARCH_APPLYDATE_SEL  == 'APPLYSTARTDATE'">
+			    
+			<if test="S_START_DATE != null and S_START_DATE != ''">
+	   		      AND  A.CHG_REG_DT BETWEEN TO_DATE(#{S_START_DATE},'YYYYMMDDHH') AND TO_DATE(#{S_END_DATE},'YYYYMMDDHH') + 0.99999
+			</if>
+		
+		</if>
+		<if test="SEARCH_APPLYDATE_SEL  == 'APPLYENDDATE'">
+		    <if test="S_START_DATE != null and S_START_DATE != ''">
+	   		      AND  A.CHG_FIN_DT BETWEEN TO_DATE(#{S_START_DATE},'YYYYMMDDHH') AND TO_DATE(#{S_END_DATE},'YYYYMMDDHH') + 0.99999
+			</if>
+		</if>
+   		<if test="KEYWORD != '' and KEYWORD != null">
+			<if test="SEARCH_KEYWORD_SEL  == 'ORDERNO'">
+			  AND A.ORD_CD LIKE '%'||<![CDATA[#{KEYWORD}]]>||'%'
+			</if>
+			<if test="SEARCH_KEYWORD_SEL  == 'USERID'">
+			  AND C.MBER_EMAIL LIKE '%'||<![CDATA[#{KEYWORD}]]>||'%'
+			</if>
+			<if test="SEARCH_KEYWORD_SEL  == 'PRODNM'">
+			  AND D.PROD_NM LIKE '%'||<![CDATA[#{KEYWORD}]]>||'%'
+			</if>
+			<if test="SEARCH_KEYWORD_SEL  == 'PROCEEDSTAFF'">
+			  AND A.ADM_NM LIKE '%'||<![CDATA[#{KEYWORD}]]>||'%'
+			</if>
+   		</if>
+	     <if test="INS_CHK_BOX_RESULT != null and INS_CHK_BOX_RESULT.size > 0">
+	        AND A.CHG_PROC_TYPE_CD IN
+	        	<foreach item="item" index="index" collection="INS_CHK_BOX_RESULT" open="(" separator="," close=")">
+				#{item}
+			</foreach>
+		</if>								
+  </sql>
+  
+	<sql id="CancelSearch">  
+			<if test="SEARCH_APPLYDATE_SEL  == 'APPLYSTARTDATE'">
+	    	<if test="S_START_DATE != null and S_START_DATE != ''">
+	    	 and A.CHG_REG_DT BETWEEN  #{S_START_DATE} AND   #{S_END_DATE} 
+			</if>
+		</if>
+		<if test="SEARCH_APPLYDATE_SEL  == 'APPLYENDDATE'">
+	    	<if test="S_START_DATE != null and S_START_DATE != ''">
+	    	 and  A.CHG_FIN_DT BETWEEN  #{S_START_DATE} AND   #{S_END_DATE} 
+			</if>
+		</if>
+   		<if test="KEYWORD != '' and KEYWORD != null">
+			<if test="SEARCH_KEYWORD_SEL  == 'ORDERNO'">
+			  AND A.ORD_CD LIKE '%'||<![CDATA[#{KEYWORD}]]>||'%'
+			</if>
+			<if test="SEARCH_KEYWORD_SEL  == 'USERID'">
+			  AND C.MBER_EMAIL LIKE '%'||<![CDATA[#{KEYWORD}]]>||'%'
+			</if>
+			<if test="SEARCH_KEYWORD_SEL  == 'PRODNM'">
+			  AND D.PROD_NM LIKE '%'||<![CDATA[#{KEYWORD}]]>||'%'
+			</if>
+			<if test="SEARCH_KEYWORD_SEL  == 'PROCEEDSTAFF'">
+			  AND A.ADM_NM LIKE '%'||<![CDATA[#{KEYWORD}]]>||'%'
+			</if>
+   		</if>
+	     <if test="CHK_BOX_RESULT != null and CHK_BOX_RESULT.size > 0">
+	        AND B.PROC_STAT_CD IN
+	        	<foreach item="item" index="index" collection="CHK_BOX_RESULT" open="(" separator="," close=")">
+				#{item}
+			</foreach>
+		</if>								
+  </sql>
+  <select id="searchDlvInfo" resultMap="searchDlvInfo">
+  	SELECT * FROM INVC_PROC_HIST WHERE INVC_NO = #{INVC_NO}
+  </select>
+  
+  
+	<update id="updateOrdMemoReg">
+	    UPDATE ORD_INFO 
+	       SET ADMIN_MEMO = #{ADM_MENO}
+	    WHERE ORD_CD = #{ORDER_CODE}
+	</update>  
+	
+	<update id="ChgupdateOrdMemoReg">
+		UPDATE CHG_RTN_PROC_INFO 
+	       SET ADM_MEMO = #{ADM_MENO}
+	    WHERE CHG_CD = #{CHG_CD}
+	</update>
+	
+	<update id="termiupdateOrdMemoReg">
+	UPDATE TERMI_INFO 
+	       SET ADM_MEMO = #{ADM_MENO}
+	    WHERE CHG_CD = #{CHG_CD}
+	</update>
+	
+	
+	<select id="selectListRelDlvInfo" resultType="hashmap">
+		SELECT DLV_CMP_CD FROM REL_DLV_INFO 
+	</select>
+	
+	
+<!--     주문조회 리스트 총 카운트  -->
+    <select id="selectListOrderProdCount" resultType="Integer">
+           	SELECT COUNT(*)
+		 	 FROM(
+			  	SELECT  A.ORD_REG_DATE 
+	     				 , A.ORD_CD 
+	     				 , B.MBER_EMAIL 
+	     				 , B.MBER_NM
+	     				 , D.PROD_NM
+			             , D.MODEL_NM
+			             , D.SP_SIZE_CD
+			             , C.OPEN_TYPE
+			             , C.PROC_STAT_CD
+		             	 , C.PROD_CODE
+						 , C.COLOR_SEQ
+			             , D.SHARING_PRICE
+			             , D.MAKER_CD
+	      	 			 , (SELECT TELCOM_NM FROM SP_TELCOM WHERE TELCOM_CODE = E.TELCOM_CODE) AS TELCOM_NM
+						 , E.PAYPLAN_NM
+						 , (SELECT STIP_PERIOD FROM SP_STIP WHERE STIP_CODE = C.STIP_CODE) AS STIP_PERIOD
+	<!-- 					 , A.ORD_STAT_CD -->
+						 , ROW_NUMBER() OVER(ORDER BY A.UPDT_DT DESC ) AS NO
+						 , (SELECT COLOR_NAME FROM SP_COLOR WHERE COLOR_SEQ = C.COLOR_SEQ and PROD_CODE = C.PROD_CODE) as COLOR_NAME	
+						 , (SELECT FILE_URL FROM FILE_INFO WHERE FILE_SEQ = (SELECT FILE_NO FROM SP_IMAGE WHERE PROD_CODE = D.PROD_CODE AND SP_IMG_GB_CD = '11') ) AS IMG_URL
+					FROM ORD_INFO A 	
+						, MBER_INFO B 
+						, SP_PROD D 
+						, ORD_PROD_INFO C 
+						, SP_PAYPLAN E
+					WHERE A.MBER_SEQ = B.MBER_SEQ
+					  AND A.ORD_CD = C.ORD_CD
+					  AND D.PROD_CODE = C.PROD_CODE
+					  AND E.PAYPLAN_CODE = C.PAYPLAN_CODE
+				  	<choose>
+				  	    <when test="INS_CHK_BOX_RESULT != null and INS_CHK_BOX_RESULT.size > 0">
+				  	      AND C.PROC_STAT_CD IN
+							<foreach item="item" index="index" collection="INS_CHK_BOX_RESULT" open="(" separator="," close=")">
+								#{item}
+							</foreach>
+				  	    </when>
+				  	    <otherwise>
+				  	         AND C.PROC_STAT_CD IN ('10','11','22','23','50','85','86','90','91','92')
+				  	    </otherwise>
+				  	</choose>
+				<include refid="OrderSearch" />
+			) 
+    </select>
+   
+     
+    <select id="selectListOrderProd" resultType="HashMap">
+	SELECT TO_CHAR(ORD.ORD_REG_DATE,'YYYY-MM-DD HH24:MI') AS ORD_REG_DATE
+		  ,ORD.MBER_EMAIL
+		  ,ORD.MBER_SEQ
+		  ,ORD.MBER_NM
+		  ,ORD.ORD_CD
+		  ,ORD.PROD_NM
+		  ,ORD.MODEL_NM
+		  ,ORD.SP_SIZE_CD
+		  ,ORD.PROC_STAT_CD
+		  ,ORD.PROD_CODE
+		  ,ORD.COLOR_SEQ
+		  ,ORD.SHARING_PRICE
+		  ,ORD.MAKER_CD
+		  ,ORD.TELCOM_NM
+		  ,ORD.PAYPLAN_NM
+		  ,ORD.STIP_PERIOD
+		  ,ORD.NO
+		  ,ORD.COLOR_NAME
+		  ,ORD.OPEN_TYPE
+		  ,ORD.IMG_URL
+		  FROM(
+				SELECT  A.ORD_REG_DATE 
+     				  , A.ORD_CD 
+     				 , B.MBER_EMAIL 
+     				 , B.MBER_SEQ
+     				 , B.MBER_NM
+     				 , D.PROD_NM
+		             , D.MODEL_NM
+		             , D.SP_SIZE_CD
+		             , C.OPEN_TYPE
+		             , C.PROC_STAT_CD
+	             	 , C.PROD_CODE
+					 , C.COLOR_SEQ
+		             , D.MAKER_CD
+      	 			 , (SELECT TELCOM_NM FROM SP_TELCOM WHERE TELCOM_CODE = E.TELCOM_CODE) AS TELCOM_NM
+					 , E.PAYPLAN_NM
+					 , (SELECT STIP_PERIOD FROM SP_STIP WHERE STIP_CODE = C.STIP_CODE) AS STIP_PERIOD
+<!-- 					 , A.ORD_STAT_CD -->
+					 , ROW_NUMBER() OVER(ORDER BY A.UPDT_DT DESC ) AS NO
+					 , (SELECT COLOR_NAME FROM SP_COLOR WHERE COLOR_SEQ = C.COLOR_SEQ and PROD_CODE = C.PROD_CODE) as COLOR_NAME	
+					 , (SELECT FILE_URL FROM FILE_INFO WHERE FILE_SEQ = (SELECT FILE_NO FROM SP_IMAGE WHERE PROD_CODE = D.PROD_CODE AND SP_IMG_GB_CD = '11') ) AS IMG_URL
+					 , (SELECT SHARING_PRICE FROM SP_PROD_DTL WHERE PROD_CODE = C.PROD_CODE AND PAYPLAN_CODE = C.PAYPLAN_CODE AND STIP_CODE = C.STIP_CODE) AS SHARING_PRICE
+				FROM ORD_INFO A 	
+					, MBER_INFO B 
+					, SP_PROD D 
+					, ORD_PROD_INFO C 
+					, SP_PAYPLAN E
+				WHERE A.MBER_SEQ = B.MBER_SEQ
+				  AND A.ORD_CD = C.ORD_CD
+				  AND D.PROD_CODE = C.PROD_CODE
+				  AND E.PAYPLAN_CODE = C.PAYPLAN_CODE
+			  	<choose>
+			  	    <when test="INS_CHK_BOX_RESULT != null and INS_CHK_BOX_RESULT.size > 0">
+			  	      AND C.PROC_STAT_CD IN
+						<foreach item="item" index="index" collection="INS_CHK_BOX_RESULT" open="(" separator="," close=")">
+							#{item}
+						</foreach>
+			  	    </when>
+			  	    <otherwise>
+			  	         AND C.PROC_STAT_CD IN ('10','11','22','23','50','85','86','90','91','92')
+			  	    </otherwise>
+			  	</choose>
+			<include refid="OrderSearch" />
+		  	ORDER BY A.ORD_REG_DATE DESC
+		  )ORD WHERE ORD.NO BETWEEN #{START_ROW} AND #{END_ROW}
+    </select>
+    
+    <select id="spprod_order_total" resultType="HashMap">
+        SELECT 
+        	TO_CHAR(SUM(ORDER_COMPLETE),'FM99,999,999,999,999,990')			AS ORDER_COMPLETE
+		 , TO_CHAR(SUM(PROD_OUT),'FM99,999,999,999,999,990')		AS PROD_OUT
+		 , TO_CHAR(SUM(ORDER_CANCEL),'FM99,999,999,999,999,990')			AS ORDER_CANCEL
+		 , TO_CHAR(SUM(EXCHANGE_REQ),'FM99,999,999,999,999,990')		AS EXCHANGE_REQ
+         , TO_CHAR(SUM(RETURNED_REQ),'FM99,999,999,999,999,990')		AS RETURNED_REQ
+         , TO_CHAR(SUM(REVOCATION_REQ),'FM99,999,999,999,999,990')		AS REVOCATION_REQ
+	  FROM (
+			  SELECT COUNT(*) AS ORDER_COMPLETE 
+			      ,0 AS PROD_OUT
+			      ,0  AS ORDER_CANCEL
+			      ,0 AS EXCHANGE_REQ
+			      ,0 AS RETURNED_REQ
+			      ,0 AS REVOCATION_REQ
+			FROM ORD_PROD_INFO 
+			WHERE PROC_STAT_CD = '10'
+				and PROD_TYPE_CD = '4'
+		 UNION ALL
+			 SELECT 0 ORDER_COMPLETE 
+			      , COUNT(*) AS PROD_OUT
+			      ,0  AS ORDER_CANCEL
+			      ,0 AS EXCHANGE_REQ
+			      ,0 AS RETURNED_REQ
+			      ,0 AS REVOCATION_REQ
+			FROM ORD_PROD_INFO 
+			WHERE PROC_STAT_CD = '11'
+				and PROD_TYPE_CD = '4'
+		 UNION ALL
+			 SELECT 0 AS ORDER_COMPLETE 
+			      ,0 AS PROD_OUT
+			      ,COUNT(*)  AS ORDER_CANCEL
+			      ,0 AS EXCHANGE_REQ
+			      ,0 AS RETURNED_REQ
+			      ,0 AS REVOCATION_REQ
+			FROM ORD_PROD_INFO 
+			WHERE PROC_STAT_CD = '50'
+			AND PROD_TYPE_CD = '4'
+		 UNION ALL
+			 SELECT
+			       0 AS ORDER_COMPLETE 
+			      ,0 AS PROD_OUT
+			      ,0  AS ORDER_CANCEL
+			      ,COUNT(*) AS EXCHANGE_REQ
+			      ,0 AS RETURNED_REQ
+			      ,0 AS REVOCATION_REQ
+			FROM CHG_PROD_INFO 
+			WHERE PROC_STAT_CD = '41'
+			 AND PROD_GB_CD = '4'
+		 UNION ALL
+			 SELECT
+			       0 AS ORDER_COMPLETE 
+			      ,0 AS PROD_OUT
+			      ,0  AS ORDER_CANCEL
+			      ,0 AS EXCHANGE_REQ
+			      ,COUNT(*)AS RETURNED_REQ
+			      ,0 AS REVOCATION_REQ
+			FROM CHG_PROD_INFO 
+			WHERE PROC_STAT_CD = '31'
+			 AND PROD_GB_CD = '4'
+		 UNION ALL
+			 SELECT
+			       0 AS ORDER_COMPLETE 
+			      ,0 AS PROD_OUT
+			      ,0  AS ORDER_CANCEL
+			      , 0 AS EXCHANGE_REQ
+			      , 0 AS RETURNED_REQ
+			      ,COUNT(*) AS REVOCATION_REQ
+			FROM TERMI_INFO 
+			WHERE PROC_STAT_CD = '70'
+		)
+    </select>
+    
+<select  id="selectWaitProdCnt" resultType="Integer">
+    SELECT COUNT(*) 
+      FROM SP_SH_PROD 
+     WHERE PROD_CODE = #{POPUP_PROD_CODE}
+       AND COLOR_SEQ = #{POPUP_COLOR_SEQ}
+       AND SH_STAT_CD = '06'
+</select>
+
+<select id="searchUniqueNo" resultType="HashMap">
+    
+       SELECT PROD_UNIQUENO, SH_STAT_CD
+      FROM SP_SH_PROD 
+     WHERE PROD_CODE = #{SEARCHPRODCODE}
+       AND COLOR_SEQ = #{SEARCHCOLORSEQ}
+       		<if test="SEARCHUNIQUENO != '' and SEARCHUNIQUENO != null">
+       AND PROD_UNIQUENO LIKE '%'||<![CDATA[#{SEARCHUNIQUENO}]]>||'%'
+       </if>
+</select>
+
+<update id="updateShprodTBreg">
+     UPDATE SP_SH_PROD 
+        SET SH_STAT_CD = '01'
+          , PROD_SERIAL = #{PROD_SERIAL}
+          , USED_YN = 'N'
+     WHERE PROD_UNIQUENO = #{UNIQUENO} and PROD_CODE = #{PROD_CODE}
+</update>
+
+
+	<select id="selectOrdinfo"   resultType="hashmap">
+		SELECT A.ORD_STAT_CD
+			 , A.ADMIN_MEMO
+			 , B.RCV_NM
+			 , B.RCV_TEL
+			 , B.RCV_HP
+			 , B.ZIP_CD 
+			 , B.JUSO_JIBEN 
+			 , B.JUSO_DORO 
+			 , B.JUSO_DTL 
+			 , II.INVC_NO
+			 , II.DLV_CMP_CD
+			 , TO_CHAR(II.DLV_START_DT,'YYYY-MM-DD HH24:MI') as DLV_START_DT 
+			 , TO_CHAR(II.DLV_END_DT,'YYYY-MM-DD HH24:MI') as DLV_END_DT 
+			 , TO_CHAR(II.EXP_DT,'YYYY-MM-DD') as EXP_DT
+			 , TO_CHAR(OD.OPEN_DT,'YYYY-MM-DD') as OPEN_DT
+			 , TO_CHAR(OD.OPEN_DT,'DD') as PAY_DT
+			 , TO_CHAR(OD.END_DT,'YYYY-MM-DD') as END_DT
+			 , OD.USIM_SEQ_CODE
+			 , OD.USIM_PHONE
+			 , OD.ORD_NAME
+			 , OD.BIRTH_YYYYMMDD
+			 , PI.PROD_UNIQUENO
+			 , PI.PROC_STAT_CD
+			 , PI.PROD_PRCE
+			 , UBI.BUY_YN
+			 , TO_CHAR(UBI.REGIST_DT,'YYYY-MM-DD') as REGIST_DT
+			 , UBI.UP_BUY_CODE
+			, SPD.SALE_SUPP_PRCE
+			, SPD.SALE_GSUPP_PRCE
+			, SPD.SALE_DISC_PRCE
+			, TRUNC(SPD.SALE_SUPP_PRCE_PERCENT,0) as SALE_SUPP_PRCE_PERCENT
+			, TRUNC(SPD.SALE_GSUPP_PRCE_PERCENT,0) as SALE_GSUPP_PRCE_PERCENT
+			, SPD.SHARING_FEE_PRCE
+			, SPD.SSOCIO_FEE_PRCE
+			, SP.EXT_PRCE
+			, SP.USE_PHONE_PRE_COMPENSATE_PRCE
+			, SP.BUY_SALE_PRCE
+			, SP.GUARANTEE_INSURANCE_PRCE
+			, SP.RV_INSURANCE_PRCE
+			, TRUNC(SP.SHARING_FEE_PRCE_PERCENT,0) as SHARING_FEE_PRCE_PERCENT
+			, SP.SSOCIO_FEE_PRCE_PERCENT
+			, TRUNC(SP.USE_PHONE_PERCENT,0) as USE_PHONE_PERCENT
+			, TRUNC(SP.BUY_SALE_PRCE_PERCENT,0) as BUY_SALE_PRCE_PERCENT
+			, SP.SERVICIZING_PRCE
+			, SP.INSURANCE_PRCE
+			,( CASE WHEN  PI.UP_BUY_CODE IS NULL THEN  0
+        	    ELSE ( SELECT SUM(PRCE) from UP_BUY_DTL WHERE UP_BUY_CODE = PI.UP_BUY_CODE)
+             	 END
+            ) UP_BUY_PRCE
+            ,(SELECT PROD_SERIAL 
+            	FROM SP_SH_PROD 
+            	WHERE PROD_CODE = PI.PROD_CODE 
+            	AND COLOR_SEQ = PI.COLOR_SEQ 
+            	AND PROD_UNIQUENO = PI.PROD_UNIQUENO
+            	) AS PROD_SERIAL
+		FROM ORD_INFO A 
+		   , ORD_DLV_INFO B 
+		   , SP_OPEN_DETAIL OD 
+		   , ORD_PROD_INFO PI 
+		   , INVC_INFO II 
+		   , UP_BUY_INFO UBI
+	       , SP_PROD_DTL SPD
+	       , SP_PROD SP
+		WHERE A.ORD_CD = B.ORD_CD(+) 
+		  AND A.ORD_CD = OD.ORD_CD(+)
+		  AND A.ORD_CD = PI.ORD_CD(+)
+		  AND A.ORD_CD = II.ORD_CD(+)
+		  AND PI.UP_BUY_CODE = UBI.UP_BUY_CODE(+)
+	      AND PI.PROD_CODE = SPD.PROD_CODE
+	      AND PI.PAYPLAN_CODE = SPD.PAYPLAN_CODE
+	      AND PI.PROD_CODE = SP.PROD_CODE
+		  AND A.ORD_CD = #{ORDER_CODE}
+	</select>
+<!-- 회수지 배송지 정보 가져오기  -->
+	<select id="RtnDlvInfo" resultType="hashmap">
+	    SELECT RPI.RCV_NM
+			 , RPI.TEL
+			 , RPI.HP
+			 , RPI.ZIP_CD
+			 , RPI.JUSO_JIBEN
+			 , RPI.JUSO_DORO
+			 , RPI.CHG_CD
+			 , RPI.JUSO_DTL
+			 , RPI.REGIST_DT
+			 , RII.INVC_NO
+			, TO_CHAR(RII.DLV_START_DT,'YYYY-MM-DD HH24:MI') as DLV_START_DT
+			, TO_CHAR(RII.DLV_END_DT,'YYYY-MM-DD HH24:MI') as DLV_END_DT
+			 , RII.DLV_CMP_CD
+	    FROM  CHG_RTN_PROC_INFO RPI
+	    	, CHG_INVC_INFO RII
+	    WHERE RPI.CHG_CD = RII.CHG_CD(+)
+	    AND RPI.CHG_GB_CD = '90'
+	    AND RPI.ORD_CD = #{ORDER_CODE}
+	</select>
+
+	<update id="updateOrdProdInfoTBreg">
+		 UPDATE ORD_PROD_INFO 
+			SET  PROD_SEQ = 1
+				 <if test="UNIQUENO != '' and UNIQUENO != null">
+				,PROD_UNIQUENO = #{UNIQUENO}
+				</if>
+				 <if test="ORD_GUBUN != '' and ORD_GUBUN != null">
+				,PROC_STAT_CD = #{I_PROC_STAT_CD}
+				</if>
+			 	<if test="CRTN_GUBUN != '' and CRTN_GUBUN != null">
+				,PROC_STAT_CD = #{ORD_PROC_STAT_CD}
+				</if>
+		  WHERE ORD_CD = #{ORDER_CODE}  
+	</update>
+	
+	
+	<update id="updateDlvinfoTBreg">
+	        MERGE INTO ORD_DLV_INFO
+            USING DUAL
+            ON (ORD_CD = #{ORDER_CODE})
+            WHEN MATCHED THEN
+                      UPDATE SET
+                        RCV_NM = #{DLV_NM}
+			 			  , RCV_TEL = #{DLV_PHONE}
+						  , RCV_HP = #{DLV_PHONE}
+						  , ZIP_CD = #{ZIP_CD}
+						  , JUSO_JIBEN = #{JUSO_JIBEN}
+						  , JUSO_DTL = #{JUSO_DTL}
+						  , JUSO_DORO = #{JUSO_DORO}
+						  , UPDT_DT = SYSDATE
+            WHEN NOT MATCHED THEN
+                      INSERT ( ORD_CD
+				    		, RCV_NM
+				    		, RCV_TEL
+				    		, RCV_HP
+				    		, ZIP_CD
+				    		, JUSO_JIBEN
+				    		, JUSO_DORO
+				    		, JUSO_DTL
+				    		, SECU_NO_USE_YN
+				    		, REGIST_DT
+				    		, UPDT_DT
+				    		)values(
+				    		#{ORDER_CODE}
+				    		, #{DLV_NM}
+				    		, #{DLV_PHONE}
+				    		, #{DLV_PHONE}
+				    		, #{ZIP_CD}
+				    		, #{JUSO_JIBEN}
+				    		, #{JUSO_DORO}
+				    		, #{JUSO_DTL}
+				    		, 'N'
+				    		, SYSDATE
+				    		, SYSDATE)
+	</update>
+
+	<update id="updatePOpenDtlTBreg">
+	       MERGE INTO SP_OPEN_DETAIL
+            USING DUAL
+            ON (ORD_CD = #{ORDER_CODE})
+            WHEN MATCHED THEN
+                       UPDATE SET
+                       USIM_SEQ_CODE = #{USIM_UNIQUENO}
+			         , USIM_PHONE = #{PHONE_NUM}
+			         , ORD_NAME = #{USER_NM}
+			         , BIRTH_YYYYMMDD = #{BIRTH}
+			         , OPEN_DT = TO_DATE(#{OPEN_DAY},'YYYY-MM-DD')
+			         , END_DT =  ADD_MONTHS(TO_DATE(#{OPEN_DAY},'YYYY-MM-DD'), #{STIP_PERIOD}) 
+            WHEN NOT MATCHED THEN
+                      INSERT  (ORD_CD
+					          , USIM_SEQ_CODE
+					          , USIM_PHONE
+					          , ORD_NAME
+					          , BIRTH_YYYYMMDD
+					          , OPEN_DT
+					          , END_DT
+					          )values(
+					            #{ORDER_CODE}
+					          , #{USIM_UNIQUENO}
+					          , #{PHONE_NUM}
+					          , #{USER_NM}
+					          , #{BIRTH}
+					          , TO_DATE(#{OPEN_DAY},'YYYY-MM-DD')
+					          ,  ADD_MONTHS(TO_DATE(#{OPEN_DAY},'YYYY-MM-DD'), #{STIP_PERIOD}) 
+					          )
+</update>
+<update id="updateINvcInfolTBreg">
+       MERGE INTO INVC_INFO
+            USING DUAL
+            ON (ORD_CD = #{ORDER_CODE})
+            WHEN MATCHED THEN
+                      UPDATE SET
+                       INVC_NO = #{INVC_NO}
+		             , DLV_CMP_CD  =  #{INVC_SEL}
+		             , UPDT_DT = SYSDATE
+					   <if test="I_PROC_STAT_CD == 22">
+		             , EXP_DT = SYSDATE
+		             </if>
+            WHEN NOT MATCHED THEN
+                      INSERT (
+					        	ORD_CD
+					          , PROD_CODE
+					          , PROD_SEQ
+					          , INVC_NO
+					          , DLV_CMP_CD
+					          , REGIST_DT
+					          , UPDT_DT
+					          <if test="I_PROC_STAT_CD == 22">
+					          , EXP_DT
+					          </if>
+					          )values(
+					           #{ORDER_CODE}
+					          , #{PROD_CODE}
+					          , '1'
+					          , #{INVC_NO}
+					          , #{INVC_SEL}
+					          , SYSDATE
+					          , SYSDATE
+					          <if test="I_PROC_STAT_CD == 22">
+					          , SYSDATE
+					          </if>
+					          )
+	</update>
+	
+	<update id="updateRtnShPreprodTBreg">
+		  UPDATE SP_SH_PROD 
+     		  SET SH_STAT_CD = '05'
+     		     ,USED_YN = 'N'
+ 		    WHERE PROD_UNIQUENO = #{RTN_UNIQUENO} and PROD_CODE = #{PROD_CODE}
+	</update>
+	
+	<update id="updateShPreprodTBreg">
+	        UPDATE SP_SH_PROD 
+     		  SET SH_STAT_CD = '06'
+     		     ,USED_YN = 'N'
+ 		    WHERE PROD_UNIQUENO = #{PRE_UNIQUENO} and PROD_CODE = #{PROD_CODE}
+	</update>
+	
+	<update id="updateChgShprodTBreg">
+	       UPDATE SP_SH_PROD 
+     		  SET SH_STAT_CD = '01'
+     		    , USED_YN = 'Y'
+     		    , PROD_SERIAL = #{PROD_SERIAL}
+ 		    WHERE PROD_UNIQUENO = #{UNIQUENO} and PROD_CODE = #{PROD_CODE}
+	</update>
+	
+	<select id="selectOrderinfo" resultType="hashmap">
+	   		SELECT TO_CHAR(A.ORD_REG_DATE,'YYYY-MM-DD HH24:MI') AS ORD_REG_DATE 
+     				 , A.ORD_CD 
+     				 , A.ADMIN_MEMO
+     				 , B.MBER_EMAIL 
+     				 , D.PROD_NM
+		             , D.MODEL_NM
+		             , D.SP_SIZE_CD
+           			 , (SELECT SHARING_PRICE FROM SP_PROD_DTL WHERE PROD_CODE = C.PROD_CODE AND PAYPLAN_CODE = C.PAYPLAN_CODE AND STIP_CODE = C.STIP_CODE) AS SHARING_PRICE
+		             , D.MAKER_CD
+      	 			 , (SELECT TELCOM_NM FROM SP_TELCOM WHERE TELCOM_CODE = E.TELCOM_CODE) AS TELCOM_NM
+					 , E.PAYPLAN_NM
+					 , (SELECT STIP_PERIOD FROM SP_STIP WHERE STIP_CODE = C.STIP_CODE) AS STIP_PERIOD
+					 , A.ORD_STAT_CD
+					 , ROW_NUMBER() OVER(ORDER BY A.UPDT_DT DESC ) AS NO
+					 , (SELECT COLOR_NAME FROM SP_COLOR WHERE COLOR_SEQ = C.COLOR_SEQ and PROD_CODE = C.PROD_CODE) as COLOR_NAME	
+					 , C.PROD_CODE
+					 , C.COLOR_SEQ
+					 , C.OPEN_TYPE
+					 , C.PROC_STAT_CD
+					 , TO_CHAR(SOD.OPEN_DT,'YYYY-MM-DD') AS OPEN_DT 
+					 , TO_CHAR(SOD.END_DT,'YYYY-MM-DD') AS END_DT 
+				 	 , TO_CHAR(SOD.OPEN_DT,'DD') as PAY_DT
+					 , SOD.USIM_PHONE
+					 , SOD.ORD_NAME
+					 , SOD.USIM_SEQ_CODE
+					 , SOD.BIRTH_YYYYMMDD
+					 , C.PROD_UNIQUENO
+					 , C.PROD_PRCE
+					 , (SELECT PROD_SERIAL FROM SP_SH_PROD WHERE PROD_UNIQUENO = C.PROD_UNIQUENO AND PROD_CODE= C.PROD_CODE) AS PROD_SERIAL
+				FROM ORD_INFO A 	
+					, MBER_INFO B 
+					, SP_PROD D 
+					, ORD_PROD_INFO C 
+					, SP_PAYPLAN E
+					, SP_OPEN_DETAIL SOD
+				WHERE A.MBER_SEQ = B.MBER_SEQ
+				  AND A.ORD_CD = C.ORD_CD
+				  AND D.PROD_CODE = C.PROD_CODE
+				  AND E.PAYPLAN_CODE = C.PAYPLAN_CODE 
+				  AND A.ORD_CD = SOD.ORD_CD 
+	    		  AND A.ORD_CD = #{ORDER_CODE}
+	</select>
+	
+	<!-- 중고 스마트폰 매입상품 리스트 -->
+	<select id="selectListUsedSmartPhone" resultType="hashmap">
+	 SELECT UBI.BUY_YN
+			, TO_CHAR(UBI.REGIST_DT,'YYYY-MM-DD') as REGIST_DT <!--신청일시-->
+			, UBD.MODEL 		<!--코델명-->
+			, UBD.PRCE			<!--매입가-->
+			, UBD.REAL_PRCE  	<!--실매입가-->
+			, UBD.MAKER			<!--제조자-->
+			, UBD.BUY_CANC_YN   <!--신청취소 유무-->
+			, TO_CHAR(UBD.BUY_DT,'YYYY-MM-DD') as BUY_DT  <!--매입날짜-->
+		 FROM ORD_PROD_INFO OPI 
+		 	, UP_BUY_INFO UBI 
+		 	, UP_BUY_DTL UBD
+		WHERE OPI.UP_BUY_CODE = UBI.UP_BUY_CODE(+)
+		  AND UBI.UP_BUY_CODE = UBD.UP_BUY_CODE
+		  AND OPI.ORD_CD = #{ORDER_CODE}
+	</select>
+	<!-- 회수지 정보 업데이트  -->
+	<insert id="insertUpdateRtnDlvinfo" useGeneratedKeys="true"  keyProperty="CHG_CD" keyColumn="CHG_CD">
+	       INSERT INTO CHG_RTN_PROC_INFO
+	                   (
+	                    	CHG_CD
+				          , ORD_CD
+				          , CHG_GB_CD
+				          , RCV_NM
+				          , TEL
+				          , HP
+				          , ZIP_CD
+				          , JUSO_JIBEN
+				          , JUSO_DORO
+				          , JUSO_DTL
+				          , CHG_PROC_TYPE_CD
+				          , UPDT_DT
+				          , REGIST_DT
+				          , CHG_REG_DT
+				          )VALUES(
+				          TO_CHAR(SYSDATE, 'YYYYMMDD')||LPAD(SEQ_CHG_RTN_PROC_INFO.NEXTVAL,4,0)
+				          , #{ORDER_CODE}
+				          , '90'
+				          , #{RTN_DLV_NM}
+				          , #{RTN_DLV_PHONE}
+				          , #{RTN_DLV_PHONE}
+				          , #{RTN_ZIP_CD}
+				          , #{RTN_JUSO_JIBEN}
+				          , #{RTN_JUSO_DORO}
+				          , #{RTN_JUSO_DTL}
+				          , #{CHG_PROC_TYPE_CD}
+				          , SYSDATE
+				          , SYSDATE
+				          , SYSDATE
+				          ) 
+	</insert>
+		<update id="UpdateRtnDlvinfo">
+	 UPDATE CHG_RTN_PROC_INFO 
+	 	SET RCV_NM = #{RTN_DLV_NM}
+          , TEL  =  #{RTN_DLV_PHONE}
+          , HP = #{RTN_DLV_PHONE}
+          , ZIP_CD =#{RTN_ZIP_CD}
+          , JUSO_JIBEN = #{RTN_JUSO_JIBEN}
+          , JUSO_DORO = #{RTN_JUSO_DORO}
+          , JUSO_DTL =#{RTN_JUSO_DTL}
+          , CHG_PROC_TYPE_CD =#{CHG_PROC_TYPE_CD}
+          , UPDT_DT = SYSDATE
+      WHERE CHG_CD = #{RTN_CHG_CD}
+	</update>
+	<insert id="insertUpdateChgTbInfo">
+	  INSERT INTO CHG_PROD_INFO
+	                   (	CHG_CD
+				          , ORD_CD
+				          , PROD_CODE
+				          , PROD_SEQ
+				          , PROD_GB_CD
+				          , PROC_STAT_CD
+				          , UPDT_DT
+				          , REGIST_DT
+				          , DLV_WAY_CD
+				          )VALUES(
+				           #{CHG_CD}
+				          , #{ORDER_CODE}
+				          , #{PROD_CODE}
+				          , '1'
+				          , '4'
+				          , '90'
+				          , SYSDATE
+				          , SYSDATE
+				          ,'1' 
+				          ) 
+	</insert>
+	<update id="UpdateChgTbinfo">
+		UPDATE CHG_PROD_INFO
+			SET PROC_STAT_CD = #{I_PROC_STAT_CD}
+				, UPDT_DT = SYSDATE
+		WHERE CHG_CD = #{RTN_CHG_CD}
+	</update>
+
+	<!-- 회수지 운송장 정보 업데이트  -->
+	<insert id="insertUpdateRtnInvcInfo">
+	       INSERT INTO CHG_INVC_INFO
+	          (
+              	CHG_CD
+	          , ORD_CD
+	          , PROD_CODE
+	          , PROD_SEQ
+	          , DLV_CMP_CD
+	          , REGIST_DT
+	          )values(
+		        #{CHG_CD}
+		        ,#{ORDER_CODE}
+		        ,#{PROD_CODE}
+		        ,'1'
+		        ,#{RTN_DLV_SEL}
+		        , SYSDATE
+	          ) 
+	</insert>
+	
+	
+	
+	
+<!--////////////////////////////////////////////교환/반품 상세 정보   SQL 시작 //////////////////////////////////// -->	
+ <select id="selectListChgProdCount" resultType="Integer">
+      		SELECT COUNT(*) 
+      		  FROM(
+					SELECT 
+					 A.ORD_CD
+					, A.CHG_CD
+					, TO_CHAR(A.CHG_FIN_DT,'YYYY-MM-DD HH24:MI') as CHG_FIN_DT
+					, TO_CHAR(A.CHG_REG_DT,'YYYY-MM-DD HH24:MI') as CHG_REG_DT
+					, C.MBER_EMAIL
+					, A.ADM_ID
+					, A.ADM_NM
+					, D.PROD_NM
+					, D.PROD_CODE
+					, B.PROC_STAT_CD
+					, A.CHG_PROC_TYPE_CD
+					, A.CHG_GB_CD
+					, ROW_NUMBER() OVER(ORDER BY A.CHG_FIN_DT DESC ) AS NO
+				FROM CHG_RTN_PROC_INFO A , CHG_PROD_INFO B , MBER_INFO C , SP_PROD D, ord_prod_info E 
+				WHERE A.CHG_CD = B.CHG_CD
+				  AND A.MBER_SEQ  = C.MBER_SEQ
+				  AND B.PROD_CODE = D.PROD_CODE
+				  AND E.ORD_CD = A.ORD_CD
+		  	   <include refid="ChgSearch" />
+			    ORDER BY A.CHG_REG_DT
+		  	  )   
+    </select>
+     <select id="selectListChgProd" resultType="HashMap">
+        		SELECT *
+		  FROM(
+				SELECT 
+					 A.ORD_CD
+					, A.CHG_CD
+					, TO_CHAR(A.UPDT_DT,'YYYY-MM-DD HH24:MI') as CHG_FIN_DT
+					, TO_CHAR(A.CHG_REG_DT,'YYYY-MM-DD HH24:MI') as CHG_REG_DT
+					, C.MBER_EMAIL
+					, C.MBER_NM
+					, A.ADM_ID
+					, A.ADM_NM
+					, D.PROD_NM
+					, D.PROD_CODE
+					, B.PROC_STAT_CD
+					, A.CHG_PROC_TYPE_CD
+					, A.CHG_GB_CD
+					, ROW_NUMBER() OVER(ORDER BY A.CHG_FIN_DT DESC ) AS NO
+				FROM CHG_RTN_PROC_INFO A , CHG_PROD_INFO B , MBER_INFO C , SP_PROD D, ord_prod_info E 
+				WHERE A.CHG_CD = B.CHG_CD
+				  AND A.MBER_SEQ  = C.MBER_SEQ
+				  AND B.PROD_CODE = D.PROD_CODE
+				  AND E.ORD_CD = A.ORD_CD
+				  AND B.PROD_GB_CD = '4'
+		  	   <include refid="ChgSearch" />
+		  	    ORDER BY A.CHG_REG_DT
+		  	) C WHERE C.NO BETWEEN #{START_ROW} AND #{END_ROW}
+    </select>
+    
+<!-- 배송지 정보 (주문) -->
+<select id="selectCrtnDlvinfo" resultType="hashmap">
+	    SELECT RCV_NM
+			 , RCV_TEL
+			 , RCV_HP
+			 , ZIP_CD
+			 , JUSO_JIBEN
+			 , JUSO_DORO
+			 , JUSO_DTL
+			  , (SELECT INVC_NO FROM INVC_INFO WHERE ORD_CD = #{ORDER_CODE} AND PROD_CODE = #{PROD_CODE}) as INVC_NO
+			 , (SELECT DLV_CMP_CD FROM INVC_INFO WHERE ORD_CD = #{ORDER_CODE} AND PROD_CODE = #{PROD_CODE} ) as DLV_CMP_CD
+			 , (SELECT TO_CHAR(DLV_END_DT,'YYYY-MM-DD')  FROM INVC_INFO WHERE ORD_CD = #{ORDER_CODE} AND PROD_CODE = #{PROD_CODE} ) as DLV_END_DT
+			 , (SELECT TO_CHAR(DLV_START_DT,'YYYY-MM-DD') FROM INVC_INFO WHERE ORD_CD = #{ORDER_CODE} AND PROD_CODE = #{PROD_CODE} ) as EXP_DT
+		FROM ORD_DLV_INFO
+		WHERE ORD_CD = #{ORDER_CODE}
+	</select>
+	
+	<select id="selectChgDlvinfo" resultType="hashmap">
+	    SELECT RCV_NM
+			 , TEL 
+			 , HP 
+			 , ZIP_CD 
+			 , JUSO_JIBEN
+			 , JUSO_DORO 
+			 , ADM_MEMO 
+			 , JUSO_DTL 
+			 , (SELECT INVC_NO FROM CHG_INVC_INFO WHERE ORD_CD = #{ORDER_CODE} AND PROD_CODE = #{PROD_CODE} and CHG_CD = #{CHG_CD}) as INVC_NO
+			 , (SELECT DLV_CMP_CD FROM CHG_INVC_INFO WHERE ORD_CD = #{ORDER_CODE} AND PROD_CODE = #{PROD_CODE} and CHG_CD = #{CHG_CD}) as DLV_CMP_CD
+			 , (SELECT TO_CHAR(DLV_END_DT,'YYYY-MM-DD')  FROM CHG_INVC_INFO WHERE ORD_CD = #{ORDER_CODE} AND PROD_CODE = #{PROD_CODE} and CHG_CD = #{CHG_CD}) as DLV_END_DT
+			 , (SELECT TO_CHAR(DLV_START_DT,'YYYY-MM-DD') FROM CHG_INVC_INFO WHERE ORD_CD = #{ORDER_CODE} AND PROD_CODE = #{PROD_CODE} and CHG_CD = #{CHG_CD}) as EXP_DT
+<!-- 			 , TO_CHAR(DLV_END_DT,'YYYY-MM-DD')  as DLV_END_DT -->
+<!-- 			 , TO_CHAR(EXP_DT,'YYYY-MM-DD') as EXP_DT -->
+		FROM CHG_RTN_PROC_INFO
+		WHERE ORD_CD = #{ORDER_CODE} and CHG_CD = #{CHG_CD}
+	</select>
+	<select id="selectApplyInfoList" resultType="hashmap">
+		    SELECT CHG_PROC_TYPE_CD AS CRTN_TYPE_CD
+		    	  ,CHG_REASON 
+		    	  ,CHG_REG_DT
+		    	  ,CHG_CD as CRTN_CD
+		      FROM CHG_RTN_PROC_INFO 
+		      WHERE ORD_CD = #{ORDER_CODE} and  CHG_CD = #{CHG_CD}
+			 ORDER BY CHG_REG_DT 	
+	</select>
+	
+	<select id="selectApplyInfoTotalList" resultType="hashmap">
+		SELECT A.ADM_MEMO
+			  , A.PROC_STAT_CD
+			  , TO_CHAR(A.REGIST_DT ,'YYYY-MM-DD HH24:MI') as REGIST_DT
+			  , B.ADM_NM
+		  FROM ORD_PROD_INFO_HIST A, ADM_INFO_CFG B 
+		 WHERE A.ADM_ID = B.ADM_ID(+)
+		   AND ORD_CD = #{ORDER_CODE}
+		   ORDER BY A.REGIST_DT DESC
+	</select>
+	
+	<select id="selectApplyChgInfoTotalList" resultType="hashmap">
+		SELECT A.ADM_MEMO
+		,	A.PROC_STAT_CD
+		,	(SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'PROC_STAT_CD' AND COM_CD=A.PROC_STAT_CD) AS PROC_STAT_NM
+		, 	TO_CHAR(A.REGIST_DT ,'YYYY-MM-DD HH24:MI') as REGIST_DT
+		, 	B.ADM_NM
+		  FROM ORD_PROD_INFO_HIST A, ADM_INFO_CFG B 
+		  WHERE A.ADM_ID = B.ADM_ID(+)
+			  AND ORD_CD = #{ORDER_CODE}
+			  <!--AND HIST_GB_CD IN ('30' , '50')  -->
+			  ORDER BY A.REGIST_DT DESC
+	</select>
+	
+	<insert id="insertOrderHisTBReg">
+	    insert into ORD_PROD_INFO_HIST(
+				  ORD_CD
+				, PROD_CODE
+				, PROD_SEQ
+				, PROC_SEQ
+				, PROC_STAT_CD
+				, ADM_ID
+				, REGIST_DT
+				, HIST_GB_CD
+				, ORG_CD
+				)VALUES(
+				  #{ORDER_CODE}
+				, #{PROD_CODE}
+				, '1'
+				,NVL( (SELECT max(PROC_SEQ) + 1 as PROC_SEQ
+					  FROM ORD_PROD_INFO_HIST
+					 WHERE ORD_CD = #{ORDER_CODE} AND PROD_CODE = #{PROD_CODE}), 1)
+				, #{ORD_PROC_STAT_CD}
+				, #{ADM_ID}
+				, SYSDATE
+				, #{HIST_GB_CD}
+				, #{ORG_CD}
+				)
+	</insert>
+	
+	<update id="updateChgDlvInfocReg">
+	    UPDATE CHG_RTN_PROC_INFO 
+	       SET	CHG_PROC_TYPE_CD = #{I_PROC_STAT_CD}
+	       <if test="CHG_DLV_PHONE != '' and CHG_DLV_PHONE != null">
+	       	  , TEL = #{CHG_DLV_PHONE}
+	       </if>
+           <if test="CHG_DLV_PHONE != '' and CHG_DLV_PHONE != null">
+       	 	 , HP = #{CHG_DLV_PHONE}
+       	   </if>
+       	   <if test="CHG_DLV_ZIP_CODE != '' and CHG_DLV_ZIP_CODE != null">
+       		  , ZIP_CD = #{CHG_DLV_ZIP_CODE}
+       	   </if>
+       	   <if test="CHG_DLV_ADDR_JIBEN != '' and CHG_DLV_ADDR_JIBEN != null">
+       	 	 , JUSO_JIBEN = #{CHG_DLV_ADDR_JIBEN}
+       	   </if>
+       	   <if test="CHG_DLV_ADDR_ROAD != '' and CHG_DLV_ADDR_ROAD != null">
+       	 	 , JUSO_DORO = #{CHG_DLV_ADDR_ROAD}
+       	  </if>
+       	   <if test="CHG_DLV_ADDR_DTL != '' and CHG_DLV_ADDR_DTL != null">
+       	 	 , JUSO_DTL = #{CHG_DLV_ADDR_DTL}
+       	   </if>
+       	    <if test="CHG_DLV_NAME != '' and CHG_DLV_NAME != null">
+       	 	 , RCV_NM = #{CHG_DLV_NAME}
+       	   </if>
+       	   ,ADM_ID = #{ADM_ID}
+       	   ,ADM_NM = #{ADM_NM}
+	    WHERE CHG_CD = #{CHG_CD}
+	</update>
+	
+	<update id="chgupdatePOpenDtlTBreg">
+	    UPDATE SP_OPEN_DETAIL
+		   SET OPEN_DT = #{OPEN_DAY}
+		      , USIM_SEQ_CODE = #{USIM_SEQ_CODE}
+		      , USIM_PHONE = #{USIM_PHONE}
+		      , ORD_NAME = #{ORD_NAME}
+		      , BIRTH_YYYYMMDD = #{BIRTH_YYYYMMDD}
+              , END_DT = ADD_MONTHS(#{OPEN_DAY}, #{STIP_PERIOD}) 
+		WHERE ORD_CD = #{ORDER_CODE}
+	</update>
+	
+	<update id="updateChgProdInfoTBcReg">
+	    UPDATE CHG_PROD_INFO 
+	       SET	PROC_STAT_CD = #{ORD_PROC_STAT_CD}
+	        <if test="RtnprodUniqueinit == 'rtn'">
+       		, OLD_SERIAL = #{PRE_UNIQUENO}
+       		</if>
+    		<if test="RtnprodUniqueinit == 'chg'">
+       		, OLD_SERIAL = #{PRE_UNIQUENO}
+       		, NEW_SERIAL = #{UNIQUENO}
+       		</if>
+        	, UPDT_DT = SYSDATE
+	    WHERE CHG_CD = #{CHG_CD}
+	</update>
+	
+
+	<update id="updateChgInvcInfocReg">
+	    MERGE INTO CHG_INVC_INFO A
+            USING DUAL
+            ON ( A.ORD_CD = #{ORDER_CODE} AND A.CHG_CD = #{CHG_CD} AND A.PROD_CODE = #{PROD_CODE})
+            WHEN MATCHED THEN
+                      UPDATE SET
+                      UPDT_DT = SYSDATE
+                      		 <if test="INVC_NO != '' and INVC_NO != null">
+                      		,   INVC_NO = #{INVC_NO}
+                      		</if>
+                      		 <if test="INVC_SEL != '' and INVC_SEL != null">
+                      		, DLV_CMP_CD =  #{INVC_SEL} 
+                      		</if>
+                      		
+<!-- 					  		,DLV_STAT_CD = #{CHG_DLV_STAT_CD_SEL} -->
+            WHEN NOT MATCHED THEN
+                      INSERT (ORD_CD
+                      		, CHG_CD
+                      		, PROD_SEQ
+                      		, PROD_CODE
+                      		 <if test="INVC_NO != '' and INVC_NO != null">
+                      		, INVC_NO
+                      		</if>
+                      		 <if test="INVC_SEL != '' and INVC_SEL != null">
+                      		, DLV_CMP_CD
+                      		</if>
+<!--                       		, DLV_STAT_CD -->
+                      		)VALUES (
+                      		#{ORDER_CODE}
+                      	  , #{CHG_CD}
+                      	  , '1'
+                      	  , #{PROD_CODE}
+                   	     <if test="INVC_NO != '' and INVC_NO != null">
+                      	  , #{INVC_NO} 
+                  	      </if>
+						 <if test="INVC_SEL != '' and INVC_SEL != null">
+               	     	  , #{INVC_SEL} 
+   						 </if>
+<!--                       	  , #{CHG_DLV_STAT_CD_SEL} -->
+                      	  )
+	</update>	
+	<select id="getOrderListExcelDownload" resultType="hashmap">
+	   	SELECT TO_CHAR(ORD.ORD_REG_DATE,'YYYY-MM-DD HH24:MI') AS ORD_REG_DATE
+		  ,ORD.MBER_EMAIL
+		  ,ORD.MBER_NM
+		  ,ORD.ORD_CD
+		  ,ORD.PROD_NM
+		  ,ORD.MODEL_NM
+		  ,ORD.SP_SIZE_CD
+		  ,ORD.PROC_STAT_CD
+		  ,ORD.PROD_CODE
+		  ,ORD.COLOR_SEQ
+		  ,ORD.SHARING_PRICE
+		  ,ORD.MAKER_CD
+		  ,ORD.TELCOM_NM
+		  ,ORD.PAYPLAN_NM
+		  ,ORD.STIP_PERIOD
+		  ,ORD.NO
+		  ,ORD.COLOR_NAME
+		  ,ORD.OPEN_TYPE
+		   , (select COM_CD_NM from code where grp_cd = 'OPEN_TYPE' and COM_CD = ORD.OPEN_TYPE) as OPEN_TYPE_NM
+		   , (select COM_CD_NM from code where grp_cd = 'PROC_STAT_CD' and COM_CD = ORD.PROC_STAT_CD) as COM_CD_NM
+		   , ORD.MBER_NM||'('||ORD.MBER_EMAIL||')' USRNM
+		  FROM(
+				SELECT  A.ORD_REG_DATE 
+     				  , A.ORD_CD 
+     				 , B.MBER_EMAIL 
+     				 , B.MBER_NM
+     				 , D.PROD_NM
+		             , D.MODEL_NM
+		             , D.SP_SIZE_CD
+		             , C.OPEN_TYPE
+		             , C.PROC_STAT_CD
+	             	 , C.PROD_CODE
+					 , C.COLOR_SEQ
+		             , D.MAKER_CD
+      	 			 , (SELECT TELCOM_NM FROM SP_TELCOM WHERE TELCOM_CODE = E.TELCOM_CODE) AS TELCOM_NM
+					 , E.PAYPLAN_NM
+					 , (SELECT STIP_PERIOD FROM SP_STIP WHERE STIP_CODE = C.STIP_CODE) AS STIP_PERIOD
+<!-- 					 , A.ORD_STAT_CD -->
+					 , ROW_NUMBER() OVER(ORDER BY A.UPDT_DT DESC ) AS NO
+					 , (SELECT COLOR_NAME FROM SP_COLOR WHERE COLOR_SEQ = C.COLOR_SEQ and PROD_CODE = C.PROD_CODE) as COLOR_NAME	
+					 , (SELECT FILE_URL FROM FILE_INFO WHERE FILE_SEQ = (SELECT FILE_NO FROM SP_IMAGE WHERE PROD_CODE = D.PROD_CODE AND SP_IMG_GB_CD = '11') ) AS IMG_URL
+					 , (SELECT SHARING_PRICE FROM SP_PROD_DTL WHERE PROD_CODE = C.PROD_CODE AND PAYPLAN_CODE = C.PAYPLAN_CODE AND STIP_CODE = C.STIP_CODE) AS SHARING_PRICE
+				FROM ORD_INFO A 	
+					, MBER_INFO B 
+					, SP_PROD D 
+					, ORD_PROD_INFO C 
+					, SP_PAYPLAN E
+				WHERE A.MBER_SEQ = B.MBER_SEQ
+				  AND A.ORD_CD = C.ORD_CD
+				  AND D.PROD_CODE = C.PROD_CODE
+				  AND E.PAYPLAN_CODE = C.PAYPLAN_CODE
+			  	<choose>
+			  	    <when test="INS_CHK_BOX_RESULT != null and INS_CHK_BOX_RESULT.size > 0">
+			  	      AND C.PROC_STAT_CD IN
+						<foreach item="item" index="index" collection="INS_CHK_BOX_RESULT" open="(" separator="," close=")">
+							#{item}
+						</foreach>
+			  	    </when>
+			  	    <otherwise>
+			  	         AND C.PROC_STAT_CD IN ('10','11','22','23','50','85','86','90','91','92')
+			  	    </otherwise>
+			  	</choose>
+			<include refid="OrderSearch" />
+		  	ORDER BY A.ORD_REG_DATE DESC
+		  )ORD WHERE ORD.NO BETWEEN #{START_ROW} AND #{END_ROW} 
+	</select>
+	
+	<select id="ChgOrderexcelDownload" resultType="hashmap">
+		SELECT *
+		  FROM(
+				SELECT 
+					 A.ORD_CD
+					, A.CHG_CD
+					, TO_CHAR(A.UPDT_DT,'YYYY-MM-DD HH24:MI') as CHG_FIN_DT
+					, TO_CHAR(A.CHG_REG_DT,'YYYY-MM-DD HH24:MI') as CHG_REG_DT
+					, C.MBER_EMAIL
+					, C.MBER_NM
+					, A.ADM_ID
+					, A.ADM_NM
+					, D.PROD_NM
+					, D.PROD_CODE
+					, B.PROC_STAT_CD
+					, A.CHG_PROC_TYPE_CD
+					, A.CHG_GB_CD
+					, ROW_NUMBER() OVER(ORDER BY A.CHG_FIN_DT DESC ) AS NO
+					, (select COM_CD_NM from code where grp_cd = 'CHG_PROC_TYPE_CD' and COM_CD = A.CHG_PROC_TYPE_CD) as COM_CD_NM 
+				    , C.MBER_NM||'('||C.MBER_EMAIL||')' USRNM
+				FROM CHG_RTN_PROC_INFO A , CHG_PROD_INFO B , MBER_INFO C , SP_PROD D, ord_prod_info E 
+				WHERE A.CHG_CD = B.CHG_CD
+				  AND A.MBER_SEQ  = C.MBER_SEQ
+				  AND B.PROD_CODE = D.PROD_CODE
+				  AND E.ORD_CD = A.ORD_CD
+				  AND B.PROD_GB_CD = '4'
+		  	   <include refid="ChgSearch" />
+		  	    ORDER BY A.CHG_REG_DT
+		  	) C WHERE C.NO BETWEEN #{START_ROW} AND #{END_ROW}
+	</select>
+	
+	<update id="deleteOrdInfo">
+		UPDATE ORD_INFO 
+		   SET ORD_STAT_CD='150' 
+		 WHERE ORD_CD = #{ORDER_CODE} 
+	</update>
+	<update id="deleteOrdProdInfo">
+	    	UPDATE ORD_PROD_INFO
+		   SET PROC_STAT_CD='50' 
+		   	  , CANC_CD = #{CANC_CD}
+		 WHERE ORD_CD = #{ORDER_CODE} 
+	</update>
+		<!-- 상품 취소 사유-->
+	<insert id="insertOrdCncl" parameterType="hashmap" useGeneratedKeys="true" keyProperty="CANC_CD" keyColumn="CANC_CD">
+		INSERT INTO ORD_CANC_INFO (
+			 CANC_CD
+			 , CANC_REASON_CD
+			 , CANC_REASON
+			 , CANC_DT
+		) VALUES (
+			 TO_CHAR(SYSDATE, 'YYYYMMDDHH24MI')||LPAD(SEQ_ORD_CANC_INFO.NEXTVAL,4,0)
+			 , #{CANC_REASON_CD}
+			 , #{CANC_CONTENT}
+			 , SYSDATE
+		)
+	</insert>
+	
+	<select id="selecthChkUniqueno" resultType="hashmap">
+	    SELECT NVL(PROD_UNIQUENO,'NODATA') as PROD_UNIQUENO
+	      FROM ORD_PROD_INFO 
+	     WHERE ORD_CD = #{ORDER_CODE} AND PROD_CODE = #{PROD_CODE}
+	</select>
+
+	<!-- 해지 카운트 -->
+    <select id="selectListTermiProdCount" resultType="Integer">
+		SELECT
+			COUNT(*) AS CT
+		FROM
+			(
+				SELECT
+					  A.TERMI_REQ_DT
+					, B.ORD_CD
+					, C.MBER_NM
+					, C.MBER_EMAIL
+					, D.PROD_NM
+					, E.OPEN_DT
+					, A.TOTAL_PENALTY
+					, A.PROC_STAT_CD
+					, A.TERMI_COMP_DT
+					, B.PROD_CODE
+				FROM
+					TERMI_INFO A , ORD_PROD_INFO B, MBER_INFO C, SP_PROD D, SP_OPEN_DETAIL E
+				WHERE
+					    A.TERMI_CD = B.TERMI_CD
+					AND B.MBER_SEQ = C.MBER_SEQ
+					AND B.PROD_CODE = D.PROD_CODE
+					AND B.ORD_CD = E.ORD_CD
+  					<if test="SEARCH_APPLYDATE_SEL  == 'APPLYSTARTDATE'">
+	    				<if test="S_START_DATE != null and S_START_DATE != ''">
+	    	        		AND TO_CHAR(A.TERMI_REQ_DT,'YYYYMMDD') BETWEEN  #{S_START_DATE} AND  #{S_END_DATE}
+						</if>
+					</if>
+					<if test="SEARCH_APPLYDATE_SEL  == 'APPLYENDDATE'">
+	    				<if test="S_START_DATE != null and S_START_DATE != ''">
+	    	        		AND TO_CHAR(A.TERMI_COMP_DT,'YYYYMMDD') BETWEEN  #{S_START_DATE} AND  #{S_END_DATE}
+						</if>
+					</if>
+					<if test="INS_CHK_BOX_RESULT != null and INS_CHK_BOX_RESULT.size > 0">
+	        			AND A.PROC_STAT_CD IN
+	        			<foreach item="item" index="index" collection="INS_CHK_BOX_RESULT" open="(" separator="," close=")">
+							#{item}
+						</foreach>
+					</if>
+					<if test="KEYWORD != '' and KEYWORD != null">
+						<if test="SEARCH_KEYWORD_SEL  == 'ORDERNO'">
+							AND B.ORD_CD LIKE '%'||<![CDATA[#{KEYWORD}]]>||'%'
+						</if>
+						<if test="SEARCH_KEYWORD_SEL  == 'USERID'">
+							AND C.MBER_EMAIL LIKE '%'||<![CDATA[#{KEYWORD}]]>||'%'
+						</if>
+						<if test="SEARCH_KEYWORD_SEL  == 'PRODNM'">
+						    AND D.PROD_NM LIKE '%'||<![CDATA[#{KEYWORD}]]>||'%'
+						</if>
+			  		</if>
+			) TA
+		LEFT OUTER JOIN
+  			(SELECT * FROM (SELECT OPIH.ORD_CD, OPIH.PROD_CODE, AIC.ADM_NM, MAX(OPIH.PROC_STAT_CD) FROM ORD_PROD_INFO_HIST OPIH, ADM_INFO_CFG AIC WHERE OPIH.ADM_ID = AIC.ADM_ID AND OPIH.PROC_STAT_CD IN ('70','71','72','75') GROUP BY OPIH.ORD_CD, OPIH.PROD_CODE, AIC.ADM_NM)) TB
+		ON
+  			TA.ORD_CD = TB.ORD_CD
+  			AND TA.PROD_CODE = TB.PROD_CODE
+  		WHERE
+  			1=1
+  			<if test="KEYWORD != '' and KEYWORD != null">
+  				<if test="SEARCH_KEYWORD_SEL  == 'PROCEEDSTAFF'">
+					AND TB.ADM_NM LIKE '%'||<![CDATA[#{KEYWORD}]]>||'%'
+				</if>
+  			</if>
+    </select>
+    
+	<!-- 해지 리스트 -->
+    <select id="selectListTermiProd" resultType="hashmap">
+	    SELECT
+	    	TC.*
+	    FROM
+	    	(
+				SELECT
+					  TA.*
+					, TB.ADM_NM
+					, TB.ADM_REGIST_DT
+					, ROW_NUMBER() OVER(ORDER BY TA.TERMI_REQ_DT DESC ) AS NO
+				FROM
+					(
+						SELECT
+							  TO_CHAR(A.TERMI_REQ_DT,'YYYY-MM-DD HH24:MI') AS TERMI_REQ_DT
+							, B.ORD_CD
+							, B.MBER_SEQ
+							, C.MBER_NM
+							, C.MBER_EMAIL
+							, D.PROD_NM
+							, TO_CHAR(E.OPEN_DT, 'YYYY-MM-DD') AS OPEN_DT
+							, TO_CHAR(A.TERMI_REQ_DT,'YYYY-MM-DD') AS END_DT
+							, A.TOTAL_PENALTY
+							, A.PROC_STAT_CD
+							, A.TERMI_COMP_DT
+							, B.PROD_CODE
+							, A.TERMI_CD
+						FROM
+							TERMI_INFO A , ORD_PROD_INFO B, MBER_INFO C, SP_PROD D, SP_OPEN_DETAIL E
+						WHERE
+							    A.TERMI_CD = B.TERMI_CD
+							AND B.MBER_SEQ = C.MBER_SEQ
+							AND B.PROD_CODE = D.PROD_CODE
+							AND B.ORD_CD = E.ORD_CD
+		  					<if test="SEARCH_APPLYDATE_SEL  == 'APPLYSTARTDATE'">
+			    				<if test="S_START_DATE != null and S_START_DATE != ''">
+			    	        		AND TO_CHAR(A.TERMI_REQ_DT,'YYYYMMDD') BETWEEN  #{S_START_DATE} AND  #{S_END_DATE}
+								</if>
+							</if>
+							<if test="SEARCH_APPLYDATE_SEL  == 'APPLYENDDATE'">
+			    				<if test="S_START_DATE != null and S_START_DATE != ''">
+			    	        		AND TO_CHAR(A.TERMI_COMP_DT,'YYYYMMDD') BETWEEN  #{S_START_DATE} AND  #{S_END_DATE}
+								</if>
+							</if>
+							<if test="INS_CHK_BOX_RESULT != null and INS_CHK_BOX_RESULT.size > 0">
+			        			AND A.PROC_STAT_CD IN
+			        			<foreach item="item" index="index" collection="INS_CHK_BOX_RESULT" open="(" separator="," close=")">
+									#{item}
+								</foreach>
+							</if>
+							<if test="KEYWORD != '' and KEYWORD != null">
+								<if test="SEARCH_KEYWORD_SEL  == 'ORDERNO'">
+									AND B.ORD_CD LIKE '%'||<![CDATA[#{KEYWORD}]]>||'%'
+								</if>
+								<if test="SEARCH_KEYWORD_SEL  == 'USERID'">
+									AND C.MBER_EMAIL LIKE '%'||<![CDATA[#{KEYWORD}]]>||'%'
+								</if>
+								<if test="SEARCH_KEYWORD_SEL  == 'PRODNM'">
+								    AND D.PROD_NM LIKE '%'||<![CDATA[#{KEYWORD}]]>||'%'
+								</if>
+					  		</if>
+					) TA
+				LEFT OUTER JOIN
+		  			(SELECT P.*,TO_CHAR(Q.REGIST_DT,'YYYY-MM-DD HH24:MI') AS ADM_REGIST_DT FROM (SELECT OPIH.ORD_CD, OPIH.PROD_CODE, AIC.ADM_NM, MAX(OPIH.PROC_STAT_CD) AS PROC_STAT_CD  FROM ORD_PROD_INFO_HIST OPIH, ADM_INFO_CFG AIC WHERE OPIH.ADM_ID = AIC.ADM_ID AND OPIH.PROC_STAT_CD IN ('70','71','72','75') GROUP BY OPIH.ORD_CD, OPIH.PROD_CODE, AIC.ADM_NM) P, ORD_PROD_INFO_HIST Q WHERE P.ORD_CD = Q.ORD_CD AND P.PROD_CODE = Q.PROD_CODE AND P.PROC_STAT_CD = Q.PROC_STAT_CD) TB
+				ON
+		  			TA.ORD_CD = TB.ORD_CD
+		  			AND TA.PROD_CODE = TB.PROD_CODE
+		  		WHERE
+		  			1=1
+		  			<if test="KEYWORD != '' and KEYWORD != null">
+		  				<if test="SEARCH_KEYWORD_SEL  == 'PROCEEDSTAFF'">
+							AND TB.ADM_NM LIKE '%'||<![CDATA[#{KEYWORD}]]>||'%'
+						</if>
+		  			</if>
+		  	) TC
+		WHERE
+		  	NO BETWEEN #{START_ROW} AND #{END_ROW}
+	</select>
+	
+	<!-- 해지관련 업데이트  -->
+    <update id="updateTermiInfo">
+        UPDATE TERMI_INFO 
+        	SET PROC_STAT_CD = #{I_PROC_STAT_CD}
+           		,RCV_NM = #{RTN_DLV_NAME}
+           		,TEL = #{RTN_DLV_PHONE}
+           		,HP = #{RTN_DLV_PHONE}
+           		,ZIP_CD = #{RTN_DLV_ZIP_CODE}
+           		,JUSO_DORO = #{RTN_DLV_ADDR_ROAD}
+           		,JUSO_JIBEN = #{RTN_DLV_ADDR_JIBEN}
+           		,JUSO_DETAIL = #{RTN_DLV_ADDR_DTL}
+           		,DLV_CMP_CD = #{INVC_SEL}  <!-- 해지완료일 -->
+           		<if test="I_PROC_STAT_CD  == '92'">
+           			,TERMI_COMP_DT = SYSDATE  <!-- 해지완료일 -->
+           		</if>
+            	<if test="INVC_NO  != null and INVC_NO != '' ">
+           			,INVC_NO = #{INVC_NO}  <!-- 해지완료일 -->
+           		</if>
+         WHERE TERMI_CD = #{TERMI_CD}
+    </update>
+    
+    
+    
+    <select id="selectTermiInfo" resultType="hashmap">
+        SELECT  TO_CHAR(A.TERMI_REQ_DT,'YYYY-MM-DD HH24:MI')AS TERMI_REQ_DT
+			     , A.PROC_STAT_CD
+			     , A.TERMI_REASON
+			     , D.MBER_EMAIL
+			     , C.PROD_NM
+<!-- 			     , TO_CHAR(E.DLV_START_DT,'YYYY-MM-DD HH24:MI')  AS START_DAY -->
+			     , TO_CHAR(A.TERMI_REQ_DT,'YYYY-MM-DD')AS END_DAY
+			     , TO_CHAR(A.TERMI_COMP_DT,'YYYY-MM-DD HH24:MI')AS COMPLETE_DATE
+			     , A.USE_DAY
+			     , A.TOTAL_PENALTY
+			     , A.RENTAL_PENALTY
+			     , A.SALE_PENALTY
+			     , A.HP
+			     , A.TEL
+			     , A.RCV_NM
+			     , A.ZIP_CD
+			     , A.JUSO_JIBEN
+			     , A.JUSO_DORO
+			     , A.JUSO_DETAIL
+			     , A.TERMI_REQ_DT
+			     , A.TERMI_COMP_DT
+			     , A.INVC_NO
+			     , A.DLV_CMP_CD
+			     , TO_CHAR(SOD.OPEN_DT,'YYYY-MM-DD HH24:MI')  AS START_DAY
+			     , ROW_NUMBER() OVER(ORDER BY A.TERMI_REQ_DT DESC ) AS NO
+			 FROM TERMI_INFO A , ORD_PROD_INFO B , SP_PROD C , MBER_INFO D , INVC_INFO E , SP_OPEN_DETAIL SOD
+			WHERE B.TERMI_CD = A.TERMI_CD
+			  AND B.PROD_CODE = C.PROD_CODE
+			  AND B.MBER_SEQ = D.MBER_SEQ
+			  AND B.ORD_CD = E.ORD_CD(+)
+			  AND B.ORD_CD = SOD.ORD_CD
+			  AND A.TERMI_CD = #{TERMI_CD}
+    </select>
+    
+    <select id="selectListCancelProdCount" resultType="Integer">
+            	SELECT COUNT(*)
+		  FROM(
+				SELECT A.UPDT_DT
+					 , A.ORD_CD 
+					 , B.MBER_EMAIL 
+					 , D.PROD_NM
+					 , (SELECT TELCOM_NM FROM SP_TELCOM WHERE TELCOM_CODE = E.TELCOM_CODE) AS TELCOM_NM
+					 , E.PAYPLAN_NM
+					 , (SELECT STIP_PERIOD FROM SP_STIP WHERE STIP_CODE = C.STIP_CODE) AS STIP_PERIOD
+					 , A.ORD_STAT_CD
+					 , ROW_NUMBER() OVER(ORDER BY A.UPDT_DT DESC ) AS NO			 
+				FROM ORD_INFO A 	
+					, MBER_INFO B 
+					, SP_PROD D 
+					, ORD_PROD_INFO C 
+					, SP_PAYPLAN E
+				WHERE A.MBER_SEQ = B.MBER_SEQ
+				  AND A.ORD_CD = C.ORD_CD
+				  AND D.PROD_CODE = C.PROD_CODE
+				  AND E.PAYPLAN_CODE = C.PAYPLAN_CODE
+				  AND C.PROC_STAT_CD  = '50'
+			  <include refid="CancelSearch" />
+			) 
+    </select>
+    
+	<select id="selectListCancelProd" resultType="hashmap">
+		SELECT 
+				TO_CHAR(F.CANC_DT,'YYYY-MM-DD HH24:MI')
+			 , A.ORD_CD 
+			 , B.MBER_EMAIL 
+			 , D.PROD_NM
+			 , (SELECT TELCOM_NM FROM SP_TELCOM WHERE TELCOM_CODE = E.TELCOM_CODE) AS TELCOM_NM
+			 , E.PAYPLAN_NM
+			 , (SELECT STIP_PERIOD FROM SP_STIP WHERE STIP_CODE = C.STIP_CODE) AS STIP_PERIOD
+			 , A.ORD_STAT_CD
+			 , ROW_NUMBER() OVER(ORDER BY A.UPDT_DT DESC ) AS NO			 
+		FROM ORD_INFO A 	
+			, MBER_INFO B 
+			, SP_PROD D 
+			, ORD_PROD_INFO C 
+			, SP_PAYPLAN E
+			, ORD_CANC_INFO F 
+		WHERE A.MBER_SEQ = B.MBER_SEQ
+		  AND A.ORD_CD = C.ORD_CD
+		  AND D.PROD_CODE = C.PROD_CODE
+		  AND E.PAYPLAN_CODE = C.PAYPLAN_CODE
+		  AND C.PROC_STAT_CD  = '50'
+	</select>
+	
+    
+	<select id="getTermiOrderListExcelDownload"  resultType="hashmap" >
+		SELECT
+			  TA.*
+			, TB.ADM_NM
+			, TB.ADM_REGIST_DT
+			, ROW_NUMBER() OVER(ORDER BY TA.TERMI_REQ_DT DESC ) AS NO
+		FROM
+			(
+				SELECT
+					  TO_CHAR(A.TERMI_REQ_DT,'YYYY-MM-DD HH24:MI') AS TERMI_REQ_DT
+					, B.ORD_CD
+					, B.MBER_SEQ
+					, C.MBER_NM
+					, C.MBER_EMAIL
+					, D.PROD_NM
+					, TO_CHAR(E.OPEN_DT, 'YYYY-MM-DD') || ' ~ ' || TO_CHAR(A.TERMI_REQ_DT,'YYYY-MM-DD') AS SHAR_DAY
+					, A.TOTAL_PENALTY
+					, F.COM_CD_NM AS PROC_STAT_CD_NM
+					, A.TERMI_COMP_DT
+					, B.PROD_CODE
+					, A.TERMI_CD
+				FROM
+					TERMI_INFO A , ORD_PROD_INFO B, MBER_INFO C, SP_PROD D, SP_OPEN_DETAIL E, (SELECT COM_CD,COM_CD_NM FROM CODE WHERE GRP_CD = 'PROC_STAT_CD') F
+				WHERE
+					    A.TERMI_CD = B.TERMI_CD
+					AND B.MBER_SEQ = C.MBER_SEQ
+					AND B.PROD_CODE = D.PROD_CODE
+					AND B.ORD_CD = E.ORD_CD
+					AND A.PROC_STAT_CD = F.COM_CD
+  					<if test="SEARCH_APPLYDATE_SEL  == 'APPLYSTARTDATE'">
+	    				<if test="S_START_DATE != null and S_START_DATE != ''">
+	    	        		AND TO_CHAR(A.TERMI_REQ_DT,'YYYYMMDD') BETWEEN  #{S_START_DATE} AND  #{S_END_DATE}
+						</if>
+					</if>
+					<if test="SEARCH_APPLYDATE_SEL  == 'APPLYENDDATE'">
+	    				<if test="S_START_DATE != null and S_START_DATE != ''">
+	    	        		AND TO_CHAR(A.TERMI_COMP_DT,'YYYYMMDD') BETWEEN  #{S_START_DATE} AND  #{S_END_DATE}
+						</if>
+					</if>
+					<if test="INS_CHK_BOX_RESULT != null and INS_CHK_BOX_RESULT.size > 0">
+	        			AND A.PROC_STAT_CD IN
+	        			<foreach item="item" index="index" collection="INS_CHK_BOX_RESULT" open="(" separator="," close=")">
+							#{item}
+						</foreach>
+					</if>
+					<if test="KEYWORD != '' and KEYWORD != null">
+						<if test="SEARCH_KEYWORD_SEL  == 'ORDERNO'">
+							AND B.ORD_CD LIKE '%'||<![CDATA[#{KEYWORD}]]>||'%'
+						</if>
+						<if test="SEARCH_KEYWORD_SEL  == 'USERID'">
+							AND C.MBER_EMAIL LIKE '%'||<![CDATA[#{KEYWORD}]]>||'%'
+						</if>
+						<if test="SEARCH_KEYWORD_SEL  == 'PRODNM'">
+						    AND D.PROD_NM LIKE '%'||<![CDATA[#{KEYWORD}]]>||'%'
+						</if>
+			  		</if>
+			) TA
+		LEFT OUTER JOIN
+  			(SELECT P.*,TO_CHAR(Q.REGIST_DT,'YYYY-MM-DD HH24:MI') AS ADM_REGIST_DT FROM (SELECT OPIH.ORD_CD, OPIH.PROD_CODE, AIC.ADM_NM, MAX(OPIH.PROC_STAT_CD) AS PROC_STAT_CD  FROM ORD_PROD_INFO_HIST OPIH, ADM_INFO_CFG AIC WHERE OPIH.ADM_ID = AIC.ADM_ID AND OPIH.PROC_STAT_CD IN ('70','71','72','75') GROUP BY OPIH.ORD_CD, OPIH.PROD_CODE, AIC.ADM_NM) P, ORD_PROD_INFO_HIST Q WHERE P.ORD_CD = Q.ORD_CD AND P.PROD_CODE = Q.PROD_CODE AND P.PROC_STAT_CD = Q.PROC_STAT_CD) TB
+		ON
+  			TA.ORD_CD = TB.ORD_CD
+  			AND TA.PROD_CODE = TB.PROD_CODE
+  		WHERE
+  			1=1
+  			<if test="KEYWORD != '' and KEYWORD != null">
+  				<if test="SEARCH_KEYWORD_SEL  == 'PROCEEDSTAFF'">
+					AND TB.ADM_NM LIKE '%'||<![CDATA[#{KEYWORD}]]>||'%'
+				</if>
+  			</if>
+	</select>
+	
+	<select id="selectApplyInfoTermiTotalList" parameterType="hashmap" resultType="hashmap">
+		SELECT A.ADM_MEMO
+			  , A.PROC_STAT_CD
+			  , TO_CHAR(A.REGIST_DT ,'YYYY-MM-DD HH24:MI') as REGIST_DT
+			  , B.ADM_NM
+		  FROM ORD_PROD_INFO_HIST A, ADM_INFO_CFG B 
+		 WHERE A.ADM_ID = B.ADM_ID(+)
+		   AND A.ORD_CD = #{ORDER_CODE}
+		   ORDER BY A.REGIST_DT DESC
+	</select>
+	
+	
+	<select id="selectdlvlinkinfo" resultType="String">
+	 SELECT LINK_URL 
+	   FROM DLV_LINK_INFO 
+	  WHERE DLV_CMP_CD = '20'
+	</select>
+	
+	<select id="selectBillCancelKey" resultType="hashmap">
+		SELECT BILL_KEY 
+		     , TRD_AMT
+		     , CARD_COMP_NM
+		     , reg_seq
+		  FROM ORD_SETL_INFO 
+		 WHERE ORD_CD =  #{ORDER_CODE}  AND TRD_GB_CD = 10
+	       AND REG_SEQ = (SELECT min(reg_seq) FROM ORD_SETL_INFO  WHERE ORD_CD =  #{ORDER_CODE}  AND TRD_GB_CD = 10 )	   
+		 
+	</select>
+	
+	<insert id="insertCancelSeltInfo">
+		INSERT INTO ORD_SETL_INFO (
+			  ORD_CD
+			, TRD_GB_CD
+			, REG_SEQ
+		 	, TRD_AMT
+		 	, TRD_NO
+			, CARD_COMP_NM
+			, RLT_CD
+			, RLT_MSG
+			, REGIST_DT
+		)VALUES(
+			#{ORDER_CODE}
+			, '20'
+			,(SELECT NVL(MAX(REG_SEQ), 0) + 1 FROM ORD_SETL_INFO WHERE ORD_CD = #{ORDER_CODE})
+			, #{TRD_AMT}
+			, #{TID}
+			, #{CARD_COMP_NM}
+			, #{RETURNCODE}
+			, #{RETURNMSG}
+			, SYSDATE
+		)	
+	</insert>
+
+	<!-- 스마트폰 셰어링 결재내역 조회 카운트  -->
+	<select id="selectListSharPayCount" resultType="int">
+		SELECT
+			COUNT(*) AS CT
+		FROM
+			(
+				SELECT
+					  A.*
+					, B.MBER_NM
+					, B.MBER_EMAIL
+			    FROM
+					(
+						SELECT
+					          ORD_CD
+					        , PROD_CODE
+					        , MBER_SEQ
+					        , SCHEDULE_DT
+					        , TO_CHAR(SCHEDULE_DT,'DD') AS  SCHEDULE_DAY
+					        , AMT_BASE
+					        , STEP
+					        , PAY_DT
+					        , RSLT_CD
+					        , OVERDUE_DAY
+					        , AMT_OVERDUE
+				        FROM
+							SP_PAY
+				        WHERE
+				        	    RSLT_CD IS NOT NULL
+					        AND TO_CHAR(SCHEDULE_DT,'YYYYMMDD') BETWEEN #{S_START_DATE} AND #{S_END_DATE}
+					        <if test="SEARCH_SCHEDULE_DT != null and SEARCH_SCHEDULE_DT != ''">
+					        	AND TO_CHAR(SCHEDULE_DT,'DD') = '${SEARCH_SCHEDULE_DT}'
+					        </if>
+					        <if test="SEARCH_OVERDUE_DAY != null and SEARCH_OVERDUE_DAY != ''">
+					        	AND OVERDUE_DAY <![CDATA[>=]]> #{SEARCH_OVERDUE_DAY}
+					        </if>
+					        <if test="SEARCH_AMT_OVERDUE != null and SEARCH_AMT_OVERDUE != ''">
+					        	AND AMT_OVERDUE <![CDATA[>=]]> #{SEARCH_AMT_OVERDUE}
+					        </if>
+					        <choose>
+					    		<when test="SEARCH_RSLT_CD == 'Y'">
+					    			AND RSLT_CD = '00'
+					    		</when>
+					    		<when test="SEARCH_RSLT_CD == 'N'">
+					    			AND RSLT_CD != '00'
+					    		</when>
+					    	</choose>
+					    	<if test="SEARCH_ITEM != '' and SEARCH_ITEM != null">
+						    	<if test="SearchItemSel  == 'SEARCH_ORD_CD'">
+						        	AND ORD_CD like '%'||<![CDATA[#{SEARCH_ITEM}]]>||'%'
+						        </if>
+						    </if>
+					) A, MBER_INFO B
+			    WHERE
+					    A.MBER_SEQ = B.MBER_SEQ
+					<if test="SEARCH_USER != '' and SEARCH_USER != null">
+						<if test="SearchUserSel  == 'SEARCH_ORD_ID'">
+						    AND B.MBER_EMAIL LIKE '%'||<![CDATA[#{SEARCH_USER}]]>||'%'
+						</if>
+						<if test="SearchUserSel  == 'SEARCH_ORD_NM'">
+						    AND B.MBER_NM LIKE '%'||<![CDATA[#{SEARCH_USER}]]>||'%'
+						</if>
+			  		</if>
+			) C, SP_PROD D, ORD_PROD_INFO E, SP_PAYPLAN F, SP_STIP G, SP_TELCOM H
+		WHERE
+			    C.PROD_CODE = D.PROD_CODE
+			AND C.ORD_CD = E.ORD_CD
+			AND C.PROD_CODE = E.PROD_CODE
+			AND E.PAYPLAN_CODE = F.PAYPLAN_CODE
+			AND E.STIP_CODE = G.STIP_CODE
+			AND F.TELCOM_CODE = H.TELCOM_CODE
+			<if test="SEARCH_ITEM != '' and SEARCH_ITEM != null">
+				<if test="SearchItemSel  == 'SEARCH_PROD_NM'">
+					AND D.PROD_NM like '%'||<![CDATA[#{SEARCH_ITEM}]]>||'%'
+				</if>
+				<if test="SearchItemSel  == 'SEARCH_PAYPLAN_NM'">
+					AND F.PAYPLAN_NM like '%'||<![CDATA[#{SEARCH_ITEM}]]>||'%'
+				</if>
+			</if>
+	</select>
+	
+	<!-- 스마트폰 셰어링 결재내역 조회 리스트  -->
+	<select id="selectListSharPay" resultType="hashmap">
+		SELECT
+			TA.*
+		FROM
+			(
+				SELECT
+					  C.*
+					, D.PROD_NM
+					, D.MAKER_CD
+					, D.SP_SIZE_CD
+					, D.MODEL_NM
+					, E.OPEN_TYPE
+					, E.COLOR_SEQ
+					, F.PAYPLAN_NM
+					, G.STIP_PERIOD
+					, H.TELCOM_NM
+					, J.FILE_URL
+					, K.SHARING_PRICE
+					, L.COLOR_NAME
+					, ROW_NUMBER() OVER(ORDER BY C.ORD_CD ASC,C.PROD_CODE ASC ,C.STEP ASC, C.SCHEDULE_DAY ASC) AS NO
+				FROM
+					(
+						SELECT
+							  A.*
+							, B.MBER_SEQ
+							, B.MBER_NM
+							, B.MBER_EMAIL
+					    FROM
+							(
+								SELECT
+							          SP.ORD_CD
+							        , SP.PROD_CODE
+							        , SP.MBER_SEQ
+							        , TO_CHAR(SP.SCHEDULE_DT,'YYYY-MM-DD HH24:MI') AS SCHEDULE_DT
+							        , TO_CHAR(SP.SCHEDULE_DT,'DD') AS SCHEDULE_DAY
+							        , SP.AMT_BASE
+							        , SP.STEP
+							        , SP.PAY_DT
+							        , SP.RSLT_CD
+							        , SP.OVERDUE_DAY
+							        , SP.AMT_OVERDUE
+							        , TO_CHAR(OI.ORD_REG_DATE,'YYYY-MM-DD HH24:MI') AS ORD_REG_DATE
+						        FROM
+									SP_PAY SP, ORD_INFO OI
+						        WHERE
+						        	    SP.ORD_CD = OI.ORD_CD
+							        AND SP.RSLT_CD IS NOT NULL
+					        		AND TO_CHAR(SP.SCHEDULE_DT,'YYYYMMDD') BETWEEN #{S_START_DATE} AND #{S_END_DATE}
+							        <if test="SEARCH_SCHEDULE_DT != null and SEARCH_SCHEDULE_DT != ''">
+							        	AND TO_CHAR(SP.SCHEDULE_DT,'DD') = '${SEARCH_SCHEDULE_DT}'
+							        </if>
+							        <if test="SEARCH_OVERDUE_DAY != null and SEARCH_OVERDUE_DAY != ''">
+							        	AND SP.OVERDUE_DAY <![CDATA[>=]]> #{SEARCH_OVERDUE_DAY}
+							        </if>
+							        <if test="SEARCH_AMT_OVERDUE != null and SEARCH_AMT_OVERDUE != ''">
+							        	AND SP.AMT_OVERDUE <![CDATA[>=]]> #{SEARCH_AMT_OVERDUE}
+							        </if>
+							        <choose>
+							    		<when test="SEARCH_RSLT_CD == 'Y'">
+							    			AND SP.RSLT_CD = '00'
+							    		</when>
+							    		<when test="SEARCH_RSLT_CD == 'N'">
+							    			AND SP.RSLT_CD != '00'
+							    		</when>
+							    	</choose>
+							    	<if test="SEARCH_ITEM != '' and SEARCH_ITEM != null">
+								    	<if test="SearchItemSel  == 'SEARCH_ORD_CD'">
+								        	AND SP.ORD_CD like '%'||<![CDATA[#{SEARCH_ITEM}]]>||'%'
+								        </if>
+								    </if>
+							) A, MBER_INFO B
+					    WHERE
+							    A.MBER_SEQ = B.MBER_SEQ
+							<if test="SEARCH_USER != '' and SEARCH_USER != null">
+								<if test="SearchUserSel  == 'SEARCH_ORD_ID'">
+								    AND B.MBER_EMAIL LIKE '%'||<![CDATA[#{SEARCH_USER}]]>||'%'
+								</if>
+								<if test="SearchUserSel  == 'SEARCH_ORD_NM'">
+								    AND B.MBER_NM LIKE '%'||<![CDATA[#{SEARCH_USER}]]>||'%'
+								</if>
+					  		</if>
+					) C, SP_PROD D, ORD_PROD_INFO E, SP_PAYPLAN F, SP_STIP G, SP_TELCOM H, SP_IMAGE I, FILE_INFO J, SP_PROD_DTL K, SP_COLOR L
+				WHERE
+					    C.PROD_CODE = D.PROD_CODE
+					AND C.ORD_CD = E.ORD_CD
+					AND C.PROD_CODE = E.PROD_CODE
+					AND E.PAYPLAN_CODE = F.PAYPLAN_CODE
+					AND E.STIP_CODE = G.STIP_CODE
+					AND F.TELCOM_CODE = H.TELCOM_CODE
+					AND D.PROD_CODE = I.PROD_CODE
+					AND I.FILE_NO = J.FILE_SEQ
+					AND I.SP_IMG_GB_CD = '02'
+					AND E.PROD_CODE = K.PROD_CODE
+					AND E.PAYPLAN_CODE = K.PAYPLAN_CODE
+					AND E.STIP_CODE = K.STIP_CODE
+					AND E.COLOR_SEQ = L.COLOR_SEQ
+          			AND E.PROD_CODE = L.PROD_CODE
+					<if test="SEARCH_ITEM != '' and SEARCH_ITEM != null">
+						<if test="SearchItemSel  == 'SEARCH_PROD_NM'">
+							AND D.PROD_NM like '%'||<![CDATA[#{SEARCH_ITEM}]]>||'%'
+						</if>
+						<if test="SearchItemSel  == 'SEARCH_PAYPLAN_NM'">
+							AND F.PAYPLAN_NM like '%'||<![CDATA[#{SEARCH_ITEM}]]>||'%'
+						</if>
+					</if>
+			) TA
+		WHERE
+			TA.NO BETWEEN #{START_ROW} AND #{END_ROW}
+	</select>
+	
+	<!-- 결제 내역 조회 엑셀다운로드  -->
+	<select id="selectListSharPayExcelDownload" resultType="hashmap">
+		SELECT
+			  C.MBER_NM || ' ( ' || C.MBER_EMAIL || ' )' AS ORDER_INFO
+			, C.ORD_CD
+			, D.PROD_NM
+			, H.TELCOM_NM
+			, I.COM_CD_NM AS OPEN_TYPE
+			, G.STIP_PERIOD
+			, F.PAYPLAN_NM
+			, C.SCHEDULE_DAY
+			, C.AMT_BASE
+			, C.STEP
+			, C.SCHEDULE_DT
+			, CASE WHEN C.RSLT_CD IS NOT NULL AND C.RSLT_CD = '00' THEN '성공' ELSE '실패' END AS RSLT_CD
+			, C.OVERDUE_DAY
+			, C.AMT_OVERDUE
+			, CASE WHEN C.RSLT_CD IS NOT NULL AND C.RSLT_CD = '00' THEN '정상' ELSE '연체' END AS RSLT_STATE
+		FROM
+			(
+				SELECT
+					  A.*
+					, B.MBER_NM
+					, B.MBER_EMAIL
+			    FROM
+					(
+						SELECT
+					          ORD_CD
+					        , PROD_CODE
+					        , MBER_SEQ
+					        , TO_CHAR(SCHEDULE_DT,'YYYY-MM-DD HH24:MI') AS SCHEDULE_DT
+					        , TO_CHAR(SCHEDULE_DT,'DD') AS SCHEDULE_DAY
+					        , AMT_BASE
+					        , STEP
+					        , PAY_DT
+					        , RSLT_CD
+					        , OVERDUE_DAY
+					        , AMT_OVERDUE
+				        FROM
+							SP_PAY
+				        WHERE
+					            RSLT_CD IS NOT NULL
+					        AND TO_CHAR(SCHEDULE_DT,'YYYYMMDD') BETWEEN #{S_START_DATE} AND #{S_END_DATE}
+					        <if test="SEARCH_SCHEDULE_DT != null and SEARCH_SCHEDULE_DT != ''">
+					        	AND TO_CHAR(SCHEDULE_DT,'DD') = '${SEARCH_SCHEDULE_DT}'
+					        </if>
+					        <if test="SEARCH_OVERDUE_DAY != null and SEARCH_OVERDUE_DAY != ''">
+					        	AND OVERDUE_DAY <![CDATA[>=]]> #{SEARCH_OVERDUE_DAY}
+					        </if>
+					        <if test="SEARCH_AMT_OVERDUE != null and SEARCH_AMT_OVERDUE != ''">
+					        	AND AMT_OVERDUE <![CDATA[>=]]> #{SEARCH_AMT_OVERDUE}
+					        </if>
+					        <choose>
+					    		<when test="SEARCH_RSLT_CD == 'Y'">
+					    			AND RSLT_CD = '00'
+					    		</when>
+					    		<when test="SEARCH_RSLT_CD == 'N'">
+					    			AND RSLT_CD != '00'
+					    		</when>
+					    	</choose>
+					    	<if test="SEARCH_ITEM != '' and SEARCH_ITEM != null">
+						    	<if test="SearchItemSel  == 'SEARCH_ORD_CD'">
+						        	AND ORD_CD like '%'||<![CDATA[#{SEARCH_ITEM}]]>||'%'
+						        </if>
+						    </if>
+					) A, MBER_INFO B
+			    WHERE
+					    A.MBER_SEQ = B.MBER_SEQ
+					<if test="SEARCH_USER != '' and SEARCH_USER != null">
+						<if test="SearchUserSel  == 'SEARCH_ORD_ID'">
+						    AND B.MBER_EMAIL LIKE '%'||<![CDATA[#{SEARCH_USER}]]>||'%'
+						</if>
+						<if test="SearchUserSel  == 'SEARCH_ORD_NM'">
+						    AND B.MBER_NM LIKE '%'||<![CDATA[#{SEARCH_USER}]]>||'%'
+						</if>
+			  		</if>
+			) C, SP_PROD D, ORD_PROD_INFO E, SP_PAYPLAN F, SP_STIP G, SP_TELCOM H, (SELECT COM_CD,COM_CD_NM FROM CODE WHERE GRP_CD = 'OPEN_TYPE') I
+		WHERE
+			    C.PROD_CODE = D.PROD_CODE
+			AND C.ORD_CD = E.ORD_CD
+			AND C.PROD_CODE = E.PROD_CODE
+			AND E.PAYPLAN_CODE = F.PAYPLAN_CODE
+			AND E.STIP_CODE = G.STIP_CODE
+			AND F.TELCOM_CODE = H.TELCOM_CODE
+			AND E.OPEN_TYPE = I.COM_CD
+			<if test="SEARCH_ITEM != '' and SEARCH_ITEM != null">
+				<if test="SearchItemSel  == 'SEARCH_PROD_NM'">
+					AND D.PROD_NM like '%'||<![CDATA[#{SEARCH_ITEM}]]>||'%'
+				</if>
+				<if test="SearchItemSel  == 'SEARCH_PAYPLAN_NM'">
+					AND F.PAYPLAN_NM like '%'||<![CDATA[#{SEARCH_ITEM}]]>||'%'
+				</if>
+			</if>
+		ORDER BY C.ORD_CD ASC, C.PROD_CODE ASC, C.STEP ASC, C.SCHEDULE_DAY ASC
+	</select>
+	
+	<!-- 스마트폰 셰어링 주문정보  -->
+	<select id="selectSharPayInfo" resultType="hashmap">
+		SELECT
+			  C.*
+			, D.PROD_NM
+			, E.OPEN_TYPE
+			, F.PAYPLAN_NM
+			, G.STIP_PERIOD
+			, H.TELCOM_NM
+			, CASE WHEN C.RSLT_CD IS NOT NULL AND C.RSLT_CD = '00' THEN '정상' ELSE '연체' END AS RSLT_STATE
+		FROM
+			(
+				SELECT
+					  A.*
+					, B.MBER_NM
+					, B.MBER_EMAIL
+			    FROM
+					(
+						SELECT
+					          ORD_CD
+					        , PROD_CODE
+					        , MBER_SEQ
+					        , TO_CHAR(SCHEDULE_DT,'YYYY-MM-DD HH24:MI') AS SCHEDULE_DT
+					        , TO_CHAR(SCHEDULE_DT,'DD') AS SCHEDULE_DAY
+					        , AMT_BASE
+					        , STEP
+					        , PAY_DT
+					        , RSLT_CD
+					        , OVERDUE_DAY
+					        , AMT_OVERDUE
+				        FROM
+							SP_PAY
+				        WHERE
+					    	    ORD_CD = #{ORD_CD}
+					    	AND PROD_CODE = #{PROD_CODE}
+					    	AND MBER_SEQ = #{MBER_SEQ}
+					    	AND STEP = #{STEP}
+					    ORDER BY STEP DESC
+					) A, MBER_INFO B
+				WHERE
+					A.MBER_SEQ = B.MBER_SEQ
+			) C, SP_PROD D, ORD_PROD_INFO E, SP_PAYPLAN F, SP_STIP G, SP_TELCOM H
+		WHERE
+			    C.PROD_CODE = D.PROD_CODE
+			AND C.ORD_CD = E.ORD_CD
+			AND C.PROD_CODE = E.PROD_CODE
+			AND E.PAYPLAN_CODE = F.PAYPLAN_CODE
+			AND E.STIP_CODE = G.STIP_CODE
+			AND F.TELCOM_CODE = H.TELCOM_CODE
+	</select>
+	
+	<!-- 스마트폰 셰어링 결재내역 히스토리 리스트  -->
+	<select id="selectListSharPayHist" resultType="hashmap">
+		SELECT
+			  TO_CHAR(TRY_DT,'YYYY-MM-DD HH24:MI') AS TRY_DT
+			, AMT_BASE
+			, OVERDUE_DAY
+			, AMT_OVERDUE
+			, AMT_REAL
+			, CASE WHEN RSLT_CD IS NOT NULL AND RSLT_CD = '00' THEN '성공' ELSE '실패' END AS RSLT_CD
+		FROM
+			SP_PAY_HIST
+		WHERE
+			    ORD_CD = #{ORD_CD}
+	    	AND PROD_CODE = #{PROD_CODE}
+	    	AND MBER_SEQ = #{MBER_SEQ}
+	    	AND STEP = #{STEP}
+	    ORDER BY TRY_DT DESC
+	</select>
+	
+	<select id="selectUserPayPopup" resultType="hashmap">
+	SELECT TO_CHAR(SPAY.PAY_DT,'YYYY-MM-DD HH24:MI')  as PAY_DT
+		, SPAY.STEP
+		, SP.PROD_NM 
+		,(SELECT CARD_COMP_NM FROM ORD_SETL_INFO WHERE ORD_CD = OPI.ORD_CD GROUP BY CARD_COMP_NM) AS CARD_COMP_NM 
+		, SPAY.AMT_REAL
+	FROM SP_PAY SPAY 
+		,ORD_PROD_INFO OPI
+		, SP_PROD SP
+	WHERE SPAY.ORD_CD = OPI.ORD_CD
+	  AND OPI.PROD_CODE = SP.PROD_CODE 
+	  AND OPI.ORD_CD = #{POPUP_ORDER_CODE}
+	  AND SPAY.PAY_DT <![CDATA[<]]> SYSDATE
+	</select>
+	
+	<select id="insertSPpayTbReg" statementType="CALLABLE" parameterType="hashmap">
+        {CALL SP_SMARTSHARE_PAY_ADD(#{ORDER_CODE},#{P_MBER_SEQ}, #{PROD_CODE},#{PROC_OPEN_DAY},#{P_STIP_PERIOD},#{P_PROD_PRCE})}
+	</select>
+	
+	<!-- 스마트폰 셰어링 해지: TERMI_INFO update -->
+	<update id="updateForTermiInfo">
+		UPDATE TERMI_INFO SET PROC_STAT_CD = #{PROC_STAT_CD} WHERE TERMI_CD = #{TERMI_CD}
+	</update>
+	
+	<!-- 스마트폰 셰어링 해지: ORD_PROD_INFO update -->
+	<update id="updateForOrdProdInfo">
+		UPDATE ORD_PROD_INFO SET PROC_STAT_CD = #{PROC_STAT_CD} WHERE ORD_CD = #{ORDER_CODE} AND PROD_CODE = #{PROD_CODE}
+	</update>
+	
+	<!-- 스마트폰 셰어링 해지: CHG_RTN_PROC_INFO insert -->
+	<insert id="insertChgRtnProcInfo" parameterType="hashmap">
+		INSERT INTO CHG_RTN_PROC_INFO
+			(
+				CHG_CD,
+				CHG_GB_CD,
+				ORD_CD,
+				MBER_SEQ,
+				CHG_PROC_TYPE_CD,
+				CHG_REG_DT,
+				RCV_NM,
+				TEL,
+				HP,
+				ZIP_CD,
+				JUSO_JIBEN,
+				JUSO_DORO,
+				JUSO_DTL,
+				ADM_ID,
+				ADM_NM,
+				REGIST_DT,
+				UPDT_DT
+			)
+		VALUES
+			(
+				  #{CHG_CD}
+				, '90'
+				, #{ORDER_CODE}
+				, #{MBER_SEQ}
+				, #{CHG_PROC_TYPE_CD}
+				, SYSDATE
+				, #{RTN_DLV_NAME}
+				, #{RTN_DLV_PHONE}
+				, #{RTN_DLV_PHONE}
+				, #{RTN_DLV_ZIP_CODE}
+				, #{RTN_DLV_ADDR_JIBEN}
+				, #{RTN_DLV_ADDR_ROAD}
+				, #{RTN_DLV_ADDR_DTL}
+				, #{ADM_ID}
+				, #{ADM_NM}
+				, SYSDATE
+				, SYSDATE
+			)
+	</insert>
+	
+	<!-- 스마트폰 셰어링 해지: CHG_PROD_INFO insert -->
+	<insert id="insertChgProdInfo" parameterType="hashmap">
+		INSERT INTO CHG_PROD_INFO
+			(
+				ORD_CD,
+				CHG_CD,
+				PROD_CODE,
+				PROD_SEQ,
+				PROD_GB_CD,
+				PROC_STAT_CD,
+				REGIST_DT,
+				UPDT_DT
+		 ) VALUES (
+		       #{ORDER_CODE},
+		       #{CHG_CD},
+		       #{PROD_CODE},
+		       1,
+		       '4',
+		       #{PROC_STAT_CD},
+		       SYSDATE,
+		       SYSDATE
+		) 
+	</insert>
+	
+	<!-- 스마트폰 셰어링 해지: CHG_RTN_PROC_INFO update -->
+	<update id="updateChgRtnProcInfo">
+		UPDATE CHG_RTN_PROC_INFO SET CHG_PROC_TYPE_CD = #{CHG_PROC_TYPE_CD} WHERE CHG_CD = #{CHG_CD}
+	</update>
+	
+	<!-- 스마트폰 셰어링 해지: CHG_PROD_INFO update -->
+	<update id="updateChgProdInfo">
+		UPDATE CHG_PROD_INFO SET PROC_STAT_CD = #{PROC_STAT_CD} WHERE ORD_CD = #{ORDER_CODE} AND PROD_CODE = #{PROD_CODE} AND CHG_CD = #{CHG_CD}
+	</update>
+	
+	<!-- 스마트폰 셰어링 해지: SP_SH_PROD update -->
+	<update id="updateSpShProd">
+		UPDATE SP_SH_PROD SET SH_STAT_CD = #{SH_STAT_CD} WHERE PROD_UNIQUENO = #{PROD_UNIQUENO}
+	</update>
+	
+	<!-- 해지 : CHG_CD -->
+	<select id="maxChgCd" parameterType="hashmap" resultType="String">
+		SELECT TO_CHAR(SYSDATE, 'YYYYMMDDHH24MI')||LPAD(SEQ_CHG_RTN_PROC_INFO.NEXTVAL, 4, 0) AS CHG_CD FROM DUAL
+	</select>
+	
+	<!-- 해지 : CHG_CD -->
+	<select id="selectChgRtnProcInfo" parameterType="hashmap" resultType="hashmap">
+		SELECT
+			  A.CHG_CD
+			, A.RCV_NM
+			, A.TEL
+			, A.ZIP_CD
+			, A.JUSO_DORO
+			, A.JUSO_DTL
+		FROM
+			CHG_RTN_PROC_INFO A, CHG_PROD_INFO B
+		WHERE
+			    A.CHG_CD = B.CHG_CD
+			AND A.ORD_CD = #{ORDER_CODE}
+			AND B.PROD_CODE = #{PROD_CODE}
+			AND A.MBER_SEQ = #{MBER_SEQ}
+	</select>
+ </mapper>

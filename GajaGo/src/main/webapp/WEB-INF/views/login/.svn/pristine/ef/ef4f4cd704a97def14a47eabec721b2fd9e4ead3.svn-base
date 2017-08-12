@@ -1,0 +1,126 @@
+<%
+	/*
+	 *	메시지함 조회
+	 */
+%>
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/web/common/cmmnHead.jsp"%>
+<title>SSOCIO</title>
+<script type="text/javascript">
+	$(document).ready(function(){
+		header.type	= 2;	// ( 0 : 타이틀영역만존재, 1 : 검색HEADER, 2 : SELECT TYPE HEADER, 3 : AD MENU TYPE HEADER, 4 : SUB TYPE HEADER )
+		header.title = "메세지함";		document.title = "메세지함";
+		header.method = "GET";
+		header.backUrl = "/mobile/myPage/getMyPageInfo.do";
+		header.form = '';	// $("#form");
+		header.callback = '';	//showAddWishCtry;
+		initHeader();
+
+		readCheck();// 읽지 않은 메일을 업데이트 한다.
+
+		$(window).scroll(function(){
+			if( $(window).scrollTop() == $(document).height() - $(window).height()){
+				var LAST_SEQ = $("#LAST_SEQ").val();
+				if(0 == (LAST_SEQ % 20) ){
+					pageScroll();
+				}
+			}
+		});
+	});
+	/*
+	 * 스크롤 시 조회
+	 */
+	pageScroll = function () {
+		// 페이지
+		var FIRST_SEQ = $("#FIRST_SEQ").val();
+		var LAST_SEQ = $("#LAST_SEQ").val();
+
+		$.ajax({
+		    type: 'get'
+		    , async: true
+		    , url: '/mobile/myMessage/getMyMessageListPage.do'
+		    , data: {
+		    		"FIRST_SEQ"	: FIRST_SEQ,
+		    		"LAST_SEQ"	: LAST_SEQ
+		    },
+		    success: function(result) {
+		    	var FIRST_SEQ = $("#FIRST_SEQ").val();
+		    	$("#FIRST_SEQ").val( parseInt(FIRST_SEQ)+20);
+		    	var LAST_SEQ = $("#LAST_SEQ").val();
+		    	$("#LAST_SEQ").val(parseInt(LAST_SEQ)+20);
+		    	var innerH = $("#targetS");
+		    	var htmlI = '';
+		    	for(var c=0;c<result.result.length;c++){
+		    		var READ_DT = result.result[c].READ_DT;
+		    		var chkDtH = '';
+			    	if( (READ_DT==null)||(READ_DT=='') ){
+			    		chkDtH = '<span class="cycle">N</span>';
+			    	}
+			    	htmlI += "<li>";
+			    	htmlI += "<p><strong>["+result.result[c].MBER_NICK+"]</strong> "+result.result[c].CONTENTS+chkDtH+"</p>";
+			    	htmlI += "<p><span class='ymd'>"+result.result[c].SND_DT+"</span></p>";
+			    	htmlI += "</li>";
+		    	}
+		    	innerH.append(htmlI);
+
+		    },
+		    error: function(data, status, err) {
+		      alert('서버와의 통신이 실패했습니다.');
+		    }
+		});
+	};
+	/*
+	 *	읽었다고 처리한다.
+	 */
+	readCheck = function(){
+		$.ajax({
+		    url 	: '/mobile/myMessage/updateMyMessageReadChk.do',
+		    data 	: $("#deleteMyAdrForm").serialize(),
+		    type 	: "get",
+		    dataType: 'json',
+		    success : function(result) {
+		    },
+		    error : function(request, status, error) {
+				//통신 에러 발생시 처리
+				alert("통신 오류가 발생 하였습니다. 잠시 후 다시 시도해 주세요"   + status.toString()  + " request [" + request.toString()  + "] error[" + error.toString() +"]");
+			}
+		});
+	};
+
+</script>
+<!-- S PAGING -->
+<input type="hidden" id="FIRST_SEQ" name="FIRST_SEQ" 	value="${params.FIRST_SEQ }" 	/>
+<input type="hidden" id="LAST_SEQ" 	name="LAST_SEQ" 	value="${params.LAST_SEQ }" 	/>
+<!-- E PAGING -->
+<div id="">
+    <!-- container -->
+	<div id="container">
+<c:choose>
+	<c:when test="${empty result.resultList}">
+		<div class="sha_nodata">
+        	<p>수신된 메세지가 없습니다.</p>
+        </div>
+	</c:when>
+	<c:otherwise>
+		<div class="content">
+            <ol class="list type3" id='targetS'>
+		<c:forEach var="resultList" items="${result.resultList}" varStatus="status">
+                <li>
+                    <p>
+                    	<strong>[${resultList.MBER_NICK }]</strong>${resultList.TITLE }
+                     	<c:if test="${empty resultList.READ_DT}">
+                     		<span class="cycle">N</span>
+                     	</c:if>
+                    </p>
+                    <p><span class="ymd">${resultList.SND_DT}</span></p>
+                </li>
+        </c:forEach>
+        	</ol>
+        </div>
+	</c:otherwise>
+</c:choose>
+
+    </div>
+    <!-- //container -->
+</div>
+

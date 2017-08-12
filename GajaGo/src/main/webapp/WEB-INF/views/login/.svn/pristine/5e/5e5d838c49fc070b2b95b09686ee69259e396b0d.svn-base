@@ -1,0 +1,185 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/web/common/cmmnHead.jsp"%>
+<script>
+$(document).ready(function(){
+	
+	document.title = '관심상품 설정';
+	
+	header.type	= 2;	// ( 0 : 타이틀영역만존재, 1 : 검색HEADER, 2 : SELECT TYPE HEADER, 3 : AD MENU TYPE HEADER, 4 : SUB TYPE HEADER )
+	header.title = "관심상품";
+	header.method = "GET"; 
+	//header.backUrl = "/mobile/wish/InterestProd.do";  
+	header.backUrl = "/mobile/wish/InterestProd.do";
+	header.form = '';	// $("#form");
+	initHeader();	  
+	  
+	$('.wish_list').css('display','block');   
+	var wish = $(".wish_list");
+	var size;
+	var max = 100;//최대 저장 갯수
+	//$(".btn_b").click(function(){
+	$("#addTag").click(function(){
+		size = $(".wish_list li").size();
+		var val = $(this).prev().val();
+		
+		if(val.length < 1){ 
+			alert("태그명이 존재하지 않습니다."); 
+			return;  
+		}
+		console.log(1);
+		if(!avoidOverlapping())return; 
+		
+		
+		var li = '<li value='+val+'><p>'+val+'</p><a href="#" class="btn_del" id="del_T"><img src="http://static.ssocio.net/web/images/ico_del.png" alt="삭제" onclick="javascript:delTag();"></a></li>'
+		if(val.length > 0){
+			if(size < max){
+				wish.show().prepend(li);
+				$('.wish_list').append('<input type="hidden" id="tagVal_'+val+'" name="tagVal" value='+val+'>');
+				$(this).prev().val("");
+			}
+		}
+	});
+
+	 $(document).on("click","#del_T",function(){
+		size = $(".wish_list li").size();
+		if(size <= 1){
+			wish.hide().find("li").remove();
+		}else{
+			$(this).parent().remove();
+			// hidden값도 삭제한다.
+			var delId = 'tagVal_'+$(this).parent().find("P").text();
+			$('#'+delId).remove();
+		}
+	});
+	
+});
+
+function tagSubmit(){   
+	var options = {
+         type: "post",   
+         url:  "/mobile/wish/wishTag.do",
+         success: function(data) {
+		    //$('#wrap').html(data); 
+		    //alert(data.result.res);
+		    alert("저장 되었습니다. ");
+		    
+		    if( '${sessionScope.APP}' == 'SSOCIO'){
+// 				$("#wishTagForm").attr("action","/mobile/wish/InterestProd.do").submit();
+				document.location.replace('ssocio://web/closeWebView');	
+			}
+			else{
+				$("#wishTagForm").attr("action","/mobile/wish/InterestProd.do").submit();
+			}
+// 		    $("#wishTagForm").attr("action","/mobile/wish/InterestProd.do").submit();
+         },
+         error: function(data, status, err) {
+            alert("서버와의 통신이 실패했습니다.");
+         }   
+      };  
+	 $("#wishTagForm").ajaxSubmit(options);
+}
+   
+function delTag(name,seq) {
+	if(name != undefined && seq != undefined){
+		if(confirm("선택한 태그를 정말로 삭제하시겠습니까?")){
+		//location.href='/mobile/wish/delWishTag.do?MBER_SEQ='+seq+'&TAG='+name;
+		
+		$.ajax({
+		      type: 'post'
+		      , async: false
+		      ,  url:  "/mobile/wish/delWishTag.do"
+		      , dataType:'json'
+		      , data: {"TAG":name}
+		      , success: function(data) {
+		    	  alert("관심상품이 삭제 되었습니다.");
+				  location.reload();
+		      }	      
+		      , error : function(request, status, error) {
+					alert("통신 오류가 발생 하였습니다. 잠시 후 다시 시도해 주세요");
+				}
+		    });
+		}
+	}  
+	 /* 	if(confirm("선택한 태그를 정말로 삭제하시겠습니까?")){
+			$('#MBER_SEQ').val(seq);$('#TAG_NAME').val(name);
+			$.ajax({
+		    url 	: '/mobile/wish/delWishTag.do',
+		    type 	: "get",
+		    success : function(result) {
+			alert("선택하신 태그가 삭제되었습니다.");
+		   	$("#wishTagForm").attr("action", '/mobile/wish/wishTag.do');
+		    },
+		    error : function(request, status, error) {
+			//통신 에러 발생시 처리
+				alert("통신 오류가 발생 하였습니다. 잠시 후 다시 시도해 주세요");
+				}
+		    $("#getMyWishListForm").submit(); 
+			}); 
+		} */ 
+}
+
+function avoidOverlapping(){
+
+	var liCnt = $('#wishUl li').size();	// 전체 태그 개수
+	var tagN = $('#tagN').val();		// 입력 관심 태그
+	
+	// 전제 비교
+	for(var i=1; i<=liCnt; i++){
+		var text = $("#wishUl li:nth-child("+i+")").text();
+		if (text == tagN){
+			alert("이미 동일한 관심 태그를 추가 하셨습니다.");
+			tagN.focus();
+			return false;
+		}
+	}
+	return true;
+}
+</script>  
+
+<div id="wrap">
+    <div id="container" style="min-height: 1420px;">
+        <p class="title">관심 태그를 입력해 주세요. <span class="small">(최대 100개)</span></p>
+		
+		<div class="content wish_con" id="dd">
+             <ul class="sbox01">
+                <li>
+                	<div class="srch_box">
+                        <input type="text" placeholder="태그 입력" maxlength="20" id="tagN">
+						<a href="#" class="btn_b" id="addTag">추가</a>  
+                    </div>
+                </li>
+				<li>
+					<form id="wishTagForm" method="get" action="">   
+						<ul class="wish_list" id="wishUl">
+							<c:if test="${fn:length(result.wishList) > 0 }">      
+								<c:forEach var="wish" items="${result.wishList }" varStatus="stat">  
+									<li value="${wish.TAG }">${wish.TAG }<a href="javascript:delTag('${wish.TAG}','${wish.MBER_SEQ}');" class="btn_del"><img src="http://static.ssocio.net/web/images/ico_del.png" alt="삭제" onclick="javascript:delTag();"></a></li>
+								</c:forEach>
+							</c:if>   
+						</ul>
+					</form>
+				</li>      
+            </ul>   
+
+       </div>  
+	<div class="btn_enter"><a href="javascript:tagSubmit()" class="btn_r">저장하기</a></div>
+    </div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="adminOraStatisMapper">
+	<!-- 검색조건 -->
+	<sql id="condition">  
+	    <!-- 판매자ID-->
+	    <if test="MBER_EMAIL != null and MBER_EMAIL != ''" >
+	      AND E.MBER_EMAIL LIKE '%' || #{MBER_EMAIL} || '%'
+	    </if>
+	    <!-- 상품타입코드 -->
+	    <if test="PROD_TYPE_CD != null and PROD_TYPE_CD != ''" >
+	      AND C.PROD_TYPE_CD = #{PROD_TYPE_CD}
+	    </if>
+	</sql>
+	
+	<!-- 리스트 조회 -->
+	<select id="selectListAdjust" parameterType="HashMap" resultType="HashMap">
+		/*adminAdjustMapper.selectListAdjust*/
+		<include refid="adminCommonMapper.pagingHeader" />
+		SELECT  TO_CHAR(TO_DATE(#{S_YR_MON}||'01'), 'YYYY.MM.DD')	AS S_YR_MON 			<!-- 시작년월 -->
+			  , TO_CHAR(LAST_DAY(TO_DATE(#{E_YR_MON}||'01')), 'YYYY.MM.DD')	AS E_YR_MON		<!-- 종료년월 -->
+			  , C.MBER_SEQ										  							<!-- 회원고유번호 -->
+			  , E.MBER_EMAIL									  							<!-- 판매자 ID -->
+		      , SUM(C.PROD_ORD_AMT) AS PROD_ORD_AMT               							<!-- 상품주문금액 합계 -->
+		      , SUM(C.DLV_PRCE) AS DLV_PRCE                       							<!-- 배송비 합계 -->
+		      , SUM(C.CPN_USE_AMT) AS CPN_USE_AMT                 							<!-- 쿠폰사용금액 합계 -->
+		      , SUM(C.PROD_ORD_AMT) * MAX(D.RATE) / 100 AS RATE_AMT     					<!-- 수수료 합계 -->
+		      , ROW_NUMBER() OVER(ORDER BY E.MBER_EMAIL DESC ) 	AS NO
+		FROM 
+		     ORD_INFO A					<!-- 주문정보 -->
+		   , PROD_BUY_CONF_INFO B		<!-- 상품주문확정정보 -->
+		   , ORD_PROD_INFO C			<!-- 주문상품정보 -->
+		   , SELLER_INFO_CFG D			<!-- 판매자정보 -->
+		   , MBER_INFO E				<!-- 회원정보 -->
+		WHERE A.ORD_CD  	= C.ORD_CD
+		AND   C.ORD_CD		= B.ORD_CD
+		AND   C.PROD_CODE	= B.PROD_CODE
+		AND   C.MBER_SEQ 	= D.MBER_SEQ
+		AND   D.MBER_SEQ 	= E.MBER_SEQ  
+		AND   B.CONF_GB !	= 'N'
+		AND   B.CONF_DATE <![CDATA[>=]]> #{S_YR_MON}||'01'
+		AND   B.CONF_DATE <![CDATA[<=]]> TO_CHAR(LAST_DAY(TO_DATE(#{E_YR_MON}||'01')), 'YYYYMMDD')
+		<include refid="condition"/>
+		GROUP BY C.MBER_SEQ, E.MBER_EMAIL
+		<include refid="adminCommonMapper.pagingFooter" />
+	</select>
+	
+	<!-- 리스트 카운트 조회 -->
+	<select id="selectListAdjustCount" parameterType="HashMap" resultType="int">
+		/*adminNoticeMapper.selectListAdjustCount*/
+	    SELECT COUNT(1) AS TOTAL_COUNT
+	    FROM( 
+	    	SELECT C.MBER_SEQ
+		      FROM 
+			     ORD_INFO A					<!-- 주문정보 -->
+			   , PROD_BUY_CONF_INFO B		<!-- 상품주문확정정보 -->
+			   , ORD_PROD_INFO C			<!-- 주문상품정보 -->
+			   , SELLER_INFO_CFG D			<!-- 판매자정보 -->
+			   , MBER_INFO E				<!-- 회원정보 -->
+			WHERE A.ORD_CD  	= C.ORD_CD
+			AND   C.ORD_CD		= B.ORD_CD
+			AND   C.PROD_CODE	= B.PROD_CODE
+			AND   C.MBER_SEQ 	= D.MBER_SEQ
+			AND   D.MBER_SEQ 	= E.MBER_SEQ  
+			AND   B.CONF_GB != 'N'
+			AND   B.CONF_DATE <![CDATA[>=]]> #{S_YR_MON}||'01'
+			AND   B.CONF_DATE <![CDATA[<=]]> TO_CHAR(LAST_DAY(TO_DATE(#{E_YR_MON}||'01')), 'YYYYMMDD')
+			<include refid="condition"/>
+			GROUP BY C.MBER_SEQ, E.MBER_EMAIL
+	    )
+	</select>
+	
+	<!-- 상세 조회 -->
+	<select id="selectAdjust" parameterType="HashMap" resultType="HashMap">
+		/*adminAdjustMapper.selectAdjust*/
+		SELECT  TO_CHAR(TO_DATE(#{S_YR_MON}||'01'), 'YYYY.MM.DD')	AS S_YR_MON 			<!-- 시작년월 -->
+			  , TO_CHAR(LAST_DAY(TO_DATE(#{E_YR_MON}||'01')), 'YYYY.MM.DD')	AS E_YR_MON		<!-- 종료년월 -->
+			  , C.MBER_SEQ										  							<!-- 회원고유번호 -->
+			  , E.MBER_EMAIL									  							<!-- 판매자 ID -->
+		      , SUM(C.PROD_ORD_AMT) AS PROD_ORD_AMT               							<!-- 상품주문금액 합계 -->
+		      , SUM(C.DLV_PRCE) AS DLV_PRCE                       							<!-- 배송비 합계 -->
+		      , SUM(C.CPN_USE_AMT) AS CPN_USE_AMT                 							<!-- 쿠폰사용금액 합계 -->
+		      , SUM(C.PROD_ORD_AMT) * MAX(D.RATE) / 100 AS RATE_AMT							<!-- 수수료 합계 -->
+		FROM 
+		     ORD_INFO A					<!-- 주문정보 -->
+		   , PROD_BUY_CONF_INFO B		<!-- 상품주문확정정보 -->
+		   , ORD_PROD_INFO C			<!-- 주문상품정보 -->
+		   , SELLER_INFO_CFG D			<!-- 판매자정보 -->
+		   , MBER_INFO E				<!-- 회원정보 -->
+		WHERE A.ORD_CD  	= C.ORD_CD
+		AND   C.ORD_CD		= B.ORD_CD
+		AND   C.PROD_CODE	= B.PROD_CODE
+		AND   C.MBER_SEQ 	= D.MBER_SEQ
+		AND   D.MBER_SEQ 	= E.MBER_SEQ  
+		AND   B.CONF_GB != 'N'
+		AND   B.CONF_DATE <![CDATA[>=]]> #{S_YR_MON}||'01'
+		AND   B.CONF_DATE <![CDATA[<=]]> TO_CHAR(LAST_DAY(TO_DATE(#{E_YR_MON}||'01')), 'YYYYMMDD')
+		AND   C.MBER_SEQ = #{MBER_SEQ}
+		GROUP BY C.MBER_SEQ, E.MBER_EMAIL
+	</select>
+	
+	<!-- 상세 리스트 조회 -->
+	<select id="selectDtlListAdjust" parameterType="HashMap" resultType="HashMap">
+		/*adminAdjustMapper.selectDtlListAdjust*/
+		<include refid="adminCommonMapper.pagingHeader" />
+		SELECT  
+				TO_CHAR(A.ORD_REG_DATE, 'YYYY-MM-DD HH24:MI') 	AS ORD_REG_DATE <!-- 주문일시 -->
+		      , A.ORD_CD										AS ORD_CD       <!-- 주문번호 -->
+		      , MAX(C.PROD_CODE)								AS PROD_CODE    <!-- 상품코드 -->
+		      , MAX(D.PROD_NM)									AS PROD_NM      <!-- 상품명 -->
+		      , COUNT(C.ORD_CD) - 1								AS PROD_COUNT	<!-- 주문상품수량 -->
+		      , SUM(C.PROD_PRCE)								AS PROD_PRCE    <!-- 상품금액(판매금액) -->
+		      , SUM(C.ORD_QTY)									AS ORD_QTY      <!-- 주문수량 -->
+		      , A.SELT_GB_CD									AS SELT_GB_CD   <!-- 결재방법코드 -->
+		      , SUM(C.PROD_ORD_AMT)								AS PROD_ORD_AMT	<!-- 주문금액 -->
+		      , SUM(C.PROD_ORD_AMT) * (
+		      						   SELECT RATE 
+								         FROM SELLER_INFO_CFG	<!-- 판매자정보 -->
+								        WHERE MBER_SEQ = '1000'
+								       ) /100  					AS RATE_AMT 	<!-- 수수료 -->
+		      , SUM(C.DLV_PRCE)									AS DLV_PRCE     <!-- 배송비 -->
+		      , SUM(C.CPN_USE_AMT)								AS CPN_USE_AMT  <!-- 쿠폰사용금액 -->
+		      , ROW_NUMBER() OVER(ORDER BY A.ORD_REG_DATE DESC ) 	AS NO 
+		FROM  
+			  ORD_INFO  A			<!-- 주문정보 -->
+		    , PROD_BUY_CONF_INFO B	<!-- 상품주문확정정보 -->
+		    , ORD_PROD_INFO C		<!-- 주문상품정보 -->
+		    , PROD D				<!-- 상품정보 -->
+		WHERE 
+			  A.ORD_CD    = C.ORD_CD
+		AND   C.ORD_CD    = B.ORD_CD
+		AND   C.PROD_CODE = B.PROD_CODE
+		AND   C.PROD_CODE = D.PROD_CODE
+		AND   B.CONF_GB  != 'N'
+		AND   C.MBER_SEQ  = #{MBER_SEQ}
+		AND   C.PROD_TYPE_CD  = #{PROD_TYPE_CD}	<!-- 상품타입코드 -->
+		GROUP BY 
+			  A.ORD_CD, A.SELT_GB_CD, ORD_REG_DATE
+		ORDER BY NO DESC
+		<include refid="adminCommonMapper.pagingFooter" />
+	</select>
+	
+	<!-- 상세 리스트 카운트 조회 -->
+	<select id="selectDtlListAdjustCount" parameterType="HashMap" resultType="int">
+		/*adminNoticeMapper.selectDtlListAdjustCount*/
+	    SELECT COUNT(1) AS TOTAL_COUNT
+	    FROM   (
+			    SELECT A.ORD_CD
+			      FROM  
+					  ORD_INFO  A			<!-- 주문정보 -->
+				    , PROD_BUY_CONF_INFO B	<!-- 상품주문확정정보 -->
+				    , ORD_PROD_INFO C		<!-- 주문상품정보 -->
+				    , PROD D				<!-- 상품정보 -->
+				WHERE 
+					  A.ORD_CD    = C.ORD_CD
+				AND   C.ORD_CD    = B.ORD_CD
+				AND   C.PROD_CODE = B.PROD_CODE
+				AND   C.PROD_CODE = D.PROD_CODE
+				AND   B.CONF_GB  != 'N'
+				AND   C.MBER_SEQ  = #{MBER_SEQ}
+				AND   C.PROD_TYPE_CD  = #{PROD_TYPE_CD}	<!-- 상품타입코드 -->
+				GROUP BY 
+					  A.ORD_CD
+		    )
+	</select>
+	
+</mapper>

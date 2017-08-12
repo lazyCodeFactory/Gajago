@@ -1,0 +1,423 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="adminSPProdMapper">
+     <!-- 검색조건 -->
+  <sql id="SearchProd">  
+		<!--     등록일 -->
+       <if test="S_START_DATE != null and S_START_DATE != ''">
+	    	  TO_CHAR(A.REGIST_DT,'YYYYMMDD') BETWEEN  #{S_START_DATE} and #{S_END_DATE} 
+		</if>
+		<!--  검색입력 조건 -->
+      <if test="KEYWORD != '' and KEYWORD != null">
+		<if test="KEYWORD_SEL  == 'MODEL'">
+			AND A.MODEL_NM LIKE '%'||<![CDATA[#{KEYWORD}]]>||'%'
+		</if>
+		<if test="KEYWORD_SEL  == 'PROD'">
+			 AND A.PROD_NM LIKE '%'||<![CDATA[#{KEYWORD}]]>||'%'
+		</if>
+ 	  </if>
+ 	  	<!--  용량 -->
+      <if test="SP_SIZE  != '' and SP_SIZE  != null">
+         AND A.SP_SIZE_CD = #{SP_SIZE}
+      </if>
+		<!--   제조사 -->
+      <if test="SP_MAKER  != '' and SP_MAKER  != null">
+         AND A.MAKER_CD = #{SP_MAKER}
+      </if>
+      <!-- 통신사 -->
+       <if test="SP_TEL  != '' and SP_TEL != null">
+         AND B.TELCOM_CODE = #{SP_TEL}
+      </if>
+           <!-- 노출상태 -->
+      <choose>
+          <when test="SP_STAT_Y != null  and SP_STAT_Y  != '' and ( SP_STAT_N  == '' or SP_STAT_N == null)">
+               	  AND  A.PROD_SHOW_YN = #{SP_STAT_Y} 
+          </when>
+           <when test=" (SP_STAT_Y  == null or SP_STAT_Y == '' ) and SP_STAT_N != null and SP_STAT_N  != ''">
+               	  AND  A.PROD_SHOW_YN = #{SP_STAT_N} 
+          </when>
+           <when test=" SP_STAT_Y != null  and SP_STAT_Y  != '' and SP_STAT_N != null and SP_STAT_N  != ''">
+               	  AND ( A.PROD_SHOW_YN = #{SP_STAT_Y} or  A.PROD_SHOW_YN = #{SP_STAT_N} )
+          </when>
+          <otherwise>
+          AND  A.PROD_SHOW_YN !='Y' and A.PROD_SHOW_YN != 'N' 
+          </otherwise>
+      </choose>
+  </sql>
+    
+	<select id="selectListSPProd"  parameterType="HashMap" resultType="HashMap">
+		SELECT *
+		  FROM(
+				SELECT A.PROD_CODE
+					 , B.TELCOM_NM
+					 , A.MODEL_NM 
+					 , A.PROD_NM
+					 , A.MAKER_CD
+					 , TO_CHAR(A.REGIST_DT,'YYYY-MM-DD HH24:MI:SS') as REGIST_DT
+					 , A.SP_SIZE_CD
+					 , A.PROD_SHOW_YN
+					 , ROW_NUMBER() OVER(ORDER BY A.REGIST_DT DESC ) AS NO
+				  FROM SP_PROD A 
+				 INNER JOIN SP_TELCOM B ON B.TELCOM_CODE = A.TELCOM_CODE
+				 WHERE  <include refid="SearchProd" />
+			) C WHERE C.NO BETWEEN #{START_ROW} AND #{END_ROW}
+  </select>  
+    
+	<select id="selectListDefaultTelinfo" resultType="HashMap">
+		SELECT TELCOM_CODE
+			 , TELCOM_NM 
+		 FROM SP_TELCOM 
+		 WHERE USE_YN = 'Y'
+		 	</select>
+
+	<insert id="insertColorTB" useGeneratedKeys="true" keyProperty="COLOR_SEQ" keyColumn="COLOR_SEQ">
+		INSERT INTO SP_COLOR(
+			  COLOR_SEQ
+			, PROD_CODE
+			, COLOR_NAME
+			, REGIST_DT
+		)VALUES(
+			  (SELECT NVL(MAX(COLOR_SEQ),0)+1 FROM SP_COLOR)
+			, #{PROD_CODE}
+			, #{SPPROD_COLOR}
+			, SYSDATE 
+		)
+	</insert>
+  
+	<insert id="insertSPProdTBReg" useGeneratedKeys="true" keyProperty="PROD_CODE" keyColumn="PROD_CODE">
+		INSERT INTO SP_PROD(
+			  PROD_CODE
+			, TELCOM_CODE
+			, PROD_NM
+			, PROD_MB_DTL
+			, PROD_PC_DTL
+			, PROD_SHOW_YN
+			, REGIST_DT
+			, PROD_DESC_OPT
+			, MODEL_NM
+			, SP_SIZE_CD
+			, MAKER_CD
+			, EXT_PRCE
+			, USE_PHONE_PRE_COMPENSATE_PRCE
+			, USE_PHONE_PERCENT
+			, BUY_SALE_PRCE
+			, BUY_SALE_PRCE_PERCENT
+			, GUARANTEE_INSURANCE_PRCE
+			, RV_INSURANCE_PRCE
+			, INSURANCE_PRCE
+			, SERVICIZING_PRCE
+			, SHARING_FEE_PRCE_PERCENT
+			, SSOCIO_FEE_PRCE_PERCENT
+			, STIP_CODE
+			, OPEN_TYPE
+			, PC_DTL_USE_YN
+			, MB_DTL_USE_YN
+		)VALUES(
+				TO_CHAR(SYSDATE, 'YYYYMMDD')||LPAD(SEQ_PROD_CODE.NEXTVAL,6,0)
+			, #{TEL_SEL}
+			, #{SPPROD_PROD_NM}
+			, #{MOBILE_EDIT_AREA}
+			, #{PC_EDIT_AREA}
+			, 'Y'
+			, SYSDATE
+			, #{PROD_DESC_OPT}
+			, #{SPPROD_MODEL_NM}
+			, #{SIZE_SEL}
+			, #{MAKER_SEL}
+			, #{SPPROD_SELL_PRCE}
+			, #{USE_PHONE_PRE_COMPENSATE_PRCE}
+			, #{USE_PHONE_PRE_COMPENSATE_PRCE_PERCENT}
+			, #{BUY_SALE_PRCE}
+			, #{BUY_SALE_PRCE_PERCENT}
+			, #{GUARANTEE_INSURANCE_PRCE}
+			, #{RV_INSURANCE_PRCE}
+			, #{INSURANCE_PRCE}
+			, #{SERVICIZING_PRCE}
+			, #{SHARING_FEE_PRCE_PERCENT}
+			, 0
+			, #{STIP_SEL}
+			, #{OPEN_TYPE_SEL}
+			, #{pcDtlUseYn}
+			, #{mbDtlUseYn}
+		)
+	</insert>
+	
+	<insert id="newinserTProdTBReg">
+    	INSERT INTO PROD(
+			  PROD_CODE
+			, PROD_TYPE_CD
+			, PROD_NM
+			, KEYWORD
+			, MBER_SEQ
+			, PROD_STAT_CD
+			, REGIST_DT
+		)VALUES(
+			  #{PROD_CODE}
+			, '4'
+			, #{SPPROD_PROD_NM}
+			, #{SEARCH_KEWORD}
+			, '1'
+			, '0'
+			, SYSDATE
+		)
+	</insert>
+	
+	<insert id="insertSPProdDtlReg">
+		INSERT INTO SP_PROD_DTL(
+			 PROD_CODE
+			,PAYPLAN_CODE
+			,STIP_CODE
+			,SALE_SUPP_PRCE
+			,SALE_SUPP_PRCE_PERCENT
+			,SALE_GSUPP_PRCE
+			,SALE_GSUPP_PRCE_PERCENT 
+			,SALE_DISC_PRCE
+			,MOVE_AGENCY_URL
+			,SHARING_FEE_PRCE
+			,SSOCIO_FEE_PRCE
+			,SHARING_PRICE
+		)VALUES(
+			 #{PROD_CODE}
+			, #{PAY_SEL}
+			, #{STIP_SEL}
+			, #{SALE_SUPP_PRCE}
+			, #{SALE_SUPP_PRCE_PERCENT}
+			, #{SALE_GSUPP_PRCE}
+			, #{SALE_GSUPP_PRCE_PERCENT}
+			, #{SALE_DISC_PRCE}
+			, #{MOVE_AGENCY_URL}
+			, #{SHARING_FEE_PRCE}
+			, 0
+			, #{SHARING_PRCE}
+		)
+	</insert>
+ 
+	<insert id="insertSPImageTB">
+		INSERT INTO SP_IMAGE 
+			( PROD_CODE
+				, SP_IMG_GB_CD
+				, FILE_NO
+				, REGIST_DT
+			) VALUES (
+				#{PROD_CODE}
+				, #{SP_IMG_GB_CD}
+				, #{FILE_NO}
+				, SYSDATE
+			)
+	</insert>
+ 
+ 
+   
+	<select id="selectListSPProdCount" resultType="Integer">
+ 		SELECT COUNT(*)
+		  FROM SP_PROD A 
+		 INNER JOIN SP_TELCOM B ON B.TELCOM_CODE = A.TELCOM_CODE
+		 WHERE
+		<include refid="SearchProd" />
+	</select>
+<select id="updateProd"  resultType="HashMap">
+		SELECT  B.TELCOM_CODE
+			 , A.PROD_NM
+			 , A.SHARING_PRICE
+			 , A.PROD_MB_DTL
+			 , A.PROD_PC_DTL
+			 , A.PROD_SHOW_YN
+			 , A.PROD_DESC_OPT
+			 , A.MAKER_FUND 
+			 , A.MODEL_NM
+			 , A.SP_SIZE_CD
+			 , A.MAKER_CD
+			 , A.EXT_PRCE
+			 , A.BUY_SALE_PRCE_PERCENT
+			 , A.USE_PHONE_PRE_COMPENSATE_PRCE
+			 , A.USE_PHONE_PERCENT
+			 , A.BUY_SALE_PRCE
+			 , A.BUY_SALE_PRCE_PERCENT
+			 , A.GUARANTEE_INSURANCE_PRCE
+	 		 , A.INSURANCE_PRCE
+			 , A.SERVICIZING_PRCE
+			 , A.RV_INSURANCE_PRCE
+			 , A.SHARING_FEE_PRCE_PERCENT
+			 , A.SSOCIO_FEE_PRCE_PERCENT
+			 , A.STIP_CODE
+			 , A.OPEN_TYPE
+			 , A.MB_DTL_USE_YN
+			 , A.PC_DTL_USE_YN
+			 , A.PROD_SHOW_YN
+			 , TO_CHAR(A.REGIST_DT,'YYYY-MM-DD HH24:MI:SS') as REGIST_DT
+			 , TO_CHAR(A.UPDT_DT,'YYYY-MM-DD HH24:MI:SS') as UDT_DT
+			 , C.KEYWORD
+		  FROM SP_PROD A
+		 INNER JOIN SP_TELCOM B ON B.TELCOM_CODE = A.TELCOM_CODE
+		 INNER JOIN PROD C ON C.PROD_CODE = A.PROD_CODE
+		 WHERE A.PROD_CODE = #{PROD_CODE}
+</select>
+
+	<select id="selectProdColor" resultType="HashMap">
+		SELECT COLOR_SEQ, COLOR_NAME,PROD_CODE
+		 FROM SP_COLOR
+		 WHERE PROD_CODE = #{PROD_CODE}
+	</select>
+
+	<select id="selectFileInfo"  parameterType="hashmap" resultType="hashmap">
+	    SELECT C.FILE_URL,
+	    		C.FILE_SEQ,
+	    		B.SP_IMG_GB_CD
+	      FROM SP_PROD A
+	      INNER JOIN SP_IMAGE B ON B.PROD_CODE = A.PROD_CODE
+          INNER JOIN FILE_INFO C ON C.FILE_SEQ = B.FILE_NO
+          WHERE A.PROD_CODE = #{PROD_CODE}
+	</select>
+	    
+	
+	<update id="updatePProdTBReg">
+		UPDATE SP_PROD 
+		   SET  TELCOM_CODE				= #{TEL_SEL}
+			 , PROD_NM					= #{SPPROD_PROD_NM}
+			 , PROD_MB_DTL				= #{MOBILE_EDIT_AREA}
+			 , PROD_PC_DTL				= #{PC_EDIT_AREA}
+			 , PROD_SHOW_YN				= #{PROD_SHOW_YN}
+			 , PROD_DESC_OPT			= #{PROD_DESC_OPT}
+			 , MODEL_NM					= #{SPPROD_MODEL_NM}
+			 , SP_SIZE_CD				= #{SIZE_SEL}
+			 , MAKER_CD					= #{MAKER_SEL}
+			 , EXT_PRCE					= #{SPPROD_SELL_PRCE}
+			, USE_PHONE_PRE_COMPENSATE_PRCE = #{USE_PHONE_PRE_COMPENSATE_PRCE}
+			, USE_PHONE_PERCENT			= #{USE_PHONE_PRE_COMPENSATE_PRCE_PERCENT}
+			, BUY_SALE_PRCE				= #{BUY_SALE_PRCE}
+			, BUY_SALE_PRCE_PERCENT		= #{BUY_SALE_PRCE_PERCENT}
+			, GUARANTEE_INSURANCE_PRCE  = #{GUARANTEE_INSURANCE_PRCE}
+			, RV_INSURANCE_PRCE			= #{RV_INSURANCE_PRCE}
+			, INSURANCE_PRCE			= #{INSURANCE_PRCE}
+			, SERVICIZING_PRCE			= #{SERVICIZING_PRCE}
+			, SHARING_FEE_PRCE_PERCENT	= #{SHARING_FEE_PRCE_PERCENT}
+			, STIP_CODE					= #{STIP_SEL}
+			, OPEN_TYPE					= #{OPEN_TYPE_SEL}
+			, MB_DTL_USE_YN					= #{mbDtlUseYn}
+			, PC_DTL_USE_YN					= #{pcDtlUseYn}
+			, UPDT_DT = SYSDATE
+		WHERE PROD_CODE = #{PROD_CODE}   	
+	</update>
+	
+	<update id="updateProdTBReg">
+	    UPDATE PROD 
+	      SET KEYWORD = #{KEYWORD}
+	       	 , PROD_NM =  #{SPPROD_PROD_NM}
+			 , PROD_MB_DTL = #{MOBILE_EDIT_AREA}
+			 , PROD_PC_DTL = #{PC_EDIT_AREA}
+			 <if test="PROD_SHOW_YN == Y">
+			  , PROD_STAT_CD = '0'
+			  </if>
+			  <if test="PROD_SHOW_YN == N">
+			  , PROD_STAT_CD = '1'
+			  </if>
+		WHERE PROD_CODE = #{PROD_CODE}
+	</update>
+    
+	<delete id="DeleteColorTB">
+	    delete from sp_color where prod_code = #{PROD_CODE}
+	</delete>
+	
+	<insert id="updateColorTB">
+	    	INSERT INTO SP_COLOR(
+			  COLOR_SEQ
+			, PROD_CODE
+			, COLOR_NAME
+			, REGIST_DT
+		)VALUES(
+			  (SELECT MAX(COLOR_SEQ)+1 FROM SP_COLOR)
+			, #{PROD_CODE}
+			, #{SPPROD_COLOR}
+			, SYSDATE 
+		)
+	</insert>
+	
+	<update id="updateImgTBreg">
+	   		UPDATE SP_IMAGE
+		   SET  FILE_NO =  #{FILE_NO}
+		WHERE PROD_CODE = #{PROD_CODE} and SP_IMG_GB_CD = #{SP_IMG_GB_CD}
+	</update>
+	
+	<select id="CheckImgData" resultType="Integer">
+		SELECT COUNT(*)
+		  FROM SP_IMAGE
+		 WHERE PROD_CODE = #{PROD_CODE} and SP_IMG_GB_CD = #{SP_IMG_GB_CD}
+		
+	</select>
+	
+	<delete id="SPProdImageDel">
+	    DELETE FROM SP_IMAGE WHERE FILE_NO = #{DEL_FILE_NO}
+	</delete>
+	<delete id="SPProdfileTBDel">
+	      DELETE FROM FILE_INFO WHERE FILE_SEQ = #{DEL_FILE_NO}
+	</delete>
+	
+	<update id="updateFileInfo">
+	    
+	    
+	</update>
+	
+	
+<select id="selectListselectListPay" resultType="hashmap">
+    SELECT PAYPLAN_CODE,PAYPLAN_NM
+    FROM  SP_PAYPLAN 
+   WHERE TELCOM_CODE = #{TEL_SEL} 
+     AND SHOW_YN = 'Y'
+</select>	
+
+<select id="selectListPeriod" resultType="hashmap">
+ 	  SELECT STIP_CODE
+		    ,STIP_PERIOD 
+		FROM SP_STIP
+</select>
+
+<select id="selectListSpProdDtlTb" resultType="hashmap">
+    SELECT PAYPLAN_CODE
+    	, STIP_CODE 
+    	, SALE_SUPP_PRCE
+    	, SALE_GSUPP_PRCE
+    	, SALE_SUPP_PRCE_PERCENT
+    	, SALE_GSUPP_PRCE_PERCENT
+    	, SALE_DISC_PRCE
+    	, MOVE_AGENCY_URL
+    	, SHARING_FEE_PRCE
+    	, SSOCIO_FEE_PRCE
+    	, SHARING_PRICE
+	 FROM SP_PROD_DTL
+	WHERE PROD_CODE = #{PROD_CODE}    
+    
+</select>
+
+<delete id="deleteSPprodDtlTb">
+    DELETE FROM SP_PROD_DTL 
+     WHERE PROD_CODE = #{PROD_CODE}
+</delete>
+
+<select id="SPProdColorDelConf" resultType="Integer">
+    SELECT COUNT(*) FROM SP_SH_PROD 
+    WHERE PROD_CODE = #{PROD_CODE} 
+    AND COLOR_SEQ = #{COLOR_SEQ}
+    
+</select>
+	
+<delete id="SPProdColorDelReg">
+ 	DELETE FROM SP_COLOR
+    WHERE PROD_CODE = #{PROD_CODE} 
+    AND COLOR_SEQ = #{COLOR_SEQ}
+</delete>
+
+<select id="CheckColorData" resultType="Integer">
+    SELECT COUNT(*) FROM SP_COLOR 
+	   WHERE COLOR_NAME IN
+	        	<foreach item="item" index="index" collection="SPPROD_COLOR_LIST" open="(" separator="," close=")">
+				#{item}
+		</foreach>
+		AND PROD_CODE = #{PROD_CODE}
+</select>
+
+<select id="selectListRegSPProd" resultType="int">
+	SELECT COUNT(1) FROM SP_PROD 
+</select>
+
+ </mapper>

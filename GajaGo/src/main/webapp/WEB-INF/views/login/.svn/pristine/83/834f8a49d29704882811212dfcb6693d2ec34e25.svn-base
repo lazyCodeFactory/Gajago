@@ -1,0 +1,268 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/admin/common/cmmnHead.jsp"%>
+<script type="text/javascript">
+$(function(){
+	//팝업노출 선택에 따른 날짜입력 textbox출력
+	$("#chkYn").change(function(){
+		chkShowTextBox();
+	});
+	function chkShowTextBox(){
+		if($("#chkYn").is(":checked") == true){
+			$("#dateSpan").show();
+		}else{
+			$("#VIEW_START_DATE").val('');
+			$("#VIEW_END_DATE").val('');
+			$("#dateSpan").hide();
+		}
+	}chkShowTextBox();
+	countLen();
+
+	//구분 체크박스 param 처리
+	var chkType = new Array();
+	<c:forEach var="list" items="${params.chkType}"  varStatus="status">
+		chkType['${status.index}'] = '${list}';
+	</c:forEach>
+	if(chkType != null && chkType.length > 0)
+	{
+	   for(var i=0; i < chkType.length; i++)
+	   {
+		   $("input:checkbox[name=chkType]").each(function(index){
+				if(chkType[i] == $(this).val()){
+					$(this).attr("checked", true);
+				}
+			});
+	   }
+	}else{
+	   $('input[name="chkType"]').each(function(){
+	      $(this).attr('checked', 'checked');
+	   });
+	}
+
+});
+//textarea byte 체크
+function countLen(){
+	var val = $('textarea#DENY_REASON').val();
+	var txtLen = "(" + getByteLength(val) + "/1,000 byte)";
+	$(".byte").html(txtLen);
+}
+//공지사항 등록
+function onInsert() {
+	if(!validate()) return;
+	if(confirm("등록 하시겠습니까?"))
+  	{
+	  	$.ajax({
+		      type: 'post'
+		      , async: true
+		      , url: "/admin/policy/insertPolicyReg.do"
+		      , dataType:'json'
+		      , data: $("#frm").serialize()
+		      , before: function() {
+		        loadingForm.showDialog();
+		      }
+		      , success: function(data) {
+		    	  //alert("저장 되었습니다.");
+		    	  goList();
+		      }
+		      , complete: function() {
+		        loadingForm.hideDialog();
+		      }
+		      , error : function(request, status, error) {
+					alert("통신 오류가 발생 하였습니다. 잠시 후 다시 시도해 주세요");
+				}
+		    });
+  	}
+}
+//리스트 이동
+function goList() {
+	$("#frm").attr("action","/admin/policy/selectListPolicy.do").submit();
+}
+//입력값 유효성 체크
+function validate(){
+
+	if ($("input[name='BAN_YN']:checked").length < 1){
+		alert("차단유무를 선택하세요.");
+		$("#BAN_YN").focus();
+		return false;
+	}
+	if($("#BAN_GB_CD").val() == ""){
+		alert("차단구분을 입력하세요.");
+		$("#BAN_GB_CD").focus();
+		return false;
+	}
+	if(!$("#DENY_REASON").val()){
+		alert("차단사유를 입력하세요.");
+		$("#DENY_REASON").focus();
+		return false;
+	}
+	return true;
+}
+</script>
+<!-- content -->
+<div id="content">
+	<!-- top_content -->
+	<div class="top_content">
+		<!-- location -->
+		<div class="location">
+			<ul class="clear">
+				<li class="first-child"><a href="#">Home</a></li>
+				<li><a href="#">서비스 관리</a></li>
+				<li><a href="#" class="current">게시글 관리 상세</a></li>
+			</ul>
+		</div>
+		<!-- //location -->
+	</div>
+	<!-- //top_content -->
+
+	<!-- inner -->
+	<div class="inner">
+		<!-- tbl -->
+		<div class="tbl mt10">
+			<p class="tbl_tit"><img src="http://static.ssocio.net/admin/images/ico_admin.gif" alt="" />게시글 정보</p>
+			<table class="upd type">
+				<colgroup>
+					<col style="width:12%" />
+					<col style="width:*" />
+					<col style="width:15%" />
+					<col style="width:*" />
+				</colgroup>
+				<tbody>
+					<tr>
+						<th scope="row" class="first">상품명</th>
+						<td class="tl">${selectPolicy.PROD_NM}</td>
+						<th scope="row" class="bl">판매자/이름</th>
+						<td class="tl">${selectPolicy.MBER_EMAIL} / ${selectPolicy.MBER_NICK}</td>
+					</tr>
+					<tr>
+						<th scope="row" class="first">작성자 ID/이름</th>
+						<td class="tl">${selectPolicy.WRITE_ID} / ${selectPolicy.WRITE_NM}</td>
+						<th scope="row" class="bl">작성일시</th>
+						<td class="tl">${selectPolicy.REGIST_DT}</td>
+					</tr>
+					<tr>
+						<th scope="row" class="first">구분</th>
+						<td class="tl">${selectPolicy.BOARD_TYPE_NM}</td>
+						<th scope="row" class="bl">게시글 번호</th>
+						<td class="tl">${selectPolicy.BOARD_SEQ}</td>
+					</tr>
+					<tr>
+						<th scope="row" class="first">내용</th>
+						<td class="tl" colspan="3">
+							${selectPolicy.CONTENTS}
+						</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+		<!-- //tbl -->
+
+		<form id="frm" method="post" name="frm">
+			<input type="hidden" id="BOARD_SEQ" name="BOARD_SEQ" value="${selectPolicy.BOARD_SEQ }">
+			<input type="hidden" id="BOARD_TYPE_CD" name="BOARD_TYPE_CD" value="${selectPolicy.BOARD_TYPE_CD }">
+			<!-- 검색조건 params -->
+			<input type="hidden" id="S_START_DATE" name="S_START_DATE" value="${params.S_START_DATE }">
+			<input type="hidden" id="S_END_DATE" name="S_END_DATE" value="${params.S_END_DATE }">
+			<input type="hidden" id="dateFlag" name="dateFlag" value="${params.dateFlag }">
+			<input type="hidden" id="textFlag" name="textFlag" value="${params.textFlag }">
+			<input type="hidden" id="textVal" name="textVal" value="${params.textVal }">
+			<input type="hidden" id="P_BAN_GB_CD" name="P_BAN_GB_CD" value="${params.P_BAN_GB_CD }">
+			<input type="hidden" id="P_BAN_YN" name="P_BAN_YN" value="${params.P_BAN_YN }">
+			<custom:codeList var="BOARD_TYPE_CD" groupCode="BOARD_TYPE_CD" />
+			<c:forEach var="list" items="${BOARD_TYPE_CD}">
+				<c:if test="${list.key == '30' or list.key == '50' or list.key == '70'}">
+					<label style="display: none"><input type="checkbox"  name="chkType" value="${list.key }"/>${list.value}</label>
+				</c:if>
+			</c:forEach>
+		<!-- tbl -->
+		<div class="tbl mt10">
+			<p class="tbl_tit"><img src="http://static.ssocio.net/admin/images/ico_admin.gif" alt="" />상태변경</p>
+			<table class="upd type">
+				<colgroup>
+					<col style="width:12%" />
+					<col style="width:*" />
+					<col style="width:12%" />
+					<col style="width:*" />
+				</colgroup>
+				<tbody>
+					<tr>
+						<th scope="row" class="first">차단유무</th>
+						<td class="tl">
+							<input type="radio" id="rad1" name="BAN_YN" value="N" <c:if test="${selectPolicyStat.BAN_YN == 'N' }">checked</c:if>><label for="rad1">정상</label>
+							<span class="ml10"><input type="radio" id="rad2" name="BAN_YN" value="Y"<c:if test="${selectPolicyStat.BAN_YN == 'Y' }">checked</c:if>><label for="rad2">차단</label></span>
+						</td>
+						<th scope="row" class="first">차단구분</th>
+						<td class="tl">
+							<span class="select" style="width:110px;">
+								<span class="sel_txt"></span>
+								<custom:codeList var="BAN_GB_CD" groupCode="BAN_GB_CD" />
+								<select id="BAN_GB_CD" name="BAN_GB_CD">
+									<option value="">선택하세요</option>
+									<c:forEach var="list" items="${BAN_GB_CD}">
+										<option value="${list.key}" <c:if test="${list.key == selectPolicyStat.BAN_GB_CD}">selected</c:if>>${list.value}</option>
+									</c:forEach>
+								</select>
+							</span>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row" class="first">차단사유</th>
+						<td class="tl" colspan="3">
+							<textarea col="40" row="8" class="textarea" id="DENY_REASON" name="DENY_REASON" onkeyup="countLen();">${selectPolicyStat.DENY_REASON}</textarea>
+							<span class="byte">(0/1,000 byte)</span>
+						</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+		<!-- //tbl -->
+		</form>
+		<!-- tbl -->
+		<div class="tbl mt10">
+			<p class="tbl_tit"><img src="http://static.ssocio.net/admin/images/ico_admin.gif" alt="" />변경이력</p>
+			<table class="upd type">
+				<colgroup>
+					<col style="width:10%" />
+					<col style="width:15%" />
+					<col style="width:10%" />
+					<col style="width:*" />
+				</colgroup>
+				<thead>
+					<tr>
+						<th scope="col">상태</th>
+						<th scope="col">변경일시</th>
+						<th scope="col">처리담당자</th>
+						<th scope="col">비고</th>
+					</tr>
+				</thead>
+				<tbody>
+					<c:forEach var="list" items="${selectListPolicyStat }">
+					<tr>
+						<td class="nolineL">
+							<c:if test="${list.BAN_YN == 'Y' }">차단</c:if>
+							<c:if test="${list.BAN_YN == 'N' }">정상</c:if>
+							<c:if test="${empty list.BAN_YN}">게시글등록</c:if>
+						</td>
+						<td>${list.REGIST_DT }</td>
+						<td>${list.BAN_ADM_NM }</td>
+						<td class="tl"><c:if test="${not empty list.BAN_GB_NM }">[${list.BAN_GB_NM }]</c:if> ${list.DENY_REASON }</td>
+					</tr>
+					</c:forEach>
+					<c:if test="${empty selectListPolicyStat }">
+					<tr>
+						<td class="nolineL" colspan="4">조회된 결과가 없습니다.</td>
+					</tr>
+					</c:if>
+				</tbody>
+			</table>
+		</div>
+		<!-- //tbl -->
+
+		<!-- bot_btn -->
+		<div class="bot_btn tc mt20">
+			<a href="javascript:onInsert();" class="btn_r">확인</a>
+			<a href="javascript:goList();" class="btn_g2 ml10">취소</a>
+		</div>
+		<!-- //bot_btn -->
+	</div>
+	<!-- //inner -->
+</div>
+<!-- //content -->

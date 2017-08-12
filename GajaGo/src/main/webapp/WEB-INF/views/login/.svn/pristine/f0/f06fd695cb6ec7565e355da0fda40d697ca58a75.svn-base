@@ -1,0 +1,123 @@
+package com.ssocio.sharing.controller.batch;
+
+
+import java.util.HashMap;
+import java.util.Map;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.ModelMap;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseBody;
+
+import com.ssocio.sharing.cmmn.util.DateUtil;
+import com.ssocio.sharing.service.batch.BatchAdminPerfService;
+import com.ssocio.sharing.service.batch.BatchSellerPerfService;
+
+/**
+ * <pre>
+ *
+ *
+ * @param request
+ * @param response
+ * @param inParam
+ * @return
+ * @throws Exception
+ * @date 2015. 10. 12.
+ * @author obiwan
+ * </pre>
+ */
+
+@Controller
+public class BatchSellerPerfController extends BatchReferController {
+
+	private static final Logger logger = LoggerFactory.getLogger(BatchSellerPerfController.class);
+
+
+	@Autowired
+	BatchSellerPerfService batchSellerPerfService;
+	
+	@Autowired
+	BatchAdminPerfService batchAdminPerfService;
+
+	/**
+	 * <pre>
+	 *
+	 *
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 10. 12.
+	 * @author obiwan
+	 * @see com.ssocio.sharing.controller.batch
+	 * </pre>
+	 */
+	@ResponseBody
+	@RequestMapping("/batchSellerPerf.do")
+	public String batchCon() {
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("batchAdminPerf START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		ModelMap modelMap = new ModelMap();
+		String hist_seq = "";
+		String err_dtl = "[OK]";
+		String batch_nm = "BATCH_JOB_SELLER_PERF"; // 공통 코드 파일 못 찾음
+		Map<String, Object> inParam = new HashMap<String, Object>();
+
+		try{
+			logger.info("##### batch :: init #####");
+//			batchSellerPerfService.initBatch(batch_nm); // 배치조회이후 없으면 내역 생성
+			batchAdminPerfService.initBatch(batch_nm); // 배치조회이후 없으면 내역 생성
+			logger.info("##### batch :: pre #####");
+			hist_seq = batchAdminPerfService.preBatch(batch_nm, inParam);
+//			hist_seq = batchSellerPerfService.preBatch(batch_nm); // 배치 상태 변경이후 배치 실행 로그 쌇음
+		} catch (Exception e){
+			e.printStackTrace();
+			err_dtl += "::[InitBatchNPreBatch]"+e.toString();
+		}
+
+		// 기간별
+		try {
+			logger.info("##### batchSellerPerfDate :: batchSellerPerfDate #####");
+			modelMap.put("dateCnt", batchSellerPerfService.batchSellerPerfDate(inParam)); // 실배치 수행
+			err_dtl += modelMap.toString();
+		} catch (Exception e) {
+			e.printStackTrace();
+			err_dtl += "::[batchSellerPerfDate]"+e.toString();
+		}
+		// 카테고리별
+		try {
+			logger.info("##### batchSellerPerfCtry :: batchSellerPerfCtry #####");
+			modelMap.put("ctryCnt", batchSellerPerfService.batchSellerPerfCtry(inParam)); // 실배치 수행
+			err_dtl += modelMap.toString();
+		} catch (Exception e) {
+			e.printStackTrace();
+			err_dtl += "::[batchSellerPerfCtry]"+e.toString();
+		}
+		//  상품별
+		try {
+			logger.info("##### batchSellerPerfProd :: batchSellerPerfProd #####");
+			modelMap.put("prodCnt", batchSellerPerfService.batchSellerPerfProd(inParam)); // 실배치 수행
+			err_dtl += modelMap.toString();
+		} catch (Exception e) {
+			e.printStackTrace();
+			err_dtl += "::[batchSellerPerfProd]"+e.toString();
+		}
+
+		try {
+			logger.info("##### batch :: post #####");
+			batchSellerPerfService.postBatch(hist_seq, err_dtl);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		modelMap.put("result", err_dtl);
+		return modelMap.toString();
+	}
+
+
+}

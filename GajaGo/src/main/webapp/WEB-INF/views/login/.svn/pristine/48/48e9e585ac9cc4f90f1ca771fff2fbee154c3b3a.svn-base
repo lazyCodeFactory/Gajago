@@ -1,0 +1,291 @@
+<%@ page language="java" contentType="text/html; charset=utf-8"
+    pageEncoding="utf-8"%>
+<!-- 태그는 cmmnHead.jsp 에 선언함 -->
+<%@ include file="/WEB-INF/views/admin/common/cmmnHead.jsp"%>
+<script type="text/javascript">
+/*
+ * @functoin : leng
+ * @description : 텍스트의 byte수를 리턴한다.
+ * @return : int
+ */
+String.prototype.leng = function() {
+	//var koreanByte = 2;//-- 한글은 2byte로 인식
+	var koreanByte = 3; //--oracle charset이 utf-8일 경우 한글은 3bype로 인식한다.
+	var cntLeng = 0;
+	for(var leni=0; leni<this.length; leni++)
+	{
+		var c = this.charCodeAt(leni);
+		if( (0xAC00 <= c && c <= 0xD7A2) || (0x3131 <= c && c <= 0x318E) ) cntLeng += koreanByte;
+		else cntLeng += 1;
+	}
+	return cntLeng;
+};
+
+$(document).ready(function(){
+
+	var leng = $("#CONTENTS").val().leng();
+	
+
+	$("#newLength").text(numberWithCommas(leng));
+
+	
+	$("#cancelBtn").click(function(){
+		$("#frm").attr("action","/admin/autosms/selectListAutoSms.do").submit();
+		
+	});
+	$("#checkRadio").hide();
+	$("#MSG_KIND1").click(function(){
+		$("#checkRadio").hide();
+		
+	});
+	$("#MSG_KIND2").click(function(){
+		$("#checkRadio").show();
+	});
+	
+});
+
+function fn_con_check(obj){
+	var leng = obj.value.leng();
+	$("#newLength").text(numberWithCommas(leng));
+
+}
+
+function fn_cancel(){
+	$("#frm").attr("action","/admin/autosms/selectListAutoSms.do").submit();
+
+}
+
+function fn_reg(){
+	
+	
+	if($("#MSG_TPL_CODE").val().leng() == 0 ){
+		alert("메시지코드를 입력해 주세요.");
+		$('#MSG_TPL_CODE').focus();
+		return;
+	}
+	
+	if($("#TPL_TITLE").val().leng() == 0 ){
+		alert("템플릿명을 입력해 주세요.");
+		$('#TPL_TITLE').focus();
+		return;
+	}
+	
+	if($('#MSG_KIND2').is(":checked") == true ){
+		if($("#TITLE").val().leng() == 0 ){
+			alert("제목을 입력해 주세요.");
+			$('#TITLE').focus();
+			return;
+		}
+	}
+	if($("#CONTENTS").val().leng() == 0 ){
+		alert("메시지내용을 입력해 주세요.");
+		$('#CONTENTS').focus();
+		return;
+	}
+
+	
+	
+	if($('#MSG_KIND1').is(":checked") == true ){
+		if($("#CONTENTS").val().leng() > 80 ){
+			alert("메시지내용이 800byte 초과 하였습니다.");
+			$('#CONTENTS').focus();
+			return;
+		}
+	}
+	if($('#MSG_KIND2').is(":checked") == true ){
+		if($("#CONTENTS").val().leng() > 2000 ){
+			alert("메시지내용이 2,000byte 초과 하였습니다.");
+			$('#CONTENTS').focus();
+			return;
+		}
+	}
+	
+	
+	$("#SND_PHONE").val($("#SND_PHONE").val().replace(/\-/ig, ''));
+	
+	if(confirm('등록 하시겠습니까?')){
+
+		 var options = {
+				 type : "POST",
+				 url : "/admin/autosms/insertAutoReg.do",
+// 				 dataType :  "json",
+				 contentType: "application/x-www-form-urlencoded; charset=UTF-8",
+				 success: function(data){
+					 if("S" == data){
+						 alert("등록 되었습니다."); 
+						 $("#frm").attr("action","/admin/autosms/selectListAutoSms.do").submit();
+					 }else{
+						 alert("등록 실패 하였습니다. 관리자에게 문의 하세요.");
+					 }
+					
+				 },
+				 error : function(request, status, error) {
+				    	alert("통신 오류가 발생 하였습니다. 잠시 후 다시 시도해 주세요"   + status  + " request [" + request  + "] error[" + error +"]");
+
+				 }
+		 };
+		 
+		 
+	    $("#frm").ajaxSubmit(options);
+	}
+}
+
+
+function fn_send_json(){
+	if(confirm('발송 하시겠습니까?')){
+	 var options = {
+			 type : "POST",
+			 url : "/admin/autosms/sendJsonHttp.do",
+				 dataType :  "json",
+			 contentType: "application/x-www-form-urlencoded; charset=UTF-8",
+			 success: function(data){
+				 alert(data.result);
+				
+			 },
+			 error : function(request, status, error) {
+			    	alert("통신 오류가 발생 하였습니다. 잠시 후 다시 시도해 주세요"   + status  + " request [" + request  + "] error[" + error +"]");
+
+			 }
+	 };
+	 
+	 
+   $("#frm").ajaxSubmit(options);
+	}
+}
+</script>
+<!-- content -->
+	<div id="content">
+		<!-- top_content -->
+		<div class="top_content">
+			<!-- location -->
+			<div class="location">
+				<ul class="clear">
+					<li class="first-child"><a href="#">발송관리</a></li>
+					<li><a href="#">자동 발송 관리</a></li>
+					<li><a href="#" class="current">SMS 메시지등록</a></li>
+				</ul>
+			</div>
+			<!-- //location -->
+		</div>
+		<!-- //top_content -->
+		
+		<div class="inner">
+			
+			<!-- tbl -->
+			<div class="tbl mt10">
+			<form name="frm" id="frm" method="post">
+			<input type="hidden" id="TPL_GB_CD"  name="TPL_GB_CD" value="${TPL_GB_CD }"/>
+				<p class="tbl_tit"><img src="http://static.ssocio.net/admin/images/ico_admin.gif" alt="">메시지 등록</p>
+				<table class="upd">
+					<colgroup>
+						<col style="width:15%">
+						<col style="width:*">
+					</colgroup>
+					<tbody>
+						<tr>
+							<th scope="row">템플릿 코드</th>
+							<td>
+								<input type="text" style="width:420px" id="MSG_TPL_CODE" name="MSG_TPL_CODE" maxlength="100" />
+							</td>
+						</tr>
+						<tr>
+							<th scope="row">템플릿명</th>
+							<td>
+								<input type="text" style="width:420px" id="TPL_TITLE" name="TPL_TITLE" maxlength="100" />
+							</td>
+						</tr>
+						<tr>
+							<th scope="row">구분</th>
+							<td>
+								<input type="radio" id="MSG_KIND1" name="MSG_KIND" checked="checked" value="S"  /><label for="MSG_KIND">SMS</label>
+								 <span class="ml10"><input type="radio" id="MSG_KIND2" name="MSG_KIND" value="L"  /><label for="MSG_KIND">LMS</label></span>
+								
+							</td>
+						</tr>
+						<tr id="checkRadio">
+							<th scope="row" >제목</th>
+							<td>
+								<input type="text" style="width:420px" id="TITLE" name="TITLE" maxlength="100" />
+							</td>
+						</tr>
+						<tr>
+							<th scope="row">메시지 내용</th>
+							<td>
+								<textarea id="CONTENTS" name="CONTENTS" cols="30" rows="10" class="textarea" style="width:500px" onkeyup="fn_con_check(this);"></textarea>
+								<span class="vbtm"><span id="newLength" style="vertical-align: bottom !important;">81</span>byte (SMS : 80byte, LMS : 2,000byte)</span>
+							</td>
+						</tr>
+						<tr>
+							<th scope="row">테스트발송<br>(휴대폰 번호)</th>
+							<td>
+								<input type="text" style="width:320px" id="SND_PHONE" name="SND_PHONE" maxlength="100" placeholder="‘-’없이 입력"/>
+								<a href="javascript:fn_send_json();" class="btn_w" id="sendBtn"><span id="sendBtnSpan" >발송 테스트</span></a>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+				</form>
+			</div>
+			<!-- //tbl -->
+			<div class="btn_area tc mt20">
+				<a href="javascript:fn_reg();" class="btn_r">저장</a>
+				<a href="#" id="cancelBtn" class="btn_b ml10">취소</a>
+			</div>
+
+			<div class="tbl mt20">
+				<p class="tbl_tit"><img src="http://static.ssocio.net/admin/images/ico_admin.gif" alt="">발송 내용 입력 정보</p>
+				<!-- list -->
+				<table class="list">
+					<colgroup>
+						<col style="width:15%">
+						<col style="width:15%">
+						<col style="width:*">
+					</colgroup>
+					<thead>	
+						<tr>
+							<th scope="col">구분</th>
+							<th scope="col">코드</th>
+							<th scope="col">메시지 제한</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td class="nolineL">회원 ID</td>
+							<td>[{user}]</td>
+							<td>메시지 발송시 최대 4자리로 제한</td>
+						</tr>
+						<tr>
+							<td class="nolineL">상품명</td>
+							<td>[{pro_item}]</td>
+							<td>메시지 발송시 최대 6자리로 제한</td>
+						</tr>
+						<tr>
+							<td class="nolineL">택배사</td>
+							<td>[{send_deli}]</td>
+							<td>메시지 발송시 최대 10자리로 제한</td>
+						</tr>
+						<tr>
+							<td class="nolineL">운송장 번호</td>
+							<td>[{send_num}]</td>
+							<td>메시지 발송시 최대 20자리로 제한</td>
+						</tr>
+						<tr>
+							<td class="nolineL">셰어링 종료일</td>
+							<td>[{end_data}]</td>
+							<td>yyyy-mm-dd 형식으로 발송</td>
+						</tr>
+						<tr>
+							<td class="nolineL">셰어링 종료시간</td>
+							<td>[{end_data}]</td>
+							<td>HH:MM 형식으로 발송</td>
+						</tr>
+					</tbody>
+				</table>
+				<!-- //list -->
+			</div>
+		</div>
+	</div>
+	<!-- //content -->
+
+
+	

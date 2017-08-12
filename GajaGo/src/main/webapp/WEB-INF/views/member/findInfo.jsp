@@ -2,6 +2,8 @@
 <!--  공통 리소스 부분 -->
 	<jsp:include page="../template/includeResource.jsp" flush="true" />
 	<link rel="stylesheet" href="/resources/css/member/findInfo.css">
+	<script src="/resources/js/member/findInfo.js"></script>
+	
 	</head>
 <!-- 	Heaer부분 -->
 	<jsp:include page="../template/header.jsp" flush="true" />
@@ -21,53 +23,49 @@
 		</div>
 			
 			<div class="col-md-6 findId">
-			  <form>
-			  		<H2>아이디 찾기</H2>
+ 			  		<H2>아이디 찾기</H2>
 					<table>
 						<tbody>
 							<tr>
 							 	<th>이름</th>
-							 	<td><input type="text" class="form-control"/></td>
+							 	<td><input type="text" name="findIdName" id="findIdName" class="form-control"/></td>
 							</tr>
 							<tr>
 							 	<th>메일</th>
-							 	<td><input type="text" class="form-control"/></td>
+							 	<td><input type="text" name="findIdEmail" id="findIdEmail" class="form-control"/></td>
 							</tr>
 							<tr>
-							 	<td class="btnArea"><button type="button" onclick="" class="findBtn">아이디 찾기</button></td>
+							 	<td class="btnArea"><button type="button" class="findBtn" onclick="findId();">아이디 찾기</button></td>
 							</tr>
 						
 						</tbody>
 					</table>
-				</form>
-			</div>
+ 			</div>
 			<div class="col-md-6 findPass">
-				<form>
-					<H2>비밀번호 찾기</H2>
+ 					<H2>비밀번호 찾기</H2>
 					
 					<table>
 						<tbody>
 							<tr>
 							 	<th>아이디</th>
-							 	<td><input type="text" class="form-control"/></td>
+							 	<td><input type="text" id="findPwId" name="findPwId" class="form-control"/></td>
 							</tr>
 							<tr>
 							 	<th>이름</th>
-							 	<td><input type="text" class="form-control"/></td>
+							 	<td><input type="text" id="findPwName" name="findPwName"  class="form-control"/></td>
 							</tr>
 							<tr>
 							 	<th>메일</th>
-							 	<td><input type="text" class="form-control"/></td>
+							 	<td><input type="text" id="findPwEmail" name="findPwEmail"  class="form-control"/></td>
 							</tr>
 							<tr>
 							 	<td class="btnArea">
-							 		<button type="button" onclick="" class="findBtn">비밀번호 찾기</button></td>
+							 		<button type="button" onclick="findPwd()" class="findBtn">비밀번호 찾기</button></td>
 							</tr>
 						
 						</tbody>
 					</table>
-				</form>
-			</div>
+ 			</div>
 		</div>
 	</div>
 	

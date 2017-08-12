@@ -1,0 +1,1092 @@
+<%@ page language="java" contentType="text/html; charset=utf-8"
+    pageEncoding="utf-8"%>
+<!-- 태그는 cmmnHead.jsp 에 선언함 -->
+<%@ include file="/WEB-INF/views/admin/common/cmmnHead.jsp"%>
+ 
+<script type="text/javascript">
+$(document).ready(function(){
+	//fixed_tbl_height();
+});
+
+/* ======================================================================
+Function : 우편번호 검색 결과 받기
+Return   : 없음
+========================================================================= */
+function getAddrInfo(zip_code, jiben_addr, road_addr) {
+	$("#ZIP_CD").val(zip_code);
+	$("#JUSO_DORO").val(road_addr);
+	$("#JUSO_JIBEN").val(jiben_addr);
+}
+
+/* ======================================================================
+Function : 배송지 정보를 변경
+Return   : 0,1
+========================================================================= */
+function changeAddr(){
+	if (confirm("배송지 정보를 변경 하시겠습니까?")) {
+		if ($("#RCV_NM").val() == "") {
+			alert("이름을 입력해 주세요.");
+			return false;
+		}
+		if ($("#HP").val() == "") {
+			alert("연락처를 입력해주세요.");
+			return false;
+		}
+		if ($("#ZIP_CD").val() == "") {
+			alert("주소를 선택해 주세요.");
+			return false;
+		}
+		  
+		$.ajax({
+			type: 'post'
+			, async: true
+			, url: '/admin/order/updateDlvReg.do'
+			, dataType:'json'
+			, data:  $("#frm").serialize()
+			, success: function(data) {
+				if(data.list == 1){
+					alert('정상적으로 변경되었습니다.');
+				}else{
+					alert('다시 시도해 주세요.');
+				}
+				location.reload();
+			}
+			, error: function(data, status, err) {
+				alert('서버와의 통신이 실패했습니다.');
+				location.reload();
+			}
+		});
+	}
+}
+
+/* ======================================================================
+Function : 주문 메모 변경
+Return   : 0,1
+========================================================================= */
+function updateAdminMemo(){
+	if($("#ADMIN_MEMO").val() == ""){
+		alert("주문 메모가 공백입니다.");
+		return;
+	}
+	var param = new Object();
+	param.ADMIN_ORD_CD = $("#ADMIN_ORD_CD").val();
+	param.ADMIN_MEMO = $("#ADMIN_MEMO").val();
+	$.ajax({
+		type: 'post'
+		, async: true
+		, url: '/admin/order/updateSharAdminMemo.do'
+		, dataType:'json'
+		, data: param
+		, success: function(data) {
+			if(data.list == 1){
+				alert('정상적으로 변경되었습니다.');
+			}else{
+				alert('다시 시도해 주세요.');
+			}
+			location.reload();
+		}
+		, error: function(data, status, err) {
+			alert('서버와의 통신이 실패했습니다.');
+			location.reload();
+		}
+	});
+}
+
+/* ======================================================================
+Function : 리스트 페이지 이동
+Return   : 없음
+========================================================================= */
+function goList(){
+	$("#S_START_DATE").val($("#S_START_DATE").val().replace(/\-/ig, ''));
+ 	$("#S_END_DATE").val($("#S_END_DATE").val().replace(/\-/ig, ''));
+	var frm = document.getElementById("frm");
+	frm.method = "POST";
+	frm.action = "/admin/order/selectListTakeBackOrd.do";
+	frm.submit();
+}
+
+/* ======================================================================
+Function : 주문처리 변경
+Return   : 0, 1 이상
+========================================================================= */
+function changeState(NEXT_STATE, ORD_CD, PROD_CODE, PROD_SEQ, CHG_CD){
+	if(confirm("반품처리중 처리 하시겠습니까?")){
+		var param = new Object();
+		param.NEXT_STATE = NEXT_STATE;
+		param.ORD_CD = ORD_CD;
+		param.PROD_CODE = PROD_CODE;
+		param.PROD_SEQ = PROD_SEQ;
+		param.CHG_CD = CHG_CD;
+		$.ajax({
+			type: 'post'
+			, async: true
+			, url: '/admin/order/updateSharOrderState.do'
+			, dataType:'json'
+			, data:  param
+			, success: function(data) {
+				if (data.result == 0) {
+					alert("반품처리중 처리 에 실패 하였습니다.");
+				} else {
+					alert("반품처리중 처리 하였습니다.");
+					location.reload();
+				}
+			}
+			, error: function(data, status, err) {
+				alert('서버와의 통신이 실패했습니다.');
+			}
+		});
+	}
+}
+
+/* ======================================================================
+Function : 반품처리
+Return   : 0, 1
+========================================================================= */
+function returnState(ORD_CD, PROD_CODE, PROD_SEQ, CHG_CD, PROD_CPN_CD, DLV_GRP_CODE, SELT_GB_CD, PHONE_CANCEL_YN){
+	if(confirm("반품완료 처리 하시겠습니까?")){
+		var param = new Object();
+		param.ORD_CD = ORD_CD;
+		param.PROD_CODE = PROD_CODE;
+		param.PROD_SEQ = PROD_SEQ;
+		param.CHG_CD = CHG_CD;
+		param.PROD_CPN_CD = PROD_CPN_CD;
+		param.DLV_GRP_CODE = DLV_GRP_CODE;
+		param.SELT_GB_CD = SELT_GB_CD;
+		param.PHONE_CANCEL_YN = PHONE_CANCEL_YN;
+		$.ajax({
+			type: 'post'
+			, async: true
+			, url: '/admin/order/takeBackOrderState.do'
+			, dataType:'json'
+			, data:  param
+			, success: function(data) {
+					if (data.result == 0) {
+						alert("반품완료 처리에 실패 하였습니다.\n("+data.msg+")");
+					} else {
+						alert("반품완료 처리 하였습니다.");
+						location.reload();
+					}
+			}
+			, error: function(data, status, err) {
+				alert('서버와의 통신이 실패했습니다.');
+			}
+		});
+	}
+}
+
+/* ======================================================================
+Function : 환불계좌 입력 팝업
+Return   : 없음
+========================================================================= */
+function procRefundInfoPop(flag, ord_cd, chg_cd, prod_code, prod_seq, prod_cpn_cd, dlv_grp_code, selt_gb_cd, phone_cancel_yn) {
+	if (flag == "show") {
+		$("#popRefund").addClass("on");
+		$("#bank_ord_cd").val(ord_cd);
+		$("#bank_chg_cd").val(chg_cd);
+		$("#bank_prod_code").val(prod_code);
+		$("#bank_prod_seq").val(prod_seq);
+		$("#bank_prod_cpn_cd").val(prod_cpn_cd);
+		$("#bank_dlv_grp_code").val(dlv_grp_code);
+		$("#bank_selt_gb_cd").val(selt_gb_cd);
+		$("#PHONE_CANCEL_YN").val(phone_cancel_yn);
+	}
+	else {
+		$("#popRefund").removeClass("on");
+		$("#bank_ord_cd").val("");
+		$("#bank_chg_cd").val("");
+		$("#bank_prod_code").val("");
+		$("#bank_prod_seq").val("");
+		$("#bank_prod_cpn_cd").val("");
+		$("#bank_dlv_grp_code").val("");
+		$("#bank_selt_gb_cd").val("");
+		$("#BANK_ACNT_NO").val("");
+		$("#ACNT_NM").val("");
+		$("#BANK_GB_CD").val("");
+		$("#PHONE_CANCEL_YN").val("");
+	}
+}
+
+/* ======================================================================
+Function : 환불계좌 입력 처리
+Return   : 없음
+========================================================================= */
+function insertRefund(){
+	if($("#BANK_ACNT_NO").val() == ""){
+		alert("계좌번호를 입력해 주세요.");
+		$("#BANK_ACNT_NO").focus();
+		return;
+	}
+	if($("#ACNT_NM").val() == ""){
+		alert("예금주명을 주세요.)");
+		$("#ACNT_NM").focus();
+		return;
+	}
+	if($("#BANK_GB_CD").val() == ""){
+		alert("은행을 선택해 주세요.)");
+		$("#BANK_GB_CD").focus();
+		return;
+	}
+
+	if(confirm("반품완료 처리 하시겠습니까?")){
+		var param = new Object();
+		param.ORD_CD = $("#bank_ord_cd").val();
+		param.PROD_CODE = $("#bank_prod_code").val();
+		param.PROD_SEQ = $("#bank_prod_seq").val();
+		param.CHG_CD = $("#bank_chg_cd").val();
+		param.PROD_CPN_CD = $("#bank_prod_cpn_cd").val();
+		param.DLV_GRP_CODE = $("#bank_dlv_grp_code").val();
+		param.SELT_GB_CD = $("#bank_selt_gb_cd").val();
+		param.BANK_ACNT_NO = $("#BANK_ACNT_NO").val();
+		param.ACNT_NM = $("#ACNT_NM").val();
+		param.BANK_GB_CD = $("#BANK_GB_CD").val();
+		param.PHONE_CANCEL_YN = $("#PHONE_CANCEL_YN").val();
+		$.ajax({
+			type: 'post'
+			, async: true
+			, url: '/admin/order/takeBackOrderState.do'
+			, dataType:'json'
+			, data:  param
+			, success: function(data) {
+				if (data.result == 0) {
+					alert("반품완료 처리에 실패 하였습니다.\n("+data.msg+")");
+					procRefundInfoPop("close", "", "", "", "", "", "", "", "");
+				} else {
+					alert("반품완료 처리 하였습니다.");
+					procRefundInfoPop("close", "", "", "", "", "", "", "", "");
+					location.reload();
+				}
+			}
+			, error: function(data, status, err) {
+				alert('서버와의 통신이 실패했습니다.');
+			}
+		});
+	}
+	
+}
+
+/* ======================================================================
+Function : 운송장 정보 입력 팝업
+Return   : 없음
+========================================================================= */
+function procInvcInfoPop(ord_cd, chg_cd, prod_code, prod_seq, orgin_dlv_cmp_cd) {
+	$("#temp_ord_cd").val(ord_cd);
+	$("#temp_chg_cd").val(chg_cd);
+	$("#temp_prod_code").val(prod_code);
+	$("#temp_prod_seq").val(prod_seq);
+	$("#temp_dlv_cmp_cd").val(orgin_dlv_cmp_cd);
+	
+	var url = "/admin/order/dlvInfoInsertPopup.do?orgin_dlv_cmp_cd="+orgin_dlv_cmp_cd;
+	var width = "500";
+	var height = "200";
+	//var left = screen.width;
+	//var top = (screen.height/2) - (height/2);
+	var left = 200;
+	var top = 200;
+	window.open(url, 'dlvInfomationPopUp','width=' + width + ', height=' + height + ', screenY=' + top + ', screenX=' + left + ',toolbar=no, menubar=no, scrollbars=yes, resizeable=no');
+}
+
+/* ======================================================================
+Function : 운송장 정보 입력 처리
+Return   : 없음
+========================================================================= */
+function insertDlvNumber(){
+	var param = new Object();
+	param.INVC_NO = $("#invcNo").val();
+	param.ORD_CD = $("#temp_ord_cd").val();
+	param.CHG_CD = $("#temp_chg_cd").val();
+	param.PROD_CODE = $("#temp_prod_code").val();
+	param.PROD_SEQ = $("#temp_prod_seq").val();
+	param.DLV_CMP_CD = $("#temp_dlv_cmp_cd").val();
+	param.PROD_STAT_CD = "31";
+	$.ajax({
+		type: 'post'
+		, async: true
+		, url: '/admin/order/insertDlvInvcNumber.do'
+		, dataType:'json'
+		, data:  param
+		, success: function(data) {
+				if (data.result == 0) {
+					alert("다시 시도해 주세요.");
+				} else {
+					alert("반품처리중 처리 하였습니다.");
+					location.reload();
+				}
+		}
+		, error: function(data, status, err) {
+			alert('서버와의 통신이 실패했습니다.');
+		}
+	});
+}
+
+/* ======================================================================
+Function : 배송완료 시간 수정 처리 팝업
+Return   : 없음
+========================================================================= */
+function openModifyDlvTime(proc_stat_cd,ord_cd,prod_code,prod_seq,chg_cd,orgin_dlv_cmp_cd,invc_no,dlv_way_cd,ord_reg_date){
+	var temp = ord_reg_date.replace("-","");
+	temp = temp.replace("-","");
+	temp = temp.replace(":","");
+	temp = temp.replace(" ","");
+	$("#temp_proc_stat_cd").val(proc_stat_cd);
+	$("#temp_ord_cd").val(ord_cd);
+	$("#temp_prod_code").val(prod_code);
+	$("#temp_prod_seq").val(prod_seq);
+	$("#temp_chg_cd").val(chg_cd);
+	$("#temp_dlv_cmp_cd").val(orgin_dlv_cmp_cd);
+	$("#invcNo").val(invc_no);
+	$("#temp_dlv_way_cd").val(dlv_way_cd);
+	
+	var url = "/admin/order/dlvInfoModifyPopup.do";
+	$("#orgin_dlv_cmp_cd").val(orgin_dlv_cmp_cd);
+	$("#orgin_invc_no").val(invc_no);
+	$("#reg_date").val(temp);
+	$("#orgin_proc_stat_cd").val(proc_stat_cd);
+	var width = "500";
+	var height = "250";
+	//var left = screen.width;
+	//var top = (screen.height/2) - (height/2);
+	var left = 200;
+	var top = 200;
+	window.open('', 'dlvInfoModifyPopup','width=' + width + ', height=' + height + ', screenY=' + top + ', screenX=' + left + ',toolbar=no, menubar=no, scrollbars=yes, resizeable=no');
+	$("#popupForm").attr("action", url).attr("target", "dlvInfoModifyPopup").submit();
+}
+
+/* ======================================================================
+Function : 배송완료 시간 수정 처리
+Return   : 없음
+========================================================================= */
+function modifyDlvTime(){
+	var param = new Object();
+	param.OLD_INVC_NO = $("#invcNo").val();
+	param.INVC_NO = $("#temp_invc_no").val();
+	param.PROC_STAT_CD = $("#temp_proc_stat_cd").val();
+	param.ORD_CD = $("#temp_ord_cd").val();
+	param.PROD_CODE = $("#temp_prod_code").val();
+	param.PROD_SEQ = $("#temp_prod_seq").val();
+	param.DLV_CMP_CD = $("#temp_dlv_cmp_cd").val();
+	param.DLV_WAY_CD = $("#temp_dlv_way_cd").val();
+	param.DLV_END_DT = $("#temp_dlv_end_dt").val();
+	param.CHG_CD = $("#temp_chg_cd").val();
+	$.ajax({
+		type: 'post'
+		, async: true
+		, url: '/admin/order/modifyDlvTime.do'
+		, dataType:'json'
+		, data:  param
+		, success: function(data) {
+				if (data.result == 0) {
+					alert("다시 시도해 주세요.");
+				} else {
+					alert("배송정보 수정 하였습니다.");
+					location.reload();
+				}
+		}
+		, error: function(data, status, err) {
+			alert('서버와의 통신이 실패했습니다.');
+		}
+	});
+}
+</script>
+ 
+<form name="frm" id="frm" method="post">
+<input type="hidden" id="S_START_DATE" name="S_START_DATE" value="${params.S_START_DATE}">
+<input type="hidden" id="S_END_DATE" name="S_END_DATE" value="${params.S_END_DATE}">
+<input type="hidden" id="SEARCH_ORD_CD" name="SEARCH_ORD_CD" value="${params.SEARCH_ORD_CD}">
+<input type="hidden" id="SearchUserSel" name="SearchUserSel" value="${params.SearchUserSel}">
+<input type="hidden" id="SEARCH_USER" name="SEARCH_USER" value="${params.SEARCH_USER}">
+<input type="hidden" id="SEARCH_PROD_NM" name="SEARCH_PROD_NM" value="${params.SEARCH_PROD_NM}">
+<input type="hidden" id="CHK_BOX_RESULT" name="CHK_BOX_RESULT" value="${params.CHK_BOX_RESULT_VIEW}">
+<input type="hidden" id="S_MBER_GB" name="S_MBER_GB" value="${params.S_MBER_GB}">
+<input type="hidden" id="PAGE_NO" name="PAGE_NO" value="${params.PAGE_NO}">
+<input type="hidden" id="S_ROW_CNT" name="S_ROW_CNT" value="${params.S_ROW_CNT}">
+<input type="hidden" id="CHG_REASON_CD" name="CHG_REASON_CD" value="${params.CHG_REASON_CD}">
+<input type="hidden" id="invcNo" name="invcNo"/>
+<input type="hidden" id="temp_invc_no" name="temp_invc_no"/>
+<input type="hidden" id="temp_ord_cd" name="temp_ord_cd"/>
+<input type="hidden" id="temp_chg_cd" name="temp_chg_cd"/>
+<input type="hidden" id="temp_prod_code" name="temp_prod_code"/>
+<input type="hidden" id="temp_prod_seq" name="temp_prod_seq"/>
+<input type="hidden" id="temp_dlv_cmp_cd" name="temp_dlv_cmp_cd"/>
+<input type="hidden" id="temp_proc_stat_cd" name="temp_proc_stat_cd"/>
+<input type="hidden" id="temp_dlv_way_cd" name="temp_dlv_way_cd"/>
+<input type="hidden" id="temp_dlv_end_dt" name="temp_dlv_end_dt"/>
+
+	<!-- content -->
+	<div id="content">
+		<!-- top_content -->
+		<div class="top_content">
+			<!-- location -->
+			<div class="location">
+				<ul class="clear">
+					<li class="first-child"><a href="#">Home</a></li>
+					<li><a href="#">판매 주문 관리</a></li>
+					<li><a href="#" class="current">판매 반품신청 상세</a></li>
+				</ul>
+			</div>
+			<!-- //location -->
+		</div>
+		<!-- //top_content -->
+		
+		<div class="inner">
+			<div class="tbl mt10">
+				<p class="tbl_tit"><img src="http://static.ssocio.net/admin/images/ico_admin.gif" alt="">주문정보</p>
+				<table class="upd type">
+					<colgroup>
+						<col style="width:16%">
+						<col style="width:17%">
+						<col style="width:16%">
+						<col style="width:17%">
+						<col style="width:16%">
+						<col style="width:18%">
+					</colgroup>
+					<tbody>
+						<tr>
+							<th scope="row">주문일시</th>
+							<td>${list.ordInfo.ORD_REG_DATE}</td>
+							<th scope="row" class="bl">주문번호</th>
+							<td>${list.ordInfo.ORD_CD}</td>
+							<th scope="row" class="bl">판매채널</th>
+							<td><custom:codeTag groupCode="CON_GB_CD" code="${list.ordInfo.CON_GB_CD}"/></td>
+						</tr>
+						<tr>
+							<th scope="row">주문자명</th>
+							<td>${list.ordInfo.ORD_NM}</td>
+							<th scope="row" class="bl">주문자ID</th>
+							<td>${list.ordInfo.ORD_EMAIL}</td>
+							<th scope="row" class="bl">휴대폰번호</th>
+							<td>${list.ordInfo.ORD_HP}</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			
+			<div class="tbl mt10">
+				<p class="tbl_tit bb0"><img src="http://static.ssocio.net/admin/images/ico_admin.gif" alt="">주문 상품 정보</p>
+			</div>
+								
+			<!-- fixed_tbl_list -->
+			<div class="fixed_tbl_list mt10">
+				<div class="tbl type" style="width:2600px;">
+					<table class="list">
+						<colgroup>
+							<col style="width:150px;" />
+							<col style="width:300px;" />
+							<col style="width:200px;" />
+							<col style="width:120px;" />
+							<col style="width:120px;" />
+							<col style="width:120px;" />
+							<col style="width:130px;" />
+							<col style="width:130px;" />
+							<col style="width:230px;" />
+							<col style="width:130px;" />
+							<col style="width:130px;" />
+							<col style="width:130px;" />
+							<col style="width:130px;" />
+							<col style="width:130px;" />
+							<col style="width:150px;" />
+							<col style="width:150px;" />
+							<col style="width:150px;" />
+						</colgroup>
+						<thead>	
+							<tr>
+								<th scope="col" rowspan="2">판매자명[ID]</th>
+								<th scope="col" colspan="5" class="bdb">주문정보</th>
+								<th scope="col" rowspan="2">주문상태</th>
+								<th scope="col" rowspan="2">개별 배송비</th>
+								<th scope="col" rowspan="2">⑤쿠폰할인</th>
+								<th scope="col" rowspan="2">⑥주문금액<br/>[③+④-⑤]</th>
+								<th scope="col" rowspan="2">④배송비</th>
+								<th scope="col" rowspan="2">⑦포인트사용</th>
+								<th scope="col" rowspan="2">결제금액<br/>[⑥-⑦]</th>
+								<th scope="col" rowspan="2">결제수단</th>
+								<th scope="col" colspan="3" class="bdb">배송정보</th>
+							</tr>
+							<tr>
+								<th scope="col">주문상품</th>
+								<th scope="col">옵션</th>
+								<th scope="col">①판매가</th>
+								<th scope="col">②수량</th>
+								<th scope="col">③상품금액<br/>[①*②]</th>
+								<th scope="col">택배사</th>
+								<th scope="col">송장번호</th>
+								<th scope="col">배송완료일</th>
+							</tr>
+						</thead>
+						<tbody>
+							<c:forEach items="${list.selectSaleDetailGroupList}" var="groupList" varStatus="groupStatus">
+								<tr>
+									<c:choose>
+										<c:when test="${groupStatus.index == 0}">
+											<td>[<custom:codeTag groupCode="MBER_GB_CD" code="${groupList.MBER_GB_CD}"/>]&nbsp;${groupList.MBER_NM}<br/>${groupList.MBER_EMAIL}</td>
+											<td class="inner_tbox type2" colspan="9">
+												<c:forEach items="${list.selectSaleDetailGroupProductList}" var="itemList" varStatus="itemStatus">
+													<c:if test="${groupList.MBER_SEQ eq itemList.MBER_SEQ and groupList.MBER_NM eq itemList.MBER_NM and groupList.MBER_EMAIL eq itemList.MBER_EMAIL}">
+														<table class="inner_tbl">
+															<colgroup>
+				                                                <col style="width:300px;" />
+																<col style="width:200px;" />
+																<col style="width:120px;" />
+																<col style="width:120px;" />
+																<col style="width:120px;" />
+																<col style="width:130px;" />
+																<col style="width:130px;" />
+																<col style="width:230px;" />
+																<col style="width:130px;" />
+				                                            </colgroup>
+				                                            <tbody>
+																<tr>
+																	<td class="inner_tbox type2" colspan="5">
+																		<c:forEach items="${list.productOptionList}" var="optionList" varStatus="optionStatus">
+																			<c:if test="${itemList.MBER_SEQ eq optionList.MBER_SEQ and itemList.MBER_NM eq optionList.MBER_NM and itemList.MBER_EMAIL eq optionList.MBER_EMAIL and itemList.PROD_CODE eq optionList.PROD_CODE and itemList.PROD_SEQ eq optionList.PROD_SEQ}">
+																				<table class="inner_tbl">
+																					<colgroup>
+										                                                <col style="width:300px;" />
+																						<col style="width:200px;" />
+																						<col style="width:120px;" />
+																						<col style="width:120px;" />
+																						<col style="width:120px;" />
+										                                            </colgroup>
+										                                            <tbody>
+																						<c:choose>
+																							<c:when test="${optionList.OPT_CD == null}">
+																								<!-- 본상품 : 옵션이 없는 경우  -->
+																								<td style="text-align:left;">${itemList.PROD_NM}</td>
+																								<td>&nbsp;</td>
+												                                            	<td style="text-align:right;"><fmt:formatNumber value="${itemList.PROD_PRCE}" type="number"/></td>
+												                                            	<td style="text-align:right;"><fmt:formatNumber value="${itemList.ORD_QTY}" type="number"/></td>
+												                                            	<td class="last" style="text-align:right;"><fmt:formatNumber value="${itemList.PROD_PRCE * itemList.ORD_QTY}" type="number"/></td>
+																							</c:when>
+																							<c:when test="${optionList.OPT_CD != null and optionList.OP_GB_CD == '10'}">
+																								<!-- 부가옵션상품 -->
+																								<td style="text-align:left;">${itemList.PROD_NM}</td>
+																								<td style="text-align:left;">${optionList.OPT_NM}</td>
+												                                            	<td style="text-align:right;"><fmt:formatNumber value="${itemList.PROD_PRCE + optionList.OPT_PRCE}" type="number"/></td>
+												                                            	<td style="text-align:right;"><fmt:formatNumber value="${optionList.OPT_QTY}" type="number"/></td>
+												                                            	<td class="last" style="text-align:right;"><fmt:formatNumber value="${(itemList.PROD_PRCE + optionList.OPT_PRCE) * optionList.OPT_QTY}" type="number"/></td>
+																							</c:when>
+																							<c:when test="${optionList.OPT_CD != null and optionList.OP_GB_CD == '20'}">
+																								<!-- 추가옵션상품  -->
+																								<td style="text-align:left;">${itemList.PROD_NM}</td>
+																								<td style="text-align:left;">${optionList.OPT_NM}</td>
+												                                            	<td style="text-align:right;"><fmt:formatNumber value="${optionList.OPT_PRCE}" type="number"/></td>
+												                                            	<td style="text-align:right;"><fmt:formatNumber value="${optionList.OPT_QTY}" type="number"/></td>
+												                                            	<td class="last" style="text-align:right;"><fmt:formatNumber value="${optionList.OPT_PRCE * optionList.OPT_QTY}" type="number"/></td>
+																							</c:when>
+																						</c:choose>
+										                                            </tbody>
+										                                    	</table>
+									                                    	</c:if>
+									                                   	</c:forEach>
+																	</td>
+																	<td>
+																		<custom:codeTag code="${itemList.PROC_STAT_CD}" groupCode="PROC_STAT_CD" />
+																		<c:if test="${itemList.PROC_STAT_CD eq '99'}"><br/>(${itemList.CONFIRM_DAY})</c:if>
+																	</td>
+																	<td style="text-align:right;">
+																		<fmt:formatNumber value="${itemList.DLV_PRCE}" type="number"/>
+																		<br/>[
+																		<c:choose>
+																			<c:when test="${empty itemList.DLV_PAY_F_CD}"><custom:codeTag groupCode="DLV_WAY_CD" code="${itemList.DLV_WAY_CD}"/></c:when>
+																			<c:otherwise><custom:codeTag groupCode="DLV_PAY_F_CD" code="${itemList.DLV_PAY_F_CD}"/></c:otherwise>
+																		</c:choose>
+																		]
+																		<c:if test="${itemList.DLV_GROUP_YN eq 'Y'}"><br/>[묶음배송]</c:if>
+																		<c:if test="${itemList.DLV_STAND_AMT > 0}"><br/>[조건부무료]</c:if>
+																	</td>
+																	<td>
+																		<fmt:formatNumber value="${itemList.CPN_USE_AMT}" type="number"/>
+																		<div style="text-align: left;">
+																			<c:forEach items="${list.selectUseCouponList}" var="couponList" varStatus="couponStatus">
+																				<c:if test="${couponList.PROD_CODE eq itemList.PROD_CODE}"><br>${couponList.CPN_NM}(<fmt:formatNumber value="${couponList.CPN_USE_AMT}" type="number"/>)</c:if>
+																			</c:forEach>
+																		</div>
+																	</td>
+																	<td class="last" style="text-align:right;"><fmt:formatNumber value="${itemList.ORDER_AMOUNT}" type="number"/></td>
+																</tr>
+															</tbody>
+														</table>
+													</c:if>
+												</c:forEach>
+											</td>
+											<td rowspan="${fn:length(list.selectSaleDetailGroupList)}" style="text-align:right;"><fmt:formatNumber value="${list.ordInfo.DLV_SELT_AMT}" type="number"/></td>
+											<td rowspan="${fn:length(list.selectSaleDetailGroupList)}" style="text-align:right;"><fmt:formatNumber value="${list.ordInfo.POINT_USE_AMT}" type="number"/></td>
+											<td rowspan="${fn:length(list.selectSaleDetailGroupList)}" style="text-align:right;"><fmt:formatNumber value="${list.ordInfo.REAL_SELT_AMT}" type="number"/></td>
+											<td rowspan="${fn:length(list.selectSaleDetailGroupList)}" style="text-align:right;">
+												<custom:codeTag groupCode="SELT_GB_CD" code="${list.ordInfo.SELT_GB_CD}"/>
+												<c:if test="${list.ordInfo.SELT_GB_CD eq '0'}">0원 결제</c:if>
+											</td>
+											<td class="inner_tbox type2" colspan="3">
+												<c:forEach items="${list.selectSaleDetailGroupProductList}" var="itemList" varStatus="itemStatus">
+													<c:if test="${groupList.MBER_SEQ eq itemList.MBER_SEQ and groupList.MBER_NM eq itemList.MBER_NM and groupList.MBER_EMAIL eq itemList.MBER_EMAIL}">
+														<table class="inner_tbl">
+															<colgroup>
+				                                                <col style="width:150px;" />
+																<col style="width:150px;" />
+																<col style="width:150px;" />
+				                                            </colgroup>
+				                                            <tbody>
+																<tr>
+																	<td><custom:codeTag groupCode="DLV_CMP_CD" code="${itemList.DLV_CMP_CD}"/></td>
+																	<td>${itemList.INVC_NO}</td>
+																	<td class="last">${itemList.DLV_END_DT}</td>
+																</tr>
+															</tbody>
+														</table>
+													</c:if>
+												</c:forEach>
+											</td>
+										</c:when>
+										<c:otherwise>
+											<td>[<custom:codeTag groupCode="MBER_GB_CD" code="${groupList.MBER_GB_CD}"/>]&nbsp;${groupList.MBER_NM}<br/>${groupList.MBER_EMAIL}</td>
+											<td class="inner_tbox type2" colspan="9">
+												<c:forEach items="${list.selectSaleDetailGroupProductList}" var="itemList" varStatus="itemStatus">
+													<c:if test="${groupList.MBER_SEQ eq itemList.MBER_SEQ and groupList.MBER_NM eq itemList.MBER_NM and groupList.MBER_EMAIL eq itemList.MBER_EMAIL}">
+														<table class="inner_tbl">
+															<colgroup>
+				                                                <col style="width:300px;" />
+																<col style="width:200px;" />
+																<col style="width:120px;" />
+																<col style="width:120px;" />
+																<col style="width:120px;" />
+																<col style="width:130px;" />
+																<col style="width:130px;" />
+																<col style="width:230px;" />
+																<col style="width:130px;" />
+				                                            </colgroup>
+				                                            <tbody>
+																<tr>
+																	<td class="inner_tbox type2" colspan="5">
+																		<c:forEach items="${list.productOptionList}" var="optionList" varStatus="optionStatus">
+																			<c:if test="${itemList.MBER_SEQ eq optionList.MBER_SEQ and itemList.MBER_NM eq optionList.MBER_NM and itemList.MBER_EMAIL eq optionList.MBER_EMAIL and itemList.PROD_CODE eq optionList.PROD_CODE and itemList.PROD_SEQ eq optionList.PROD_SEQ}">
+																				<table class="inner_tbl">
+																					<colgroup>
+										                                                <col style="width:300px;" />
+																						<col style="width:200px;" />
+																						<col style="width:120px;" />
+																						<col style="width:120px;" />
+																						<col style="width:120px;" />
+										                                            </colgroup>
+										                                            <tbody>
+																						<c:choose>
+																							<c:when test="${optionList.OPT_CD == null}">
+																								<!-- 본상품 : 옵션이 없는 경우  -->
+																								<td style="text-align:left;">${itemList.PROD_NM}</td>
+																								<td>&nbsp;</td>
+												                                            	<td style="text-align:right;"><fmt:formatNumber value="${itemList.PROD_PRCE}" type="number"/></td>
+												                                            	<td style="text-align:right;"><fmt:formatNumber value="${itemList.ORD_QTY}" type="number"/></td>
+												                                            	<td class="last" style="text-align:right;"><fmt:formatNumber value="${itemList.PROD_PRCE * itemList.ORD_QTY}" type="number"/></td>
+																							</c:when>
+																							<c:when test="${optionList.OPT_CD != null and optionList.OP_GB_CD == '10'}">
+																								<!-- 부가옵션상품 -->
+																								<td style="text-align:left;">${itemList.PROD_NM}</td>
+																								<td style="text-align:left;">${optionList.OPT_NM}</td>
+												                                            	<td style="text-align:right;"><fmt:formatNumber value="${itemList.PROD_PRCE + optionList.OPT_PRCE}" type="number"/></td>
+												                                            	<td style="text-align:right;"><fmt:formatNumber value="${optionList.OPT_QTY}" type="number"/></td>
+												                                            	<td class="last" style="text-align:right;"><fmt:formatNumber value="${(itemList.PROD_PRCE + optionList.OPT_PRCE) * optionList.OPT_QTY}" type="number"/></td>
+																							</c:when>
+																							<c:when test="${optionList.OPT_CD != null and optionList.OP_GB_CD == '20'}">
+																								<!-- 추가옵션상품  -->
+																								<td style="text-align:left;">${itemList.PROD_NM}</td>
+																								<td style="text-align:left;">${optionList.OPT_NM}</td>
+												                                            	<td style="text-align:right;"><fmt:formatNumber value="${optionList.OPT_PRCE}" type="number"/></td>
+												                                            	<td style="text-align:right;"><fmt:formatNumber value="${optionList.OPT_QTY}" type="number"/></td>
+												                                            	<td class="last" style="text-align:right;"><fmt:formatNumber value="${optionList.OPT_PRCE * optionList.OPT_QTY}" type="number"/></td>
+																							</c:when>
+																						</c:choose>
+										                                            </tbody>
+										                                    	</table>
+									                                    	</c:if>
+									                                   	</c:forEach>
+																	</td>
+																	<td>
+																		<custom:codeTag code="${itemList.PROC_STAT_CD}" groupCode="PROC_STAT_CD" />
+																		<c:if test="${itemList.PROC_STAT_CD eq '99'}"><br/>(${itemList.CONFIRM_DAY})</c:if>
+																	</td>
+																	<td style="text-align:right;">
+																		<fmt:formatNumber value="${itemList.DLV_PRCE}" type="number"/>
+																		<br/>[
+																		<c:choose>
+																			<c:when test="${empty itemList.DLV_PAY_F_CD}"><custom:codeTag groupCode="DLV_WAY_CD" code="${itemList.DLV_WAY_CD}"/></c:when>
+																			<c:otherwise><custom:codeTag groupCode="DLV_PAY_F_CD" code="${itemList.DLV_PAY_F_CD}"/></c:otherwise>
+																		</c:choose>
+																		]
+																		<c:if test="${itemList.DLV_GROUP_YN eq 'Y'}"><br/>[묶음배송]</c:if>
+																		<c:if test="${itemList.DLV_STAND_AMT > 0}"><br/>[조건부무료]</c:if>
+																	</td>
+																	<td>
+																		<fmt:formatNumber value="${itemList.CPN_USE_AMT}" type="number"/>
+																		<div style="text-align: left;">
+																			<c:forEach items="${list.selectUseCouponList}" var="couponList" varStatus="couponStatus">
+																				<c:if test="${couponList.PROD_CODE eq itemList.PROD_CODE}"><br>${couponList.CPN_NM}(<fmt:formatNumber value="${couponList.CPN_USE_AMT}" type="number"/>)</c:if>
+																			</c:forEach>
+																		</div>
+																	</td>
+																	<td class="last" style="text-align:right;"><fmt:formatNumber value="${itemList.ORDER_AMOUNT}" type="number"/></td>
+																</tr>
+															</tbody>
+														</table>
+													</c:if>
+												</c:forEach>
+											</td>
+											<td class="inner_tbox type2" colspan="3">
+												<c:forEach items="${list.selectSaleDetailGroupProductList}" var="itemList" varStatus="itemStatus">
+													<c:if test="${groupList.MBER_SEQ eq itemList.MBER_SEQ and groupList.MBER_NM eq itemList.MBER_NM and groupList.MBER_EMAIL eq itemList.MBER_EMAIL}">
+														<table class="inner_tbl">
+															<colgroup>
+				                                                <col style="width:150px;" />
+																<col style="width:150px;" />
+																<col style="width:150px;" />
+				                                            </colgroup>
+				                                            <tbody>
+																<tr>
+																	<td><custom:codeTag groupCode="DLV_CMP_CD" code="${itemList.DLV_CMP_CD}"/></td>
+																	<td>${itemList.INVC_NO}</td>
+																	<td class="last">${itemList.DLV_END_DT}</td>
+																</tr>
+															</tbody>
+														</table>
+													</c:if>
+												</c:forEach>
+											</td>
+										</c:otherwise>
+									</c:choose>
+								</tr>
+							</c:forEach>
+						</tbody>
+					</table>
+				</div>
+			</div>
+			<!-- //fixed_tbl_list -->
+			
+			<!-- tbl -->
+			<div class="tbl mt10">
+				<p class="tbl_tit">
+					<img src="http://static.ssocio.net/admin/images/ico_admin.gif" alt="">배송지 정보
+				</p>
+				<table class="upd">
+					<colgroup>
+						<col style="width:15%">
+						<col style="width:35%">
+						<col style="width:15%">
+						<col style="width:35%">
+					</colgroup>
+					<tbody>
+						<tr>
+							<th scope="row">이름</th>
+							<td>${list.dlvInfo.RCV_NM}</td>
+							<th scope="row" class="bl">연락처</th>
+							<td><c:choose><c:when test="${list.dlvInfo.SECU_NO == ''}">${list.dlvInfo.RCV_TEL}</c:when><c:otherwise>${list.dlvInfo.SECU_NO}</c:otherwise></c:choose></td>
+						</tr>
+						<tr>
+							<th scope="row">주소</th>
+							<td colspan="3">
+								[${list.dlvInfo.ZIP_CD}]
+								<c:choose>
+									<c:when test="${not empty list.dlvInfo.JUSO_DORO}">${list.dlvInfo.JUSO_DORO}</c:when>
+									<c:otherwise>${list.dlvInfo.JUSO_JIBEN}</c:otherwise>
+								</c:choose>
+								${list.dlvInfo.JUSO_DTL}
+							</td>
+						</tr>
+						<tr>
+							<th scope="row">배송메모</th>
+							<td colspan="3">${list.dlvInfo.DLV_MSG}</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			<!-- //tbl -->
+			
+			<div class="tbl mt10">
+				<p class="tbl_tit bb0"><img src="http://static.ssocio.net/admin/images/ico_admin.gif" alt="">반품신청 상품 정보</p>
+			</div>
+			
+			<!-- fixed_tbl_list -->
+			<div class="fixed_tbl_list mt10">
+				<div class="tbl type" style="width:2000px;">
+					<table class="list">
+						<colgroup>
+							<col style="width:200px;">
+							<col style="width:150px;">
+							<col style="width:300px;">
+							<col style="width:300px;">
+							<col style="width:150px;">
+							<col style="width:150px;">
+							<col style="width:150px;">
+							<col style="width:150px;">
+							<col style="width:150px;">
+							<col style="width:150px;">
+							<col style="width:150px;">
+							<col style="width:150px;">
+						</colgroup>
+						<thead>	
+							<tr>
+								<th scope="col" rowspan="2" class="first">신청일시</th>
+								<th scope="col" rowspan="2">판매자명[ID]</th>
+								<th scope="col" colspan="2" class="bdb">반품신청 정보</th>
+								<th scope="col" colspan="3" class="bdb">환불정보</th>
+								<th scope="col" rowspan="2">반품상태</th>
+								<th scope="col" rowspan="2">반품처리</th>
+								<th scope="col" colspan="4" class="bdb">배송정보</th>
+							</tr>
+							<tr>
+								<th scope="col">주문상품</th>
+								<th scope="col">반품사유</th>
+								<th scope="col">①주문금액</th>
+								<th scope="col">②포인트차감</th>
+								<th scope="col">③환불금액<br>[①-②]</th>
+								<th scope="col">택배사</th>
+								<th scope="col">송장번호</th>
+								<th scope="col">배송완료일</th>
+								<th scope="col">수정</th>
+							</tr>
+						</thead>
+						<tbody>
+							<c:forEach items="${list.productList}" var="productList" varStatus="excListStatus">
+								<tr>
+									<td class="first">${productList.REQUEST_DT}</td>
+									<td>[<custom:codeTag groupCode="MBER_GB_CD" code="${productList.MBER_GB_CD}"/>] ${productList.MBER_NM}<br>[${productList.MBER_EMAIL}]</td>
+									<td class="tl">
+										<c:forEach items="${list.productOptionList}" var="optionList" varStatus="optionStatus">
+											<c:if test="${productList.PROD_CODE eq optionList.PROD_CODE and productList.PROD_SEQ eq optionList.PROD_SEQ}">
+												<c:choose>
+													<c:when test="${optionList.OPT_CD == null}">
+														<!-- 본상품 : 옵션이 없는 경우  -->
+														${productList.PROD_NM}<br/>
+													</c:when>
+													<c:when test="${optionList.OPT_CD != null and optionList.OP_GB_CD == '10'}">
+														<!-- 부가옵션상품 -->
+														${optionList.PROD_NAME}<br/>
+													</c:when>
+													<c:when test="${optionList.OPT_CD != null and optionList.OP_GB_CD == '20'}">
+														<!-- 추가옵션상품  -->
+														[추가상품] ${optionList.PROD_NAME}<br/>
+													</c:when>
+												</c:choose>
+											</c:if>
+										</c:forEach>
+									</td>
+									<td class="tl">[<custom:codeTag groupCode="CHG_REASON_CD" code="${productList.CHG_REASON_CD}"/>] ${productList.CHG_REASON}</td>
+									<td class="tr"><fmt:formatNumber value="${productList.PROD_PRCE * productList.ORD_QTY - productList.CPN_USE_AMT}" type="number"/></td>
+									<td class="tr"><fmt:formatNumber value="${productList.POINT_USE_AMT}" type="number"/></td>
+									<td class="tr"><span class="text_r"><fmt:formatNumber value="${productList.PROD_PRCE * productList.ORD_QTY - productList.CPN_USE_AMT - productList.POINT_USE_AMT}" type="number"/></span></td>
+									<td><custom:codeTag code="${productList.PROC_STAT_CD}" groupCode="PROC_STAT_CD" /></td>
+									<td>
+										<c:choose>
+											<c:when test="${productList.PROC_STAT_CD eq '31'}">
+												<c:choose>
+													<c:when test="${productList.DLV_WAY_CD eq '1'}">
+														<a href="javascript:changeState('32', '${productList.ORD_CD}', '${productList.PROD_CODE}', '${productList.PROD_SEQ}', '${productList.CHG_CD}');" class="btn_w">반품처리</a>
+													</c:when>
+													<c:otherwise>
+														<a href="javascript:procInvcInfoPop('${productList.ORD_CD}','${productList.CHG_CD}','${productList.PROD_CODE}','${productList.PROD_SEQ}','${productList.ORGIN_DLV_CMP_CD}');" class="btn_w">반품처리</a>
+													</c:otherwise>
+												</c:choose>
+												
+											</c:when>
+											<c:when test="${productList.PROC_STAT_CD eq '32'}">
+												<c:choose>
+													<c:when test="${list.ordInfo.SELT_GB_CD == '3'}">
+														<!-- 휴대폰결제 취소 -->
+														<c:choose>
+															<c:when test="${productList.PHONE_CANCEL_YN == 'Y' and productList.TOT_ORD_QTY == '1'}">
+																<!-- 휴대폰결제: 취소가능 -->
+																<a href="javascript:returnState('${productList.ORD_CD}', '${productList.PROD_CODE}', '${productList.PROD_SEQ}', '${productList.CHG_CD}', '${productList.PROD_CPN_CD}', '${productList.DLV_GRP_CODE}','${list.ordInfo.SELT_GB_CD}','${productList.PHONE_CANCEL_YN}');" class="btn_w">반품완료</a>
+															</c:when>
+															<c:otherwise>
+																<!-- 휴대폰결제: 환불계좌 -->
+																<a href="javascript:procRefundInfoPop('show','${productList.ORD_CD}','${productList.CHG_CD}','${productList.PROD_CODE}','${productList.PROD_SEQ}','${productList.PROD_CPN_CD}','${productList.DLV_GRP_CODE}','${list.ordInfo.SELT_GB_CD}','${productList.PHONE_CANCEL_YN}');" class="btn_w">반품완료</a>
+															</c:otherwise>
+														</c:choose>
+													</c:when>
+													<c:otherwise>
+														<a href="javascript:returnState('${productList.ORD_CD}', '${productList.PROD_CODE}', '${productList.PROD_SEQ}', '${productList.CHG_CD}', '${productList.PROD_CPN_CD}', '${productList.DLV_GRP_CODE}','${list.ordInfo.SELT_GB_CD}','${productList.PHONE_CANCEL_YN}');" class="btn_w">반품완료</a>
+													</c:otherwise>
+												</c:choose>
+											</c:when>
+											<c:when test="${productList.PROC_STAT_CD eq '33'}">
+												-
+											</c:when>
+										</c:choose>
+									</td>
+									<td><custom:codeTag code="${productList.DLV_CMP_CD}" groupCode="DLV_CMP_CD" /></td>
+									<td>${productList.INVC_NO}</td>
+									<td>${productList.R_DLV_END_DT}</td>
+									<td>
+										<c:if test="${productList.PROC_STAT_CD eq '33'}">
+											<c:if test="${not empty productList.DLV_CMP_CD and not empty productList.INVC_NO}">
+												<a href="javascript:openModifyDlvTime('${productList.PROC_STAT_CD}','${productList.ORD_CD}','${productList.PROD_CODE}','${productList.PROD_SEQ}', '${productList.CHG_CD}','${productList.DLV_CMP_CD}','${productList.INVC_NO}','${productList.DLV_WAY_CD}','${list.ordInfo.ORD_REG_DATE}');" class="btn_w">수정</a>
+											</c:if>
+										</c:if>
+									</td>
+								</tr>
+							</c:forEach>
+						</tbody>
+					</table>
+				</div>
+			</div>
+			<!-- //fixed_tbl_list -->
+			
+			<!-- tbl -->
+			<div class="tbl mt10">
+				<p class="tbl_tit">
+					<img src="http://static.ssocio.net/admin/images/ico_admin.gif" alt="">반품 상품 회수지 정보
+					<a href="javascript:changeAddr();" class="btn_r tbl_btn">저장</a>
+				</p>
+				<table class="upd">
+					<colgroup>
+						<col style="width:15%">
+						<col style="width:35%">
+						<col style="width:15%">
+						<col style="width:35%">
+					</colgroup>
+					<tbody>
+						<tr>
+							<th scope="row">이름</th>
+							<td><input type="text" id="RCV_NM" name="RCV_NM" value="${list.reDlvInfo.RCV_NM}" style="width:200px"></td>
+							<th scope="row" class="bl">연락처</th>
+							<td><input type="text" id="HP" name="HP" value="${list.reDlvInfo.HP}" style="width:200px"></td>
+						</tr>
+						<tr>
+							<th scope="row">주소</th>
+							<td colspan="3">
+								<p>
+									<input type="text" id="ZIP_CD" name="ZIP_CD" class="readonly" style="width:150px" readonly="readonly" value="${list.reDlvInfo.ZIP_CD}"> 
+									<a href="#" class="btn_addr ml5" onclick="popup('/admin/common/jusopopup.do','우편번호찾기','714','660');return false;"><span>우편번호</span></a>
+								</p>
+								<p class="mt5">
+									<input type="text" id="JUSO_DORO" name="JUSO_DORO" class="readonly" style="width:400px" readonly="readonly" value="${list.reDlvInfo.JUSO_DORO}"> 
+									<input type="hidden" id="JUSO_JIBEN" name="JUSO_JIBEN" value="${list.reDlvInfo.JUSO_JIBEN}"/>
+									<input type="hidden" id="P_ORD_CD" name="P_ORD_CD" value="${list.reDlvInfo.ORD_CD}"/>
+									<input type="hidden" id="P_CHG_CD" name="P_CHG_CD" value="${list.reDlvInfo.CHG_CD}"/>
+									<input type="text" id="JUSO_DTL" name="JUSO_DTL" style="width:400px" value="${list.reDlvInfo.JUSO_DTL}">
+								</p>
+							</td>
+						</tr>
+						<tr>
+							<th scope="row">배송메모</th>
+							<td colspan="3">${list.reDlvInfo.MEMO}</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			<!-- //tbl -->
+			
+			<!-- tbl -->
+			<!-- <div class="tbl mt10">
+				<p class="tbl_tit">
+					<img src="http://static.ssocio.net/admin/images/ico_admin.gif" alt="">환불계좌 정보
+				</p>
+				<table class="upd">
+					<colgroup>
+						<col style="width:15%">
+						<col style="width:15%">
+						<col style="width:15%">
+						<col style="width:15%">
+						<col style="width:15%">
+						<col style="width:*">
+					</colgroup>
+					<tbody>
+						<tr>
+							<th scope="row">은행명</th>
+							<td>국민은행</td>
+							<th scope="row" class="bl">예금주명</th>
+							<td>이우찬</td>
+							<th scope="row" class="bl">계좌번호</th>
+							<td class="tl">123456-12-12345678</td>
+						</tr>
+					</tbody>
+				</table>
+			</div> -->
+			<!-- //tbl -->
+			
+			<!-- tbl -->
+			<div class="tbl mt10">
+				<p class="tbl_tit">
+					<img src="http://static.ssocio.net/admin/images/ico_admin.gif" alt="">주문 메모
+					<a href="javascript:updateAdminMemo();" class="btn_r tbl_btn">메모 저장</a>
+				</p>
+				<div class="ship_info_area2">
+					<textarea id="ADMIN_MEMO" name="ADMIN_MEMO" cols="30" row="5" class="textarea">${list.ordInfo.ADMIN_MEMO}</textarea>
+					<input type="hidden" id="ADMIN_ORD_CD" nam="ADMIN_ORD_CD" value="${list.ordInfo.ORD_CD}" />
+				</div>
+			</div>
+			<!-- //tbl -->
+			
+			<!-- bot_btn -->
+			<div class="bot_btn tc mt20">
+				<a href="javascript:goList();" class="btn_r">확인</a>
+				<a href="javascript:goList();" class="btn_g2 ml10">취소</a>
+			</div>
+			<!-- //bot_btn -->
+		</div>
+		
+		<!-- 환불계좌 레이어 팝업 -->
+		<div id="popRefund" class="lay_pop trans_num" style="width:500px; z-index:100;"> 
+			<!-- pop_header -->
+			<div class="pop_header">
+				<h2>환불계좌 입력</h2>
+				<a href="javascript:procRefundInfoPop('close','','','','','','','','');" class="btn_close"><img src="http://static.ssocio.net/admin/images/btn_layer_close.gif" alt="close"></a>
+			</div>
+			<!-- //pop_header -->
+			
+			<!-- pop_con -->
+			<div class="pop_con mt20">
+				<div class="tbl">
+					<table class="upd">
+						<colgroup>
+							<col style="width:20%" />
+							<col style="width:*" />
+						</colgroup>
+						<tbody>
+							<tr>
+								<th scope="row">은행</th>
+								<td>
+									<select id="BANK_GB_CD" name="BANK_GB_CD">
+										<option value="">선택</option>
+										<custom:codeList groupCode="BANK_GB_CD" var="bankGbCd"/>
+										<c:forEach items="${bankGbCd}" var="bankList">
+											<option value="${bankList.key }">${bankList.value}</option>
+										</c:forEach>
+									</select>
+								</td>
+							</tr>
+							<tr>
+								<th scope="row">계좌번호</th>
+								<td>
+									<input type="text" id="BANK_ACNT_NO" name="BANK_ACNT_NO" maxLength="40" style="width:300px;" />
+								</td>
+							</tr>
+							<tr>
+								<th scope="row">예금주</th>
+								<td>
+									<input type="text" id="ACNT_NM" name="ACNT_NM" maxLength="20" style="width:300px;" />
+									<input type="hidden" id="bank_ord_cd" name="bank_ord_cd"/>
+									<input type="hidden" id="bank_chg_cd" name="bank_chg_cd"/>
+									<input type="hidden" id="bank_prod_code" name="bank_prod_code"/>
+									<input type="hidden" id="bank_prod_seq" name="bank_prod_seq"/>
+									<input type="hidden" id="bank_prod_cpn_cd" name="bank_prod_cpn_cd"/>
+									<input type="hidden" id="bank_dlv_grp_code" name="bank_dlv_grp_code"/>
+									<input type="hidden" id="bank_selt_gb_cd" name="bank_selt_gb_cd"/>
+									<input type="hidden" id="PHONE_CANCEL_YN" name="PHONE_CANCEL_YN"/>
+								</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+				<div class="btn_area">
+					<a href="javascript:insertRefund();" class="btn_r">확인</a>
+				</div>
+			</div>
+		</div>
+		<!-- 환불계좌 입력 레이어 팝업 끝 -->
+	</div>
+	<!-- //content -->
+</form>
+
+<form name="popupForm" id="popupForm" method="post">
+	<input type="hidden" name="orgin_dlv_cmp_cd" id="orgin_dlv_cmp_cd" />
+	<input type="hidden" name="orgin_invc_no" id="orgin_invc_no" />
+	<input type="hidden" name="reg_date" id="reg_date" />
+	<input type="hidden" name="orgin_proc_stat_cd" id="orgin_proc_stat_cd" />
+</form>

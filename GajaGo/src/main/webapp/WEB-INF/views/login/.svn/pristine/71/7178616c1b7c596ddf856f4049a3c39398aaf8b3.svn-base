@@ -1,0 +1,602 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/web/common/webJSTL.jsp"%>
+<script type="text/javascript" src="/js/web/sns.share.js"></script>
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<%-- <meta property="og:title" content="다날쏘시오::Mobile">
+<meta  property="og:image" content="<c:choose><c:when test="${not empty shareImgUrl}">${shareImgUrl }</c:when><c:otherwise>https://scontent.xx.fbcdn.net/hphotos-xat1/t39.2081-0/p128x128/12056960_1633116896960884_2110231500_n.png</c:otherwise></c:choose>">
+<meta  property="og:description" content="<c:choose><c:when test="${not empty sharProdDtl.PROD_NM}">${sharProdDtl.PROD_NM }</c:when><c:otherwise>다날 쏘시오</c:otherwise></c:choose>"> --%>
+<link rel="image_src" href="http://sstatic.naver.net/search/2015/h_logo.png"/>
+<script type="text/javascript">
+var fbAppId = "1627574460848461";
+var cmaDns = location.href;
+
+var snsShare = null;
+
+$(document).ready(function(){
+// 	owl_carousel();
+	//공통 HEADER SETTING
+	header.type = 4;
+	header.title = "상품정보";
+	header.backUrl = "/mobile/shar/selectListShar.do";
+	header.method = "GET";
+	header.callback = callback;
+	initHeader();
+	//공통 FOOTER SETTING
+	displayFooter(false);
+	//APP TITLE
+	document.title="상품정보";
+	//APP 상품 구분 코드 정의
+	if ( '${sessionScope.APP}' == 'SSOCIO' ) {
+		var cProdCode='${params.PROD_CODE}';
+		if ( cProdCode == '20151112022437' ) {
+			document.location.replace("ssocio://web/hideDetailBottomView");
+		} else {
+			document.location.replace("ssocio://web/prodOptPut?{\"mberGbCd\":\"0\", \"prodTypeCd\":\"4\"}");
+		}
+
+	}
+
+	// INIT DOMAIL
+// 	cmaDns = cmaDns.split("/");
+// 	cmaDns = cmaDns[2];
+// 	if (cmaDns == 'sso-mobile.ssocio.net') {
+// 		fbAppId = '1674363626130550';
+// 	} else if (cmaDns == 'sso-app.ssocio.net') {
+// 		fbAppId = '467971226696986';
+// 	} else if (cmaDns == 'dev.m.ssocio.net') {
+// 		fbAppId = '118377888518208';
+// 	} else if (cmaDns == 'dev.mobile.ssocio.net') {
+// 		fbAppId = '410554539144263';
+// 	}
+	  $('article').find('table').each(function(){
+
+	      $(this).width('100%');
+
+	      $(this).css('width', '100%');
+
+	    });
+
+	    $('article').find('td').each(function(){
+
+	      $(this).width('100%');
+
+	      $(this).css('width', '100%');
+
+	    });
+
+// 	    (type, code, title, imgUrl, shareUrl)
+
+	    snsShare = new SnsShare('10', '${sharProdDtl.PROD_CODE }','${sharProdDtl.PROD_NM }', '${shareImgUrl }', 'mobile/shar/selectSharDtl.do');
+
+
+});
+
+
+
+/* ======================================================================
+Function : 상단 callback 처리
+Return   : 페이지 이동
+========================================================================= */
+function callback(str) {
+	if ( "btn_home" == str ) {
+		location.href="/mobile/main/main.do";
+	} else if ("btn_basket" == str) {
+		location.href="/mobile/myBasket/getMyBasketInfo.do";
+	}
+}
+
+/* ======================================================================
+Function : APP 이미지 전체 화면 띄우기
+Return   : 없음
+========================================================================= */
+function imgFullScr(){
+	var appCmd = "ssocio://web/fullScreenImage?";
+	var imgUrl = '{"imagelist":[';
+	<c:forEach items='${sharProdImg }' var='appSharImg' varStatus='status'>
+		<c:choose>
+			<c:when test='${status.last}'>
+				imgUrl += '{"url":"'+'${appSharImg.FILE_URL }'+'"}';
+			</c:when>
+			<c:otherwise>
+				imgUrl += '{"url":"'+'${appSharImg.FILE_URL }'+'"},';
+			</c:otherwise>
+		</c:choose>
+	</c:forEach>
+	imgUrl += ']}';
+	document.location.replace(appCmd+encodeURIComponent(imgUrl));
+}
+
+/* ======================================================================
+Function : APP 이미지 전체 화면 띄우기
+Return   : 없음
+========================================================================= */
+// 신청하기 버튼은 모바일 웹 / app
+function insertSmartShare(){
+	if( '${sessionScope.APP}' == 'SSOCIO'){
+		if ('${sessionScope.user.login}' == 'true') {
+			$.ajax({
+				type: 'post'
+				, async: true
+				, url: '/mobile/shar/CheckSharWaitCnt.do'
+				, data: $("#frm").serialize()
+				, success: function(data) {
+					if (data.chkCnt > 0) {
+						var form = document.frm;
+						frm.action = "/mobile/shar/selectAppli.do";
+						frm.submit();
+					} else {
+						alert("본 상품은 현재 재고수량이 부족하여 셰어링 신청하실 수 없습니다.");
+						document.location.replace("ssocio://web/prodOptPut?{\"mberGbCd\":\"0\", \"prodTypeCd\":\"4\"}");
+						return;
+					}
+				}
+				, error: function(data, status, err) {
+				  alert('서버와의 통신이 실패했습니다.');
+				}
+			});
+		} else {
+			alert("로그인 상태에서 이용 가능합니다.\n로그인 페이지로 이동됩니다.");
+			setLogin();
+		}
+	} else {
+		$.ajax({
+			type: 'post'
+			, async: true
+			, url: '/mobile/shar/CheckSharWaitCnt.do'
+			, data: $("#frm").serialize()
+			, success: function(data) {
+				if (data.chkCnt > 0) {
+					var form = document.frm;
+					frm.action = "/mobile/shar/selectAppli.do";
+					frm.submit();
+				} else {
+					alert("본 상품은 현재 재고수량이 부족하여 셰어링 신청하실 수 없습니다.");
+					return;
+				}
+			}
+			, error: function(data, status, err) {
+			  alert('서버와의 통신이 실패했습니다.');
+			}
+		});
+	}
+}
+/* ======================================================================
+Function : 위시담기
+Return   : 없음
+========================================================================= */
+function insertWish(){
+	if( '${sessionScope.APP}' == 'SSOCIO'){
+		if ('${sessionScope.user.login}' == 'true') {
+			var form = document.frm;
+			frm.action = "/mobile/myWish/insertWish.do";
+			frm.submit();
+		} else {
+			alert("로그인 상태에서 이용 가능합니다.\n로그인 페이지로 이동됩니다.");
+			setLogin();
+		}
+	} else {
+		var form = document.frm;
+		frm.action = "/mobile/myWish/insertWish.do";
+		frm.submit();
+	}
+
+
+}
+
+/* ======================================================================
+Function : 상품 후기 목록
+Return   : 없음
+========================================================================= */
+function selectListReview(){
+	var form = document.frm;
+	frm.action = "/mobile/board/selectListReview.do?PROD_CODE=" + ${sharProdDtl.PROD_CODE };
+	frm.submit();
+}
+
+/* ======================================================================
+Function : 상품 후기 상세페이지
+Return   : 없음
+========================================================================= */
+function selectReview(prodCode, boardSeq){
+	location.href = "/mobile/board/selectReview.do?PROD_CODE=" + prodCode + "&BOARD_SEQ=" + boardSeq;
+}
+
+/* ======================================================================
+Function : 상품 댓글
+Return   : 없음
+========================================================================= */
+function selectListComment(){
+	var form = document.frm;
+	frm.action = "/mobile/board/selectListComment.do?PROD_CODE=${sharProdDtl.PROD_CODE}&PROD_TYPE_CD=4";
+	frm.submit();
+}
+
+/* ======================================================================
+Function : APP SNS 공유하기
+Return   : 없음
+========================================================================= */
+
+function snsShar(code){
+	var smsUrl = "ssocio://web/snsShare?";
+	var smsVal = "";
+	if(code == '1') {
+		smsVal += "{\"msg\":\"${sharProdDtl.PROD_NM } SSOCIO로 구경하러 가기\",";
+		smsVal += "\"imgurl\":\"${sharProdDtl.FILE_URL }\",";
+		smsVal += "\"shareurl\":\"http://sso-mobile.ssocio.net/mobile/shar/selectSharDtl.do?PROD_CODE=${sharProdDtl.PROD_CODE }\",";
+		smsVal += "\"gubun\":\""+code+"\"}";
+		location.href = smsUrl+encodeURIComponent(smsVal);
+	} else if(code == '2') {
+		smsVal += "{\"msg\":\"${sharProdDtl.PROD_NM } SSOCIO로 구경하러 가기\",";
+		smsVal += "\"imgurl\":\"${sharProdDtl.FILE_URL }\",";
+		smsVal += "\"shareurl\":\"http://sso-mobile.ssocio.net/mobile/shar/selectSharDtl.do?PROD_CODE=${sharProdDtl.PROD_CODE }\",";
+		smsVal += "\"gubun\":\""+code+"\"}";
+		location.href = smsUrl+encodeURIComponent(smsVal);
+	} else if(code == '3') {
+		smsVal += "{\"msg\":\"${sharProdDtl.PROD_NM } SSOCIO로 구경하러 가기\",";
+		smsVal += "\"imgurl\":\"${sharProdDtl.FILE_URL }\",";
+		smsVal += "\"shareurl\":\"http://sso-mobile.ssocio.net/mobile/shar/selectSharDtl.do?PROD_CODE=${sharProdDtl.PROD_CODE }\",";
+		smsVal += "\"gubun\":\""+code+"\"}";
+		location.href = smsUrl+encodeURIComponent(smsVal);
+	} else if(code == '4') {
+		smsVal += "{\"msg\":\"${sharProdDtl.PROD_NM } SSOCIO로 구경하러 가기\",";
+		smsVal += "\"imgurl\":\"${sharProdDtl.FILE_URL }\",";
+		smsVal += "\"shareurl\":\"http://sso-mobile.ssocio.net/mobile/shar/selectSharDtl.do?PROD_CODE=${sharProdDtl.PROD_CODE }\",";
+		smsVal += "\"gubun\":\""+code+"\"}";
+		location.href = smsUrl+encodeURIComponent(smsVal);
+	}else if(code == '7'){
+		snsShare.facebook();
+	}
+
+}
+
+/* ======================================================================
+Function : 상품 상세 보기
+Return   : 없음
+========================================================================= */
+function prodDtl(){
+	location.href="/mobile/prod/selectDetailProd.do?PROD_CODE=${sharProdDtl.PROD_CODE }&PROD_TYPE_CD=4";
+}
+
+ /* ======================================================================
+ Function : 댓글 등록 페이지로 이동
+ Return   : 없음
+ ========================================================================= */
+function insertComment(){
+	if('${sessionScope.user.login}' == 'true'){
+		$('#frm').attr("action", "/mobile/board/insertComment.do").submit();
+	}
+	else{
+		setLogin();
+	}
+}
+
+/* ======================================================================
+Function : 로그인 하기
+Return   : 없음
+========================================================================= */
+function setLogin(){
+	location.href="/mobile/main/login.do?ret="+encodeURIComponent("/mobile/shar/selectSharDtl.do?PROD_CODE=${sharProdDtl.PROD_CODE }");
+}
+
+/* ======================================================================
+Function : Line 공유하기
+Return   : 없음
+========================================================================= */
+function lineShar(){
+	var param = '${sharProdDtl.PROD_NM }\nSSOCIO로 구경하러 가기\nhttp://dev.mobile.ssocio.net/mobile/shar/selectSharDtl.do?PROD_CODE=${sharProdDtl.PROD_CODE }'
+//		location.href="http://www.facebook.com/share.php?"+encodeURIComponent(param);
+	window.open('http://line.me/R/msg/text/?'+encodeURIComponent(param));
+}
+
+/* ======================================================================
+Function : Facebook 공유하기
+Return   : 없음
+========================================================================= */
+// window.fbAsyncInit = function() {
+// 	FB.init({
+// 		appId : fbAppId,
+// 		xfbml      : true,
+// 		version : 'v2.5'
+// 	});
+// };
+
+// // Load the SDK asynchronously
+// (function(d, s, id) {
+// 	var js, fjs = d.getElementsByTagName(s)[0];
+// 	if (d.getElementById(id))
+// 		return;
+// 	js = d.createElement(s);
+// 	js.id = id;
+// 	// js.src = "//connect.facebook.net/en_US/sdk.js";
+// 	js.src = "//connect.facebook.net/ko_KR/all.js";
+// 	fjs.parentNode.insertBefore(js, fjs);
+// }(document, 'script', 'facebook-jssdk'));
+
+function facebookShar(code, name){
+	FB.ui({
+		  method: 'share',
+		  href: 'http://dev.mobile.ssocio.net/mobile/shar/selectSharDtl.do?PROD_CODE=',
+		  title: '['+name+'] SSOCIO로 구경하러 가기\nhttp://dev.mobile.ssocio.net/mobile/shar/selectSharDtl.do?PROD_CODE='+code,
+		}, function(response){});
+}
+
+function loginChk(){
+	if('${sessionScope.user.login}' != 'true'){
+		alert("로그인 상태에서 이용 가능합니다.\n로그인 페이지로 이동됩니다.");
+		setLogin();
+	}
+}
+</script>
+<script src="//developers.kakao.com/sdk/js/kakao.min.js"></script>
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+
+        <div class="roc">
+        	<ul class="inner">
+            	<li><img src="http://static.ssocio.net/pc/img/common/section/roc_home.png" alt="홈"></li>
+                <li>스마트폰 셰어링</li>
+            </ul>
+        </div>
+
+        <!-- inner -->
+		<div class="inner">
+			<h3 class="tit_cate mb20"><p>스마트폰 셰어링</p></h3>
+
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+	 <!-- container -->
+		<div id="container">
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>
+
+
+	<div class="owl-carousel">
+		<div class="swiper-wrapper">
+			<c:forEach items="${sharProdImg }" var="sharImg">
+				<c:choose>
+					<c:when test="${sessionScope.APP eq 'SSOCIO' }">
+						<div class="item" onclick="imgFullScr();"><img src="<custom:codeTag code="DEFAULT_IMG_URL" groupCode="SITE_DEFAULT" />" alt="${sharImg.FILE_URL }"></div>
+					</c:when>
+					<c:otherwise>
+						<div class="item"><img src="<custom:codeTag code="DEFAULT_IMG_URL" groupCode="SITE_DEFAULT" />" alt="${sharImg.FILE_URL }" ></div>
+					</c:otherwise>
+				</c:choose>
+			</c:forEach>
+		</div>
+		<!-- Add Pagination -->
+		<div class="swiper-pagination"></div>
+	</div>
+	<c:if test="${ params.PROD_CODE ne '20151112022437' }">
+		<section class="prod detail">
+		<article>
+			<p class="name">${sharProdDtl.PROD_NM }</p>
+			<p class="tr">
+				<strong class="point_r">월 <fmt:formatNumber value="${sharProdDtl.SHARING_PRICE }" pattern="#,###"/> 원</strong>
+			</p>
+			<c:if test="${0 < sharProdDtl.WISH_PROD_CNT}">
+			<p class="share">
+			     <strong><span class="point_r"><fmt:formatNumber value="${sharProdDtl.WISH_PROD_CNT }" pattern="#,###"/></span>명</strong>이 위시리스트에 담은 상품입니다.
+			</p>
+			</c:if>
+			<ul class="share clear">
+				<li><img data-img="${sharProdDtl.TEL_FILE_URL }" width="60"></li>
+				<c:choose>
+					<c:when test="${sessionScope.APP eq 'SSOCIO' }">
+						<li>
+							<a href="javascript:snsShar('1');"><img src="http://static.ssocio.net/web/images/share_01.png" alt="카카오톡"></a>
+							<a href="javascript:snsShar('2');"><img src="http://static.ssocio.net/web/images/share_02.png" alt="카카오페이지"></a>
+							<a href="javascript:snsShar('3');"><img src="http://static.ssocio.net/web/images/share_03.png" alt="페이스북"></a>
+							<a href="javascript:snsShar('4');"><img src="http://static.ssocio.net/web/images/share_04.png" alt="라인"></a>
+						</li>
+					</c:when>
+					<c:otherwise>
+						<li>
+							<a id="kakao-link-btn" ><img src="http://static.ssocio.net/web/images/share_01.png" alt="카카오톡"></a>
+							<a href="javascript:shareStory();"><img src="http://static.ssocio.net/web/images/share_02.png" alt="카카오페이지"></a>
+							<a href="javascript:snsShar('7');"><img src="http://static.ssocio.net/web/images/share_03.png" alt="페이스북"></a>
+							<a id="lineBtn" href='http://line.me/R/msg/text/?${sharProdDtl.PROD_NM }%0D%0ASSOCIO로 구경하러 가기 %0D%0Ahttp://m.ssocio.com/mobile/shar/selectSharDtl.do?PROD_CODE='${sharProdDtl.PROD_CODE }><img src="http://static.ssocio.net/web/images/share_04.png" alt="라인"></a>
+
+						</li>
+					</c:otherwise>
+				</c:choose>
+			</ul>
+		</article>
+	</section>
+
+	<section class="prod explain">
+		<c:choose>
+			<c:when test="${sharProdDtl.MSG_GB eq '1' }">
+				<img data-img="${sharProdDtl.MSG }" alt="">
+				<p><a href="javascript:prodDtl();" class="btn_prod_exp"><span>상품 상세 보기</span></a></p>
+			</c:when>
+			<c:otherwise>
+				<c:choose>
+					<c:when test="${fn:indexOf(sharProdDtl.DTLMSG, 'c.ssocio.com') eq -1 && fn:indexOf(sharProdDtl.DTLMSG, 'cdn.ssocio.com') eq -1 }">
+						${sharProdDtl.DTLMSG }
+					</c:when>
+					<c:otherwise>
+						<c:set var="content" value="${fn:replace( sharProdDtl.DTLMSG ,'src', 'alt')  }"></c:set>
+						${content }
+					</c:otherwise>
+				</c:choose>
+			</c:otherwise>
+		</c:choose>
+	</section>
+	<c:if test="${fn:length(selectEpilogue) > 0}">
+	<!-- review -->
+	<section class="review">
+		<div class="clear prod_t2">
+			<div class="fl">
+				<span class="fl mr10">상품후기</span>
+				<div class="star_list">
+					<a href="javascript:void(0);" <c:if test="${selectEpilogue[0].SUM_AVG_SCORE >= 1}">class="on"</c:if>><span class="blind">1</span></a>
+					<a href="javascript:void(0);" <c:if test="${selectEpilogue[0].SUM_AVG_SCORE >= 2}">class="on"</c:if>><span class="blind">2</span></a>
+					<a href="javascript:void(0);" <c:if test="${selectEpilogue[0].SUM_AVG_SCORE >= 3}">class="on"</c:if>><span class="blind">3</span></a>
+					<a href="javascript:void(0);" <c:if test="${selectEpilogue[0].SUM_AVG_SCORE >= 4}">class="on"</c:if>><span class="blind">4</span></a>
+					<a href="javascript:void(0);" <c:if test="${selectEpilogue[0].SUM_AVG_SCORE >= 5}">class="on"</c:if>><span class="blind">5</span></a>
+				</div>
+			</div>
+			<a href="javascript:selectListReview();" class="arrow">${selectEpilogueCnt}</a>
+		</div>
+		<ol class="list">
+			<c:forEach items="${selectEpilogue}" var="list" varStatus="status">
+				<li style="min-height:120px;">
+					<p class="review-img">
+						<img src="<custom:codeTag code="DEFAULT_IMG_URL" groupCode="SITE_DEFAULT" />" alt="${list.USER_IMG}">
+					</p>
+					<div class="clear">
+						<div class="fl" style="line-height: 50px;">
+							<span ><img class="img_level" src="<custom:codeTag code="DEFAULT_IMG_URL" groupCode="SITE_DEFAULT" />" alt="${list.LEVEL_IMG }"><custom:maskTag value="${list.EMAIL }" type="email" /></span>
+						</div>
+						<span class="fr"><fmt:formatDate value="${list.REGIST_DT }" pattern="yyyy-MM-dd HH:mm"/></span>
+					</div>
+					<div class="star_list">
+						<a href="javascript:void(0);" <c:if test="${list.AVG_SCORE >= 1}">class="on"</c:if>><span class="blind">1</span></a>
+						<a href="javascript:void(0);" <c:if test="${list.AVG_SCORE >= 2}">class="on"</c:if>><span class="blind">2</span></a>
+						<a href="javascript:void(0);" <c:if test="${list.AVG_SCORE >= 3}">class="on"</c:if>><span class="blind">3</span></a>
+						<a href="javascript:void(0);" <c:if test="${list.AVG_SCORE >= 4}">class="on"</c:if>><span class="blind">4</span></a>
+						<a href="javascript:void(0);" <c:if test="${list.AVG_SCORE >= 5}">class="on"</c:if>><span class="blind">5</span></a>
+					</div>
+					<p style="width:50px;height:50px;overflow:hidden;position:absolute;top:65px;left:0px;">
+						<c:if test="${list.BOARD_FILE_URL eq '' or list.BOARD_FILE_URL == null}">
+						<img style="width:50px;height:50px" alt="${list.BOARD_FILE_URL}">
+						</c:if>
+					</p>
+					<p class="doct">
+						<a href="javascript:selectReview(${sharProdDtl.PROD_CODE}, ${list.BOARD_SEQ });">${list.CONTENTS}</a>
+					</p>
+				</li>
+			</c:forEach>
+		</ol>
+	</section>
+	<!-- //review -->
+	</c:if>
+
+	<!-- comment -->
+	<section class="comment">
+		<p class="clear prod_t2">
+			<span class="fl">댓글</span> <a href="javascript:selectListComment();" class="arrow">${selectCommentCnt }</a>
+		</p>
+		<c:choose>
+			<c:when test="${not empty selectComment }">
+				<ol class="list">
+					<c:forEach items="${selectComment }" var="list" varStatus="status">
+						<li>
+							<c:choose>
+								<c:when test="${list.FILE_URL != '' and list.FILE_URL != null}">
+									<p class="mem-img">
+									<!--
+									<img src="<custom:codeTag code="PROFILE_DEFAULT_IMG_URL" groupCode="SITE_DEFAULT" />" alt="${list.FILE_URL }">-->
+									<img src="<custom:codeTag code="DEFAULT_IMG_URL" groupCode="SITE_DEFAULT" />" alt="${list.FILE_URL }">
+									</p>
+								</c:when>
+								<c:otherwise>
+									<p class="mem-img">
+									<!--
+										<img src="<custom:codeTag code="PROFILE_DEFAULT_IMG_URL" groupCode="SITE_DEFAULT" />"> -->
+										<img src="<custom:codeTag code="DEFAULT_IMG_URL" groupCode="SITE_DEFAULT" />">
+									</p>
+								</c:otherwise>
+							</c:choose>
+							<p class="clear">
+								<c:choose>
+								<c:when test="${list.SSO_GB_CD eq 'KKO' }">
+									<span class="fl "><img class="img_level" src="<custom:codeTag code="DEFAULT_IMG_URL" groupCode="SITE_DEFAULT" />" alt="${list.LEVEL_IMG }">${list.MBER_NICK }</span>
+								</c:when>
+								<c:otherwise>
+									<span class="fl "><img class="img_level" src="<custom:codeTag code="DEFAULT_IMG_URL" groupCode="SITE_DEFAULT" />" alt="${list.LEVEL_IMG }"><custom:maskTag value="${list.MBER_EMAIL }" type="email" /></span>
+								</c:otherwise>
+							</c:choose>
+								<span class="fr"><custom:timeGap value="${list.REGIST_DT }" /></span>
+							</p>
+							<p class="doct">${list.CONTENTS }</p>
+						</li>
+					</c:forEach>
+				</ol>
+			</c:when>
+		</c:choose>
+		<c:if test="${sessionScope.user != '' && sessionScope.user != null }">
+			<article class="nodata lineb">
+				<a href="javascript:insertComment();">댓글을 남겨 주세요</a>
+			</article>
+		</c:if>
+	</section>
+	<!-- //comment -->
+	<c:if test="${sessionScope.APP ne 'SSOCIO' }">
+		<c:choose>
+			<c:when test="${sessionScope.user != '' && sessionScope.user != null }">
+				<ul class="prod_bot">
+					<li><a href="javascript:insertWish();"><img src="http://static.ssocio.net/web/images/btn_wish.png" alt="위시"></a></li>
+					<li><a href="javascript:insertSmartShare();" class="btn_r">신청하기</a></li>
+				</ul>
+			</c:when>
+			<c:otherwise>
+				<ul class="prod_bot">
+					<li><a href="javascript:loginChk();"><img src="http://static.ssocio.net/web/images/btn_wish.png" alt="위시"></a></li>
+					<li><a href="javascript:loginChk();" class="btn_r">신청하기</a></li>
+				</ul>
+			</c:otherwise>
+		</c:choose>
+	</c:if>
+	</c:if>
+
+</div>
+<!-- //container -->
+<form id="frm" name="frm" method="post">
+	<input type="hidden" id="PROD_CODE" name="PROD_CODE" value="${params.PROD_CODE }" />
+	<input type="hidden" id="TELCOM_CODE" name="TELCOM_CODE" value="${params.TELCOM_CODE }" />
+	<input type="hidden" id="PROD_TYPE_CD" name="PROD_TYPE_CD" value="4" />
+</form>
+
+
+      		<c:if test="${sessionScope.APP ne 'SSOCIO' }">
+      			<script>
+
+								Kakao.init('5f39a1a0ae8e99a1104d54e29b16761c');
+
+								var prodname = '${sharProdDtl.PROD_NM }';
+								var prodCode = '${sharProdDtl.PROD_CODE }';
+								var imgUrl = '${shareImgUrl }';
+
+								if(imgUrl == ""){
+	                            	imgUrl = "https://scontent.xx.fbcdn.net/hphotos-xat1/t39.2081-0/p128x128/12056960_1633116896960884_2110231500_n.png";
+	                            }
+
+ 										SSOCIO_URL = document.location.href.match(/http[s]*:\/\/([a-zA-Z0-9\-\.]*)/)[0];
+
+ 										//라인셋팅
+
+ 										$("#lineBtn").attr("href", "http://line.me/R/msg/text/?"+prodname+"%0D%0ASSOCIO로 구경하러 가기 %0D%0A"+SSOCIO_URL+"/mobile/shar/selectSharDtl.do?PROD_CODE="+prodCode );
+
+ 										var ssoParam = encodeURIComponent(SSOCIO_URL + '/mobile/shar/selectSharDtl.do?PROD_CODE=${sharProdDtl.PROD_CODE}');
+
+ 										Kakao.Link.createTalkLinkButton({
+ 											container : '#kakao-link-btn',
+ 											label : '${sharProdDtl.PROD_NM } \nSSOCIO로 구경하러 가기',
+ 											image : {
+ 												src :imgUrl,
+ 												width : '300',
+ 												height : '200'
+ 											},
+ 											webButton : {
+ 												text : 'SSOCIO에서 보기',
+ 												url : SSOCIO_URL+'/mobile/common/goLinkPopup.do?snsType=kakaolink&appUrl='+ssoParam+'&type=G'
+ 											}
+ 										});
+
+
+								// 스토리 공유 버튼을 생성합니다.
+								function shareStory() {
+									SSOCIO_URL = document.location.href.match(/http[s]*:\/\/([a-zA-Z0-9\-\.]*)/)[0];
+									Kakao.Story.open({
+										url:  SSOCIO_URL + '/mobile/shar/selectSharDtl.do?PROD_CODE=${sharProdDtl.PROD_CODE}',
+										text: prodname+'\nSSOCIO로 구경하러 가기'
+									});
+								}
+				</script>
+      		</c:if>

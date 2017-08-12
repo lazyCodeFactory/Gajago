@@ -1,0 +1,207 @@
+package com.ssocio.sharing.service.admin;
+
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
+
+import javax.annotation.Resource;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.ui.ModelMap;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.multipart.MultipartHttpServletRequest;
+
+import com.ssocio.sharing.cmmn.admin.util.FileUtil;
+import com.ssocio.sharing.cmmn.util.CmmnCnst;
+import com.ssocio.sharing.cmmn.util.LoggerUtil;
+import com.ssocio.sharing.cmmn.util.StringUtil;
+import com.ssocio.sharing.dao.admin.AdminCommonDao;
+import com.ssocio.sharing.dao.admin.AdminSPProdDao;
+import com.ssocio.sharing.dao.admin.AdminTelcomDao;
+import com.ssocio.sharing.vo.admin.PageNavigation;
+
+
+
+@Service
+public class AdminTelcomServiceImpl implements AdminTelcomService {
+	
+
+	// --------------------------------------------------------------------------
+	// # Log 설정
+	// --------------------------------------------------------------------------
+	private static final Logger logger = LoggerFactory.getLogger(AdminTelcomServiceImpl.class);
+
+	// --------------------------------------------------------------------------
+	// # DAO 설정
+	// --------------------------------------------------------------------------
+	@Resource(name="adminTelcomDao")
+	private AdminTelcomDao adminTelcomDao;
+	@Resource(name="adminSPProdDao")
+	private AdminSPProdDao adminSPProdDao;
+	@Resource(name="adminCommonDao")
+	private AdminCommonDao adminCommonDao;
+
+
+	
+	/**
+	 * <pre>
+	 * 통신사 정보 불러오기
+	 * 통신사 정보 불러오기
+	 * @param inParam
+	 * @return
+	 * @exception
+	 * @date 2015. 7. 20. 오후 1:10:59
+	 * @author LeeJinSe
+	 * @see com.ssocio.sharing.service.admin.AdminTelcomService#selectListTelcomInfo(java.util.Map)
+	 * @비고
+	 * 
+	 * </pre>
+	*/
+	@Override
+	public Object selectListTelcomInfo(Map<String, Object> inParam) {
+		
+		ModelMap mm = new ModelMap();
+		//페이지번호
+		int nowPage = StringUtil.nvlInt((String)inParam.get("PAGE_NO"), 1);
+		int rowCnt	= StringUtil.nvlInt((String)inParam.get("S_ROW_CNT"), 10);
+		inParam.put("S_ROW_CNT", rowCnt);
+		
+		LoggerUtil.writeMap(inParam);
+		
+	
+		try {
+			int rowTotal = adminTelcomDao.selectListTelCount(inParam); //전체 Row Count
+			PageNavigation pageNav= new PageNavigation(nowPage, rowTotal, rowCnt, CmmnCnst.ADM_BLOCK_SIZE);
+			
+			mm.put("PAGE_NO" ,nowPage);
+			mm.put("pageNav", pageNav);
+			inParam.put("START_ROW", pageNav.getStartRow());
+			inParam.put("END_ROW", pageNav.getEndRow());
+			
+			System.out.println("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+			System.out.println("@pageNav.getStartRow() : " + pageNav.getStartRow());
+			System.out.println("@pageNav.getEndPage() : " + pageNav.getEndRow());
+			System.out.println("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+			
+			mm.put("selectListTelInfo",adminTelcomDao.selectListTelcomInfo(inParam));
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+
+
+
+
+	/**
+	 * <pre>
+	 * 통신사 등록하기
+	 * 통신사 등록하기
+	 * @param inParam
+	 * @param req
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 20. 오후 1:11:12
+	 * @author LeeJinSe
+	 * @see com.ssocio.sharing.service.admin.AdminTelcomService#insertTelcomReg(java.util.Map, org.springframework.web.multipart.MultipartHttpServletRequest)
+	 * @비고
+	 * 
+	 * </pre>
+	*/
+	@Override
+	public void insertTelcomReg(Map<String, Object> inParam,
+			MultipartHttpServletRequest req) throws Exception {
+
+		MultipartFile TelcomImg = req.getFile("TEL_REG_IMG");
+		
+		String fileSeq = null;
+		if(TelcomImg != null && TelcomImg.getSize() > 0){
+			Map<String, Object> fileInfo = FileUtil.saveMultipartFile(TelcomImg);//파일 저장
+			fileSeq = adminCommonDao.insertFile(fileInfo);
+			inParam.put("FILESEQ", fileSeq);
+		}
+		System.out.println("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+		System.out.println("inParam : " + inParam);
+		System.out.println("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");	
+		Integer TelcomRet = adminTelcomDao.insertTelcomInfo(inParam);
+	
+	}
+
+
+
+
+	/**
+	 * <pre>
+	 * 통신사 수정하기
+	 * 통신사 수정하기 
+	 * @param inParam
+	 * @param req
+	 * @exception
+	 * @date 2015. 7. 20. 오후 1:11:22
+	 * @author LeeJinSe
+	 * @see com.ssocio.sharing.service.admin.AdminTelcomService#updateTelcomReg(java.util.Map, org.springframework.web.multipart.MultipartHttpServletRequest)
+	 * @비고
+	 * 
+	 * </pre>
+	*/
+	@Override
+	public void updateTelcomReg(Map<String, Object> inParam,
+			MultipartHttpServletRequest req)  throws Exception {
+	MultipartFile TelcomImg = req.getFile("TEL_MOD_TEL_IMG");
+		
+		String fileSeq = null;
+		if(TelcomImg != null && TelcomImg.getSize() > 0){
+			Map<String, Object> fileInfo;
+			try {
+				fileInfo = FileUtil.saveMultipartFile(TelcomImg);
+				fileSeq = adminCommonDao.insertFile(fileInfo);
+				inParam.put("FILESEQ", fileSeq);
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}//파일 저장
+			
+		}
+		System.out.println("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+		System.out.println("inParam : " + inParam);
+		System.out.println("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");	
+		Integer TelcomRet = adminTelcomDao.updateTelcomInfo(inParam);
+		
+		
+	}
+
+
+
+
+	/**
+	 * <pre>
+	 * 통신사 삭제 하기 
+	 * 
+	 * @param inParam
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 9. 27. 오후 4:00:34
+	 * @author LeeJinSe
+	 * @see com.ssocio.sharing.service.admin.AdminTelcomService#deleteTelcomReg(java.util.Map)
+	 * @비고
+	 * 
+	 * </pre>
+	*/
+	@Override
+	public int deleteTelcomReg(Map<String, Object> inParam) throws Exception {
+		int Cnt = 0;
+		Cnt = adminTelcomDao.deleteSpTelcomTbReg(inParam);
+		//정상적으로 삭제 되었는지 
+		if(Cnt > 0){
+			Cnt = adminTelcomDao.SelectChkPayPlan(inParam);
+		}else{
+			Cnt = 0;
+		}
+		return Cnt;
+	}
+	
+}

@@ -1,0 +1,412 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="batchMyStatisMapper">
+	
+	
+	<select id="selectBatchStatisAccDateLastDate" resultType="String">
+		SELECT	CASE WHEN CONCAT(YEAR,MONTH,DATE) &lt;  DATE_FORMAT(SUBDATE(NOW(),1),'%Y%m%d')
+                            THEN CONCAT(YEAR,MONTH,DATE)
+                            ELSE 'LATEDATA'
+                    END
+		FROM		statis_acc_date
+		ORDER BY YEAR DESC, MONTH DESC, DATE DESC
+		LIMIT 1
+	</select>
+	
+	<!-- 접속통계일계테이블 -->
+	<insert id="insertBatchStatisAccDate" parameterType="hashmap" >
+		/*batchMyStatisMapper.insertBatchStatisAccDate*/
+		INSERT INTO statis_acc_date (
+					YEAR
+		,			MONTH
+		,			DATE
+		,			WEEK
+        ,           YM
+		,			MWA_ACC_CNT
+		,			MWI_ACC_CNT
+		,			MAA_ACC_CNT
+		,			MAI_ACC_CNT
+		,			PW_ACC_CNT
+		,			REG_DTTI
+		)
+		SELECT  YEAR
+		,       MONTH
+		,       DATE
+		,       WEEK
+        ,       CONCAT(YEAR,MONTH)
+		,       IFNULL(MAX(MAA_ACC_CNT),0) AS MAA_ACC_CNT
+		,       IFNULL(MAX(MAI_ACC_CNT),0) AS MAI_ACC_CNT
+		,       IFNULL(MAX(MWA_ACC_CNT),0) AS MWA_ACC_CNT
+		,       IFNULL(MAX(MWI_ACC_CNT),0) AS MWI_ACC_CNT
+		,       IFNULL(MAX(PW_ACC_CNT),0)  AS PW_ACC_CNT
+		,		NOW()
+		FROM (
+				SELECT  YEAR
+				,       MONTH
+				,       DATE
+				,       WEEK
+				,       CASE WHEN ACC_TYPE = 'MOBILEAPPANDROID'
+				             THEN COUNT(*)
+				        END  AS MAA_ACC_CNT
+				,       CASE WHEN ACC_TYPE = 'MOBILEAPPIOS'
+				             THEN COUNT(*)
+				        END  AS MAI_ACC_CNT
+				,       CASE WHEN ACC_TYPE = 'MOBILEWEBANDROID'
+				             THEN COUNT(*)
+				        END  AS MWA_ACC_CNT
+				,       CASE WHEN ACC_TYPE = 'MOBILEWEBIOS'
+				             THEN COUNT(*)
+				        END  AS MWI_ACC_CNT
+				,       CASE WHEN ACC_TYPE = 'PCWEB'
+				             THEN COUNT(*)
+				        END  AS PW_ACC_CNT      
+				FROM (
+					SELECT  CASE WHEN INSTR(HEADER,'MOBILEAPP') > 0
+					             THEN CASE WHEN INSTR(HEADER,'Android') > 0
+					                       THEN 'MOBILEAPPANDROID'
+					                       WHEN INSTR(HEADER, 'iPhone') > 0
+					                       THEN 'MOBILEAPPIOS'
+					                  END
+					             ELSE CASE WHEN INSTR(HEADER,'Android') > 0
+					                       THEN 'MOBILEWEBANDROID'
+					                       WHEN INSTR(HEADER,'iPhone') > 0
+					                       THEN 'MOBILEWEBIOS'
+					                       ELSE 'PCWEB'
+					                  END
+					             
+					        END                												AS ACC_TYPE
+					,       DATE_FORMAT(REGIST_DT,'%Y') YEAR
+					,       DATE_FORMAT(REGIST_DT,'%m') MONTH
+					,       DATE_FORMAT(REGIST_DT,'%d') DATE
+					,		CEIL(DATE_FORMAT(DATE_ADD(REGIST_DT, INTERVAL (7 - DAYOFWEEK(REGIST_DT)) day),'%d')/7)		AS WEEK
+					FROM    acc_log
+                    WHERE   REGIST_DT &lt;= STR_TO_DATE(CONCAT(DATE_FORMAT(SUBDATE(NOW(),1),'%Y%m%d'),'235959'), '%Y%m%d%H%i%s')
+					<if test="sdate neq null and sdate neq ''.toString()">
+					AND   REGIST_DT &gt; STR_TO_DATE(CONCAT(#{sdate},'235959'), '%Y%m%d%H%i%s') 
+					</if>
+					ORDER BY REGIST_DT DESC
+				) Z
+				GROUP BY YEAR, MONTH, DATE, ACC_TYPE
+		) Y
+		GROUP BY YEAR, MONTH, DATE
+		ORDER BY YEAR, MONTH, DATE
+	</insert>
+	
+	<select id="selectBatchStatisAccTimeLastDate" resultType="String">
+		SELECT	CASE WHEN CONCAT(YEAR,MONTH,DATE) &lt;  DATE_FORMAT(SUBDATE(NOW(),1),'%Y%m%d')
+                            THEN CONCAT(YEAR,MONTH,DATE)
+                            ELSE 'LATEDATA'
+                    END
+		FROM		statis_acc_time
+		ORDER BY YEAR DESC, MONTH DESC, DATE DESC
+		LIMIT 1
+	</select>
+	
+	<!-- 접속통계일계테이블 -->
+	<insert id="insertBatchStatisAccTime" parameterType="hashmap" >
+		/*batchMyStatisMapper.insertBatchStatisAccTime*/
+		INSERT INTO statis_acc_time (
+					YEAR
+		,			MONTH
+		,			DATE
+		,			TIME
+        ,           YMD
+		,			MWA_ACC_CNT
+		,			MWI_ACC_CNT
+		,			MAA_ACC_CNT
+		,			MAI_ACC_CNT
+		,			PW_ACC_CNT
+		,			REG_DTTI
+		)
+		SELECT  YEAR
+		,       MONTH
+		,       DATE
+		,       TIME
+        ,       CONCAT(YEAR,MONTH,DATE)
+		,       IFNULL(MAX(MAA_ACC_CNT),0) AS MAA_ACC_CNT
+		,       IFNULL(MAX(MAI_ACC_CNT),0) AS MAI_ACC_CNT
+		,       IFNULL(MAX(MWA_ACC_CNT),0) AS MWA_ACC_CNT
+		,       IFNULL(MAX(MWI_ACC_CNT),0) AS MWI_ACC_CNT
+		,       IFNULL(MAX(PW_ACC_CNT),0)  AS PW_ACC_CNT
+		,		NOW()
+		FROM (
+				SELECT  YEAR
+				,       MONTH
+				,       DATE
+				,       TIME
+				,       CASE WHEN ACC_TYPE = 'MOBILEAPPANDROID'
+				             THEN COUNT(*)
+				        END  AS MAA_ACC_CNT
+				,       CASE WHEN ACC_TYPE = 'MOBILEAPPIOS'
+				             THEN COUNT(*)
+				        END  AS MAI_ACC_CNT
+				,       CASE WHEN ACC_TYPE = 'MOBILEWEBANDROID'
+				             THEN COUNT(*)
+				        END  AS MWA_ACC_CNT
+				,       CASE WHEN ACC_TYPE = 'MOBILEWEBIOS'
+				             THEN COUNT(*)
+				        END  AS MWI_ACC_CNT
+				,       CASE WHEN ACC_TYPE = 'PCWEB'
+				             THEN COUNT(*)
+				        END  AS PW_ACC_CNT      
+				FROM (
+					SELECT  CASE WHEN INSTR(HEADER,'MOBILEAPP') > 0
+					             THEN CASE WHEN INSTR(HEADER,'Android') > 0
+					                       THEN 'MOBILEAPPANDROID'
+					                       WHEN INSTR(HEADER, 'iPhone') > 0
+					                       THEN 'MOBILEAPPIOS'
+					                  END
+					             ELSE CASE WHEN INSTR(HEADER,'Android') > 0
+					                       THEN 'MOBILEWEBANDROID'
+					                       WHEN INSTR(HEADER,'iPhone') > 0
+					                       THEN 'MOBILEWEBIOS'
+					                       ELSE 'PCWEB'
+					                  END
+					             
+					        END                AS ACC_TYPE
+					,       DATE_FORMAT(REGIST_DT,'%Y') YEAR
+					,       DATE_FORMAT(REGIST_DT,'%m') MONTH
+					,       DATE_FORMAT(REGIST_DT,'%d') DATE
+					,       DATE_FORMAT(REGIST_DT,'%H') TIME
+					FROM    acc_log
+					WHERE   REGIST_DT &lt;= STR_TO_DATE(CONCAT(DATE_FORMAT(SUBDATE(NOW(),1),'%Y%m%d'),'235959'), '%Y%m%d%H%i%s')
+					<if test="sdate neq null and sdate neq ''.toString()">
+					AND   REGIST_DT &gt; STR_TO_DATE(CONCAT(#{sdate},'235959'), '%Y%m%d%H%i%s') 
+					</if>
+					ORDER BY REGIST_DT DESC
+				) Z
+				GROUP BY YEAR, MONTH, DATE, TIME, ACC_TYPE
+		) Y
+		GROUP BY YEAR, MONTH, DATE, TIME
+		ORDER BY YEAR, MONTH, DATE, TIME
+	</insert>
+	
+	<!-- 메뉴 접속 통계 -->
+	
+	<select id="selectBatchStatisAccMenuDateLastDate" resultType="String">
+		SELECT	CASE WHEN CONCAT(YEAR,MONTH,DATE) &lt;  DATE_FORMAT(SUBDATE(NOW(),1),'%Y%m%d')
+                            THEN CONCAT(YEAR,MONTH,DATE)
+                            ELSE 'LATEDATA'
+                    END
+		FROM		statis_acc_menu_date
+		ORDER BY YEAR DESC, MONTH DESC, DATE DESC
+		LIMIT 1
+	</select>
+	
+	<insert id="insertStatisAccMenuDate" parameterType="hashmap">
+		INSERT INTO statis_acc_menu_date (
+					YEAR
+		,			MONTH
+		,			DATE
+		,			WEEK
+        ,           YM
+		,			MAIN_CNT
+		,			SEARCH_CNT
+        ,           SP_SHARE_CNT
+		,			PLAN_CNT
+		,			WISH_CNT
+		,			ODR_MNG_CNT
+        ,           SEL_MNG_CNT
+		,			EVT_CNT
+		,			REG_DTTI
+		)
+		SELECT  	YEAR
+		,       		MONTH
+		,       		DATE
+		,       		WEEK
+        ,           CONCAT(YEAR,MONTH)
+		,       		IFNULL(MAX(MAIN_CNT),0)     	AS MAIN_CNT
+		,       		IFNULL(MAX(SEARCH_CNT),0)   	AS SEARCH_CNT
+		,       		IFNULL(MAX(SHARE_CNT),0)    	AS SHARE_CNT
+		,       		IFNULL(MAX(PLAN_CNT),0)     	AS PLAN_CNT
+		,       		IFNULL(MAX(WISH_CNT),0)     	AS WISH_CNT
+		,       		IFNULL(MAX(ODR_MNG_CNT),0)	AS ODR_MNG_CNT
+		,       		IFNULL(MAX(SEL_MNG_CNT),0)	AS SEL_MNG_CNT
+		,       		IFNULL(MAX(EVT_CNT),0)      	AS EVT_CNT
+		,		    NOW()
+		FROM (         
+        		SELECT  	YEAR
+				,       		MONTH
+				,       		DATE
+				,       		WEEK
+				,       		CASE WHEN ACC_MENU = 'MAIN'
+				             		THEN COUNT(*)
+				        	END  AS MAIN_CNT
+				,       		CASE WHEN ACC_MENU = 'SEARCH'
+				             		THEN COUNT(*)
+				        	END  AS SEARCH_CNT
+				,       		CASE WHEN ACC_MENU = 'SHARE'
+				             		THEN COUNT(*)
+				        	END  AS SHARE_CNT
+				,       		CASE WHEN ACC_MENU = 'PLAN'
+				             		THEN COUNT(*)
+				        	END  AS PLAN_CNT
+				,       		CASE WHEN ACC_MENU = 'RECMMD'
+				             		THEN COUNT(*)
+				        	END  AS RECMMD_CNT
+				,       		CASE WHEN ACC_MENU = 'WISH'
+				             		THEN COUNT(*)
+				        	END  AS WISH_CNT 
+				,       		CASE WHEN ACC_MENU = 'ODR_MNG'
+				             		THEN COUNT(*)
+				        	END  AS ODR_MNG_CNT 
+				,       		CASE WHEN ACC_MENU = 'SEL_MNG'
+				             		THEN COUNT(*)
+				        	END  AS SEL_MNG_CNT 
+				,       		CASE WHEN ACC_MENU = 'EVT'
+				             		THEN COUNT(*)
+				        	END  AS EVT_CNT      
+				FROM (    
+          				SELECT	CASE WHEN INSTR(URL,'/mobile/') > 0
+					             			THEN (CASE WHEN INSTR(URL,'/main/') > 0
+									                       THEN 'MAIN'
+									                       WHEN INSTR(URL, '/search/') > 0
+									                       THEN 'SEARCH'
+									                       WHEN INSTR(URL, '/shar/') > 0
+									                       THEN 'SHARE'
+									                       WHEN INSTR(URL, '/planning/') > 0
+									                       THEN 'PLAN'
+									                       WHEN INSTR(URL, '//') > 0
+									                       THEN 'RECMMD'
+									                       WHEN INSTR(URL, '/myWish/') > 0
+									                       THEN 'WISH'
+									                       WHEN INSTR(URL, '/buy/') > 0
+									                       THEN 'ODR_MNG'
+									                       WHEN INSTR(URL, '/salemanage/') > 0
+									                       THEN 'SEL_MNG'
+									                       WHEN INSTR(URL, '/event/') > 0
+									                       THEN 'EVT'
+									                  END	)			
+					             
+					        		END                												AS ACC_MENU
+						,       		DATE_FORMAT(REGIST_DT,'%Y') 								AS YEAR
+						,       		DATE_FORMAT(REGIST_DT,'%m') 								AS MONTH
+						,       		DATE_FORMAT(REGIST_DT,'%d') 								AS DATE
+						,			CEIL(DATE_FORMAT(DATE_ADD(REGIST_DT, INTERVAL (7 - DAYOFWEEK(REGIST_DT)) day),'%d')/7)		AS WEEK
+						FROM    	acc_log
+						WHERE   REGIST_DT &lt;= STR_TO_DATE(CONCAT(DATE_FORMAT(SUBDATE(NOW(),1),'%Y%m%d'),'235959'), '%Y%m%d%H%i%s')
+    					<if test="sdate neq null and sdate neq ''.toString()">
+    					AND   REGIST_DT &gt; STR_TO_DATE(CONCAT(#{sdate},'235959'), '%Y%m%d%H%i%s') 
+    					</if>
+          				) Z
+        		WHERE ACC_MENU IS NOT NULL
+				GROUP BY YEAR, MONTH, DATE, ACC_MENU
+        ) Y
+		GROUP BY YEAR, MONTH, DATE
+		ORDER BY YEAR, MONTH, DATE
+	</insert>
+	
+	<select id="selectBatchStatisAccMenuDateLastTime" resultType="String">
+		SELECT	CASE WHEN CONCAT(YEAR,MONTH,DATE) &lt;  DATE_FORMAT(SUBDATE(NOW(),1),'%Y%m%d')
+                            THEN CONCAT(YEAR,MONTH,DATE)
+                            ELSE 'LATEDATA'
+                    END
+		FROM		statis_acc_menu_time
+		ORDER BY YEAR DESC, MONTH DESC, DATE DESC
+		LIMIT 1
+	</select>
+	
+	<insert id="insertStatisAccMenuTime" parameterType="hashmap">
+		INSERT INTO statis_acc_menu_time (
+					YEAR
+		,			MONTH
+		,			DATE
+		,			TIME
+        ,           YMD
+		,			MAIN_CNT
+		,			SEARCH_CNT
+        ,           SP_SHARE_CNT
+		,			PLAN_CNT
+		,			WISH_CNT
+		,			ODR_MNG_CNT
+        ,           SEL_MNG_CNT
+		,			EVT_CNT
+		,			REG_DTTI
+		)
+		SELECT  	YEAR
+		,       		MONTH
+		,       		DATE
+		,       		TIME
+        ,           CONCAT(YEAR,MONTH,DATE)
+		,       		IFNULL(MAX(MAIN_CNT),0)     	AS MAIN_CNT
+		,       		IFNULL(MAX(SEARCH_CNT),0)    	AS SEARCH_CNT
+		,       		IFNULL(MAX(SHARE_CNT),0)     	AS SHARE_CNT
+		,       		IFNULL(MAX(PLAN_CNT),0)      	AS PLAN_CNT
+		,       		IFNULL(MAX(WISH_CNT),0)      	AS WISH_CNT
+		,       		IFNULL(MAX(ODR_MNG_CNT),0) 	AS ODR_MNG_CNT
+		,       		IFNULL(MAX(SEL_MNG_CNT),0) 	AS SEL_MNG_CNT
+		,       		IFNULL(MAX(EVT_CNT),0)       	AS EVT_CNT
+		,		    NOW()
+		FROM (         
+        		SELECT  	YEAR
+				,       		MONTH
+				,       		DATE
+				,       		TIME
+				,       		CASE WHEN ACC_MENU = 'MAIN'
+				             		THEN COUNT(*)
+				        	END  AS MAIN_CNT
+				,       		CASE WHEN ACC_MENU = 'SEARCH'
+				             		THEN COUNT(*)
+				        	END  AS SEARCH_CNT
+				,       		CASE WHEN ACC_MENU = 'SHARE'
+				             		THEN COUNT(*)
+				        	END  AS SHARE_CNT
+				,       		CASE WHEN ACC_MENU = 'PLAN'
+				             		THEN COUNT(*)
+				        	END  AS PLAN_CNT
+				,       		CASE WHEN ACC_MENU = 'RECMMD'
+				             		THEN COUNT(*)
+				        	END  AS RECMMD_CNT
+				,       		CASE WHEN ACC_MENU = 'WISH'
+				             		THEN COUNT(*)
+				        	END  AS WISH_CNT 
+				,       		CASE WHEN ACC_MENU = 'ODR_MNG'
+				             		THEN COUNT(*)
+				        	END  AS ODR_MNG_CNT 
+				,       		CASE WHEN ACC_MENU = 'SEL_MNG'
+				             		THEN COUNT(*)
+				        	END  AS SEL_MNG_CNT 
+				,       		CASE WHEN ACC_MENU = 'EVT'
+				             		THEN COUNT(*)
+				        	END  AS EVT_CNT      
+				FROM (    
+          				SELECT	CASE WHEN INSTR(URL,'/mobile/') > 0
+					             			THEN (CASE WHEN INSTR(URL,'/main/') > 0
+									                       THEN 'MAIN'
+									                       WHEN INSTR(URL, '/search/') > 0
+									                       THEN 'SEARCH'
+									                       WHEN INSTR(URL, '/shar/') > 0
+									                       THEN 'SHARE'
+									                       WHEN INSTR(URL, '/planning/') > 0
+									                       THEN 'PLAN'
+									                       WHEN INSTR(URL, '//') > 0
+									                       THEN 'RECMMD'
+									                       WHEN INSTR(URL, '/myWish/') > 0
+									                       THEN 'WISH'
+									                       WHEN INSTR(URL, '/buy/') > 0
+									                       THEN 'ODR_MNG'
+									                       WHEN INSTR(URL, '/salemanage/') > 0
+									                       THEN 'SEL_MNG'
+									                       WHEN INSTR(URL, '/event/') > 0
+									                       THEN 'EVT'
+									                  END	)			
+					             
+					        		END                												AS ACC_MENU
+						,       		DATE_FORMAT(REGIST_DT,'%Y') 								AS YEAR
+						,       		DATE_FORMAT(REGIST_DT,'%m') 								AS MONTH
+						,       		DATE_FORMAT(REGIST_DT,'%d') 								AS DATE
+						,       		DATE_FORMAT(REGIST_DT,'%H') 								AS TIME
+						FROM    	acc_log
+						WHERE   REGIST_DT &lt;= STR_TO_DATE(CONCAT(DATE_FORMAT(SUBDATE(NOW(),1),'%Y%m%d'),'235959'), '%Y%m%d%H%i%s')
+    					<if test="sdate neq null and sdate neq ''.toString()">
+    					AND   REGIST_DT &gt; STR_TO_DATE(CONCAT(#{sdate},'235959'), '%Y%m%d%H%i%s') 
+    					</if>
+          				) Z
+        		WHERE ACC_MENU IS NOT NULL
+				GROUP BY YEAR, MONTH, DATE, TIME, ACC_MENU
+        ) Y
+		GROUP BY YEAR, MONTH, DATE, TIME
+		ORDER BY YEAR, MONTH, DATE, TIME
+	</insert>
+	
+</mapper>

@@ -1,0 +1,222 @@
+package com.ssocio.sharing.service.seller;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import javax.annotation.Resource;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.ui.ModelMap;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.multipart.MultipartHttpServletRequest;
+
+import com.ssocio.sharing.cmmn.admin.util.FileUtil;
+import com.ssocio.sharing.cmmn.util.StringUtil;
+import com.ssocio.sharing.dao.seller.SellerCommonDao;
+import com.ssocio.sharing.dao.seller.SellerCtryDao;
+
+/**
+ * <pre>
+ * 카테고리 서비스
+ * 카테고리 관리를 위한 서비스
+ * @author Y.I.Chun
+ * @version 
+ * @since 2015. 7. 6. 오후 6:41:07
+ * @see 
+ * @History 
+ *  Date          |    author    | 변경내용  
+ *	2015. 7. 6.   |    Y.I.Chun  | 신규
+ * @Todo
+ * </pre>
+ */
+@Service
+public class SellerCtryServiceImpl implements SellerCtryService {
+	
+	// --------------------------------------------------------------------------
+	// # Log 설정
+	// --------------------------------------------------------------------------
+	private static final Logger logger = LoggerFactory.getLogger(SellerCtryServiceImpl.class);
+
+	// --------------------------------------------------------------------------
+	// # DAO 설정
+	// --------------------------------------------------------------------------
+	@Resource(name="sellerCtryDao")
+	private SellerCtryDao sellerCtryDao;
+	@Resource(name="sellerCommonDao")
+	private SellerCommonDao sellerCommonDao;
+	
+	/**
+	 * <pre>
+	 * 카테고리트리정보 조회
+	 * 카테고리트리정보를 조회 합니다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 7. 8. 오후 4:44:52
+	 * @author Y.I.Chun
+	 * @see com.ssocio.sharing.service.admin
+	 * </pre>
+	 */
+	public ModelMap selectCtryTree() throws Exception {
+
+		ModelMap mm = new ModelMap();
+		mm.put("ctryTreeInfo", sellerCtryDao.selectCtryTree());
+		return mm;
+	}
+	
+	/**
+	 * <pre>
+	 * 카테고리정보 조회
+	 * 카테고리정보를 조회 합니다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 7. 8. 오후 4:44:52
+	 * @author Y.I.Chun
+	 * @see com.ssocio.sharing.service.admin
+	 * </pre>
+	 */
+	public ModelMap selectCtryInfo(Map<String, Object> inParam) throws Exception {
+
+		ModelMap mm = new ModelMap();
+		mm.put("ctryInfo", sellerCtryDao.selectCtryInfo(inParam));
+		return mm;
+	}
+	
+	/**
+	 * <pre>
+	 * 카테고리정보 수정
+	 * 카테고리정보를 수정 합니다.
+	 * @param req
+	 * @param inParam
+	 * @throws Exception
+	 * @date 2015. 7. 8. 오후 4:45:13
+	 * @author Y.I.Chun
+	 * @see com.ssocio.sharing.service.admin
+	 * </pre>
+	 */
+	public void updateCtryInfo(MultipartHttpServletRequest req, Map<String, Object> inParam) throws Exception {
+		
+		//브랜드이미지 파일
+		MultipartFile ctryImg = req.getFile("ctryImg");
+		
+		//브랜드이미지 등록
+		String fileSeq = null;
+		if(ctryImg != null && ctryImg.getSize() > 0){
+			Map<String, Object> fileInfo = FileUtil.saveMultipartFile(ctryImg);//파일 저장
+			fileSeq = sellerCommonDao.insertFile(fileInfo);
+		}
+		inParam.put("fileSeq", fileSeq);
+
+		sellerCtryDao.updateCtryInfo(inParam);
+	}
+	
+	/**
+	 * <pre>
+	 * 카테고리정렬순서 수정
+	 * 카테고리정렬순서를 수정 합니다.
+	 * @param inParam
+	 * @throws Exception
+	 * @date 2015. 7. 8. 오후 4:45:13
+	 * @author Y.I.Chun
+	 * @see com.ssocio.sharing.service.admin
+	 * </pre>
+	 */
+	public void updateCtrySort(Map<String, Object> inParam) throws Exception {
+		
+		Map<String, Object> param = new HashMap<String, Object>();
+		param.put("ctryCd", inParam.get("sortCtryCd1"));
+		param.put("sortSeq", inParam.get("sortSeq1"));
+		sellerCtryDao.updateCtrySort(param);
+		param.put("ctryCd", inParam.get("sortCtryCd2"));
+		param.put("sortSeq", inParam.get("sortSeq2"));
+		sellerCtryDao.updateCtrySort(param);
+	}
+	
+	/**
+	 * <pre>
+	 * 카테고리정보 삭제
+	 * 카테고리정보를 삭제 합니다.
+	 * @param inParam
+	 * @throws Exception
+	 * @date 2015. 7. 8. 오후 4:45:13
+	 * @author Y.I.Chun
+	 * @see com.ssocio.sharing.service.admin
+	 * </pre>
+	 */
+	public void deleteCtryInfo(Map<String, Object> inParam) throws Exception {
+
+		sellerCtryDao.deleteCtryInfo(inParam);
+	}
+	
+	/**
+	 * <pre>
+	 * 카테고리정보 등록
+	 * 카테고리정보를 등록 합니다.
+	 * @param inParam
+	 * @throws Exception
+	 * @date 2015. 7. 8. 오후 4:45:31
+	 * @author Y.I.Chun
+	 * @see com.ssocio.sharing.service.admin
+	 * </pre>
+	 */
+	public void insertCtryInfo (MultipartHttpServletRequest req, Map<String, Object> inParam) throws Exception {
+		
+		//타케고리레벨
+		String lvlSeq = (String)inParam.get("lvlSeq");
+		//이미지SEQ
+		String fileSeq = null;
+		
+		if(lvlSeq.equals("1")){
+			//대분류카테고리 이미지
+			MultipartFile regCrtyImg = req.getFile("regCrtyImg");
+			
+			//브랜드이미지 등록
+			if(regCrtyImg != null && regCrtyImg.getSize() > 0){
+				Map<String, Object> fileInfo = FileUtil.saveMultipartFile(regCrtyImg);//파일 저장
+				fileSeq = sellerCommonDao.insertFile(fileInfo);
+			}
+		}
+		inParam.put("fileSeq", fileSeq);
+		
+		//카테코리키값 조회
+		String ctryCd = sellerCtryDao.selectCtryCd(inParam);
+		if(StringUtil.isEmpty(ctryCd)){//하위카테고리가 존재하지 않으면 생성
+			if(lvlSeq.equals("1")){
+				ctryCd = "1001";
+			}else if(lvlSeq.equals("2")){
+				String parentCtryCd = (String)inParam.get("parentCtryCd");
+				ctryCd = parentCtryCd.substring(0, 4) + "1001";
+			}else if(lvlSeq.equals("3")){
+				String parentCtryCd = (String)inParam.get("parentCtryCd");
+				ctryCd = parentCtryCd.substring(0, 8) + "1001";
+			}
+		}
+		
+		inParam.put("ctryCd", ctryCd);
+		
+		sellerCtryDao.insertCtryInfo(inParam);
+	}
+	
+	/**
+	 * <pre>
+	 * 분류별 카테고리 리스트 조회
+	 * 분류별 카테고리 리스트정보를 조회 합니다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception 
+	 * @exception 
+	 * @date 2015. 7. 6. 오후 6:41:07
+	 * @author Y.I.Chun
+	 * @비고
+	 * 
+	 * </pre>
+	 */
+	public ModelMap selectCtryList(Map<String, Object> inParam) throws Exception{
+		ModelMap mm = new ModelMap();
+		mm.put("ctryList", sellerCtryDao.selectCtryList(inParam));
+		return mm;
+	}
+}

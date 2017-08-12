@@ -1,0 +1,1161 @@
+<%@ page language="java" contentType="text/html; charset=utf-8"
+    pageEncoding="utf-8"%>
+<!-- 태그는 cmmnHead.jsp 에 선언함 -->
+<%@ include file="/WEB-INF/views/web/common/webJSTL.jsp"%>
+<script type="text/javascript">
+
+$(document).ready(function() {
+	// 헤더 set
+	header.type	= 2; // 0 : 타이틀영역만존재, 1 : 검색HEADER, 2 : SELECT TYPE HEADER, 3 : AD MENU TYPE HEADER, 4 : SUB TYPE HEADER
+	header.title = "셰어링 주문내역 상세";
+	document.title = "셰어링 주문내역 상세";
+	header.method = "POST";
+	header.backUrl = "/mobile/buy/selectListSharOrderHist.do";
+	header.form = $("#frm");
+	header.callback = f_headerCallBack();
+	initHeader();
+	
+	displayFooter(false);
+	
+	// 주소 확인 닫기 이벤트
+	$("#btn_close").click(function() {
+		popup_hide();
+	});
+	
+});
+
+/* ======================================================================
+Function : 헤더 콜백 처리
+Return   : 없음
+========================================================================= */
+function f_headerCallBack() {
+	$("#ACTION").val("list");
+}
+
+/* ======================================================================
+Function : 공통 화면 호출
+Return   : 없음
+========================================================================= */
+function f_goCommCall(url, sOrdCd, sProdCd, sProdSeq, sScrGubun) {
+	var arrProdCd = new Array();
+	var arrProdSeq = new Array();
+	
+	if(sScrGubun != "prodPost" && sScrGubun != "shipView" && sScrGubun != "retShipView" && sScrGubun != "colShipView") {
+		if(sScrGubun == "orderCancel") {
+			sConfMsg = "선택하신 상품을 주문 취소 하시겠습니까?";
+		}else if(sScrGubun == "excReq") {
+			sConfMsg = "선택하신 상품을 교환 신청 하시겠습니까?";
+		}else if(sScrGubun == "takeBackReq") {
+			sConfMsg = "선택하신 상품을 반품 신청 하시겠습니까?";
+		}
+		
+		if(confirm(sConfMsg) == false) { return; }
+	}
+	
+	arrProdCd.push(sProdCd);
+	arrProdSeq.push(sProdSeq);
+	$("#S_ORD_CD").val(sOrdCd);
+	$("#S_PROD_CD").val(arrProdCd);
+	$("#S_PROD_SEQ").val(arrProdSeq);
+	$("#S_SCR_GUBUN").val(sScrGubun);
+	$("#frm").attr("action", url).submit();
+}
+
+/* ======================================================================
+Function : 구매확정
+Return   : 없음
+========================================================================= */
+function f_saveBuyFix(sOrdCd, sProdCd, sProdSeq) {
+	
+	if(confirm("선택하신 상품을 구매확정 하시겠습니까?") == false) { return; }
+	
+	$.ajax({
+	    type: "post",
+	    async: true,
+	    url: "/mobile/buy/saveBuyFix.do",
+	    data: {"S_ORD_CD":sOrdCd, "S_PROD_CD":sOrdCd, "S_PROD_SEQ":sProdSeq, "I_PROC_STAT_CD":"86"},
+	    success: function(data) {
+	    	if(data.result > 0) {
+				alert("구매확정이 완료 되었습니다.");
+				f_searchBuySharList("list");
+			}else {
+				alert("구매확정에 실패했습니다.");
+			}
+	    },
+	    error: function(data, status, err) {
+	      alert('서버와의 통신이 실패했습니다.');
+	    }
+	});
+}
+function f_searchBuySharList(sAction) {
+	var sSearchPeri = $("#S_SEARCH_PERI").val();
+    var url = "/mobile/buy/selectListSharOrderHist.do";
+    
+    if(gf_isNull(sSearchPeri)) {
+    	alert("조회기간은 필수 입력입니다.");
+		return;
+    }
+    $("#frm").attr("method","get");
+    $("#ACTION").val(sAction);
+	$("#frm").attr("action", url).submit();
+}
+/* ======================================================================
+Function : 셰어링 확정
+Return   : 없음
+========================================================================= */
+function f_saveShareFix(sOrdCd, sProdCd, sProdSeq) {
+	
+	if(confirm("선택하신 상품을 셰어링 확정 처리를 하시겠습니까?") == false) { return; }
+	
+	$.ajax({
+	    type: "post",
+	    async: true,
+	    url: "/mobile/buy/saveShareFix.do",
+	    data: {"S_ORD_CD":sOrdCd, "S_PROD_CD":sProdCd, "S_PROD_SEQ":sProdSeq, "I_PROC_STAT_CD":"85"},
+	    success: function(data) {
+	    	if(data.result > 0) {
+				alert("셰어링 확정이 완료 되었습니다.");
+				f_searchBuySharList("list");
+			}else {
+				alert("셰어링 확정에 실패했습니다.");
+			}
+	    },
+	    error: function(data, status, err) {
+	      alert('서버와의 통신이 실패했습니다.');
+	    }
+	});
+}
+
+/* ======================================================================
+Function : 주소 확인 레이어
+Return   : 없음
+========================================================================= */
+function f_addrConfLay(sOrdCd, sProdCd, sProdSeq, sScrGubun) {
+	var sConfMsg = "";	
+	if(sScrGubun == "retReq") {
+		sConfMsg = "선택하신 상품을 반납신청 하시겠습니까?";
+	}else if(sScrGubun == "colReq") {
+		sConfMsg = "선택하신 상품을 회수요청 하시겠습니까?";
+	}
+		
+	if(confirm(sConfMsg) == false) { return; }
+	
+	var wd = $(window).width();
+	var pop_wd = $('.public_stop').width();
+	$('.public_stop').css({"left":((wd-pop_wd)/2)+"px"}).show();
+	popup_show();
+	$("#S_SCR_GUBUN").val(sScrGubun);
+	
+	$.ajax({
+	    type: "post",
+	    async: true,
+	    url: "/mobile/buy/selectAddrConf.do",
+	    data: {"S_ORD_CD":sOrdCd, "S_PROD_CD":sProdCd, "S_PROD_SEQ":sProdSeq},
+	    success: function(data) {
+	    	if(data.list.buyOrdAddr.length > 0) {
+	    		var sRcvNm = data.list.buyOrdAddr[0].RCV_NM;
+		    	var sDlvZipCd = data.list.buyOrdAddr[0].DLV_ZIP_CD;
+		    	var sDlvAddr = data.list.buyOrdAddr[0].DLV_ADDR;
+		    	var sDlvAddrDtl = data.list.buyOrdAddr[0].DLV_ADDR_DTL;
+		    	var sContact = data.list.buyOrdAddr[0].CONTACT;
+		    	var sSecuNoUseYn = data.list.buyOrdAddr[0].SECU_NO_USE_YN;
+		    	var sForVisit = data.list.buyOrdAddr[0].FOR_VISIT.dateFormat(".");
+		    	var sSecuNoUseNm = "";
+		    	
+		    	$("#S_ORD_CD").val(sOrdCd);
+		    	$("#S_PROD_CD").val(sProdCd);
+		    	$("#S_PROD_SEQ").val(sProdSeq);
+		    	$("#I_RCV_NM").val(sRcvNm);
+		    	$("#I_ZIP_CODE").val(sDlvZipCd);
+		    	$("#I_BAS_ADDR").val(sDlvAddr);
+		    	$("#I_DTL_ADDR").val(sDlvAddrDtl);
+		    	$("#I_CONTACT").val(sContact);
+		    	$("#I_SECU_NO_USE_YN").val(sSecuNoUseYn);
+		    	
+		    	if(sSecuNoUseYn == "Y") {
+		    		sSecuNoUseNm = "안심번호 사용";
+		    	}
+		    	
+		    	$("#rcvNm").html(sRcvNm);
+		    	$("#dlvZipCd").html(sDlvZipCd);
+		    	$("#dlvAddr").html(sDlvAddr);
+		    	$("#dlvAddrDtl").html(sDlvAddrDtl);
+		    	$("#contact").html(sContact);
+		    	$("#secuNoUseYn").html(sSecuNoUseNm);
+		    	$("#forVisit").html(sForVisit);
+	    	}
+	    },
+	    error: function(data, status, err) {
+	      alert('서버와의 통신이 실패했습니다.');
+	    }
+	});
+}
+
+/* ======================================================================
+Function : 주소변경 화면 호출
+Return   : 없음
+========================================================================= */
+function f_addrChgCall() {
+	var url = "/mobile/buy/selectAddrChg.do";
+	$("#frm").attr("action", url).submit();
+}
+
+/* ======================================================================
+Function : 주소확인 신청하기
+Return   : 없음
+========================================================================= */
+function f_addrReq() {
+	var sScrGubun = $("#S_SCR_GUBUN").val();
+	var sChgGbCd;
+	var sChgProcTypeCd;
+	var sProcStatCd;
+	
+	if(sScrGubun == "retReq") {
+		sChgGbCd = "80";
+		sChgProcTypeCd = "80";
+		sProcStatCd = "87";
+	}else if(sScrGubun == "colReq") {
+		sChgGbCd = "90";
+		sChgProcTypeCd = "110";
+		sProcStatCd = "90";
+	}else {
+		sChgGbCd = "";
+		sChgProcTypeCd = "";
+		sProcStatCd = "";
+	}
+	
+	$("#I_CHG_GB_CD").val(sChgGbCd);
+	$("#I_CHG_PROC_TYPE_CD").val(sChgProcTypeCd);
+	$("#I_PROC_STAT_CD").val(sProcStatCd);
+	$("#I_RFND_CD").val("10");
+	$("#I_CHG_REASON_CD").val("");
+	$("#I_CHG_REASON").val("");
+	$("#I_SHIP_MEMO").val("");
+	
+	$.ajax({
+		type: "post",
+		async: true,
+		url: "/mobile/buy/saveAddrRetColReq.do",
+		dataType:"json",
+		data: $("#frm").serialize(),
+		success: function(data) {
+			if(data.result > 0) {
+				alert("신청이 완료 되었습니다.");
+				f_searchBuySharList("list");
+			}else {
+				alert("신청이 실패 되었습니다.");
+			}
+		},
+		error: function(data, status, err) {
+			alert("서버와의 통신이 실패했습니다.");
+		}
+	});
+}
+
+/* ======================================================================
+Function : 상품후기 수정 페이지
+Return   : 없음
+========================================================================= */
+function selectProdReviewForm(boardSeq, prodCode, ordCd){
+	$('#BOARD_SEQ').val(boardSeq);
+	$('#PROD_CODE').val(prodCode);
+	$('#ORD_CD').val(ordCd);
+	$("#frm").attr("action", "/mobile/board/saveProdPostMod.do").submit();
+}
+
+/* ======================================================================
+Function : 상품상세로 이동
+Return   : 없음
+========================================================================= */
+function goProdDtlPage(prodCode){
+	location.href = '/mobile/prod/selectProd.do?PROD_CODE=' + prodCode;
+}
+
+</script>
+<form name="frm" id="frm" method="get">
+<input type="hidden" id="BOARD_SEQ" name="BOARD_SEQ">
+<input type="hidden" id="ORD_CD" name="ORD_CD">
+<input type="hidden" id="ACTION" name="ACTION">
+<input type="hidden" id="S_SEARCH_PERI" name="S_SEARCH_PERI" value="${searchParam.S_SEARCH_PERI}">
+<input type="hidden" id="S_PROC_STAT_CD" name="S_PROC_STAT_CD" value="${searchParam.S_PROC_STAT_CD}">
+<input type="hidden" id="S_PROD_TYPE_CD" name="S_PROD_TYPE_CD" value="2">
+<input type="hidden" id="S_PROD_NM" name="S_PROD_NM" value="${searchParam.S_PROD_NM}">
+<input type="hidden" id="S_ORD_CD" name="S_ORD_CD" value="${searchParam.S_ORD_CD}">
+<input type="hidden" id="S_PROD_CD" name="S_PROD_CD">
+<input type="hidden" id="S_PROD_SEQ" name="S_PROD_SEQ">
+<input type="hidden" id="S_SCR_ID" name="S_SCR_ID" value="selectListSharOrderDtl">
+<input type="hidden" id="S_SCR_GUBUN" name="S_SCR_GUBUN">
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+		<div class="roc">
+			<ul class="inner">
+				<li><img src="http://static.ssocio.net/pc/img/common/section/roc_home.png" alt="홈"></li>
+				<li>마이페이지</li>
+				<li>셰어링</li>
+			</ul>
+		</div>
+		<jsp:include page="../common/mype_top.jsp" flush="false" />
+		<div class="mype_s_tit">
+			<p>셰어링</p>
+		</div>
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+		<div id="">
+		
+			<!-- container -->
+			<div id="container">
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>
+
+        <h3 class="title">
+        	<c:forEach var="buySharList" items="${list.buySharList}" varStatus="status">
+        		<c:if test="${status.first}">
+        			<strong class="fl">${buySharList.ORD_CD}</strong> 
+        			<span class="fr">주문일 : ${buySharList.ORD_REG_DATE}</span>
+        		</c:if>
+			</c:forEach>
+        </h3>
+        <p class="title">주문상품 정보</p>
+        <c:set var="MBER_SEQ_TEMP" value="" />
+        <c:set var="CPN_USE_AMT" value="0" />
+        <c:set var="SHAREING_AMT" value="0" />
+        
+        <c:forEach var="buySharList" items="${list.buySharList}" varStatus="status">
+	        <ul class="sha_oder<c:if test="${status.index > 0}"> mt10</c:if>">
+	        	<c:if test="${buySharList.SELLER_MBER_SEQ eq MBER_SEQ_TEMP}">
+	        		<li class="sha_view">
+	        	</c:if>
+	        		<c:if test="${buySharList.SELLER_MBER_SEQ != MBER_SEQ_TEMP}">
+	        			<li>
+	        			<p class="phone"><span class="fl"><img src=<custom:codeTag groupCode='SITE_DEFAULT' code='DEFAULT_IMG_URL'/> alt="${buySharList.MINI_SHOP_PATH}">${buySharList.MINI_SHOP_NM}</span> 
+			       			<a href="TEL:${buySharList.MBER_PHONE }" class="fr">
+				        		<strong>전화걸기</strong>
+				        	</a>
+	        			</p>
+	                </c:if>
+	                <c:set var="MBER_SEQ_TEMP" value="${buySharList.SELLER_MBER_SEQ}" />
+	                <ul>
+	                	<li><a href="javascript:goProdDtlPage('${buySharList.PROD_CODE}')"><img src=<custom:codeTag groupCode='SITE_DEFAULT' code='DEFAULT_IMG_URL'/> alt="${buySharList.IMG_URL}"></a></li>
+	                	<li><strong><a href="javascript:goProdDtlPage('${buySharList.PROD_CODE}')">${buySharList.PROD_NM}</a></strong></li>
+	                	<li><span>보증금 <fmt:formatNumber value="${buySharList.DEPOSIT2}" pattern="#,###" />원<br>
+		                	<c:choose>
+		                		<c:when test="${buySharList.SELLER_MBER_GB_CD == '0'}" >
+		                			최대사용기간 ${buySharList.SHARE_TERM}일
+		                		</c:when>
+		                		<c:when test="${buySharList.SELLER_MBER_GB_CD == '1'}" >
+		                			셰어링 금액 <fmt:formatNumber value="${buySharList.SHAREING_AMT}" pattern="#,###" />원 (1일 <fmt:formatNumber value="${buySharList.SHARING_PRICE}" pattern="#,###" />원 X ${buySharList.SHARE_TERM}일)
+		                		</c:when>		                		
+		                	</c:choose>
+	                		</span>
+	                	</li>
+	                	<li>
+	                		<span>
+										<c:choose>
+										  <c:when test="${buySharList.DLV_WAY_CD == '1' || buySharList.DLV_WAY_CD == '2'}" >
+										  		<c:choose>
+										  		<c:when test="${buySharList.DLV_PAY_GB_CD == '1' }" >
+										  			택배 | 무료배송
+										  			<c:if test="${buySharList.DLV_GROUP_YN eq 'Y' ||  buySharList.DLV_STAND_AMT > 0}">
+										  			(
+										  				<c:if test="${buySharList.DLV_GROUP_YN eq 'Y' }">묶음배송</c:if>
+										  				<c:if test="${buySharList.DLV_GROUP_YN eq 'Y' &&  buySharList.DLV_STAND_AMT > 0}">,</c:if>
+										  				<c:if test="${buySharList.DLV_STAND_AMT > 0 }"><fmt:formatNumber value="${buySharList.DLV_STAND_AMT}" pattern="#,###" />원 이상 무료</c:if>
+										  			)
+										  			</c:if>
+										  		</c:when>
+										  		
+										  		<c:when test="${buySharList.DLV_PAY_GB_CD == '2' }" >
+										  			
+										  			택배 | <fmt:formatNumber value="${buySharList.DLV_PRCE}" pattern="#,###" />원/<c:if test="${buySharList.DLV_PAY_F_CD eq '10'}">선불</c:if><c:if test="${buySharList.DLV_PAY_F_CD eq '20'}">착불</c:if>
+										  			<c:if test="${buySharList.DLV_GROUP_YN eq 'Y' ||  buySharList.DLV_STAND_AMT > 0}">
+										  				(
+										  				<c:if test="${buySharList.DLV_GROUP_YN eq 'Y' }">묶음배송</c:if>
+										  				<c:if test="${buySharList.DLV_GROUP_YN eq 'Y' &&  buySharList.DLV_STAND_AMT > 0}">,</c:if>
+										  				<c:if test="${buySharList.DLV_STAND_AMT > 0 }"><fmt:formatNumber value="${buySharList.DLV_STAND_AMT}" pattern="#,###" />원 이상 무료</c:if>
+										  				)
+										  			</c:if>
+										  		</c:when>
+										  		</c:choose>											  
+										  </c:when>
+										  <c:when test="${buySharList.DLV_WAY_CD == '3' }" >
+										  	우편/등기 | 무료배송
+										  </c:when>
+										  
+										  <c:when test="${buySharList.DLV_WAY_CD == '4' }" >
+										  	<c:choose>
+										  		
+										  		<c:when test="${buySharList.DLV_PAY_GB_CD == '1' }" >
+										  			퀵서비스 | 무료배송
+										  		</c:when>
+										  		
+										  		<c:when test="${buySharList.DLV_PAY_GB_CD == '2' }" >
+										  			퀵서비스 | <fmt:formatNumber value="${buySharList.DLV_PRCE}" pattern="#,###" />원/착불
+										  		</c:when>										  		
+										  	</c:choose>
+										  </c:when>
+										  <c:when test="${buySharList.DLV_WAY_CD == '5' }" >
+										  	직거래
+										  </c:when>
+										  
+										</c:choose>  
+			                	| 구매수량 <fmt:formatNumber value="${buySharList.ORD_QTY}" pattern="#,###" />개
+		                	</span>
+	                	</li>
+	                </ul>
+	                <p class="btn">
+	                	<span class="fl">
+	                	
+		                <c:choose>
+						  	<c:when test="${buySharList.PROC_STAT_CD == '10' || buySharList.PROC_STAT_CD == '21'}" >
+						  		<a href="javascript:f_goCommCall('/mobile/buy/selectOrderCancel.do', '${buySharList.ORD_CD}', '${buySharList.PROD_CODE}', '${buySharList.PROD_SEQ}', 'orderCancel');" id="orderCancel" class="btn_b">주문취소</a>
+						  	</c:when>
+						  	<c:when test="${buySharList.PROC_STAT_CD == '22' || buySharList.PROC_STAT_CD == '24'}" >
+						  		<a href="javascript:f_goCommCall('/mobile/buy/selectShipView.do', '${buySharList.ORD_CD}', '${buySharList.PROD_CODE}', '${buySharList.PROD_SEQ}', 'shipView');" id="shipView" class="btn_b">배송조회</a>
+						  	</c:when>
+						  	<c:when test="${buySharList.PROC_STAT_CD == '23'}" >
+						  		<a href="javascript:f_saveShareFix('${buySharList.ORD_CD}', '${buySharList.PROD_CODE}', '${buySharList.PROD_SEQ}');" id="sharFix" class="btn_b">셰어링확정</a>
+						  		<a href="javascript:f_goCommCall('/mobile/buy/selectExcReq.do', '${buySharList.ORD_CD}', '${buySharList.PROD_CODE}', '${buySharList.PROD_SEQ}', 'excReq');" id="excReq" class="btn_b">교환신청</a>
+						  		<a href="javascript:f_goCommCall('/mobile/buy/selectTakeBackReq.do', '${buySharList.ORD_CD}', '${buySharList.PROD_CODE}', '${buySharList.PROD_SEQ}', 'takeBackReq');" id="takeBackReq" class="btn_b">반품신청</a>
+						  	</c:when>
+						  	<c:when test="${buySharList.PROC_STAT_CD == '85'}" >
+						  		<c:choose>
+									<c:when test="${buySharList.SHARE_USING_DAY <= buySharList.SHARE_TERM}"> <!-- 셰어링중 -->
+								  		<c:if test="${buySharList.SELLER_MBER_GB_CD == '0'}"> <!--  개인 -->
+									  		<a href="javascript:f_addrConfLay('${buySharList.ORD_CD}', '${buySharList.PROD_CODE}', '${buySharList.PROD_SEQ}', 'retReq');" id="retReq" class="btn_b">반납신청</a>
+									  	</c:if>
+									  	<c:if test="${buySharList.SELLER_MBER_GB_CD == '1'}"> <!--  개인 --> <!--  사업 -->
+									  		<a href="javascript:f_addrConfLay('${buySharList.ORD_CD}', '${buySharList.PROD_CODE}', '${buySharList.PROD_SEQ}', 'colReq');" id="colReq" class="btn_b">회수요청</a>
+									  	</c:if>
+									  	
+									  	<a href="javascript:f_goCommCall('/mobile/buy/selectExcReq.do', '${buySharList.ORD_CD}', '${buySharList.PROD_CODE}', '${buySharList.PROD_SEQ}', 'excReq');" id="excReq" class="btn_b">교환신청</a>
+					  					<a href="javascript:f_goCommCall('/mobile/buy/selectTakeBackReq.do', '${buySharList.ORD_CD}', '${buySharList.PROD_CODE}', '${buySharList.PROD_SEQ}', 'takeBackReq');" id="takeBackReq" class="btn_b">반품신청</a>
+									</c:when>
+									<c:otherwise> <!-- 셰어링종료 -->
+								  		<c:if test="${buySharList.BOARD_SEQ eq null}" >
+								  			<a href="javascript:f_goCommCall('/mobile/buy/selectProdPost.do', '${buySharList.ORD_CD}', '${buySharList.PROD_CODE}', '${buySharList.PROD_SEQ}', 'prodPost');" id="prodPost" class="btn_b">상품후기작성</a>
+								  		</c:if>
+								  		<c:if test="${buySharList.BOARD_SEQ ne null}" >
+								  			<a href="javascript:selectProdReviewForm('${buySharList.BOARD_SEQ }','${buySharList.PROD_CODE}', '${buySharList.ORD_CD}');" id="prodPost" class="btn_b">상품후기 수정</a>
+								  		</c:if>
+									</c:otherwise>
+								</c:choose>	
+								
+						  	</c:when>
+						  	<c:when test="${buySharList.PROC_STAT_CD == '87' || buySharList.PROC_STAT_CD == '88'|| buySharList.PROC_STAT_CD == '89'}" >
+						  		<a href="javascript:f_goCommCall('/mobile/buy/selectShipView.do', '${buySharList.ORD_CD}', '${buySharList.PROD_CODE}', '${buySharList.PROD_SEQ}', 'retShipView');" class="btn_b">배송조회</a>
+						  		<c:if test="${buySharList.BOARD_SEQ eq null}" >
+						  			<a href="javascript:f_goCommCall('/mobile/buy/selectProdPost.do', '${buySharList.ORD_CD}', '${buySharList.PROD_CODE}', '${buySharList.PROD_SEQ}', 'prodPost');" id="prodPost" class="btn_b">상품후기작성</a>
+						  		</c:if>
+						  		<c:if test="${buySharList.BOARD_SEQ ne null}" >
+						  			<a href="javascript:selectProdReviewForm('${buySharList.BOARD_SEQ }','${buySharList.PROD_CODE}', '${buySharList.ORD_CD}');" id="prodPost" class="btn_b">상품후기 수정</a>
+						  		</c:if>
+						  	</c:when>
+						  	<c:when test="${buySharList.PROC_STAT_CD == '43'}" >
+								 <a href="javascript:f_goCommCall('/mobile/buy/selectShipView.do', '${buySharList.ORD_CD}', '${buySharList.PROD_CODE}', '${buySharList.PROD_SEQ}', 'retShipView');" class="btn_b">배송조회</a>
+							</c:when>
+						</c:choose>
+						</span>
+						<fmt:parseDate value="${buySharList.SHAR_STA_DATE}" var="SHAR_STA_DATE" pattern="yyyyMMdd" scope="page" />
+						<fmt:parseDate value="${buySharList.SHAR_END_DATE}" var="SHAR_END_DATE" pattern="yyyyMMdd" scope="page" />
+						<fmt:parseDate value="${buySharList.TO_DAY}" var="TO_DAY" pattern="yyyyMMdd" scope="page" />
+						<fmt:parseDate value="${buySharList.FOR_VISIT}" var="FOR_VISIT" pattern="yyyyMMdd" scope="page" />						
+						<span class="fr">
+							<strong>
+								
+								<c:choose>
+									<c:when test="${buySharList.PROC_STAT_CD eq '85'}">
+										<c:choose>
+											<c:when test="${buySharList.SHARE_USING_DAY <= buySharList.SHARE_TERM}">
+											${buySharList.PROC_STAT_NM}(D-<c:out value="${buySharList.SHAR_DAY}"></c:out>)
+											</c:when>
+											<c:otherwise>셰어링종료</c:otherwise>
+										</c:choose>
+									</c:when>
+									<c:otherwise><custom:codeTag code="${buySharList.PROC_STAT_CD}" groupCode="PROC_STAT_CD" /></c:otherwise>
+								</c:choose>									
+								
+							</strong>
+						</span>
+					</p>
+					</li>
+					</ul>
+					<c:if test="${buySharList.PROC_STAT_CD == '23'}">
+	                <p class="sbox02 mt10">
+	                    <strong>배송완료일 : <fmt:formatDate value="${SHAR_STA_DATE}" pattern="yyyy-MM-dd" /></strong><br><br>
+	                    
+	                    <strong>자동 셰어링 확정 안내</strong><br>
+	                      셰어링 상품은 배송완료일로부터 7일 경과 시 자동으로 셰어링 확정 처리<br>
+	                      되며, 셰어링 확정 후 교환/반품 신청은 불가 합니다.
+	                </p>
+	                </c:if>
+	                <c:choose>	
+		                <c:when test="${buySharList.PROC_STAT_CD == '85' && buySharList.SELLER_MBER_GB_CD == '0'}">
+			                <c:choose>
+								<c:when test="${buySharList.SHARE_USING_DAY <= buySharList.SHARE_TERM}">
+						           <li class="sha_view">
+						            	<ol>
+						                	<li class="dot"><strong>셰어링 기간</strong><span><fmt:formatDate value="${SHAR_STA_DATE}" pattern="yyyy-MM-dd" />~<fmt:formatDate value="${SHAR_END_DATE}" pattern="yyyy-MM-dd" />  (${buySharList.SHARE_TERM}일 사용)  |  ${buySharList.SHAR_DAY}일 남음</span></li>
+						                	<li>
+																	<!-- 그래프 영역 % 처리 -->
+										                    	<c:if test="${buySharList.PROG_VAL < 51}">
+										                    		<div class="line_graph">
+																	<p class="tr">
+																		<span class="ico" style="left:${buySharList.PROG_VAL}%">
+																			<fmt:formatDate value="${TO_DAY}" pattern="MM/dd" /> (D-${buySharList.SHAR_DAY})
+																		</span>
+																	</p>
+										                    	</c:if>
+										                    	<c:if test="${buySharList.PROG_VAL > 51}">
+										                    		<div class="line_graph">
+										                    		<p class="tr" style="width:${buySharList.PROG_VAL}%">
+																		<span class="ico">
+																			<fmt:formatDate value="${TO_DAY}" pattern="MM/dd" /> (D-${buySharList.SHAR_DAY})
+																		</span>
+																	</p>
+										                    	</c:if>
+																<div class="bar"><p style="width:${buySharList.PROG_VAL}%"></p></div>
+																<p class="clear">
+																	<span class="fl">
+																		<fmt:formatDate value="${SHAR_STA_DATE}" pattern="MM/dd" />
+																	</span> 
+																	<span class="fr">
+																		<fmt:formatDate value="${SHAR_END_DATE}" pattern="MM/dd" />
+																	</span>
+																</p>
+															</div>
+						                    </li>
+						                	<li class="dot"><strong>보증금 잔액</strong><span><fmt:formatNumber value="${buySharList.DEPOSIT_BAL}" pattern="#,###" />원 (<fmt:formatNumber value="${buySharList.DEPOSIT}" pattern="#,###" />원 – <fmt:formatNumber value="${buySharList.DEPOSIT / buySharList.SHARE_TERM}" pattern="#,###" />원)</span></li>
+						                	<li><span>※ 셰어링 상품의 경우 상품 주문시 결제하신 보증금에서 셰어링 이용금액이 차감 되며 보증금 잔액 소진시 해당 상품은 구매자의 소유로 전환 됩니다.</span></li>
+						                </ol>
+						            </li>	
+								</c:when>
+								<c:otherwise>
+										<li class="sha_view">
+											<ol>
+												<li class="dot">
+													<strong>셰어링 기간</strong>
+													<span><fmt:formatDate value="${SHAR_STA_DATE}" pattern="yyyy-MM-dd" />~<fmt:formatDate value="${SHAR_END_DATE}" pattern="yyyy-MM-dd" /> 
+													(${buySharList.SHARE_TERM}일 사용)</span>
+												</li>
+												<li>
+													<!-- 그래프 영역 % 처리 -->
+						                    	<c:if test="${buySharList.PROG_VAL < 51}">
+						                    		<div class="line_graph">
+														<p class="tr" style="width:${buySharList.PROG_VAL}%">
+															<span class="ico">
+																<fmt:formatDate value="${TO_DAY}" pattern="MM/dd" /> 
+																<c:if test="${buySharList.SHARE_OK_YN == 'Y'}">
+																	(구매확정)
+																</c:if>
+															</span>
+														</p>						                    		
+						                    	</c:if>
+						                    	<c:if test="${buySharList.PROG_VAL > 51}">
+						                    		<div class="line_graph">
+														<p class="tr" style="width:${buySharList.PROG_VAL}%">
+															<span class="ico">
+																<fmt:formatDate value="${TO_DAY}" pattern="MM/dd" /> 
+																<c:if test="${buySharList.SHARE_OK_YN == 'Y'}">
+																	(구매확정)
+																</c:if>
+															</span>
+														</p>						                    		
+						                    	</c:if>
+														<div class="bar"><p style="width:${buySharList.PROG_VAL}%"></p></div>
+														<p class="clear">
+															<span class="fl">
+																<fmt:formatDate value="${SHAR_STA_DATE}" pattern="MM/dd" />
+															</span> 
+															<span class="fr">
+																<fmt:formatDate value="${SHAR_END_DATE}" pattern="MM/dd" />
+															</span>
+														</p>
+													</div>
+												</li>
+												<c:choose>
+													<c:when test="${buySharList.SHARE_OK_YN == 'Y'}">
+														<li><strong>구매확정 일시</strong><span>${buySharList.SHARE_OK_DT}</span></li>
+														<li><strong>구매금액</strong><span><fmt:formatNumber value="${buySharList.SHARE_OK_AMT}" pattern="#,###" />원 (배송비 포함)</span></li>
+													</c:when>
+													<c:otherwise>
+
+														<li><strong>보증금 잔액</strong>
+															<li class="dot"><strong>보증금 잔액</strong><span><fmt:formatNumber value="${buySharList.DEPOSIT_BAL}" pattern="#,###" />원 (<fmt:formatNumber value="${buySharList.DEPOSIT}" pattern="#,###" />원 – <fmt:formatNumber value="${buySharList.DEPOSIT / buySharList.SHARE_TERM}" pattern="#,###" />원)</span></li>
+														</li>
+														<li><span>※ 셰어링 상품의 경우 상품 주문시 결제하신 보증금에서 셰어링 이용금액이 차감 되며 보증금 잔액 소진시 해당 상품은 구매자의 소유로 전환 됩니다.</span></li>
+													</c:otherwise>
+												</c:choose>
+											</ol>
+										</li>
+								</c:otherwise>
+							</c:choose>
+		                </c:when>
+						<c:when test="${buySharList.PROC_STAT_CD == '85' && buySharList.SELLER_MBER_GB_CD == '1'}" >
+								<c:choose>
+									<c:when test="${buySharList.PROC_STAT_CD eq '85'}">
+										<c:choose>
+											<c:when test="${buySharList.SHARE_USING_DAY <= buySharList.SHARE_TERM}">
+													<li class="sha_view">
+														<ol>
+															<li class="dot">
+																<strong>셰어링 기간</strong>
+																<span><fmt:formatDate value="${SHAR_STA_DATE}" pattern="yyyy-MM-dd" />~<fmt:formatDate value="${SHAR_END_DATE}" pattern="yyyy-MM-dd" /> 
+																(${buySharList.SHARE_TERM}일 사용)  |  ${buySharList.SHAR_DAY}일 남음</span>
+															</li>
+															<li>
+																		<!-- 그래프 영역 % 처리 -->
+											                    	<c:if test="${buySharList.PROG_VAL < 51}">
+											                    		<div class="line_graph">
+																		<p class="tr">
+																			<span class="ico" style="left:${buySharList.PROG_VAL}%">
+																				<fmt:formatDate value="${TO_DAY}" pattern="MM/dd" /> (D-${buySharList.SHAR_DAY})
+																			</span>
+																		</p>
+											                    	</c:if>
+											                    	<c:if test="${buySharList.PROG_VAL > 51}">
+											                    		<div class="line_graph">
+											                    		<p class="tr" style="width:${buySharList.PROG_VAL}%">
+																			<span class="ico">
+																				<fmt:formatDate value="${TO_DAY}" pattern="MM/dd" /> (D-${buySharList.SHAR_DAY})
+																			</span>
+																		</p>
+											                    	</c:if>
+																	<div class="bar"><p style="width:${buySharList.PROG_VAL}%"></p></div>
+																	<p class="clear">
+																		<span class="fl">
+																			<fmt:formatDate value="${SHAR_STA_DATE}" pattern="MM/dd" />
+																		</span> 
+																		<span class="fr">
+																			<fmt:formatDate value="${SHAR_END_DATE}" pattern="MM/dd" />
+																		</span>
+																	</p>
+																</div>
+															</li>
+															<li><span>※ 셰어링 종료이후 셰어링 상품에 대해 회수 완료 처리시 결제하신 보증금은 환불처리 됩니다.</span></li>
+															<li><span>※ 상품 회수 지연시 결제하신 보증금에서 셰어링 비용이 추가로 차감처리 되며 보증금이 전액 소진되기 전에 상품을 회수 해야 합니다.</span></li>
+														</ol>
+													</li>
+											</c:when>
+											<c:otherwise>
+													<li class="sha_view">
+														<ol>
+															<li class="dot">
+																<strong>셰어링 기간</strong>
+																<span><fmt:formatDate value="${SHAR_STA_DATE}" pattern="yyyy-MM-dd" />~<fmt:formatDate value="${SHAR_END_DATE}" pattern="yyyy-MM-dd" /> 
+																(${buySharList.SHARE_TERM}일 사용)
+																<c:if test="${buySharList.SHAR_ADD_DAY > 0}">
+																	/<span style="color:red;">${buySharList.SHAR_ADD_DAY}일 초과</span>
+																</c:if>
+																</span>
+															</li>
+															<li>
+																	<!-- 그래프 영역 % 처리 -->
+											                    	<c:if test="${buySharList.PROG_VAL < 51}">
+											                    		<div class="line_graph">
+																	<p class="tr" style="left:${buySharList.PROG_VAL}%">
+																		<span class="ico">
+																			<fmt:formatDate value="${TO_DAY}" pattern="MM/dd" />
+																		</span>
+																	</p>											                    		
+											                    	</c:if>
+											                    	<c:if test="${buySharList.PROG_VAL > 51}">
+											                    		<div class="line_graph">
+																		<p class="tr" style="width:${buySharList.PROG_VAL}%">
+																			<span class="ico">
+																				<fmt:formatDate value="${TO_DAY}" pattern="MM/dd" />
+																			</span>
+																		</p>											                    		
+											                    	</c:if>
+
+																	<div class="bar"><p style="width:${buySharList.PROG_VAL}%"></p></div>
+																	<p class="clear">
+																		<span class="fl">
+																			<fmt:formatDate value="${SHAR_STA_DATE}" pattern="MM/dd" />
+																		</span> 
+																		<span class="fr">
+																			<fmt:formatDate value="${SHAR_END_DATE}" pattern="MM/dd" />
+																		</span>
+																	</p>
+																</div>
+															</li>
+															<li><strong>셰어링 금액</strong>
+																<span><fmt:formatNumber value="${buySharList.SHAREING_AMT}" pattern="#,###" />원 
+																(1일 <fmt:formatNumber value="${buySharList.SHARING_PRICE}" pattern="#,###" />원 X ${buySharList.SHARE_TERM}일)
+																</span>
+															</li>
+															<c:if test="${buySharList.SHAR_ADD_DAY > 0}">
+																<li><strong>셰어링 추가 금액</strong>
+																	<span><fmt:formatNumber value="${buySharList.SHAREING_ADD_AMT}" pattern="#,###" />원 
+																	(1일 <fmt:formatNumber value="${buySharList.SHARING_PRICE}" pattern="#,###" />원 X ${buySharList.SHAR_ADD_DAY}일)
+																	</span>
+																</li>
+															</c:if>
+															<c:choose>
+																<c:when test="${buySharList.SHAR_ADD_DAY > 0}">
+																
+																	<li><strong>보증금 잔액</strong>
+																		<span><fmt:formatNumber value="${buySharList.DEPOSIT_BAL}" pattern="#,###" />원 (<fmt:formatNumber value="${buySharList.DEPOSIT}" pattern="#,###" />원 – <fmt:formatNumber value="${buySharList.SHAREING_ADD_AMT}" pattern="#,###" />원)</span>
+																	</li>
+																</c:when>
+																<c:otherwise>
+																	<li><strong>보증금 잔액</strong>
+																		<span><fmt:formatNumber value="${buySharList.DEPOSIT_BAL}" pattern="#,###" />원</span>
+																	</li>
+																</c:otherwise>
+															</c:choose>
+															<li><span>※ 셰어링 종료 이 후 셰어링 상품에 대해 회수 완료 처리시 결제하신 보증금은 환불처리 됩니다.</span></li>
+															<li><span>※ 상품 회수 지연시 결제하신 보증금에서 셰어링 비용이 추가로 차감 처리 되어 보증금이 전액 소진되기 전에 상품을 회수 해야 합니다.</span></li>
+														</ol>
+													</li>
+											</c:otherwise>
+										</c:choose>
+									</c:when>
+								</c:choose>	
+						
+							
+						</c:when>	
+						     
+				<c:when test="${buySharList.PROC_STAT_CD == '87' || buySharList.PROC_STAT_CD == '88' || buySharList.PROC_STAT_CD == '89'}" >
+					<ul class="sha_oder mt10">
+						<li class="sha_view">
+							<ol>
+								<li class="dot">
+									<strong>셰어링 기간</strong>
+									<span><fmt:formatDate value="${SHAR_STA_DATE}" pattern="yyyy-MM-dd" />~<fmt:formatDate value="${SHAR_END_DATE}" pattern="yyyy-MM-dd" /> 
+									(${buySharList.SHARE_TERM}일 사용)  |  ${buySharList.SHAR_DAY}일 남음</span>
+								</li>
+								<li>
+											<!-- 그래프 영역 % 처리 -->
+				                    	<c:if test="${buySharList.PROG_VAL < 51}">
+				                    		<div class="line_graph">
+										<p class="tr" style="left:${buySharList.PROG_VAL}%">
+											<span class="ico">
+												<fmt:formatDate value="${TO_DAY}" pattern="MM/dd" /> (D-${buySharList.SHAR_DAY})
+											</span>
+										</p>				                    		
+				                    		
+				                    	</c:if>
+				                    	<c:if test="${buySharList.PROG_VAL > 51}">
+				                    		<div class="line_graph">
+										<p class="tr" style="width:${buySharList.PROG_VAL}%">
+											<span class="ico">
+												<fmt:formatDate value="${TO_DAY}" pattern="MM/dd" /> (D-${buySharList.SHAR_DAY})
+											</span>
+										</p>				                    		
+				                    	</c:if>
+
+										<div class="bar"><p style="width:${buySharList.PROG_VAL}%"></p></div>
+										<p class="clear">
+											<span class="fl">
+												<fmt:formatDate value="${SHAR_STA_DATE}" pattern="MM/dd" />
+											</span> 
+											<span class="fr">
+												<fmt:formatDate value="${SHAR_END_DATE}" pattern="MM/dd" />
+											</span>
+										</p>
+									</div>
+								</li>
+								<li><strong>보증금 잔액</strong>
+									<li class="dot"><strong>보증금 잔액</strong><span><fmt:formatNumber value="${buySharList.DEPOSIT_BAL}" pattern="#,###" />원 (<fmt:formatNumber value="${buySharList.DEPOSIT}" pattern="#,###" />원 – <fmt:formatNumber value="${buySharList.DEPOSIT / buySharList.SHARE_TERM}" pattern="#,###" />원)</span></li>
+								</li>
+								<li><strong>환불 상태</strong>
+									<span>${buySharList.REFUND_STAT_NM}</span>
+								</li>
+								<li><span>※ 환불금액은 판매자가 상품 수령 후 '반납완료' 처리시 환불처리 됨</span></li>
+							</ol>
+						</li>
+					</ul>
+					<p class="title">반납 신청 정보</p>
+						<div class="tbl">
+							<table class="tbl-data">
+								<colgroup>
+									<col width="100px">
+									<col width="*">
+								</colgroup>
+								<tbody>
+									<tr>
+										<th>신청일시</th>
+										<td>${buySharList.CHG_REG_DT}</td>
+									</tr>
+									<tr>
+										<th>받는사람</th>
+										<td>${buySharList.RCV_NM}</td>
+									</tr>
+									<tr>
+										<th>주소</th>
+										<td>(${buySharList.ZIP_CODE}) ${buySharList.ROAD_ADDR} ${buySharList.DTL_ADDR}</td>
+									</tr>
+									<tr>
+										<th>연락처</th>
+										<td>${buySharList.CONTACT}
+										</td>
+									</tr>
+									<tr>
+										<th>택배사</th>
+										<td>${buySharList.DLV_CMP_NM}
+											<c:choose>
+												<c:when test="${buySharList.PROC_STAT_CD == '87'}" >
+													(예상방문일 : <fmt:formatDate value="${FOR_VISIT}" pattern="yyyy-MM-dd" />)
+												</c:when>
+												<c:otherwise>
+													(반납일 : ${buySharList.CHG_FIN_DT})
+												</c:otherwise>
+											</c:choose>
+										</td>
+									</tr>
+									<c:if test="${buySharList.PROC_STAT_CD == '88' || buySharList.PROC_STAT_CD == '89'}" >
+										<tr>
+											<td colspan="2">
+												<p class="btn">
+													<span class="fl">
+														<a href="javascript:f_goCommCall('/mobile/buy/selectShipView.do', '${buySharList.ORD_CD}', '${buySharList.PROD_CODE}', '${buySharList.PROD_SEQ}', 'retShipView');" id="retShipView" class="btn_b">배송조회</a>
+													</span>
+												</p>
+											</td>
+										</tr>
+									</c:if>
+								</tbody>
+							</table>
+						</div>
+				</c:when>
+				
+					<c:when test="${buySharList.PROC_STAT_CD == '90' || buySharList.PROC_STAT_CD == '91' || buySharList.PROC_STAT_CD == '92'}" >
+						<ul class="sha_oder">
+							<li class="sha_view">
+								<ol>
+									<li class="dot">
+										<strong>셰어링 기간</strong>
+										<span><fmt:formatDate value="${SHAR_STA_DATE}" pattern="yyyy-MM-dd" />~<fmt:formatDate value="${SHAR_END_DATE}" pattern="yyyy-MM-dd" /> 
+										(${buySharList.SHARE_TERM}일 사용)  |  ${buySharList.SHAR_ADD_DAY}일 초과</span>
+									</li>
+									<li>
+												<!-- 그래프 영역 % 처리 -->
+					                    	<c:if test="${buySharList.PROG_VAL < 51}">
+					                    		<div class="line_graph">
+												<p class="tr" style="left:${buySharList.PROG_VAL}%">
+													<span class="ico">
+														<fmt:formatDate value="${TO_DAY}" pattern="MM/dd" /> (D-${buySharList.SHAR_DAY})
+													</span>
+												</p>				                    		
+					                    	</c:if>
+					                    	<c:if test="${buySharList.PROG_VAL > 51}">
+					                    		<div class="line_graph">
+												<p class="tr" style="width:${buySharList.PROG_VAL}%">
+													<span class="ico">
+														<fmt:formatDate value="${TO_DAY}" pattern="MM/dd" /> (D-${buySharList.SHAR_DAY})
+													</span>
+												</p>				                    		
+					                    	</c:if>
+	
+											<div class="bar"><p style="width:${buySharList.PROG_VAL}%"></p></div>
+											<p class="clear">
+												<span class="fl">
+													<fmt:formatDate value="${SHAR_STA_DATE}" pattern="MM/dd" />
+												</span> 
+												<span class="fr">
+													<fmt:formatDate value="${SHAR_END_DATE}" pattern="MM/dd" />
+												</span>
+											</p>
+										</div>
+									</li>
+									<li><strong>셰어링 금액</strong>
+										<span><fmt:formatNumber value="${buySharList.SHAREING_AMT}" pattern="#,###" />원 
+										(1일 <fmt:formatNumber value="${buySharList.SHARING_PRICE}" pattern="#,###" />원 X  ${buySharList.SHARE_TERM}일)
+										</span>
+									</li>
+									<li><strong>셰어링 추가 금액</strong>
+										<span><fmt:formatNumber value="${buySharList.SHARING_PRICE * buySharList.SHAR_ADD_DAY}" pattern="#,###" />원 
+										(1일 <fmt:formatNumber value="${buySharList.SHARING_PRICE}" pattern="#,###" />원 X ${buySharList.SHAR_ADD_DAY}일)
+										</span>
+									</li>
+									<li><strong>환불 금액</strong>
+										<span><fmt:formatNumber value="${buySharList.DEPOSIT - (buySharList.SHARING_PRICE * buySharList.SHAR_ADD_DAY)}" pattern="#,###" />원 (보증금 <fmt:formatNumber value="${buySharList.DEPOSIT}" pattern="#,###" />원 – 셰어링 추가금액 <fmt:formatNumber value="${buySharList.SHARING_PRICE * buySharList.SHAR_ADD_DAY}" pattern="#,###" />원)</span>
+									</li>
+									<li><strong>환불 상태</strong>
+										<span>${buySharList.REFUND_STAT_NM}</span>
+									</li>
+									<li><span>※ 환불금액은 판매자가 상품 수령 후 '회수완료' 처리시 환불처리 됨</span></li>
+								</ol>
+							</li>
+						</ul>
+						<p class="title">회수 신청 정보</p>
+							<div class="tbl">
+								<table class="tbl-data">
+									<colgroup>
+										<col width="100px">
+										<col width="*">
+									</colgroup>
+									<tbody>
+										<tr>
+											<th>신청일시</th>
+											<td>${buySharList.CHG_REG_DT}</td>
+										</tr>
+										<tr>
+											<th>받는사람</th>
+											<td>${buySharList.RCV_NM}</td>
+										</tr>
+										<tr>
+											<th>주소</th>
+											<td>(${buySharList.ZIP_CODE}) ${buySharList.ROAD_ADDR} ${buySharList.DTL_ADDR}</td>
+										</tr>
+										<tr>
+											<th>연락처</th>
+											<td>${buySharList.CONTACT}
+											</td>
+										</tr>
+										<tr>
+											<th>택배사</th>
+											<td>${buySharList.DLV_CMP_NM}
+												<c:choose>
+													<c:when test="${buySharList.PROC_STAT_CD == '90'}" >
+														(예상방문일 : <fmt:formatDate value="${FOR_VISIT}" pattern="yyyy-MM-dd" />)
+													</c:when>
+													<c:otherwise>
+														(회수일 : ${buySharList.CHG_FIN_DT})
+													</c:otherwise>
+												</c:choose>
+											</td>
+										</tr>
+										<c:if test="${buySharList.PROC_STAT_CD == '88' || buySharList.PROC_STAT_CD == '89'}" >
+											<tr>
+												<td colspan="2">
+													<p class="btn">
+														<span class="fl">
+															<a href="javascript:f_goCommCall('/mobile/buy/selectShipView.do', '${buySharList.ORD_CD}', '${buySharList.PROD_CODE}', '${buySharList.PROD_SEQ}', 'colShipView');" id="colShipView" class="btn_b">배송조회</a>
+														</span>
+													</p>
+												</td>
+											</tr>
+										</c:if>
+									</tbody>
+								</table>
+							</div>
+					</c:when>		                	
+	                </c:choose>				
+	            </li>
+	        </ul>
+
+	        <c:set var="SUM_DEPOSIT" value="${ SUM_DEPOSIT + buySharList.DEPOSIT}" />
+	        <c:if test="${buySharList.SELLER_MBER_GB_CD == '1'}">
+	        	<c:set var="SHAREING_AMT" value="${ SHAREING_AMT + buySharList.SHAREING_AMT}" />
+	        </c:if>
+        </c:forEach>
+
+        <p class="title">배송지 정보</p>
+        <div class="tbl">
+            <table class="tbl-data">
+                <colgroup>
+                    <col width="100px">
+                    <col width="*">
+                </colgroup>
+                <tbody>
+                	<c:forEach var="buyOrdInfo" items="${list.buyOrdInfo}" varStatus="status">
+                		<c:set var="CPN_USE_AMT" value="${ buyOrdInfo.CPN_USE_AMT}" />
+                		<c:set var="RCV_NM" value="${buyOrdInfo.RCV_NM}" />
+                		<c:set var="DLV_ZIP_CD" value="${buyOrdInfo.DLV_ZIP_CD}" />
+                		<c:set var="DLV_ADDR" value="${buyOrdInfo.DLV_ADDR}" />
+                		<c:set var="ROAD_ADDR" value="${buyOrdInfo.ROAD_ADDR}" />
+                		<c:set var="DLV_ADDR_DTL" value="${buyOrdInfo.DLV_ADDR_DTL}" />
+                		<c:set var="CONTACT" value="${buyOrdInfo.CONTACT}" />
+                		<c:set var="SECU_NO_USE_YN" value="${buyOrdInfo.SECU_NO_USE_YN}" />
+                		<c:set var="DLV_MSG" value="${buyOrdInfo.DLV_MSG}" />
+                		<c:set var="ORDER_AMT" value="${buyOrdInfo.ORDER_AMT}" />
+                		<c:set var="DSCNT_AMT" value="${buyOrdInfo.DSCNT_AMT}" />
+                		<c:set var="SELT_AMT" value="${buyOrdInfo.SELT_AMT}" />
+                		<c:set var="SELT_GB_NM" value="${buyOrdInfo.SELT_GB_NM}" />
+                		<c:set var="POINT_USE_AMT" value="${buyOrdInfo.POINT_USE_AMT}" />
+                		<c:set var="DLV_PRCE" value="${buyOrdInfo.DLV_PRCE}" />
+                		<c:set var="RCV_TEL" value="${buyOrdInfo.RCV_TEL}" />
+                		
+                	</c:forEach>
+                    <tr>
+                        <th>받는사람</th>
+                        <td>${RCV_NM}</td>
+                    </tr>
+                    <tr>
+                        <th>주소</th>
+                        <td>(${DLV_ZIP_CD}) ${ROAD_ADDR} ${DLV_ADDR_DTL}</td>
+                    </tr>
+                    <tr>
+                        <th>연락처</th>
+                        <td>${RCV_TEL} <br>
+                        	<c:if test="${SECU_NO_USE_YN == 'Y'}">
+                        		<span>(안심번호 사용)</span>
+                        	</c:if>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>배송메모</th>
+                        <td>${DLV_MSG}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+	
+        <p class="title">주문정보</p>
+        <table class="tbl-order">
+            <colgroup>
+                <col width="33.3%">
+                <col width="33.3%">
+                <col width="*">
+            </colgroup>
+            <thead>
+                <tr>
+                    <th>주문금액</th>
+                    <th>할인금액</th>
+                    <th>결제금액</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><fmt:formatNumber value="${SUM_DEPOSIT + SHAREING_AMT + DLV_PRCE}" pattern="#,###" />원</td>
+                    <td><fmt:formatNumber value="${DSCNT_AMT}" pattern="#,###" />원</td>
+                    <td><strong class="point_r"><fmt:formatNumber value="${SELT_AMT}" pattern="#,###" />원</strong></td>
+                </tr>
+            </tbody>
+        </table>		
+	
+        <p class="order_arrow"><img src="http://static.ssocio.net/web/images/order_arrow.png" alt=""></p>
+        <div class="tbl inner">
+            <table class="tbl-data">
+                <colgroup>
+                    <col width="100px">
+                    <col width="*">
+                </colgroup>
+                <tbody>
+                	<tr class="line">
+                        <td colspan="2"><strong>주문금액</strong></td>
+                    </tr>
+                    <tr>
+                        <th>보증금</th>
+                        <td class="tr"><strong><fmt:formatNumber value="${SUM_DEPOSIT}" pattern="#,###" />원</strong></td>
+                    </tr>
+                    <tr>
+                        <th>셰어링 금액</th>
+                        <td class="tr"><strong><fmt:formatNumber value="${SHAREING_AMT}" pattern="#,###" />원</strong></td>
+                    </tr>
+                    <tr>
+                        <th>배송비</th>
+                        <td class="tr"><strong><fmt:formatNumber value="${DLV_PRCE}" pattern="#,###" />원</strong></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+
+        <div class="tbl inner">
+            <table class="tbl-data">
+                <colgroup>
+                    <col width="100px">
+                    <col width="*">
+                </colgroup>
+                <tbody>
+                    <tr class="line">
+                        <td colspan="2"><strong>할인금액</strong></td>
+                    </tr>
+                    <tr>
+                        <th>쿠폰할인</th>
+                        <td class="tr"><strong><fmt:formatNumber value="${CPN_USE_AMT}" pattern="#,###" />원</strong></td>
+                    </tr>
+ 
+                    <tr>
+                        <th>포인트</th>
+                        <td class="tr"><strong><fmt:formatNumber value="${POINT_USE_AMT}" pattern="#,###" />P</strong></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        
+         <div class="tbl inner mb10">
+           <table class="tbl-data">
+                <colgroup>
+                    <col width="100px">
+                    <col width="*">
+                </colgroup>
+                <tbody>
+                    <tr class="line">
+                        <th>결제금액</th>
+                        <td class="tr"><strong class="point_r"><fmt:formatNumber value="${SELT_AMT}" pattern="#,###" />원</strong><br><span>${SELT_GB_NM}</span></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>        
+        
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+		<jsp:include page="../common/mype_bottom.jsp" flush="false" />
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+		    </div>
+		    <!-- //container -->
+		</div>
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>
+    
+    <!-- 주소 확인 팝업 -->
+	<input type="hidden" id="I_RCV_NM" name="I_RCV_NM">
+	<input type="hidden" id="I_ZIP_CODE" name="I_ZIP_CODE">
+	<input type="hidden" id="I_BAS_ADDR" name="I_BAS_ADDR">
+	<input type="hidden" id="I_DTL_ADDR" name="I_DTL_ADDR">
+	<input type="hidden" id="I_CONTACT" name="I_CONTACT">
+	<input type="hidden" id="I_SECU_NO_USE_YN" name="I_SECU_NO_USE_YN">
+	<input type="hidden" id="I_CHG_GB_CD" name="I_CHG_GB_CD">
+	<input type="hidden" id="I_CHG_PROC_TYPE_CD" name="I_CHG_PROC_TYPE_CD">
+	<input type="hidden" id="I_PROC_STAT_CD" name="I_PROC_STAT_CD">
+	<input type="hidden" id="I_RFND_CD" name="I_RFND_CD">
+	<input type="hidden" id="I_CHG_REASON_CD" name="I_CHG_REASON_CD">
+	<input type="hidden" id="I_CHG_REASON" name="I_CHG_REASON">
+	<input type="hidden" id="I_SHIP_MEMO" name="I_SHIP_MEMO">
+	<div id="popupAddrConf" class="popup public_stop">
+		<p class="title">
+			<strong>주소확인</strong>
+			<a href="#" id="btn_close" class="btn_close"><img src="http://static.ssocio.net/web/images/btn_layer_close.png" alt="게재중지 상세보기 닫기" /></a>
+		</p>
+		<p class="prod_info tc">
+			상품주문시 입력하신 배송지로 택배 직원이 방문 하여 <br/>상품을 반납/회수할 예정입니다.<br/>주소를 확인 해 주세요.
+		</p>
+	    <div class="tbl">
+	        <table class="tbl-data">
+	            <colgroup>
+	                <col width="100px">
+	                <col width="*">
+	            </colgroup>
+	            <tbody>
+	                <tr>
+	                    <th>이름</th>
+	                    <td><span id="rcvNm"></span></td>
+	                </tr>
+	                <tr>
+	                    <th>주소</th>
+	                    <td>(<span id="dlvZipCd"></span>) <span id="dlvAddr">&nbsp;</span><span id="dlvAddrDtl"></span></td>
+	                </tr>
+	                <tr>
+	                    <th>연락처</th>
+	                    <td><span id="contact"></span><br/><span id="secuNoUseYn"></span></td>
+	                </tr>
+	                <tr>
+	                    <th>예상 방문일</th>
+	                    <td><span id="forVisit"></span></td>
+	                </tr>
+	            </tbody>
+	        </table>
+	    </div>
+	    <div class="bot_btn">
+	    	<ul class="btn">
+	        	<li><a href="javascript:f_addrChgCall();" class="btn_r">주소변경</a></li>
+	        	<li><a href="javascript:f_addrReq();" class="btn_r-line">신청하기</a></li>
+	        </ul>
+	    </div>
+	</div>
+	<!-- //주소 확인 팝업-->
+ 
+</form>

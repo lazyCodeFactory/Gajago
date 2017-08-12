@@ -1,0 +1,2869 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/web/common/cmmnHead.jsp"%>
+<%-- <meta property="og:title" content="다날쏘시오::Mobile">
+<meta  property="og:image" content="<c:choose><c:when test="${not empty shareImgUrl}">${shareImgUrl }</c:when><c:otherwise>https://scontent.xx.fbcdn.net/hphotos-xat1/t39.2081-0/p128x128/12056960_1633116896960884_2110231500_n.png</c:otherwise></c:choose>">
+<meta  property="og:description" content="<c:choose><c:when test="${not empty result.prodInfo.PROD_NM}">${result.prodInfo.PROD_NM }</c:when><c:otherwise>다날 쏘시오</c:otherwise></c:choose>"> --%>
+<script type="text/javascript" src="/js/web/function.js"/></script>
+<script type="text/javascript" src="/js/web/sns.share.js"/></script>
+<script type="text/javascript" src="/js/web/ctry/product.js"/></script>
+<script type="text/javascript" src="/js/web/ctry/order.js"/></script>
+<script type="text/javascript" src="http://static.ssocio.net/web/js/kakao.min.js"></script>
+<script src="http://c.ssocio.com/web/js/jquery.counterup.min.js"></script>
+<script type="text/javascript">
+
+//Product는 product.js에 구현되어 있음.
+var prod = new Product(false);
+var sns = null;
+var cartGubun = 'A';
+var images = new Object();
+
+//	개인셰어링 상품에서 구매하기 버튼이 선택되었는지 셰어링 하기 버튼이 선택되었는지 저장하는 변수
+var onSharing = false;
+
+var isSubmit = true;
+
+$(document).ready(function(){
+      
+	//이미지 cdn reload
+	// [2015-11-08] 함수명 변경 cdnimgreload() -> cdnreload()
+	mainCdnReload2();
+	cdnreload();
+	
+	if( '${data}' == '99' || '${result.prodInfo.PROD_CODE }' == ''){
+		alert("해당 상품이 존재하지 않습니다.");
+		moveMain();
+		return;
+	}
+
+	header.type	= 12;
+	header.title = "상품정보";
+	header.method = "GET";
+	header.backUrl = "/mobile/ctry/selectListProd.do?LVL_SEQ=1&CTRY_CD=${result.prodInfo.CTRY_CD }";
+	header.callback = headerCallback;
+	//header.prodTypeCd = '${result.prodInfo.PROD_TYPE_CD}';
+	initHeader();
+	document.title = header.title;
+
+	layer_option_hide();
+	
+	initialize();
+	$("#SHARE_DAY").on("focusout", function(){
+		var day = isNumeric($(this).val());
+		if( day >= prod.shar.minTerm && prod.shar.maxTerm >= day ){
+			prod.shar.shareDay = day;
+		}
+		else{
+			alert("요청한 사용 기간이 맞지 않습니다.");
+			$(this).val(prod.shar.minTerm);
+			$(this).focus();
+		}
+		displayCounter();
+	});
+
+	openAlert('${result.prodInfo.PROD_STAT_CD }');
+
+	var w = window.innerWidth;
+	$('.explain').find('article').find('img').each( function() {
+		var imgWidth = this.clientWidth;
+		var imgHeight = this.clientHeight;
+
+		if ( imgWidth >= w) {
+			$(this).attr('width', '100%');
+			$(this).attr('height', imgHeight/imgWidth*w);
+		}
+	});
+
+	$('article').find('table').each(function(){
+		$(this).width('100%');
+		$(this).css('width', '100%');
+	});
+
+	$('article').find('td').each(function(){
+		$(this).width('100%');
+		$(this).css('width', '100%');
+	});
+
+	sUserEmailMasking();
+	
+	displayFooter(false);
+	footer_bottom();
+	
+	if ( '${type}' == 'COMMENT' ) {
+		var $ssocioTab = $("#ssocio_nav_tab li");
+		var $ssocioTabLink = $ssocioTab.find("a");
+		var tabCon = $(".tab_con>section");
+		
+		$ssocioTabLink.removeClass("on");
+		$("#commnetA").addClass("on");
+	
+		tabCon.hide();
+		tabCon.eq(2).show();
+		document.body.scrollTop = document.body.scrollHeight;
+	}
+	
+	$('.dynamic_counter').counterUp({ delay: 10, time: 300 });
+	
+});
+
+$(window).load( function() {
+	var w = window.innerWidth;
+	$('.explain').find('article').find('img').each( function() {
+		var imgWidth = this.clientWidth;
+		var imgHeight = this.clientHeight;
+
+		if ( imgWidth >= w) {
+			$(this).attr('width', '100%');
+			$(this).attr('height', imgHeight/imgWidth*w);
+		}
+	});
+});
+
+function moveLogin(){
+	alert('로그인 후 이용 가능합니다.\n로그인 페이지로 이동합니다. ');
+	var url = '/mobile/prod/selectProd.do?PROD_CODE=${result.prodInfo.PROD_CODE}';
+	location.href = '/mobile/main/login.do?ret=' + encodeURIComponent(url);
+}
+
+function moveCommentLogin(){
+	alert('로그인 후 이용 가능합니다.\n로그인 페이지로 이동합니다. ');
+	var url = '/mobile/prod/selectProd.do?PROD_CODE=${result.prodInfo.PROD_CODE}&TYPE=COMMENT';
+	location.href = '/mobile/main/login.do?ret=' + encodeURIComponent(url);
+}
+
+function moveMain(){
+	location.href = '/mobile/main/main.do';
+}
+
+function headerCallback(cls){
+	if( 'btn_basket' == cls ){
+		if( '${sessionScope.user.login}' != 'true' ){
+			moveLogin();
+		}
+		else{
+			location.href = "/mobile/myBasket/getMyBasketInfo.do";
+		}
+	}
+}
+
+function appCallback(cmd){
+
+	if( cmd == "LOGIN" ){
+		moveLogin();
+		return
+	}
+	else if( cmd == "CART"){
+		location.href = "/mobile/myBasket/getMyBasketInfo.do";
+	}
+}
+
+function sUserEmailMasking(){
+	$(".new_my_email p").remove();
+	var sUserEmail =  '${result.prodInfo.prodUserInfo.MBER_EMAIL}';
+	if ( sUserEmail != '' && sUserEmail != null ) {
+		if (sUserEmail.indexOf("@") == -1) {
+			var temp = getTextMasking(sUserEmail);
+			var html = '<p>';
+			html += '<span>'+temp+'</span>';
+			html += '</p>';
+		} else {
+			var sMasUserEmail = getMaskingEmail(sUserEmail);
+			var temp = sMasUserEmail.split('@');
+			var html = '<p>';
+			html += '<span>'+temp[0]+'</span>';
+			if ( temp[1] != '' || temp[1] != null) {
+				html += '<span>@'+temp[1]+'</span>';
+			}
+			html += '</p>';
+		}
+	} else {
+		var html = '<p>';
+		html += '<span>ghost***</span>';
+		html += '<p>';
+	}
+	$(".new_my_email").append(html);
+}
+
+/**
+ *
+ * <pre>
+ * 설명 : prodOptSet
+ * 설명 : 앱에서 옵션 변경 시 호출
+ * @param optGrpCd 		: 옵션 그룹 코드
+ * @param index			: 변경된 옵션의 순번
+ * @param optCd			: 선택 된 옵션의 코드
+ * @date 2015. 9. 23. 오후 13:30:41
+ * @author WOOK.KIM
+ * @see
+ * </pre>
+ */
+function prodOptSet(optGrpCd,index,optCd){
+	changeOption(index,optCd);
+}
+
+/**
+ *
+ * <pre>
+ * 설명 : prodOptFin
+ * 설명 : 앱에서 마지막 옵션 선택 시 호출
+ * @param choiceFlag	: 0 장바구니, 1 구매하기, 3 쉐어링
+ * @param resultJson	: 최종 데이터 값(json)
+ * @date 2015. 9. 23. 오후 13:30:41
+ * @author WOOK.KIM
+ * @see
+ * </pre>
+ */
+function prodOptFin(choiceFlag, resultJson){
+	prod.setAppData(resultJson);
+
+	if(prod.shar.shareDay > 0){
+		$("#SHARE_DAY").val(prod.shar.shareDay);
+	}
+
+	//	OptionAccount.add
+	switch(choiceFlag){
+	case '0':
+		if(prod.prodTypeCd == '2'){
+			cartGubun = 'B';
+		}
+		insertCart(0);
+		break;
+	case '1':
+		insertOrder(0);
+		break;
+	case '2':
+		insertShare(0);
+		break;
+	}
+
+}
+
+function openAlert(prodStatCd){
+	var title = '';
+	switch(parseInt(prod.prodTypeCd)){
+	case 1: type = '판매'; break;
+	case 2: type = '셰어링'; break;
+	case 3: type = '나눔'; break;
+	case 5: type = '렌탈'; break;
+	}
+
+
+	switch(parseInt(prodStatCd)){
+	case 0:
+		return;
+	case 1:
+		title = type + '종료 상품 안내';
+		$("#id_prod_stat_content_1").show();
+		$("#id_prod_stat_content_2").hide();
+		$("#id_prod_stat_content_3").hide();
+		break;
+	case 2:
+		title = type + '중지 상품 안내';
+		$("#id_prod_stat_content_1").hide();
+		$("#id_prod_stat_content_2").show();
+		$("#id_prod_stat_content_3").hide();
+		break;
+	case 3:
+		title = '삭제 상품 안내';
+		$("#id_prod_stat_content_1").hide();
+		$("#id_prod_stat_content_2").hide();
+		$("#id_prod_stat_content_3").show();
+		break;
+	}
+
+	$("#id_prod_stat_title").text(title);
+	isSubmit = false;
+	$(".stop").show();
+	$(".btn_close").hide();
+	
+	if( '${sessionScope.APP}' == 'SSOCIO'){
+		document.location.replace('ssocio://web/hideDetailBottomView');
+	}
+	
+	popup_show();
+}
+
+/**
+ *
+ * <pre>
+ * 설명 : fullScreenImage
+ * 설명 : 앱에서 마지막 옵션 선택 시 호출
+ * @param choiceFlag	: 0 장바구니, 1 구매하기, 3 쉐어링
+ * @param resultJson	: 최종 데이터 값(json)
+ * @date 2015. 9. 23. 오후 13:30:41
+ * @author WOOK.KIM
+ * @see
+ * </pre>
+ */
+function fullScreenImage(){
+	var appCmd = "ssocio://web/fullScreenImage?";
+	document.location.replace(appCmd+encodeURIComponent(JSON.stringify(images)));
+}
+
+function initialize(){
+
+	prod.prodCode = '${result.prodInfo.PROD_CODE }';
+	prod.prodNm =  '${fn:replace(result.prodInfo.PROD_NM, "\'", "\\\'")}';
+	prod.ctryCd = '${result.prodInfo.CTRY_CD }';
+	prod.prodTypeCd = '${result.prodInfo.PROD_TYPE_CD }';
+	prod.sellPrce = nvlInt('${result.prodInfo.SELL_PRCE }', 0);
+	prod.nrmPrce = nvlInt('${result.prodInfo.NRM_PRCE }', 0);
+	prod.invenQty = nvlInt('${result.prodInfo.INVENTORY_QTY }', 0);
+
+    // 위시담기 상품 총 개수
+    prod.wishProdCnt = nvlInt('${result.prodInfo.WISH_PROD_CNT }', 0);
+	   
+	//	옵션 구성 여부 파악
+	prod.optProdYn = isNull('${result.prodInfo.OPT_PROD_YN }') ? 'N' : '${result.prodInfo.OPT_PROD_YN }';
+	prod.extProdYn = isNull('${result.prodInfo.OPT_PROD_EXT_YN }') ? 'N' : '${result.prodInfo.OPT_PROD_EXT_YN }';
+
+	prod.mberSeq = '${result.prodInfo.MBER_SEQ }';
+	prod.mberGbCd = '${result.prodInfo.MBER_GB_CD }';
+
+	prod.freeshare.okGbCd = '${result.prodInfo.FREESHARE_OK_GB_CD }';
+	prod.freeshare.endDt = '${result.prodInfo.FREESHARE_END_DT}';
+
+	prod.shar.prce = nvlInt('${result.prodInfo.PS_PRCE}', 0);
+	prod.shar.deposit = nvlInt('${result.prodInfo.PS_DEPOSIT}', 0);
+	prod.shar.minTerm = nvlInt('${result.prodInfo.PS_MIN_ITEM}', 0);
+	prod.shar.maxTerm = nvlInt('${result.prodInfo.PS_MAX_ITEM}', 0);
+	prod.shar.startDt = '${result.prodInfo.PS_START_DT}';
+	prod.shar.endDt = '${result.prodInfo.PS_END_DT}';
+
+	prod.dlv.dlvWayCd = '${result.prodInfo.DLV_WAY_CD}';
+	prod.dlv.dlvPayGbCd = '${result.prodInfo.DLV_PAY_GB_CD}';
+	prod.dlv.dlvPrce = nvlInt('${result.prodInfo.DLV_PRCE}', 0);
+	prod.dlv.dlvPayFCd = '${result.prodInfo.DLV_PAY_F_CD}';
+	prod.dlv.bndlDlvYn = isNull('${result.prodInfo.BNDL_DLV_YN }') ? 'N' : '${result.prodInfo.BNDL_DLV_YN }';
+	prod.dlv.dlvStandYn = isNull('${result.prodInfo.DLV_STAND_YN }') ? 'N' : '${result.prodInfo.DLV_STAND_YN }';
+	prod.dlv.dlvStandAmt = nvlInt('${result.prodInfo.DLV_STAND_AMT}', 0);
+
+	<c:forEach var="extLand" items="${result.prodInfo.extLands}" varStatus="dlvStatus">
+		prod.dlv.setExtLandPrice('${extLand.EXT_LAND_CD}', nvlInt('${extLand.ADD_DLV_PRICE}', 0));
+	</c:forEach>
+
+	<c:forEach var="option" items="${result.prodInfo.options}" varStatus="status">
+		var option = new Option('${option.OPT_CD}', '${option.OP_GB_CD}', '${option.OPT_NM}', nvlInt('${option.OPT_INVEN_QTY}', 0), nvlInt('${option.OPT_PRCE}', 0), 0);
+		if( option.opGbCd == '10'){
+			prod.option.additional.push(option);
+		}
+		else if( option.opGbCd == '20'){
+			prod.option.extra.push(option);
+		}
+	</c:forEach>
+
+	prod.init();
+
+	setProdTypeNm();
+
+	//	앱인지 확인 후 앱으로 던져줄 데이터를 json으로 변환해서 보낸다.
+	if( '${sessionScope.APP}' == 'SSOCIO'){
+		
+		if(prod.prodTypeCd == '2'){
+			if(prod.invenQty <= 0){
+				prod.soldOutMsg = "셰어링중인 상품입니다.";
+			}
+		} else {
+			if(prod.invenQty <= 0){
+				prod.soldOutMsg = "현재 재고수량이 없습니다.";
+			}
+		}
+		
+		document.location.replace('ssocio://web/prodOptPut?'+encodeURIComponent(prod.toJSONString()));
+
+		$(".prod_bot").hide();
+	}
+	else{
+		$(".prod_bot").show();
+	}
+
+	//	20151112	|	wook-kim	|	상품정보 제공고시 display 관련 추가
+	if( '${result.prodInfo.PROD_ITEM_CODE}' != ''){
+		$("#id_div_prod_info").show();
+	}
+
+	//	썸네일 이미지 세팅
+	images = new Object();
+	images.imagelist = new Array();
+
+	<c:forEach var="img" items="${result.prodInfo.images }" varStatus="status">
+		<c:if test="${img.PROD_IMG_GB_CD >= 12 && img.PROD_IMG_GB_CD <= 16 }">
+			var image = new Object();
+			image.url = '${img.PROD_IMG_URL }';
+			images.imagelist.push(image);
+		</c:if>
+	</c:forEach>
+
+	//	공유하기 세팅
+	sns = new SnsShare('10', prod.prodCode, prod.prodNm, '${shareImgUrl }', 'mobile/prod/selectProd.do');
+
+	initPrceArea();
+}
+
+function initPrceArea(){
+	var leftHtml = '';
+	var rightHtml = '';
+	var dlvText = setDlvWay();
+	if( prod.prodTypeCd == '1'){
+		if( prod.nrmPrce - prod.sellPrce > 0 ){
+			leftHtml += '<p class="price">' + Math.floor((prod.nrmPrce - prod.sellPrce) * 100 / prod.nrmPrce) + '%</p>';
+			rightHtml += '<li><span class="s_txt middle_line">' + formatNumber(prod.nrmPrce) + '원</span></li>';
+		} else {
+			rightHtml += '<li><span class="s_txt middle_line">&nbsp;</span></li>';
+		}
+		if(dlvText.indexOf("무료배송") > -1) {
+			leftHtml += '<p>';
+			leftHtml += '<span class="ico_color_box"><img src="http://static.ssocio.net/web/images/newde/free_label.png" alt="무료배송"/></span>';
+// 			leftHtml += '<span class="ico_color_box"><img src="http://static.ssocio.net/web/images/newde/coupon_label.png" alt="쿠폰할인"/></span>';
+			leftHtml += '</p>';
+		}
+		rightHtml += '<li><span class="big_type b_txt">' + formatNumber(prod.sellPrce) + '</span>&nbsp;원</li>';
+		rightHtml += '<li><span class="red_p">판매상품</span></li>';
+	} else if(prod.prodTypeCd == '2'){
+// 		html += '<span>' + dlvText + '</span><br>';
+		if( prod.mberGbCd == '0'){
+			prod.shar.shareDay = Math.ceil(prod.shar.deposit / prod.shar.prce);
+			leftHtml += '<p class="price">' + formatNumber(prod.shar.prce) + '<span>원/일</span></p>';
+			if(dlvText.indexOf("무료배송") > -1) {
+				leftHtml += '<p>';
+				leftHtml += '<span class="ico_color_box"><img src="http://static.ssocio.net/web/images/newde/free_label.png" alt="무료배송"/></span>';
+//	 			leftHtml += '<span class="ico_color_box"><img src="http://static.ssocio.net/web/images/newde/coupon_label.png" alt="쿠폰할인"/></span>';
+				leftHtml += '</p>';
+			}
+			rightHtml += '<li><span class="s_txt">최대 ' + prod.shar.shareDay + '일</span></li>';
+			rightHtml += '<li><span class="b_txt">보증금 ' + formatNumber(prod.shar.deposit) + '원</span></li>';
+			rightHtml += '<li><span class="red_p">셰어링상품</span></li>';
+		} else if( prod.mberGbCd == '1'){
+			leftHtml += '<p class="price">' + formatNumber(prod.shar.prce) + '<span>원/일</span></p>';
+			if(dlvText.indexOf("무료배송") > -1) {
+				leftHtml += '<p>';
+				leftHtml += '<span class="ico_color_box"><img src="http://static.ssocio.net/web/images/newde/free_label.png" alt="무료배송"/></span>';
+//	 			leftHtml += '<span class="ico_color_box"><img src="http://static.ssocio.net/web/images/newde/coupon_label.png" alt="쿠폰할인"/></span>';
+				leftHtml += '</p>';
+			}
+			rightHtml += '<li><span class="s_txt">최소  ' + prod.shar.minTerm + '일 ~ 최대 ' + prod.shar.maxTerm + '일</span></li>';
+			rightHtml += '<li><span class="b_txt">보증금 ' + formatNumber(prod.shar.deposit) + '원</span></li>';
+			rightHtml += '<li><span class="red_p">셰어링상품</span></li>';
+		}
+	} else if( prod.prodTypeCd == '3'){
+		leftHtml += '<p class="date"><span>신청기간 :</span> <fmt:formatDate value="${result.prodInfo.REGIST_DT}" pattern="yyyy.MM.dd" /> ~ <fmt:formatDate value="${result.prodInfo.FREESHARE_END_DT}" pattern="yyyy.MM.dd" /></p>';
+		if(dlvText.indexOf("착불") > -1) {
+			leftHtml += '<p>';
+			leftHtml += '<span class="ico_color_box"><img src="http://static.ssocio.net/web/images/newde/del_label.png" alt="배송착불"/></span>';
+// 			leftHtml += '<span class="ico_color_box"><img src="http://static.ssocio.net/web/images/newde/coupon_label.png" alt="쿠폰할인"/></span>';
+			leftHtml += '</p>';
+		}
+		rightHtml += '<li><span class="red_p">나눔상품</span></li>';
+	}  else if( prod.prodTypeCd == '5'){
+		rightHtml += '<li><span class="red_p">렌탈상품</span></li>';
+	}
+// 	html += '</p>';
+
+// 	$("#id_prce_area").append(html);
+	$(".left_col").append(leftHtml);
+	$(".right_col ul").append(rightHtml);
+	if( prod.prodTypeCd == '5'){
+		$(".new_del_box").remove();
+	} else {
+		$(".new_del_box").append(dlvText);
+	}
+	if(0<prod.wishProdCnt){
+		$("#id_wish_area").append('<p class="share"><strong><span class="point_r">'+formatNumber(prod.wishProdCnt)+'</span>명</strong>이 위시리스트에 담은 상품입니다.</p>');
+		if (formatNumber(prod.wishProdCnt) > 999) {
+			$("div.num").text("(999+)");
+		} else {
+			$("div.num").text(formatNumber(prod.wishProdCnt));
+		}
+	}
+
+}
+
+/**
+ *
+ * <pre>
+ * 설명 : setDlvWay
+ * 설명 : 배송 가능 / 거래 희망 지역 표시
+ * @date 2015. 9. 23. 오후 13:30:41
+ * @author WOOK.KIM
+ * @see
+ * </pre>
+ */
+function setDlvWay(){
+// 	var dlvText = '${result.prodInfo.DLV_WAY_NM }';
+// 	var dlvText = '<p><span>배송비 ';
+	var dlvText = '<p><span>${result.prodInfo.DLV_WAY_NM } | ';
+
+	if(prod.prodTypeCd == '1' || prod.prodTypeCd == '2'){
+		switch(prod.dlv.dlvWayCd){
+		//	택배
+		case '1':
+			//제휴택배
+			if( prod.dlv.dlvPayGbCd == '1'){
+				dlvText += '무료배송</span>';
+			} else {
+				//조건부 무료 체크
+				if( prod.dlv.dlvStandYn == 'Y'){
+					dlvText += formatNumber(prod.dlv.dlvPrce) + '원</span> (' + prod.dlv.dlvStandAmt + "원 이상 무료)</p>";
+				} else {
+					if ( formatNumber(prod.dlv.dlvPrce) == 0) {
+						dlvText += '무료배송</span>';
+					} else {
+						dlvText += formatNumber(prod.dlv.dlvPrce) + '원</span>';
+					}
+				}
+			}
+			
+			//  도서 산간 체크
+			if("" != prod.dlv.getExtLandText()){
+// 				dlvText += '</span><br><span>' + prod.dlv.getExtLandText();
+				dlvText += '<p>도서산간 배송비 추가<span><a href="javascript:$(\'.delv_layer\').show();popup_show();" id="btn_delv"><img src="http://static.ssocio.net/web/images/newde/del_tip.png" 도서산간팝업 /></a></span></p>';
+				var splitExtLand = prod.dlv.getExtLandText().split("/");
+				var extLandText = '';
+				extLandText += '	<li><span>'+splitExtLand[0].split(" ")[0]+'</span><span>'+splitExtLand[0].split(" ")[1]+'</span></li>';
+				extLandText += '	<li><span>'+splitExtLand[1].split(" ")[0]+'</span><span>'+splitExtLand[1].split(" ")[1]+'</span></li>';
+				$("#extLands").append(extLandText)
+			}
+			break;
+		case '2':
+			//일반택배
+			if( prod.dlv.dlvPayGbCd == '1'){
+// 				dlvText += ' | 무료배송'
+				dlvText += '무료배송</span>'
+			}
+			else{
+				//	조건부 무료 체크
+				if( prod.dlv.dlvStandYn == 'Y'){
+// 					dlvText += ' | ' + formatNumber(prod.dlv.dlvPrce) + '원(' + prod.dlv.dlvStandAmt + "원 이상 무료)";
+					dlvText += formatNumber(prod.dlv.dlvPrce) + '원</span> (' + prod.dlv.dlvStandAmt + "원 이상 무료)</p>";
+				}
+				else{
+// 					dlvText += ' | ' + formatNumber(prod.dlv.dlvPrce) + '원';
+					if ( formatNumber(prod.dlv.dlvPrce) == 0) {
+						dlvText += '무료배송</span>';
+					} else {
+						dlvText += formatNumber(prod.dlv.dlvPrce) + '원</span>';
+					}
+				}
+				
+			}
+			
+			//  도서 산간 체크
+			if("" != prod.dlv.getExtLandText()){
+// 				dlvText += '</span><br><span>' + prod.dlv.getExtLandText();
+				dlvText += '<p>도서산간 배송비 추가<span><a href="javascript:$(\'.delv_layer\').show();popup_show();" id="btn_delv"><img src="http://static.ssocio.net/web/images/newde/del_tip.png" 도서산간팝업 /></a></span></p>';
+				var splitExtLand = prod.dlv.getExtLandText().split("/");
+				var extLandText = '';
+				extLandText += '	<li><span>'+splitExtLand[0].split(" ")[0]+'</span><span>'+splitExtLand[0].split(" ")[1]+'</span></li>';
+				extLandText += '	<li><span>'+splitExtLand[1].split(" ")[0]+'</span><span>'+splitExtLand[1].split(" ")[1]+'</span></li>';
+				$("#extLands").append(extLandText)
+			}
+			break;
+			$("#DLV_WAY_CD").hide();
+		//	우편/등기
+		case '3':
+			$("#DLV_WAY_CD").hide();
+			dlvText = '<p><span>우편/등기 | 무료배송</span></p>'
+			break;
+		//	퀵서비스
+		case '4':
+			if( prod.dlv.dlvPayGbCd == '1'){
+				dlvText = '<p><span>${result.prodInfo.DLV_WAY_NM } | 무료배송</span></p>'
+			}
+			else{
+				dlvText = '<p><span>${result.prodInfo.DLV_WAY_NM } 착불 (배송 가능 지역 : ${result.prodInfo.TRAD_LOC })</span></p>';
+			}
+			break;
+		//	직거래
+		case '5':
+			dlvText = '<p><span>${result.prodInfo.DLV_WAY_NM } | (거래 희망 지역 : ${result.prodInfo.TRAD_LOC })</span></p>';
+			break;
+		//	배송 불필요
+		case '6':
+		default:
+			$("#DLV_WAY_CD").hide();
+			break;
+
+		}
+	}
+	else if(prod.prodTypeCd == '3'){
+		if(prod.dlv.dlvWayCd == '4'){
+			dlvText += '착불</span></p>';
+		} else if( prod.dlv.dlvWayCd == '5'){
+// 			dlvText = '<p><span>${result.prodInfo.TRAD_LOC }</span></p>';
+			dlvText += prod.dlv.dlvWayCd == '5' ? '(거래 희망 지역 : ${result.prodInfo.TRAD_LOC })</span></p>' : '착불';
+		} else {
+			dlvText += '착불</span></p>';
+		}
+	} else if(prod.prodTypeCd == '5'){
+		dlvText = '';
+	}
+	else{
+		dlvText += '착불';
+	}
+	return dlvText;
+}
+/**
+ *
+ * <pre>
+ * 설명 : setProdTypeNm
+ * 설명 : 상품의 타입별로 style이 변경되기 때문에
+ * @date 2015. 9. 23. 오후 13:30:41
+ * @author WOOK.KIM
+ * @see
+ * </pre>
+ */
+function setProdTypeNm(){
+	var clss = "";
+	switch( prod.prodTypeCd){
+	case '1':
+		clss = "red";
+		break;
+	case '2':
+	case '4':
+		clss = "pu";
+		break;
+	case '3':
+		clss = "gr";
+		break;
+	}
+	$("#PROD_TYPE_NM").attr("class", clss);
+}
+
+/**
+ *
+ * <pre>
+ * 설명 : showMessage
+ * 설명 : 상품 및 페이지 상태에 대한 메세지 / 앱과 연동도 있음.
+ * @date 2015. 9. 23. 오후 13:30:41
+ * @author WOOK.KIM
+ * @see
+ * </pre>
+ */
+function showMessage(stat, type){
+	var json = new Object();
+	var msg = '';
+	var lvlSeq = nvlInt('${result.prodInfo.LVL_SEQ}', 1) == 1 ? 1 : 2;
+
+	switch(stat){
+
+	case PROD_STAT_CD_END:
+		msg = '판매종료된 상품입니다.';
+		if( '${sessionScope.APP}' == 'SSOCIO'){
+			json.msg = msg;
+			json.url = 'history.back';
+			document.location.replace('ssocio://web/cancelOrder?' + encodeURIComponent(JSON.stringify(json)));
+		}
+		else{
+			openAlert(PROD_STAT_CD_END);
+		}
+		break;
+	case PROD_STAT_CD_STOP:
+		msg = '판매중지된 상품입니다.';
+		if( '${sessionScope.APP}' == 'SSOCIO'){
+			json.msg = msg;
+			json.url = 'history.back';
+			document.location.replace('ssocio://web/cancelOrder?' + encodeURIComponent(JSON.stringify(json)));
+		}
+		else{
+			openAlert(PROD_STAT_CD_STOP);
+		}
+		break;
+	case PROD_STAT_CD_DEL:
+		msg = '삭제된 상품입니다.';
+		if( '${sessionScope.APP}' == 'SSOCIO'){
+			json.msg = msg;
+			json.url = 'history.back';
+			document.location.replace('ssocio://web/cancelOrder?' + encodeURIComponent(JSON.stringify(json)));
+		}
+		else{
+			openAlert(PROD_STAT_CD_DEL);
+		}
+		break;
+	case PROD_STAT_CD_STOCK_NOT_ENOUGH:
+		msg = prodTitle + ' 완료된 상품입니다.';
+		if( '${sessionScope.APP}' == 'SSOCIO'){
+			json.msg = msg;
+			json.url = 'history.back';
+			document.location.replace('ssocio://web/cancelOrder?' + encodeURIComponent(JSON.stringify(json)));
+		}
+		else{
+			alert(msg);
+			location.href = "/mobile/ctry/selectListProd.do?LVL_SEQ=" + lvlSeq + "&CTRY_CD=${result.prodInfo.CTRY_CD }";
+		}
+		break;
+	case PROD_STAT_OPTION_NOT_ENOUGH:
+		msg = '옵션 상품의 판매 수량이 모자랍니다.';
+		if( '${sessionScope.APP}' == 'SSOCIO'){
+			json.msg = msg;
+			json.url = 'history.back';
+			document.location.replace('ssocio://web/cancelOrder?' + encodeURIComponent(JSON.stringify(json)));
+		}
+		else{
+			alert(msg);
+			location.href = "/mobile/ctry/selectListProd.do?LVL_SEQ=" + lvlSeq + "&CTRY_CD=${result.prodInfo.CTRY_CD }";
+		}
+		break;
+	case PROD_STAT_NOT_LOGIN:
+		if( '${sessionScope.APP}' == 'SSOCIO'){
+			document.location.replace('ssocio://web/cancelOrder?' + encodeURIComponent(JSON.stringify(json)));
+			moveLogin();
+		}
+		else{
+			moveLogin();
+		}
+		break;
+	case PROD_STAT_CD_FREESHARE_END:
+		msg = '나눔 신청이 마감 되었습니다.';
+		if( '${sessionScope.APP}' == 'SSOCIO'){
+			json.msg = msg;
+			json.url = 'history.back';
+			document.location.replace('ssocio://web/cancelOrder?' + encodeURIComponent(JSON.stringify(json)));
+		}
+		else{
+			alert(msg);
+			location.href = "/mobile/ctry/selectListProd.do?LVL_SEQ=" + lvlSeq + "&CTRY_CD=${result.prodInfo.CTRY_CD }";
+		}
+		break;
+	case PROD_STAT_CD_ALREADY_REQUEST:
+		msg = '이미 나눔 신청을 하셨습니다.\n나눔 신청내역은 마이페이지\n나눔 신청내역 조회를 통해\n확인 가능합니다.\n신청내역을 확인하시겠습니까?';
+		if(confirm(msg) == true){
+			location.href = '/mobile/buy/selectListDivideReqHist.do?ACTION=list&TYPE='+type;
+		}
+		else{
+			if( '${sessionScope.APP}' != 'SSOCIO'){
+				location.href = "/mobile/ctry/selectListProd.do?LVL_SEQ=" + (nvlInt('${result.prodInfo.LVL_SEQ}', 2) - 1) + "&CTRY_CD=${result.prodInfo.CTRY_CD }";
+			}
+		}
+		break;
+	case PROD_STAT_CD_RENT_ALREADY_REQUEST:
+		msg = '이미 렌탈 신청을 하셨습니다.\n렌탈 신청내역은 마이페이지\n렌탈 신청내역 조회를 통해\n확인 가능합니다.\n신청내역을 확인하시겠습니까?';
+		if(confirm(msg) == true){
+			if( '${sessionScope.APP}' == 'SSOCIO'){
+				document.location.replace('ssocio://web/hideDetailBottomView');
+				setTimeout( function() { 
+					location.href = '/mobile/buy/selectListRentalReqHist.do?ACTION=list';
+				}, 1500);
+			}else{
+				location.href = '/mobile/buy/selectListRentalReqHist.do?ACTION=list';
+			}
+		}
+		/*
+		else{
+		    if( '${sessionScope.APP}' != 'SSOCIO'){
+		        location.href = "/mobile/ctry/selectListProd.do?LVL_SEQ=" + (nvlInt('${result.prodInfo.LVL_SEQ}', 2) - 1) + "&CTRY_CD=${result.prodInfo.CTRY_CD }";
+		    }
+		}
+		*/
+		break;
+	 case PROD_STAT_CD_CART_ALREADY:
+		msg = '이미 장바구니에 담긴 셰어링 상품입니다.';
+		if( '${sessionScope.APP}' == 'SSOCIO'){
+			json.msg = msg;
+			json.url = 'history.back';
+			document.location.replace('ssocio://web/cancelOrder?' + encodeURIComponent(JSON.stringify(json)));
+		}
+		else{
+			alert(msg);
+			location.href = "/mobile/ctry/selectListProd.do?LVL_SEQ=" + lvlSeq + "&CTRY_CD=${result.prodInfo.CTRY_CD }";
+		}
+		break;
+	 case PROD_STAT_RENTAL_NOT_ENOUGH:
+		msg = '재고 물량이 모두 소진되었습니다.';
+		if( '${sessionScope.APP}' == 'SSOCIO'){
+			json.msg = msg;
+			json.url = 'history.back';
+			document.location.replace('ssocio://web/cancelOrder?' + encodeURIComponent(JSON.stringify(json)));
+		}
+		else{
+			alert(msg);
+			location.href = "/mobile/ctry/selectListProd.do?LVL_SEQ=" + lvlSeq + "&CTRY_CD=${result.prodInfo.CTRY_CD }";
+		}
+		break;
+	 case PROD_STAT_CD_CART_DONE:
+		if( '${sessionScope.APP}' == 'SSOCIO'){
+			document.location.replace('ssocio://web/addToCartComplete');
+		}
+		else{
+			bask_layer();
+		}
+		break;
+	 case PROD_STAT_CD_UNKNOWN:
+		msg = '통신 오류가 발생 하였습니다. 잠시 후 다시 시도해 주세요';
+		if( '${sessionScope.APP}' == 'SSOCIO'){
+			json.msg = msg;
+			json.url = '';
+			document.location.replace('ssocio://web/cancelOrder?' + encodeURIComponent(JSON.stringify(json)));
+		}
+		else{
+			alert(msg);
+		}
+		break;
+	}
+}
+/**
+ *
+ * <pre>
+ * 설명 : 상품을 주문하기 전에 상품의 상태를 알아보기 위한 메소드
+ * 설명 : callback, flag : 장바구니 - 0, 구매 - 1, 셰어링 - 2
+ * @date 2015. 9. 23. 오후 13:30:41
+ * @author WOOK.KIM
+ * @see
+ * </pre>
+ */
+function selectStatCd(callback, flag){
+	popup_hide();
+	
+	if( !prod.validate() ){
+		return;
+	}
+	
+	var step = 0;
+	if( prod.prodTypeCd == '1'){
+		step = 1;
+	}
+	else if(prod.prodTypeCd == '2' ){
+		if( prod.mberGbCd == '0'){
+			prod.shar.shareDay = prod.shar.maxTerm;
+		}
+		else if( prod.mberGbCd == '1'){
+			prod.shar.shareDay = parseInt($("#SHARE_DAY").val());
+		}
+
+		if(flag == 1 || flag == 2){
+			step = 1;
+		}
+	}
+
+	var jsonArr = new Array();
+
+	jsonArr.push(prod.toJSONObject());
+
+	$("#PROD_INFO").val(JSON.stringify(jsonArr));
+
+	$.ajax({
+		type: 'post',
+		async: true,
+		url: '/mobile/prod/selectStatCd.do',
+		dataType:'json',
+		data: {
+			"PROD_INFO" : $("#PROD_INFO").val(),
+			"STEP" : step
+		},
+		success: function(response) {
+			if(response.data == PROD_STAT_CD_ING){
+				callback(1);
+			} else {
+				showMessage(response.data);
+			}
+		},
+		error : function(request, status, error) {
+			showMessage(PROD_STAT_CD_UNKNOWN);
+		}
+	});
+
+}
+
+/**
+ * <pre>
+ * 설명 : 주문서 페이지로 이동
+ * 설명 : 상품코드, 상품 수량, 옵션 정보
+ * @param : flag(0:상태조회, 1:submit)
+ * @author WOOK.KIM
+ * @see
+ * </pre>
+ */
+function insertOrder(flag){
+	if( flag == 0 ){
+		if( prod.prodTypeCd == '2' && prod.mberGbCd == '0'){
+			$('.info_sharing_order_popup').show();
+			popup_show();
+			layer_option_hide();
+		}
+		else{
+			selectStatCd(insertOrder, 1);
+		}
+	}
+	else if( flag == 1){
+
+		// 20151114 개인 쉐어링 구매
+		$('#ordFlag').val(1); // 1:구매버튼 2:쉐어링버튼
+		$("#ORD_INFO").val($("#PROD_INFO").val());
+
+		$('#form').attr("action", "/mobile/prod/insertOrder.do").submit();
+	}
+	else if( flag == 2){
+		selectStatCd(insertOrder, 1);
+	}
+}
+
+/**
+ * <pre>
+ * 설명 : 장바구니 등록 페이지로 이동
+ * 설명 : flag : 0-장바구니에 담을 수 있는 지 우선 체크, 1-실제 장바구니에 담는다.
+ * @author WOOK.KIM
+ * @see
+ * </pre>
+ */
+function insertCart(flag){
+	if( flag == 0){
+		if( onSharing == false && prod.prodTypeCd == '2' && prod.mberGbCd == '0'){
+			$('.info_sharing_cart_popup').show();popup_show();	
+		} else {
+			selectStatCd(insertCart, 0);
+		}
+	} else if( flag == 1){
+		$.ajax({
+			type: 'post',
+			async: true,
+			url: '/mobile/prod/insertCartReg.do',
+			dataType:'json',
+			data: {"ORD_INFO" : $("#PROD_INFO").val()},
+			success: function(response) {
+				showMessage(response.data);
+			},
+			error : function(request, status, error) {
+				showMessage(PROD_STAT_CD_UNKNOWN);
+			}
+		});
+	}
+	else if( flag == 2){
+		selectStatCd(insertCart, 0);
+	}
+	layer_option_hide();
+}
+
+/**
+ * <pre>
+ * 설명 : 셰어링 등록 페이지로 이동
+ * @author WOOK.KIM
+ * @see
+ * </pre>
+ */
+
+function insertShare(flag){
+	if( flag == 0){
+		selectStatCd(insertShare, 1);
+	} else if( flag == 1) {
+
+		// 20151114 개인 쉐어링 구매
+		$('#ordFlag').val(2); // 1:구매버튼 2:쉐어링버튼
+		$("#ORD_INFO").val($("#PROD_INFO").val());
+		$('#form').attr("action", "/mobile/prod/insertOrder.do").submit();
+	}
+}
+
+/**
+ * <pre>
+ * 설명 : 나눔 등록 페이지로 이동
+ * @author WOOK.KIM
+ * @see
+ * </pre>
+ */
+function insertFreeshare(type){
+
+	if(isSubmit){
+		$.ajax({
+			type: 'post',
+			async: true,
+			url: '/mobile/prod/selectFreeshareStatCd.do',
+			dataType:'json',
+			data: {"PROD_CODE": $("#PROD_CODE").val(),
+				"PROD_TYPE_CD": '${result.prodInfo.PROD_TYPE_CD}',
+				"TYPE":type
+			},
+			success: function(response) {
+				if( response.data == PROD_STAT_CD_ING){
+					if( '${sessionScope.APP}' == 'SSOCIO'){
+						document.location.replace('ssocio://web/hideDetailBottomView');
+					}
+					$("#TYPE").val(type);
+					$('#form').attr("action", "/mobile/prod/insertFreeshare.do").submit();
+				}else if( response.data == PROD_STAT_NOT_LOGIN){
+					if( '${sessionScope.APP}' == 'SSOCIO'){
+						document.location.replace('ssocio://web/cancelOrder?' + encodeURIComponent(JSON.stringify(json)));
+						moveLogin();
+					} else{
+						moveLogin();
+					}
+				}else{
+					showMessage(response.data, type);
+				}
+			},
+			error : function(request, status, error) {
+				showMessage(PROD_STAT_CD_UNKNOWN);
+			}
+		});
+	}		
+}
+ 
+/**
+ * <pre>
+ * 설명 : 렌탈 등록 페이지로 이동
+ * @author WOOK.KIM
+ * @see
+ * </pre>
+ */
+function insertRental(){
+	 
+	if(! isSubmit){
+		return;
+	}
+	
+	if(prod.invenQty <= 0 ){
+		alert("현재 재고수량이 없습니다.");
+		return;
+	}
+
+	if('${sessionScope.user.login}' == 'true' ){
+		$.ajax({
+			type: 'post',
+			async: true,
+			url: '/mobile/prod/selectRentalStatCd.do',
+			dataType:'json',
+			data: {"PROD_CODE": $("#PROD_CODE").val(),
+				"PROD_TYPE_CD": '${result.prodInfo.PROD_TYPE_CD}'
+			},
+			//before: function() {
+			//   loadingForm.showDialog();
+			//},
+			success: function(response) {
+				if( response.data == PROD_STAT_CD_ING){
+					if( '${sessionScope.APP}' == 'SSOCIO'){
+						document.location.replace('ssocio://web/hideDetailBottomView');
+					}
+					$('#form').attr("action", "/mobile/prod/insertRental.do").submit();
+				}else if( response.data == PROD_STAT_NOT_LOGIN){
+					if( '${sessionScope.APP}' == 'SSOCIO'){
+						document.location.replace('ssocio://web/cancelOrder?' + encodeURIComponent(JSON.stringify(json)));
+						moveLogin();
+					} else {
+						moveLogin();
+					}
+				}else if( response.data == PROD_STAT_CD_RENT_ALREADY_REQUEST){
+					if(confirm('이미 렌탈 신청을 하셨습니다.\n렌탈 신청내역은 마이페이지\n렌탈 신청내역 조회를 통해\n확인 가능합니다.\n신청내역을 확인하시겠습니까?') == true){
+						if( '${sessionScope.APP}' == 'SSOCIO'){
+							document.location.replace('ssocio://web/hideDetailBottomView');
+							setTimeout( function() { 
+								location.href = '/mobile/buy/selectListRentalReqHist.do?ACTION=list';
+							}, 1500);
+						}else{
+							location.href = '/mobile/buy/selectListRentalReqHist.do?ACTION=list';
+						}
+					}
+					/*
+					else{
+					    if( '${sessionScope.APP}' != 'SSOCIO'){
+					        location.href = "/mobile/ctry/selectListProd.do?LVL_SEQ=" + (nvlInt('${result.prodInfo.LVL_SEQ}', 2) - 1) + "&CTRY_CD=${result.prodInfo.CTRY_CD }";
+					    }
+					}
+					*/
+				}else if( response.data == PROD_STAT_RENTAL_NOT_ENOUGH){
+					if( '${sessionScope.APP}' == 'SSOCIO'){
+						json.msg = '재고 물량이 모두 소진되었습니다.';
+						json.url = 'history.back';
+						document.location.replace('ssocio://web/cancelOrder?' + encodeURIComponent(JSON.stringify(json)));
+					}
+					else{
+						alert('재고 물량이 모두 소진되었습니다.');
+						location.href = "/mobile/ctry/selectListProd.do?LVL_SEQ=" + lvlSeq + "&CTRY_CD=${result.prod.CTRY_CD }";
+					}
+				}else{
+					showMessage(response.data);
+				}
+			},
+			//complete: function() {
+			//	loadingForm.hideDialog();
+			//},
+			error : function(request, status, error) {
+				showMessage(PROD_STAT_CD_UNKNOWN);
+			}
+		});
+	}
+	else{
+		moveLogin();
+	}
+}
+
+/**
+ * <pre>
+ * 설명 : 위쉬 등록 페이지로 이동
+ * @author WOOK.KIM
+ * @see
+ * </pre>
+ */
+function insertWish(){
+	if(prod.invenQty <= 0 ){
+		alert("현재 재고수량이 없습니다.");
+		return;
+	}
+
+	if('${sessionScope.user.login}' == 'true' ){
+		$('#form').attr("action", "/mobile/myWish/insertWish.do").submit();
+	}
+	else{
+		moveLogin();
+	}
+}
+
+/**
+ * <pre>
+ * 설명 : 상품 문의 등록 페이지로 이동
+ * @author WOOK.KIM
+ * @see
+ * </pre>
+ */
+function insertProdQna(){
+	if('${sessionScope.user.login}' == 'true'){
+		$('#form').attr("action", "/mobile/board/insertProdQna.do").submit();
+	}
+	else{
+		moveLogin();
+	}
+}
+
+/**
+ * <pre>
+ * 설명 : 댓글 등록 페이지로 이동
+ * @author WOOK.KIM
+ * @see
+ * </pre>
+ */
+function insertComment(){
+	if('${sessionScope.user.login}' == 'true'){
+		$('#form').attr("action", "/mobile/board/insertComment.do").submit();
+	}
+	else{
+		moveLogin();
+	}
+}
+
+/**
+ * <pre>
+ * 설명 : 상품정보제공고시 페이지로 이동
+ * @author WOOK.KIM
+ * @see
+ * </pre>
+ */
+function selectProdInfoNoti(){
+	location.href = "/mobile/ctry/selectListProdInfoNoti.do?PROD_CODE=" + $("#PROD_CODE").val();
+}
+
+/**
+ * <pre>
+ * 설명 : 상품 후기 목록 페이지로 이동
+ * @author WOOK.KIM
+ * @see
+ * </pre>
+ */
+function selectListReview(){
+	location.href = "/mobile/board/selectListReview.do?PROD_CODE=" + $("#PROD_CODE").val();
+}
+
+/**
+ * <pre>
+ * 설명 : 상품 후기 상세 페이지로 이동
+ * @author WOOK.KIM
+ * @see
+ * </pre>
+ */
+function selectReview(prodCode, boardSeq){
+	location.href = "/mobile/board/selectReview.do?PROD_CODE=" + prodCode + "&BOARD_SEQ=" + boardSeq;
+}
+
+
+ /**
+  * <pre>
+  * 설명 : 나눔 신청자 목록 페이지로 이동
+  * @author J.S.LEE
+  * @see
+  * </pre>
+  */
+ function selectFreeshare(prodCode){
+ 	location.href = "/mobile/board/selectProdNanum.do?PROD_CODE=" + prodCode;
+ }
+
+/**
+ * <pre>
+ * 설명 : 댓글 목록 페이지로 이동
+ * @author WOOK.KIM
+ * @see
+ * </pre>
+ */
+function selectListComment(){
+	 location.href = "/mobile/board/selectListComment.do?PROD_CODE=${result.prodInfo.PROD_CODE }&PROD_TYPE_CD=${result.prodInfo.PROD_TYPE_CD }";
+}
+
+/*	############################################################################################################
+ * 	옵션 레이어 관련 ...
+ *	############################################################################################################*/
+function openCartSelector(){
+	if('${sessionScope.user.login}' != 'true'){
+		moveLogin();
+	}
+	else{
+		displayOption(0);
+	}
+}
+
+/**
+* <pre>
+* 설명 : 옵션 레이어 display
+* 설명 : 0:장바구니 담기, 1:구매하기, 2:셰어링하기
+* @author WOOK.KIM
+* @see
+* </pre>
+*/
+function displayOption(flag){
+	//prodOptFin('0', '{"prodCode":"20151016016349","prodNm":"[셰어링\/이탈트라이크] 라코사 엠블런스 붕붕카","mberGbCd":"1","ordAmt":20000,"prodImgUrl":"","shar":{"startDt":"","minTerm":7,"shareDay":15,"maxTerm":60,"deposit":20000,"prce":500,"endDt":""},"extProdYn":"N","dlv":{"dlvPrce":0,"dlvStandYn":"N","dlvWayCd":"1","bndlDlvYn":"Y","extLands":[],"dlvPayFCd":"","dlvStandAmt":0,"dlvPayGbCd":"1"},"optProdYn":"N","ctryCd":"1009100810030000","cpnNo":"","sellPrce":0,"nrmPrce":0,"prodTypeCd":"2","invenQty":1,"mberSeq":"1","freeshare":{"endDt":"","okGbCd":""},"option":{"additional":[],"extra":[],"select":[]},"ordQty":1}');
+	//return;
+
+	if(! isSubmit){
+		return;
+	}
+	
+	if(prod.invenQty <= 0 ){
+		if(prod.prodTypeCd == '2') {
+			alert("셰어링중인 상품입니다.");
+		} else {
+			alert("현재 재고수량이 없습니다.");
+		}
+		return;
+	}
+
+	if('${sessionScope.user.login}' == 'true'){
+
+		//	기존 레이어에 있던 내용을 다시 세팅한다
+		displayDlv();
+		resetOption();
+
+		var html = '';
+		if( prod.prodTypeCd == '1'){
+			cartGubun = 'A';
+			if( prod.optProdYn == 'Y' ){
+				html += '<option value="">(필수) 선택</option>';
+				for( var i=0 ; i<prod.option.additional.length ; i++){
+					var option = prod.option.additional[i];
+					var optPrce = '';
+					if( option.prce >= 0){
+						optPrce = '+' + formatNumber(option.prce);
+					}
+					else{
+						optPrce = '-' + formatNumber(option.prce);
+					}
+
+					if(option.invenQty > 0 ){
+						html += '<option value="' + option.optCd + '">' + option.optNm + '(' + optPrce + '원) | 재고' + option.invenQty + '개</option>';
+					}
+					else{
+						html += '<option value="' + option.optCd + '" disabled>' + option.optNm + '(' + optPrce + '원) | 품절</option>';
+					}
+				}
+				$("#OPT_ADDITIONAL").append(html);
+				$("#id_additional_text").show();
+				$("#id_additional_option").show();
+			}
+
+			if( prod.extProdYn == 'Y' ){
+				html = '<option value="">선택</option>';
+				for( var i=0 ; i<prod.option.extra.length ; i++){
+					var option = prod.option.extra[i];
+					if( option.prce >= 0){
+						optPrce = formatNumber(option.prce);
+					}
+					else{
+						optPrce = formatNumber(option.prce);
+					}
+					if(option.invenQty > 0){
+						html += '<option value="' + option.optCd + '">' + option.optNm + '(' + optPrce + '원) | 재고' + option.invenQty + '</option>';
+					}
+					else{
+						html += '<option value="' + option.optCd + '" disabled>' + option.optNm + '(' + optPrce + '원) | 품절</option>';
+					}
+				}
+				$("#OPT_EXTRA").append(html);
+				$("#id_extra_text").show();
+				$("#id_extra_option").show();
+			}
+		}
+		else if( prod.prodTypeCd == '2'){
+			cartGubun = 'B';
+			$("#id_shar_title").show();
+			if( prod.mberGbCd == '0'){
+				$("#id_shar_date").hide();
+				prod.shar.shareDay = prod.shar.maxTerm;
+				$("#SHARE_DAY").val(prod.shar.shareDay);
+			}
+			else if( prod.mberGbCd == '1'){
+				$("#id_shar_date").show();
+				prod.shar.shareDay = prod.shar.minTerm;
+				$("#SHARE_DAY").val(prod.shar.shareDay);
+			}
+
+			var txt = '';
+			if( prod.mberGbCd == '0'){
+				txt = '최대 ' + Math.ceil(prod.shar.deposit / prod.shar.prce) + '일 이내 반납가능';
+			}
+			else if( prod.mberGbCd == '1'){
+				txt = '최소 ' + prod.shar.minTerm + '일 ~ ' + '최대 ' + prod.shar.maxTerm + '일';
+			}
+
+			$("#id_shar_text").text(txt);
+		}
+
+		if(prod.optProdYn == 'N' ){
+			displayAccountProd();
+		}
+
+		displayCounter();
+
+		//	장바구니 담기 이벤트의 버튼
+		if(flag == 0){
+			//	판매 상품
+			if( prod.prodTypeCd == '1'){
+				openButtonLayer(1);
+			}
+			else if( prod.prodTypeCd == '2'){
+				openButtonLayer(2);
+			}
+		}
+		else{
+			openButtonLayer(flag);
+		}
+	}
+	else{
+		moveLogin();
+	}
+}
+
+function openButtonLayer(flag){
+	//	장바구니 버튼
+	$("#id_option_cart").show();
+	if( flag == 1){
+		$("#id_option_buy").show();
+		$("#id_option_share").hide();
+		onSharing = false;
+	}
+	else if( flag == 2){
+		$("#id_option_buy").hide();
+		$("#id_option_share").show();
+		onSharing = true;
+	}
+
+	layer_option_show();
+}
+
+function displayDlv(){
+	$("#DLV_PAY_F_CD option[value='10']").remove();
+	$("#DLV_PAY_F_CD option[value='20']").remove();
+
+	//	배송비 선택부분 여부
+	var displaySelect = false;
+
+	switch(prod.dlv.dlvWayCd){
+	case '1':
+	case '2':
+		if( prod.dlv.dlvPayGbCd == '1'){
+			//	배송비 무료배송
+			$("#id_text_dlv_amount").text("택배 - 무료배송");
+		}
+		else{
+			//	조건부 무료 배송 여부
+			if(prod.dlv.dlvStandYn == 'Y'){
+				$("#DLV_PAY_F_CD").append('<option value="10" selected>택배 - 주문 시 결제(+' + formatNumber(prod.dlv.dlvPrce) + '원) (※' + formatNumber(prod.dlv.dlvStandAmt) + '원 이상 무료)');
+				$("#DLV_PAY_F_CD").append('<option value="20">택배 - 수령 후 지불(' + formatNumber(prod.dlv.dlvPrce) + '원) (※' + formatNumber(prod.dlv.dlvStandAmt) + '원 이상 무료)');
+			}
+			else{
+				$("#DLV_PAY_F_CD").append('<option value="10" selected>택배 - 주문 시 결제(+' + formatNumber(prod.dlv.dlvPrce) + '원)\n');
+				$("#DLV_PAY_F_CD").append('<option value="20">택배 - 수령 후 지불(' + formatNumber(prod.dlv.dlvPrce) + '원)\n');
+			}
+			displaySelect = true;
+		}
+		break;
+	case '3':	//	우편/등기
+		//	무료 배송
+		$("#id_text_dlv_amount").text("우편등기 - 무료배송");
+		break;
+	case '4':	//	퀵서비스
+		if(prod.dlv.dlvPayGbCd == '1'){
+			//	무료배송
+			$("#id_text_dlv_amount").text("퀵서비스 - 무료배송");
+		}
+		else{
+			//	배송비 착불
+			 $("#id_text_dlv_amount").text("퀵서비스 - 배송비착불");
+		}
+		break;
+	case '5':	//	직거래
+		//	직거래
+		$("#id_text_dlv_amount").text("직거래");
+		break;
+	case '6':	//	배송 불필요
+		break;
+	}
+
+	if( displaySelect == true){
+		$("#id_text_dlv").show();
+		$("#id_select_dlv").show();
+	}
+	else{
+		$("#id_text_dlv").show();
+		$("#id_select_dlv").hide();
+	}
+
+}
+
+/**
+ * <pre>
+ * 설명
+ * 설명	옵션을 다시 설정함.
+ * @date 2015. 10. 12. 오후 2:08:27
+ * @author WOOK.KIM
+ * @see views/web/ctry
+ * </pre>
+ */
+function resetOption(){
+	$("#id_counter").empty();
+	$("#DLV_PAY_F_CD option:eq(0)").attr("selected", "selected");
+	$("#OPT_EXTRA").empty();
+	$("#OPT_ADDITIONAL").empty();
+	prod.reset();
+	$("#id_ord_title_text").hide();
+	if( (prod.dlv.dlvWayCd = '2') && (prod.dlv.dlvPayGbCd != '1')){
+		changeDlv("10");
+	}
+}
+
+/**
+ * <pre>
+ * 설명
+ * 설명	옵션 창에서 배송비 선택 시 호출
+ * @date 2015. 10. 12. 오후 2:08:27
+ * @author WOOK.KIM
+ * @see views/web/ctry
+ * </pre>
+ */
+function changeDlv(dlvPayFCd){
+	prod.dlv.dlvPayFCd = dlvPayFCd;
+	displayCounter();
+}
+
+/**
+ * <pre>
+ * 설명
+ * 설명 옵션 창에서 부가옵션 선택 시 호출
+ * @date 2015. 10. 12. 오후 2:08:27
+ * @author WOOK.KIM
+ * @see views/web/ctry
+ * </pre>
+ */
+function changeOption(optCd, isExtra){
+	if( optCd == ''){
+		return;
+	}
+	var option = prod.selectOption(optCd, isExtra);
+	if( option != null ){
+		displayAccountOption(option);
+		displayCounter();
+	}
+	else{
+		if( isExtra == true ){
+			$("#OPT_EXTRA option:eq(0)").attr("selected", "selected");
+		}
+		else{
+			$("#OPT_ADDITIONAL option:eq(0)").attr("selected", "selected");
+		}
+	}
+
+	$("#id_ord_title_text").show();
+}
+
+function displayCounter(){
+	$("#TOT_AMOUNT").text(formatNumber('' + prod.getTotalAmount()) + '원');
+}
+
+function displayAccountProd(){
+	var html = '';
+	var prodNm = '';
+	var account = 0;
+	if( prod.prodTypeCd == '1'){
+		prodNm = prod.prodNm;
+		account = formatNumber(prod.sellPrce) + '원';
+	}
+	else if( prod.prodTypeCd == '2'){
+		prodNm = prod.prodNm;
+		if( prod.mberGbCd == '0'){
+			account = formatNumber(prod.shar.deposit) + '원';
+		}
+		else if( prod.mberGbCd == '1'){
+			account = formatNumber(prod.shar.deposit) + '원(일' + formatNumber(prod.shar.prce) + '원)';
+		}
+	}
+
+	$("#id_ord_title_text").show();
+
+	html += '<p class="prod_name">' + prodNm + '</p>';
+	html += '<div class="clear">';
+	html += '	<p class="fl">';
+	html += '		<a href="javascript:minusProd();"><img src="http://static.ssocio.net/web/images/btn_minus.png" alt="minus"></a> ';
+	html += '		<input type="text" name="ORD_PROD_QTY" id="ORD_PROD_QTY" value="1">';
+	html += '		<a href="javascript:plusProd();"><img src="http://static.ssocio.net/web/images/btn_plus.png" alt="plus"></a>';
+	html += '	</p> ';
+	html += '	<span class="fr"><strong id="ORD_PROD_AMOUNT">' + account + '</strong></span>';
+	html += '</div>';
+
+	$("#id_counter").append(html);
+}
+
+function minusProd(){
+	$("#ORD_PROD_QTY").val(prod.minusProd());
+	var txt = '';
+	if( prod.prodTypeCd == '1'){
+		txt = formatNumber(prod.getAmount()) + '원';
+	}
+	else if( prod.prodTypeCd == '2'){
+		txt = formatNumber(prod.shar.deposit * prod.ordQty) + '원(일' + formatNumber(prod.shar.prce * prod.ordQty) + '원)';
+	}
+	$("#ORD_PROD_AMOUNT").text(txt);
+	displayCounter();
+}
+
+function plusProd(){
+	$("#ORD_PROD_QTY").val(prod.plusProd());
+	var txt = '';
+	if( prod.prodTypeCd == '1'){
+		txt = formatNumber(prod.sellPrce * prod.ordQty) + '원';
+	}
+	else if( prod.prodTypeCd == '2'){
+		txt = formatNumber(prod.shar.deposit * prod.ordQty) + '원(일' + formatNumber(prod.shar.prce * prod.ordQty) + '원)';
+	}
+	$("#ORD_PROD_AMOUNT").text(txt);
+	displayCounter();
+}
+
+function displayAccountOption(option){
+	if(option == null ){
+		return;
+	}
+
+	var prce = prod.sellPrce + option.prce;
+
+	var index = prod.option.select.length - 1;
+	var html = '<div id="id_account_' + index + '">';
+	if( option.opGbCd == '10'){
+		html += '<p class="prod_name">' + option.optNm + ' (+' + formatNumber(option.prce) + '원)<a href="javascript:delAccount(' + index + ', \'' + option.optCd + '\');" class="right"><img src="http://static.ssocio.net/web/images/btn_layer_close.png" alt="삭제" width="12"></a></p>';
+	}
+	else{
+		html += '<p class="prod_name">[추가상품]' + option.optNm + ' (' + formatNumber(option.prce) + '원)<a href="javascript:delAccount(' + index + ', \'' + option.optCd + '\');" class="right"><img src="http://static.ssocio.net/web/images/btn_layer_close.png" alt="삭제" width="12"></a></p>';
+	}
+	html += '<div class="clear">';
+	html += '	<p class="fl">';
+	html += '		<a href="javascript:minusAccount(' + index + ');"><img src="http://static.ssocio.net/web/images/btn_minus.png" alt="minus"></a> ';
+	html += '		<input type="text" name="ORD_QTY_' + index + '" id="ORD_QTY_' + index + '" value="1">';
+	//html += '		<a href="javascript:plusAccount(' + index + ');"><img src="http://static.ssocio.net/web/images/btn_plus.png" alt="plus"></a>';
+	html += '       <a id="' + option.optCd + '" idx="'+ index + '" href="javascript:plusAccount(' + index + ');"><img src="http://static.ssocio.net/web/images/btn_plus.png" alt="plus"></a>';
+	html += '	</p> ';
+	if( option.opGbCd == '10'){
+		html += '	<span class="fr"><strong id="ORD_AMOUNT_' + index + '">' + formatNumber(prce) + '원</strong></span>';
+	}
+	else{
+		html += '	<span class="fr"><strong id="ORD_AMOUNT_' + index + '">' + formatNumber(option.prce) + '원</strong></span>';
+	}
+	html += '</div>';
+	html += '</div>';
+
+	$("#id_counter").append(html);
+}
+
+function delAccount(index, optCd){
+	$("#id_account_" + index ).remove();
+	var opGbCd = prod.removeOption(optCd);
+	displayCounter();
+
+	//	select box를 초기화 한다.
+	if( opGbCd == '20' ){
+		$("#OPT_EXTRA option:eq(0)").attr("selected", "selected");
+	}
+	else{
+		$("#OPT_ADDITIONAL option:eq(0)").attr("selected", "selected");
+	}
+}
+
+function minusAccount(index){
+	$("#ORD_QTY_" + index ).val(prod.minusSelectOption(index));
+	displayCounter();
+}
+
+function plusAccount(index){
+	$("#ORD_QTY_" + index ).val(prod.plusSelectOption(index));
+	displayCounter();
+}
+
+function selectMiniShop(){ // 바껴라
+	if( '${sessionScope.APP}' == 'SSOCIO'){
+		document.location.replace('ssocio://web/minishopSel?{"seq":"${result.prodInfo.MBER_SEQ}","PROD_CODE":"${result.prodInfo.PROD_CODE}"}');
+	}
+	else{
+		location.href = "/mobile/myMini/selectMiniShop.do?LVL_SEQ=0&PROD_CODE=${result.prodInfo.PROD_CODE}&SELLER_MBER_SEQ=${result.prodInfo.MBER_SEQ}";
+	}
+}
+
+function selectProdDtl(){
+	if( '${sessionScope.APP}' == 'SSOCIO'){
+		document.location.replace('ssocio://web/hideDetailBottomView');
+	}
+
+	location.href = "/mobile/prod/selectDetailProd.do?PROD_CODE=${result.prodInfo.PROD_CODE}&PROD_TYPE_CD=${result.prodInfo.PROD_TYPE_CD }";
+}
+
+function moveCart(){
+	$('.bask_layer').hide();
+	if( '${sessionScope.APP}' == 'SSOCIO'){
+		document.location.replace('ssocio://web/hideDetailBottomView');
+	}
+
+	location.href = "/mobile/myBasket/getMyBasketInfo.do?GUBUN=" + cartGubun;
+}
+
+function closeCart(){
+	bask_layer();
+	$('.bask_layer').hide();
+}
+
+/* ======================================================================
+Function : SNS 연동
+Return   : 없음
+========================================================================= */
+function sendSns(code){
+
+	switch(code){
+	case '1':
+	case '2':
+	case '3':
+	case '4':
+		sns.send(code);
+		break;
+	case '5':
+		break;
+	case '7':
+		sns.facebook();
+		break;
+	case '8':
+		sns.line();
+	break;
+	}
+}
+
+function historyBack(){
+	if(1 == history.length){
+		if( '${sessionScope.APP}' == 'SSOCIO'){
+			document.location.replace('ssocio://web/closeWebView');
+		}
+	}else{
+		if( '${sessionScope.APP}' == 'SSOCIO'){
+			document.location.replace('ssocio://web/hideDetailBottomView');
+			setTimeout( function() { 
+				history.back();
+			}, 1500);
+		} else {
+			history.back();
+		}
+	}
+}
+
+var eNum = 10;
+var eRegComment = 1;
+
+function prevComment(cnt){
+	$(".new_body .new_detail .comment").css("margin-bottom","40px");
+	$.ajax({
+		type: 'post',
+		async: true,
+		url: '/mobile/prod/selectProdComment.do',
+		dataType:'json',
+		data: {"PROD_CODE": $("#PROD_CODE").val(),
+				"E_NUM": eNum
+		},
+		success: function(response) {
+			$(".new_body div.comment_type div").remove();
+			$("#commentHeader h1").remove();
+			var commentList = "";
+			var data = response.result.addcomments.list;
+			var commnetHeader = "<h1>댓글 <span>"+ response.result.addcomments.CNT+"</span></h1>";
+			if(response.result.addcomments.CNT < 6) {
+				$(".prev").hide();
+			} else {
+				if(response.result.addcomments.CNT == response.result.addcomments.list.length) {
+					$(".prev").hide();
+				} else {
+					$(".prev").show();
+				}
+			}
+			for(var i=0; i<response.result.addcomments.list.length;i++){
+				
+				if (data[i].MBER_SEQ != '${result.prodInfo.MBER_SEQ}') {
+					commentList += '<div class="comment_ask">';
+					commentList += '	<p class="photo"><img src="<custom:codeTag code="PROFILE_DEFAULT_IMG_URL" groupCode="SITE_DEFAULT" />" alt="'+data[i].FILE_URL+'" /></p>';
+					commentList += '	<div class="comment_pink">';
+					commentList += '		<dl>';
+					commentList += '			<dt class="id">';
+					commentList += '				<span class="ico_grade"><img src="'+data[i].LEVEL_IMG+'" alt="" /></span>';
+					if ( data[i].MBER_EMAIL.indexOf("@") > -1 ) {
+						commentList += getMaskingEmail(data[i].MBER_EMAIL);
+					} else {
+						commentList += data[i].MBER_NICK;
+					}
+					commentList += '			</dt>';
+					commentList += '			<dd>'+data[i].CONTENTS;
+					commentList += '				<div class="date">'+timeGap(data[i].TIME_GAP)+'</div>';
+					commentList += '			</dd>';
+					commentList += '		</dl>';
+					commentList += '	</div>';
+					commentList += '</div>';
+				}
+				if (data[i].MBER_SEQ == '${result.prodInfo.MBER_SEQ}') {
+					
+					var beDate = data[i].TIME_GAP.split(":");
+					var afDate = "";
+					if (i+1 < data.length) {
+						afDate = data[i+1].TIME_GAP.split(":");
+					}
+					if(beDate[0]+beDate[1] != afDate[0]+afDate[1]){
+						commentList += '<div class="comment_answer">';
+						commentList += '	<div class="comment_blue">';
+						commentList += '	<div>'+data[i].CONTENTS;
+						commentList += '		<div class="date">'+timeGap(data[i].TIME_GAP)+'</div>';
+						commentList += '	</div>';
+					} else {
+						commentList += '<div class="comment_answer mb0">';
+						commentList += '	<div class="comment_blue">';
+						commentList += '	<div>'+data[i].CONTENTS+'</div>';
+					}
+					commentList += '	</div>';
+					commentList += '</div>';
+				}
+			}
+			$(".new_body div.comment_type").append(commentList);
+			$("#commentHeader").append(commnetHeader);
+			eNum = eNum + cnt;
+			cdnreload();
+			document.body.scrollTop = document.body.scrollHeight;
+		},
+		error : function(request, status, error) {
+			
+		}
+	});
+}
+
+function reloadComment(){
+	$.ajax({
+		type: 'post',
+		async: true,
+		url: '/mobile/prod/selectProdComment.do',
+		dataType:'json',
+		data: {"PROD_CODE": $("#PROD_CODE").val(),
+				"E_NUM": 5
+		},
+		success: function(response) {
+			var commentList = "";
+			if ( response.result.addcomments != null ) {
+				
+				if( response.result.addcomments.CNT == 1 ){
+					$("#listComment div, #listComment p").remove();
+					
+					var data = response.result.addcomments.list;
+					if (data[0].MBER_SEQ != '${result.prodInfo.MBER_SEQ}') {
+						commentList += '<div class="comment_type"><div class="comment_ask">';
+						commentList += '	<p class="photo"><img src="<custom:codeTag code="PROFILE_DEFAULT_IMG_URL" groupCode="SITE_DEFAULT" />" alt="'+data[0].FILE_URL+'" /></p>';
+						commentList += '	<div class="comment_pink">';
+						commentList += '		<dl>';
+						commentList += '			<dt class="id">';
+						commentList += '				<span class="ico_grade"><img src="'+data[0].LEVEL_IMG+'" alt="" /></span>';
+						if ( data[0].MBER_EMAIL.indexOf("@") > -1 ) {
+							commentList += getMaskingEmail(data[0].MBER_EMAIL);
+						} else {
+							commentList += data[0].MBER_NICK;
+						}
+						commentList += '			</dt>';
+						commentList += '			<dd>'+data[0].CONTENTS;
+						commentList += '				<div class="date">'+timeGap(data[0].TIME_GAP)+'</div>';
+						commentList += '			</dd>';
+						commentList += '		</dl>';
+						commentList += '	</div>';
+						commentList += '</div><div>';
+					}
+					if (data[0].MBER_SEQ == '${result.prodInfo.MBER_SEQ}') {
+						
+						var beDate = data[0].TIME_GAP.split(":");
+						var afDate = "";
+						if (i+1 < data.length) {
+							afDate = data[0+1].TIME_GAP.split(":");
+						}
+						if(beDate[0]+beDate[1] != afDate[0]+afDate[1]){
+							commentList += '<div class="comment_type"><div class="comment_answer">';
+							commentList += '	<div class="comment_blue">';
+							commentList += '	<div>'+data[0].CONTENTS;
+							commentList += '		<div class="date">'+timeGap(data[0].TIME_GAP)+'</div>';
+							commentList += '	</div>';
+						} else {
+							commentList += '<div class="comment_answer mb0">';
+							commentList += '	<div class="comment_blue">';
+							commentList += '	<div>'+data[0].CONTENTS+'</div>';
+						}
+						commentList += '	</div>';
+						commentList += '</div></div>';
+					}
+					$("section.detail_tab #commentTab").text(response.result.addcomments.CNT);
+					$("section.comment p span.red_p").text(response.result.addcomments.CNT+"건");
+					$("#listComment article").before('<p class="clear prod_t2"><span class="fl">댓글</span><span class="fl red_p">'+response.result.addcomments.CNT+'건</span><a href="javascript:$(\'#page_newlayer\').show();$(\'#commentContents\').focus();" class="arrow" id="reply_more">&nbsp;</a></p>');
+					$("#listComment p").after(commentList);
+				} else {
+					$("div.comment_type div").remove();
+					var data = response.result.addcomments.list;
+					for(var i=0; i<response.result.addcomments.list.length;i++){
+						if (data[i].MBER_SEQ != '${result.prodInfo.MBER_SEQ}') {
+							commentList += '<div class="comment_ask">';
+							commentList += '	<p class="photo"><img src="<custom:codeTag code="PROFILE_DEFAULT_IMG_URL" groupCode="SITE_DEFAULT" />" alt="'+data[i].FILE_URL+'" /></p>';
+							commentList += '	<div class="comment_pink">';
+							commentList += '		<dl>';
+							commentList += '			<dt class="id">';
+							commentList += '				<span class="ico_grade"><img src="'+data[i].LEVEL_IMG+'" alt="" /></span>';
+							if ( data[i].MBER_EMAIL.indexOf("@") > -1 ) {
+								commentList += getMaskingEmail(data[i].MBER_EMAIL);
+							} else {
+								commentList += data[i].MBER_NICK;
+							}
+							commentList += '			</dt>';
+							commentList += '			<dd>'+data[i].CONTENTS;
+							commentList += '				<div class="date">'+timeGap(data[i].TIME_GAP)+'</div>';
+							commentList += '			</dd>';
+							commentList += '		</dl>';
+							commentList += '	</div>';
+							commentList += '</div>';
+						}
+						if (data[i].MBER_SEQ == '${result.prodInfo.MBER_SEQ}') {
+							
+							var beDate = data[i].TIME_GAP.split(":");
+							var afDate = "";
+							if (i+1 < data.length) {
+								afDate = data[i+1].TIME_GAP.split(":");
+							}
+							if(beDate[0]+beDate[1] != afDate[0]+afDate[1]){
+								commentList += '<div class="comment_answer">';
+								commentList += '	<div class="comment_blue">';
+								commentList += '	<div>'+data[i].CONTENTS;
+								commentList += '		<div class="date">'+timeGap(data[i].TIME_GAP)+'</div>';
+								commentList += '	</div>';
+							} else {
+								commentList += '<div class="comment_answer mb0">';
+								commentList += '	<div class="comment_blue">';
+								commentList += '	<div>'+data[i].CONTENTS+'</div>';
+							}
+							commentList += '	</div>';
+							commentList += '</div>';
+						}
+					}
+					$("section.detail_tab #commentTab").text(response.result.addcomments.CNT);
+					$("section.comment p span.red_p").text(response.result.addcomments.CNT+"건");
+					$("div.comment_type").append(commentList);
+				}
+			}
+			$("section.comment #none_type").remove();
+			cdnreload();
+		},
+		error : function(request, status, error) {
+			
+		}
+	});
+}
+
+function insertProdCommentReg(){
+	var json = new Object();
+	if( '${sessionScope.user.login}' != 'true' ){
+		moveLogin();
+		return; 
+	}
+	
+	if( validates() == false ) return;
+	
+	var data = {
+		"BOARD_TYPE_CD": 50,
+		"PROD_CODE": $("#PROD_CODE").val(),
+		"CONTENTS": $("#commentContents").val()
+	};
+		
+	$.ajax({
+		type: 'post',
+		async: true, 
+		url: '/mobile/board/insertCommentReg.do', 
+		dataType:'json', 
+		data: data,
+		success: function(response) {
+			if (eRegComment == 1) {
+				eNum = 6;
+			}
+			prevComment(1);
+			eRegComment++;
+			$("#commentContents").val("");
+		},
+		error : function(request, status, error) {
+			alert("통신 오류가 발생 하였습니다. 잠시 후 다시 시도해 주세요");
+		}
+	}); 
+}
+
+function validates(){
+	if( validate($("#commentContents"), "댓글 내용", 0) == false) return false;
+	return true;
+}
+</script>
+<form name="form" id="form" method="post">
+<input type="hidden" name="PROD_CODE" id="PROD_CODE" value="${result.prodInfo.PROD_CODE }" />
+<input type="hidden" name="PROD_TYPE_CD" id="PROD_TYPE_CD" value="${result.prodInfo.PROD_TYPE_CD }" />
+<input type="hidden" name="CTRY_CD" id="CTRY_CD" value="${result.prodInfo.CTRY_CD }" />
+<input type="hidden" name="LVL_SEQ" id="LVL_SEQ" value="${result.prodInfo.LVL_SEQ }" />
+<input type="hidden" name="ORD_QTY" id="ORD_QTY" value="1" />
+<input type="hidden" name="PROD_INFO" id="PROD_INFO" value="" />
+<input type="hidden" name="ORD_INFO" id="ORD_INFO" value="" />
+<input type="hidden" name="TOT_CNT" id="TOT_CNT" value="" />
+<input type="hidden" name="TYPE" id="TYPE" value="" />
+<!-- 20151114 개인 쉐어링 구매 -->
+<input type="hidden" name="ordFlag" id="ordFlag" value="1" />
+<!-- container -->
+<div id="container">
+	<!-- 20151201 add markup -->
+	<div class="new_my_info" onclick="selectMiniShop();">
+		<div class="new_my_photo">
+			<div class="img"><img src="<custom:codeTag code="PROFILE_DEFAULT_IMG_URL" groupCode="SITE_DEFAULT" />" alt="${result.prodInfo.prodUserInfo.MINI_SHOP_PROFILE_URL }" /></div>
+<!-- 			<div class="ico_grade g_num3">5등급</div> -->
+			<div class="ico_grade"><img src="${result.prodInfo.prodUserInfo.LEV_FILE_URL }" /></div>
+		</div>
+		
+		<div class="new_my_email"></div>
+
+		<div class="new_my_number">
+			<ul>
+				<li>
+					<dl>
+						<dd><span class="<c:if test="${result.prodInfo.PROD_TYPE_CD eq '2' }">red_p</c:if>  dynamic_counter">${result.prodInfo.prodUserInfo.S_CNT }</span></dd>
+						<dt>셰어링</dt>
+					</dl>
+				</li>
+				<li>
+					<dl>
+						<dd><span class="<c:if test="${result.prodInfo.PROD_TYPE_CD eq '1' }">red_p</c:if>  dynamic_counter">${result.prodInfo.prodUserInfo.P_CNT }</span></dd>
+						<dt>판매</dt>
+					</dl>
+				</li>
+				<li>
+					<dl>
+						<c:choose>
+							<c:when test="${result.prodInfo.MBER_GB_CD eq '0'}">
+								<dd><span class="<c:if test="${result.prodInfo.PROD_TYPE_CD eq '3' }">red_p</c:if>  dynamic_counter">${result.prodInfo.prodUserInfo.N_CNT }</span></dd>
+								<dt>나눔</dt>
+							</c:when>
+							<c:otherwise>
+								<dd><span class="<c:if test="${result.prodInfo.PROD_TYPE_CD eq '5' }">red_p</c:if>  dynamic_counter">${result.prodInfo.prodUserInfo.R_CNT }</span></dd>
+								<dt>렌탈</dt>
+							</c:otherwise>
+						</c:choose>
+						
+					</dl>
+				</li>
+			</ul>
+		</div>
+	</div>
+	<!-- 슬라이딩 배너 -->
+	<section class="owl-carousel">
+		<!-- 20151207 edit markup -->
+		<c:choose>
+			<c:when test="${result.prodInfo.PROD_TYPE_CD eq '2' }">
+				<div class="ico_ribbon"><img src="http://static.ssocio.net/web/images/newde/mark_sha.png" alt="쉐어링마크" /></div>
+			</c:when>
+			<c:when test="${result.prodInfo.PROD_TYPE_CD eq '3' }">
+				<div class="ico_ribbon"><img src="http://static.ssocio.net/web/images/newde/mark_sha03.png" alt="나눔마크" /></div>
+			</c:when>
+		</c:choose>
+			<div class="swiper-wrapper">
+				<c:forEach var="img" items="${result.prodInfo.images }" varStatus="status">
+					<c:choose>
+						<c:when test="${sessionScope.APP == 'SSOCIO' }">
+							<c:if test="${img.PROD_IMG_GB_CD >= 12 && img.PROD_IMG_GB_CD <= 16 }">
+								<div class="item" onclick="javascript:fullScreenImage();">
+									<img src="<custom:codeTag code="DEFAULT_IMG_URL" groupCode="SITE_DEFAULT" />" class="swiper-lazy" data-src="${img.PROD_IMG_URL }">
+								</div>
+							</c:if>
+						</c:when>
+						<c:otherwise>
+							<c:if test="${img.PROD_IMG_GB_CD >= 12 && img.PROD_IMG_GB_CD <= 16 }">
+								<div class="item">
+									<img src="<custom:codeTag code="DEFAULT_IMG_URL" groupCode="SITE_DEFAULT" />" class="swiper-lazy" data-src="${img.PROD_IMG_URL }">
+								</div>
+							</c:if>
+						</c:otherwise>
+					</c:choose>
+				</c:forEach>
+			</div>
+		<!-- Add Pagination -->
+		<div class="swiper-pagination"></div>
+	</section>
+	<!-- //슬라이딩 배너 -->
+
+	<section class="prod detail">
+		<article>
+			<!--20151207 판매생성 -->
+			<p class="location">
+				<c:forEach var="ctry" items="${result.prodInfo.categories}" varStatus="status">
+					<c:choose>
+						<c:when test="${fn:length(result.prodInfo.categories) != (status.index + 1)}">
+							${ctry.CTRY_NM }  <span>&gt;</span>
+						</c:when>
+						<c:otherwise>
+							<strong>${ctry.CTRY_NM }</strong>
+						</c:otherwise>
+					</c:choose>
+				</c:forEach>
+			</p>
+<!-- 			<p class="name"><span class="sharp_txt" >#닥터드레</span> 헤드폰 <span class="sharp_txt" >#셰어링</span> 하고!!신나는 <span class="sharp_txt" >#음악</span> 을 들으면서 거리를 간지나게 활보하세요~</p> -->
+			<p class="name">${result.prodInfo.PROD_NM }</p>
+			<div class="de_price_box">
+				<div class="left_col"></div>
+				<div class="right_col">
+					<ul></ul>
+				</div>
+			</div>
+			
+			<!-- 20151209 add -->
+			<div class="new_del_box"></div>
+
+			<ul class="new_sns share clear">
+				<!--20151201 <li><span>중고</span> <span>판매</span></li>-->
+				<li>
+					<c:choose>
+						<c:when test="${sessionScope.APP == 'SSOCIO' }">
+							<a href="javascript:sendSns('1');"><img src="http://static.ssocio.net/web/images/share_01.png" alt="카카오톡"></a>
+							<!-- 카카오스토리 아이콘 추가 -->
+							<a href="javascript:sendSns('2');"><img src="http://static.ssocio.net/web/images/share_02.png" alt="카카오스토리"></a>
+							<!-- //카카오스토리 아이콘 추가 -->
+							<a href="javascript:sendSns('3');"><img src="http://static.ssocio.net/web/images/share_03.png" alt="페이스북"></a>
+							<a href="javascript:sendSns('4');"><img src="http://static.ssocio.net/web/images/share_04.png" alt="라인"></a>
+						</c:when>
+						<c:otherwise>
+							<a id="kakao-link-btn" href="javascript:sendSns('5');"><img src="http://static.ssocio.net/web/images/share_01.png" alt="카카오톡"></a>
+							<!-- 카카오스토리 아이콘 추가 -->
+							<a href="javascript:shareStory();"><img src="http://static.ssocio.net/web/images/share_02.png" alt="카카오스토리"></a>
+							<!-- //카카오스토리 아이콘 추가 -->
+							<a href="javascript:sendSns('7');"><img src="http://static.ssocio.net/web/images/share_03.png" alt="페이스북"></a>
+							<a id="lineBtn" href="#"><img src="http://static.ssocio.net/web/images/share_04.png" alt="라인"></a>
+						</c:otherwise>
+					</c:choose>
+				</li>
+			</ul>
+		</article>
+	</section>
+	<script>
+	$(function () {
+		var $ssocioTab = $("#ssocio_nav_tab li");
+		var $ssocioTabLink = $ssocioTab.find("a");
+		var tabCon = $(".tab_con>section");
+		
+		$ssocioTab.click(function () {
+			var i = $ssocioTab.index(this);
+			$ssocioTabLink.removeClass("on");
+			$(this).find("a").addClass("on");
+		
+			tabCon.hide();
+			tabCon.eq(i).show();
+		});
+	});
+	</script>
+	<!-- 20151201 add -->
+	<section class="detail_tab" id="ssocio_nav_tab">
+		<!-- a on add -->
+		<ul>
+			<li><a href="javascript:;" class="on"><span>상품정보</span></a></li>
+			<li><a href="javascript:;" id="reviewA"><span>상품후기</span><span class="sg_txt"><c:if test="${result.reviews.CNT eq '' || result.reviews.CNT eq null }">0</c:if>${result.reviews.CNT}</span></a></li>
+			<li><a href="javascript:;" id="commnetA"><span>댓글</span><span class="sg_txt" id="commentTab"><c:if test="${result.comments.CNT eq '' || result.comments.CNT eq null }">0</c:if>${result.comments.CNT}</span></a></li>
+			<li><a href="javascript:;" id="infoA"><span>안내사항</span></a></li>
+		</ul>
+	</section>
+
+	<!-- 탭 해당 내용 감싸는 tab_con 추가 되었습니다 -->
+	<section class="tab_con">
+		<!--상품정보-->
+		<section class="prod explain">
+<!-- 			<p class="brand_logo"><img src="http://static.ssocio.net/web/images/newde/@brand.png" width="165" alt="beats"></p> -->
+<%-- 			<c:if test="${result.prodInfo.BRAND_CD != null and result.prodInfo.BRAND_CD != ''  }"> --%>
+<%-- 				<p class="brand_logo"><img src="<custom:codeTag code="DEFAULT_IMG_URL" groupCode="SITE_DEFAULT" />?resize=200px:100px" alt="${result.prodInfo.BRAND_FILE_URL }" ></p> --%>
+<%-- 			</c:if> --%>
+			<c:choose>
+				<c:when test="${result.prodInfo.PROD_THUMB_URL != '' && result.prodInfo.PROD_THUMB_URL != null}">
+					<article>
+						<!-- img type -->
+						<img src="<custom:codeTag code="DEFAULT_IMG_URL" groupCode="SITE_DEFAULT" />" alt="${result.prodInfo.PROD_THUMB_URL}" />
+					</article>
+					<p><a href="javascript:selectProdDtl();" class="btn_prod_exp"><span>상품 상세 보기</span></a></p>
+				</c:when>
+				<c:otherwise>
+					<article id="prodDetailImg">
+					<c:choose>
+						<c:when test="${result.prodInfo.PROD_MB_DTL_USE_YN == 'Y'}">
+<%-- 							<c:choose> --%>
+<%-- 								<c:when test="${fn:indexOf(result.prodInfo.PROD_MB_DTL, 'c.ssocio.com') eq -1 && fn:indexOf(result.prodInfo.PROD_MB_DTL, 'cdn.ssocio.com') eq -1 }"> --%>
+									${result.prodInfo.PROD_MB_DTL }
+<%-- 								</c:when> --%>
+<%-- 								<c:otherwise> --%>
+<%-- 									<c:set var="prodMbDtl" value="${fn:replace(result.prodInfo.PROD_MB_DTL, 'src', 'alt') }"></c:set> --%>
+<%-- 									${prodMbDtl } --%>
+<%-- 								</c:otherwise> --%>
+<%-- 							</c:choose> --%>
+						</c:when>
+						<c:otherwise>
+<%-- 							<c:choose> --%>
+<%-- 								<c:when test="${fn:indexOf(result.prodInfo.PROD_MB_DTL, 'c.ssocio.com') eq -1 && fn:indexOf(result.prodInfo.PROD_MB_DTL, 'cdn.ssocio.com') eq -1 }"> --%>
+									${result.prodInfo.PROD_PC_DTL }
+<%-- 								</c:when> --%>
+<%-- 								<c:otherwise> --%>
+<%-- 									<c:set var="prodPcDtl" value="${fn:replace(result.prodInfo.PROD_PC_DTL, 'src', 'alt') }"></c:set> --%>
+<%-- 									${prodPcDtl } --%>
+<%-- 								</c:otherwise> --%>
+<%-- 							</c:choose> --%>
+						</c:otherwise>
+					</c:choose>
+					</article>
+				</c:otherwise>
+			</c:choose>
+		</section>
+
+		<!-- 상품후기 -->
+		<section class="review" style="display:none">
+			<c:choose>
+				<c:when test="${result.reviews.CNT > 0}">
+					<div class="clear prod_t2">
+						<div class="fl">
+							<span class="fl">상품후기</span>
+							<span class="fl red_p"><c:if test="${result.reviews.CNT eq '' || result.reviews.CNT eq null }">0</c:if>${result.reviews.CNT}건</span>
+						</div>
+						<c:choose>
+							<c:when test="${result.reviews.CNT > 0}">
+								<a href="javascript:selectListReview();" class="arrow">&nbsp;</a>
+							</c:when>
+							<c:otherwise>
+								<a href="javascript:;" class="arrow">&nbsp;</a>
+							</c:otherwise>
+						</c:choose>
+					</div>
+					<ol class="list">
+						<c:forEach var="review" items="${result.reviews.list }" varStatus="status">
+							<li>
+								<p class="review-img"><img src="<custom:codeTag code="PROFILE_DEFAULT_IMG_URL" groupCode="SITE_DEFAULT" />" alt="${review.BOARD_FILE_URL }"></p>
+									<div class="clear myinfo_right">
+										<div class="fr">
+											<span><custom:maskTag value="${review.EMAIL }" type="email" /></span>
+											<span><custom:timeGap value="${review.REGIST_DT }" /></span>
+										</div>
+									</div>
+									<div class="star_list">
+										<c:forEach begin="1" end="${review.SCORE }" step="1" varStatus="status">
+											<a href="#" class="on"><span class="blind">${status.current}</span></a>
+										</c:forEach>
+										<c:forEach begin="${review.SCORE + 1 }" end="5" step="1" varStatus="status">
+											<a href="#"><span class="blind">${status.current}</span></a>
+										</c:forEach>
+									</div>
+								<p class="doct"><a href="javascript:selectReview(${result.prodInfo.PROD_CODE }, ${review.BOARD_SEQ });">${review.CONTENTS }</a></p>
+							</li>
+						</c:forEach>
+					</ol>
+				</c:when>
+				<c:otherwise>
+					<!-- 20151211add -->
+					<p class="none_type">
+						상품후기가 없습니다.
+					</p>
+				</c:otherwise>
+			</c:choose>
+		</section>
+		<!-- //review -->
+
+		<!-- 문의 -->
+		<section class="comment" id="listComment" style="display:none">
+			<c:choose>
+				<c:when test="${result.comments.CNT > 0}">
+					<p class="clear prod_t2"><span class="fl">댓글</span><span class="fl red_p"><c:if test="${result.comments.CNT eq '' || result.comments.CNT eq null }">0</c:if>${result.comments.CNT}건</span>
+					<c:if test="${result.comments.CNT > 999}">
+						<span class="over_reply">999+</span>
+					</c:if>
+					<c:choose>
+						<c:when test="${sessionScope.user.login == 'true'}">
+							<c:choose>
+								<c:when test="${result.comments.CNT > 0}">
+									<a href="javascript:$('#page_newlayer').show();$('#commentContents').focus();" class="arrow" id="reply_more">&nbsp;</a>
+								</c:when>
+								<c:otherwise>
+									<a href="javascript:;" class="arrow">&nbsp;</a>
+								</c:otherwise>
+							</c:choose>
+						</c:when>
+						<c:otherwise>
+							<a href="javascript:moveCommentLogin();" class="arrow">&nbsp;</a>
+						</c:otherwise>
+					</c:choose>
+					
+					</p>
+					<div class="comment_type">
+						<c:forEach var="comment" items="${result.recomments.list }" varStatus="status">
+							<c:choose>
+								<c:when test="${comment.MBER_SEQ ne result.prodInfo.MBER_SEQ }">
+									<div class="comment_ask">
+										<p class="photo"><img src="<custom:codeTag code="PROFILE_DEFAULT_IMG_URL" groupCode="SITE_DEFAULT" />" alt="${comment.FILE_URL }" /></p>
+										<div class="comment_pink">
+											<dl>
+												<!-- 등급 클래스만 바꾸면 됩니다/ grade_01~grade_05-->
+												<dt class="id">
+													<span class="ico_grade"><img src="${comment.LEVEL_IMG }" alt="" /></span>
+													<c:choose>
+														<c:when test="${fn:indexOf(comment.MBER_EMAIL, '@') eq -1 }">
+															${comment.MBER_NICK }
+														</c:when>
+														<c:otherwise>
+															<custom:maskTag value="${comment.MBER_EMAIL }" type="email" />
+														</c:otherwise>
+													</c:choose>
+													
+												</dt>
+												<dd>${comment.CONTENTS }
+													<div class="date"><custom:timeGap value="${comment.REGIST_DT }" /></div>
+												</dd>
+											</dl>
+										</div>
+									</div>
+								</c:when>
+								<c:otherwise>
+									<fmt:formatDate var="bDate" value="${comment.REGIST_DT}" pattern="yyyyMMddHHmm"/>
+									<fmt:formatDate var="aDate" value="${result.recomments.list[status.index + 1].REGIST_DT}" pattern="yyyyMMddHHmm"/>
+									<c:choose>
+										<c:when test="${bDate ne aDate }">
+										<div class="comment_answer">
+											<div class="comment_blue">
+												<div>${comment.CONTENTS }
+													<!-- 마지막 말 풍선에만 노출 -->
+													<div class="date"><custom:timeGap value="${comment.REGIST_DT }" /></div>
+												</div>
+											</div>
+										</div>
+										</c:when>
+										<c:otherwise>
+										<div class="comment_answer mb0">
+											<div class="comment_blue">
+												<div>${comment.CONTENTS }</div>
+											</div>
+										</div>
+										</c:otherwise>
+									</c:choose>
+								</c:otherwise>
+							</c:choose>
+						</c:forEach>
+					</div>
+				</c:when>
+				<c:otherwise>
+					<p class="none_type" id="none_type">
+						댓글이 없습니다.
+					</p>
+				</c:otherwise>
+			</c:choose>
+			<c:choose>
+				<c:when test="${sessionScope.user.login == 'true'}">
+					<article class="nodata lineb">
+<!-- 					<a href="javascript:insertComment();">댓글을 남겨 주세요</a> -->
+						<a href="javascript:$('#page_newlayer').show()" id="reply_more_reg">댓글을 남겨 주세요</a>
+					</article>
+				</c:when>
+				<c:otherwise>
+					<article class="nodata lineb">
+						<a href="javascript:moveCommentLogin();">댓글을 남겨 주세요</a>
+<!-- 						<a href="javascript:$('#page_newlayer').show()" id="reply_more_reg">댓글을 남겨 주세요</a> -->
+					</article>
+				</c:otherwise>
+			</c:choose>
+		</section>
+		<!-- //comment -->
+
+		<!-- tab 안내사항 -->
+		<section class="de_guide_txt" style="display:none">
+			<p>
+				<c:choose>
+					<c:when test="${result.prodInfo.PROD_TYPE_CD eq '2'}">
+						<c:choose>
+							<c:when test="${result.prodInfo.MBER_GB_CD eq 0 }">
+								<img alt="http://c.ssocio.com/operationguide/P2P.jpg" src="">
+							</c:when>
+							<c:otherwise>
+								<img alt="http://c.ssocio.com/operationguide/B2C.jpg" src="">
+							</c:otherwise>
+						</c:choose>
+					</c:when>
+					<c:when test="${result.prodInfo.PROD_TYPE_CD eq '3'}">
+						<img alt="http://c.ssocio.com/operationguide/distribute.jpg" src="">
+					</c:when>
+					<c:otherwise>
+						<p class="none_type">
+							안내 사항이 없습니다.
+						</p>
+					</c:otherwise>
+				</c:choose>
+			</p>
+		</section>
+	</section>
+	<c:if test="${result.prodInfo.PROD_TYPE_CD eq '3' }">
+		<!-- 나눔신청 20151207 add-->
+		<section class="share_review">
+			<div class="clear prod_t2">
+				<div class="fl">
+					<span class="fl">나눔신청</span>
+					<span class="fl red_p"><c:if test="${result.freeshare.CNT eq '' || result.freeshare.CNT eq null}">0</c:if> ${result.freeshare.CNT} 건</span>
+				</div>
+				<a href="#" class="arrow" id="share_more">&nbsp;</a>
+			</div>
+			<ol class="list">
+				<c:forEach var="freeshare" items="${result.freeshare.list }" varStatus="status">
+				<li>
+					<p class="photo"><img src="<custom:codeTag code="PROFILE_DEFAULT_IMG_URL" groupCode="SITE_DEFAULT" />" alt="${freeshare.FILE_URL}" /></p>
+					<dl>
+						<dt class="id">
+							<span class="fl"><img src="<custom:codeTag code="DEFAULT_IMG_URL" groupCode="SITE_DEFAULT" />" alt="${freeshare.LEVEL_IMG }" /></span>
+							<c:choose>
+								<c:when test="${fn:indexOf(freeshare.MBER_EMAIL, '@') eq -1 }">
+									${freeshare.MBER_NICK }
+								</c:when>
+								<c:otherwise>
+									<custom:maskTag value="${freeshare.MBER_EMAIL }" type="email" />
+								</c:otherwise>
+							</c:choose>
+							<span class="fr date"><custom:timeGap value="${freeshare.REGIST_DT }" /></span>
+						</dt>
+						<dd>${freeshare.REQ_MEMO }</dd>
+					</dl>
+				</li>
+				</c:forEach>
+			</ol>
+		</section>
+		<!-- //나눔신청 -->
+	</c:if>
+	
+	<!-- 20151223 add -->
+	<div class="h503_new mt10" id="id_div_prod_info" style="display:none;"><p onclick="selectProdInfoNoti();">상품정보제공고시<a href="javascript:;" class="arrow">&nbsp;</a></p></div>
+	
+	<c:if test="${not empty result.miniShop }">
+		<section class="minishop">
+			<div class="clear subj">
+<!-- 				<p onclick="selectMiniShop();">판매자의 다른상품 <a href="javascript:;" class="arrow">&nbsp;</a></p> -->
+				<p>판매자의 다른상품<a href="javascript:insertProdQna();" class="new_else_ask">상품 문의</a> <a href="javascript:selectMiniShop();" class="arrow">&nbsp;</a></p>
+			</div>
+	
+			<ul class="shop_prod clear">
+				<c:forEach var="prod" items="${result.miniShop }" varStatus="status">
+					<li>
+						<a href="/mobile/prod/selectProd.do?PROD_CODE=${prod.PROD_CODE }&PROD_TYPE_CD=${prod.PROD_TYPE_CD}">
+							<p class="thomb"><img data-img="${prod.PROD_IMG_URL }"></p>
+							<p>${prod.PROD_NM }<br>
+								<strong>
+									<c:choose>
+										<c:when test="${prod.PROD_TYPE_CD eq '1' }">
+											<fmt:formatNumber value="${prod.SELL_PRCE }" pattern="##,###" /><em>원</em>
+										</c:when>
+										<c:when test="${prod.PROD_TYPE_CD eq '2' }">
+											1일<fmt:formatNumber value="${prod.SHAR_PRCE }" pattern="##,###" /><em>원</em>
+										</c:when>
+										<c:otherwise>
+											&nbsp;
+										</c:otherwise>
+									</c:choose>
+								</strong>
+							</p>
+						</a>
+					</li>
+				</c:forEach>
+			</ul>
+		</section>
+	</c:if>
+	<!-- 20151201 위시 넘버 추가 -->
+	<ul class="prod_bot" style="display:none;">
+		<li>
+			<a href="javascript:insertWish();"><img src="http://static.ssocio.net/web/images/btn_wish.png" alt="위시"><div class="num"></div></a>
+			<c:if test="${result.prodInfo.PROD_TYPE_CD == 1 or result.prodInfo.PROD_TYPE_CD == 2}">
+				<a href="javascript:openCartSelector();"><img src="http://static.ssocio.net/web/images/btn_bas.png" alt="장바구니 담기"></a>
+			</c:if>
+		</li>
+		<li>
+			<c:choose>
+				<c:when test="${result.prodInfo.PROD_TYPE_CD == 1 }">
+					<a href="javascript:displayOption(1);" class="btn_r">구매하기</a>
+				</c:when>
+				<c:when test="${result.prodInfo.PROD_TYPE_CD == 2 }">
+					<c:choose>
+						<c:when test="${result.prodInfo.MBER_GB_CD == 0 }">
+							<a href="javascript:displayOption(1);" class="btn_r" >구매하기</a>
+							<a href="javascript:displayOption(2);" class="btn_r-line">셰어링하기</a>
+						</c:when>
+						<c:otherwise>
+							<a href="javascript:displayOption(2);" class="btn_r">셰어링하기</a>
+						</c:otherwise>
+					</c:choose>
+				</c:when>
+				<c:when test="${result.prodInfo.PROD_TYPE_CD == 3 }">
+					<a href="javascript:insertFreeshare('DEF');" class="btn_r">나눔신청</a>
+				</c:when>
+				<c:otherwise>
+					<a href="javascript:insertRental();" class="btn_r">렌탈신청</a>
+				</c:otherwise>
+			</c:choose>
+		</li>
+	</ul>
+</div>
+<!-- //container -->
+<div class="layer_option" style="display:none;">
+	<div class="layer_wrap">
+		<ul class="select_list">
+			<li id="id_text_dlv" class="clear"><strong class="left">배송비</strong> <span class="right" id="id_text_dlv_amount"></span></li>
+			<li id="id_select_dlv" style="display:none;">
+				<select name="DLV_PAY_F_CD" id="DLV_PAY_F_CD" onchange="javascript:changeDlv(this.value);">
+					<option value="10" selected>택배 – 주문 시 결제 (+<fmt:formatNumber value="${result.prodInfo.DLV_PRCE}" pattern="##,###" />원)</option>
+					<option value="20">택배 – 수령 후 지불 (<fmt:formatNumber value="${result.prodInfo.DLV_PRCE}" pattern="##,###" />원)</option>
+				</select>
+			</li>
+			<li class="clear" id="id_shar_title" style="display:none;"><strong class="left">사용기간</strong> <span class="right" id="id_shar_text"></span></li>
+			<li class="tr" id="id_shar_date" style="display:none;"><input type="text" name="SHARE_DAY" id="SHARE_DAY" onkeypress="javascript:checkNumber(event);" style="width:100px"> 일</li>
+			<li id="id_additional_text" style="display:none;"><strong>부가옵션</strong></li>
+			<li id="id_additional_option" style="display:none;">
+				<select name="OPT_ADDITIONAL" id="OPT_ADDITIONAL" onchange="javascript:changeOption(this.value, false);">
+				</select>
+			</li>
+			<li id="id_extra_text" style="display:none;"><strong>추가상품</strong></li>
+			<li id="id_extra_option" style="display:none;">
+				<select name="OPT_EXTRA" id="OPT_EXTRA" onchange="javascript:changeOption(this.value, true);">
+				</select>
+			</li>
+		</ul>
+		
+		<p class="tit" id="id_ord_title_text" style="display:none;"><strong>주문상품</strong></p>
+		<div id="id_counter"></div>
+		
+	</div>
+	
+	<p class="clear bg"><strong class="fl">총 결제 금액</strong> <strong class="fr point_r" id="TOT_AMOUNT"></strong></p>
+	
+	<div class="bot_btn">
+		<ul class="btn">
+			<li><a href="javascript:insertCart(0);" class="btn_r" id="id_option_cart">장바구니 담기</a></li>
+			<li><a href="javascript:insertOrder(0);" class="btn_b-line" id="id_option_buy">바로구매</a></li>
+			<li><a href="javascript:insertShare(0);" class="btn_b-line" id="id_option_share">셰어링하기</a></li>
+		</ul>
+	</div>
+</div>
+
+<div class="popup info_sharing_cart_popup" style="display:none;">
+	<p class="title"><strong>장바구니 담기 안내</strong></p>
+	<p class="info">셰어링 상품 구매하기 장바구니 담기 안내</p>
+	<div class="pbox_02">
+		<p>셰어링 상품 &lsquo;구매하기&rsquo;를 통해 장바구니에 담은 상품은 셰어링 상품 장바구니에서 확인 가능합니다.</p>
+	</div>
+	<div class="bot_btn"><a href="javascript:insertCart(2);$('.info_sharing_cart_popup').hide();" class="btn_r">장바구니 담기</a></div>
+</div>
+<div class="popup info_sharing_order_popup" style="display:none;">
+	<p class="title"><strong>구매하기 안내</strong></p>
+	<p class="info">※ SSOCIO 셰어링제품 구매하기 안내</p>
+	<div class="pbox_02">
+		<p>셰어링 상품의 &lsquo;구매하기&rsquo;는 보증금을 내고 이용기간만큼 이용하는 상품이나, 상품이 마음에 들어 바로 구매하고자 하시는 고객님의 편의를 위하여 제공되는 서비스입니다.</p>
+		<br/>
+		<p>따라서, 구매하시는 경우에도 주문내역이나 주문취소내역은 &lsquo;마이페이지 &gt; 구매관리&rsquo;의 &lsquo;셰어링 주문내역&lsquo;과 &lsquo;셰어링 주문취소내역&lsquo;에서 조회하여 주시기 바랍니다.</p>
+	</div>
+	<div class="bot_btn"><a href="javascript:insertOrder(2);$('.info_sharing_order_popup').hide();" class="btn_r">구매 하기</a></div>
+</div>
+<div class="bask_layer" style="display:none;">
+	<div id="id_bask_layer">
+		<p class="tc"><strong>장바구니에 상품이 담겼습니다.</strong></p>
+		<ul class="btn clear">
+			<li><a href="javascript:closeCart();" class="btn_r">쇼핑 계속하기</a></li>
+			<li><a href="javascript:moveCart();" class="btn_w">장바구니로 이동</a></li>
+		</ul>
+	</div>
+</div>
+<div class="popup stop" style="display:none;">
+	<p class="title">
+		<strong id="id_prod_stat_title">판매상품 중지 안내</strong>
+	</p>
+	<div class="pbox_02">
+		<p class="tc" id="id_prod_stat_content_1" style="display:none;">
+			<c:choose>
+				<c:when test="${result.prodInfo.PROD_TYPE_CD == '1'}">
+					죄송합니다.<br>본 상품은 판매자 사정 또는<br>재고부족으로 상품 판매가 종료 되었습니다.
+				</c:when>
+				<c:when test="${result.prodInfo.PROD_TYPE_CD == '2'}">
+					죄송합니다.<br>본 상품은 판매자 사정 또는<br>재고부족으로 상품 셰어링이 종료 되었습니다.
+				</c:when>
+				<c:when test="${result.prodInfo.PROD_TYPE_CD == '3'}">
+					죄송합니다.<br>본 상품은 판매자 사정 또는<br>재고부족으로 상품 나눔이 종료 되었습니다.
+				</c:when>
+				<c:otherwise>
+					죄송합니다.<br>본 상품은 판매자 사정 또는<br>재고부족으로 상품 렌탈이 종료 되었습니다.
+				</c:otherwise>
+			</c:choose>
+		</p>
+		<p class="tc" id="id_prod_stat_content_2" style="display:none;">
+			<c:choose>
+				<c:when test="${result.prodInfo.PROD_TYPE_CD == '1'}">
+					죄송합니다.<br>본 상품은 관리자에 의해<br>상품 판매가 중지 되었습니다.
+				</c:when>
+				<c:when test="${result.prodInfo.PROD_TYPE_CD == '2'}">
+					죄송합니다.<br>본 상품은 관리자에 의해<br>상품 셰어링이 중지 되었습니다.
+				</c:when>
+				<c:when test="${result.prodInfo.PROD_TYPE_CD == '3'}">
+					죄송합니다.<br>본 상품은 관리자에 의해<br>상품 나눔이 중지 되었습니다.
+				</c:when>
+				<c:otherwise>
+					죄송합니다.<br>본 상품은 관리자에 의해<br>상품 렌탈이 중지 되었습니다.
+				</c:otherwise>
+			</c:choose>
+		</p>
+		<p class="tc" id="id_prod_stat_content_3" style="display:none;">죄송합니다.<br>상품정보가 존재하지 않습니다.</p>
+	</div>
+	<div class="bot_btn"><a href="javascript:popup_hide();" onclick="javascript:historyBack();" class="btn_r">확인</a></div>
+</div>
+<!-- 151207 add -->
+<script type="text/javascript">
+var curPage = 1;
+var namOn = 0;
+var isNext = false;
+	$(function(){
+		var commentHeight = $(window).height();
+		$("#reply_more, #reply_more_reg").click(function(){
+			$(".car_header").css("display","none");
+			$("#container").css("display","none");
+			$("#new_comment_body").css("display","block");
+			$("#commentHeader").css("display","block");
+			$("#page_container").css("min-height",(commentHeight-100)+"px");
+			if ('${sessionScope.APP}' == 'SSOCIO') {
+				document.location.replace('ssocio://web/topBottomBarHide');
+				$("#page_container").css("min-height",(commentHeight)+"px").css("margin-top","46px");
+				if (navigator.userAgent.match(/(iPod|iPhone|iPad)/)) {
+					$("#commentContents").bind("focusin", function(){
+						$("#commentHeader").css("position","static");
+						$(".page_comment_write").css("position","absolute");
+					});
+					
+					$("#commentContents").bind("blur", function(){
+						$("#commentHeader, .page_comment_write").css("position","fixed");
+					});
+				} else {
+					$("#commentContents").focus();
+				}
+			} else {
+				$("#page_container").css("min-height",(commentHeight-100)+"px");
+				$("#commentContents").focus();
+			}
+		});
+
+		$("#share_more").click(function(){
+			$(".car_header").css("display","none");
+			$("#container").css("display","none");
+			$("#new_share_body").css("display","block");
+			$("#shareHeader").css("display","block");
+			
+			
+			namOn = 1;
+// 			getComments();
+			if ('${sessionScope.APP}' == 'SSOCIO') {
+				$("#new_share_body #page_container").css("min-height",commentHeight+"px").css("margin-top","50px");
+				document.location.replace('ssocio://web/topBottomBarHide');
+			} else {
+				$("#new_share_body #page_container").css("min-height",(commentHeight-50)+"px");
+				$(".wrap_prod_bot").css("display","none");
+			}
+		});
+		
+		$("#comment_close").click(function(){
+			$(".car_header").css("display","block");
+			$("#container").css("display","block");
+			$(".new_body").css("display","none");
+			$("#commentHeader").css("display","none");
+			reloadComment();
+			document.body.scrollTop = document.body.scrollHeight;
+			if ('${sessionScope.APP}' == 'SSOCIO') {
+				document.location.replace('ssocio://web/topBottomBarShow');
+			}
+		});
+		
+		$("#share_close").click(function(){
+			$(".car_header").css("display","block");
+			$("#container").css("display","block");
+			$(".new_body").css("display","none");
+			$("#shareHeader").css("display","none");
+			namOn = 0;
+			if ('${sessionScope.APP}' == 'SSOCIO') {
+				document.location.replace('ssocio://web/topBottomBarShow');
+			} else {
+				$(".wrap_prod_bot").css("display","block");
+			}
+		});
+		
+		//20151209 add
+		$("#btn_delv").click(function(){
+			$("body").css("overflow-y","hidden");
+		});
+
+		$(".btn_close").click(function(){
+			$("body").css("overflow-y","auto");
+		});
+		
+		$(window).scroll(function(){
+			if(namOn == 1){
+				if( $(window).scrollTop() == $(document).height() - $(window).height()){
+					if(isNext == "true"){
+						getComments();
+					}
+				}
+			}
+		});
+	});
+	
+	function getComments(){
+		curPage = parseInt(curPage) + 1;
+		$("#CUR_PAGE").val(curPage);
+		$.ajax({
+			type: 'post',
+			async: true, 
+			url: '/mobile/board/selectListNanumCommentNext.do', 
+			dataType:'json', 
+			data: {"PROD_CODE":$("#PROD_CODE").val(), 
+				"CUR_PAGE":$("#CUR_PAGE").val(), 
+				"TOT_CNT":$("#TOT_CNT").val()
+			},
+			success: function(response) {
+				
+				var commentList = response.result.comment.list;
+				var html = "";
+				$("#new_share_cody ol li").remove();
+				for (var i =0;i < commentList.length;i++) {
+					html+='<li>';
+					html+='	<p class="photo"><img src="<custom:codeTag code="PROFILE_DEFAULT_IMG_URL" groupCode="SITE_DEFAULT" />" alt="'+commentList[i].FILE_URL+'" /></p>';
+					html+='	<dl>';
+					html+='		<dt class="id">';
+					html+='			<span class="fl"><img src="<custom:codeTag code="DEFAULT_IMG_URL" groupCode="SITE_DEFAULT" />" alt="'+commentList[i].LEVEL_IMG+'" /></span>';
+					if (commentList[i].MBER_EMAIL.indexOf("@") > -1) {
+						html += getMaskingEmail(commentList[i].MBER_EMAIL);
+					} else {
+						html += commentList[i].MBER_NICK;
+					}
+					html+='			<span class="fr date"'+timeGap(commentList[i].TIME_GAP)+'</span>';
+					html+='		</dt>';
+					html+='		<dd>'+commentList[i].REQ_MEMO+'</dd>';
+					html+='	</dl>';
+					html+='</li>';
+				}
+				
+				$("#new_share_cody ol").append(html);
+				
+// 				//	페이징 정보를 세팅한다.
+				isNext = response.result.paging.next;
+				curPage = response.result.paging.curPage;
+				
+				// TOT_CNT
+				$("#TOT_CNT").val(response.result.paging.totCnt);
+				
+				cdnreload();
+			}, 
+			error : function(request, status, error) {
+				alert("통신 오류가 발생 하였습니다. 잠시 후 다시 시도해 주세요");
+			}
+		}); 
+	}
+</script>
+
+<!-- 151207 add  style="background:red"-->
+<!-- 댓글 -->
+<div class="new_body" id="new_comment_body">
+	<div id="page_wrap" class="new_detail">
+		<!-- header -->
+		<header id="commentHeader">
+			<a class="btn_close" id="comment_close">닫기</a>
+			<h1>댓글 <!-- 20151207 add -->
+				<c:if test="${result.comments.CNT > 999}"><span>(999+)</span></c:if>
+				<c:if test="${result.comments.CNT <= 999}"><span>${result.comments.CNT}</span></c:if>
+			</h1>
+		</header>
+		<!-- //header -->
+
+		<!-- container -->
+		<div id="page_container">
+			<!-- comment -->
+			<div class="comment">
+				<section class="comment">
+					<!-- 20151207 add02 -->
+					<c:if test="${result.comments.CNT > 5}">
+						<p class="prev"><a href="javascript:prevComment(5);">ㆍㆍㆍ 이전댓글 보기</a></p>
+					</c:if>
+					<!-- 20151207 add -->
+					<div class="comment_type mb45">
+						<c:forEach var="comment" items="${result.recomments.list }" varStatus="status">
+							<c:choose>
+								<c:when test="${comment.MBER_SEQ ne result.prodInfo.MBER_SEQ }">
+									<div class="comment_ask">
+										<p class="photo"><img src="<custom:codeTag code="PROFILE_DEFAULT_IMG_URL" groupCode="SITE_DEFAULT" />" alt="${comment.FILE_URL }" /></p>
+										<div class="comment_pink">
+											<dl>
+												<!-- 등급 클래스만 바꾸면 됩니다/ grade_01~grade_05-->
+												<dt class="id">
+													<span class="ico_grade"><img src="${comment.LEVEL_IMG }" alt="" /></span>
+													<c:choose>
+														<c:when test="${fn:indexOf(comment.MBER_EMAIL, '@') eq -1 }">
+															${comment.MBER_NICK }
+														</c:when>
+														<c:otherwise>
+															<custom:maskTag value="${comment.MBER_EMAIL }" type="email" />
+														</c:otherwise>
+													</c:choose>
+													
+												</dt>
+												<dd>${comment.CONTENTS }
+													<div class="date"><custom:timeGap value="${comment.REGIST_DT }" /></div>
+												</dd>
+											</dl>
+										</div>
+									</div>
+								</c:when>
+								<c:otherwise>
+									<fmt:formatDate var="bDate" value="${comment.REGIST_DT}" pattern="yyyyMMddHHmm"/>
+									<fmt:formatDate var="aDate" value="${result.recomments.list[status.index + 1].REGIST_DT}" pattern="yyyyMMddHHmm"/>
+										<c:choose>
+											<c:when test="${bDate ne aDate }">
+												<div class="comment_answer">
+													<div class="comment_blue">
+														<div>${comment.CONTENTS }
+															<!-- 마지막 말 풍선에만 노출 -->
+															<div class="date"><custom:timeGap value="${comment.REGIST_DT }" /></div>
+														</div>
+													</div>
+												</div>
+											</c:when>
+											<c:otherwise>
+												<div class="comment_answer mb0">
+													<div class="comment_blue">
+														<div>${comment.CONTENTS }</div>
+													</div>
+												</div>
+											</c:otherwise>
+										</c:choose>
+								</c:otherwise>
+							</c:choose>
+						</c:forEach>
+					</div>
+				</section>
+				<c:if test="${sessionScope.user.login == 'true'}">
+					<div class="page_comment_write">
+						<input type="text" id="commentContents" placeholder="댓글을 달아보세요.">
+						<a href="javascript:insertProdCommentReg();" class="btn_b">등록</a>
+					</div>
+				</c:if>
+			</div>
+			<!-- //comment -->
+		</div>
+		<!-- //container -->
+	</div>
+</div>
+
+<!-- 나눔 -->
+<div class="new_body" id="new_share_body">
+
+	<div id="page_wrap" class="new_detail">
+		<!-- header -->
+		<header id="shareHeader">
+			<a class="btn_close" id="share_close">닫기</a>
+			<h1>나눔 신청 <!-- 20151207 add -->
+				<c:if test="${result.freeshare.CNT > 999}"><span>(999+)</span></c:if>
+				<c:if test="${result.freeshare.CNT <= 999}"><span>${result.freeshare.CNT}</span></c:if>
+			</h1>
+			<a href="javascript:insertFreeshare('POP');" class="btn_sha_apply">신청하기</a>
+		</header>
+		<!-- //header -->
+
+
+		<!-- container -->
+		<div id="page_container">
+			<section class="share_review">
+				<ol class="list">
+					<c:forEach var="freeshare" items="${result.refreeshare.list }" varStatus="status">
+						<li>
+							<p class="photo"><img src="<custom:codeTag code="PROFILE_DEFAULT_IMG_URL" groupCode="SITE_DEFAULT" />" alt="${freeshare.FILE_URL}" /></p>
+							<dl>
+								<dt class="id">
+									<span class="fl"><img src="<custom:codeTag code="DEFAULT_IMG_URL" groupCode="SITE_DEFAULT" />" alt="${freeshare.LEVEL_IMG }" /></span>
+									<c:choose>
+										<c:when test="${fn:indexOf(freeshare.MBER_EMAIL, '@') eq -1 }">
+											${freeshare.MBER_NICK }
+										</c:when>
+										<c:otherwise>
+											<custom:maskTag value="${freeshare.MBER_EMAIL }" type="email" />
+										</c:otherwise>
+									</c:choose>
+									<span class="fr date"><custom:timeGap value="${freeshare.REGIST_DT }" /></span>
+								</dt>
+								<dd>${freeshare.REQ_MEMO }</dd>
+							</dl>
+						</li>
+					</c:forEach>
+				</ol>
+			</section>
+		</div>
+		<!-- //container -->
+	</div>
+</div>
+<!-- 20151209 add -->
+<div class="delv_layer popup">
+	<div class="delv_con">
+		<p class="btn_close"><a href="javascript:$('.delv_layer').hide();popup_hide();"><img src="http://static.ssocio.net/web/images/newde/btn_layer_close.png" alt="close" /></a></p>
+		<p class="devv_tit">도서산간 배송 추가배송비 안내</p>
+		<ul id="extLands"></ul>
+	</div>
+</div>
+</form>
+<c:if test="${sessionScope.APP ne 'SSOCIO' }">
+	<script>
+		Kakao.init('5f39a1a0ae8e99a1104d54e29b16761c');
+		// 선언은 sns.share.js 에서 함
+		var imgUrl = '${shareImgUrl }';
+		if(imgUrl == ""){
+			imgUrl = "https://scontent.xx.fbcdn.net/hphotos-xat1/t39.2081-0/p128x128/12056960_1633116896960884_2110231500_n.png";
+		}
+		var prodname = "${result.prodInfo.PROD_NM}";
+		var prodCode = '${result.prodInfo.PROD_CODE }';
+		
+		SSOCIO_URL = document.location.href.match(/http[s]*:\/\/([a-zA-Z0-9\-\.]*)/)[0];
+		//라인 셋팅
+		$("#lineBtn").attr("href", "http://line.me/R/msg/text/?"+prodname+"%0D%0ASSOCIO로 구경하러 가기 %0D%0A"+SSOCIO_URL+"/mobile/prod/selectProd.do?PROD_CODE="+prodCode );
+		
+		var ssoParam = encodeURIComponent(SSOCIO_URL + '/mobile/prod/selectProd.do?PROD_CODE=${result.prodInfo.PROD_CODE}');
+		//passerby=1은 타인이 담벼락의 링크타고 들어올 때의 flag를 주는 것
+	
+		
+		
+		Kakao.Link.createTalkLinkButton({
+			container : '#kakao-link-btn',
+			label : prodname +'\nSSOCIO로 구경하러 가기',
+			image : {
+				src :imgUrl,
+				width : '300',
+				height : '200'
+			},
+			webButton : {
+				text : 'SSOCIO에서 보기',
+				url : SSOCIO_URL+'/mobile/common/goLinkPopup.do?snsType=kakaolink&appUrl='+ssoParam+'&type=G'
+			}
+		});
+		// 스토리 공유 버튼을 생성합니다.
+		function shareStory() {
+			Kakao.Story.open({
+				url: SSOCIO_URL + '/mobile/prod/selectProd.do?PROD_CODE=${result.prodInfo.PROD_CODE}',
+				text: prodname+'\nSSOCIO로 구경하러 가기'
+			});
+		}
+	</script>
+</c:if>

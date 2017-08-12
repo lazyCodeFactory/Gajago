@@ -1,0 +1,259 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/web/common/cmmnHead.jsp"%>
+<script type="text/javascript" src="/js/web/cart.js" ></script> <!-- 장바구니용 js -->
+<script type="text/javascript">
+
+	var ansGbCd = '${params.ansGbCd}';
+	
+	//ready
+	$(document).ready(function(){
+		
+		// title 및 back 버튼 url set		
+		document.title = "상품문의";
+// 		header.type	= 6;
+		header.type	= 4;
+		header.title = "상품문의";
+		header.method = "POST";
+		header.backUrl = "/mobile/salemanage/main.do";
+		header.callback = headerCallback; // 장바구니용 callback
+		header.form = $("#form");
+		initHeader();
+		
+// 		displayFooter(false);
+		displayFooter(false);		// 하단바 필요함
+	
+		init.initTab();
+		
+	});
+	
+	// 초기
+	var init = {
+			
+		// 탭 선택
+		initTab : function () {
+			
+			$("li[id^=liAnsGbCd]").each(function () {
+				$(this).removeClass("on");
+			});
+			
+			if (ansGbCd == null || ansGbCd == "") {
+				$("#liAnsGbCd1").addClass("on");
+				$("#aAnsGbCd1").removeAttr("href");
+			}
+			else if (ansGbCd == "20") {
+				$("#liAnsGbCd2").addClass("on");
+				$("#aAnsGbCd2").removeAttr("href");
+			}
+			else if (ansGbCd == "30") {
+				$("#liAnsGbCd3").addClass("on");
+				$("#aAnsGbCd3").removeAttr("href");
+			}
+			
+		}
+			
+	};
+	
+	// page 관련
+	var page = {
+			
+		// 조회
+		searchPage : function (ansGbCd) {
+			
+			$("#CUR_PAGE").val("");
+			$("#ansGbCd").val(ansGbCd);
+			
+			var url = "/mobile/salemanage/selectListProdQna.do";
+			form.action = url;
+			form.submit();
+			
+		},
+		
+		// 상품상세 페이지로
+		goProdQnaDtl : function (boardSeq) {
+			$("#boardSeq").val(boardSeq);
+			
+			var url = "/mobile/salemanage/selectProdQnaDtl.do";
+			form.action = url;
+			form.submit();
+			
+		},
+		
+		// 더보기
+		goNextList : function () {
+			
+			// 페이지
+			var curPage = $("#CUR_PAGE").val();
+			curPage = Number(curPage) + 1;
+			
+			$.ajax({
+			    type: 'post'
+			    , async: true
+			    , dataType:'json'
+			    , url: '/mobile/salemanage/selectListProdQnaNext.do'
+			    , data: {
+			    		"CUR_PAGE" : curPage,
+			    		"ansGbCd" : $("#ansGbCd").val(),
+			    		"prodCode" : $("#prodCode").val()
+			    		}
+			    , success: function(data) {
+			    	var qnaList = data.qnaList;
+			    	if(qnaList.length > 0){
+			    		
+			    		// LIST
+			    		var innerHtml = "";
+						for(var i = 0 ; i < qnaList.length ; i++){
+							innerHtml += "<li>";
+							innerHtml += "<ul>";
+							innerHtml += '<li><img alt="';
+							innerHtml += qnaList[i].FILE_URL;
+							innerHtml += '" src="';
+							innerHtml += '<custom:codeTag code="DEFAULT_IMG_URL" groupCode="SITE_DEFAULT" />';
+							innerHtml += '">';
+							innerHtml += "</li>";
+							innerHtml += "<li class='last'>";
+							innerHtml += "<a href='javascript:page.goProdQnaDtl('";
+							innerHtml += qnaList[i].BOARD_SEQ;
+							innerHtml += "');' class='qna_detail'>";
+							innerHtml += "<div class='qna_info'><strong>";
+							innerHtml += qnaList[i].PROD_NM;
+							innerHtml += "</strong>";
+							innerHtml += "<span class='time'>";
+							innerHtml += timeGap(qnaList[i].TIME_GAP);
+							innerHtml += "</span></div>";
+							innerHtml += "<div>";
+							innerHtml += "<span class='qna_tit'>";
+							innerHtml += qnaList[i].TITLE;
+							innerHtml += "</span>";
+							innerHtml += "<span class='qna_cond'>";
+							innerHtml += qnaList[i].ANS_GB_CD_NM;
+							innerHtml += "</span>";
+							innerHtml += "</div>";
+							innerHtml += "</li>";
+							innerHtml += "</ul>";
+							innerHtml += "</li>";
+						}
+						
+						$("#listUl").append(innerHtml);		
+						
+						// CUR_PAGE
+						$("#CUR_PAGE").val(data.params.CUR_PAGE);
+						
+						// 더보기
+						if (data.paging.next == false) {
+							$("#btnNext").hide();
+						}
+					}
+			    }
+			    , error: function(data, status, err) {
+			      alert('서버와의 통신이 실패했습니다.');
+			    }
+			});
+			
+		}
+			
+	};
+
+</script>
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+		<div class="roc">
+			<ul class="inner">
+				<li><img src="http://static.ssocio.net/pc/img/common/section/roc_home.png" alt="홈"></li>
+				<li>판매관리</li>
+			</ul>
+		</div>
+		<jsp:include page="../common/sale_top.jsp" flush="false" />
+		<div class="mype_s_tit">
+			<p>상품문의</p>
+		</div>
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+		<!-- container -->
+		<div id="container">
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>
+
+
+<form id="form" name="form" method="get" action="">
+	<input type="hidden" id="ansGbCd" name="ansGbCd" value="${params.ansGbCd }" />
+	<input type="hidden" id="prodCode" name="prodCode" value="${params.prodCode }" />
+	<input type="hidden" id="CUR_PAGE" name="CUR_PAGE" value="${params.CUR_PAGE }" />
+	<input type="hidden" id="boardSeq" name="boardSeq" value="" />
+
+		<ul class="tab tab3">
+        	<li id="liAnsGbCd1">
+        		<a id="aAnsGbCd1" href="javascript:page.searchPage('');">전체</a>
+        	</li>
+        	<li id="liAnsGbCd2">
+        		<a id="aAnsGbCd2" href="javascript:page.searchPage('20');">미답변</a>
+        	</li>
+        	<li id="liAnsGbCd3">
+        		<a id="aAnsGbCd3" href="javascript:page.searchPage('30');">답변완료</a>
+        	</li>
+        </ul>
+        <c:choose>
+        	<c:when test="${fn:length(qnaList)>0}">
+        		<c:choose>
+		        	<c:when test="${params.ansGbCd == null or params.ansGbCd == '' }">
+		        		<p class="count_info">총 문의개수 <span>${qnaCnt.TOT_CNT }건</span> (미답변 : ${qnaCnt.NO_ANS_CNT }건 / 답변완료 : ${qnaCnt.ANS_CNT }건)</p>
+		        	</c:when>
+		        	<c:when test="${params.ansGbCd == '20' }">
+		        		<p class="count_info">미답변 : <span>${qnaCnt.NO_ANS_CNT }건</span></p>
+		        	</c:when>
+		        	<c:when test="${params.ansGbCd == '30' }">
+		        		<p class="count_info">답변완료 : <span>${qnaCnt.ANS_CNT }건</span></p>
+		        	</c:when>
+		        </c:choose>
+        		<ul class="sha_oder type3" id="listUl">
+	        		<c:forEach var="list" items="${qnaList }" varStatus="status">
+	        			<li>
+	        				<ul>
+			                	<li><img src="<custom:codeTag code="DEFAULT_IMG_URL" groupCode="SITE_DEFAULT" />" alt="${list.FILE_URL }" alt=""></li>
+			                	<li class="last">
+			                		<a href="javascript:page.goProdQnaDtl('${list.BOARD_SEQ }');" class="qna_detail">
+				                		<div class="qna_info">
+				                			<strong>${list.PROD_NM }</strong>
+				                			<span class="time"><custom:timeGap value="${list.REGIST_DT }" /></span>
+				                		</div>
+				                		<div>
+				                			<span class="qna_tit">${list.TITLE }</span>
+				                			<span class="qna_cond">${list.ANS_GB_CD_NM }</span>
+				                		</div>
+			                		</a>
+			                	</li>
+			                </ul>
+	        			</li>
+	        		</c:forEach>
+	        	</ul>
+	        	<c:if test="${paging.next == true }">
+	        		<a href="javascript:page.goNextList();" id="btnNext" class="btn_more"><span>더보기</span></a>
+	        	</c:if>
+        	</c:when>
+        	<c:otherwise>
+        		<!-- [D] 등록된 상품문의가 없을때 -->
+		        <div class="sha_nodata">
+		        	<p>등록된 상품문의가 없습니다.</p>
+		        </div>
+		        <!-- //[D] 등록된 상품문의가 없을때 -->
+        	</c:otherwise>
+        </c:choose>
+</form>
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+		<jsp:include page="../common/sale_bottom.jsp" flush="false" />
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+		    </div>
+		    <!-- //container -->
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>

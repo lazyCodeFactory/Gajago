@@ -1,0 +1,113 @@
+package com.ssocio.sharing.service.web;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import javax.annotation.Resource;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.ui.ModelMap;
+import com.ssocio.sharing.dao.web.MobileMyRecentProductDao;
+import com.ssocio.sharing.vo.web.WebSession;
+
+@Service
+public class MobileMyRecentProductServiceImpl implements MobileMyRecentProductService {
+	
+	private static final Logger logger = LoggerFactory.getLogger(MobileMyRecentProductServiceImpl.class);
+	
+	@Resource(name="mobileMyRecentProductDao")
+	private MobileMyRecentProductDao mobileMyRecentProductDao;
+	
+	
+	/**   
+	 * 최근본상품 화면으로 이동
+	 */
+	@Override	
+	public List<Map<String, Object>> getMyLatelyGoodsInfo(Map<String, Object> inParam, WebSession user){
+		int mberSeq = user.getMBER_SEQ();
+		inParam.put("MBER_SEQ", mberSeq);
+		
+		List<Map<String, Object>> resultList = null;
+		try {
+			// 30일이 지난 최근본상품은 삭제처리한다.
+			Integer latelyStatus = mobileMyRecentProductDao.deleteMyLately30(inParam);
+			logger.debug("latelyStatus:"+latelyStatus);
+			
+			// S 페이징 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+			logger.debug("FIRST_SEQ	:["+inParam.get("FIRST_SEQ")+"]");
+			logger.debug("LAST_SEQ	:["+inParam.get("LAST_SEQ")+"]");
+			int FIRST_SEQ = 0; 
+			if(inParam.get("FIRST_SEQ")==null){
+				FIRST_SEQ = 0;
+			}else{
+				FIRST_SEQ 	= Integer.parseInt(inParam.get("FIRST_SEQ").toString() );
+				FIRST_SEQ = FIRST_SEQ + 20;
+			}
+			inParam.put("FIRST_SEQ", FIRST_SEQ);
+			int LAST_SEQ = 20;
+			if(inParam.get("LAST_SEQ")==null){
+				LAST_SEQ = 20;
+			}else{
+				LAST_SEQ 	= Integer.parseInt(inParam.get("LAST_SEQ").toString() );
+				logger.debug("20더한다.");
+				LAST_SEQ = LAST_SEQ + 20;
+				logger.debug("...");
+			}
+			inParam.put("LAST_SEQ", LAST_SEQ);
+			logger.debug("FIRST_SEQ	:["+inParam.get("FIRST_SEQ")+"]");
+			logger.debug("LAST_SEQ	:["+inParam.get("LAST_SEQ")+"]");	
+			// E 페이징	>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+			
+			// 조회
+			resultList = mobileMyRecentProductDao.getMyLatelyGoodsInfo(inParam);
+		}catch (Exception e) {
+			throw e;
+		}
+		return resultList;
+	}
+	/**   
+	 * 최근상품 삭제
+	 */
+	@Override
+	public ModelMap deleteMyLately(Map<String, Object> inParam, WebSession user){
+		ModelMap mm = new ModelMap();
+		int mberSeq = user.getMBER_SEQ();
+		inParam.put("MBER_SEQ", mberSeq);
+		Integer adrStatus = 0;
+		String msg = "";
+		try {
+			adrStatus = mobileMyRecentProductDao.deleteMyLately(inParam);
+			logger.debug("adrStatus:"+adrStatus);
+			if(adrStatus == null){
+				msg = "선택한 정보가 삭제되었습니다.";
+			}
+			mm.put("msg", msg);
+		}catch (Exception e) {
+			throw e;
+		}
+		return mm;
+	}
+	/**   
+	 * 최근상품 전체삭제
+	 */
+	@Override
+	public ModelMap allDeleteMyLately(Map<String, Object> inParam, WebSession user){
+		ModelMap mm = new ModelMap();
+		int mberSeq = user.getMBER_SEQ();
+		inParam.put("MBER_SEQ", mberSeq);
+		Integer adrStatus = 0;
+		String msg = "";
+		try {
+			adrStatus = mobileMyRecentProductDao.allDeleteMyLately(inParam);
+			logger.debug("adrStatus:"+adrStatus);
+			if(adrStatus == null){
+				msg = "전체 정보가 삭제되었습니다.";
+			}
+			mm.put("msg", msg);
+		}catch (Exception e) {
+			throw e;
+		}
+		return mm;
+	}
+}

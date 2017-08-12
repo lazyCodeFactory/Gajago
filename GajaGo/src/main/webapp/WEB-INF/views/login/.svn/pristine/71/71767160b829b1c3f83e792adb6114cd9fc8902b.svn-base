@@ -1,0 +1,676 @@
+var TYPE_BANNER = '00';
+var TYPE_TPL_CARD = '10';
+var TYPE_TPL_SYMMETRY = '20';
+var TYPE_TPL_BANNER = '30';
+
+var banner = null;
+var template = null;
+
+/**
+ * 
+ * <pre>
+ * 설명 : Item 객체
+ * 설명 : Containter에 들어갈 Item에 대한 구조체
+ * @param id : index
+ * @param type : TYPE_BANNER, TYPE_TPL_CARD, TYPE_TPL_SYMMETRY, TYPE_TPL_BANNER
+ * @param seq : view sequence
+ * @param isDel : 삭제 유무
+ * @param isNew : 추가
+ * @param imgSeq : (banner - image 일련번호 | content - template 일련번호)
+ * @date 2015. 8. 13. 오전 10:29:41
+ * @author WOOK.KIM
+ * @see
+ * </pre>
+ */
+var Item = function(id, type, seq, isDel, isNew, imgSeq){
+	this.id = id;			//	banner, template
+	this.type = type;		//	banner, template
+	this.seq = seq;			//	banner, template
+	this.isDel = isDel;		//	banner, template
+	this.isNew = isNew;		//	banner, template
+	this.imgSeq = imgSeq;	//	(banner:imgSeq, template:planSeq)
+	this.rowNum = 0;		//	only template
+	
+	this.contents = new Array();
+}
+
+//	노출 순서, URL, 컨텐츠명, 컨텐츠 사용 YN, 컨텐츠 번호, 노출옵션
+var Content = function(viewSeq, url, name, useYn, contNo, contGbCd, planViewGbCd, planViewCss){
+	this.viewSeq = viewSeq;
+	this.url = url;
+	this.name = name;
+	this.useYn = useYn;
+	this.contNo = contNo;
+	this.contGbCd = contGbCd;			//	상품:30, 나머지는 정해지지 않았음.
+	this.planViewGbCd = planViewGbCd;	//	반투명:10, 그라데이션:20, 효과없음:30, 이미지만:40(사용않함)
+	this.planViewCss = planViewCss;		//	css 클래스 설정
+	this.isFileLocal = true;			//	이미지 파일이 로컬에서 가져온건지 파악함.
+}
+
+/**
+ * 
+ * <pre>
+ * 설명 : Container 클래스
+ * 설명 : Banner와 Content에 대한 컨테이너 객체
+ * @param area : Container에 대한 <div> 객체$('#id_banner_area')
+ * @param table : Container에 추가되는 table의 아이디('id_tbl_banner')
+ * @date 2015. 8. 13. 오전 10:29:41
+ * @author WOOK.KIM
+ * @see
+ * </pre>
+ */
+var Container = function(area, table){
+	this.area = area;
+	this.table = table;
+	this.items = new Array();
+	
+	this.init = function(type){
+		this.items.push(new Item(0, type, 0, false, true, "")); 
+	};
+	
+	this.add = function(type, data, rowNum){
+		var item = new Item(this.items.length, type, this.getMaxSequence(), false, true, "");
+		
+		if( data != '' && data != undefined){
+			this.area.append(data);
+		}
+		else{
+			item.isNew = false;
+		}
+		
+		item.rowNum = rowNum;
+		if( type == '10' || type == '30'){
+			for( var i=0 ; i<item.rowNum ; i++ ){
+				var content = new Content(i, '', '', 'Y', '', '30', '30', '03');
+				item.contents.push(content);
+			}
+		}
+		else if( type == '20'){
+			for( var i=0 ; i<item.rowNum ; i++ ){
+				for( var j=0 ; j<2 ; j++){
+					var content = new Content(i*2 + j, '', '', 'Y', '', '30', '30', '03');
+					item.contents.push(content);
+				}
+			}
+		}
+		this.items.push(item);
+	};
+	
+	this.formerAdd = function(item){
+		this.items.push(item);
+	}
+	
+	this.del = function(idx){
+		this.items[idx].isDel = true;
+		this._sort(this.items[idx].seq);
+		
+		$('#' + this.table + '_' + idx).remove();	
+	};
+
+	this.prev = function(idx){
+		var cur = this.items[idx];
+		
+		var prev;
+		for(var i=0 ; i<this.items.length ; i++){
+			var temp = this.items[i];
+			
+			if( !temp.isDel && temp.seq == (cur.seq - 1)){
+				prev = temp;
+				break;
+			}
+		}
+
+		$('#' + this.table + '_' + prev.id).before($('#' + this.table + '_' + cur.id));
+		
+		this._swap(cur, prev);
+	};
+	
+	this.next = function(idx){
+		var cur = this.items[idx];
+
+		var next;
+		for(var i=0 ; i<this.items.length ; i++){
+			var temp = this.items[i];
+			if( !temp.isDel && temp.seq == (cur.seq + 1)){
+				next = temp;
+				break;
+			}
+		}
+
+		$('#' + this.table + '_' + next.id).after($('#' + this.table + '_' + cur.id));
+		
+		this._swap(cur, next);
+	};
+	
+	this._sort = function(seq){
+		for( var i=0 ; i<this.items.length ; i++){
+			var temp = this.items[i];
+			if( !temp.isDel && temp.seq > seq ){
+				temp.seq--;
+			}
+		}
+		
+	};
+	
+	this._swap = function(cur, next){
+		var seq = cur.seq;
+		cur.seq = next.seq;
+		next.seq = seq;
+	};
+	
+	this.getMaxSequence = function(){
+		var count = 0;
+		for(var i=0 ; i<this.items.length ; i++){
+			if(this.items[i].isDel == false){
+				count++;
+			}
+		}
+		
+		return count;
+	}
+	
+	this.toString = function(){
+		for(var i=0 ; i<this.items.length ; i++ ){
+			console.log("items[" + i + "][ id : " + this.items[i].id + ", type : " + this.items[i].type + ", seq : " + this.items[i].seq + ", isDel : " + this.items[i].isDel + "]");	
+		}
+	}; 
+};
+
+/**
+ * 
+ * <pre>
+ * 설명 getItemByAjax 메소드
+ * 설명 Container에 들어갈 아이템을 가져온다.(html 템플릿)
+ * @param type
+ * @param idx
+ * @param rowNum
+ * @date 2015. 8. 13. 오전 10:42:07
+ * @author WOOK.KIM
+ * @see
+ * </pre>
+ */
+function getItemByAjax(type, idx, rowNum){
+	$.ajax({
+		type: 'post',
+		async: true, 
+		url: '/admin/plan/getContainerHtml.do', 
+		dataType:'json', 
+		data: {"TYPE":type, "SEQ":idx, "ROW_NUM":rowNum},
+		//before: function() {
+	    //   loadingForm.showDialog();
+	    //}, 
+	    success: function(data) {
+	    	if( data.TYPE == TYPE_BANNER){
+	    		banner.add(data.TYPE, data.BODY);
+	    	}
+	    	else{
+	    		console.log("TYPE:" + data.TYPE + ", rowNum:" + data.ROW_NUM); 
+	    		template.add(data.TYPE, data.BODY, data.ROW_NUM);
+	    	}
+		}, 
+		//complete: function() {
+	    //	loadingForm.hideDialog();
+		//}, 
+		error : function(request, status, error) {
+			alert("통신 오류가 발생 하였습니다. 잠시 후 다시 시도해 주세요");
+		}
+	}); 
+}
+
+/**
+ * 
+ * <pre>
+ * 설명 컨텐츠 영역에서 URL 클릭시 호출되는 메소드
+ * 설명 상품 번호를 가지고 상품 정보를 가져와서 컨텐츠 명과 이미지를 보여준다.
+ * @param idx
+ * @param seq
+ * @date 2015. 8. 17. 오후 4:55:00
+ * @author WOOK.KIM
+ * @see "ssocio.com/prod.do?idx=12345"
+ * </pre>
+ */
+function selectProd(idx, seq){
+	var param = $('#PLAN_CONTENT_URL_' + idx + '_' + seq).val();
+	var contGbCd = '';
+	var code = '';
+	var prodType = '';
+	if( param.indexOf("selectProd.do") != -1 ){
+		contGbCd = '30';
+		prodType = '30';
+	}else if(param.indexOf("selectSharDtl.do") != -1){
+		contGbCd = '40';
+		prodType = '40';
+	}
+	else{
+		if ( confirm("상품 링크입니까?", "예", "아니오")) {
+			alert("URL이 잘못 입력되었습니다.");
+			return;			
+		}
+	}
+	
+	var phost = param.split("/")[0];
+	/*
+	if ( location.host.indexOf("dev") && phost.indexOf("dev") == -1 ) {
+		alert('도메인 확인 필요 \n현재 도메인 : ' + location.host + '\n입력된 도메인 : ' + param.split("/")[0] + '\n');
+		return;
+	} else if ( location.host.indexOf("stg") && phost.indexOf("stg") == -1 ) {
+		alert('도메인 확인 필요 \n현재 도메인 : ' + location.host + '\n입력된 도메인 : ' + param.split("/")[0] + '\n');
+		return;		
+	} else if ( location.host.indexOf("vip")  && phost.indexOf("vip") == -1) {
+		alert('도메인 확인 필요 \n현재 도메인 : ' + location.host + '\n입력된 도메인 : ' + param.split("/")[0] + '\n');
+		return;
+	} else if ( location.host.indexOf("admin.ssocio.com")  && ( phost.indexOf("m.ssocio.com") == -1 && phost.indexOf("www.ssocio.com") == -1 )) {
+		alert('도메인 확인 필요 \n현재 도메인 : ' + location.host + '\n입력된 도메인 : ' + param.split("/")[0] + '\n');
+		return;
+	} else {
+		if ( confirm("도메인을 확인하시겠습니까?") ) {
+			return ;
+		}
+	}
+	*/
+	
+	//if ( param.indexOf(location.host) == -1 ) {
+	/*if ( phost.split(".")[0] != location.host.split(".")[0] 
+		|| phost.split(".")[phost.split(".").length - 1] != location.host.split(".")[location.host.split(".").length - 1] ) {
+		alert('도메인 확인 필요 \n현재 도메인 : ' + location.host + '\n입력된 도메인 : ' + param.split("/")[0] + '\n');
+		return;
+	}*/
+	var code = '';
+	
+	if ( param && param.split("?").length > 1) {
+		var vars = param.split("?")[1].split("&");
+		for (var i = 0; i < vars.length; i++) {
+			var pair = vars[i].split("=");
+			if (pair[0] == 'PROD_CODE') {
+				code = pair[1];
+			}
+		}
+	}
+	 
+//	code = param.substring(param.indexOf("?") + 1, param.length);
+//	code = code.substring(code.indexOf("=") + 1, code.length);
+	
+	$.ajax({
+		type: 'post',
+		async: true, 
+		url: '/admin/plan/getProdInfo.do', 
+		dataType:'json', 
+		data: {"IDX":idx, "SEQ":seq, "CONT_GB_CD":contGbCd, "PROD_CODE":code, "PROD_TYPE":prodType},
+		//before: function() {
+	    //   loadingForm.showDialog();
+	    //}, 
+	    success: function(data) {
+	    	console.log(data);
+	    	if ( data.PROD_CODE ) {
+	    		if ( !data.prodInfo ) {
+	    			alert('해당 상품이 없습니다.');
+		    		return false;
+	    		} else {
+	    			if ( data.prodInfo.PROD_STAT_CD != '0') {
+	    	    		if (!confirm("판매중인 상품이 아닙니다. 등록하시겠습니까?")) {
+	    	    			return ;
+	    	    		} 
+    	    			if ( seq == '0' ) {
+    	    				$('#PLAN_CONTENT_GB_CD_' + idx + '_' + seq).parent().find('tr').slice(0,4).find('td, th').css( 'background-color', '#FF6666' );
+    	    			} else if ( seq == '1' ){
+    	    				$('#PLAN_CONTENT_GB_CD_' + idx + '_' + seq).parent().find('tr').slice(4).find('td, th').css( 'background-color', '#FF6666' );
+    	    			}
+	    	    	}
+	    			template.items[idx].contents[seq].name = data.prodInfo.PROD_NM;
+	    			template.items[idx].contents[seq].contNo = data.PROD_CODE;
+	    	    	$('#PLAN_CONTENT_FILE_SEQ_' + idx + '_' + seq).val(data.prodInfo.PROD_FILE_SEQ);
+	    	    	$('#PLAN_CONTENT_IMG_' + idx + '_' + seq).attr("src", data.prodInfo.PROD_IMG_URL);
+	    	    	$('#PLAN_CONTENT_NM_' + idx + '_' + seq).val(data.prodInfo.PROD_NM);
+	    		}
+	    	} else if ( data.PROD_CODE == '' ) {
+	    		template.items[idx].contents[seq].contNo = '';
+	    	}
+	    	
+	    	template.items[idx].contents[seq].url = param;
+	    	template.items[idx].contents[seq].contGbCd = data.CONT_GB_CD;
+	    	template.items[idx].contents[seq].isFileLocal = false;
+	  
+	    	$('#PLAN_CONTENT_GB_CD_' + idx + '_' + seq).val(data.CONT_GB_CD);
+	    	$('#PLAN_CONTENT_NO_' + idx + '_' + seq).val(data.PROD_CODE);
+	    	
+	    	// 글자수 체크(DB 사이즈 100)
+	    	if($('#PLAN_CONTENT_NM_' + idx + '_' + seq).val().length > 70){
+	    		var tempNm = $('#PLAN_CONTENT_NM_' + idx + '_' + seq).val().substring(0,70);
+	    		$('#PLAN_CONTENT_NM_' + idx + '_' + seq).val(tempNm);
+	    	}
+		}, 
+		//complete: function() {
+	    //	loadingForm.hideDialog();
+		//}, 
+		error : function(request, status, error) {
+			alert("통신 오류가 발생 하였습니다. 잠시 후 다시 시도해 주세요");
+		}
+	}); 
+}
+
+/**
+ * 
+ * <pre>
+ * 설명 : delBanner 메소드
+ * 설명 : 배너 아이템 삭제
+ * @param idx
+ * @date 2015. 8. 13. 오전 10:29:41
+ * @author WOOK.KIM
+ * @see
+ * </pre>
+ */
+function delBanner(idx){
+	banner.del(idx);
+}
+
+/**
+ * 
+ * <pre>
+ * 설명 delContent 메소드
+ * 설명 컨텐츠 아이템 삭제
+ * @param idx
+ * @date 2015. 8. 13. 오전 10:31:09
+ * @author WOOK.KIM
+ * @see
+ * </pre>
+ */
+function delTemplate(idx){
+	console.log("delTemplate(" + idx + ")");
+	template.del(idx);
+}
+
+/**
+ * 
+ * <pre>
+ * 설명 moveContentPrev 메소드
+ * 설명 컨텐츠 아이템 이전으로 이동
+ * @param idx
+ * @date 2015. 8. 13. 오전 10:31:39
+ * @author WOOK.KIM
+ * @see
+ * </pre>
+ */
+
+function moveItemPrev(obj, idx){
+	console.log("moveItemPrev(" + idx + ")");
+
+	if( obj.items[idx].seq > 0){
+		obj.prev(idx);	
+	}
+	else{
+		alert("이동할 수 없습니다.");
+	}
+}
+
+/**
+ * 
+ * <pre>
+ * 설명 moveContentNext 메소드
+ * 설명 컨텐츠 아이템 다음으로 이동
+ * @param idx
+ * @date 2015. 8. 13. 오전 10:33:21
+ * @author WOOK.KIM
+ * @see
+ * </pre>
+ */
+function moveItemNext(obj, idx){
+	console.log("moveItemNext(" + idx + ")");
+	if( obj.items[idx].seq < ( obj.getMaxSequence() - 1) ){
+		obj.next(idx);
+	}
+	else{
+		alert("이동할 수 없습니다.");
+	}
+}
+
+/**
+ * 
+ * <pre>
+ * 설명 : inputImgPath 메소드
+ * 설명 : 
+ * @param
+ * @param
+ * @date 2015. 8. 13. 오전 10:29:41
+ * @author WOOK.KIM
+ * @see
+ * </pre>
+ */ 
+function inputImgPath(type, idx, seq){
+ 	var opt = {
+		inputFile : null,
+		inputFilePath : null,
+		inputFileNm : null,
+		img : null,
+		fileNm : "",
+		w : 255,
+		h : 152
+	};
+
+ 	if( type == TYPE_BANNER){
+		opt.inputFile = $('#PLAN_BANNER_FILE_' + idx);
+		opt.inputFilePath = $('#PLAN_BANNER_FILE_PATH_' + idx);
+		opt.inputFileNm = $('#PLAN_BANNER_FILE_NM_' + idx);
+		opt.img = $('#PLAN_BANNER_IMG_' + idx);
+ 	}
+ 	else{
+		opt.inputFile = $('#PLAN_CONTENT_FILE_' + idx + "_" + seq);
+		opt.inputFilePath = $('#PLAN_CONTENT_FILE_PATH_' + idx + "_" + seq);
+		opt.inputFileNm = $('#PLAN_CONTENT_FILE_NM_' + idx + "_" + seq);
+		opt.img = $('#PLAN_CONTENT_IMG_' + idx + "_" + seq);
+		
+		template.items[idx].contents[seq].isFileLocal = true;
+ 	}
+	
+ 	imagePreview(opt);
+}
+
+/**
+ * 
+ * <pre>
+ * 설명 : delPreviewImage 메소드
+ * 설명 : 
+ * @param
+ * @param
+ * @date 2015. 8. 13. 오전 10:29:41
+ * @author WOOK.KIM
+ * @see
+ * </pre>
+ */ 
+function delPreviewImage(type, idx, seq){
+	var nameObj;
+	var imgObj;
+	var pathObj;
+	var fileObj;
+	
+	if( type == TYPE_BANNER){
+		pathObj = $('#PLAN_BANNER_FILE_PATH_' + idx);
+		fileObj = $('#PLAN_BANNER_FILE_' + idx);
+		nameObj = $('#PLAN_BANNER_FILE_NM_' + idx);
+		imgObj = $('#PLAN_BANNER_IMG_' + idx);
+	}
+	else{
+ 		pathObj = $('#PLAN_CONTENT_FILE_PATH_' + idx + "_" + seq);
+		fileObj = $('#PLAN_CONTENT_FILE_' + idx + "_" + seq);
+		nameObj = $('#PLAN_CONTENT_FILE_NM_' + idx + "_" + seq);
+		imgObj = $('#PLAN_CONTENT_IMG_' + idx + "_" + seq);
+	}
+	
+	if( pathObj.val() == "" || nameObj.text() == ""){
+		alert("삭제 가능한 이미지가 없습니다.");
+		return;
+	}
+	
+	pathObj.val("");
+	nameObj.text("");
+	fileObj.val("");
+	imgObj.attr("src", "");
+}
+
+/**
+ * 
+ * <pre>
+ * 설명 imagePreview 메소드
+ * 설명 파일 선택시 이미지 영역에 이미지 display
+ * @param opt
+ * @date 2015. 8. 13. 오전 10:34:00
+ * @author WOOK.KIM
+ * @see
+ * </pre>
+ */
+function imagePreview(opt){
+	
+	var inputFile = opt.inputFile.get(0);
+	var img = opt.img.get(0);
+	if( window.FileReader){
+		// image 파일만
+        //if (!inputFile.files[0].type.match(/image\//)) return;
+		
+		try{
+			var reader = new FileReader();
+			reader.onload = function(e){
+				img.src = e.target.result;
+				img.style.width = opt.w + 'px';
+				img.style.height = opt.h + 'px';
+			};
+			
+			opt.fileNm = inputFile.files[0].name;
+			reader.readAsDataURL(inputFile.files[0]);
+		}catch(e){
+			// 	exception...
+			//	alert("file reader exception");
+		}
+	}
+	else if(img.filters){
+		inputFile.select();
+		inputFile.blur();
+		
+		var imgSrc = document.selection.createRange().text;
+
+		img.style.width = opt.w + 'px';
+		img.style.height = opt.h + 'px';
+        img.style.filter = "progid:DXImageTransform.Microsoft.AlphaImageLoader(enable='true',sizingMethod='scale',src=\""+imgSrc+"\")";            
+	}
+	
+	opt.inputFileNm.text(opt.fileNm);
+	
+	//	file path는 c:\fakepath를 처리해야 되는데... 방법을 못찾았음.
+	opt.inputFilePath.val(opt.inputFile.val());
+}
+
+
+function sleep(num){	//[1/1000초]
+	var now = new Date();
+	var stop = now.getTime() + num;
+	while(true){
+		now = new Date();
+		if(now.getTime() > stop)
+			return;
+	}
+}
+
+/**
+ * 
+ * <pre>
+ * 설명 setHours 메소드
+ * 설명 24시간을 한시간 단위로 select에 세팅한다.
+ * @param obj : <select>
+ * @param data : selected 되어야 할 값 
+ * @date 2015. 8. 13. 오전 10:35:08
+ * @author WOOK.KIM
+ * @see
+ * </pre>
+ */
+function setHours(obj, data){
+	for( var i=0 ; i<24 ; i++ ){
+		var val = "";
+		
+		if( i<10){
+			val = "0" + i;
+		}
+		else{
+			val = "" + i;
+		}
+		
+		if(data == val){
+			obj.append('<option value="'+ val +'" selected="selected">' + val + '</option>');
+		}
+		else{
+			obj.append('<option value="'+ val +'">' + val + '</option>');
+		}
+	}
+}
+
+/**
+ * 
+ * <pre>
+ * 설명 setMinutes 메소드
+ * 설명 1시간을 10분 단위로 select에 세팅한다.
+ * @param obj : <select>
+ * @param data : selected 되어야 할 값 
+ * @date 2015. 8. 13. 오전 10:35:08
+ * @author WOOK.KIM
+ * @see
+ * </pre>
+ */
+function setMinutes(obj, data){
+	for( var i=0 ; i<6 ; i++ ){
+		var val = i + "0";
+		if(data == val){
+			obj.append('<option value="'+ val +'" selected="selected">' + val + '</option>');
+		}
+		else{
+			obj.append('<option value="'+ val +'">' + val + '</option>');
+		}
+	}
+}
+
+/**
+ * 
+ * <pre>
+ * 설명 <input> 영역 값 검사
+ * 설명 <input> 영역이 빈값으로 submit되는지 검사
+ * @param obj
+ * @param message
+ * @returns {Boolean}
+ * @date 2015. 8. 13. 오전 10:36:46
+ * @author WOOK.KIM
+ * @see
+ * </pre>
+ */
+
+function validate(obj, message){
+	if( obj.val() == "" ){
+		alert(message + "을(를) 입력하셔야 합니다.");
+		obj.focus();
+		return false;
+	}
+	
+	return true;
+}
+
+function checkUseName(idx, seq, flag){
+	if( flag == undefined){
+		if($("input:checkbox[ID='PLAN_CONTENT_NM_USE_" + idx + "_" + seq + "']").is(":checked") == true){
+			$("#PLAN_CONTENT_NM_" + idx + "_" + seq).attr("readonly", true);
+			$("#PLAN_CONTENT_NM_USE_" + idx + "_" + seq).val("1");
+			template.items[idx].contents[seq].useYn = 'Y';
+		}
+		else{
+			$("#PLAN_CONTENT_NM_" + idx + "_" + seq).removeAttr("readonly");
+			$("#PLAN_CONTENT_NM_USE_" + idx + "_" + seq).val("0");
+			template.items[idx].contents[seq].useYn = 'N';
+		}
+	}
+	else{
+		if( flag == true){
+			$("input:checkbox[ID='PLAN_CONTENT_NM_USE_" + idx + "_" + seq + "']").attr("checked", true);
+			$("#PLAN_CONTENT_NM_" + idx + "_" + seq).attr("readonly", true);
+			$("#PLAN_CONTENT_NM_USE_" + idx + "_" + seq).val("1");
+		}
+		else{
+			$("input:checkbox[ID='PLAN_CONTENT_NM_USE_" + idx + "_" + seq + "']").attr("checked", false);
+			$("#PLAN_CONTENT_NM_" + idx + "_" + seq).removeAttr("readonly");
+			$("#PLAN_CONTENT_NM_USE_" + idx + "_" + seq).val("0");
+		}
+	}
+}

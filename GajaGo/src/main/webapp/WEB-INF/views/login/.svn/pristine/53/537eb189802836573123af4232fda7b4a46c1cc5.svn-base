@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="sellerNoticeMapper">
+	<!-- 검색조건 -->
+	<sql id="condition">
+	    <!-- 시작일자-->
+	    <if test="S_START_DATE != null and S_START_DATE != ''">
+	      AND REGIST_DT <![CDATA[>=]]> TO_DATE(#{S_START_DATE})
+	    </if>
+	    <!-- 끝일자-->
+	    <if test="S_END_DATE != null and S_END_DATE != ''">
+	      AND REGIST_DT <![CDATA[<]]> TO_DATE(#{S_END_DATE})+1
+	    </if>
+	    <!-- 제목-->
+	    <if test="P_TITLE != null and P_TITLE != ''" >
+	      AND TITLE LIKE '%' || #{P_TITLE} || '%'
+	    </if>
+	    <!-- 구분 -->
+	    <if test="P_NOTI_GB_CD != null and P_NOTI_GB_CD != ''">
+	      AND NOTI_GB_CD = #{P_NOTI_GB_CD}
+	    </if>
+	    <!-- 주요공지-->
+	    <if test="P_IMPT_NOTI_YN != null and P_IMPT_NOTI_YN != ''">
+	      AND IMPT_NOTI_YN = #{P_IMPT_NOTI_YN}
+	    </if>
+	    <!-- 메인공지-->
+	    <if test="P_MAIN_NOTI_YN != null and P_MAIN_NOTI_YN != ''">
+	      AND MAIN_NOTI_YN = #{P_MAIN_NOTI_YN}
+	    </if>
+	    <!-- 노출여부-->
+	    <if test="P_VIEW_YN != null and P_VIEW_YN != ''">
+	      AND VIEW_YN = #{P_VIEW_YN}
+	    </if>
+	</sql>
+
+	<!-- 공지사항 리스트 조회 -->
+	<select id="selectListNotice" parameterType="HashMap" resultType="HashMap">
+	<include refid="sellerCommonMapper.pagingHeader" />
+		/*sellerNoticeMapper.selectListNotice*/
+		SELECT BOARD_TYPE_CD    								AS BOARD_TYPE_CD	<!-- 게시판유형구분코드 -->
+	         , BOARD_SEQ										AS BOARD_SEQ		<!-- 게시일련번호 -->
+	         , WRITE_ID          								AS WRITE_ID			<!-- 작성자ID -->
+	         , WRITE_NM          								AS WRITE_NM			<!-- 작성자명 -->
+	         , TO_CHAR(REGIST_DT, 'YYYY-MM-DD HH24:MI') 		AS REGIST_DT      	<!-- 등록일시 -->
+	         , TITLE											AS TITLE			<!-- 제목 -->
+	         , IMPT_NOTI_YN									AS IMPT_NOTI_YN		<!-- 주요공지여부 -->
+	         , MAIN_NOTI_YN									AS MAIN_NOTI_YN		<!-- 메인공지여부 -->
+	         , DECODE(VIEW_YN, 'Y', '노출', 'N', '미노출')		AS VIEW_YN			<!-- 노출여부 -->
+	         , NOTI_GB_CD										AS NOTI_GB_CD		<!-- 공지구분코드 -->
+	         , ( SELECT COM_CD_NM
+	           	   FROM CODE
+	           	  WHERE GRP_CD = 'NOTI_GB_CD'
+	           	    AND COM_CD = NOTI_GB_CD)	AS NOTI_GB_NM		<!-- 구분코드명 -->
+	         , ROW_NUMBER() OVER(ORDER BY REGIST_DT DESC ) 	AS NO
+		FROM BOARD_INFO
+		WHERE BOARD_TYPE_CD = #{BOARD_TYPE_CD}
+		  AND NOTI_GB_CD IN ('10', '40') <!-- 공통, 셀러 -->
+		<!-- <include refid="condition"/> -->
+		ORDER BY REGIST_DT DESC
+	<include refid="sellerCommonMapper.pagingFooter" />
+	</select>
+
+	<!-- 리스트 카운트 조회 -->
+	<select id="selectListNoticeCount" parameterType="HashMap" resultType="int">
+		/*sellerNoticeMapper.selectListNoticeCount*/
+	    SELECT COUNT(1) AS TOTAL_COUNT
+	      FROM BOARD_INFO
+	     WHERE BOARD_TYPE_CD = #{BOARD_TYPE_CD}
+	       AND NOTI_GB_CD IN ('10', '40') <!-- 공통, 셀러 -->
+		<include refid="condition"/>
+	</select>
+
+	<!-- 공지사항 상세 조회 -->
+	<select id="selectNotice" parameterType="HashMap" resultType="HashMap">
+		/*sellerNoticeMapper.selectNotice*/
+		SELECT
+				BOARD_TYPE_CD    								AS BOARD_TYPE_CD	<!-- 게시판유형구분코드 -->
+	           , BOARD_SEQ										AS BOARD_SEQ		<!-- 게시일련번호 -->
+	           , WRITE_ID          								AS WRITE_ID			<!-- 작성자ID -->
+	           , WRITE_NM          								AS WRITE_NM			<!-- 작성자명 -->
+	           , TO_CHAR(REGIST_DT, 'YYYY-MM-DD HH24:MI') 		AS REGIST_DT      	<!-- 등록일시 -->
+	           , TO_CHAR(UPDT_DT, 'YYYY-MM-DD HH24:MI') 		AS UPDT_DT      	<!-- 수정일시 -->
+	           , TO_CHAR(VIEW_START_DATE, 'YYYYMMDD') 			AS VIEW_START_DATE  <!-- 메인공지 시작 일자 -->
+	           , TO_CHAR(VIEW_END_DATE, 'YYYYMMDD') 			AS VIEW_END_DATE  	<!-- 메인공지 종료 일자 -->
+	           , TITLE											AS TITLE			<!-- 제목 -->
+	           , CONTENTS										AS CONTENTS			<!-- 내용 -->
+	           , IMPT_NOTI_YN									AS IMPT_NOTI_YN		<!-- 주요공지여부 -->
+	           , MAIN_NOTI_YN									AS MAIN_NOTI_YN		<!-- 메인공지여부 -->
+	           , VIEW_YN										AS VIEW_YN			<!-- 노출여부 -->
+	           , NOTI_GB_CD										AS NOTI_GB_CD		<!-- 공지구분코드 -->
+	           , POP_YN											AS POP_YN			<!-- 팝업노출여부 -->
+		FROM BOARD_INFO
+		 WHERE BOARD_SEQ = #{BOARD_SEQ}
+	</select>
+
+	<!-- 공지사항 등록 -->
+	<insert id="insertNoticeReg" parameterType="hashmap">
+		/*sellerNoticeMapper.insertNoticeReg*/
+		INSERT INTO BOARD_INFO (
+			     BOARD_TYPE_CD   	<!--게시판유형구분코드 -->
+	           , BOARD_SEQ			<!-- 게시일련번호 -->
+	           , WRITE_ID           <!-- 작성자ID -->
+	           , WRITE_NM           <!-- 작성자명 -->
+	           , TITLE				<!-- 제목 -->
+	           , CONTENTS			<!-- 내용 -->
+	           , VIEW_YN			<!-- 노출여부 -->
+	           , NOTI_GB_CD			<!-- 공지구분코드 -->
+	           , IMPT_NOTI_YN		<!-- 주요공지여부 -->
+	           , MAIN_NOTI_YN		<!-- 메인공지여부 -->
+	           , POP_YN				<!-- 팝업노출여부 -->
+	           <if test="VIEW_START_DATE != null and VIEW_START_DATE != ''">
+	           , VIEW_START_DATE	<!-- 메인공지 시작 일자 -->
+	           </if>
+	           <if test="VIEW_END_DATE != null and VIEW_END_DATE != ''">
+	           , VIEW_END_DATE		<!-- 메인공지 종료 일자 -->
+	           </if>
+	           , REGIST_DT			<!-- 등록일시 -->
+	           , UPDT_DT 			<!-- 수정일시 -->
+			 )VALUES(
+			  #{BOARD_TYPE_CD}
+			, (SELECT NVL(MAX(BOARD_SEQ), 0) + 1 FROM BOARD_INFO)
+			, #{WRITE_ID}
+			, #{WRITE_NM}
+			, #{TITLE}
+			, #{CONTENTS}
+			, #{VIEW_YN}
+			, #{NOTI_GB_CD}
+			, #{IMPT_NOTI_YN}
+			, #{MAIN_NOTI_YN}
+			, #{POP_YN}
+			<if test="VIEW_START_DATE != null and VIEW_START_DATE != ''">
+           	, TO_DATE(#{VIEW_START_DATE})
+            </if>
+            <if test="VIEW_END_DATE != null and VIEW_END_DATE != ''">
+            , TO_DATE(#{VIEW_END_DATE})
+            </if>
+			, SYSDATE
+			, SYSDATE
+			 )
+	</insert>
+
+	<!-- 공지사항 수정 -->
+	<update id="updateNoticeReg" parameterType="hashmap">
+		/*sellerNoticeMapper.updateNoticeReg*/
+		 UPDATE BOARD_INFO
+		 SET 	 WRITE_ID     	= #{WRITE_ID}   				<!-- 작성자ID -->
+	           , WRITE_NM     	= #{WRITE_NM}   				<!-- 작성자명 -->
+	           , TITLE			= #{TITLE}						<!-- 제목 -->
+	           , CONTENTS		= #{CONTENTS}					<!-- 내용 -->
+	           , VIEW_YN		= #{VIEW_YN}					<!-- 노출여부 -->
+	           , NOTI_GB_CD		= #{NOTI_GB_CD}					<!-- 공지구분코드 -->
+	           , IMPT_NOTI_YN	= #{IMPT_NOTI_YN}				<!-- 주요공지여부 -->
+	           , MAIN_NOTI_YN	= #{MAIN_NOTI_YN}				<!-- 메인공지여부 -->
+	           , POP_YN			= #{POP_YN}						<!-- 팝업노출여부 -->
+	           , UPDT_DT 		= SYSDATE						<!-- 수정일시 -->
+	           , VIEW_START_DATE	= TO_DATE(#{VIEW_START_DATE})	<!-- 메인공지 시작 일자 -->
+	           , VIEW_END_DATE  	= TO_DATE(#{VIEW_END_DATE})		<!-- 메인공지 종료 일자 -->
+		 WHERE
+			  BOARD_SEQ = #{BOARD_SEQ}	<!-- 고유번호 -->
+	</update>
+
+  <!-- 공지사항 삭제 -->
+  <delete id="deleteNotice" parameterType="hashmap">
+  	/*sellerNoticeMapper.updateNoticeReg*/
+	DELETE FROM BOARD_INFO WHERE BOARD_SEQ = #{BOARD_SEQ }
+  </delete>
+
+
+</mapper>

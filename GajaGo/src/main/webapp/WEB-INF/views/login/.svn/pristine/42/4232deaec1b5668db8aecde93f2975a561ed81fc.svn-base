@@ -1,0 +1,1105 @@
+package com.ssocio.sharing.controller.mobile;
+
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.Enumeration;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.servlet.RequestDispatcher;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.apache.http.HttpResponse;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.entity.StringEntity;
+import org.apache.http.impl.client.HttpClientBuilder;
+import org.apache.http.util.EntityUtils;
+import org.json.simple.JSONArray;
+import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.ModelMap;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.servlet.ModelAndView;
+
+import com.ssocio.sharing.cmmn.util.CmmnCnst;
+import com.ssocio.sharing.cmmn.util.LoggerUtil;
+import com.ssocio.sharing.cmmn.util.StringUtil;
+import com.ssocio.sharing.cmmn.web.util.WebCommonUtil;
+import com.ssocio.sharing.service.web.MobileMyAdrService;
+import com.ssocio.sharing.service.web.WebCommonService;
+import com.ssocio.sharing.service.web.WebCtryService;
+import com.ssocio.sharing.vo.web.OrdInfo;
+import com.ssocio.sharing.vo.web.OrdProduct;
+import com.ssocio.sharing.vo.web.WebSession;
+
+/**
+ * <pre>
+ * 카테고리 컨트롤러
+ * 카테고리 및 상품 상세 처리를 위한 컨트롤러
+ * @author WOOK.KIM
+ * @version
+ * @since 2015. 8. 14. 오후 1:52:33
+ * @see
+ * @History
+ * Date			|	author		| 변경 내용
+ * 2015. 8. 14.	|	WOOK.KIM	|신규
+ * @비고
+ * </pre>
+ */
+@Controller
+public class MobileCtryController extends MobileReferController {
+	// --------------------------------------------------------------------------
+	// # Log 설정
+	// --------------------------------------------------------------------------
+	private static final Logger logger = LoggerFactory.getLogger(MobileCtryController.class);
+
+	// --------------------------------------------------------------------------
+	// # Service 설정
+	// --------------------------------------------------------------------------
+	@Autowired
+	private WebCtryService webCtryService;
+
+	@Autowired
+	private WebCommonService webCommonService;
+
+	@Autowired
+	private MobileMyAdrService mobileMyAdrService;
+
+	/**
+	 *
+	 * <pre>
+	 * 설명 : 대분류/중분류 통합 목록 조회
+	 * 설명
+	 * @param request - LVL_SEQ, CTRY_CD, PROD_TYPE_CD, ORDER_KIND, DLV_PAY_GB_CD, CPON_APPLY_PSBL_YN, CUR_PAGE
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 9. 14. 오후 4:21:20
+	 * @author WOOK.KIM
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/ctry/selectListProd.do")
+	public ModelAndView selectListProd(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆MOBILE selectListProd START☆★☆★☆★☆★☆★☆★☆");
+		//	대분류 리스트 가져와야 함.
+		//	중분류에 대한 상위 코드로 .
+		LoggerUtil.writeMap(inParam);
+		ModelAndView mav = new ModelAndView("web/ctry/selectListProd");
+		
+		mav.addObject("categories", webCtryService.selectListCategories(inParam));
+		mav.addObject("prod", webCtryService.selectListProd(inParam));
+		mav.addObject("inParam", inParam);
+
+		logger.info("☆★☆★☆★☆★☆★☆★☆MOBILE selectListProd END☆★☆★☆★☆★☆★☆★☆");
+		return mav;
+	}
+
+	/**
+	 *
+	 * <pre>
+	 * 설명 페이징시 호출되는 Ajax 메소드
+	 * 설명 카테고리 및 조건등을 받아 상품 목록을 가져온다.
+	 * @param request
+	 * @param response
+	 * @param inParam : CTRY_CD , LVL_SEQ , CUR_PAGE , CPON_APPLY_PSBL_YN , DLV_PAY_GB_CD, PROD_TYPE_CD , ORDER_KIND
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 25. 오후 1:22:45
+	 * @author WOOK.KIM
+	 * @see
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/ctry/selectCtryAjax.do")
+	public ModelAndView selectCtryAjax(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆MOBILE selectLargeCtry START☆★☆★☆★☆★☆★☆★☆");
+		ModelAndView mav = new ModelAndView("jsonView");
+		//	대분류 리스트 가져와야 함.
+		//	중분류에 대한 상위 코드로 .
+		LoggerUtil.writeMap(inParam);
+
+		mav.addObject("data", webCtryService.selectCtryAjax(inParam));
+		logger.info("☆★☆★☆★☆★☆★☆★☆MOBILE selectCtry END☆★☆★☆★☆★☆★☆★☆");
+		return mav;
+	}
+
+	/**
+	 *
+	 * <pre>
+	 * 설명 상품 선택시 호출되는 requestMapping 메소드
+	 * 설명 post / get 어떤 방식으로 접근해도 상세 페이지로 갈 수 있도록 구현.
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 26. 오전 10:49:46
+	 * @author WOOK.KIM
+	 * @see
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/prod/selectProd.do")
+	public ModelAndView selectProd(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆MOBILE selectProd START☆★☆★☆★☆★☆★☆★☆");
+
+		ModelAndView mav = null;
+		logger.debug("" + !WebCommonUtil.isLogin(request));
+		try{
+			WebSession session = (WebSession)request.getSession().getAttribute("user");
+			int mberSeq = WebCommonUtil.isLogin(request) == true ? session.getMBER_SEQ() : -1;
+			
+			System.out.println("==========================================================================");
+			System.out.println(" APP_HEADER_CHECK : " + (String)request.getHeader("x_app_version"));
+			System.out.println(" OS_HEADER_CHECK : " + (String)request.getHeader("x_app_name"));
+			System.out.println("==========================================================================");
+			if ("SSOCIO".equals(request.getSession().getAttribute("APP"))) {
+				
+				if(request.getHeader("x_app_version") != null && request.getHeader("x_app_version") != null ) {
+					request.getSession().setAttribute("X_APP_VERSION_2", request.getHeader("x_app_version"));
+					request.getSession().setAttribute("X_APP_NAME_2", request.getHeader("x_app_name"));
+				}
+				
+				
+				if( "AND".equals((String)request.getHeader("x_app_name")) ) {
+					if (request.getHeader("x_app_version").compareTo("1.0.5") > 0) {
+						logger.info("view type1");
+						mav = new ModelAndView("web/ctry/selectProd");
+					} else {
+						logger.info("view type2");
+						mav = new ModelAndView("web/ctry/selectProdBack20151210");
+					}
+				} else if ( "IOS".equals((String)request.getHeader("x_app_name")) ) {
+					if (request.getHeader("x_app_version").compareTo("1.0.2") > 0) {
+						logger.info("view type3");
+						mav = new ModelAndView("web/ctry/selectProd");
+					} else {
+						logger.info("view type4");
+						mav = new ModelAndView("web/ctry/selectProdBack20151210");
+					}
+				} else if( "AND".equals((String)request.getSession().getAttribute("X_APP_NAME_2")) ) {
+					String X_APP_VERSION_2 = (String)request.getSession().getAttribute("X_APP_VERSION_2");
+					if (X_APP_VERSION_2.compareTo("1.0.5") > 0) {
+						logger.info("view type5");
+						mav = new ModelAndView("web/ctry/selectProd");
+					} else {
+						logger.info("view type6");
+						mav = new ModelAndView("web/ctry/selectProdBack20151210");
+					}
+				} else if( "IOS".equals((String)request.getSession().getAttribute("X_APP_NAME_2")) ) {
+					String X_APP_VERSION_2 = (String)request.getSession().getAttribute("X_APP_VERSION_2");
+					if (X_APP_VERSION_2.compareTo("1.0.2") > 0) {
+						logger.info("view type7");
+						mav = new ModelAndView("web/ctry/selectProd");
+					} else {
+						logger.info("view type8");
+						mav = new ModelAndView("web/ctry/selectProdBack20151210");
+					}
+				} else {
+					logger.info("view type9");
+					mav = new ModelAndView("web/ctry/selectProdBack20151210");
+				}
+			} else {
+				System.out.println("WEB_HEADER_CHECK3 : NEW INIT");
+				logger.info("view type10");
+				mav = new ModelAndView("web/ctry/selectProd");
+			}
+			
+			ModelMap mm = webCtryService.selectProd(mberSeq, (String)request.getParameter("PROD_CODE"));
+			logger.info("ModelMap is " + mm);
+			if( mm == null ){
+				mav.addObject("data", CmmnCnst.STAT_UNKNOWN);
+			}
+			else{
+				mav.addObject("result", mm);
+				mav.addObject("type", request.getParameter("TYPE"));
+			}
+			
+			//공유하기 기능의 이미지때문에 호출 함 scdn 필요
+			try {
+				HttpClient httpClient = HttpClientBuilder.create().build();
+				String url = webCommonService.selectShareUrl();
+				
+				logger.info("shareImg no URL = " + url);
+
+				HttpPost httpPost = new HttpPost(url);
+//				"${result.prodInfo.KAKAO_FILE_SEQ }","type_cd" : "${result.prodInfo.PROD_TYPE_CD }","prod_code" : "${result.prodInfo.PROD_CODE }"
+				JSONObject json = new JSONObject();
+				Map<String, Object> prodInfo = new HashMap<String, Object>();
+				prodInfo = (Map<String, Object>) mm.get("prodInfo");
+		        json.put("seq",prodInfo.get("KAKAO_FILE_SEQ"));
+		        json.put("type_cd",prodInfo.get("PROD_TYPE_CD"));
+		        json.put("prod_code",prodInfo.get("PROD_CODE"));
+		        StringEntity params = new StringEntity(json.toJSONString());
+
+		        logger.info("StringEntity = " + params.toString());
+		        httpPost.addHeader("content-type", "application/json");
+		        httpPost.addHeader("Accept","application/json");
+		        httpPost.setEntity(params);
+
+		        HttpResponse httpResponse = httpClient.execute(httpPost);
+		        String shareImg = EntityUtils.toString(httpResponse.getEntity());
+
+		        JSONParser parser = new JSONParser();
+				JSONObject jsonString = (JSONObject)parser.parse(shareImg);
+
+				logger.debug("json : " + jsonString.get("url"));
+				logger.debug("json : " + jsonString.get("error"));
+
+				String targetUrl = (String)jsonString.get("url");
+		        mav.addObject("shareImgUrl", targetUrl);
+		        
+		        String ogNm = (String) prodInfo.get("PROD_NM") == null ? "" : (String) prodInfo.get("PROD_NM");
+		        mav.addObject("ogNm", ogNm);
+		        
+		        String ogInitUrl = request.getRequestURI() == null ? "" : request.getRequestURI();
+		        mav.addObject("ogInitUrl", ogInitUrl);
+
+		        httpPost.abort();
+		    }catch (Exception e) {
+		    	e.printStackTrace();
+
+		    }
+
+		}catch(Exception e){
+			logger.error(e.getMessage());
+
+		}
+		
+		logger.debug("mav.getViewName() : " + mav.getViewName());
+		logger.info("☆★☆★☆★☆★☆★☆★☆MOBILE selectProd END☆★☆★☆★☆★☆★☆★☆");
+		return mav;
+	}
+
+	@RequestMapping("/mobile/prod/selectProdComment.do")
+	public ModelAndView selectProdComment(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆MOBILE selectProdComment START☆★☆★☆★☆★☆★☆★☆");
+		ModelAndView mav = new ModelAndView("jsonView");
+		
+		logger.debug("" + !WebCommonUtil.isLogin(request));
+		try{
+			WebSession session = (WebSession)request.getSession().getAttribute("user");
+			int mberSeq = WebCommonUtil.isLogin(request) == true ? session.getMBER_SEQ() : -1;
+
+			ModelMap mm = webCtryService.selectProdComment(inParam);
+			logger.info("ModelMap is " + mm);
+			if( mm == null ){
+				mav.addObject("data", CmmnCnst.STAT_UNKNOWN);
+			}
+			else{
+				mav.addObject("result", mm);
+			}
+		}catch(Exception e){
+			logger.error(e.getMessage());
+
+		}
+		logger.info("☆★☆★☆★☆★☆★☆★☆MOBILE selectProdComment END☆★☆★☆★☆★☆★☆★☆");
+		return mav;
+	}
+
+	@RequestMapping("/mobile/prod/selectPcProdComment.do")
+	public ModelAndView selectPcProdComment(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆MOBILE selectPcProdComment START☆★☆★☆★☆★☆★☆★☆");
+		ModelAndView mav = new ModelAndView("jsonView");
+		logger.debug("" + !WebCommonUtil.isLogin(request));
+		try{
+			WebSession session = (WebSession)request.getSession().getAttribute("user");
+//			int mberSeq = WebCommonUtil.isLogin(request) == true ? session.getMBER_SEQ() : -1;
+			inParam.put("mberSeq", WebCommonUtil.isLogin(request) == true ? session.getMBER_SEQ() : -1);
+			
+			ModelMap mm = webCtryService.selectPcProdComment(inParam);
+			logger.info("ModelMap is " + mm);
+			if( mm == null ){
+				mav.addObject("data", CmmnCnst.STAT_UNKNOWN);		
+			}
+			else{
+				mav.addObject("list", mm);
+			}
+		}catch(Exception e){
+			logger.error(e.getMessage());
+			
+		}
+		logger.info("☆★☆★☆★☆★☆★☆★☆MOBILE selectProd END☆★☆★☆★☆★☆★☆★☆");
+		return mav;
+	}
+	
+	@RequestMapping("/mobile/prod/selectPcProdReview.do")
+	public ModelAndView selectPcProdReview(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆MOBILE selectPcProdReview START☆★☆★☆★☆★☆★☆★☆");
+		ModelAndView mav = new ModelAndView("jsonView");
+		logger.debug("" + !WebCommonUtil.isLogin(request));
+		try{
+			WebSession session = (WebSession)request.getSession().getAttribute("user");
+//			int mberSeq = WebCommonUtil.isLogin(request) == true ? session.getMBER_SEQ() : -1;
+			inParam.put("mberSeq", WebCommonUtil.isLogin(request) == true ? session.getMBER_SEQ() : -1);
+			
+			ModelMap mm = webCtryService.selectPcProdReview(inParam);
+			logger.info("ModelMap is " + mm);
+			if( mm == null ){
+				mav.addObject("data", CmmnCnst.STAT_UNKNOWN);		
+			}
+			else{
+				mav.addObject("list", mm);
+			}
+		}catch(Exception e){
+			logger.error(e.getMessage());
+			
+		}
+		logger.info("☆★☆★☆★☆★☆★☆★☆MOBILE selectProd END☆★☆★☆★☆★☆★☆★☆");
+		return mav;
+	}
+	
+	@RequestMapping("/mobile/prod/selectDetailProd.do")
+	public ModelAndView selectDetailProd(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆MOBILE selectProdDtl START☆★☆★☆★☆★☆★☆★☆");
+
+		ModelAndView mav = new ModelAndView("web/ctry/selectDetailProd");
+
+		mav.addObject("prod", webCtryService.selectDetailProd(inParam));
+		mav.addObject("inParam", inParam);
+
+		logger.info("☆★☆★☆★☆★☆★☆★☆MOBILE selectProdDtl END☆★☆★☆★☆★☆★☆★☆");
+		return mav;
+	}
+
+	@RequestMapping("/mobile/prod/selectDlvInfo")
+	public ModelAndView selectDlvInfo(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆MOBILE selectDlvAddr END☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+		ModelAndView mav = new ModelAndView("jsonView");
+		if(!WebCommonUtil.isLogin(request)){
+			mav.addObject("data", CmmnCnst.STAT_NOT_LOGIN);
+		}
+		else{
+			WebSession session = (WebSession)request.getSession().getAttribute("user");
+
+			logger.info("MBER_SEQ[ " + session.getMBER_SEQ() + "]");
+
+			mav.addObject("data", CmmnCnst.STAT_PROD_ING);
+			mav.addObject("dlvInfo", webCtryService.selectDlvInfo(session.getMBER_SEQ()));
+		}
+		logger.info("☆★☆★☆★☆★☆★☆★☆MOBILE selectDlvAddr END☆★☆★☆★☆★☆★☆★☆");
+
+		return mav;
+	}
+
+
+	@RequestMapping("/mobile/prod/selectDlvAddr.do")
+	public ModelAndView selectDlvAddr(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆MOBILE selectDlvAddr END☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+
+		ModelAndView mav = new ModelAndView("jsonView");
+
+		mav.addObject("dlv", webCtryService.selectDlvAddr((String)inParam.get("REG_SEQ")));
+
+		logger.info("☆★☆★☆★☆★☆★☆★☆MOBILE selectDlvAddr END☆★☆★☆★☆★☆★☆★☆");
+
+		return mav;
+	}
+
+	@RequestMapping("/mobile/prod/selectExtLandMap.do")
+	public ModelAndView selectExtLandMap(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆MOBILE selectDlvAddr END☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+
+		ModelAndView mav = new ModelAndView("jsonView");
+
+		String extLandCd = webCtryService.selectExtLandMap((String)inParam.get("ZIP_CD"));
+		mav.addObject("extLandCd", StringUtil.isEmpty(extLandCd) ? "99" : extLandCd);
+
+		logger.info("☆★☆★☆★☆★☆★☆★☆MOBILE selectDlvAddr END☆★☆★☆★☆★☆★☆★☆");
+
+		return mav;
+	}
+
+	/**
+	 *
+	 * <pre>
+	 * 설명 상품 구매 클릭 시 구매가능 여부를 판단하는 Ajax requestMapping 메소드
+	 * 설명 판매 가능 여부를 판단한다.
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return 0:판매가능, 1:판매종료, 2:판매중지, 3:상품삭제
+	 * @throws Exception
+	 * @date 2015. 9. 2. 오전 11:36:38
+	 * @author WOOK.KIM
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping(value="/mobile/prod/selectStatCd.do")
+	public ModelAndView selectStatCd(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆MOBILE selectStatCd START☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+
+		ModelAndView mav = new ModelAndView("jsonView");
+
+		if(!WebCommonUtil.isLogin(request)){
+			mav.addObject("data", CmmnCnst.STAT_NOT_LOGIN);
+		}
+		else{
+			WebSession session = (WebSession)request.getSession().getAttribute("user");
+
+			logger.info("MBER_SEQ[ " + session.getMBER_SEQ() + "]");
+
+
+			List<OrdProduct> ordList = makeOrdProduct((String)inParam.get("PROD_INFO"));
+
+			mav.addObject("data", webCtryService.selectStatCd(session.getMBER_SEQ(), ordList, StringUtil.nvlLong((String)inParam.get("POINT_USE_AMT"), 0L), StringUtil.nvlInt((String)inParam.get("STEP"), 0)));
+		}
+
+		logger.info("☆★☆★☆★☆★☆★☆★☆MOBILE selectStatCd END☆★☆★☆★☆★☆★☆★☆");
+
+		return mav;
+	}
+
+	/**
+	 *
+	 * <pre>
+	 * 설명 상품 장바구니 클릭 시 장바구니 가능 여부를 판단하는 Ajax requestMapping 메소드
+	 * 설명
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 9. 6. 오후 4:40:51
+	 * @author WOOK.KIM
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping(value="/mobile/prod/insertCartReg.do")
+	public ModelAndView insertCartReg(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆MOBILE selectStatCd END☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+
+		ModelAndView mav = new ModelAndView("jsonView");
+		try{
+			if(WebCommonUtil.isLogin(request)){
+				WebSession session = (WebSession)request.getSession().getAttribute("user");
+
+				logger.info("MBER_SEQ[ " + session.getMBER_SEQ() + "]");
+				inParam.put("MBER_SEQ", session.getMBER_SEQ());
+
+				List<OrdProduct> ordList = makeOrdProduct((String)inParam.get("ORD_INFO"));
+
+				int nRet = webCtryService.procInsertCart(session.getMBER_SEQ(), ordList);
+				logger.info("insertCartReg[" + nRet + "]");
+				mav.addObject("data", nRet > 0 ? CmmnCnst.STAT_CART_DONE : CmmnCnst.STAT_CART_ALREADY);
+			}
+			else{
+				mav.addObject("data", CmmnCnst.STAT_NOT_LOGIN);
+			}
+		}catch(Exception e){
+			logger.error("장바구니 담기 오류");
+			mav.addObject("data", CmmnCnst.STAT_UNKNOWN);
+		}
+		logger.info("☆★☆★☆★☆★☆★☆★☆MOBILE selectStatCd END☆★☆★☆★☆★☆★☆★☆");
+
+		return mav;
+	}
+
+	/**
+	 *
+	 * <pre>
+	 * 설명 구매 가능 시 호출 되는 requestMapping 메소드
+	 * 설명 구매 상품의 사전 데이터를 조회 후 등록 페이지로 이동
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 9. 2. 오후 3:25:18
+	 * @author WOOK.KIM
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping(value="/mobile/prod/insertOrder.do")
+	public ModelAndView insertOrder(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆MOBILE insertOrder START☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+
+		ModelAndView mav = new ModelAndView();
+
+		if( WebCommonUtil.isLogin(request)){
+			mav.setViewName("web/ctry/insertOrder");
+
+			WebSession session = (WebSession)request.getSession().getAttribute("user");
+
+			try{
+				List<OrdProduct> ordList = new ArrayList<OrdProduct>();
+				JSONParser parser = new JSONParser();
+				JSONArray json = (JSONArray)parser.parse((String)inParam.get("ORD_INFO"));
+				for(int i=0 ; i<json.size() ; i++){
+					OrdProduct pv = new OrdProduct((JSONObject)json.get(i));
+					ordList.add(pv);
+				}
+				
+				String JOIN_CHAN_CD="";
+				String userAgent = (String)request.getHeader("User-Agent");
+				
+				if(request.getSession().getAttribute("APP")!=null && request.getSession().getAttribute("APP")!= "" && request.getSession().getAttribute("APP").equals("SSOCIO")){
+					if(userAgent.indexOf("Android")>-1){
+						JOIN_CHAN_CD = "10";//Android
+					}else if(userAgent.indexOf("iPhone")>-1){
+						JOIN_CHAN_CD = "20";//IOS
+					}
+				}else{
+					JOIN_CHAN_CD = "30";//Mobile // 40:PC
+				}				
+
+				mav.addObject("result", webCtryService.selectOrderPreInfo(session.getMBER_SEQ(), JOIN_CHAN_CD, ordList));
+				mav.addObject("inParam", inParam);
+			}catch(Exception e){
+				e.printStackTrace();
+				logger.info("주문서 오류");
+			}
+		}
+		else{
+			mav.setViewName("web/main/login");
+		}
+
+		logger.info("☆★☆★☆★☆★☆★☆★☆MOBILE insertOrder END☆★☆★☆★☆★☆★☆★☆");
+
+		return mav;
+	}
+
+	@RequestMapping(value="/mobile/prod/selectCountPlan.do")
+	public ModelAndView selectCountPlan(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆MOBILE selectCountPlan START☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+
+		ModelAndView mav = new ModelAndView("jsonView");
+
+		String planCd = StringUtil.nvl((String)inParam.get("PLAN_CD"), "");
+		String prodCode = StringUtil.nvl((String)inParam.get("PROD_CODE"), "");
+
+		if( StringUtil.isEmpty(planCd) || StringUtil.isEmpty(prodCode)){
+			mav.addObject("data", 0);
+		}
+		else{
+			mav.addObject("data", webCtryService.selectCountPlan(planCd, prodCode));
+		}
+
+		logger.info("☆★☆★☆★☆★☆★☆★☆MOBILE selectCountPlan END☆★☆★☆★☆★☆★☆★☆");
+
+		return mav;
+	}
+
+	/**
+	 *
+	 * <pre>
+	 * 설명 주문서 페이지에서 결제하기 클릭 시 호출되는 requestMapping 메소드
+	 * 설명 주문정보 > 주문 배송지 > 주문 상품정보 > 주문상품옵션 순으로 insert를 한다.
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 9. 7. 오후 9:03:58
+	 * @author WOOK.KIM
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping(value="/mobile/prod/insertOrderReg.do")
+	public ModelAndView insertOrderReg(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆MOBILE insertOrderReg START☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+
+		ModelAndView mav = new ModelAndView("jsonView");
+
+		if( WebCommonUtil.isLogin(request)){
+			WebSession session = (WebSession)request.getSession().getAttribute("user");
+
+			// 배송지 관리 PARAM 설정
+			inParam.put("ADDR_JIBEN", StringUtil.nvl((String)inParam.get("JUSO_JIBEN"), ""));
+			inParam.put("ADDR_DORO", StringUtil.nvl((String)inParam.get("JUSO_DORO"), ""));
+			inParam.put("ADDR_DTL", StringUtil.nvl((String)inParam.get("JUSO_DTL"), ""));
+
+			// SET 기본 배송지로 이용 여부 
+			String uptBaseDlvYn = StringUtil.nvl((String)inParam.get("UPT_BASE_DLV_YN"), "N");
+			String addBaseDlvYn = StringUtil.nvl((String)inParam.get("ADD_BASE_DLV_YN"), "N");
+
+			if("Y".equals(uptBaseDlvYn) || "Y".equals(addBaseDlvYn)){
+				inParam.put("BASE_DLV_YN", "Y");
+			}else{
+				inParam.put("BASE_DLV_YN", "N");
+			}
+
+			// 배송지 추가
+			if("Y".equals(StringUtil.nvl((String)inParam.get("ADD_DLV_YN"), "N"))){
+				mobileMyAdrService.insertMyAdrInfoReq(inParam, session);
+			}
+
+			// 기존 배송지 정보 수정
+			if("Y".equals(StringUtil.nvl((String)inParam.get("UPT_DLV_YN"), "N"))){
+				mobileMyAdrService.updateMyAdrInfoReq(inParam, session);
+			}
+
+			// 기본 배송지로 이용
+			if(! ("".equals(StringUtil.nvl((String)inParam.get("REG_SEQ"), "")))){
+				mobileMyAdrService.updatemyBaseAdrReg(inParam, session);
+			}
+
+			// 결제방법
+			String seltGbCd = StringUtil.nvl((String)inParam.get("SELT_GB_CD"), "");
+			
+			// 최종결제금액
+			String realSeltAmt = StringUtil.nvl((String)inParam.get("REAL_SELT_AMT"), "0");
+
+			// 포인트사용금액
+			String pointUseAmt = StringUtil.nvl((String)inParam.get("POINT_USE_AMT"), "0");
+
+			// 회원정보조회
+			ModelMap mm = webCtryService.selectMberInfo(session.getMBER_SEQ());
+			long point = ((BigDecimal)((HashMap)mm.get("mber")).get("POINT")).longValue();
+
+			logger.info("##################################################최종결제금액==>"+realSeltAmt);
+			logger.info("##################################################보유포인트==>"+point);
+			logger.info("##################################################포인트 사용 금액==>"+pointUseAmt);
+			logger.info("##################################################결제방법==>"+seltGbCd);
+
+			if(CmmnCnst.SELT_LIMIT_AMT > Long.valueOf(realSeltAmt)){
+
+				// IF (결제 최저 금액>최종결제금액) THEN 결제안됨
+				mav.addObject("result", -3);
+
+			} else if ( CmmnCnst.SELT_UPPER_LIMIT_POINT < Long.valueOf(pointUseAmt) ){
+
+				// IF (포인트 최대 사용액>최종포인트사용액 ) THEN 결제안됨		/* [2015-11-26]rocokang 포인트 체크 추가 */
+				mav.addObject("result", -5);
+
+			} else if ( Long.valueOf(pointUseAmt) % CmmnCnst.POINT_UNIT_AMT != 0 ){
+
+				// IF 1000 단위만 사용 가능									/* [2015-11-26]rocokang 포인트 체크 추가 */
+				mav.addObject("result", -6);
+
+			} else if(Long.valueOf(point) < Long.valueOf(pointUseAmt)){
+
+				// IF (보유포인트<포인트사용금액) THEN 결제안됨
+				mav.addObject("result", -4);
+
+			} else if((seltGbCd.equals(CmmnCnst.HP_GB_CD)) && (CmmnCnst.HP_UPPER_LIMIT_AMT < Long.valueOf(realSeltAmt))){
+				
+				// (결제방법 == 휴대폰) && (휴대폰결제최고금액<최종결제금액)
+				mav.addObject("result", -7);
+				
+			} else{
+				logger.info("MBER_SEQ[ " + session.getMBER_SEQ() + "]");
+				inParam.put("MBER_SEQ", session.getMBER_SEQ());
+				inParam.put("SESS_ID", request.getSession().getId());
+				inParam.put("POINT_USE_AMT", pointUseAmt);
+				LoggerUtil.writeMap(inParam);
+
+				JSONParser parser = new JSONParser();
+				JSONObject json = (JSONObject)parser.parse((String)inParam.get("ORD_INFO"));
+
+				logger.debug("json : " + json.toJSONString());
+
+				OrdInfo ordInfo = new OrdInfo(json);
+				ordInfo.setSessId(request.getSession().getId());
+				ordInfo.setMberSeq(String.valueOf(session.getMBER_SEQ()));
+				ordInfo.setConGbCd((String)request.getSession().getAttribute("conGbCd"));
+
+				try{
+					//	DB에서 주문 상품 조회 후 상품별 금액 검증(1차)
+					boolean bRet = webCtryService.procOrderInfo(ordInfo);
+
+					//	1차 검증에 실패하면, 로그인 페이지로 이동
+					if(!bRet){
+						mav.addObject("result", -1);
+						logger.info("webCtryService.procOrderInfo is false");
+					}
+					else{
+						//	상품금액과 배송비, 쿠폰, 포인트 사용까지 합산한 금액 검증(2차)
+						bRet = ordInfo.verify();
+						//	2차 검증에 실패하면, 로그인 페이지로 이동
+						if( !bRet){
+							mav.addObject("result", -1);
+						}
+						else{
+							//	0원 결제일 경우 결제가 필요 없기 때문에  ( seltgbcd 가 0이면, 0원결제이다.)
+							if(!"0".equals(ordInfo.getSeltGbCd())){
+
+								// 실제 결제시, 가결제 로직을 탄다. {ORD_STAT_CD:15, PROC_STAT_CD:15}
+								ordInfo.setOrdStatCd("15");
+								for ( OrdProduct p : ordInfo.getProds()  ){
+									p.setProcStatCd("15");
+								}
+							}else{
+								// 0원 결제시, 바로 결제 떄린다. {ORD_STAT_CD:20, PROC_STAT_CD:10}
+								ordInfo.setOrdStatCd("20");
+								for ( OrdProduct p : ordInfo.getProds()  ){
+									p.setProcStatCd("10");
+								}
+							}
+							mav.addObject("result", webCtryService.insertOrder(ordInfo) > 0 ? 0 : -1);
+						}
+					}
+				}catch(Exception e){
+					//	Exception을 발생했을 경우 결제를 취소해야 한다.
+					mav.addObject("result", -2);
+					e.printStackTrace();
+				}
+			}
+		}else{
+			mav.setViewName("web/main/login");
+		}
+
+		logger.info("☆★☆★☆★☆★☆★☆★☆MOBILE insertOrderReg END☆★☆★☆★☆★☆★☆★☆");
+
+		return mav;
+	}
+
+	@RequestMapping(value="/mobile/prod/procPayment.do")
+	public ModelAndView procPayment(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆MOBILE procPayment START☆★☆★☆★☆★☆★☆★☆");
+
+		ModelAndView mav = new ModelAndView("web/ctry/selectOrder");
+
+		WebSession session = (WebSession)request.getSession().getAttribute("user");
+
+		logger.info("MBER_SEQ[ " + session.getMBER_SEQ() + "]");
+		inParam.put("MBER_SEQ", session.getMBER_SEQ());
+		inParam.put("SESS_ID", request.getSession().getId());
+		LoggerUtil.writeMap(inParam);
+
+		JSONParser parser = new JSONParser();
+		JSONObject json = (JSONObject)parser.parse((String)inParam.get("ORD_INFO"));
+
+		logger.debug("json : " + json.toJSONString());
+
+		OrdInfo ordInfo = new OrdInfo(json);
+		ordInfo.setSessId(request.getSession().getId());
+		ordInfo.setMberSeq(String.valueOf(session.getMBER_SEQ()));
+		ordInfo.setConGbCd((String)request.getSession().getAttribute("conGbCd"));
+
+		webCtryService.procPayment(ordInfo);
+
+		mav.addObject("ordInfo", ordInfo);
+		logger.info("☆★☆★☆★☆★☆★☆★☆MOBILE procPayment END☆★☆★☆★☆★☆★☆★☆");
+		return mav;
+	}
+
+	@RequestMapping(value="/mobile/prod/selectOrder.do")
+	public ModelAndView selectOrder(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆MOBILE selectOrder START☆★☆★☆★☆★☆★☆★☆");
+
+		ModelAndView mav = new ModelAndView("web/ctry/selectOrder");
+
+		LoggerUtil.writeMap(inParam);
+
+		JSONParser parser = new JSONParser();
+		JSONObject json = (JSONObject)parser.parse((String)inParam.get("ORD_INFO"));
+
+		logger.debug("json : " + json.toJSONString());
+
+		OrdInfo ordInfo = new OrdInfo(json);
+
+		mav.addObject("ordInfo", ordInfo);
+		logger.info("☆★☆★☆★☆★☆★☆★☆MOBILE selectOrder END☆★☆★☆★☆★☆★☆★☆");
+		return mav;
+	}
+
+	/**
+	 *
+	 * <pre>
+	 * 설명 상품 나눔 클릭 시 나눔 가능 여부를 판단하는 Ajax requestMapping 메소드
+	 * 설명
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 9. 2. 오후 3:23:59
+	 * @author WOOK.KIM
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping(value="/mobile/prod/selectFreeshareStatCd.do")
+	public ModelAndView selectFreeshareStatCd(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆MOBILE selectFreeshareStatCd END☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+		ModelAndView mav = new ModelAndView("jsonView");
+
+		if(!WebCommonUtil.isLogin(request)){
+			mav.addObject("data", CmmnCnst.STAT_NOT_LOGIN);
+		}
+		else{
+			WebSession session = (WebSession)request.getSession().getAttribute("user");
+
+			logger.info("MBER_SEQ[ " + session.getMBER_SEQ() + "]");
+			inParam.put("MBER_SEQ", session.getMBER_SEQ());
+
+			mav.addObject("data", webCtryService.selectFreeshareStatCd(inParam));
+		}
+
+		logger.info("☆★☆★☆★☆★☆★☆★☆MOBILE selectFreeshareStatCd END☆★☆★☆★☆★☆★☆★☆");
+
+		return mav;
+	}
+
+	/**
+	 *
+	 * <pre>
+	 * 설명  나눔 신청 클릭 시 호출 되는 requestMapping 메소드
+	 * 설명 사용자의 배송지 정보 조회 후 페이지 호출
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 9. 2. 오전 11:38:18
+	 * @author WOOK.KIM
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/prod/insertFreeshare.do")
+	public ModelAndView insertFreeshare(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆MOBILE insertFreeshare END☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+
+		ModelAndView mav = new ModelAndView("web/ctry/insertFreeshare");
+
+		WebSession session = (WebSession)request.getSession().getAttribute("user");
+
+		logger.info("MBER_SEQ[ " + session.getMBER_SEQ() + "]");
+		inParam.put("USER_ID", session.getMBER_SEQ());
+
+		mav.addObject("result", webCtryService.selectFreesharePreInfo(session.getMBER_SEQ(), (String)inParam.get("PROD_CODE")));
+		mav.addObject("inParam", inParam);
+		logger.info("☆★☆★☆★☆★☆★☆★☆MOBILE insertFreeshare END☆★☆★☆★☆★☆★☆★☆");
+
+		return mav;
+	}
+
+	/**
+	 *
+	 * <pre>
+	 * 설명 나눔 신청서 페이지에서 나눔 신청 버튼 클릭시 호출되는 requestMapping 메소드
+	 * 설명 나눔 신청 후의 결과 값을 가지고 처리해야 되기 때문에 Ajax로 호출됨.
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 9. 7. 오후 5:59:31
+	 * @author WOOK.KIM
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/prod/insertProdSubmitInfoReg.do")
+	public ModelAndView insertProdSubmitInfoReg(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆MOBILE insertProdSubmitInfoReg END☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+
+		ModelAndView mav = new ModelAndView("jsonView");
+
+		WebSession session = (WebSession)request.getSession().getAttribute("user");
+
+		logger.info("MBER_SEQ[ " + session.getMBER_SEQ() + "]");
+		inParam.put("MBER_SEQ", session.getMBER_SEQ());
+		
+		int ret = webCtryService.selectFreeshareStatCd(inParam);		// ret 의 결과는 0이 성공
+		
+		if (ret != 0){
+			mav.addObject("data", "0");
+			return mav;
+		}
+		
+		mav.addObject("data", webCtryService.insertProdSubmitInfo(inParam));
+		logger.info("☆★☆★☆★☆★☆★☆★☆MOBILE insertProdSubmitInfoReg END☆★☆★☆★☆★☆★☆★☆");
+
+		return mav;
+	}
+
+	/**
+	 *
+	 * <pre>
+	 * 설명 렌탈 신청서 페이지에서 렌탈 신청 버튼 클릭시 호출되는 requestMapping 메소드
+	 * 설명 렌탈 신청 후의 결과 값을 가지고 처리해야 되기 때문에 Ajax로 호출됨.
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 10. 22. 오후 3:17:31
+	 * @author WOOK.KIM
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping(value="/mobile/prod/selectRentalStatCd.do")
+	public ModelAndView selectRentalStatCd(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆MOBILE selectRentalStatCd START☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+
+		ModelAndView mav = new ModelAndView("jsonView");
+
+		if(!WebCommonUtil.isLogin(request)){
+			mav.addObject("data", CmmnCnst.STAT_NOT_LOGIN);
+		}
+		else{
+			WebSession session = (WebSession)request.getSession().getAttribute("user");
+
+			logger.info("MBER_SEQ[ " + session.getMBER_SEQ() + "]");
+			inParam.put("MBER_SEQ", session.getMBER_SEQ());
+
+			mav.addObject("data", webCtryService.selectRentalStatCd(inParam));
+		}
+
+		logger.info("☆★☆★☆★☆★☆★☆★☆MOBILE selectRentalStatCd END☆★☆★☆★☆★☆★☆★☆");
+
+		return mav;
+	}
+	/**
+	 *
+	 * <pre>
+	 * 설명 렌트 신청 클릭 시 호출 되는 requestMapping 메소드
+	 * 설명 상품 조회 후 등록 화면으로 이동
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 9. 2. 오전 11:38:18
+	 * @author WOOK.KIM
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/prod/insertRental.do")
+	public ModelAndView insertRental(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆MOBILE insertRental END☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+
+		ModelAndView mav = new ModelAndView("web/ctry/insertRental");
+
+		if( WebCommonUtil.isLogin(request)){
+			mav.setViewName("web/ctry/insertRental");
+			WebSession session = (WebSession)request.getSession().getAttribute("user");
+
+			logger.info("MBER_SEQ[ " + session.getMBER_SEQ() + "]");
+
+			mav.addObject("result", webCtryService.selectRentalPreInfo((String)inParam.get("PROD_CODE"), session.getMBER_SEQ()));
+			mav.addObject("inParam", inParam);
+		}
+		else{
+			mav.setViewName("web/main/login");
+		}
+		logger.info("☆★☆★☆★☆★☆★☆★☆MOBILE insertRent END☆★☆★☆★☆★☆★☆★☆");
+
+		return mav;
+	}
+
+	/**
+	 *
+	 * <pre>
+	 * 설명 나눔 신청서 페이지에서 나눔 신청 버튼 클릭시 호출되는 requestMapping 메소드
+	 * 설명 나눔 신청 후의 결과 값을 가지고 처리해야 되기 때문에 Ajax로 호출됨.
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 9. 7. 오후 5:59:31
+	 * @author WOOK.KIM
+	 * @see com.ssocio.sharing.controller.mobile
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/prod/insertRentalInfoReg.do")
+	public ModelAndView insertRentalInfoReg(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆MOBILE insertRentalInfoReg START☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+
+		ModelAndView mav = new ModelAndView("jsonView");
+
+		WebSession session = (WebSession)request.getSession().getAttribute("user");
+
+		logger.info("MBER_SEQ[ " + session.getMBER_SEQ() + "]");
+		inParam.put("MBER_SEQ", session.getMBER_SEQ());
+		
+		int ret = webCtryService.selectRentalStatCd(inParam);		// ret 의 결과는 0이 성공
+		
+		if (ret != 0){
+			mav.addObject("data", "0");
+			return mav;
+		}
+		
+		mav.addObject("data", webCtryService.insertProdSubmitInfo(inParam));
+		logger.info("☆★☆★☆★☆★☆★☆★☆MOBILE insertProdSubmitInfoReg END☆★☆★☆★☆★☆★☆★☆");
+
+		return mav;
+	}
+	
+	/**
+	 *
+	 * <pre>
+	 * 설명 : 상품 상세 페이지에서 상품정보고시 클릭 시 호출되는 requestMapping 메소드
+	 * 설명 : 이전 버튼 클릭 시 상세페이지로 이동한다.
+	 * @return
+	 * @date 2015. 8. 31. 오전 11:03:09
+	 * @author WOOK.KIM
+	 * @see
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/ctry/selectListProdInfoNoti.do")
+	public ModelAndView selectListProdInfoNoti(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆MOBILE selectListProdInfoNoti END☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+
+		ModelAndView mav = new ModelAndView("web/ctry/selectListProdInfoNoti");
+
+		mav.addObject("result", webCtryService.selectListProdInfoNoti((String)inParam.get("PROD_CODE")));
+		mav.addObject("inParam", inParam);
+		logger.info("☆★☆★☆★☆★☆★☆★☆MOBILE selectListProdInfoNoti END☆★☆★☆★☆★☆★☆★☆");
+
+		return mav;
+	}
+
+	private List<OrdProduct> makeOrdProduct(String ordInfo){
+		List<OrdProduct> ordList = new ArrayList<OrdProduct>();
+		try{
+			JSONParser parser = new JSONParser();
+			JSONArray json = (JSONArray)parser.parse(ordInfo);
+			for(int i=0 ; i<json.size() ; i++){
+				OrdProduct pv = new OrdProduct((JSONObject)json.get(i));
+				ordList.add(pv);
+			}
+
+		}catch(Exception e){
+			logger.info(e.getMessage());
+		}
+
+		return ordList;
+	}
+
+
+	/**
+	 *
+	 * <pre>
+	 * @return
+	 * @date 2015. 8. 31. 오전 11:03:09
+	 * @author WOOK.KIM
+	 * @see
+	 * </pre>
+	 */
+	@RequestMapping("/mobile/ctry/selectNewOrdCd.do")
+	public ModelAndView selectNewOrdCd(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		logger.info("☆★☆★☆★☆★☆★☆★☆MOBILE selectNewOrdCd END☆★☆★☆★☆★☆★☆★☆");
+		LoggerUtil.writeMap(inParam);
+
+		ModelAndView mav = new ModelAndView("jsonView");
+		mav.addObject("ordCd", webCtryService.selectNewOrdCd());
+
+		logger.info("☆★☆★☆★☆★☆★☆★☆MOBILE selectNewOrdCd END☆★☆★☆★☆★☆★☆★☆");
+		return mav;
+	}
+}

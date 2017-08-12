@@ -1,0 +1,119 @@
+package com.ssocio.openmarket.api.service.impl;
+
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.net.URL;
+import java.net.URLEncoder;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.ui.ModelMap;
+
+import com.ssocio.openmarket.api.dao.AuthorityAPIDao;
+import com.ssocio.openmarket.api.dao.OMProductDao;
+import com.ssocio.openmarket.api.service.AuthorityAPIService;
+import com.ssocio.openmarket.api.service.OMProductService;
+
+@Service
+public class OMProductServiceImpl implements OMProductService {
+
+	private static final Logger logger = LoggerFactory.getLogger(OMProductServiceImpl.class);
+	
+	@Autowired
+	OMProductDao oMProductDao;
+
+	@Override
+	public List<Map<String, Object>> selectProductList(Map<String, Object> inParam) throws Exception {
+		// TODO Auto-generated method stub
+		
+		List<Map<String, Object>> listMap = oMProductDao.selectProductList(inParam);
+		
+		return listMap;
+	}
+
+	@Override
+	public Map<String, Object> getCategoryFromNaver(List<Map<String, Object>> prodList) throws Exception {
+		// TODO Auto-generated method stub
+		
+		List<Map<String, Object>> categoryMap = new ArrayList<Map<String, Object>>();
+		Map<String, Object> retMap = new HashMap<String, Object>();
+		String naverUrl = "http://shopping.naver.com/search/all_search.nhn?query=";
+		try {
+			for ( int i = 0; i < prodList.size(); i++ ) {
+				Map<String, Object> urlMap = new HashMap<String, Object>();
+				String urlStr = String.valueOf(prodList.get(i).get("PROD_NM"));
+				String prod_code = String.valueOf(prodList.get(i).get("PROD_CODE"));
+				if ( urlStr == null || urlStr.trim().equalsIgnoreCase("")) {
+					continue;
+				}
+				
+				String placesUrl =naverUrl + URLEncoder.encode(urlStr,"utf-8");
+				
+				Document doc = Jsoup.connect(placesUrl).get();
+//				Document doc = Jsoup.connect(naverUrl + urlStr.replace("TEST_", "")).get();
+//				Document doc = Jsoup.parse(new URL(naverUrl + urlStr.replace("TEST_", "")).openStream(), "UTF-8", naverUrl + urlStr.replace("TEST_", ""));
+				logger.info("url : " + placesUrl);
+//				logger.info("doc : " + doc.toString());
+				Elements elements = doc.select(".depth");
+//				logger.info("elements : " + elements.text());
+				if (elements == null || !(elements.size() > 0) ) {
+					continue;
+				}
+				
+				Element element = null;
+				if ( elements.size() > 1 && elements.size() != 1 ) {
+					element = elements.get(1);
+				} else if (elements.size() > 0) {
+					element = elements.get(0);
+				}
+				
+				logger.info("element : " + element.text());
+				
+				urlMap.put(prod_code, element.text());
+				categoryMap.add(urlMap);
+				
+				Map<String, Object> par = new HashMap<String, Object>();
+				par.put("naver_category", element.text());
+				par.put("prod_code", prod_code);
+				
+				int updateRet = oMProductDao.updateNaverCategory(par);
+			}
+			retMap.put("category", categoryMap);
+		} catch (Exception ex) {
+			ex.printStackTrace();
+		}
+		
+		return retMap;
+	}
+
+	@Override
+	public List<Map<String, Object>> selectItemList(Map<String, Object> inParam) throws Exception {
+		// TODO Auto-generated method stub
+		List<Map<String, Object>> listMap = oMProductDao.selectItemList(inParam);
+		return listMap;
+	}
+
+	@Override
+	public List<Map<String, Object>> selectItemDetailList(Map<String, Object> inParam) throws Exception {
+		// TODO Auto-generated method stub
+		List<Map<String, Object>> listMap = oMProductDao.selectItemDetailList(inParam);
+		return listMap;
+	}
+
+	@Override
+	public int updateProdStatCd(Map<String, Object> inParam) throws Exception {
+		// TODO Auto-generated method stub
+		int rtn = oMProductDao.updateProdStatCd(inParam);
+		return rtn;
+	}
+}

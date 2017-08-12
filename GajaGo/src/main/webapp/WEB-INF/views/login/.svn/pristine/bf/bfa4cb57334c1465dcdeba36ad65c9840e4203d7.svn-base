@@ -1,0 +1,502 @@
+<%@ page language="java" contentType="text/html; charset=utf-8"
+    pageEncoding="utf-8"%>
+<!-- 태그는 cmmnHead.jsp 에 선언함 -->
+<%@ include file="/WEB-INF/views/admin/common/cmmnHead.jsp"%>
+<script type="text/javascript" src="/js/admin/ctry/plan.js"/></script>
+<script type="text/javascript">
+var planIngs;
+var planEnds;
+var planMains;
+
+$(function(){
+	planIngs = new Container($('#id_ing_area'), 'id_tbl_ing');
+	planEnds = new Container($('#id_end_area'), 'id_tbl_end');
+	planMains = new Container($('#id_main_area'), 'id_tbl_main');
+
+	$('.calendar').datepicker({
+		showOn: "button",
+		buttonImage: "http://static.ssocio.net/admin/images/ico_calendar.gif",
+		buttonImageOnly: true
+	});
+
+	$('#PLAN_CK_ING_ALL').click(function(){
+		$('input[name=PLAN_CK_ING]').prop('checked', this.checked);
+	});
+
+	$('#PLAN_CK_END_ALL').click(function(){
+		$('input[name=PLAN_CK_END]').prop('checked', this.checked);
+	});
+
+	$('#PLAN_CK_MAIN_ALL').click(function(){
+		$('input[name=PLAN_CK_MAIN]').prop('checked', this.checked);
+	});
+
+	changeTab('${params.PLAN_TYPE}');
+
+	<c:forEach var="ing" items="${result.ing}" varStatus="status">
+		var item = new Item(planIngs.items.length, '0', planIngs.getMaxSequence(), false, false, '${ing.PLAN_CD}');
+		planIngs.formerAdd(item);
+	</c:forEach>
+
+	<c:forEach var="main" items="${result.main}" varStatus="status">
+		var item = new Item(planMains.items.length, '2', planMains.getMaxSequence(), false, false, '${main.PLAN_CD}');
+		planMains.formerAdd(item);
+	</c:forEach>
+
+});
+
+function changeTab(flag){
+	$("#PLAN_TYPE").val(flag);
+	if( flag == '0'){
+		$("#ID_A_DELETE").show();
+		$("#ID_A_FINISH").show();
+		$("#ID_A_MAIN").show();
+		$("#ID_A_MODIFY").show();
+	}
+	else if( flag == '1'){
+		$("#ID_A_DELETE").show();
+		$("#ID_A_FINISH").hide();
+		$("#ID_A_MAIN").hide();
+		$("#ID_A_MODIFY").hide();
+	}
+	else if( flag == '2'){
+		$("#ID_A_DELETE").show();
+		$("#ID_A_FINISH").show();
+		$("#ID_A_MAIN").hide();
+		$("#ID_A_MODIFY").show();
+	}
+}
+
+function onSearch(flag){
+	//	validate 수행
+	$("#form").attr("action", '/admin/plan/selectListPlan.do').submit();
+}
+
+function selectDetail(planCd){
+	if($("#PLAN_TYPE").val() == '1'){
+		$("#PLAN_CD").val(planCd);
+		$("#form").attr("action", '/admin/plan/selectPlanEnd.do').submit();
+	}
+	else{
+		$("#PLAN_CD").val(planCd);
+		$("#form").attr("action", '/admin/plan/selectPlanIng.do').submit();
+	}
+}
+
+function deleteList(){
+	var temp = {TYPE:$("#PLAN_TYPE").val(), LIST:new Array()}
+
+	$("#PLAN_CK_ING:checked").each(function(){
+		temp.LIST.push($(this).val());
+	});
+
+	var json = JSON.stringify(temp);
+	console.log(json);
+
+	$('#PLAN_INDEXES').val(json);
+
+	$("#form").attr("action", "/admin/plan/deleteListPlan.do").submit();
+}
+
+function finishList(){
+	var temp = {TYPE:$("#PLAN_TYPE").val(), LIST:new Array()}
+
+	$("#PLAN_CK_ING:checked").each(function(){
+		temp.LIST.push($(this).val());
+	});
+
+	var json = JSON.stringify(temp);
+	console.log(json);
+
+	$('#PLAN_INDEXES').val(json);
+
+	$("#form").attr("action", "/admin/plan/finishListPlan.do").submit();
+}
+
+function modifyList(){
+	var type = $("#PLAN_TYPE").val();
+
+	var obj = null;
+	var objArr = new Array();
+
+	if( type == '0'){
+		obj = planIngs;
+	}
+	else if( type == '2'){
+		obj = planMains;
+	}
+
+	for( var i=0; i<obj.items.length ; i++){
+		objArr.push(obj.items[i]);
+	}
+
+	var json = JSON.stringify(objArr);
+	console.log(json);
+	$('#PLAN_INDEXES').val(json);
+
+	$("#form").attr("action", "/admin/plan/updateSeqListPlan.do").submit();
+}
+
+function addMainList(){
+	var temp = {TYPE:$("#PLAN_TYPE").val(), LIST:new Array()}
+
+	$("#PLAN_CK_ING:checked").each(function(){
+		temp.LIST.push($(this).val());
+	});
+
+	var json = JSON.stringify(temp);
+	console.log(json);
+
+	$('#PLAN_INDEXES').val(json);
+
+	$("#form").attr("action", "/admin/plan/updateListMainPlan.do").submit();
+}
+
+function movePrev(flag, idx){
+	if( flag == '0'){
+		moveItemPrev(planIngs, idx);
+	}
+	else if( flag == '2'){
+		moveItemPrev(planMains, idx);
+	}
+}
+
+function moveNext(flag, idx){
+	if( flag == '0'){
+		moveItemNext(planIngs, idx);
+	}
+	else if( flag == '2'){
+		moveItemNext(planMains, idx);
+	}
+}
+
+</script>
+</head>
+<body>
+<form name="form" id="form" method="post">
+<input type="hidden" id="PLAN_TYPE" name="PLAN_TYPE" value=""/>
+<input type="hidden" id="PLAN_CD" name="PLAN_CD" value="" />
+<input type="hidden" id="PLAN_INDEXES" name="PLAN_INDEXES" value="" />
+<!-- content -->
+<div id="content">
+	<!-- 2015-07-27 수정역영 시작 -->
+	<!-- top_content -->
+	<div class="top_content">
+		<!-- location -->
+		<div class="location">
+			<ul class="clear">
+				<li class="first-child"><a href="#">Home</a></li>
+				<li><a href="#">프로모션/쿠폰</a></li>
+				<li><a href="#" class="current">기획전</a></li>
+			</ul>
+		</div>
+		<!-- //location -->
+	</div>
+	<!-- //top_content -->
+
+	<div class="inner">
+		<ul class="lst_tab">
+			<li class="on"><a href="#" onclick="javascript:changeTab(0);">기획전</a></li>
+			<li><a href="#" onclick="javascript:changeTab(1);">전시중료</a></li>
+			<li><a href="#" onclick="javascript:changeTab(2);">메인기획전</a></li>
+		</ul>
+		<!-- 검색영역 -->
+		<div class="tbl">
+			<table class="search">
+				<colgroup>
+					<col style="width:*" />
+					<col style="width:15%" />
+				</colgroup>
+				<tbody>
+					<tr>
+						<td class="nolineR">
+							<span class="select" style="width:130px;">
+							<span class="sel_txt"></span>
+								<select id="DATE_GUBUN" name="DATE_GUBUN">
+									<option value="R" <c:if test="${params.DATE_GUBUN == 'R' }">selected</c:if>>등록일</option>
+									<option value="S" <c:if test="${params.DATE_GUBUN == 'S' }">selected</c:if>>시작일</option>
+									<option value="E" <c:if test="${params.DATE_GUBUN == 'E' }">selected</c:if>>종료일</option>
+								</select>
+							</span>
+							<fmt:parseDate value="${params.S_DT}" var="S_DT" pattern="yyyymmdd" scope="page"/>
+							<fmt:parseDate value="${params.E_DT}" var="E_DT" pattern="yyyymmdd" scope="page"/>
+							<input type="text" id="S_DT" name="S_DT" value='<fmt:formatDate value="${S_DT }" pattern="yyyy-mm-dd" />' class="calendar" style="width:82px" /> - <input type="text" id="E_DT" name="E_DT" value='<fmt:formatDate value="${E_DT }" pattern="yyyy-mm-dd" />' class="calendar" style="width:82px" />
+							<span class="select" style="width:130px;">
+								<span class="sel_txt"></span>
+								<select id="SEARCH_GUBUN" name="SEARCH_GUBUN">
+								<!--
+									<option value="PLAN_TITLE" <c:if test="${params.SEARCH_GUBUN == 'PLAN_TITLE' }">selected</c:if>>제목</option> -->
+									<option value="PLAN_NM" <c:if test="${params.SEARCH_GUBUN == 'PLAN_NM' }">selected</c:if>>기획전명</option>
+								</select>
+							</span>
+							<input type="text" id="SEARCH_NM" name="SEARCH_NM" value="${params.SEARCH_NM }" style="width:200px;" />
+						</td>
+						<td>
+							<a href="javascript:onSearch();" class="btn_chk btn_r">조회</a>
+						</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+		<!-- 검색영역 -->
+		<!-- BODY -->
+		<div class="exhib_area">
+			<a href="/admin/plan/insertPlan.do" class="btn_w btn2"><span>기획전 등록</span></a>
+			<!-- 기획전 -->
+			<div class="exhb_sect1" id="id_ing_area">
+				<!-- 목록 -->
+				<div class="tbl mt10">
+					<table class="list">
+						<colgroup>
+							<col style="width:5%" />
+							<!-- <col style="width:12%" /> -->
+							<col style="width:12%" />
+							<col style="width:*" />
+							<col style="width:12%" />
+							<col style="width:12%" />
+							<col style="width:8%" />
+						</colgroup>
+						<thead>
+							<tr>
+								<th scope="col"><input type="checkbox" id="PLAN_CK_ING_ALL" name="PLAN_CK_ING_ALL"/></th>
+								<th scope="col">등록일시</th>
+								<!-- <th scope="col">제목</th> -->
+								<th scope="col">기획전명</th>
+								<th scope="col">시작일시</th>
+								<th scope="col">종료일시</th>
+								<th scope="col">노출순서</th>
+							</tr>
+						</thead>
+						<tbody>
+							<c:choose>
+								<c:when test="${fn:length(result.ing)>0}">
+									<c:forEach var="plan" items="${result.ing}" varStatus="status">
+										<tr id="id_tbl_ing_${status.index }">
+
+											<fmt:parseDate value="${plan.START_DT}" var="S_DT" pattern="yyyyMMddHHmmss" scope="page"/>
+											<fmt:parseDate value="${plan.END_DT}" var="E_DT" pattern="yyyyMMddHHmmss" scope="page"/>
+											<td class="nolineL"><input type="checkbox" id="PLAN_CK_ING" name="PLAN_CK_ING" value="${plan.PLAN_CD}"/></td>
+											<td><fmt:formatDate value="${plan.REGIST_DT}" pattern="yyyy-MM-dd KK:mm" /></td>
+											<!--
+											<td class="tl">
+												<c:if test="${plan.TMP_SAVE_YN == 'Y'}"><span class="text_r">[임시저장]</span></c:if>
+												<a href="javascript:selectDetail('${plan.PLAN_CD}');" class="alink">${plan.PLAN_TITLE }</a>
+											</td> -->
+											<td class="tl">
+											<c:if test="${plan.TMP_SAVE_YN == 'Y'}"><span class="text_r">[임시저장]</span></c:if>
+											<a href="javascript:selectDetail('${plan.PLAN_CD}');" class="alink">${plan.PLAN_NM }</a></td>
+											<td><fmt:formatDate value="${S_DT}" pattern="yyyy-MM-dd KK:mm" /></td>
+											<td><fmt:formatDate value="${E_DT}" pattern="yyyy-MM-dd KK:mm" /></td>
+											<td>
+												<a href="javascript:movePrev('0', ${status.index});"><img src="http://static.ssocio.net/admin/images/ico_b_up.png" alt="올림" /></a>
+												<a href="javascript:moveNext('0', ${status.index});" class="ml5"><img src="http://static.ssocio.net/admin/images/ico_b_down.png" alt="내림" /></a>
+											</td>
+										</tr>
+									</c:forEach>
+								</c:when>
+								<c:otherwise>
+									<tr>
+										<td class="nolineL" colspan="6">조회된 결과가 없습니다.</td>
+									</tr>
+								</c:otherwise>
+							</c:choose>
+						</tbody>
+					</table>
+				</div>
+				<!-- //목록 -->
+				<!-- 페이징 -->
+				<div class="bot_tbl" style="display:none;">
+					<div class="paging">
+						<a href="#" class="first"><img src="http://static.ssocio.net/admin/images/btn_first.gif" width="31" height="31" alt="처음페이지" /></a>
+						<a href="#" class="prev"><img src="http://static.ssocio.net/admin/images/btn_prev.gif" width="31" height="31" alt="이전" /></a>
+						<strong><span>1</span></strong>
+						<a href="#"><span>2</span></a>
+						<a href="#"><span>3</span></a>
+						<a href="#"><span>4</span></a>
+						<a href="#"><span>5</span></a>
+						<a href="#"><span>6</span></a>
+						<a href="#"><span>7</span></a>
+						<a href="#"><span>8</span></a>
+						<a href="#"><span>9</span></a>
+						<a href="#"><span>10</span></a>
+						<a href="#" class="next"><img src="http://static.ssocio.net/admin/images/btn_next.gif" width="31" height="31" alt="다음" /></a>
+						<a href="#" class="last"><img src="http://static.ssocio.net/admin/images/btn_last.gif" width="31" height="31" alt="마지막페이지" /></a>
+					</div>
+				</div>
+				<!-- //페이징 -->
+			</div>
+			<!-- //기획전 -->
+			<!-- 전시종료 -->
+			<div class="exhb_sect2" id="id_end_area">
+				<!-- 목록 -->
+				<div class="tbl mt10">
+					<table class="list">
+						<colgroup>
+							<col style="width:5%" />
+							<!--
+							<col style="width:12%" /> -->
+							<col style="width:12%" />
+							<col style="width:*" />
+							<col style="width:15%" />
+							<col style="width:15%" />
+						</colgroup>
+						<thead>
+							<tr>
+								<th scope="col"><input type="checkbox" id="PLAN_CK_END_ALL" name="PLAN_CK_END_ALL"/></th>
+								<th scope="col">등록일시</th>
+								<!--
+								<th scope="col">제목</th> -->
+								<th scope="col">기획전명</th>
+								<th scope="col">시작일시</th>
+								<th scope="col">종료일시</th>
+							</tr>
+						</thead>
+						<tbody>
+							<c:choose>
+								<c:when test="${fn:length(result.end)>0}">
+									<c:forEach var="plan" items="${result.end}" varStatus="status">
+										<tr>
+											<fmt:parseDate value="${plan.START_DT}" var="S_DT" pattern="yyyyMMddHHmmss" scope="page"/>
+											<fmt:parseDate value="${plan.END_DT}" var="E_DT" pattern="yyyyMMddHHmmss" scope="page"/>
+											<td class="nolineL"><input type="checkbox" id="PLAN_CK_END" name="PLAN_CK_END" value="${plan.PLAN_CD}"/></td>
+											<td><fmt:formatDate value="${plan.REGIST_DT}" pattern="yyyy-MM-dd KK:mm" /></td>
+											<!--
+											<td class="tl"><a href="javascript:selectDetail('${plan.PLAN_CD}');" class="alink">${plan.PLAN_TITLE }</a></td> -->
+											<td class="tl"><a href="javascript:selectDetail('${plan.PLAN_CD}');" class="alink">${plan.PLAN_NM }</a></td>
+											<td><fmt:formatDate value="${S_DT}" pattern="yyyy-MM-dd KK:mm" /></td>
+											<td><fmt:formatDate value="${E_DT}" pattern="yyyy-MM-dd KK:mm" /></td>
+										</tr>
+									</c:forEach>
+								</c:when>
+								<c:otherwise>
+									<tr>
+										<td class="nolineL" colspan="5">조회된 결과가 없습니다.</td>
+									</tr>
+								</c:otherwise>
+							</c:choose>
+						</tbody>
+					</table>
+				</div>
+				<!-- //목록 -->
+				<!-- 페이징 -->
+				<div class="bot_tbl" style="display:none;">
+					<div class="paging">
+						<a href="#" class="first"><img src="http://static.ssocio.net/admin/images/btn_first.gif" width="31" height="31" alt="처음페이지" /></a>
+						<a href="#" class="prev"><img src="http://static.ssocio.net/admin/images/btn_prev.gif" width="31" height="31" alt="이전" /></a>
+						<strong><span>1</span></strong>
+						<a href="#"><span>2</span></a>
+						<a href="#"><span>3</span></a>
+						<a href="#"><span>4</span></a>
+						<a href="#"><span>5</span></a>
+						<a href="#"><span>6</span></a>
+						<a href="#"><span>7</span></a>
+						<a href="#"><span>8</span></a>
+						<a href="#"><span>9</span></a>
+						<a href="#"><span>10</span></a>
+						<a href="#" class="next"><img src="http://static.ssocio.net/admin/images/btn_next.gif" width="31" height="31" alt="다음" /></a>
+						<a href="#" class="last"><img src="http://static.ssocio.net/admin/images/btn_last.gif" width="31" height="31" alt="마지막페이지" /></a>
+					</div>
+				</div>
+				<!-- //페이징 -->
+			</div>
+			<!-- //전시종료 -->
+			<!-- 메인기획전 -->
+			<div class="exhb_sect3" id="id_main_area">
+				<!-- 목록 -->
+				<div class="tbl mt10">
+					<table class="list" id="id_tbl_main">
+						<colgroup>
+							<col style="width:5%" />
+							<!--
+							<col style="width:12%" />-->
+							<col style="width:12%" />
+							<col style="width:*" />
+							<col style="width:12%" />
+							<col style="width:12%" />
+							<col style="width:8%" />
+						</colgroup>
+						<thead>
+							<tr>
+								<th scope="col"><input type="checkbox" id="PLAN_CK_MAIN_ALL" name="PLAN_CK_MAIN_ALL"/></th>
+								<th scope="col">등록일시</th>
+								<!--
+								<th scope="col">제목</th> -->
+								<th scope="col">기획전명</th>
+								<th scope="col">시작일시</th>
+								<th scope="col">종료일시</th>
+								<th scope="col">노출순서</th>
+							</tr>
+						</thead>
+						<tbody>
+							<c:choose>
+								<c:when test="${fn:length(result.main)>0}">
+									<c:forEach var="plan" items="${result.main}" varStatus="status">
+										<tr id="id_tbl_main_${status.index }">
+											<fmt:parseDate value="${plan.START_DT}" var="S_DT" pattern="yyyyMMddHHmmss" scope="page"/>
+											<fmt:parseDate value="${plan.END_DT}" var="E_DT" pattern="yyyyMMddHHmmss" scope="page"/>
+											<td class="nolineL"><input type="checkbox" id="PLAN_CK_MAIN" name="PLAN_CK_MAIN" value="${plan.PLAN_CD}"/></td>
+											<td><fmt:formatDate value="${plan.REGIST_DT}" pattern="yyyy-MM-dd KK:mm" /></td>
+											<!--
+											<td class="tl"><a href="javascript:selectDetail('${plan.PLAN_CD}');" class="alink">${plan.PLAN_TITLE }</a></td> -->
+											<td class="tl"><a href="javascript:selectDetail('${plan.PLAN_CD}');" class="alink">${plan.PLAN_NM }</a></td>
+											<td><fmt:formatDate value="${S_DT}" pattern="yyyy-MM-dd KK:mm" /></td>
+											<td><fmt:formatDate value="${E_DT}" pattern="yyyy-MM-dd KK:mm" /></td>
+											<td>
+												<a href="javascript:movePrev('2', ${status.index});"><img src="http://static.ssocio.net/admin/images/ico_b_up.png" alt="올림" /></a>
+												<a href="javascript:moveNext('2', ${status.index});" class="ml5"><img src="http://static.ssocio.net/admin/images/ico_b_down.png" alt="내림" /></a>
+											</td>
+										</tr>
+									</c:forEach>
+								</c:when>
+								<c:otherwise>
+									<tr>
+										<td class="nolineL" colspan="6">조회된 결과가 없습니다.</td>
+									</tr>
+								</c:otherwise>
+							</c:choose>
+						</tbody>
+					</table>
+				</div>
+				<!-- //목록 -->
+				<!-- 페이징 -->
+				<div class="bot_tbl" style="display:none;">
+					<div class="paging">
+						<a href="#" class="first"><img src="http://static.ssocio.net/admin/images/btn_first.gif" width="31" height="31" alt="처음페이지" /></a>
+						<a href="#" class="prev"><img src="http://static.ssocio.net/admin/images/btn_prev.gif" width="31" height="31" alt="이전" /></a>
+						<strong><span>1</span></strong>
+						<a href="#"><span>2</span></a>
+						<a href="#"><span>3</span></a>
+						<a href="#"><span>4</span></a>
+						<a href="#"><span>5</span></a>
+						<a href="#"><span>6</span></a>
+						<a href="#"><span>7</span></a>
+						<a href="#"><span>8</span></a>
+						<a href="#"><span>9</span></a>
+						<a href="#"><span>10</span></a>
+						<a href="#" class="next"><img src="http://static.ssocio.net/admin/images/btn_next.gif" width="31" height="31" alt="다음" /></a>
+						<a href="#" class="last"><img src="http://static.ssocio.net/admin/images/btn_last.gif" width="31" height="31" alt="마지막페이지" /></a>
+					</div>
+				</div>
+				<!-- //페이징 -->
+			</div>
+			<!-- //메인기획전 -->
+		</div>
+		<!-- 하단 버튼 영역 -->
+		<div class="bot_btn clear mt20">
+			<p class="left">
+				<a href="javascript:deleteList();" id="ID_A_DELETE" class="btn_r">선택삭제</a>
+				<a href="javascript:finishList();" id="ID_A_FINISH" class="btn_g2 ml10">선택 전시종료</a>
+				<a href="javascript:addMainList();" id="ID_A_MAIN" class="btn_g2 ml10">선택 메인기획전 추가</a>
+			</p>
+			<p class="right">
+				<a href="javascript:modifyList();" id="ID_A_MODIFY" class="btn_r">변경사항 적용</a>
+			</p>
+		</div>
+		<!-- //하단 버튼 영역 -->
+	</div>
+	<!-- //inner -->
+</div>
+<!-- //content -->
+</form>
+</body>
+</html>

@@ -1,0 +1,524 @@
+package com.ssocio.sharing.service.admin;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.interceptor.TransactionAspectSupport;
+import org.springframework.ui.ModelMap;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.lambdaworks.redis.RedisConnection;
+import com.ssocio.sharing.cmmn.util.Redis;
+import com.ssocio.sharing.dao.admin.AdminCommonDao;
+import com.ssocio.sharing.dao.admin.AdminPlanDao;
+import com.ssocio.sharing.dao.web.AppCommonDao;
+import com.ssocio.sharing.dao.web.WebMainDao;
+import com.ssocio.sharing.vo.admin.PlanBanner;
+import com.ssocio.sharing.vo.admin.PlanContent;
+import com.ssocio.sharing.vo.admin.PlanExhibition;
+import com.ssocio.sharing.vo.admin.PlanTemplate;
+
+/**
+ * <pre>
+ * 설명
+ * 설명
+ * @author WOOK.KIM
+ * @version
+ * @since 2015. 8. 7. 오후 7:08:13
+ * @see
+ * @History
+ * Date			|	author		| 변경 내용
+ * 2015. 8. 7.	|	WOOK.KIM	|신규
+ * @비고
+ * </pre>
+ */
+@Service
+public class AdminPlanServiceImpl implements AdminPlanService{
+	
+	// --------------------------------------------------------------------------
+	// # Log 설정
+	// --------------------------------------------------------------------------
+	private static final Logger logger = LoggerFactory.getLogger(AdminPlanServiceImpl.class);
+
+	// --------------------------------------------------------------------------
+	// # DAO 설정
+	// --------------------------------------------------------------------------
+	@Resource(name="adminCommonDao")
+	private AdminCommonDao adminCommonDao;
+	
+	@Resource(name="adminPlanDao")
+	private AdminPlanDao adminPlanDao;
+	
+	@Resource(name="webMainDao")
+	private WebMainDao webMainDao;
+	
+	@Resource(name="appCommonDao")
+	private AppCommonDao appCommonDao;
+	
+	@Override
+	public ModelMap insertPlan(PlanExhibition pe) throws Exception{
+		ModelMap mm = new ModelMap();
+		
+		pe.setPlanCd(adminPlanDao.insertPlan(pe));
+		
+		long sequence = Long.parseLong(pe.getPlanCd().substring(8, 16) + "00");
+		long imgSeq = sequence;
+		for(int i=0 ; i<pe.getBanners().size() ; i++ ){
+			PlanBanner pb = pe.getBanners().get(i);
+			pb.setSequence(++imgSeq);
+			pb.setPlanCd(pe.getPlanCd());
+			
+			if(pb.getFileInfo() != null ){
+				pb.setFileSeq(adminCommonDao.insertFile(pb.getFileInfo()));
+			}
+			
+			adminPlanDao.insertBanner(pb);
+		}
+		
+		long planSeq = sequence;
+		for(int i=0 ; i<pe.getTemplates().size() ; i++ ){
+			PlanTemplate pt = pe.getTemplates().get(i);
+			pt.setSequence(++planSeq);
+			pt.setPlanCd(pe.getPlanCd());
+			
+			adminPlanDao.insertTemplate(pt);
+			
+			for( int j=0 ; j<pt.getContents().size() ; j++ ){
+				PlanContent content = pt.getContents().get(j);
+				content.setPlanCd(pt.getPlanCd());
+				content.setSequence(pt.getSequence());
+				
+				if(content.getFileInfo() != null ){
+					content.setFileSeq(adminCommonDao.insertFile(content.getFileInfo()));	
+				}
+				
+				if (pt.isPreview()) {
+					content.setPreview(true);
+				}
+				
+				adminPlanDao.insertContent(content);
+			}
+		}
+		
+		this.makeRedisData();
+		
+		mm.put("PLAN_CD", pe.getPlanCd());
+		return mm;
+	}
+	
+	@Override
+	public int updatePlan(PlanExhibition pe) throws Exception{
+		ModelMap mm = new ModelMap();
+		
+		long imgSeq = pe.getMaxImageSequence();
+		
+		try {
+			adminPlanDao.updatePlan(pe);
+			
+			for(int i=0 ; i<pe.getBanners().size() ; i++ ){
+				PlanBanner pb = pe.getBanners().get(i);
+				pb.setPlanCd(pe.getPlanCd());
+				
+				if( pb.isNew()){
+					pb.setSequence(++imgSeq);
+					pb.setFileSeq(adminCommonDao.insertFile(pb.getFileInfo()));
+					adminPlanDao.insertBanner(pb);
+				}
+				else{
+					//	isDel이 true인 경우 삭제를 진행한다.
+					if( pb.isDel()){
+						adminPlanDao.deleteBanner(String.valueOf(pb.getSequence()), false);
+					}
+					else{
+						//	이미지 파일이 바뀐 경우 fileSeq를 받는다.
+						if( pb.getFileInfo() != null ){
+							pb.setFileSeq(adminCommonDao.insertFile(pb.getFileInfo()));
+						}
+						adminPlanDao.updateBanner(pb);
+					}
+				}
+			}
+			
+			long planSeq = pe.getMaxPlanSequence();
+			
+			if ( pe != null && pe.getTemplates() != null && pe.getTemplates().size() > 0 ){
+				// 기존 template와 content 삭제
+				String planCd= pe.getBanners().get(0).getPlanCd();
+				adminPlanDao.deletePlanContents(planCd);
+				adminPlanDao.deletePlanTpls(planCd);
+			}
+
+			for(int i=0 ; i<pe.getTemplates().size() ; i++ ){
+				PlanTemplate pt = pe.getTemplates().get(i);
+				pt.setPlanCd(pe.getPlanCd());
+				
+//				if( pt.isNew()){
+					pt.setSequence(++planSeq);
+					
+					adminPlanDao.insertTemplate(pt);
+					
+					for( int j=0 ; j<pt.getContents().size() ; j++ ){
+						PlanContent content = pt.getContents().get(j);
+						content.setPlanCd(pt.getPlanCd());
+						content.setSequence(pt.getSequence());
+						
+						if( content.getFileInfo() != null ){
+							content.setFileSeq(adminCommonDao.insertFile(content.getFileInfo()));
+						}
+						
+						adminPlanDao.insertContent(content);
+					}
+//				}
+//				else{
+//					if( pt.isDel()){
+//						for(int j=0 ; j<pt.getContents().size() ; j++){
+//							adminPlanDao.deleteContent(pt.getPlanCd(), String.valueOf(pt.getSequence()), false);
+//						}
+//						adminPlanDao.deleteTemplate(pt.getPlanCd(), String.valueOf(pt.getSequence()), false);
+//					}
+//					else{
+//						for( int j=0 ; j<pt.getContents().size() ; j++ ){
+//							PlanContent content = pt.getContents().get(j);
+//							content.setPlanCd(pt.getPlanCd());
+//							content.setSequence(pt.getSequence());
+////							이미지 파일이 바뀐 경우 fileSeq를 받는다.
+//							if( content.getFileInfo() != null ){
+//								content.setFileSeq(adminCommonDao.insertFile(content.getFileInfo()));
+//							}
+//							
+//							adminPlanDao.updateContent(content);
+//						}
+//						
+//						adminPlanDao.updateTemplate(pt);
+//					}
+//				}
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+			TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+			return 500;
+		}
+
+		this.makeRedisData();
+		
+		return 200;
+	}
+	
+	@Override
+	public ModelMap selectPlan(String planCd, boolean isPreview) throws Exception {
+		
+		ModelMap mm = new ModelMap();
+		try {
+			mm.put("plan", adminPlanDao.selectPlan(planCd, isPreview));
+			mm.put("banners", adminPlanDao.selectListBanner(planCd, isPreview));
+			
+			List<Map<String, Object>> templates = adminPlanDao.selectListTemplate(planCd, isPreview); 
+			for(int i=0 ; i<templates.size() ; i++){
+				Map<String, Object> temp = templates.get(i);
+				List<Map<String, Object>> contents = adminPlanDao.selectListContents(planCd, String.valueOf(temp.get("PLAN_SEQ")), isPreview);
+				temp.put("contents", contents);
+			}
+			mm.put("templates", templates);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+	
+	@Override
+	public ModelMap selectListPlan(Map<String, Object> inParam) throws Exception {
+		
+		ModelMap mm = new ModelMap();
+		try {
+			inParam.put("PLAN_TYPE", "0");
+			mm.put("ing", adminPlanDao.selectListPlan(inParam));
+			
+			inParam.put("PLAN_TYPE", "1");
+			mm.put("end", adminPlanDao.selectListPlan(inParam));
+
+			inParam.put("PLAN_TYPE", "2");
+			mm.put("main", adminPlanDao.selectListPlan(inParam));
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+	
+	@Override
+	public Map<String, Object> selectProd(String prodCode) throws Exception{
+		return adminPlanDao.selectProd(prodCode);
+	}
+	
+	@Override
+	public Map<String, Object> selectShProd(String prodCode) throws Exception{
+		return adminPlanDao.selectShProd(prodCode);
+	}
+	
+	@Override
+	@Transactional
+	public ModelMap insertPlanPreview(PlanExhibition pe) throws Exception{
+		ModelMap mm = new ModelMap();
+
+		pe.setPreview(true);
+		pe.setPlanCd(adminPlanDao.insertPlan(pe));
+		
+		long sequence = Long.parseLong(pe.getPlanCd().substring(8, 16) + "00");
+		long imgSeq = sequence;
+		for(int i=0 ; i<pe.getBanners().size() ; i++ ){
+			PlanBanner pb = pe.getBanners().get(i);
+			pb.setSequence(++imgSeq);
+			pb.setPlanCd(pe.getPlanCd());
+			
+			if(pb.getFileInfo() != null ){
+				pb.setFileSeq(adminCommonDao.insertFile(pb.getFileInfo()));	
+			}
+			
+			pb.setPreview(true);
+			adminPlanDao.insertBanner(pb);
+		}
+		
+		long planSeq = sequence;
+		for(int i=0 ; i<pe.getTemplates().size() ; i++ ){
+			PlanTemplate pt = pe.getTemplates().get(i);
+			pt.setSequence(++planSeq);
+			pt.setPlanCd(pe.getPlanCd());
+			pt.setPreview(true);
+			
+			adminPlanDao.insertTemplate(pt);
+			
+			for( int j=0 ; j<pt.getContents().size() ; j++ ){
+				PlanContent content = pt.getContents().get(j);
+				content.setPlanCd(pt.getPlanCd());
+				content.setSequence(pt.getSequence());
+				content.setPreview(true);
+				if(content.getFileInfo() != null ){
+					content.setFileSeq(adminCommonDao.insertFile(content.getFileInfo()));	
+				}
+				
+				adminPlanDao.insertContent(content);
+			}
+		}
+		
+		return mm;
+	}
+	
+	@Override
+	@Transactional
+	public ModelMap updatePlanPreview(PlanExhibition pe) throws Exception{
+		ModelMap mm = new ModelMap();
+		
+		long imgSeq = pe.getMaxImageSequence();
+		pe.setPreview(true);
+		
+		adminPlanDao.updatePlan(pe);
+		
+		for(int i=0 ; i<pe.getBanners().size() ; i++ ){
+			PlanBanner pb = pe.getBanners().get(i);
+			pb.setPlanCd(pe.getPlanCd());
+			pb.setPreview(true);
+			
+			if( pb.isNew()){
+				pb.setSequence(++imgSeq);
+				pb.setFileSeq(adminCommonDao.insertFile(pb.getFileInfo()));
+				adminPlanDao.insertBanner(pb);
+			}
+			else{
+				//	isDel이 true인 경우 삭제를 진행한다.
+				if( pb.isDel()){
+					adminPlanDao.deleteBanner(String.valueOf(pb.getSequence()), true);
+				}
+				else{
+					//	이미지 파일이 바뀐 경우 fileSeq를 받는다.
+					if( pb.getFileInfo() != null ){
+						pb.setFileSeq(adminCommonDao.insertFile(pb.getFileInfo()));
+					}
+					adminPlanDao.updateBanner(pb);
+				}
+			}
+		}
+		
+		long planSeq = pe.getMaxPlanSequence();
+		for(int i=0 ; i<pe.getTemplates().size() ; i++ ){
+			PlanTemplate pt = pe.getTemplates().get(i);
+			pt.setPlanCd(pe.getPlanCd());
+			pt.setPreview(true);
+			if( pt.isNew()){
+				pt.setSequence(++planSeq);
+				
+				adminPlanDao.insertTemplate(pt);
+				
+				for( int j=0 ; j<pt.getContents().size() ; j++ ){
+					PlanContent content = pt.getContents().get(j);
+					content.setPlanCd(pt.getPlanCd());
+					content.setSequence(pt.getSequence());
+					content.setPreview(true);
+					
+					if( content.getFileInfo() != null ){
+						content.setFileSeq(adminCommonDao.insertFile(content.getFileInfo()));
+					}
+					
+					adminPlanDao.insertContent(content);
+				}
+			}
+			else{
+				if( pt.isDel()){
+					for(int j=0 ; j<pt.getContents().size() ; j++){
+						adminPlanDao.deleteContent(pt.getPlanCd(), String.valueOf(pt.getSequence()), true);
+					}
+					adminPlanDao.deleteTemplate(pt.getPlanCd(), String.valueOf(pt.getSequence()), true);
+				}
+				else{
+					for( int j=0 ; j<pt.getContents().size() ; j++ ){
+						PlanContent content = pt.getContents().get(j);
+						content.setPlanCd(pt.getPlanCd());
+						content.setSequence(pt.getSequence());
+						content.setPreview(true);
+//						이미지 파일이 바뀐 경우 fileSeq를 받는다.
+						if( content.getFileInfo() != null ){
+							content.setFileSeq(adminCommonDao.insertFile(content.getFileInfo()));
+						}
+						
+						adminPlanDao.updateContent(content);
+					}
+					
+					adminPlanDao.updateTemplate(pt);
+				}
+			}
+		}
+		
+		return mm;
+	}
+	
+	@Override
+	@Transactional
+	public void deletePlan(String planCd, boolean isPreview) throws Exception{
+		logger.info("deleteListPlan Start");
+		List<Map<String, Object>> bannerList = adminPlanDao.selectListBanner(planCd, isPreview);
+		for(Map<String, Object> banner : bannerList){
+			logger.info("IMG_SEQ : " + String.valueOf(banner.get("IMG_SEQ")));
+			adminPlanDao.deleteBanner(String.valueOf(banner.get("IMG_SEQ")), isPreview);
+		}
+		
+		List<Map<String, Object>> templateList = adminPlanDao.selectListTemplate(planCd, isPreview);
+		for(Map<String, Object> template : templateList){
+			List<Map<String, Object>> contentList = adminPlanDao.selectListContents(planCd, String.valueOf(template.get("PLAN_SEQ")), isPreview);
+			
+			for(Map<String, Object> content : contentList){
+				adminPlanDao.deleteContent(planCd, String.valueOf(content.get("PLAN_SEQ")), isPreview);
+			}
+			adminPlanDao.deleteTemplate(planCd, String.valueOf(template.get("PLAN_SEQ")), isPreview);
+		}
+		
+		adminPlanDao.deletePlan(planCd, isPreview);
+		
+		this.makeRedisData();
+	}
+	
+	@Override
+	@Transactional
+	public void updatePlanViewYn(boolean isAllView, String planCd, boolean isView) throws Exception{
+		adminPlanDao.updatePlanViewYn(isAllView, planCd, isView);
+		
+		this.makeRedisData();
+	}
+	
+	@Override
+	@Transactional
+	public void updatePlanViewSeq(boolean isAllView, String planCd, int seq) throws Exception{
+		adminPlanDao.updatePlanViewSeq(isAllView, planCd, seq);
+		
+		this.makeRedisData();
+	}
+
+	@Override
+	public ModelMap selectMainPlanPreview(String PLAN_CD) throws Exception {
+		// TODO Auto-generated method stub
+		ModelMap mm = new ModelMap();
+		
+		mm.put("plans", adminPlanDao.selectMainPlanPreview(PLAN_CD));
+		return mm;
+	}
+	
+	public void makeRedisData() {
+		
+		ObjectMapper mapper = new ObjectMapper();
+		Redis redis = Redis.getInstance();
+		
+		logger.info("Redis.REDIS_HOST_SPLIT_PK : " + redis.getREDIS_HOST_SPLIT_PK());
+		
+//		try {
+//			List<Map<String, Object>> selectListMainPlanList = adminPlanDao.selectListMainPlan();
+//			for (int i = 0; i < Redis.REDIS_PORT_ARRAY.length; i++) {
+//				RedisConnection<String, String> redisConnection = redis.getRedisClient(String.valueOf(i));
+//				redisConnection.set(redis.getREDIS_HOST_SPLIT_PK() + "selectListMainPlan", mapper.writeValueAsString(selectListMainPlanList));
+//			}
+//		} catch (Exception e) {
+//			for (int i = 0; i < Redis.REDIS_PORT_ARRAY.length; i++) {
+//				// RedisConnection<String, String> redisConnection = redis.getRedisClient(String.valueOf(i));
+//				// redisConnection.set(redis.getREDIS_HOST_SPLIT_PK() + "selectListMainPlan", null);
+//			}
+//		}
+		
+		try {
+			List<Map<String, Object>> planList = webMainDao.selectListAppMainPlan();
+			List<Map<String, Object>> allPlanList = adminPlanDao.selectAllPlanList();
+			Map<String, Object> inParam = new HashMap<String, Object>();
+			
+			for (int i = 0; i < Redis.REDIS_PORT_ARRAY.length; i++) {
+				RedisConnection<String, String> redisConnection = redis.getRedisClient(String.valueOf(i));
+				redisConnection.set(redis.getREDIS_HOST_SPLIT_PK() + "planList", mapper.writeValueAsString(planList));
+				for(Map<String, Object> plan : allPlanList){
+					String rPlanCd = (String)plan.get("PLAN_CD");
+					
+					logger.info("rPlanCd : " + rPlanCd);
+					List<Map<String, Object>> templateContDataList = appCommonDao.selectListPlanTemplateContent(rPlanCd);
+					redisConnection.set(redis.getREDIS_HOST_SPLIT_PK() + "templateContDataList_" + rPlanCd, mapper.writeValueAsString(templateContDataList));
+					
+					List<Map<String,Object>> rBannerList = webMainDao.selectListPlanBanner(rPlanCd);
+					redisConnection.set(redis.getREDIS_HOST_SPLIT_PK() + "bannerList_" + rPlanCd, mapper.writeValueAsString(rBannerList));
+				}
+				
+				List<Map<String,Object>> popularSharing = appCommonDao.popularSharing(null);
+				
+//				Map<String, Object> popularMap = new HashMap<String, Object>();
+				StringBuffer prod_codes = new StringBuffer();
+				for (int si = 0; si < popularSharing.size(); si++ ) {
+					Map<String, Object> sharing = popularSharing.get(si);
+					String sPROD_CODE = String.valueOf(sharing.get("PROD_CODE"));
+					int WHSH_COUNT = Integer.parseInt(String.valueOf(sharing.get("WISH_COUNT")));
+//					int sMBER_SEQ = Integer.parseInt(String.valueOf(sharing.get("MBER_SEQ")));
+//					popularMap.put(sPROD_CODE, WHSH_COUNT);
+					prod_codes.append("'");
+					prod_codes.append(sPROD_CODE);
+					prod_codes.append("'");
+					if ( si < popularSharing.size() - 1 ) {
+						prod_codes.append(","); 
+					}
+				}
+				
+				inParam.put("prod_codes", String.valueOf(prod_codes));
+				List<Map<String,Object>> popularSharingDetail = appCommonDao.popularSharingDetail(inParam);
+				List<Map<String,Object>> latestSharingList = appCommonDao.latestSharingList(null);
+				
+				redisConnection.set(redis.getREDIS_HOST_SPLIT_PK() + "popularSharing", mapper.writeValueAsString(popularSharing));
+				redisConnection.set(redis.getREDIS_HOST_SPLIT_PK() + "popularSharingDetail", mapper.writeValueAsString(popularSharingDetail));
+				redisConnection.set(redis.getREDIS_HOST_SPLIT_PK() + "latestSharingList", mapper.writeValueAsString(latestSharingList));
+			}
+		} catch (Exception e) {
+			for (int i = 0; i < Redis.REDIS_PORT_ARRAY.length; i++) {
+				// RedisConnection<String, String> redisConnection = redis.getRedisClient(String.valueOf(i));
+				// redisConnection.set(redis.getREDIS_HOST_SPLIT_PK() + "selectListMainPlan", "");
+				// redisConnection.set(redis.getREDIS_HOST_SPLIT_PK() + "planList", "");
+			}
+		}
+		
+	}
+}

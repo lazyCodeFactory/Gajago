@@ -1,0 +1,378 @@
+package com.ssocio.sharing.service.admin;
+
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.HashMap;
+import java.util.Map;
+
+import javax.annotation.Resource;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpSession;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.ui.ModelMap;
+
+import com.ssocio.sharing.cmmn.admin.util.CommonUtil;
+import com.ssocio.sharing.cmmn.admin.util.HttpUrlConnectionUtil;
+import com.ssocio.sharing.cmmn.util.CmmnCnst;
+import com.ssocio.sharing.cmmn.util.LoggerUtil;
+import com.ssocio.sharing.cmmn.util.SmsUtil;
+import com.ssocio.sharing.cmmn.util.StringUtil;
+import com.ssocio.sharing.dao.admin.AdminQAAdviceDao;
+import com.ssocio.sharing.dao.web.MobileJoinDao;
+import com.ssocio.sharing.dao.web.WebCommonDao;
+import com.ssocio.sharing.service.web.MobileJoinService;
+import com.ssocio.sharing.vo.admin.AdminSession;
+import com.ssocio.sharing.vo.admin.PageNavigation;
+
+/**
+ * <pre>
+ * 공통 서비스
+ * 공통 서비스
+ * @author J.K.CHOI
+ * @version
+ * @since 2015. 7. 21. 오후 7:33:23
+ * @see
+ * @History
+ * Date			|	author	| 변경 내용
+ * 2015. 7. 21.	|	J.K.CHOI	|신규
+ * @비고
+ * </pre>
+ */
+@Service
+public class AdminQAAdviceServiceImpl extends AdminReferServiceImpl implements AdminQAAdviceService {
+
+	// --------------------------------------------------------------------------
+	// # Log 설정
+	// --------------------------------------------------------------------------
+	private static final Logger logger = LoggerFactory.getLogger(AdminQAAdviceServiceImpl.class);
+	
+	// --------------------------------------------------------------------------
+	// # DAO 설정
+	// --------------------------------------------------------------------------
+	@Resource(name="adminQAAdviceDao")
+	private AdminQAAdviceDao adminQAAdviceDao;
+	
+	@Resource(name="mobileJoinDao")
+	private MobileJoinDao mobileJoinDao;
+	
+	/**
+	 * <pre>
+	 * 상담관리 리스트 조회
+	 * 
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 21. 오후 2:03:43
+	 * @author J.K.CHOI
+	 * @see @see com.ssocio.sharing.service.admin.AdminQAAdviceService#selectListQAAdvice(java.util.Map)
+	 * @비고
+	 * 
+	 * </pre>
+	 */
+	@Override
+	public ModelMap selectListQAAdvice(Map<String, Object> inParam) throws Exception{
+		ModelMap mm = new ModelMap();
+		try {
+			if(inParam.get("S_START_DATE") == null || ("S_START_DATE").equals(inParam.get("S_START_DATE"))) inParam.put("S_START_DATE", StringUtil.getCurrentDate());
+			if(inParam.get("S_END_DATE") == null || ("S_END_DATE").equals(inParam.get("S_END_DATE"))) inParam.put("S_END_DATE", StringUtil.getCurrentDate());
+			
+			inParam.put("PAGE_NO", StringUtil.nvl((String)inParam.get("PAGE_NO"), "1"));
+			int nowPage = StringUtil.nvlInt((String)inParam.get("PAGE_NO"), 1);
+			int rowCnt	= StringUtil.nvlInt((String)inParam.get("DISPLAY_CNT"), CmmnCnst.ADM_LIST_SIZE);
+			int rowTotal = adminQAAdviceDao.selectListQAAdviceCount(inParam);
+			
+			PageNavigation pageNav= new PageNavigation(nowPage, rowTotal, rowCnt, CmmnCnst.ADM_BLOCK_SIZE );
+			mm.put("PAGE_NO", nowPage);
+			mm.put("pageNav", pageNav);
+		    inParam.put("START_ROW"	,pageNav.getStartRow());
+		    inParam.put("END_ROW"	,pageNav.getEndRow());
+
+			LoggerUtil.writeMap(inParam);
+			mm.put("selectListQAAdvice",adminQAAdviceDao.selectListQAAdvice(inParam));
+			mm.put("selectStatusCount",adminQAAdviceDao.selectStatusCount(inParam));
+			mm.put("params"	   ,inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+	
+	/**
+	 * <pre>
+	 * 상담관리 상세 조회
+	 * 
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 21. 오후 4:24:44
+	 * @author J.K.CHOI
+	 * @see @see com.ssocio.sharing.service.admin.AdminQAAdviceService#selectQAAdvice(java.util.Map)
+	 * @비고
+	 * 
+	 * </pre>
+	 */
+	@Override
+	public ModelMap selectQAAdvice(Map<String, Object> inParam) throws Exception{
+		ModelMap mm = new ModelMap();
+		try {
+			String[] arryKey = {"CONTENTS","ANS_CONTENTS"};
+			mm.put("selectQAAdvice", CommonUtil.clobToString(adminQAAdviceDao.selectQAAdvice(inParam), arryKey));
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+	
+	/**
+	 * <pre>
+	 * 상담관리 등록
+	 * 
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 21. 오후 3:21:24
+	 * @author J.K.CHOI
+	 * @see @see com.ssocio.sharing.service.admin.AdminQAAdviceService#insertQAAdviceReg(java.util.Map)
+	 * @비고
+	 * 
+	 * </pre>
+	 */
+	@Override
+	public int insertQAAdviceReg(Map<String, Object> inParam, HttpServletRequest request) throws Exception {
+		int outParam = 0;
+		try {
+			HttpSession session = request.getSession();
+			AdminSession sessionVO = (AdminSession)session.getAttribute("manager");
+			inParam.put("WRITE_ID", sessionVO.getADM_ID());
+			inParam.put("WRITE_NM", sessionVO.getADM_NM());
+			LoggerUtil.writeMap(inParam);
+			outParam = adminQAAdviceDao.insertQAAdviceReg(inParam);					//상담관리 등록
+			
+		}catch (Exception e) {
+			throw e;
+		}
+		return outParam;
+	}
+	
+	/**
+	 * <pre>
+	 * 상담관리 수정
+	 * 
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 21. 오후 3:33:26
+	 * @author J.K.CHOI
+	 * @see @see com.ssocio.sharing.service.admin.AdminQAAdviceService#updateQAAdviceReg(java.util.Map)
+	 * @비고
+	 * 
+	 * </pre>
+	 */
+	@Override
+	public int updateQAAdviceReg(Map<String, Object> inParam, HttpServletRequest request) throws Exception {
+		int outParam = 0;
+		
+		Map<String, Object> uParam;
+		
+		try {
+			HttpSession session = request.getSession();
+			AdminSession sessionVO = (AdminSession)session.getAttribute("manager");
+			inParam.put("WRITE_ID", sessionVO.getADM_ID());
+			inParam.put("WRITE_NM", sessionVO.getADM_NM());
+			
+			if("30".equals(inParam.get("ANS_GB_CD").toString())){		//처리완료일때
+				inParam.put("FWRITER_ID", sessionVO.getADM_ID());
+				inParam.put("FWRITER_NM", sessionVO.getADM_NM());
+				
+			}
+			
+			LoggerUtil.writeMap(inParam);
+			
+			outParam = adminQAAdviceDao.updateQAAdviceReg(inParam);		//상담관리 수정
+			
+			// 이메일 전화번호 읽어옴 EMAIL_YN WEMAIL // SMS_YN = WTEL 로 구분하여 처리함. 
+			uParam = adminQAAdviceDao.selectQAAdvice(inParam);
+			
+			if("30".equals(inParam.get("ANS_GB_CD").toString())){		//처리완료일때
+				
+				if(null != uParam.get("EMAIL_YN") && null != uParam.get("WEMAIL")) 
+				{
+					if("Y".equals( uParam.get("EMAIL_YN").toString() ) && uParam.get("WEMAIL").toString().length() > 2 ){
+						logger.debug(" 이메일을 전송 한다" + uParam.get("WEMAIL").toString());
+						Map<String, Object> emailParam = new HashMap<String, Object>();
+						
+						//댓글 이메일 발송
+						String innerHtml = "<html>";
+						emailParam.put("gubun", "join_auth");
+						emailParam.put("from_email", "ssocio@rocomo.com");
+						emailParam.put("from_nm", "SSOCIO");
+						
+						emailParam.put("to_email", uParam.get("WEMAIL").toString() );
+						emailParam.put("to_nm", uParam.get("WEMAIL").toString() );
+						
+						emailParam.put("ishtml", "Y");
+						emailParam.put("subject", "[SSOCIO]고객센터");
+						emailParam.put("msg", innerHtml);
+						emailParam.put("req_site", "www");
+						
+						emailParam.put("tplcode", "BOARD_QUSTION");
+						emailParam.put("seq", inParam.get("BOARD_SEQ") );
+						
+						HttpUrlConnectionUtil hcu = new HttpUrlConnectionUtil();
+					
+						hcu.sendEmail(  mobileJoinDao.selectsiteIFUrl()  , "POST", emailParam );
+					}
+					// send email
+				}
+				if( null != uParam.get("SMS_YN") &&  null !=  uParam.get("WTEL") ) 
+				{
+					if("Y".equals( uParam.get("SMS_YN").toString() ) && uParam.get("WTEL").toString().length() > 2){
+						logger.debug(" SMS 전송 한다" + uParam.get("WTEL").toString());
+						
+						SmsUtil sms = new SmsUtil();
+						WebCommonDao webCommonDao = new WebCommonDao();
+						sms.sendSMS(uParam.get("WTEL").toString() , "18770101" ,  "1:1문의 답변이 등록 되었습니다", webCommonDao);
+						// send sms
+					}
+				
+				}
+			}
+			
+		}catch (Exception e) {
+			e.printStackTrace();
+			throw e;
+		}
+		return outParam;
+	}
+	
+	
+	/**
+	 * <pre>
+	 * 상담관리 삭제
+	 * 
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 21. 오후 3:21:24
+	 * @author J.K.CHOI
+	 * @see @see com.ssocio.sharing.service.admin.AdminQAAdviceService#insertQAAdviceReg(java.util.Map)
+	 * @비고
+	 * 
+	 * </pre>
+	 */
+	@Override
+	public int deleteQAAdvice(Map<String, Object> inParam) throws Exception {
+		int outParam = 0;
+		try {
+			outParam = adminQAAdviceDao.deleteQAAdvice(inParam);					//상담관리 삭제
+			
+		}catch (Exception e) {
+			throw e;
+		}
+		return outParam;
+	}
+	
+	
+	/**
+	 * <pre>
+	 * 주문판매관리
+	 * 주문판매리스트내역을 조회합니다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 7. 10. 오후 6:12:26
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.service.admin
+	 * </pre>
+	 */
+	@Override
+	public ModelMap selectListOrder(Map<String, Object> inParam) throws Exception {
+		logger.debug("AdminOrderServiceImpl.selectListOrder [Start]");
+		ModelMap mm = new ModelMap();
+		try {
+			
+			//페이지번호
+			int nowPage = StringUtil.nvlInt((String)inParam.get("PAGE_NO"), 1);
+			int rowCnt	= StringUtil.nvlInt((String)inParam.get("S_ROW_CNT"), CmmnCnst.ADM_LIST_SIZE);;
+			inParam.put("S_ROW_CNT", rowCnt);
+			
+			String today = StringUtil.getCurrentDate();
+			inParam.put("S_END_DATE", StringUtil.nvl((String)inParam.get("S_END_DATE"), today));
+			
+			SimpleDateFormat format = new SimpleDateFormat("yyyyMMdd");
+			Calendar cal = Calendar.getInstance();
+			cal.add(Calendar.DATE, -7);
+			inParam.put("S_START_DATE", StringUtil.nvl((String)inParam.get("S_START_DATE"), format.format(cal.getTime())));
+			
+			LoggerUtil.writeMap(inParam);
+			
+			int rowTotal = adminQAAdviceDao.selectListOrderCount(inParam); //전체 Row Count
+			PageNavigation pageNav= new PageNavigation(nowPage, rowTotal, rowCnt, CmmnCnst.ADM_BLOCK_SIZE);
+			
+			inParam.put("L_DLV_DATE", today);
+			
+			mm.put("PAGE_NO", nowPage);
+			mm.put("pageNav", pageNav);
+			inParam.put("START_ROW", pageNav.getStartRow());
+			inParam.put("END_ROW", pageNav.getEndRow());
+			
+			mm.put("selectListOrder",adminQAAdviceDao.selectListOrder(inParam));
+//			mm.put("statCnt",adminQAAdviceDao.selectOrdStatCnt(inParam));
+			mm.put("params", inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+	
+	
+	
+	/**
+	 * <pre>
+	 * 상품리스트정보 조회
+	 * 상품리스트정보를 조회 합니다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 7. 8. 오후 4:44:52
+	 * @author Y.I.Chun
+	 * @see com.ssocio.sharing.service.admin
+	 * </pre>
+	 */
+	public ModelMap selectProdList(Map<String, Object> inParam) throws Exception {
+
+		ModelMap mm = new ModelMap();
+		
+
+		
+		//검색총건수
+		int rowTotal = adminQAAdviceDao.selectProdSearchCnt(inParam);
+		
+		//페이지설정
+		int nowPage = StringUtil.nvlInt((String)inParam.get("pageNo"), 1);
+		int rowCnt	= StringUtil.nvlInt((String)inParam.get("displayCnt"), CmmnCnst.ADM_LIST_SIZE);
+		inParam.put("displayCnt", rowCnt);
+		
+		PageNavigation pageNav= new PageNavigation(nowPage, rowTotal, rowCnt, CmmnCnst.ADM_BLOCK_SIZE);
+		mm.put("PAGE_NO", nowPage);
+		mm.put("pageNav", pageNav);
+		inParam.put("START_ROW", pageNav.getStartRow());
+		inParam.put("END_ROW", pageNav.getEndRow());
+			
+		mm.put("prodList", adminQAAdviceDao.selectProdList(inParam));
+		mm.put("searchParam", inParam);
+//		mm.put("prodCnt", adminProdDao.selectProdCnt(inParam));
+		return mm;
+	}
+	
+	
+}

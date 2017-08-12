@@ -1,0 +1,493 @@
+package com.ssocio.sharing.service.admin;
+
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.ui.ModelMap;
+
+import com.ssocio.sharing.cmmn.util.CmmnCnst;
+import com.ssocio.sharing.cmmn.util.LoggerUtil;
+import com.ssocio.sharing.cmmn.util.StringUtil;
+import com.ssocio.sharing.dao.admin.AdminStatisDao;
+import com.ssocio.sharing.vo.admin.PageNavigation;
+
+/**
+ * <pre>
+ * 공통 서비스
+ * 공통 서비스
+ * @author J.K.CHOI
+ * @version
+ * @since 2015. 7. 17. 오후 7:33:23
+ * @see
+ * @History
+ * Date			|	author	| 변경 내용
+ * 2015. 7. 17.	|	J.K.CHOI	|신규
+ * @비고
+ * </pre>
+ */
+@Service
+public class AdminStatisServiceImpl extends AdminReferServiceImpl implements AdminStatisService {
+
+	// --------------------------------------------------------------------------
+	// # Log 설정
+	// --------------------------------------------------------------------------
+	private static final Logger logger = LoggerFactory.getLogger(AdminStatisServiceImpl.class);
+	
+	// --------------------------------------------------------------------------
+	// # DAO 설정
+	// --------------------------------------------------------------------------
+	@Resource(name="adminStatisDao")
+	private AdminStatisDao adminStatisDao;
+
+	
+	/**
+	 * <pre>
+	 * 판매정산 리스트 조회
+	 * 
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 17. 오후 2:03:43
+	 * @author J.K.CHOI
+	 * @see @see com.ssocio.sharing.service.admin.AdminAdjustService#selectListAdjust(java.util.Map)
+	 * @비고
+	 * 
+	 * </pre>
+	 */
+	@Override
+	public ModelMap selectListAdjust(Map<String, Object> inParam) throws Exception{
+		ModelMap mm = new ModelMap();
+		try {
+			//조회조건 기간 처리 start
+			Calendar now = Calendar.getInstance();
+	        String curYear = String.valueOf(now.get(Calendar.YEAR));
+	        int month = now.get(Calendar.MONTH) + 1;
+	        String curMonth = month < 10 ? "0" + month : String.valueOf(month);
+			String S_YR_MON = curYear + curMonth;
+			String E_YR_MON = curYear + curMonth;
+			
+			if(inParam.get("syr") != null){	
+				S_YR_MON = inParam.get("syr").toString() + inParam.get("smon").toString();
+				E_YR_MON = inParam.get("eyr").toString() + inParam.get("emon").toString();
+			}else{
+				inParam.put("syr", curYear);
+				inParam.put("smon", curMonth);
+				inParam.put("eyr", curYear);
+				inParam.put("emon", curMonth);
+			}
+			inParam.put("S_YR_MON", S_YR_MON);
+			inParam.put("E_YR_MON", E_YR_MON);
+			//조회조건 기간 처리 end
+			
+			//페이징처리 start
+			inParam.put("PAGE_NO", StringUtil.nvl((String)inParam.get("PAGE_NO"), "1"));
+			int nowPage = StringUtil.nvlInt((String)inParam.get("PAGE_NO"), 1);
+			int rowTotal = adminStatisDao.selectListAdjustCount(inParam);
+			
+			PageNavigation pageNav= new PageNavigation(nowPage, rowTotal, CmmnCnst.ADM_LIST_SIZE, CmmnCnst.ADM_BLOCK_SIZE );
+			mm.put("PAGE_NO", nowPage);
+			mm.put("pageNav", pageNav);
+		    inParam.put("START_ROW"	,pageNav.getStartRow());
+		    inParam.put("END_ROW"	,pageNav.getEndRow());
+		    //페이징처리 end
+			
+			LoggerUtil.writeMap(inParam);
+			mm.put("selectListAdjust",adminStatisDao.selectListAdjust(inParam));
+			mm.put("params", inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+	
+	/**
+	 * <pre>
+	 * 판매정산 상세 리스트 조회
+	 * 
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 17. 오후 4:24:44
+	 * @author J.K.CHOI
+	 * @see @see com.ssocio.sharing.service.admin.AdminAdjustService#selectAdjust(java.util.Map)
+	 * @비고
+	 * 
+	 * </pre>
+	 */
+	@Override
+	public ModelMap selectDtlListAdjust(Map<String, Object> inParam) throws Exception{
+		ModelMap mm = new ModelMap();
+		try {
+			//페이징처리 start
+			inParam.put("PAGE_NO", StringUtil.nvl((String)inParam.get("PAGE_NO"), "1"));
+			int nowPage = StringUtil.nvlInt((String)inParam.get("PAGE_NO"), 1);
+			int rowTotal = adminStatisDao.selectDtlListAdjustCount(inParam);
+			
+			PageNavigation pageNav= new PageNavigation(nowPage, rowTotal, CmmnCnst.ADM_LIST_SIZE, CmmnCnst.ADM_BLOCK_SIZE );
+			mm.put("PAGE_NO", nowPage);
+			mm.put("pageNav", pageNav);
+		    inParam.put("START_ROW"	,pageNav.getStartRow());
+		    inParam.put("END_ROW"	,pageNav.getEndRow());
+		    //페이징처리 end
+		    
+			inParam.put("S_YR_MON", inParam.get("syr").toString() + inParam.get("smon").toString() );
+			inParam.put("E_YR_MON", inParam.get("eyr").toString() + inParam.get("emon").toString());
+			
+			LoggerUtil.writeMap(inParam);
+			mm.put("selectDtlListAdjust",adminStatisDao.selectDtlListAdjust(inParam));
+			mm.put("selectAdjust",adminStatisDao.selectAdjust(inParam));
+			mm.put("params"	   ,inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+
+	@Override
+	public ModelMap selectAccStatis(Map<String, Object> inParam) throws Exception {
+		ModelMap modelMap = new ModelMap();
+		try {
+			modelMap.put("selectTotalAccStatis",adminStatisDao.selectTotalAccStatis());
+			modelMap.put("selectAccStatis",adminStatisDao.selectAccStatis(inParam));
+			modelMap.put("params"	   ,inParam);
+			
+			List<String> mw_acc_cnt = new ArrayList<String>();
+			List<String> ma_acc_cnt = new ArrayList<String>();
+			List<String> pw_acc_cnt = new ArrayList<String>();
+			for(Map<String, Object> m : (List<Map<String, Object>>)modelMap.get("selectAccStatis")){
+				logger.debug("MW_ACC_CNT : " + m.get("MW_ACC_CNT"));
+				if(m.get("TIME") != null ){
+					mw_acc_cnt.add(String.valueOf(m.get("MW_ACC_CNT")));
+					ma_acc_cnt.add(String.valueOf(m.get("MA_ACC_CNT")));
+					pw_acc_cnt.add(String.valueOf(m.get("PW_ACC_CNT")));
+				}
+			}
+			
+			modelMap.put("mw_acc_cnt", mw_acc_cnt);
+			modelMap.put("ma_acc_cnt", ma_acc_cnt);
+			modelMap.put("pw_acc_cnt", pw_acc_cnt);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return modelMap;
+	}
+
+	@Override
+	public ModelMap selectAccMonthStatis(Map<String, Object> inParam) throws Exception {
+		ModelMap modelMap = new ModelMap();
+		try {
+			modelMap.put("selectTotalAccStatis",adminStatisDao.selectTotalAccStatis());
+			modelMap.put("selectAccMonthStatis",adminStatisDao.selectAccMonthStatis(inParam));
+			modelMap.put("params"	   ,inParam);
+			
+			List<String> mw_acc_cnt = new ArrayList<String>();
+			List<String> ma_acc_cnt = new ArrayList<String>();
+			List<String> pw_acc_cnt = new ArrayList<String>();
+			String date = "[";
+			for(Map<String, Object> m : (List<Map<String, Object>>)modelMap.get("selectAccMonthStatis")){
+				logger.debug("MW_ACC_CNT : " + m.get("MW_ACC_CNT"));
+				if(m.get("YMD") != null ){
+					
+					date += String.valueOf(m.get("DAY")) + ",";
+					mw_acc_cnt.add(String.valueOf(m.get("MW_ACC_CNT")));
+					ma_acc_cnt.add(String.valueOf(m.get("MA_ACC_CNT")));
+					pw_acc_cnt.add(String.valueOf(m.get("PW_ACC_CNT")));
+				}
+			}
+			
+			date = date.substring(0, date.lastIndexOf(","));
+			date += "]";
+			
+			logger.debug("date : " + date);
+			
+			modelMap.put("date", date);
+			modelMap.put("mw_acc_cnt", mw_acc_cnt);
+			modelMap.put("ma_acc_cnt", ma_acc_cnt);
+			modelMap.put("pw_acc_cnt", pw_acc_cnt);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return modelMap;
+	}
+
+	@Override
+	public ModelMap selectAccWeekStatis(Map<String, Object> inParam) throws Exception {
+		ModelMap modelMap = new ModelMap();
+		try {
+			modelMap.put("selectTotalAccStatis",adminStatisDao.selectTotalAccStatis());
+			modelMap.put("selectAccWeekStatis",adminStatisDao.selectAccWeekStatis(inParam));
+			modelMap.put("params"	   ,inParam);
+			
+			List<String> mw_acc_cnt = new ArrayList<String>();
+			List<String> ma_acc_cnt = new ArrayList<String>();
+			List<String> pw_acc_cnt = new ArrayList<String>();
+			for(Map<String, Object> m : (List<Map<String, Object>>)modelMap.get("selectAccWeekStatis")){
+				logger.debug("MW_ACC_CNT : " + m.get("MW_ACC_CNT"));
+				if(m.get("YMD") != null ){
+					logger.debug(m.get("MW_ACC_CNT") + "dddddd");
+					mw_acc_cnt.add(String.valueOf(m.get("MW_ACC_CNT")));
+					ma_acc_cnt.add(String.valueOf(m.get("MA_ACC_CNT")));
+					pw_acc_cnt.add(String.valueOf(m.get("PW_ACC_CNT")));
+				}
+			}
+			
+			modelMap.put("mw_acc_cnt", mw_acc_cnt);
+			modelMap.put("ma_acc_cnt", ma_acc_cnt);
+			modelMap.put("pw_acc_cnt", pw_acc_cnt);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return modelMap;
+	}
+
+	@Override
+	public ModelMap selectMenuStatis(Map<String, Object> inParam) throws Exception {
+		ModelMap modelMap = new ModelMap();
+		try {
+			modelMap.put("selectMenuStatis",adminStatisDao.selectMenuStatis(inParam));
+			modelMap.put("params"	   ,inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return modelMap;
+	}
+	
+	@Override
+	public ModelMap selectMenuWeekStatis(Map<String, Object> inParam) throws Exception {
+		ModelMap modelMap = new ModelMap();
+		try {
+			modelMap.put("selectMenuWeekStatis",adminStatisDao.selectMenuWeekStatis(inParam));
+			modelMap.put("params"	   ,inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return modelMap;
+	}
+
+	@Override
+	public ModelMap selectMenuMonthStatis(Map<String, Object> inParam) throws Exception {
+		ModelMap modelMap = new ModelMap();
+		try {
+			modelMap.put("selectMenuMonthStatis",adminStatisDao.selectMenuMonthStatis(inParam));
+			modelMap.put("params"	   ,inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return modelMap;
+	}
+	
+	@Override
+	public ModelMap selectSignupStatis(Map<String, Object> inParam) throws Exception {
+		ModelMap modelMap = new ModelMap();
+		try {
+			modelMap.put("selectTotalAccStatis",adminStatisDao.selectTotalAccStatis());
+			modelMap.put("selectSignupStatis",adminStatisDao.selectSignupStatis(inParam));
+			modelMap.put("params"	   ,inParam);
+			
+			List<String> mw_sgn_o_cnt = new ArrayList<String>();
+			List<String> mw_sgn_s_cnt = new ArrayList<String>();
+			List<String> ma_sgn_o_cnt = new ArrayList<String>();
+			List<String> ma_sgn_s_cnt = new ArrayList<String>();
+			List<String> pw_sgn_o_cnt = new ArrayList<String>();
+			List<String> pw_sgn_s_cnt = new ArrayList<String>();
+			for(Map<String, Object> m : (List<Map<String, Object>>)modelMap.get("selectSignupStatis")){
+				logger.debug("MW_ACC_CNT : " + m.get("MW_ACC_CNT"));
+				if(m.get("TIME") != null ){
+					mw_sgn_o_cnt.add(String.valueOf(m.get("MW_SGN_O_CNT")));
+					mw_sgn_s_cnt.add(String.valueOf(m.get("MW_SGN_S_CNT")));
+					ma_sgn_o_cnt.add(String.valueOf(m.get("MA_SGN_O_CNT")));
+					ma_sgn_s_cnt.add(String.valueOf(m.get("MA_SGN_S_CNT")));
+					pw_sgn_o_cnt.add(String.valueOf(m.get("PW_SGN_O_CNT")));
+					pw_sgn_s_cnt.add(String.valueOf(m.get("PW_SGN_S_CNT")));
+				}
+			}
+			
+			modelMap.put("mw_sgn_o_cnt", mw_sgn_o_cnt);
+			modelMap.put("mw_sgn_s_cnt", mw_sgn_s_cnt);
+			modelMap.put("ma_sgn_o_cnt", ma_sgn_o_cnt);
+			modelMap.put("ma_sgn_s_cnt", ma_sgn_s_cnt);
+			modelMap.put("pw_sgn_o_cnt", pw_sgn_o_cnt);
+			modelMap.put("pw_sgn_s_cnt", pw_sgn_s_cnt);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return modelMap;
+	}
+
+	@Override
+	public ModelMap selectSignupWeekStatis(Map<String, Object> inParam) throws Exception {
+		ModelMap modelMap = new ModelMap();
+		try {
+			modelMap.put("selectTotalAccStatis",adminStatisDao.selectTotalAccStatis());
+			modelMap.put("selectSignupWeekStatis",adminStatisDao.selectSignupWeekStatis(inParam));
+			modelMap.put("params"	   ,inParam);
+			
+			List<String> mw_sgn_o_cnt = new ArrayList<String>();
+			List<String> mw_sgn_s_cnt = new ArrayList<String>();
+			List<String> ma_sgn_o_cnt = new ArrayList<String>();
+			List<String> ma_sgn_s_cnt = new ArrayList<String>();
+			List<String> pw_sgn_o_cnt = new ArrayList<String>();
+			List<String> pw_sgn_s_cnt = new ArrayList<String>();
+			for(Map<String, Object> m : (List<Map<String, Object>>)modelMap.get("selectSignupWeekStatis")){
+				logger.debug("MW_ACC_CNT : " + m.get("MW_ACC_CNT"));
+				if(m.get("YMD") != null ){
+					mw_sgn_o_cnt.add(String.valueOf(m.get("MW_SGN_O_CNT")));
+					mw_sgn_s_cnt.add(String.valueOf(m.get("MW_SGN_S_CNT")));
+					ma_sgn_o_cnt.add(String.valueOf(m.get("MA_SGN_O_CNT")));
+					ma_sgn_s_cnt.add(String.valueOf(m.get("MA_SGN_S_CNT")));
+					pw_sgn_o_cnt.add(String.valueOf(m.get("PW_SGN_O_CNT")));
+					pw_sgn_s_cnt.add(String.valueOf(m.get("PW_SGN_S_CNT")));
+				}
+			}
+			
+			modelMap.put("mw_sgn_o_cnt", mw_sgn_o_cnt);
+			modelMap.put("mw_sgn_s_cnt", mw_sgn_s_cnt);
+			modelMap.put("ma_sgn_o_cnt", ma_sgn_o_cnt);
+			modelMap.put("ma_sgn_s_cnt", ma_sgn_s_cnt);
+			modelMap.put("pw_sgn_o_cnt", pw_sgn_o_cnt);
+			modelMap.put("pw_sgn_s_cnt", pw_sgn_s_cnt);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return modelMap;
+	}
+
+	@Override
+	public ModelMap selectSignupMonthStatis(Map<String, Object> inParam) throws Exception {
+		ModelMap modelMap = new ModelMap();
+		try {
+			modelMap.put("selectTotalAccStatis",adminStatisDao.selectTotalAccStatis());
+			modelMap.put("selectSignupMonthStatis",adminStatisDao.selectSignupMonthStatis(inParam));
+			modelMap.put("params"	   ,inParam);
+			
+			List<String> mw_sgn_o_cnt = new ArrayList<String>();
+			List<String> mw_sgn_s_cnt = new ArrayList<String>();
+			List<String> ma_sgn_o_cnt = new ArrayList<String>();
+			List<String> ma_sgn_s_cnt = new ArrayList<String>();
+			List<String> pw_sgn_o_cnt = new ArrayList<String>();
+			List<String> pw_sgn_s_cnt = new ArrayList<String>();
+			for(Map<String, Object> m : (List<Map<String, Object>>)modelMap.get("selectSignupMonthStatis")){
+				logger.debug("MW_ACC_CNT : " + m.get("MW_ACC_CNT"));
+				if(m.get("YMD") != null ){
+					mw_sgn_o_cnt.add(String.valueOf(m.get("MW_SGN_O_CNT")));
+					mw_sgn_s_cnt.add(String.valueOf(m.get("MW_SGN_S_CNT")));
+					ma_sgn_o_cnt.add(String.valueOf(m.get("MA_SGN_O_CNT")));
+					ma_sgn_s_cnt.add(String.valueOf(m.get("MA_SGN_S_CNT")));
+					pw_sgn_o_cnt.add(String.valueOf(m.get("PW_SGN_O_CNT")));
+					pw_sgn_s_cnt.add(String.valueOf(m.get("PW_SGN_S_CNT")));
+				}
+			}
+			
+			modelMap.put("mw_sgn_o_cnt", mw_sgn_o_cnt);
+			modelMap.put("mw_sgn_s_cnt", mw_sgn_s_cnt);
+			modelMap.put("ma_sgn_o_cnt", ma_sgn_o_cnt);
+			modelMap.put("ma_sgn_s_cnt", ma_sgn_s_cnt);
+			modelMap.put("pw_sgn_o_cnt", pw_sgn_o_cnt);
+			modelMap.put("pw_sgn_s_cnt", pw_sgn_s_cnt);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return modelMap;
+	}
+	
+	@Override
+	public ModelMap insertStatisDate(Map<String, Object> inParam) throws Exception {
+		ModelMap modelMap = new ModelMap();
+		try {
+			// 4년치 넣기
+			for (int i = 0; i < (365 *4) + 1; i++) {
+				inParam.put("plus", i);
+				logger.debug("plus : " + inParam.get("plus"));
+				adminStatisDao.insertStatisDate(inParam);
+			}
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return modelMap;
+	}
+
+	@Override
+	public ModelMap insertStatisDateOra(Map<String, Object> inParam) throws Exception {
+		ModelMap modelMap = new ModelMap();
+		try {
+			// 4년치 넣기
+			for (int i = 0; i < (365 *4) + 1; i++) {
+				inParam.put("plus", i);
+				logger.debug("plus : " + inParam.get("plus"));
+				adminStatisDao.insertStatisDateOra(inParam);
+			}
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return modelMap;
+	}
+
+	@Override
+	public ModelMap listStatisToExcel(Map<String, Object> inParam) throws Exception {
+		ModelMap modelMap = new ModelMap();
+		try {
+			modelMap.put("selectTotalAccStatis",adminStatisDao.selectTotalAccStatis());
+			modelMap.put("selectSignupMonthStatis",adminStatisDao.selectSignupMonthStatis(inParam));
+			modelMap.put("params"	   ,inParam);
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return modelMap;
+	}
+
+	@Override
+	public List<Map<String, Object>> selectAccStatisToExcel(Map<String, Object> inParam) throws Exception {
+		try {
+			//조회조건 기간 처리 start
+			Calendar now = Calendar.getInstance();
+			String curYear = String.valueOf(now.get(Calendar.YEAR));
+			int month = now.get(Calendar.MONTH) + 1;
+			String curMonth = month < 10 ? "0" + month : String.valueOf(month);
+			String S_YR_MON = curYear + curMonth;
+			String E_YR_MON = curYear + curMonth;
+			
+			if(inParam.get("syr") != null){	
+				S_YR_MON = inParam.get("syr").toString() + inParam.get("smon").toString();
+				E_YR_MON = inParam.get("eyr").toString() + inParam.get("emon").toString();
+			}else{
+				inParam.put("syr", curYear);
+				inParam.put("smon", curMonth);
+				inParam.put("eyr", curYear);
+				inParam.put("emon", curMonth);
+			}
+			inParam.put("S_YR_MON", S_YR_MON);
+			inParam.put("E_YR_MON", E_YR_MON);
+			//조회조건 기간 처리 end
+			
+			LoggerUtil.writeMap(inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return adminStatisDao.selectAccStatis(inParam);
+	}
+
+}

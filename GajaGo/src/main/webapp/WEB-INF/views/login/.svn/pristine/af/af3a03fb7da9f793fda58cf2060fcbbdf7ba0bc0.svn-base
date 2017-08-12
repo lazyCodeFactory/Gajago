@@ -1,0 +1,604 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/web/common/cmmnHead.jsp"%>
+<script type="text/javascript">
+$(document).ready(function(){
+	
+	header.type	= 3;	// ( 0 : 타이틀영역만존재, 1 : 검색HEADER, 2 : SELECT TYPE HEADER, 3 : AD MENU TYPE HEADER, 4 : SUB TYPE HEADER )
+	header.title = "관심상품";  	document.title="관심상품";
+	header.method = "GET";    
+	header.backUrl = "/mobile/myPage/getMyPageInfo.do";
+	header.form = '';	// $("#form");
+	header.callback = headerEvent;	
+	initHeader();
+	imgThombHeightResize();
+	$(".btn_r").on("click", function(){
+		header.callback("btn_plus");
+	});
+});
+  
+headerEvent = function(){
+	location.href='/mobile/wish/wishTag.do';  
+};
+
+$(window).scroll(function(){
+	if( $(window).scrollTop() == $(document).height() - $(window).height()){
+		var LAST_SEQ = $("#LAST_SEQ").val();
+		if(0 == (LAST_SEQ % 20) ){
+// 			console.log("tagName : "+$("#tagName").val());
+			if($("#tagName").val() == ''){
+				pageScroll();
+			}else{
+				tagPageScroll();
+			}
+		}
+	}
+});
+
+
+
+/*
+ * 스크롤 시 조회
+ */  
+ pageScroll = function () {
+		// 페이지
+		var FIRST_SEQ = $("#FIRST_SEQ").val();
+		var LAST_SEQ = $("#LAST_SEQ").val();
+// 		alert($('#FIRST_SEQ').val() + " , " + $('#LAST_SEQ').val());
+		$.ajax({
+		    type: 'post'
+		    , url: '/mobile/wish/InterestProdPage.do'
+		    , data: {
+		    		"FIRST_SEQ"	: FIRST_SEQ,
+		    		"LAST_SEQ"	: LAST_SEQ
+		    }, 
+		    success: function(result) {
+		    	var FIRST_SEQ = $("#FIRST_SEQ").val();
+		    	$("#FIRST_SEQ").val( parseInt(FIRST_SEQ)+20);
+		    	var LAST_SEQ = $("#LAST_SEQ").val();
+		    	$("#LAST_SEQ").val(parseInt(LAST_SEQ)+20);
+// 		    	alert($('#FIRST_SEQ').val() + " , " + $('#LAST_SEQ').val());
+		    	var innerH = $("#wishUl");
+		    	var htmlI = '';
+		    	for(var c=0;c<result.result.length;c++){
+		    		htmlI += "<li class='type02'>";
+		    		if(result.result[c].PROD_TYPE_CD != '4'){
+			    		htmlI +=	"	<a href=\"javascript:location.href=\'/mobile/prod/selectProd.do?PROD_CODE="+result.result[c].PROD_CODE+"\'\">  ";
+			    		htmlI +=	"	<p class='thomb'>";
+			    		htmlI +=	"		<img src='<custom:codeTag code='DEFAULT_IMG_URL' groupCode='SITE_DEFAULT' />' alt=\""+result.result[c].PROD_IMG_URL+"\" >";
+			    		htmlI +=	"	</p> ";
+		    		}
+					if(result.result[c].PROD_TYPE_CD == '4'){
+			    		htmlI += 	"	<p class='thomb' onclick='goDtl("+result.result[c].PROD_CODE+")\'>";
+			    		htmlI +=	"		<img src='<custom:codeTag code='DEFAULT_IMG_URL' groupCode='SITE_DEFAULT' />' alt=\""+result.result[c].FILE_URL+"\" >";
+			    		htmlI +=	"	</p> ";
+					}
+					
+					if(result.result[c].PROD_TYPE_CD == '2'){
+						html += "<p class='sharing'><img src='http://static.ssocio.net/web/images/main/label_sharing.png' alt='쉐어링'></p>";
+					}
+		    			htmlI +=	"<div class='label'>";
+		    		if(result.result[c].CPON_APPLY_PSBL_YN == 'Y'){
+		    			htmlI +=	"		<p><img src='http://static.ssocio.net/web/images/main/label_coupon.png' alt='쿠폰할인' ></p>";
+		    		}
+    				if(result.result[c].DLV_PAY_GB_CD == '1'){
+		    			htmlI +=	"		<p><img src='http://static.ssocio.net/web/images/main/label_delivery.png' alt='무료배송' ></p>";
+    				}
+    				if(result.result[c].DLV_WAY_CD == '5'){
+    					htmlI +=	"		<p></p>";
+    				}
+			    		htmlI +=	"</div>";
+			    		htmlI +=	"<div class='subs'>";
+			    		htmlI +=	"	<p class='subj'>"+result.result[c].PROD_NM+"<br>";
+			    		htmlI +=	"	</p>";
+			    		htmlI +=	"	<div class='clear'> "; 
+			    		htmlI +=	"		<strong class='fl tr'>  ";   
+		    		if(result.result[c].PROD_TYPE_CD == '1'){
+		    			if(result.result[c].SELL_PRCE < result.result[c].NRM_PRCE){
+		    				htmlI +=	""+result.result[c].PERCENT+"%  ";
+		    			}
+		    		}
+		    			htmlI +=	"		</strong>    ";
+			    		if(result.result[c].PROD_TYPE_CD == '1'){
+			    			htmlI +=	"				  	<p class='fr tr'>  ";
+				    		if(result.result[c].NRM_PRCE == result.result[c].SELL_PRCE){
+					    		htmlI +=	"				  			<span></span><br>";
+					    		htmlI +=	"							<strong>"+commify(result.result[c].SELL_PRCE)+"원</strong>";
+				    		}
+				    		if(result.result[c].NRM_PRCE != result.result[c].SELL_PRCE){
+					    		htmlI +=	"				  			  <span>"+commify(result.result[c].NRM_PRCE)+"원</span><br>";
+					    		htmlI +=	"							<strong>"+commify(result.result[c].SELL_PRCE)+"원</strong>";
+				    		}
+				    			htmlI +=	"					</p>";
+			    		}
+						if(result.result[c].PROD_TYPE_CD == '2'){
+							if(result.result[c].SHARING_PRICE != ''){
+					    		htmlI +=	"						<p class='tr'>";  
+					    		htmlI +=	"							<br/>";
+					    		htmlI +=	"							<strong>"+commify(result.result[c].DEPOSIT)+"원</strong><span>(일 "+commify(result.result[c].SHARING_PRICE)+"원)</span>";
+					    		htmlI +=	"						</p>";
+							}
+				    		if(result.result[c].SHARING_PRICE == ''){
+					    		htmlI +=	"						<p class='tr'>";  
+					    		htmlI +=	"							<br/>";
+					    		htmlI +=	"							<strong>"+commify(result.result[c].DEPOSIT)+"0원</strong><span>(1일 "+commify(result.result[c].SHARING_PRICE)+"0원)</span>";
+					    		htmlI +=	"						</p>";
+				    		}
+				    		
+						}
+				    	if(result.result[c].PROD_TYPE_CD == '4'){
+					    		htmlI +=	"					<p class='tr'>  ";
+					    		htmlI +=	"						<span></span><br/>";
+					    		if(result.result[c].SP_SHARING_PRICE != null){
+					    			htmlI +=	"				<strong>월 "+commify(result.result[c].SHARING_PRICE)+"원</strong>";
+					    		}
+					    		htmlI +=	"					</p>";
+				    	}
+			    		htmlI +=	"	</div>";
+			    		htmlI +=	" </div>";
+			    		htmlI += "</a></li> ";
+		    	}
+		    	
+		    	innerH.append(htmlI); 
+		    	cdnreload();
+		    	imgThombHeightResize();
+		    }, 
+		    error: function(data, status, err) {
+		      alert('서버와의 통신이 실패했습니다.');
+		    }
+		});
+	};
+	
+	tagPageScroll = function () {
+// 		$('#tagName').attr('value',tagName);
+		// 페이지
+		var FIRST_SEQ = $("#FIRST_SEQ").val();
+		var LAST_SEQ = $("#LAST_SEQ").val();
+		var TAG = $("#tagName").val();
+// 		console.log("dddddddddddddd "+TAG);
+// 		alert($('#FIRST_SEQ').val() + " , " + $('#LAST_SEQ').val());
+		$.ajax({
+		    type: 'post'
+		    , async: true
+		    , url: '/mobile/wish/tagNameSelectProdPage.do'
+		    , data: {
+		    		"FIRST_SEQ"	: FIRST_SEQ,
+		    		"LAST_SEQ"	: LAST_SEQ,
+		    		"tagName"	: TAG
+		    }, 
+		    success: function(data) {
+		    	var FIRST_SEQ = $("#FIRST_SEQ").val();
+		    	$("#FIRST_SEQ").val( parseInt(FIRST_SEQ)+20);
+		    	var LAST_SEQ = $("#LAST_SEQ").val();
+		    	$("#LAST_SEQ").val(parseInt(LAST_SEQ)+20);
+		    	$("#tagName").val(TAG);
+// 		    	alert($('#FIRST_SEQ').val() + " , " + $('#LAST_SEQ').val());
+		    	var innerH = $("#wishUl");
+		    	var html = '';
+// 		    	console.log("ccc " + data.result.wishList.length);
+				if(data.result.wishList.length > 0){
+		    		
+			    	var wishList = data.result.wishList;
+		    		// 상품이 존재하는 경우
+			    	for(var i=0; i < wishList.length; i++){
+			    		
+			    		 if(wishList[i].PROD_TYPE_CD == 4){
+			        	 	html += "<li class='type02'>";
+			        	 	html += "	<p class='thomb' onclick='goDtl("+wishList[i].PROD_CODE+")\'>";
+			    		 }else{                                  
+			    			html += "<li class='type02'><a href=\"javascript:location.href=\'/mobile/prod/selectProd.do?PROD_CODE="+wishList[i].PROD_CODE+"\'\">  ";
+			    			html += "<p class='thomb'>";
+			    		 }	 
+		        		 if(wishList[i].PROD_TYPE_CD == 4){
+		        			 html += "		<img src='<custom:codeTag code='DEFAULT_IMG_URL' groupCode='SITE_DEFAULT' />' alt=\""+wishList[i].FILE_URL+"\" >";
+		        		 }else{
+		        			 html += "		<img src='<custom:codeTag code='DEFAULT_IMG_URL' groupCode='SITE_DEFAULT' />' alt=\""+wishList[i].PROD_IMG_URL+"\" >";
+		        		 }
+		        		 html += "</p>";
+		        		 
+		        		 if(wishList[i].PROD_TYPE_CD == '2'){
+								html += "<p class='sharing'><img src='http://static.ssocio.net/web/images/main/label_sharing.png' alt='쉐어링'></p>";
+							}
+		        		 
+		        		 html += "<div class='label'>";
+		        		 // 쿠폰
+		        		 if(wishList[i].CPON_APPLY_PSBL_YN == 'Y'){
+		        			 html +=	"<p><img src='http://static.ssocio.net/web/images/main/label_coupon.png' alt='쿠폰할인' ></p>"; 
+		        		 }
+		        		 // 무료배송
+		        		 if(wishList[i].DLV_PAY_GB_CD  == 1){
+		        			 html +=	"<p><img src='http://static.ssocio.net/web/images/main/label_delivery.png' alt='무료배송' ></p>";
+		        		 }
+		        		 if(wishList[i].DLV_WAY_CD  == 5){
+		        			 html +=	"<p></p>";
+		        		 }
+		        		  html += "</div>";
+		        		  html += "<div class='subs'>";
+		        		  html += "<p class='subj'>"+wishList[i].PROD_NM+"<br></p>";
+		        		  html += "<div class='clear'>";
+		        		 
+		        		 // 판매상품인 경우	
+		        		 if(wishList[i].PROD_TYPE_CD == 1){
+						 	if(wishList[i].PERCENT  > 0){
+						 		html += "<strong class='fl tr'>"+wishList[i].PERCENT+"%</strong>";
+						 	} 
+		        		 
+		        			 html += "<p class='fr tr'>";
+		        		 	if(wishList[i].NRM_PRCE == wishList[i].SELL_PRCE || wishList[i].NRM_PRCE < 1){
+		        		 		// 정상가와 판매가가 같은 경우
+		        		 		html	+= "<span></span><br>";
+		        		 		html	+= "<strong>"+commify(wishList[i].SELL_PRCE)+"원</strong>";
+		        		 	}else{
+		        		 		html	+= "<span>"+wishList[i].NRM_PRCE+"</span><br>";
+		        		 		html	+= "<strong>"+commify(wishList[i].SELL_PRCE)+"원</strong>";
+		        		 	}
+		        		   
+		        		 	html += "<p/>";	 
+		        		 }
+		        		 
+		        		 if(wishList[i].PROD_TYPE_CD == '2'){
+								if(wishList[i].SHARING_PRICE != ''){
+						    		htmlI +=	"						<p class='tr'>";  
+						    		htmlI +=	"							<br/>";
+						    		htmlI +=	"							<strong>"+commify(wishList[i].DEPOSIT)+"원</strong><span>(일 "+commify(wishList[i].SHARING_PRICE)+"원)</span>";
+						    		htmlI +=	"						</p>";
+								}
+					    		if(wishList[i].SHARING_PRICE == ''){
+						    		htmlI +=	"						<p class='tr'>";  
+						    		htmlI +=	"							<br/>";
+						    		htmlI +=	"							<strong>"+commify(wishList[i].DEPOSIT)+"0원</strong><span>(1일 "+commify(wishList[i].SHARING_PRICE)+"0원)</span>";
+						    		htmlI +=	"						</p>";
+					    		}
+					    		
+							}
+		        		 
+		        		 if(wishList[i].PROD_TYPE_CD == 4){
+							 	
+		        			html += "<p class='fr tr'>";
+		        		 	html	+= "<span></span><br>";
+		        		 	if(wishList[i].SP_SHARING_PRICE != null ){
+		        		 		html	+= "월 <strong>"+commify(wishList[i].SP_SHARING_PRICE)+"원</strong>";
+		        		 	}
+		        		 	html += "<p/>";	 
+			        	 }
+		        		 
+		        		 html += "</div></div>";
+		        		 html += "</a></li>"; 
+			    	}
+		    	}else{
+		    		// 상품이 없는경우
+		    		html += "<div id='container'>";
+		    		html += "<div class='sha_nodata' style='min-heigh: 100px;'>";
+		    		html +=	"<p>설정한 관심상품이 없습니다.</p>";
+		    		html += "</div>";
+		    		html += "</div>";
+		    	}
+		    	innerH.append(html); 
+		    	cdnreload();
+		    	imgThombHeightResize();
+		    }, 
+		    error: function(data, status, err) {
+		      alert('서버와의 통신이 실패했습니다.');
+		    }
+		});
+	};
+// 태그로 상품검색
+function tagSelect(tagName) {
+	
+	 $('#tagName').attr('value',tagName); 
+	 $('#FIRST_SEQ').val("");
+	 $('#LAST_SEQ').val("");
+// 	console.log("tagName2 "+tagName);
+  	  var url = tagName;
+	   if(url == ''){
+		 location.href='/mobile/wish/InterestProd.do';
+	   }
+	   else{  
+// 		   console.log("tagName3 "+tagName);
+		 url = '/mobile/wish/tagNameSelectProdList.do';    
+	  	 $.ajax({
+		   
+		    type: 'post'
+		    , dataType:'json'
+		    , url: '/mobile/wish/tagNameSelectProdPage.do'
+			, data: $("#prodFrm").serialize()
+		    , success: function(data)   {
+		    	 $('#FIRST_SEQ').val("${params.FIRST_SEQ}");
+		    	 $('#LAST_SEQ').val("${params.LAST_SEQ}");
+		    	var wishList = data.result.wishList;
+// 		    	console.log("fff "+wishList.length);
+		    	var html = '';
+		    	if(data.result.wishList.length > 0){
+		    		
+		    		// 상품이 존재하는 경우
+		    		for(var i=0; i < wishList.length; i++){
+			    		
+			    		 if(wishList[i].PROD_TYPE_CD == 4){
+			        	 	html += "<li class='type02'>";
+			        	 	html += "	<p class='thomb' onclick='goDtl("+wishList[i].PROD_CODE+")\'>";
+			    		 }else{                                  
+			    			html += "<li class='type02'><a href=\"javascript:location.href=\'/mobile/prod/selectProd.do?PROD_CODE="+wishList[i].PROD_CODE+"\'\">  ";
+			    			html += "<p class='thomb'>";
+			    		 }	 
+		        		 if(wishList[i].PROD_TYPE_CD == 4){
+		        			 html += "		<img src='<custom:codeTag code='DEFAULT_IMG_URL' groupCode='SITE_DEFAULT' />' data-img=\""+wishList[i].FILE_URL+"\" >";
+		        		 }else{
+		        			 html += "		<img src='<custom:codeTag code='DEFAULT_IMG_URL' groupCode='SITE_DEFAULT' />' data-img=\""+wishList[i].PROD_IMG_URL+"\" >";
+		        		 }
+		        		 html += "</p>";
+		        		 if(wishList[i].PROD_TYPE_CD == 2){
+		        			 html += "<p class='sharing'><img src='http://static.ssocio.net/web/images/main/label_sharing.png' alt='쉐어링'></p>";	 
+		        		 }
+		        		 	 
+		        		 html += "<div class='label'>";
+		        		 // 쿠폰
+		        		 if(wishList[i].CPON_APPLY_PSBL_YN == 'Y'){
+		        			 html +=	"<p><img src='http://static.ssocio.net/web/images/main/label_coupon.png' alt='쿠폰할인' ></p>"; 
+		        		 }
+		        		 // 무료배송
+		        		 if(wishList[i].DLV_PAY_GB_CD  == 1){
+		        			 html +=	"<p><img src='http://static.ssocio.net/web/images/main/label_delivery.png' alt='무료배송' ></p>";
+		        		 }
+		        		 if(wishList[i].DLV_WAY_CD  == 5){
+		        			 html +=	"<p></p>";
+		        		 }
+		        		  html += "</div>";
+		        		  html += "<div class='subs'>";
+		        		  html += "<p class='subj'>"+wishList[i].PROD_NM+"<br></p>";
+		        		  html += "<div class='clear'>";
+		        		 
+		        		 // 판매상품인 경우	
+		        		 if(wishList[i].PROD_TYPE_CD == 1){
+						 	if(wishList[i].PERCENT  > 0){
+						 		html += "<strong class='fl tr'>"+wishList[i].PERCENT+"%</strong>";
+						 	} 
+		        		 
+		        			 html += "<p class='fr tr'>";
+		        		 	if(wishList[i].NRM_PRCE == wishList[i].SELL_PRCE || wishList[i].NRM_PRCE < 1){
+		        		 		// 정상가와 판매가가 같은 경우
+		        		 		html	+= "<span></span><br>";
+		        		 		html	+= "<strong>"+commify(wishList[i].SELL_PRCE)+"원</strong>";
+		        		 	}else{
+		        		 		html	+= "<span>"+wishList[i].NRM_PRCE+"</span><br>";
+		        		 		html	+= "<strong>"+commify(wishList[i].SELL_PRCE)+"원</strong>";
+		        		 	}
+		        		   
+		        		 	html += "<p/>";	 
+		        		 }
+		        		 
+		        		 if(wishList[i].PROD_TYPE_CD == 2){
+							 	
+		        			 if(wishList[i].SHARING_PRICE  !=  null){
+			        			html += "<p class='fr tr'>";
+			        		 	html	+= "<br>";
+			        		 	html	+= " <strong>"+commify(wishList[i].DEPOSIT)+"원</strong>";
+			        		 	html	+= "<span>(일 "+commify(wishList[i].SHARING_PRICE)+"원)</span>";
+			        		 	html += "<p/>";	 
+			        		 }else{
+			        			 html += "<p class='fr tr'>";
+				        		 	html	+= "<br>";
+				        		 	html	+= " <strong>0원</strong>";
+				        		 	html	+= "<span>(1일 0월)</span>";
+				        		 	html += "<p/>";	 
+			        		 }
+		        			 
+		        		 }
+		        		 if(wishList[i].PROD_TYPE_CD == 4){
+						 	
+		        			html += "<p class='fr tr'>";
+		        		 	html	+= "<span></span><br>";
+		        		 	if(wishList[i].SP_SHARING_PRICE != null){
+		        		 		html	+= "월 <strong>"+commify(wishList[i].SP_SHARING_PRICE)+"원</strong>";
+		        		 	}
+		        		 	html += "<p/>";	 
+		        		 }
+		        		 
+		        		 html += "</div></div>";
+		        		 html += "</a></li>"; 
+			    	}
+		    	}else{
+		    		// 상품이 없는경우
+		    		html += "<div id='container'>";
+		    		html += "<div class='sha_nodata' style='min-heigh: 100px;'>";
+		    		html +=	"<p>설정한 관심상품이 없습니다.</p>";
+		    		html += "</div>";
+		    		html += "</div>";
+		    	}
+		    	$("#wishUl li").remove();
+		    	$("#wishUl").html(html);
+		    	cdnreload();
+		    	imgThombHeightResize();
+		    }
+		    , error: function(data, status, err) {
+		      alert('서버와의 통신이 실패했습니다.');
+		    }
+		});
+	   }
+}     
+
+/*
+ *	콤마처리
+ */
+function commify(n) {
+ 	var reg = /(^[+-]?\d+)(\d{3})/;   // 정규식
+ 	n += '';                          // 숫자를 문자열로 변환
+
+ 	while (reg.test(n))
+   	n = n.replace(reg, '$1' + ',' + '$2');
+
+ 	return n;
+}
+
+function goDtl(code){
+	var form = document.prodFrm;
+	form.PROD_CODE.value = code;
+	form.action = "/mobile/shar/selectSharDtl.do?PROD_CODE="+code;
+	form.submit();
+}
+</script>
+
+
+<!-- S PAGING -->
+<%-- <input type="hidden" id="FIRST_SEQ" name="FIRST_SEQ" value="${params.FIRST_SEQ }" 	/> --%>
+<%-- <input type="hidden" id="LAST_SEQ" 	name="LAST_SEQ" value="${params.LAST_SEQ }" 	/> --%>
+<%-- <input type="hidden" id="params" name="params" value="${tagResult.wishList }" /> --%>
+<%-- <input type="hidden" id="tagName" name="tagName" value="${params.TAG}"/> --%>
+<!-- <input type="hidden" id="PROD_CODE" name="PROD_CODE" value=""/> -->
+<form id="prodFrm" name="prodFrm" method="post"> 
+<input type="hidden" id="FIRST_SEQ" name="FIRST_SEQ" value="${params.FIRST_SEQ }" 	/>
+<input type="hidden" id="LAST_SEQ" 	name="LAST_SEQ" value="${params.LAST_SEQ }" 	/>
+<input type="hidden" id="tagName" name="tagName" value="${params.TAG}"/>
+<input type="hidden" id="PROD_CODE" name="PROD_CODE" value=""/>
+</form>
+
+	<div id="container" style="min-height: 400px;">
+		<div class="sbox05">
+			<select onchange="tagSelect(this.value)">
+				<c:if test="${fn:length(tagResult.wishList) > 0 }">
+					<option value="">전체보기</option>
+					<c:forEach var="result" items="${tagResult.wishList }" varStatus="stat">
+						<option value="${result.TAG }">${result.TAG }</option>   
+					</c:forEach>   
+				</c:if>
+	
+				<c:if test="${fn:length(tagResult.wishList) == 0 }">
+					<option>전체보기</option>
+				</c:if>
+			</select>
+		</div>
+	
+		<!-- 기획전 배너 -->
+		<section class="plan_banner">
+	
+			<!-- 좌우 배너 -->  
+			<c:choose>       
+				<c:when test="${fn:length(tagResult.wishList) > 0 }">
+					<ul class="type-side" id="wishUl">
+						<c:forEach var="wish" items="${result}" varStatus="stat">
+							<li class="type02">
+									<c:if test="${wish.PROD_TYPE_CD ne '4'}" > 
+										<a href="javascript:location.href='/mobile/prod/selectProd.do?PROD_CODE=${wish.PROD_CODE }'"> 
+										<p class="thomb">
+											<img src='<custom:codeTag code="DEFAULT_IMG_URL" groupCode="SITE_DEFAULT" />' data-img="${wish.PROD_IMG_URL }" >
+										</p> 
+									</c:if>
+									<c:if test="${wish.PROD_TYPE_CD eq '4'}" > 
+										<p class="thomb" onclick="goDtl('${wish.PROD_CODE }')">
+											<img src='<custom:codeTag code="DEFAULT_IMG_URL" groupCode="SITE_DEFAULT" />' data-img="${wish.FILE_URL }" >
+										</p> 
+									</c:if>
+									
+									<c:if test="${wish.PROD_TYPE_CD eq '2'}" > 
+										<p class="sharing"><img src="http://static.ssocio.net/web/images/main/label_sharing.png" alt="쉐어링"></p>
+									</c:if>
+									<!-- 라벨 스티커 -->      
+									<%-- 
+									<div class="label">  
+										<c:if test="${wish.CPON_APPLY_PSBL_YN eq 'Y' }">
+											<p>     
+												<img src="http://static.ssocio.net/web/images/main/label_coupon.png" alt="쿠폰할인">
+											</p>
+										</c:if>
+										<p>
+											<img src="http://static.ssocio.net/web/images/main/label_delivery.png"
+												alt="무료배송">
+										</p>
+									</div>
+									 --%>
+									
+									<div class="label">
+										<c:if test="${wish.CPON_APPLY_PSBL_YN eq 'Y'}" >                    
+											<p><img src='http://static.ssocio.net/web/images/main/label_coupon.png' alt="쿠폰할인" ></p>
+										</c:if>                        
+										<c:set var="DLV_PAY_GB_CD" value="${wish.DLV_PAY_GB_CD}"/> 
+										<c:if test="${wish.DLV_PAY_GB_CD eq '1'}" >
+											<p><img src='http://static.ssocio.net/web/images/main/label_delivery.png' alt="무료배송" ></p>
+										</c:if>                        
+										<c:set var="DLV_WAY_CD" value="${wish.DLV_WAY_CD}"/> 
+										<c:if test="${wish.DLV_WAY_CD eq '5'}" >
+											<p></p>
+										</c:if>                        
+									</div>
+									
+									
+									
+									<div class="subs">
+										<p class="subj">${wish.PROD_NM }<br>
+										</p>
+										<div class="clear">  
+											<strong class="fl tr">     
+												<c:if test="${wish.PROD_TYPE_CD eq 1 }">
+													<c:if test="${wish.SELL_PRCE  < wish.NRM_PRCE}">
+													 ${wish.PERCENT }%  
+													</c:if>  
+												</c:if>
+											</strong>    
+												 <c:choose> 
+												   <c:when test="${wish.PROD_TYPE_CD eq 1 }">
+													  	<p class="fr tr">  
+													  		<c:if test="${wish.NRM_PRCE eq wish.SELL_PRCE}">
+													  			<span></span><br>
+																<strong><fmt:formatNumber value="${wish.SELL_PRCE}" pattern="#,###,###" />원</strong>
+													  		</c:if>
+													  		  
+													  		<c:if test="${wish.NRM_PRCE ne wish.SELL_PRCE}">
+<%-- 													  			  <span><fmt:formatNumber value="${wish.NRM_PRCE }" pattern="#,###,###" />0원</span><br> --%>
+<%-- 																<strong><fmt:formatNumber value="${wish.SELL_PRCE}" pattern="#,###,###" />0원</strong> --%>
+													  			  <span><fmt:formatNumber value="${wish.NRM_PRCE }" pattern="#,###,###" />원</span><br>
+																<strong><fmt:formatNumber value="${wish.SELL_PRCE}" pattern="#,###,###" />원</strong>
+													  		</c:if>
+														</p>
+													</c:when>   
+													
+													<c:when test="${wish.PROD_TYPE_CD eq 2 }">
+														<c:if test="${!empty wish.SHARING_PRICE }">
+															<p class="tr">  
+																<br/>
+																<strong><fmt:formatNumber value="${wish.DEPOSIT }" pattern="#,###,###" />원</strong><span>(일 <fmt:formatNumber value="${wish.SHARING_PRICE }" pattern="#,###,###" />원)</span>
+															</p>
+														</c:if>
+														
+														<c:if test="${empty wish.SHARING_PRICE }">
+															<p class="tr">  
+																<br/>
+																<strong><fmt:formatNumber value="${wish.DEPOSIT }" pattern="#,###,###" />0원</strong><span>(1일 <fmt:formatNumber value="${wish.SHARING_PRICE }" pattern="#,###,###" />0원)</span>
+															</p>
+														</c:if>
+													</c:when> 
+													
+													<c:when test="${wish.PROD_TYPE_CD eq 4 }">
+														<p class="tr">  
+															<span></span><br/>
+															<c:if test="${wish.SP_SHARING_PRICE ne null }">
+																<strong>월<fmt:formatNumber value="${wish.SP_SHARING_PRICE }" pattern="#,###,###" />원</strong>
+															</c:if>
+														</p>
+													</c:when>
+													 
+												 </c:choose>    
+										</div>
+									</div>
+							</a></li>   
+						</c:forEach>
+					</ul>
+				</c:when>
+					
+				<c:when test="${fn:length(tagResult.wishList) <= 0 }">
+<!-- 					<div id="container" > -->
+<!-- 						<div class="sha_nodata" > -->
+<!-- 							<p>설정한 관심상품이 없습니다.</p> -->
+<!-- 						</div> -->
+<!-- 						<div class="btn_enter fixed"><a href="#" class="btn_r">관심상품설정</a></div> -->
+<!-- 					</div>    -->
+					<div id="container"  style="max-height:360px; ">
+						<div class="sha_nodata" style="max-height:300px; ">
+							<p>설정한 관심상품이 없습니다.</p>
+						</div>
+						<div class="btn_enter fixed"><a href="#" class="btn_r">관심상품설정</a></div>
+					</div>   
+				</c:when>
+	
+			</c:choose>
+		</section>
+		<!-- //기획전 배너 -->
+	</div>
+

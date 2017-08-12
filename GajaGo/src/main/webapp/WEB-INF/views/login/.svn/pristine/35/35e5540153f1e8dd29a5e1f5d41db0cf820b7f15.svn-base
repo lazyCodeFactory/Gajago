@@ -1,0 +1,262 @@
+<%@ page language="java" contentType="text/html; charset=utf-8"
+    pageEncoding="utf-8"%>
+<!-- 태그는 cmmnHead.jsp 에 선언함 -->
+<%@ include file="/WEB-INF/views/admin/common/cmmnHead.jsp"%>
+
+<script type="text/javascript">
+
+	var msg = '${list.params.message}';
+
+	$(document).ready(function(){
+
+		prod_padding();
+		
+		$('.calendar').datepicker({
+	      showOn: "button",
+	      buttonImage: "http://static.ssocio.net/admin/images/ico_calendar.gif",
+	      buttonImageOnly: true
+	    });
+		
+		// return msg
+		if (msg != null && msg != '') {
+			alert(msg);
+		}
+		
+		// 전체선택
+		$("#chkAll").click( function () {
+			allCheck();
+		});
+		
+		$("input[name^=MBER_SEQ]").click( function (evt) {
+			chkEvent();
+		});
+		
+	});
+	
+	// 전체 선택
+	function allCheck() {
+		var chk = $("#chkAll").is(":checked");
+		if (chk) {
+			$("input[name^=MBER_SEQ]").each( function (idx) {
+				$(this).attr("checked", true);
+			});
+		}
+		else {
+			$("input[name^=MBER_SEQ]").each( function (idx) {
+				$(this).attr("checked", false);
+			});
+		}
+	}
+	
+	// 전체 선택을 제외한 체크박스 선택
+	function chkEvent() {
+		var chkAllCnt = $("input[name^=MBER_SEQ]").length; 
+		var chkCnt = $("input[name^=MBER_SEQ]:checked").length;
+		
+		if (chkAllCnt == chkCnt) {
+			$("#chkAll").attr("checked", true);	
+		}
+		else {
+			$("#chkAll").attr("checked", false);
+		}
+	}
+	
+	// 조회
+	function getUseList() {
+		
+		$("#PAGE_NO").val("");
+		
+		$("[name=REGIST_DT]").val($("[name=REGIST_DT]").val().replace(/\-/ig, ''));
+		
+		var url = "/admin/cpn/selectUseList.do";
+		
+		form.action = url;
+		form.submit();
+		
+	}
+	
+	// 페이징
+	function GoPage(pageNo) {
+		$("#PAGE_NO").val(pageNo);
+	
+		$("[name=REGIST_DT]").val($("[name=REGIST_DT]").val().replace(/\-/ig, ''));
+		
+		var url = "/admin/cpn/selectUseList.do";
+		
+		form.action = url;
+		form.submit();
+	}
+	
+	// 선택 삭제
+	function delUseList() {
+		
+		var delFlag = true;
+		
+		if (!confirm("삭제하시겠습니까?")) {
+			return;
+		}
+		
+		// 체크박스 선택 된 row의 사용여부 판단
+		$("input[name^=MBER_SEQ]:checked").each(function (idx) {
+			
+			var cls = $(this).attr("class");
+			
+			if (cls == "Y") {
+				delFlag = false;
+				alert("쿠폰을 사용한 회원이 존재합니다.");
+			}
+			
+		});
+		
+		if (delFlag) {
+			
+			$("#PAGE_NO").val("");
+			
+			var url = "/admin/cpn/deleteUse.do";
+			
+			form.action = url;
+			form.submit();
+		}
+		else {
+			return;
+		}
+		
+	}
+	
+</script>
+<div class="pop_inner">
+	<form id="form" name="form" method="post" action="">
+		<input type="hidden" id="cpnGrpCd" name="CPN_GRP_CD" value="${list.params.cpnGrpCd }" />
+		<input type="hidden" name="PAGE_NO" id="PAGE_NO" value="${list.PAGE_NO }" />
+		<div class="tbl mt10">
+			<table class="list type">
+				<colgroup>
+					<col style="width:10%;" />
+					<col style="width:17%;" />
+					<col style="width:10%;" />
+					<col style="width:17%;" />
+					<col style="width:10%;" />
+					<col style="width:22%;" />
+					<col style="width:*" />
+				</colgroup>
+				<tbody>
+					<tr>
+						<th scope="row">발급일</th>
+						<td class="tl">
+							<fmt:parseDate value="${list.params.registDt }" var="REGIST_DT" pattern="yyyymmdd" scope="page" />
+							<input type="text" id="" name="REGIST_DT" class="calendar" style="width:82px" value='<fmt:formatDate value="${REGIST_DT }" pattern="yyyy-mm-dd" />' readonly />
+						</td>
+						<th scope="row">아이디</th>
+						<td class="tl">
+							<input type="text" id="" name="MBER_EMAIL" style="width:100px" value="${list.params.mberEmail }" maxLength="255" />
+						</td>
+						<th scope="row">사용여부</th>
+						<td class="tl nolineR">
+							<input type="checkbox" id="use_n" name="USE_YN[]" value="N" 
+								<c:forEach var="cd" items="${list.params.useYn}" varStatus="status">
+									<c:if test="${cd == 'N'}">checked</c:if>
+								</c:forEach>
+							/>
+							<label for="use_n">미사용</label>
+							<span class="ml5">
+								<input type="checkbox" id="use_y" name="USE_YN[]" value="Y" 
+									<c:forEach var="cd" items="${list.params.useYn}" varStatus="status">
+										<c:if test="${cd == 'Y'}">checked</c:if>
+									</c:forEach>
+								/>
+								<label for="use_y">사용</label>
+							</span>
+						</td>
+						<td><a href="javascript:getUseList();" class="btn_r"><span>조회</span></a></td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+		
+		<div class="prod_info_area">
+			<p>총 <fmt:formatNumber value="${list.MBER_CNT }" type="number" /> 명</p>
+		</div>
+		
+		<!-- tbl -->
+		<div class="tbl mt10">
+			<!-- list -->
+			<table class="list">
+				<colgroup>
+					<col style="width:5%" />
+					<col style="width:14%" />
+					<col style="width:12%" />
+					<col style="width:18%" />
+					<col style="width:8%" />
+					<col style="width:*" />
+					<col style="width:12%" />
+				</colgroup>
+				<thead>	
+					<tr>
+						<th scope="col"><input type="checkbox" id="chkAll" name="chkAll" /></th>
+						<th scope="col">아이디</th>
+						<th scope="col">발급일시</th>
+						<th scope="col">유효기간</th>
+						<th scope="col">사용여부</th>
+						<th scope="col">구매상품</th>
+						<th scope="col">사용일시</th>
+					</tr>
+				</thead>
+				<tbody>
+					<c:choose>
+						<c:when test="${fn:length(list.useList)>0}">						
+							<c:forEach var="list" items="${list.useList}" varStatus="status">
+						    	 <tr>
+						    	 	<td class="nolineL">
+						    	 		<input type="checkbox" id="mberSeq" name="MBER_SEQ[]" value="${list.MBER_SEQ }" class="${list.USE_YN }" />
+						    	 	</td>
+						    	 	<td>${list.MBER_EMAIL }</td>
+						    	 	<td>${list.REGIST_DT }</td>
+						    	 	<td>
+						    	 		${list.EXP_START_DT } ~ ${list.EXP_END_DT } 
+						    	 	</td>
+						    	 	<td>
+						    	 		<c:if test="${list.USE_YN eq 'Y' }">
+						    	 			사용
+						    	 		</c:if>
+						    	 		<c:if test="${list.USE_YN eq 'N' }">
+						    	 			미사용
+						    	 		</c:if>
+						    	 	</td>
+						    	 	<td>
+						    	 		<div class="thumbnail_bx">
+											<img src="${list.PROD_IMG_URL }" alt="상품 이미지">
+											<span class="prod_name tl" style="width:205px">${list.PROD_NM }</span>
+										</div>
+						    	 	</td>
+						    	 	<td>${list.USE_DATE }</td>
+						    	 </tr>		
+						    </c:forEach>								
+						</c:when>
+						<c:otherwise>
+							<tr>
+								<td class="nolineL" colspan="7">조회된 결과가 없습니다.</td>
+							</tr>
+						</c:otherwise>
+					</c:choose>
+				</tbody>
+			</table>
+			<!-- //list -->
+		</div>
+		<!-- //tbl -->
+		
+		<!-- bot_tbl -->
+		<div class="bot_tbl">
+			<a href="javascript:delUseList();" class="btn_r btn_prod_del"><span>선택 삭제</span></a>
+			<!-- paging -->
+				<%@ include file="/WEB-INF/views/admin/common/PageView.jsp" %>
+			<!-- //paging -->
+		</div>
+		<!-- //bot_tbl -->
+		
+		<!-- bot_btn -->
+		<div class="bot_btn tc mt20">
+			<a href="javascript:window.close();" class="btn_g2 ml10">닫기</a>
+		</div>
+		<!-- //bot_btn -->
+	</form>
+</div>

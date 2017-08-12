@@ -1,0 +1,210 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/admin/common/cmmnHead.jsp"%>
+<script type="text/javascript">
+$(document).ready(function(){
+	//달력이미지
+	$('.calendar').datepicker({
+      showOn: "button",
+      buttonImage: "http://static.ssocio.net/admin/images/ico_calendar.gif",
+      buttonImageOnly: true
+    });
+	//조회버튼
+	$(".btn_r").click(function(){
+		searchForm();
+	});
+	//구분 체크박스 param 처리
+	var chkType = new Array();
+	<c:forEach var="list" items="${params.chkType}"  varStatus="status">
+		chkType['${status.index}'] = '${list}';
+	</c:forEach>
+	if(chkType != null && chkType.length > 0)
+	{
+	   for(var i=0; i < chkType.length; i++)
+	   {
+		   $("input:checkbox[name=chkType]").each(function(index){
+				if(chkType[i] == $(this).val()){
+					$(this).attr("checked", true); 
+				}
+			});
+	   }
+	}else{
+	   $('input[name="chkType"]').each(function(){
+	      $(this).attr('checked', 'checked');
+	   });
+	}
+	
+});
+//리스트 조회
+function searchForm(){
+	if(validDate()){
+		replDate();
+		$("#frm").attr("action", "/admin/faq/selectListFaq.do").submit();
+	}
+}
+//입력화면
+function goInsert(){
+	replDate();
+	$("#frm").attr("action","/admin/faq/insertFaq.do").submit();
+}
+//수정화면
+function goUpdate(BOARD_SEQ){
+	$("#BOARD_SEQ").val(BOARD_SEQ);
+	replDate();
+	$("#frm").attr("action", "/admin/faq/updateFaq.do").submit();
+}
+//엔터키입력
+function enterKeyPress(){
+	if(event.keyCode == 13){
+		$(".btn_r").click();
+	}
+}
+//날짜유효성체크
+function validDate(){
+	if($("#S_START_DATE").val() != "" || $("#S_END_DATE").val() != ""){
+		var startDate = $("#S_START_DATE").val().replace(/\-/ig, "");
+		var endDate = $("#S_END_DATE").val().replace(/\-/ig, "");
+		if(startDate > endDate){
+	      alert("시작일이 종료일보다 크게 설정될 수 없습니다.");
+	      $("#S_START_DATE").val('');
+	      $("#S_END_DATE").val('');
+	      return false;
+	    }
+	}
+	return true;
+}
+//페이지이동
+function GoPage(pageNo) {
+	$("#PAGE_NO").val(pageNo);
+	replDate();
+	$("#frm").attr("action","/admin/faq/selectListFaq.do").submit();
+}
+//날짜 형식 '-' 제외 시키기
+function replDate(){
+	$("#S_START_DATE").val($("#S_START_DATE").val().replace(/\-/ig, ''));
+	$("#S_END_DATE").val($("#S_END_DATE").val().replace(/\-/ig, ''));
+}
+</script>
+<!-- content -->
+<div id="content">
+	<!-- top_content -->
+	<div class="top_content">
+		<!-- location -->
+		<div class="location">
+			<ul class="clear">
+				<li class="first-child"><a href="#">Home</a></li>
+				<li><a href="#">서비스 관리</a></li>
+				<li><a href="#" class="current">FAQ 조회</a></li>
+			</ul>
+		</div>
+		<!-- //location -->
+	</div>
+	<!-- //top_content -->
+	
+	<div class="inner">
+		<fmt:parseDate value="${params.S_START_DATE }" var="S_START_DATE" pattern="yyyymmdd" scope="page" />
+	    <fmt:parseDate value="${params.S_END_DATE }" var="S_END_DATE" pattern="yyyymmdd" scope="page" />
+	    <form id="frm" method="post" name="frm">
+	    <input type="hidden" id="PAGE_NO" name="PAGE_NO">
+	    <input type="hidden" id="BOARD_SEQ" name="BOARD_SEQ">
+	    <input type="hidden" id="BOARD_TYPE_CD" name="BOARD_TYPE_CD" value="${params.BOARD_TYPE_CD }">
+		<!-- tbl -->
+		<div class="tbl mt20">
+			<table class="search">
+				<colgroup>
+					<col style="width:8%" />
+					<col style="width:26%" />
+					<col style="width:8%" />
+					<col style="width:*" />
+				</colgroup>
+				<tbody>
+					<tr>
+						<th scope="row">등록일</th>
+						<td>
+							<input type="text" id="S_START_DATE" name="S_START_DATE" class="calendar" style="width:82px" value='<fmt:formatDate value="${S_START_DATE }" pattern="yyyy-mm-dd" />' readonly/> - 
+							<input type="text" id="S_END_DATE" name="S_END_DATE" class="calendar" style="width:82px" value='<fmt:formatDate value="${S_END_DATE }" pattern="yyyy-mm-dd" />' readonly/>
+						</td>
+						<th scope="row">구분</th>
+						<td>
+							<custom:codeList var="FAQ_TYPE_CD" groupCode="FAQ_TYPE_CD" />
+							<c:forEach var="list" items="${FAQ_TYPE_CD}">
+								<label><input type="checkbox"  name="chkType" value="${list.key }"/>${list.value}</label>
+							</c:forEach>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row">제목</th>
+						<td>
+							<input type="text" id="P_TITLE" name="P_TITLE" value="${params.P_TITLE }" style="width:90%" onkeyup="enterKeyPress();"/>
+						</td>
+						<th scope="row">노출여부</th>
+						<td>
+							<label><input type="radio" name="P_VIEW_YN" value="" <c:if test="${empty params.P_VIEW_YN}">checked</c:if>/>전체</label>
+							<label><input type="radio" name="P_VIEW_YN" value="Y" <c:if test="${params.P_VIEW_YN == 'Y'}">checked</c:if>/>노출</label>
+							<label><input type="radio" name="P_VIEW_YN" value="N" <c:if test="${params.P_VIEW_YN == 'N'}">checked</c:if>/>미노출</label>
+						</td>
+					</tr>
+				</tbody>
+			</table>
+			<p class="btn_area type"><a href="javascript:searchForm();" class="btn_chk btn_r">조회</a></p>
+		</div>
+		<!-- //tbl -->
+		</form>
+		
+		
+		<!-- tbl -->
+		<div class="tbl mt20">
+			<div class="btn_area type">
+				<a href="javascript:goInsert();" class="btn_w"><span>FAQ 등록</span></a>
+			</div>
+			<!-- list -->
+			<table class="list">
+				<colgroup>
+					<col style="width:15%" />
+					<col style="width:8%" />
+					<col style="width:*" />
+					<col style="width:8%" />
+				</colgroup>
+				<thead>	
+					<tr>
+						<th scope="col">등록일시</th>
+						<th scope="col">구분</th>
+						<th scope="col">제목</th>
+						<th scope="col">노출</th>
+					</tr>
+				</thead>
+				<tbody>
+					<!-- 반복 -->
+					<c:forEach var="list" items="${list.selectListFaq }">
+					<tr>
+						<td class="nolineL">${list.REGIST_DT }</td>
+						<td>${list.FAQ_TYPE_NM }</td>
+						<td class="tl">
+							<a href="javascript:goUpdate('${list.BOARD_SEQ }');" class="text_b underline">${list.TITLE }</a>
+						</td>
+						<td>${list.VIEW_YN }</td>
+					</tr>
+					</c:forEach>
+					<c:if test="${empty list.selectListFaq }">
+					<tr>
+						<td class="nolineL" colspan="4">조회된 결과가 없습니다.</td>
+					</tr>
+					</c:if>
+					<!-- //반복 -->
+				</tbody>
+			</table>
+			<!-- //list -->
+		</div>
+		<!-- //tbl -->
+		
+		<!-- bot_tbl -->
+		<div class="bot_tbl">
+			<!-- paging -->
+			<div class="paging">
+				<%@ include file="/WEB-INF/views/admin/common/PageView.jsp" %>
+			</div>
+			<!-- //paging -->
+		</div>
+		<!-- //bot_tbl -->
+	</div>
+</div>
+<!-- //content -->

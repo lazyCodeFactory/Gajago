@@ -1,0 +1,629 @@
+package com.ssocio.sharing.service.admin;
+
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.ui.ModelMap;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.multipart.MultipartHttpServletRequest;
+
+import com.ssocio.sharing.cmmn.admin.util.CommonUtil;
+import com.ssocio.sharing.cmmn.admin.util.FileUtil;
+import com.ssocio.sharing.cmmn.util.CmmnCnst;
+import com.ssocio.sharing.cmmn.util.LoggerUtil;
+import com.ssocio.sharing.cmmn.util.StringUtil;
+import com.ssocio.sharing.dao.admin.AdminCodeDao;
+import com.ssocio.sharing.dao.admin.AdminCommonDao;
+import com.ssocio.sharing.dao.admin.AdminPromoEvtDao;
+import com.ssocio.sharing.vo.admin.PageNavigation;
+
+import oracle.sql.CLOB;
+
+@Service
+public class AdminPromoEvtServiceImpl implements AdminPromoEvtService {
+
+	// --------------------------------------------------------------------------
+	// # Log 설정
+	// --------------------------------------------------------------------------
+	private static final Logger logger = LoggerFactory.getLogger(AdminPromoEvtServiceImpl.class);
+
+	// --------------------------------------------------------------------------
+	// # DAO 설정
+	// --------------------------------------------------------------------------
+	@Resource(name="adminPromoEvtDao")
+	private AdminPromoEvtDao adminPromoEvtDao;
+	
+	@Resource(name="adminCommonDao")
+	private AdminCommonDao adminCommonDao;
+	
+	@Resource(name="adminCodeDao")
+	private AdminCodeDao adminCodeDao;
+
+	@Override
+	public ModelMap startUrl() {
+		
+		ModelMap mm = new ModelMap();
+		Map<String, Object> inParam = new HashMap<String, Object>();
+		
+		try{
+		
+			/// 공통 코드 조회 - 쿠폰구분코드
+			inParam.put("S_GROUP_CODE", CmmnCnst.evtGbCd); //"EVT_GB_CD"
+			mm.put("evtGbCd",adminCodeDao.selectListCodeGroup(inParam)); //공통코드 그룹별 리스트 조회, 코드 그룹 select
+			
+			inParam.put("S_GROUP_CODE", CmmnCnst.displayCnt); //"DISPLAY_CNT"
+			mm.put("displayCnt",adminCodeDao.selectListCodeGroup(inParam)); //공통코드 그룹별 리스트 조회, 코드 그룹 select
+														
+			//페이지번호
+			inParam.put("PAGE_NO",StringUtil.nvl((String)inParam.get("PAGE_NO"), "1"));
+			int nowPage = StringUtil.nvlInt((String)inParam.get("PAGE_NO"), 1);
+			int rowCnt	= StringUtil.nvlInt((String)inParam.get("S_ROW_CNT"), 20);
+			inParam.put("S_ROW_CNT", rowCnt);
+			
+			String today = StringUtil.getCurrentDate();
+			inParam.put("S_END_DATE", StringUtil.nvl((String)inParam.get("S_END_DATE"), today));
+			
+			SimpleDateFormat format = new SimpleDateFormat("yyyyMMdd");
+			Calendar cal = Calendar.getInstance();
+			cal.add(Calendar.DATE, -7);
+			inParam.put("S_START_DATE", StringUtil.nvl((String)inParam.get("S_START_DATE"), format.format(cal.getTime())));
+			
+			LoggerUtil.writeMap(inParam);
+			
+			int rowTotal = adminPromoEvtDao.selectEvtCount(inParam);
+			
+			PageNavigation pageNav= new PageNavigation(nowPage, rowTotal, rowCnt, CmmnCnst.ADM_BLOCK_SIZE);
+			mm.put("PAGE_NO", nowPage);
+			mm.put("pageNav", pageNav);
+			inParam.put("START_ROW", pageNav.getStartRow());
+			inParam.put("END_ROW", pageNav.getEndRow());
+			
+			mm.put("selectListEvt",adminPromoEvtDao.selectEvt(inParam));
+			mm.put("params", inParam);
+		
+		}
+		catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return mm;
+		
+	}
+
+	@Override
+	public void insertEvent(Map<String, Object> inParam,MultipartHttpServletRequest req) {
+		
+		ModelMap mm = new ModelMap();;
+				
+		String evtGrpCd = ""; 
+		String evtGbCd = "";
+		String evtNm = "";  
+		String evtStartDt =  "";  
+		String evtEndDt = ""; 
+		String exposureYn = "";
+		String evtStateYn = ""; 
+		String displayStartDt = ""; 
+		String displayEndDt = ""; 
+		String pcComment = ""; 
+		String mobileComment = ""; 
+		String pcProdChk = ""; 
+		
+		String evtImgSeq = ""; 
+		String evtImgUrlPc = ""; 
+		String evtImgUrlMobile = ""; 
+		
+		//브랜드이미지 파일
+		MultipartFile pcImg = req.getFile("EVT_IMG_URL_PC");
+		MultipartFile mobile = req.getFile("EVT_IMG_URL_MOBILE");
+		
+		
+		
+		evtGbCd 		=  StringUtil.nvl((String) inParam.get("EVT_GB_CD"), "");
+		evtNm 		=  StringUtil.nvl((String) inParam.get("EVT_NM"), "");
+		evtStartDt 		=  StringUtil.nvl((String) inParam.get("EVT_START_DT"), "");
+		evtEndDt 		=  StringUtil.nvl((String) inParam.get("EVT_END_DT"), "");
+		exposureYn 		=  StringUtil.nvl((String) inParam.get("EXPOSURE_YN"), "");
+		evtStateYn 		=  StringUtil.nvl((String) inParam.get("EVT_STATE_YN"), "");
+		displayStartDt 		=  StringUtil.nvl((String) inParam.get("DISPLAY_START_DT"), "");
+		displayEndDt 		=  StringUtil.nvl((String) inParam.get("DISPLAY_END_DT"), "");
+		pcComment 		=  StringUtil.nvl((String) inParam.get("PC_COMMENT"), "");
+		mobileComment 		=  StringUtil.nvl((String) inParam.get("MOBILE_COMMENT"), "");
+		pcProdChk 		=  StringUtil.nvl((String) inParam.get("PC_PROD_CHK"), "N");
+		String evtComment 		=  StringUtil.nvl((String) inParam.get("EVT_COMMENT"), "");
+		String evtApiNm 		=  StringUtil.nvl((String) inParam.get("EVT_API_NM"), "");
+		String evtPageUrl 		=  StringUtil.nvl((String) inParam.get("EVT_PAGE_URL"), "");
+		
+		
+		try {
+			
+			evtGrpCd = adminPromoEvtDao.selectEvtSeq();
+						
+			mm.put("evtGrpCd", evtGrpCd);
+			mm.put("evtGbCd", evtGbCd);
+			mm.put("evtNm", evtNm); 
+			mm.put("evtStartDt", evtStartDt);
+			mm.put("evtEndDt", evtEndDt); 
+			mm.put("exposureYn", exposureYn);
+			mm.put("evtStateYn", evtStateYn);
+			mm.put("displayStartDt", displayStartDt);
+			mm.put("displayEndDt", displayEndDt);
+			mm.put("pcComment", pcComment);
+			mm.put("mobileComment", mobileComment);
+			mm.put("pcProdChk", pcProdChk);
+			mm.put("evtComment", evtComment);
+			mm.put("evtApiNm", evtApiNm);
+			mm.put("evtPageUrl", evtPageUrl);
+			
+			adminPromoEvtDao.insertEvtInfo(mm);
+						
+			if(pcImg != null && pcImg.getSize() > 0){
+				Map<String, Object> fileInfo = FileUtil.saveMultipartFile(pcImg);//파일 저장
+				evtImgUrlPc = adminCommonDao.insertFile(fileInfo);				
+			}
+			
+			if(mobile != null && mobile.getSize() > 0){
+				Map<String, Object> fileInfo = FileUtil.saveMultipartFile(mobile);//파일 저장
+				evtImgUrlMobile = adminCommonDao.insertFile(fileInfo);				
+			}			
+			
+			if( !"".equals(evtImgUrlPc) || !"".equals(evtImgUrlMobile) ){				
+			
+				evtImgSeq = adminPromoEvtDao.selectEvtImgSeq();
+				
+				mm.put("evtImgSeq", evtImgSeq);
+				mm.put("evtImgUrlPc", evtImgUrlPc);
+				mm.put("evtImgUrlMobile", evtImgUrlMobile);
+				
+				adminPromoEvtDao.insertEvtImg(mm);
+				
+			}
+					
+		} 
+		catch (Exception e) {
+			e.printStackTrace();
+		}
+				
+		
+	}
+
+	@Override
+	public ModelMap selectEvt(Map<String, Object> inParam, String[] evtGbCd, String[] exposureYn, String[] evtStateYn) {
+		
+		ModelMap mm = new ModelMap();
+		String evtNm="";
+		String dateChk = "";
+		
+		try {
+			
+			evtNm 				=  StringUtil.nvl((String) inParam.get("EVT_NM"), "");	
+			dateChk 		=  StringUtil.nvl((String) inParam.get("DATE_CHK"), "");	
+														
+			//페이지번호
+			inParam.put("PAGE_NO",StringUtil.nvl((String)inParam.get("PAGE_NO"), "1"));
+			int nowPage = StringUtil.nvlInt((String)inParam.get("PAGE_NO"), 1);
+			int rowCnt	= StringUtil.nvlInt((String)inParam.get("S_ROW_CNT"), 20);
+			inParam.put("S_ROW_CNT", rowCnt);
+			
+			String today = StringUtil.getCurrentDate();
+			inParam.put("S_END_DATE", StringUtil.nvl((String)inParam.get("S_END_DATE"), today));
+			
+			SimpleDateFormat format = new SimpleDateFormat("yyyyMMdd");
+			Calendar cal = Calendar.getInstance();
+			cal.add(Calendar.DATE, -30);
+			inParam.put("S_START_DATE", StringUtil.nvl((String)inParam.get("S_START_DATE"), format.format(cal.getTime())));
+			
+			LoggerUtil.writeMap(inParam);		
+			
+			inParam.put("evtNm", evtNm);
+			inParam.put("dateChk", dateChk);			
+			inParam.put("evtGbCd", evtGbCd);
+			inParam.put("exposureYn", exposureYn);
+			inParam.put("evtStateYn", evtStateYn);
+			
+			int rowTotal = adminPromoEvtDao.selectEvtCount(inParam);
+			
+			PageNavigation pageNav= new PageNavigation(nowPage, rowTotal, rowCnt, CmmnCnst.ADM_BLOCK_SIZE);
+			mm.put("PAGE_NO", nowPage);
+			mm.put("pageNav", pageNav);
+			inParam.put("START_ROW", pageNav.getStartRow());
+			inParam.put("END_ROW", pageNav.getEndRow());
+						
+			/// 공통 코드 조회 - 쿠폰구분코드
+			inParam.put("S_GROUP_CODE", CmmnCnst.evtGbCd);
+			mm.put("evtGbCd",adminCodeDao.selectListCodeGroup(inParam));			
+			inParam.put("S_GROUP_CODE", CmmnCnst.displayCnt);
+			mm.put("displayCnt",adminCodeDao.selectListCodeGroup(inParam));
+			
+			mm.put("selectListEvt",adminPromoEvtDao.selectEvt(inParam));	
+			
+			inParam.put("DATE_CHK", dateChk);
+			inParam.put("EVT_NM", evtNm);
+			inParam.put("EVT_GB_CD", evtGbCd);
+			inParam.put("EXPOSURE_YN", exposureYn);
+			inParam.put("EVT_STATE_YN", evtStateYn);
+			
+			mm.put("params", inParam);
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+		
+	}
+
+	@Override
+	public ModelMap selectEvtDtl(Map<String, Object> inParam, String evtGrpCd,String dtlFlag) {
+		
+		ModelMap mm = new ModelMap();
+		Map<String, Object> map = new ModelMap();
+		
+		try {
+			
+			map = adminPromoEvtDao.selectEvtDtl(evtGrpCd);
+			if( !"".equals(map.get("EVT_COMMENT")) && map.get("EVT_COMMENT") != null){
+					String[] arryKey = {"EVT_COMMENT"};
+					Map<String, Object> mmTemp = CommonUtil.clobToString(map,arryKey);
+					mm.put("selectPromoEvtDtl", mmTemp);
+			}else{
+				
+				mm.put("selectPromoEvtDtl", map);
+				
+			}						
+						
+			/// 공통 코드 조회 - 쿠폰구분코드
+			inParam.put("S_GROUP_CODE", CmmnCnst.evtGbCd);
+			mm.put("evtGbCd",adminCodeDao.selectListCodeGroup(inParam));
+			
+			mm.put("params", inParam);
+			mm.put("dtlFlag",dtlFlag);	
+			
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return mm;
+		
+	}
+
+	@Override
+	public ModelMap selectEvtJoinMber(Map<String, Object> inParam, String mberEmail, String[] mberGbCd,
+			String[] mberRegGbCd, String dateChk, String evtGrpCd) {
+		
+		ModelMap mm = new ModelMap();
+		try {
+			
+			// 공통 코드 조회 - 쿠폰구분코드
+			inParam.put("S_GROUP_CODE", CmmnCnst.joinChanCd);
+			mm.put("joinChanCd",adminCodeDao.selectListCodeGroup(inParam));			
+			
+			inParam.put("mberEmail", mberEmail);		
+			inParam.put("mberGbCd", mberGbCd);
+			inParam.put("mberRegGbCd", mberRegGbCd);		
+			inParam.put("dateChk", dateChk);		
+			inParam.put("evtGrpCd", evtGrpCd);	
+			
+			inParam.put("PAGE_NO",StringUtil.nvl((String)inParam.get("PAGE_NO"), "1"));
+			int nowPage = StringUtil.nvlInt((String)inParam.get("PAGE_NO"), 1);
+
+			String today = StringUtil.getCurrentDate();
+			inParam.put("S_END_DATE", StringUtil.nvl((String)inParam.get("S_END_DATE"), (String)inParam.get("EVT_END_DT")).replaceAll("-", ""));
+			inParam.put("S_START_DATE", StringUtil.nvl((String)inParam.get("S_START_DATE"), (String)inParam.get("EVT_START_DT")).replaceAll("-", ""));
+			
+			int rowTotal = adminPromoEvtDao.selectEvtJoinMberCount(inParam);	
+			
+			int rowCnt	= StringUtil.nvlInt((String)inParam.get("S_ROW_CNT"), rowTotal); //S_ROW_CNT가 없다면 전체 카운트 수 사용.
+			inParam.put("S_ROW_CNT", rowCnt);
+			
+			LoggerUtil.writeMap(inParam);		
+	
+			PageNavigation pageNav= new PageNavigation(nowPage, rowTotal, rowCnt, CmmnCnst.ADM_BLOCK_SIZE);
+			mm.put("PAGE_NO", nowPage);
+			mm.put("TOT_CNT", rowTotal);
+			mm.put("pageNav", pageNav);
+			inParam.put("START_ROW", pageNav.getStartRow());
+			inParam.put("END_ROW", pageNav.getEndRow());
+			
+			//mm.put("selectPromoEvtJoinMberList",adminPromoEvtDao.selectEvtJoinMber(inParam));
+			List<Map<String, Object>> maps = adminPromoEvtDao.selectEvtJoinMber(inParam);
+			String str = null;
+			
+			if(maps.size()!=0){
+				if( !"".equals(maps.get(0).get("ETC")) && (maps.get(0).get("ETC")) != null ){
+					for(Map<String, Object> map : maps){
+						map.put("ETC_STR", CommonUtil.clobToString((CLOB) map.get("ETC")));
+					}	
+				}
+			}
+			
+			mm.put("selectPromoEvtJoinMberList", maps);
+			
+			
+			/// 공통 코드 조회 - 쿠폰구분코드
+			inParam.put("S_GROUP_CODE", CmmnCnst.mberGbCd);
+			mm.put("mberGbCd",adminCodeDao.selectListCodeGroup(inParam));
+			
+			
+			/// 공통 코드 조회 - 쿠폰구분코드
+			inParam.put("S_GROUP_CODE", CmmnCnst.mberRegGbCd);
+			mm.put("mberRegGbCd",adminCodeDao.selectListCodeGroup(inParam));
+			
+			inParam.put("MBER_EMAIL", mberEmail);		
+			inParam.put("MBER_GB_CD", mberGbCd);
+			inParam.put("MBER_REG_GB_CD", mberRegGbCd);					
+			inParam.put("DATE_CHK", dateChk);					
+			inParam.put("EVT_GRP_CD", evtGrpCd);	
+			
+			LoggerUtil.writeMap(inParam);
+			
+			mm.put("params", inParam);
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+		
+	}
+	
+	public List<Map<String, Object>> selectEvtJoinMberExcelDownload(Map<String, Object> inParam, String mberEmail, String[] mberGbCd,
+			String[] mberRegGbCd, String dateChk, String evtGrpCd){
+		
+		ModelMap mm = new ModelMap(); 
+		mm = selectEvtJoinMber(inParam,mberEmail,mberGbCd,mberRegGbCd,dateChk,evtGrpCd);
+		
+		return (List<Map<String, Object>>) mm.get("selectPromoEvtJoinMberList");
+	}
+	
+
+	@Override
+	public ModelMap selectEvtWinMber(Map<String, Object> inParam, String mberEmail, String[] mberGbCd,
+			String[] mberRegGbCd, String dateChk, String evtGrpCd) {
+		
+		ModelMap mm = new ModelMap();
+		try {
+			
+			// 공통 코드 조회 - 쿠폰구분코드
+			inParam.put("S_GROUP_CODE", CmmnCnst.joinChanCd);
+			mm.put("joinChanCd",adminCodeDao.selectListCodeGroup(inParam));			
+			
+			inParam.put("mberEmail", mberEmail);		
+			inParam.put("mberGbCd", mberGbCd);
+			inParam.put("mberRegGbCd", mberRegGbCd);		
+			inParam.put("dateChk", dateChk);		
+			inParam.put("evtGrpCd", evtGrpCd);	
+			
+			inParam.put("PAGE_NO",StringUtil.nvl((String)inParam.get("PAGE_NO"), "1"));
+			int nowPage = StringUtil.nvlInt((String)inParam.get("PAGE_NO"), 1);
+			
+			String today = StringUtil.getCurrentDate();
+			inParam.put("S_END_DATE", StringUtil.nvl((String)inParam.get("S_END_DATE"), (String)inParam.get("EVT_END_DT")).replaceAll("-", ""));
+			inParam.put("S_START_DATE", StringUtil.nvl((String)inParam.get("S_START_DATE"), (String)inParam.get("EVT_START_DT")).replaceAll("-", ""));
+
+			int rowTotal = adminPromoEvtDao.selectEvtWinMberCount(inParam);	
+			
+			int rowCnt	= StringUtil.nvlInt((String)inParam.get("S_ROW_CNT"), rowTotal);
+			inParam.put("S_ROW_CNT", rowCnt);
+						
+			LoggerUtil.writeMap(inParam);		
+					
+			PageNavigation pageNav= new PageNavigation(nowPage, rowTotal, rowCnt, CmmnCnst.ADM_BLOCK_SIZE);
+			
+			mm.put("PAGE_NO", nowPage);
+			mm.put("TOT_CNT", rowTotal);
+			mm.put("pageNav", pageNav);
+			inParam.put("START_ROW", pageNav.getStartRow());
+			inParam.put("END_ROW", pageNav.getEndRow());
+			
+			//mm.put("selectPromoEvtWinMberList",adminPromoEvtDao.selectEvtWinMber(inParam));
+			List<Map<String, Object>> maps = adminPromoEvtDao.selectEvtWinMber(inParam);
+			String str = null;
+			
+			if(maps.size()!=0){
+				if( !"".equals(maps.get(0).get("ETC")) && (maps.get(0).get("ETC")) != null ){
+					for(Map<String, Object> map : maps){
+						map.put("ETC_STR", CommonUtil.clobToString((CLOB) map.get("ETC")));
+					}	
+				}
+			}
+			
+			mm.put("selectPromoEvtWinMberList", maps);
+			
+			/// 공통 코드 조회 - 쿠폰구분코드
+			inParam.put("S_GROUP_CODE", CmmnCnst.mberGbCd);
+			mm.put("mberGbCd",adminCodeDao.selectListCodeGroup(inParam));
+			
+			/// 공통 코드 조회 - 쿠폰구분코드
+			inParam.put("S_GROUP_CODE", CmmnCnst.mberRegGbCd);
+			mm.put("mberRegGbCd",adminCodeDao.selectListCodeGroup(inParam));
+			
+			inParam.put("MBER_EMAIL", mberEmail);		
+			inParam.put("MBER_GB_CD", mberGbCd);
+			inParam.put("MBER_REG_GB_CD", mberRegGbCd);					
+			inParam.put("DATE_CHK", dateChk);					
+			inParam.put("EVT_GRP_CD", evtGrpCd);	
+			
+			mm.put("params", inParam);
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+		
+	}
+	
+	public List<Map<String, Object>> selectEvtWinMberExcelDownload(Map<String, Object> inParam, String mberEmail, String[] mberGbCd,
+			String[] mberRegGbCd, String dateChk, String evtGrpCd){
+		
+		ModelMap mm = new ModelMap(); 
+		mm = selectEvtWinMber(inParam,mberEmail,mberGbCd,mberRegGbCd,dateChk,evtGrpCd);
+		
+		return (List<Map<String, Object>>) mm.get("selectPromoEvtWinMberList");
+	}
+	
+
+	@Override
+	public void updateEvtJoinMber(Map<String, Object> inParam, String[] pkNo, String evtGrpCd) {
+		
+		ModelMap mm = new ModelMap();
+						
+		try{
+			
+			mm.put("pkNo", pkNo);
+			mm.put("evtGrpCd", evtGrpCd);
+			
+			adminPromoEvtDao.updateEvtJoinMber(mm);
+			
+			
+		}catch (Exception e) {
+			e.printStackTrace();
+		}
+				
+		
+	}
+
+	@Override
+	public void updateEvtWinMber(Map<String, Object> inParam, String[] pkNo, String evtGrpCd) {
+		
+		ModelMap mm = new ModelMap();
+		
+		try{
+			
+			mm.put("pkNo", pkNo);
+			mm.put("evtGrpCd", evtGrpCd);
+			
+			adminPromoEvtDao.updateEvtWinMber(mm);
+			
+			
+		}catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+	}
+
+	@Override
+	public void updateEvt(Map<String, Object> inParam,MultipartHttpServletRequest req) {
+		
+		ModelMap mm = new ModelMap();;
+		
+		String evtGrpCd="";
+		String exposureYn ="";  
+		String evtNm= "";   //BNFIT_DSCNT_PRCE  BNFIT_DSCNT_RATE  BNFIT_MAX_DSCNT_PRCE
+		String evtStartDt="";
+		String evtEndDt="";
+		String displayStartDt="";
+		String displayEndDt= ""; 
+		String pcProdChk="";
+		String pcComment= "";
+		String mobileComment= "";  
+		String evtImgUrlPc = ""; 
+		String evtImgUrlMobile = ""; 
+		
+		String pcSeq = ""; 
+		String mbSeq = "";
+		
+		//브랜드이미지 파일
+		MultipartFile pcImg = req.getFile("EVT_IMG_URL_PC");
+		MultipartFile mobile = req.getFile("EVT_IMG_URL_MOBILE");
+		
+		
+		
+		evtGrpCd 		=  StringUtil.nvl((String) inParam.get("EVT_GRP_CD"), "");				
+		exposureYn 		=  StringUtil.nvl((String) inParam.get("EXPOSURE_YN"), "");	
+		evtNm 		=  StringUtil.nvl((String) inParam.get("EVT_NM"), "");	
+		evtStartDt 		=  StringUtil.nvl((String) inParam.get("EVT_START_DT"), "");
+		evtEndDt 		=  StringUtil.nvl((String) inParam.get("EVT_END_DT"), "");
+		displayStartDt 		=  StringUtil.nvl((String) inParam.get("DISPLAY_START_DT"), "");
+		displayEndDt 		=  StringUtil.nvl((String) inParam.get("DISPLAY_END_DT"), "");
+		pcProdChk 		=  StringUtil.nvl((String) inParam.get("PC_PROD_CHK"), "N");
+		pcComment 		=  StringUtil.nvl((String) inParam.get("PC_COMMENT"), "");
+		mobileComment 		=  StringUtil.nvl((String) inParam.get("MOBILE_COMMENT"), "");
+		
+		pcSeq 		=  StringUtil.nvl((String) inParam.get("PC_SEQ"), "");
+		mbSeq 		=  StringUtil.nvl((String) inParam.get("MB_SEQ"), "");
+		
+		String evtComment 		=  StringUtil.nvl((String) inParam.get("EVT_COMMENT"), "");
+		String evtApiNm 		=  StringUtil.nvl((String) inParam.get("EVT_API_NM"), "");
+		String evtPageUrl 		=  StringUtil.nvl((String) inParam.get("EVT_PAGE_URL"), "");
+		
+		try{
+			
+			if(pcImg != null && pcImg.getSize() > 0){
+				adminCommonDao.deleteFile(pcSeq);
+				Map<String, Object> fileInfo = FileUtil.saveMultipartFile(pcImg);//파일 저장
+				evtImgUrlPc = adminCommonDao.insertFile(fileInfo);			
+						
+			}else{
+				evtImgUrlPc = pcSeq;
+			}
+			
+			if(mobile != null && mobile.getSize() > 0){
+				adminCommonDao.deleteFile(mbSeq);
+				Map<String, Object> fileInfo = FileUtil.saveMultipartFile(mobile);//파일 저장
+				evtImgUrlMobile = adminCommonDao.insertFile(fileInfo);				
+			}else{
+				evtImgUrlMobile = mbSeq;
+			}			 
+			
+					
+			
+			mm.put("evtGrpCd", evtGrpCd);
+			mm.put("exposureYn", exposureYn);
+			mm.put("evtNm", evtNm);
+			mm.put("evtStartDt", evtStartDt);
+			mm.put("evtEndDt", evtEndDt);
+			mm.put("displayStartDt", displayStartDt);
+			mm.put("displayEndDt", displayEndDt);
+			mm.put("pcProdChk", pcProdChk);
+			mm.put("pcComment", pcComment);
+			mm.put("mobileComment", mobileComment);
+			
+			mm.put("evtImgUrlPc", evtImgUrlPc);
+			mm.put("evtImgUrlMobile", evtImgUrlMobile);
+			
+			mm.put("evtComment", evtComment);
+			mm.put("evtApiNm", evtApiNm);
+			mm.put("evtPageUrl", evtPageUrl);
+			
+			adminPromoEvtDao.updateEvt(mm);
+			adminPromoEvtDao.updateEvtImg(mm);
+			
+		}catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+	}
+
+	@Override
+	public void updateEvtState(Map<String, Object> inParam) {
+		
+		ModelMap mm = new ModelMap();;
+		
+		String evtGrpCd="";
+		String evtStateYn ="";  
+		
+		evtGrpCd 		=  StringUtil.nvl((String) inParam.get("EVT_GRP_CD"), "");				
+		evtStateYn 		=  StringUtil.nvl((String) inParam.get("EVT_STATE_YN"), "");
+		
+		try{
+			
+			mm.put("evtGrpCd", evtGrpCd);
+			mm.put("evtStateYn", evtStateYn);
+			
+			adminPromoEvtDao.updateEvtState(mm);
+			
+		}catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+	}	
+	
+	
+}

@@ -2,6 +2,7 @@ package com.Gajago.com.controller;
 
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.io.UnsupportedEncodingException;
 import java.util.HashMap;
 
 import javax.servlet.http.HttpServletRequest;
@@ -17,12 +18,17 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.servlet.ModelAndView;
 
 import com.Gajago.com.service.MemberService;
+import com.Gajago.com.util.StringUtil;
 import com.Gajago.com.vo.MemberVo;
 
 @Controller
 public class MemberController {
 	@Autowired
 	MemberService memberService;
+ 
+	
+	
+	
 	private static final Logger logger = LoggerFactory.getLogger(MemberController.class);
 
 	@RequestMapping(value = "/findInfo", method = RequestMethod.GET)
@@ -69,7 +75,13 @@ public class MemberController {
 			HttpServletResponse response) throws IOException {
 		response.setCharacterEncoding("UTF-8");
 		response.setContentType("text/html; charset=UTF-8");
-
+		String password= member.getPassword();
+		StringUtil st =  new StringUtil();
+		String encPassword ="";
+		if(password != null) {
+			encPassword = st.encryptSha256(password);
+		}
+		member.setPassword(encPassword);
 		int result = 0;
 		try {
 			result = memberService.insertMember(member);
@@ -94,4 +106,50 @@ public class MemberController {
 		}
  	}
 
+	@RequestMapping("/findId")
+	public @ResponseBody HashMap<String,Object> findId (HttpServletRequest request,HttpServletRequest response){
+		HashMap<String,Object> retCheck = new HashMap<String,Object>();
+	    String name = request.getParameter("name");
+	    String email = request.getParameter("email");
+	    
+	    MemberVo resultVo = new MemberVo();
+	    
+	    resultVo =  memberService.findId(name,email);
+	    if(resultVo !=null) {
+	    	retCheck.put("retSign", "Y");
+	    	retCheck.put("retData",resultVo);
+	    	
+	    }else {
+	    	retCheck.put("retSign", "N");
+	    	retCheck.put("retMsg","아이디가 존재하지 않습니다");
+	    	
+	    }
+	    return retCheck;
+	    
+	}
+
+
+	
+
+	@RequestMapping("/findPwd")
+	public @ResponseBody HashMap<String,Object> findPwd (MemberVo member,HttpServletRequest request,HttpServletRequest response) throws UnsupportedEncodingException{
+		HashMap<String,Object> retCheck = new HashMap<String,Object>();
+	    int result  = memberService.findPwd(member);
+	    if(result <= 0) {
+	    	retCheck.put("retCheck", "N");
+	    	retCheck.put("retMsg", "입력정보를 확인해주세요");
+		    	
+	    }else {
+	    	retCheck.put("retCheck", "Y");
+	    	retCheck.put("retMsg", member.getEmail()+"으로 비밀번호 정보를 전송하였습니다 ");
+	    	
+	    }
+	    return retCheck;
+	}
+
 }
+
+
+
+
+

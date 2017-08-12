@@ -1,0 +1,381 @@
+package com.ssocio.sharing.service.admin;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import javax.annotation.Resource;
+
+import org.apache.poi.xssf.usermodel.XSSFSheet;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.ui.ModelMap;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.multipart.MultipartHttpServletRequest;
+
+import com.ssocio.sharing.cmmn.admin.util.CommonUtil;
+import com.ssocio.sharing.cmmn.util.CmmnCnst;
+import com.ssocio.sharing.cmmn.util.LoggerUtil;
+import com.ssocio.sharing.cmmn.util.StringUtil;
+import com.ssocio.sharing.dao.admin.AdminCommonDao;
+import com.ssocio.sharing.dao.admin.AdminSPProdDao;
+import com.ssocio.sharing.dao.admin.AdminSmartStockDao;
+import com.ssocio.sharing.vo.admin.PageNavigation;
+
+
+@Service
+public class AdminSmartStockServiceImpl implements AdminSmartStockService {
+	
+	// --------------------------------------------------------------------------
+	// # Log 설정
+	// --------------------------------------------------------------------------
+	private static final Logger logger = LoggerFactory.getLogger(AdminSmartStockServiceImpl.class);
+
+	// --------------------------------------------------------------------------
+	// # DAO 설정
+	// --------------------------------------------------------------------------
+	@Resource(name="adminSmartStockDao")
+	private AdminSmartStockDao adminSmartStockDao;
+	@Resource(name="adminCommonDao")
+	private AdminCommonDao adminCommonDao;
+	
+	
+	
+	/**
+	 * <pre>
+	 * 스마트 상품 재고 리스트 
+	 * 스마트 상품 재고 리스트 
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 16. 오후 1:21:46
+	 * @author LeeJinSe
+	 * @see com.ssocio.sharing.service.admin.AdminSmartStockService#selectListSmartProd(java.util.Map)
+	 * @비고
+	 * 
+	 * </pre>
+	*/
+	@Override
+	public Object selectListSmartProd(Map<String, Object> inParam) throws Exception {
+		ModelMap mm = new ModelMap();
+		//페이지번호
+		int nowPage = StringUtil.nvlInt((String)inParam.get("PAGE_NO"), 1);
+		int rowCnt	= StringUtil.nvlInt((String)inParam.get("S_ROW_CNT"), 10);
+		inParam.put("S_ROW_CNT", rowCnt);
+		
+		LoggerUtil.writeMap(inParam);
+		
+		int rowTotal = adminSmartStockDao.selectListSmartProdCount(inParam); //전체 Row Count
+		System.out.println("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+		System.out.println("rowTotal : " + rowTotal);
+		System.out.println("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+		PageNavigation pageNav= new PageNavigation(nowPage, rowTotal, rowCnt, CmmnCnst.ADM_BLOCK_SIZE);
+		
+		mm.put("PAGE_NO"	   ,nowPage);
+		mm.put("pageNav", pageNav);
+	
+		try {
+			inParam.put("START_ROW", pageNav.getStartRow());
+			inParam.put("END_ROW", pageNav.getEndRow());
+			
+			System.out.println("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+			System.out.println("@pageNav.getStartRow() : " + pageNav.getStartRow());
+			System.out.println("@pageNav.getEndPage() : " + pageNav.getEndRow());
+			System.out.println("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+			
+			mm.put("selectListProd",adminSmartStockDao.selectListSmartProd(inParam));
+			mm.put("selectListTel",adminSmartStockDao.selectListDefaultTelinfo());
+			System.out.println("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+			logger.debug("selectListTel : " + mm.get("selectListTel"));
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+
+
+
+	@Override
+	public Object seelectSmartDtl(Map<String, Object> inParam) throws Exception {
+		
+		ModelMap mm = new ModelMap();
+		//페이지번호
+		int nowPage = StringUtil.nvlInt((String)inParam.get("PAGE_NO"), 1);
+		int rowCnt	= 20;
+		inParam.put("S_ROW_CNT", rowCnt);
+		
+		
+		
+		LoggerUtil.writeMap(inParam);
+		
+		int rowTotal = adminSmartStockDao.seelectSmartDtlCount(inParam); //전체 Row Count
+		System.out.println("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+		System.out.println("rowTotal : " + rowTotal);
+		System.out.println("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+		PageNavigation pageNav= new PageNavigation(nowPage, rowTotal, rowCnt, CmmnCnst.ADM_BLOCK_SIZE);
+		
+		mm.put("PAGE_NO"	   ,nowPage);
+		mm.put("pageNav", pageNav);
+
+	
+		try {
+			inParam.put("START_ROW", pageNav.getStartRow());
+			inParam.put("END_ROW", pageNav.getEndRow());
+			
+			System.out.println("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+			System.out.println("@pageNav.getStartRow() : " + pageNav.getStartRow());
+			System.out.println("@pageNav.getEndPage() : " + pageNav.getEndRow());
+			System.out.println("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+			
+			mm.put("selectListProd",adminSmartStockDao.selectSmartDtl(inParam));
+			System.out.println("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+			logger.debug("selectListTel : " + mm.get("selectListTel"));
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	
+	}
+
+
+
+	@Override
+	public Object updateProdStat(Map<String, Object> inParam) throws Exception {
+		ModelMap mm = new ModelMap();
+		//페이지번호
+		
+		try {
+			adminSmartStockDao.updateProdStat(inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+
+
+
+	/**
+	 * <pre>
+	 * 일련번호 삭제하기 
+	 * 일련번호 삭제하기 
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 17. 오후 7:05:45
+	 * @author LeeJinSe
+	 * @see com.ssocio.sharing.service.admin.AdminSmartStockService#delUniqueNo(java.util.Map)
+	 * @비고
+	 * 
+	 * </pre>
+	*/
+	@Override
+	public Object delUniqueNo(Map<String, Object> inParam) throws Exception {
+		ModelMap mm = new ModelMap();
+		//페이지번호
+		
+		try {
+			adminSmartStockDao.delUniqueNo(inParam);
+			System.out.println("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+		} catch (Exception e) {
+			
+		}
+		return mm;
+	}
+
+
+
+	@Override
+	public ModelMap uploadProdExcel(MultipartHttpServletRequest req,Map<String, Object> inParam) throws Exception {
+		MultipartFile excelFile = req.getFile("I_UPLOAD_FILE");
+		ModelMap mm = new ModelMap();
+		
+		int uploadCount = 0;
+		Map<String, Object> rowDate = null;
+		List<Map<String, Object>> excelDate = new ArrayList<Map<String, Object>>();
+		
+		int ChkCnt = 0;
+		try {
+			List<Map<String, Object>> excelData = CommonUtil.getOldExcelList(excelFile);
+			String prodID = "";
+			
+			for(Map<String, Object> rowData:excelData){
+				
+				String pdId = (String) rowData.get("CELL0");
+				if(pdId == null || pdId.equals("")){
+					break;
+				}	
+				
+				// 2015.12.16 정명철
+				// 종복값 체크
+				rowDate = new HashMap<String, Object>();
+				ChkCnt = adminSmartStockDao.CheckStokprod2(pdId);
+				if(ChkCnt == 0){
+					
+					rowDate.put("CELL0", pdId);
+					rowDate.put("CHK", "Y");
+					
+				}else{
+					rowDate.put("CELL0", pdId);
+					rowDate.put("CHK", "N");
+				
+				}
+				//LoggerUtil.writeMap(rowDate);
+				excelDate.add(rowDate);
+				uploadCount++;
+			}
+			
+			mm.put("excelList", excelDate);
+			mm.put("uploadCount", uploadCount);
+		} catch (Exception e) {
+			// TODO: handle exception
+		}
+		return mm;
+	}
+
+
+
+	/**
+	 * <pre>
+	 * 대량 일련번호 등록하기 
+	 * 대량 일련번호 등록하기 
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 21. 오후 2:24:53
+	 * @author LeeJinSe
+	 * @see com.ssocio.sharing.service.admin.AdminSmartStockService#inserProdExcelreg(java.util.Map)
+	 * @비고
+	 * 
+	 * </pre>
+	*/
+	@Override
+	public Object inserProdExcelreg(Map<String, Object> inParam)
+			throws Exception {
+		ModelMap mm = new ModelMap();
+		int Cnt = 0;
+		int ChkCnt = 0;
+		try {
+			String str = (String) inParam.get("EXCEL_UPLOAD_UNIQUENO");
+			System.out.println("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+			System.out.println(str);
+			
+				if(str.contains(",")){
+					String[] result = str.split(",");
+					
+					ArrayList<String> list = new ArrayList<String>();
+					for (int i = 0; i < result.length; i++) {
+						
+						list.add(result[i]);
+						
+						// 0도 나머지는 0이 나온다.
+						if(i%1000 == 0){
+							// 한번 커밋
+							ChkCnt += adminSmartStockDao.CheckStokprodForList(list);
+							list = new ArrayList<String>();
+						}
+					}
+					
+					if(list.size() > 0){
+						ChkCnt += adminSmartStockDao.CheckStokprodForList(list);
+					}
+					
+//					inParam.put("bulkData", result);
+//					ChkCnt = adminSmartStockDao.CheckStokprod(inParam);
+					
+					
+					logger.info("check Count :::::: " + ChkCnt);
+					if(ChkCnt <= 0){
+						logger.info("중복 데이터 X");
+						for(int i=0; i< result.length; i++){
+							inParam.put("REG_UNIQUENO", result[i]);
+							Cnt =	adminSmartStockDao.inserProdExcelreg(inParam);
+						}
+					}else{
+						Cnt = 0;
+					}
+					
+				}else{
+					String[] result = {str};
+					inParam.put("bulkData", result);
+					ChkCnt = adminSmartStockDao.CheckStokprod(inParam);
+					
+					logger.info("check Count :::::: " + ChkCnt);
+					if(ChkCnt <= 0){
+						logger.info("중복 데이터 X");
+						inParam.put("REG_UNIQUENO", str);
+						Cnt = adminSmartStockDao.inserProdExcelreg(inParam);
+					}else{
+						Cnt = 0;
+					}
+				}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return Cnt;
+	}
+
+
+
+	@Override
+	public Object getProdListExcelDownload(Map<String, Object> inParam)
+			throws Exception {
+		
+		ModelMap mm = new ModelMap();
+		List<Map<String, Object>> list = null;
+		//페이지번호
+		int nowPage = StringUtil.nvlInt((String)inParam.get("PAGE_NO"), 1);
+		int rowCnt	= 20;
+		inParam.put("S_ROW_CNT", rowCnt);
+		try {
+			
+			LoggerUtil.writeMap(inParam);
+		int rowTotal = adminSmartStockDao.seelectSmartDtlCount(inParam); //전체 Row Count
+		System.out.println("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+		System.out.println("rowTotal : " + rowTotal);
+		System.out.println("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+		PageNavigation pageNav= new PageNavigation(nowPage, rowTotal, rowCnt, CmmnCnst.ADM_BLOCK_SIZE);
+		
+		mm.put("PAGE_NO"	   ,nowPage);
+		mm.put("pageNav", pageNav);
+
+	
+			inParam.put("START_ROW", pageNav.getStartRow());
+			inParam.put("END_ROW", pageNav.getEndRow());
+			
+			System.out.println("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+			System.out.println("@pageNav.getStartRow() : " + pageNav.getStartRow());
+			System.out.println("@pageNav.getEndPage() : " + pageNav.getEndRow());
+			System.out.println("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+		}catch (Exception e) {
+			throw e;
+			
+		}
+		
+		list = adminSmartStockDao.getProdListExcelDownload(inParam);
+		for(Map<String,Object> data : list){
+			if("06".equals(data.get("SH_STAT_CD"))){
+				data.put("BIRTH_YYYYMMDD", "");
+				data.put("END_DT", "");
+				data.put("OPEN_DT", "");
+				data.put("ORD_NAME", "");
+				data.put("USIM_SEQ_CODE", "");
+				data.put("PAYPLAN_NM", "");
+				data.put("USIM_PHONE", "");
+			}
+		}
+		
+		return list;
+	}
+	
+
+}

@@ -1,0 +1,391 @@
+package com.ssocio.sharing.service.seller;
+
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
+import java.net.SocketException;
+import java.net.URLEncoder;
+import java.security.Security;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+import javax.net.ssl.SSLSocket;
+import javax.net.ssl.SSLSocketFactory;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.ui.ModelMap;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.multipart.MultipartHttpServletRequest;
+
+import com.ssocio.sharing.cmmn.admin.util.FileUtil;
+import com.ssocio.sharing.cmmn.seller.util.SellerCommonUtil;
+import com.ssocio.sharing.dao.seller.SellerCommonDao;
+import com.ssocio.sharing.vo.admin.MenuInfoVO;
+import com.ssocio.sharing.vo.seller.SellerSession;
+
+/**
+ * <pre>
+ * 공통 서비스
+ * 공통 처리를 위한 서비스
+ * @author S.B.LEE
+ * @version
+ * @since 2015. 6. 22.. 오후 4:19:34
+ * @see
+ * @History
+ * Date			|	author	| 변경 내용
+ * 2015. 6. 22.	|	S.B.LEE	|신규
+ * @쌔애
+ * </pre>
+ */
+@Service
+public class SellerCommonServiceImpl implements SellerCommonService {
+
+	// --------------------------------------------------------------------------
+	// # Log 설정
+	// --------------------------------------------------------------------------
+	private static final Logger logger = LoggerFactory.getLogger(SellerCommonServiceImpl.class);
+
+	// --------------------------------------------------------------------------
+	// # DAO 설정
+	// --------------------------------------------------------------------------
+	@Resource(name="sellerCommonDao")
+	private SellerCommonDao sellerCommonDao;
+	
+	
+	/**
+	 * <pre>
+	 * 관리자 로그인
+	 * 관리자의 로그인을 처리한다.
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 6. 22. 오후 4:22:03
+	 * @author SEOKBAE
+	 * @see @see com.ssocio.sharing.admin.service.AdminCommonService#setLogin(java.util.Map)
+	 * @비고
+	 * 
+	 * </pre>
+	 */
+	@Override
+	public SellerSession setLogin(Map<String, Object> inParam) throws Exception {
+		logger.debug("[AdminCommonService.setLogin]");
+		SellerSession manager = null;
+		try {
+			manager = sellerCommonDao.setLogin(inParam);
+			if(manager != null){
+				
+				String pwd = manager.getMBER_PASS();
+				String inputPwd = SellerCommonUtil.getEncPassword((String)inParam.get("MBER_PASS"));
+				
+				logger.debug("manager~~~~~~~~~"+manager.toString()+"~~~"+(String)inParam.get("MBER_PASS")+"~~~"+inputPwd);
+				if(pwd.equals(inputPwd)){
+					if(manager.getFAIL_CNT() < 5){
+						manager.setLogin(true);
+					}
+				}else{
+					sellerCommonDao.updateLoginFailCnt(inParam);
+					manager.setLogin(false);
+					manager = sellerCommonDao.setLogin(inParam);
+				}
+			}
+			
+		}catch (Exception e) {
+			throw e;
+		}
+		return manager;
+	}
+	
+	@Override
+	public String getReason(Map<String, Object> inParam) throws Exception {
+		logger.debug("[AdminCommonService.getReason]");
+		String reason = "";
+		try {
+			reason = sellerCommonDao.getReason(inParam);
+			
+		}catch (Exception e) {
+			throw e;
+		}
+		return reason;
+	}
+	
+	/**
+	 * <pre>
+	 * 관리자 SNS 로그인
+	 * 관리자의 로그인을 처리한다.
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 6. 22. 오후 4:22:03
+	 * @author SEOKBAE
+	 * @see @see com.ssocio.sharing.admin.service.AdminCommonService#setLogin(java.util.Map)
+	 * @비고
+	 * 
+	 * </pre>
+	 */
+	@Override
+	public SellerSession setSnsLogin(Map<String, Object> inParam) throws Exception {
+		logger.debug("[SellerCommonService.setSnsLogin]");
+		SellerSession manager = null;
+		try {
+			manager = sellerCommonDao.setSnsLogin(inParam);
+			if(manager != null){
+				manager.setLogin(true);
+			}
+		}catch (Exception e) {
+			throw e;
+		}
+		return manager;
+	}
+	
+	public ModelMap selectListMenu(Map<String, Object> inParam) throws Exception {
+		logger.debug("[AdminCommonService.selectListMenu]");
+		ModelMap mm = new ModelMap();
+		List<Map<String, Object>> list = null;
+		try {
+			list = sellerCommonDao.selectListMenu(inParam);
+			List<MenuInfoVO> menuList = new ArrayList<MenuInfoVO>();//전체메뉴 목록 
+			MenuInfoVO menu = null; //상위메뉴(Map)+하위메뉴(List<Map>)
+			
+			for (int i = 0; i < list.size(); i++) {
+				Map<String, Object> item = list.get(i);
+				logger.debug("item : " + item.toString());
+				if(item.get("PARENT_MENU_CD")==null || item.get("PARENT_MENU_CD").equals("")){
+					if(i>0) {
+						menuList.add(menu);
+					}//이전 loop 에서 만들어진 메뉴 등록
+					menu = new MenuInfoVO();    //새로운 메뉴 클래스 생성
+					menu.setTopMenuInfo(item);  //상위메뉴 set
+				} else {
+					menu.putSubMenuList(item);//메뉴 클래스에 하위메뉴 put
+				}
+			} // End of for(Map<String, Object> item : list)
+			menuList.add(menu);//마지막 Loop에서 생성한 메뉴 등록
+			mm.put("selectListMenu", menuList);
+		}catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+	
+	/**
+	 * <pre>
+	 * 에디터 이미지 업로드
+	 * 에디터에서 첨부한 이미지를 등록합니다.
+	 * @param req
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 7. 16. 오후 5:28:07
+	 * @author Y.I.Chun
+	 * @see com.ssocio.sharing.service.admin
+	 * </pre>
+	 */
+	public String uploadImgEditor(MultipartHttpServletRequest req) throws Exception{
+		logger.debug("☆★☆★[Editor Img Upload]☆★☆★");
+		String rtn="";
+		
+		List<MultipartFile> files = req.getFiles("UPLOAD_FILE");
+	    for(MultipartFile file: files){
+			Map<String, Object> fileInfo= FileUtil.saveMultipartFile(file);//파일 저장				
+			String fileSeq = sellerCommonDao.insertFile(fileInfo);
+			Map<String, Object> fileMap = sellerCommonDao.selectFileInfo(fileSeq);				
+			
+			rtn+="sFileURL="+fileMap.get("FILE_URL")+"&";
+	    }
+	    logger.debug("[rtn]"+rtn);
+	    
+		return rtn;
+	}
+	
+	/**
+	 * <pre>
+	 * 계좌인증
+	 * 
+	 * @param niceUid
+	 * @param svcPwd
+	 * @param service
+	 * @param strGbn
+	 * @param strResId
+	 * @param strNm
+	 * @param strBankCode
+	 * @param strAccountNo
+	 * @param svcGbn
+	 * @param strOrderNo
+	 * @param svc_cls
+	 * @param inq_rsn
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 26. 오후 8:09:18
+	 * @author S.B.LEE
+	 * @see @see com.ssocio.sharing.service.web.WebCommonService#acntConfirm(java.lang.String, java.lang.String, java.lang.String, java.lang.String, java.lang.String, java.lang.String, java.lang.String, java.lang.String, java.lang.String, java.lang.String, java.lang.String, java.lang.String)
+	 * </pre>
+	 */
+	public String acntConfirm(String niceUid, String svcPwd, String service, String strGbn
+						, String strResId, String strNm, String strBankCode, String strAccountNo
+						, String svcGbn, String strOrderNo, String svc_cls, String inq_rsn) throws Exception {
+		
+		String result = "";
+		BufferedReader in = null;
+		PrintWriter out = null;
+		
+		try {
+			Security.addProvider(new com.sun.net.ssl.internal.ssl.Provider());
+			SSLSocketFactory factory = (SSLSocketFactory)SSLSocketFactory.getDefault();
+			SSLSocket soc = (SSLSocket)factory.createSocket("secure.nuguya.com", 443);
+			
+			// 타임아웃  +++++++++++++++++++++++++++++++++++++++++++++++++++++ 
+			soc.setSoTimeout(10*1000);	// 타임아웃 10초 
+			soc.setSoLinger(true, 10);	
+			soc.setKeepAlive(true);		
+			// 타임아웃  +++++++++++++++++++++++++++++++++++++++++++++++++++++ 
+			
+			out = new PrintWriter(soc.getOutputStream());
+			in  = new BufferedReader(new InputStreamReader(soc.getInputStream()), 8 * 1024);
+			result = rlnmCheck(out, in, niceUid, svcPwd, service, strGbn, strResId, strNm, strBankCode, strAccountNo, svcGbn, strOrderNo,  svc_cls, inq_rsn);
+			
+		} catch(SocketException e){
+			System.out.println(e.getMessage());
+		}catch (Exception e){
+			e.printStackTrace();
+		} finally {
+			if (out != null){
+				try{
+					out.close();
+				}catch (Exception e){
+				}
+			}
+			if (in != null){
+				try{
+					in.close();
+				}catch (Exception e){
+				}
+			}
+		}
+		
+		return result;
+	}
+	
+	/**
+	 * <pre>
+	 * 계좌체크
+	 * 
+	 * @param out
+	 * @param in
+	 * @param niceUid
+	 * @param svcPwd
+	 * @param service
+	 * @param strGbn
+	 * @param strResId
+	 * @param strNm
+	 * @param strBankCode
+	 * @param strAccountNo
+	 * @param svcGbn
+	 * @param strOrderNo
+	 * @param svc_cls
+	 * @param inq_rsn
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 26. 오후 8:09:30
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.service.web
+	 * </pre>
+	 */
+	public String rlnmCheck(PrintWriter out, BufferedReader in, String niceUid, String svcPwd, String service
+							, String strGbn, String strResId, String strNm, String strBankCode, String strAccountNo
+							, String svcGbn, String strOrderNo, String svc_cls, String inq_rsn) throws Exception {
+		
+		StringBuffer sbResult = new StringBuffer();
+		strNm = URLEncoder.encode(strNm, "EUC-KR");
+		String contents = "niceUid=" + niceUid + "&svcPwd=" + svcPwd + "&service=" + service + "&strGbn=" + strGbn + "&strResId=" + strResId
+						+ "&strNm=" + strNm + "&strBankCode=" + strBankCode + "&strAccountNo=" + strAccountNo + "&svcGbn=" + svcGbn
+						+ "&strOrderNo=" + strOrderNo + "&svc_cls=" + svc_cls + "&inq_rsn=" + inq_rsn + "&seq=0000001";
+		
+		out.println("POST https://secure.nuguya.com/nuguya/service/realname/sprealnameactconfirm.do HTTP/1.1");
+		out.println("Host: secure.nuguya.com");
+		out.println("Connection: Keep-Alive");
+		out.println("Content-Type: application/x-www-form-urlencoded");
+		out.println("Content-Length: " + contents.length());
+		out.println("");
+		out.println(contents);
+		out.flush();
+		String line = null;
+		int i=0;
+		boolean notYet = true;
+		while((line = in.readLine())!= null){
+			i++;
+			if (notYet && line.indexOf("HTTP/1.") == -1 ){
+				continue;
+			}
+			if (notYet && line.indexOf("HTTP/1.") > -1 ){
+				notYet = false;
+			}
+			
+			if (line.indexOf("HTTP/1.") > -1 ){
+				notYet = false;
+			}
+			if (line.startsWith("0") ){
+				break;
+			}
+			if (line == null) {
+				break;
+			}
+			
+			if(i==9) sbResult.append(line);
+		}
+		System.out.println(sbResult.toString());
+		return sbResult.toString();
+	}
+	
+	/**
+	 * <pre>
+	 * 제휴택배사 코드조회
+	 * 제휴택배사 코드를 조회 합니다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 7. 9. 오후 9:22:19
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.service.admin
+	 * </pre>
+	 */
+	@Override
+	public ModelMap selectDlvCompList(Map<String, Object> inParam) throws Exception {
+		logger.debug("AdminCodeServiceImpl.selectDlvCompList [Start]");
+		ModelMap mm = new ModelMap();
+		try {
+			mm.put("dlvList",sellerCommonDao.selectDlvCompList(inParam));
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+	
+	//파라미터 MBER_SEQ
+		//최초 인증시 포인트 지급
+		@Override
+		public int updateMberPoint(Map<String, Object> inParam) throws Exception {
+			//이력 확인
+			int ret = sellerCommonDao.selectPointUseLogCnt(inParam);
+			logger.debug("### updateMberPoint:"+ret);
+			if(0 == ret){
+				ret = sellerCommonDao.insertPoint(inParam);
+				logger.debug("### updateMberPoint:"+ret);
+				if(ret > 0){
+					ret = sellerCommonDao.updateMberPoint(inParam);
+					logger.debug("### updateMberPoint:"+ret);
+				}
+			}
+
+			return ret;
+		}
+	
+//	public static void main(String[] args) {
+//		String inputPwd = SellerCommonUtil.getEncPassword("rcm123");
+//		System.out.println(inputPwd);
+//	}
+}

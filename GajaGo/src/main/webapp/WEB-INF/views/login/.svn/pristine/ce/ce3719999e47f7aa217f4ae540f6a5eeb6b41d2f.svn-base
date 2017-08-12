@@ -1,0 +1,715 @@
+package com.ssocio.sharing.service.web;
+
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
+
+import javax.annotation.Resource;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+
+import com.ssocio.sharing.cmmn.util.CmmnCnst;
+import com.ssocio.sharing.dao.web.WebSaleManageDao;
+
+@Service
+public class WebSaleProdRegServiceImpl extends WebReferServiceImpl implements WebSaleProdRegService {
+
+	// --------------------------------------------------------------------------
+	// # Log 설정
+	// --------------------------------------------------------------------------
+	private static final Logger logger = LoggerFactory.getLogger(WebSaleProdRegServiceImpl.class);
+
+	// --------------------------------------------------------------------------
+	// # DAO 설정
+	// --------------------------------------------------------------------------
+	@Resource(name="webSaleManageDao")
+	private WebSaleManageDao webSaleManageDao;
+
+	
+	/**
+	 * 판매상품
+	 */
+	@Override
+	public Map<String, Object> regProdType1(Map<String, Object> inParam) throws Exception {
+		Map<String,Object> insertMap = new HashMap<String,Object>();
+		
+		// 공통파라미터 (필수)
+		insertMap.put("sellerCd", "2");												// 판매자 ( 개인판매자 : 2 ) default
+		insertMap.put("mberSeq", inParam.get("mberSeq"));							// 등록자
+		insertMap.put("prodTypeCd", (String)inParam.get("prodTypeCd"));				// 1:판매, 2:셰어링, 3:나눔
+		insertMap.put("prodStatCd", CmmnCnst.cmmn0);								// 상품상태 판매중
+		insertMap.put("ctryCd", CmmnCnst.cmmnUserRegCtry);
+		insertMap.put("brandCd",CmmnCnst.cmmn0);									// 브랜드 없음
+		insertMap.put("prodNm", (String)inParam.get("prodNm"));
+		insertMap.put("keyword", "");
+		insertMap.put("prodDtl", (String)inParam.get("prodDtl"));
+		insertMap.put("dlvWayCd", (String)inParam.get("dlvWayCd"));					// 1:제휴택배, 2:일반택배, 5:직거래
+		insertMap.put("optProdYn", CmmnCnst.cmmnN);									// 옵션여부
+		insertMap.put("bndlDlvYn", "N");											// 묶음상품
+		insertMap.put("nProdGbCd", (String)inParam.get("nProdGbCd"));				// 10:새상품, 20:미사용, 30:중고상품, 40:전시상품
+
+		
+		// 공통파라미터 (선택)
+		insertMap.put("TXN_ON_YN", "Y");											// 과세 (개인판매자 : Y ) default
+		insertMap.put("PROD_ITEM_CODE", "0");										// 정부고시항목코드 (개인판매자 : 0 ) default
+
+		// 파라미터 체크
+		if ( !insertMapEmptyCheck(insertMap) ){
+			insertMap.put("rtnMsgCd", "필수 파라미터가 없습니다."); return insertMap;
+		}
+		
+		
+		
+		
+		// 판매상품 전용
+		insertMap.put("nrmPrce", ((String)inParam.get("sellPrce")).replaceAll(",", "")  );		// 정상가격
+		insertMap.put("sellPrce", ((String)inParam.get("sellPrce")).replaceAll(",", "")  );		// 판매가격
+		
+		
+		
+		
+		String dlvWayCd = (String)inParam.get("dlvWayCd");
+		
+		// 제휴
+		if(dlvWayCd.equals("1")){
+			
+			// 택배사 코드
+			if(  ((String)inParam.get("dlvCmpCd")).equals("") ){
+				insertMap.put("rtnMsgCd", "택배사를 선택해 주세요."); return insertMap;
+			}
+			insertMap.put("dlvCmpCd", inParam.get("dlvCmpCd"));
+			
+			
+			// 택배비
+			insertMap.put("dlvPayGbCd", (String)inParam.get("dlvPayGbCd"));				// 1:판매자부담, 2:구매자부담
+			if(  ((String) insertMap.get("dlvPayGbCd")).equals("2") ){
+				Map<String, Object> dlvPrceMap = webSaleManageDao.selectRelDlvInfo(insertMap);
+				insertMap.put("dlvPrce", dlvPrceMap.get("DLV_AMT"));
+			}else{
+				insertMap.put("dlvPrce", 0);	// 판매자 부담은 배송비가 0원임
+			}
+
+		}
+		// 일반
+		else if(dlvWayCd.equals("2")){
+			
+			
+			// 택배사 코드
+			if(  ((String)inParam.get("dlvCmpCd")).equals("") ){
+				insertMap.put("rtnMsgCd", "택배사를 선택해 주세요."); return insertMap;
+			}
+			insertMap.put("dlvCmpCd", inParam.get("dlvCmpCd"));
+			
+			// 택배비
+			insertMap.put("dlvPayGbCd", (String)inParam.get("dlvPayGbCd"));				// 1:판매자부담, 2:구매자부담
+			if(  ((String) insertMap.get("dlvPayGbCd")).equals("2") ){
+				if( ((String)inParam.get("dlvAmt")).equals("") || ((String)inParam.get("dlvAmt")).equals("0")){
+					insertMap.put("rtnMsgCd", "배송비를 입력 해주세요."); return insertMap;
+				}
+				insertMap.put("dlvPrce", inParam.get("dlvAmt"));
+			}else{
+				insertMap.put("dlvPrce", 0);	// 판매자 부담은 배송비가 0원임
+			}
+		}
+		// 우편/등기
+		else if(dlvWayCd.equals("3")){
+
+
+		}
+		// 퀵서비스
+		else if(dlvWayCd.equals("4")){
+			
+			insertMap.put("dlvPayGbCd", (String)inParam.get("dlvPayGbCd"));
+			
+			if(  ((String)inParam.get("tradLoc")).equals("") ){
+				insertMap.put("rtnMsgCd", "거래 가능지역을 입력해 주세요."); return insertMap;
+			}
+			insertMap.put("tradLoc", (String)inParam.get("tradLoc"));					// 거래 희망지역 , 배송 가능지역
+			insertMap.put("dlvPrce", 0);
+		}
+		// 직접거래
+		else if(dlvWayCd.equals("5")){
+			if(  ((String)inParam.get("tradLoc")).equals("") ){
+				insertMap.put("rtnMsgCd", "거래 가능지역을 입력해 주세요."); return insertMap;
+			}
+			insertMap.put("tradLoc", (String)inParam.get("tradLoc"));					// 거래 희망지역 , 배송 가능지역
+			insertMap.put("dlvPrce", 0);
+		}
+		
+		
+		
+		logger.debug("insertMap 확인 : " + insertMap.toString());
+		logger.debug(insertMap.toString());
+		String prodCode = webSaleManageDao.insertProdSimple(insertMap);
+		insertMap.put("prodCode",prodCode);
+
+		return insertMap;
+	}
+
+	
+	/**
+	 * 셰어링
+	 */
+	@Override
+	public Map<String, Object> regProdType2(Map<String, Object> inParam) throws Exception {
+		Map<String,Object> insertMap = new HashMap<String,Object>();
+
+
+		// 공통파라미터 (필수)
+		insertMap.put("sellerCd", "2");												// 판매자 ( 개인판매자 : 2 ) default
+		insertMap.put("mberSeq", inParam.get("mberSeq"));							// 등록자
+		insertMap.put("prodTypeCd", (String)inParam.get("prodTypeCd"));				// 1:판매, 2:셰어링, 3:나눔
+		insertMap.put("prodStatCd", CmmnCnst.cmmn0);								// 상품상태 판매중
+		insertMap.put("ctryCd", CmmnCnst.cmmnUserRegCtry);
+		insertMap.put("brandCd",CmmnCnst.cmmn0);									// 브랜드 없음
+		insertMap.put("prodNm", (String)inParam.get("prodNm"));
+		insertMap.put("keyword", "");
+		insertMap.put("prodDtl", (String)inParam.get("prodDtl"));
+		insertMap.put("dlvWayCd", (String)inParam.get("dlvWayCd"));					// 1:제휴택배, 2:일반택배, 5:직거래
+		insertMap.put("optProdYn", CmmnCnst.cmmnN);									// 옵션여부
+		insertMap.put("bndlDlvYn", "N");											// 묶음상품
+		insertMap.put("nProdGbCd", (String)inParam.get("nProdGbCd"));				// 10:새상품, 20:미사용, 30:중고상품, 40:전시상품
+
+		
+		// 공통파라미터 (선택)
+		insertMap.put("TXN_ON_YN", "Y");											// 과세 (개인판매자 : Y ) default
+		insertMap.put("PROD_ITEM_CODE", "0");										// 정부고시항목코드 (개인판매자 : 0 ) default
+
+		// 파라미터 체크
+		if ( !insertMapEmptyCheck(insertMap) ){
+			insertMap.put("rtnMsgCd", "필수 파라미터가 없습니다."); return insertMap;
+		}
+		
+		
+		//셰어링 전용 파라미터
+		if(  ((String)inParam.get("deposit")).equals("") ){
+			insertMap.put("rtnMsgCd", "보증금을 입력해 주세요."); return insertMap;
+		}
+		insertMap.put("deposit", ((String)inParam.get("deposit")).replaceAll(",", "")  );					// 보증금
+		
+		if(  ((String)inParam.get("sharingPrice")).equals("") ){
+			insertMap.put("rtnMsgCd", "셰어링 금액을 입력해 주세요."); return insertMap;
+		}
+		insertMap.put("sharingPrice", ((String)inParam.get("sharingPrice")).replaceAll(",", "") );			// 셰어링 금액
+		
+		
+		
+		
+		
+		String dlvWayCd = (String)inParam.get("dlvWayCd");
+
+		// 제휴
+		if(dlvWayCd.equals("1")){
+			
+			// 택배사 코드
+			if(  ((String)inParam.get("dlvCmpCd")).equals("") ){
+				insertMap.put("rtnMsgCd", "택배사를 선택해 주세요."); return insertMap;
+			}
+			insertMap.put("dlvCmpCd", inParam.get("dlvCmpCd"));
+			
+			// 배송결제 구분코드
+			insertMap.put("dlvPayGbCd", (String)inParam.get("dlvPayGbCd"));				// 1:판매자부담, 2:구매자부담
+			if(  ((String) insertMap.get("dlvPayGbCd")).equals("2") ){
+				// 택배비
+				Map<String, Object> dlvPrceMap = webSaleManageDao.selectRelDlvInfo(insertMap);
+				insertMap.put("dlvPrce", dlvPrceMap.get("DLV_AMT"));
+			}else{
+				insertMap.put("dlvPrce", 0);	// 판매자 부담은 배송비가 0원임
+			}
+			
+
+		}
+		// 직접거래
+		else if(dlvWayCd.equals("5")){
+			if(  ((String)inParam.get("tradLoc")).equals("") ){
+				insertMap.put("rtnMsgCd", "거래 가능지역을 입력해 주세요."); return insertMap;
+			}
+			insertMap.put("tradLoc", (String)inParam.get("tradLoc"));					// 거래 희망지역 , 배송 가능지역
+			insertMap.put("dlvPrce", 0);
+		}else{
+			insertMap.put("rtnMsgCd", "배송 방식을 선택해 주세요."); return insertMap;
+			
+		}
+
+
+		logger.debug("셰어링 insertMap 확인 : " + insertMap.toString());
+		String prodCode = webSaleManageDao.insertProdSimple(insertMap);
+		insertMap.put("prodCode",prodCode);
+
+		
+		return insertMap;
+	}
+
+	
+	
+	/**
+	 * 나눔
+	 */
+	@Override
+	public Map<String, Object> regProdType3(Map<String, Object> inParam) throws Exception {
+		Map<String,Object> insertMap = new HashMap<String,Object>();
+		
+		// 공통파라미터 (필수)
+		insertMap.put("sellerCd", "2");												// 판매자 ( 개인판매자 : 2 ) default
+		insertMap.put("mberSeq", inParam.get("mberSeq"));							// 등록자
+		insertMap.put("prodTypeCd", (String)inParam.get("prodTypeCd"));				// 1:판매, 2:셰어링, 3:나눔
+		insertMap.put("prodStatCd", CmmnCnst.cmmn0);								// 상품상태 판매중
+		insertMap.put("ctryCd", CmmnCnst.cmmnUserRegCtry);
+		insertMap.put("brandCd",CmmnCnst.cmmn0);									// 브랜드 없음
+		insertMap.put("prodNm", (String)inParam.get("prodNm"));
+		insertMap.put("keyword", "");
+		insertMap.put("prodDtl", (String)inParam.get("prodDtl"));
+		insertMap.put("dlvWayCd", (String)inParam.get("dlvWayCd"));					// 1:제휴택배, 2:일반택배, 5:직거래
+		insertMap.put("optProdYn", CmmnCnst.cmmnN);									// 옵션여부
+		insertMap.put("bndlDlvYn", "N");											// 묶음상품
+		insertMap.put("nProdGbCd", "30");				// 10:새상품, 20:미사용, 30:중고상품, 40:전시상품
+
+		
+		// 공통파라미터 (선택)
+		insertMap.put("TXN_ON_YN", "Y");											// 과세 (개인판매자 : Y ) default
+		insertMap.put("PROD_ITEM_CODE", "0");										// 정부고시항목코드 (개인판매자 : 0 ) default
+				
+				
+		if ( !insertMapEmptyCheck(insertMap) ){
+			insertMap.put("rtnMsgCd", "필수 파라미터가 없습니다."); return insertMap;
+		}
+		
+		
+		// 나눔 파라미터 확인
+		if(  ((String)inParam.get("freeShareEndDt")).equals("")  || ((String)inParam.get("freeShareEndDt")).length()<8){
+			insertMap.put("rtnMsgCd", "나눔 종료일자를 선택해 주세요."); return insertMap;
+		}
+		String dt = ((String)inParam.get("freeShareEndDt"))+"235959";
+		insertMap.put("freeShareEndDt",dt);					// 나눔 종료일자
+		insertMap.put("dlvPayGbCd", "2" );					// 나눔은 무조건 구매자 부담
+
+		
+		
+		
+		// 택배
+		String dlvWayCd = (String)inParam.get("dlvWayCd");
+		
+		// 제휴
+		if(dlvWayCd.equals("1")){
+			
+			// 택배사 코드
+			if(  ((String)inParam.get("dlvCmpCd")).equals("") ){
+				insertMap.put("rtnMsgCd", "택배사를 선택해 주세요."); return insertMap;
+			}
+			insertMap.put("dlvCmpCd", inParam.get("dlvCmpCd"));
+			
+
+			// 택배비
+			Map<String, Object> dlvPrceMap = webSaleManageDao.selectRelDlvInfo(insertMap);
+			insertMap.put("dlvPrce", dlvPrceMap.get("DLV_AMT"));
+
+
+			
+			
+
+		}
+		// 일반
+		else if(dlvWayCd.equals("2")){
+			
+			// 택배사 코드
+			if(  ((String)inParam.get("dlvCmpCd")).equals("") ){
+				insertMap.put("rtnMsgCd", "택배사를 선택해 주세요."); return insertMap;
+			}
+			insertMap.put("dlvCmpCd", inParam.get("dlvCmpCd"));
+			
+
+			// 나눔상품의 일반택배는, 무조건 판매자 부담이며, 배송비가 무조건 0원 입력된다.
+			insertMap.put("dlvPrce", 0);
+
+		}
+		// 우편/등기
+		else if(dlvWayCd.equals("3")){
+
+
+		}
+		// 퀵서비스
+		else if(dlvWayCd.equals("4")){
+			if(  ((String)inParam.get("tradLoc")).equals("") ){
+				insertMap.put("rtnMsgCd", "거래 가능지역을 입력해 주세요."); return insertMap;
+			}
+			insertMap.put("tradLoc", (String)inParam.get("tradLoc"));					// 거래 희망지역 , 배송 가능지역
+			insertMap.put("dlvPrce", 0);
+		}
+		// 직접거래
+		else if(dlvWayCd.equals("5")){
+			if(  ((String)inParam.get("tradLoc")).equals("") ){
+				insertMap.put("rtnMsgCd", "거래 가능지역을 입력해 주세요."); return insertMap;
+			}
+			insertMap.put("tradLoc", (String)inParam.get("tradLoc"));					// 거래 희망지역 , 배송 가능지역
+			insertMap.put("dlvPrce", 0);
+		}
+		
+		logger.debug("insertMap 확인 : " + insertMap.toString());
+		logger.debug(insertMap.toString());
+		String prodCode = webSaleManageDao.insertProdSimple(insertMap);
+		insertMap.put("prodCode",prodCode);
+		
+		
+		return insertMap;
+	}
+	
+	
+	
+	private static boolean insertMapEmptyCheck(Map<String,Object> insertMap){
+		
+		boolean ret = true;
+		
+		Iterator<String> keys = insertMap.keySet().iterator();
+		while (keys.hasNext()) {
+			
+			String key = keys.next();
+			if(key.equals("keyword")){
+				continue;
+			}
+			
+			if(insertMap.get(key)==null || insertMap.get(key).toString().equals("")){
+				logger.error("parameter ["+key + "] is Empty");
+				
+				ret = false;
+			}
+				
+		}
+		
+		return ret ;
+	}
+
+
+	
+	/**
+	 * 	판매상품 update
+	 * @throws Exception 
+	 */
+	@Override
+	public Map<String, Object> updateProdType1(Map<String, Object> inParam) throws Exception {
+		Map<String,Object> insertMap = new HashMap<String,Object>();
+		
+		// 공통파라미터 (필수)
+		insertMap.put("sellerCd", "2");												// 판매자 ( 개인판매자 : 2 ) default
+		insertMap.put("mberSeq", inParam.get("mberSeq"));							// 등록자
+		insertMap.put("prodTypeCd", (String)inParam.get("prodTypeCd"));				// 1:판매, 2:셰어링, 3:나눔
+//		insertMap.put("prodStatCd", CmmnCnst.cmmn2);								// 상품상태 판매중
+//		insertMap.put("ctryCd", CmmnCnst.cmmnUserRegCtry);
+//		insertMap.put("brandCd",CmmnCnst.cmmn0);									// 브랜드 없음
+		insertMap.put("prodNm", (String)inParam.get("prodNm"));
+//		insertMap.put("keyword", "");
+		insertMap.put("prodDtl", (String)inParam.get("prodDtl"));
+		insertMap.put("dlvWayCd", (String)inParam.get("dlvWayCd"));					// 1:제휴택배, 2:일반택배, 5:직거래
+//		insertMap.put("optProdYn", CmmnCnst.cmmnN);									// 옵션여부
+//		insertMap.put("bndlDlvYn", "N");											// 묶음상품
+		insertMap.put("nProdGbCd", (String)inParam.get("nProdGbCd"));				// 10:새상품, 20:미사용, 30:중고상품, 40:전시상품
+		insertMap.put("prodCode", (String)inParam.get("prodCode"));
+
+		
+		// 공통파라미터 (선택)
+//		insertMap.put("TXN_ON_YN", "Y");											// 과세 (개인판매자 : Y ) default
+//		insertMap.put("PROD_ITEM_CODE", "0");										// 정부고시항목코드 (개인판매자 : 0 ) default
+
+		// 파라미터 체크
+		if ( !insertMapEmptyCheck(insertMap) ){
+			insertMap.put("rtnMsgCd", "필수 파라미터가 없습니다."); return insertMap;
+		}
+		
+		
+		
+		
+		// 판매상품 전용
+		insertMap.put("nrmPrce", ((String)inParam.get("sellPrce")).replaceAll(",", "")  );		// 정상가격
+		insertMap.put("sellPrce", ((String)inParam.get("sellPrce")).replaceAll(",", "")  );		// 판매가격
+		
+		
+		
+		
+		String dlvWayCd = (String)inParam.get("dlvWayCd");
+		
+		// 제휴
+		if(dlvWayCd.equals("1")){
+			
+			// 택배사 코드
+			if(  ((String)inParam.get("dlvCmpCd")).equals("") ){
+				insertMap.put("rtnMsgCd", "택배사를 선택해 주세요."); return insertMap;
+			}
+			insertMap.put("dlvCmpCd", inParam.get("dlvCmpCd"));
+			
+			// 배송결제 구분코드
+			insertMap.put("dlvPayGbCd", (String)inParam.get("dlvPayGbCd"));				// 1:구매자부담, 2:판매자부담
+			if(  ((String) insertMap.get("dlvPayGbCd")).equals("2") ){
+				// 택배비
+				Map<String, Object> dlvPrceMap = webSaleManageDao.selectRelDlvInfo(insertMap);
+				insertMap.put("dlvPrce", dlvPrceMap.get("DLV_AMT"));
+			}else{
+				insertMap.put("dlvPrce", 0);
+			}
+			
+
+		}
+		// 일반
+		else if(dlvWayCd.equals("2")){
+			
+			// 택배사 코드
+			if(  ((String)inParam.get("dlvCmpCd")).equals("") ){
+				insertMap.put("rtnMsgCd", "택배사를 선택해 주세요."); return insertMap;
+			}
+			insertMap.put("dlvCmpCd", inParam.get("dlvCmpCd"));
+			
+			// 배송결제 구분코드
+			insertMap.put("dlvPayGbCd", (String)inParam.get("dlvPayGbCd"));				// 1:구매자부담, 2:판매자부담
+			if(  ((String) insertMap.get("dlvPayGbCd")).equals("2") ){
+				// 택배비
+				insertMap.put("dlvPrce", inParam.get("dlvAmt"));
+			}else{
+				insertMap.put("dlvPrce", 0);
+			}
+			
+
+		}
+		// 우편/등기
+		else if(dlvWayCd.equals("3")){
+
+
+		}
+		// 퀵서비스
+		else if(dlvWayCd.equals("4")){
+			
+			// 배송결제 구분코드 (퀵서비스 결제 구분코드)
+			insertMap.put("dlvPayGbCd", (String)inParam.get("dlvPayGbCd"));				// 1:구매자부담, 2:판매자부담
+
+
+			if(  ((String)inParam.get("tradLocQuick")).equals("") ){
+				insertMap.put("rtnMsgCd", "거래 가능지역을 입력해 주세요."); return insertMap;
+			}
+			insertMap.put("tradLoc", (String)inParam.get("tradLocQuick"));					// 거래 희망지역 , 배송 가능지역
+			insertMap.put("dlvPrce", 0);
+		}
+		// 직접거래
+		else if(dlvWayCd.equals("5")){
+			if(  ((String)inParam.get("tradLocOffLine")).equals("") ){
+				insertMap.put("rtnMsgCd", "거래 가능지역을 입력해 주세요."); return insertMap;
+			}
+			insertMap.put("tradLoc", (String)inParam.get("tradLocOffLine"));					// 거래 희망지역 , 배송 가능지역
+			insertMap.put("dlvPrce", 0);
+		}
+		
+		
+		
+		logger.debug("insertMap 확인 : " + insertMap.toString());
+		logger.debug(insertMap.toString());
+		webSaleManageDao.updateProdSimple(insertMap);
+
+		return insertMap;
+	}
+
+
+	/**
+	 * 	셰어링상품 update
+	 * @throws Exception 
+	 */
+	@Override
+	public Map<String, Object> updateProdType2(Map<String, Object> inParam) throws Exception {
+		Map<String,Object> insertMap = new HashMap<String,Object>();
+
+		// 공통파라미터 (필수)
+		insertMap.put("sellerCd", "2");												// 판매자 ( 개인판매자 : 2 ) default
+		insertMap.put("mberSeq", inParam.get("mberSeq"));							// 등록자
+		insertMap.put("prodTypeCd", (String)inParam.get("prodTypeCd"));				// 1:판매, 2:셰어링, 3:나눔
+//		insertMap.put("prodStatCd", CmmnCnst.cmmn2);								// 상품상태 판매중
+//		insertMap.put("ctryCd", CmmnCnst.cmmnUserRegCtry);
+//		insertMap.put("brandCd",CmmnCnst.cmmn0);									// 브랜드 없음
+		insertMap.put("prodNm", (String)inParam.get("prodNm"));
+//		insertMap.put("keyword", "");
+		insertMap.put("prodDtl", (String)inParam.get("prodDtl"));
+		insertMap.put("dlvWayCd", (String)inParam.get("dlvWayCd"));					// 1:제휴택배, 2:일반택배, 5:직거래
+//		insertMap.put("optProdYn", CmmnCnst.cmmnN);									// 옵션여부
+//		insertMap.put("bndlDlvYn", "N");											// 묶음상품
+		insertMap.put("nProdGbCd", (String)inParam.get("nProdGbCd"));				// 10:새상품, 20:미사용, 30:중고상품, 40:전시상품
+		insertMap.put("prodCode", (String)inParam.get("prodCode"));
+		
+		// 공통파라미터 (선택)
+//		insertMap.put("TXN_ON_YN", "Y");											// 과세 (개인판매자 : Y ) default
+//		insertMap.put("PROD_ITEM_CODE", "0");										// 정부고시항목코드 (개인판매자 : 0 ) default
+
+		// 파라미터 체크
+		if ( !insertMapEmptyCheck(insertMap) ){
+			insertMap.put("rtnMsgCd", "필수 파라미터가 없습니다."); return insertMap;
+		}
+		
+		
+		//셰어링 전용 파라미터
+		if(  ((String)inParam.get("deposit")).equals("") ){
+			insertMap.put("rtnMsgCd", "보증금을 입력해 주세요."); return insertMap;
+		}
+		insertMap.put("deposit", ((String)inParam.get("deposit")).replaceAll(",", "")  );					// 보증금
+		
+		if(  ((String)inParam.get("sharingPrice")).equals("") ){
+			insertMap.put("rtnMsgCd", "셰어링 금액을 입력해 주세요."); return insertMap;
+		}
+		insertMap.put("sharingPrice", ((String)inParam.get("sharingPrice")).replaceAll(",", "") );			// 셰어링 금액
+		
+		
+		
+		
+		
+		String dlvWayCd = (String)inParam.get("dlvWayCd");
+		
+		// 제휴
+		if(dlvWayCd.equals("1")){
+			
+			// 택배사 코드
+			if(  ((String)inParam.get("dlvCmpCd")).equals("") ){
+				insertMap.put("rtnMsgCd", "택배사를 선택해 주세요."); return insertMap;
+			}
+			insertMap.put("dlvCmpCd", inParam.get("dlvCmpCd"));
+			
+			// 배송결제 구분코드
+			insertMap.put("dlvPayGbCd", (String)inParam.get("dlvPayGbCd"));				// 1:구매자부담, 2:판매자부담
+			if(  ((String) insertMap.get("dlvPayGbCd")).equals("2") ){
+				// 택배비
+				Map<String, Object> dlvPrceMap = webSaleManageDao.selectRelDlvInfo(insertMap);
+				insertMap.put("dlvPrce", dlvPrceMap.get("DLV_AMT"));
+			}else{
+				insertMap.put("dlvPrce", 0);
+			}
+			
+			
+
+		}
+		// 직접거래
+		else if(dlvWayCd.equals("5")){
+			if(  ((String)inParam.get("tradLocOffLine")).equals("") ){
+				insertMap.put("rtnMsgCd", "거래 가능지역을 입력해 주세요."); return insertMap;
+			}
+			insertMap.put("tradLoc", (String)inParam.get("tradLocOffLine"));					// 거래 희망지역 , 배송 가능지역
+			insertMap.put("dlvPrce", 0);
+		}else{
+			insertMap.put("rtnMsgCd", "배송 방식을 선택해 주세요."); return insertMap;
+			
+		}
+
+
+		logger.debug("insertMap 확인 : " + insertMap.toString());
+		logger.debug(insertMap.toString());
+		webSaleManageDao.updateProdSimple(insertMap);
+
+		
+		return insertMap;
+	}
+
+
+	/**
+	 * 	나눔상품 update
+	 * @throws Exception 
+	 */
+	@Override
+	public Map<String, Object> updateProdType3(Map<String, Object> inParam) throws Exception {
+		Map<String,Object> insertMap = new HashMap<String,Object>();
+		
+		// 공통파라미터 (필수)
+		insertMap.put("sellerCd", "2");												// 판매자 ( 개인판매자 : 2 ) default
+		insertMap.put("mberSeq", inParam.get("mberSeq"));							// 등록자
+		insertMap.put("prodTypeCd", (String)inParam.get("prodTypeCd"));				// 1:판매, 2:셰어링, 3:나눔
+//		insertMap.put("prodStatCd", CmmnCnst.cmmn2);								// 상품상태 판매중
+//		insertMap.put("ctryCd", CmmnCnst.cmmnUserRegCtry);
+//		insertMap.put("brandCd",CmmnCnst.cmmn0);									// 브랜드 없음
+		insertMap.put("prodNm", (String)inParam.get("prodNm"));
+		insertMap.put("keyword", "");
+		insertMap.put("prodDtl", (String)inParam.get("prodDtl"));
+		insertMap.put("dlvWayCd", (String)inParam.get("dlvWayCd"));					// 1:제휴택배, 2:일반택배, 5:직거래
+//		insertMap.put("optProdYn", CmmnCnst.cmmnN);									// 옵션여부
+//		insertMap.put("bndlDlvYn", "N");											// 묶음상품
+		insertMap.put("nProdGbCd", "30");				// 10:새상품, 20:미사용, 30:중고상품, 40:전시상품
+		insertMap.put("prodCode", (String)inParam.get("prodCode"));
+		
+		// 공통파라미터 (선택)
+//		insertMap.put("TXN_ON_YN", "Y");											// 과세 (개인판매자 : Y ) default
+//		insertMap.put("PROD_ITEM_CODE", "0");										// 정부고시항목코드 (개인판매자 : 0 ) default
+				
+				
+		if ( !insertMapEmptyCheck(insertMap) ){
+			insertMap.put("rtnMsgCd", "필수 파라미터가 없습니다."); return insertMap;
+		}
+		
+		
+		// 나눔 파라미터 확인
+		if(  ((String)inParam.get("freeShareEndDt")).equals("")  || ((String)inParam.get("freeShareEndDt")).length()<8){
+			insertMap.put("rtnMsgCd", "나눔 종료일자를 선택해 주세요."); return insertMap;
+		}
+		String dt = ((String)inParam.get("freeShareEndDt"))+"235959";
+		insertMap.put("freeShareEndDt",dt);					// 나눔 종료일자
+		insertMap.put("dlvPayGbCd", "2" );					// 나눔은 무조건 구매자 부담
+
+		
+		
+		
+		// 택배
+		String dlvWayCd = (String)inParam.get("dlvWayCd");
+		
+		// 제휴
+		if(dlvWayCd.equals("1")){
+			
+			// 택배사 코드
+			if(  ((String)inParam.get("dlvCmpCd")).equals("") ){
+				insertMap.put("rtnMsgCd", "택배사를 선택해 주세요."); return insertMap;
+			}
+			insertMap.put("dlvCmpCd", inParam.get("dlvCmpCd"));
+			
+			// 택배비
+			Map<String, Object> dlvPrceMap = webSaleManageDao.selectRelDlvInfo(insertMap);
+			insertMap.put("dlvPrce", dlvPrceMap.get("DLV_AMT"));
+
+			
+
+		}
+		// 일반
+		else if(dlvWayCd.equals("2")){
+			
+			// 택배사 코드
+			if(  ((String)inParam.get("dlvCmpCd")).equals("") ){
+				insertMap.put("rtnMsgCd", "택배사를 선택해 주세요."); return insertMap;
+			}
+			insertMap.put("dlvCmpCd", inParam.get("dlvCmpCd"));
+			
+			// 나눔상품의 일반택배는, 배송비가 무조건 0원 입력된다.
+			insertMap.put("dlvPrce", 0);
+			
+
+		}
+		// 우편/등기
+		else if(dlvWayCd.equals("3")){
+
+
+		}
+		// 퀵서비스
+		else if(dlvWayCd.equals("4")){
+			if(  ((String)inParam.get("tradLocQuick")).equals("") ){
+				insertMap.put("rtnMsgCd", "거래 가능지역을 입력해 주세요."); return insertMap;
+			}
+			insertMap.put("tradLoc", (String)inParam.get("tradLocQuick"));					// 거래 희망지역 , 배송 가능지역
+			insertMap.put("dlvPrce", 0);
+		}
+		// 직접거래
+		else if(dlvWayCd.equals("5")){
+			if(  ((String)inParam.get("tradLocOffLine")).equals("") ){
+				insertMap.put("rtnMsgCd", "거래 가능지역을 입력해 주세요."); return insertMap;
+			}
+			insertMap.put("tradLoc", (String)inParam.get("tradLocOffLine"));					// 거래 희망지역 , 배송 가능지역
+			insertMap.put("dlvPrce", 0);
+		}
+		
+		logger.debug("insertMap 확인 : " + insertMap.toString());
+		logger.debug(insertMap.toString());
+		webSaleManageDao.updateProdSimple(insertMap);
+		
+		
+		return insertMap;
+	}
+
+
+
+	
+}

@@ -1,0 +1,2675 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="sellerOrderMapper">
+
+	<!-- 주문관리 - 나눔상품 ======================================================================== -->
+
+	<!-- 나눔 내역 총 건수 -->
+	<select id="selectFreeShareTotCnt" parameterType="hashmap" resultType="int">
+	
+		SELECT COUNT(1)
+		  FROM (
+				SELECT INFO.PROD_CODE
+					  ,INFO.PROD_NM
+					  ,INFO.PROD_TYPE_CD
+					  ,INFO.DLV_WAY_CD
+					  ,TO_CHAR(INFO.FREESHARE_START_DT, 'YYYY-MM-DD HH24:MI') AS REGIST_DT
+					  ,TO_CHAR(INFO.FREESHARE_START_DT, 'YYYY-MM-DD') AS FREESHARE_START_DT
+					  ,TO_CHAR(INFO.FREESHARE_END_DT, 'YYYY-MM-DD') AS FREESHARE_END_DT
+					  ,INFO.SELLER_MBER_EMAIL AS SELLER_MBER_EMAIL
+					  ,INFO.SELLER_MBER_NM AS SELLER_MBER_NM
+					  ,INFO.MBER_GB_CD_NM AS MBER_GB_CD_NM
+					  ,INFO.REQ_CNT
+					  ,INFO.PROD_IMG_URL
+					  ,INFO.ORD_CD
+					  ,TO_CHAR(INFO.ORD_REGIST_DT, 'YYYY-MM-DD HH24:MI') AS ORD_REGIST_DT
+					  ,INFO.PROC_STAT_CD
+					  ,INFO.PROD_SEQ
+					  ,INFO.ORD_MBER_SEQ AS ORD_MBER_SEQ
+					  ,OMI.MBER_EMAIL AS ORD_MBER_EMAIL
+					  ,OMI.MBER_NM AS ORD_MBER_NM
+				  FROM (
+						SELECT X.CNT AS REQ_CNT
+							  ,X.PROD_CODE AS PROD_CODE
+							  ,X.PROD_NM AS PROD_NM
+							  ,X.PROD_TYPE_CD AS PROD_TYPE_CD
+							  ,X.DLV_WAY_CD AS DLV_WAY_CD
+							  ,X.FREESHARE_START_DT AS FREESHARE_START_DT
+							  ,X.FREESHARE_END_DT AS FREESHARE_END_DT    
+							  ,X.SELLER_MBER_EMAIL AS SELLER_MBER_EMAIL
+							  ,X.SELLER_MBER_NM AS SELLER_MBER_NM
+							  ,X.MBER_GB_CD_NM AS MBER_GB_CD_NM
+							  ,OPI.ORD_CD AS ORD_CD
+							  ,OPI.REGIST_DT AS ORD_REGIST_DT
+							  ,NVL(OPI.PROC_STAT_CD, '97') AS PROC_STAT_CD
+							  ,OPI.PROD_SEQ AS PROD_SEQ
+							  ,OPI.MBER_SEQ AS ORD_MBER_SEQ
+							  ,IMG.PROD_IMG_URL
+						  FROM (
+								SELECT COUNT(PI.PROD_CODE) AS CNT 
+									  ,PI.PROD_CODE
+									  ,PI.PROD_NM
+									  ,PI.PROD_TYPE_CD
+									  ,PI.DLV_WAY_CD
+									  ,PI.REGIST_DT AS FREESHARE_START_DT
+									  ,PI.FREESHARE_END_DT
+									  ,MI.MBER_EMAIL AS SELLER_MBER_EMAIL
+									  ,MI.MBER_NM AS SELLER_MBER_NM
+									  ,(SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'MBER_GB_CD' AND COM_CD = MI.MBER_GB_CD) AS MBER_GB_CD_NM
+								  FROM PROD PI ,PROD_SUBMIT_INFO PSI, MBER_INFO MI
+								 WHERE PI.PROD_CODE = PSI.PROD_CODE
+								   AND PI.MBER_SEQ = MI.MBER_SEQ
+								   AND PI.MBER_SEQ = #{MBER_SEQ}
+								   AND PI.PROD_TYPE_CD = '3'
+								   AND TO_CHAR(PI.REGIST_DT , 'YYYYMMDD') BETWEEN #{S_START_DATE} AND #{S_END_DATE}
+								GROUP BY PI.PROD_CODE, PI.PROD_NM, PI.PROD_TYPE_CD, PI.DLV_WAY_CD, PI.REGIST_DT, PI.FREESHARE_END_DT, MI.MBER_EMAIL, MI.MBER_NM, MI.MBER_GB_CD
+							   )X LEFT OUTER JOIN ORD_PROD_INFO OPI ON X.PROD_CODE = OPI.PROD_CODE
+								  LEFT OUTER JOIN PROD_IMG IMG ON X.PROD_CODE = IMG.PROD_CODE AND IMG.PROD_IMG_GB_CD = '11'
+					   ) INFO LEFT OUTER JOIN MBER_INFO OMI ON INFO.ORD_MBER_SEQ = OMI.MBER_SEQ
+				 WHERE 1=1
+				<if test="PROD_NM != null and PROD_NM != ''">
+				   AND INFO.PROD_NM LIKE '%'||#{PROD_NM}||'%'
+				</if>
+				<if test="ORD_CD != null and ORD_CD != ''">
+				   AND INFO.ORD_CD = #{ORD_CD}
+				</if>
+				<if test="SEARCH_NM != null and SEARCH_NM != ''">
+					<if test='SEARCH_GB == "1"'>
+						AND INFO.SELLER_MBER_EMAIL LIKE '%'||#{SEARCH_NM}||'%'
+					</if>
+					<if test='SEARCH_GB == "2"'>
+						AND INFO.SELLER_MBER_NM LIKE '%'||#{SEARCH_NM}||'%'
+					</if>
+					<if test='SEARCH_GB == "3"'>
+						AND OMI.MBER_EMAIL LIKE '%'||#{SEARCH_NM}||'%'
+					</if>
+					<if test='SEARCH_GB == "4"'>
+						AND OMI.MBER_NM LIKE '%'||#{SEARCH_NM}||'%'
+					</if>
+				</if>
+				<if test="PROC_STAT_CD != null and PROC_STAT_CD != ''">
+				   AND INFO.PROC_STAT_CD IN
+					<foreach collection="PROC_STAT_CD" item="cd" open="(" close=")" separator=",">
+				  		#{cd}
+				  	</foreach>
+			  	</if>
+			   )
+		
+	</select>
+	
+	<!-- 나눔 내역 리스트 조회 -->
+	<select id="selectListFreeShare" parameterType="hashmap" resultType="hashmap">
+	
+		<include refid="sellerCommonMapper.pagingHeader" />
+			SELECT ROW_NUMBER() OVER(ORDER BY FREE.REGIST_DT DESC ) AS NO
+				  ,FREE.PROD_CODE
+				  ,FREE.PROD_NM
+				  ,FREE.PROD_TYPE_CD
+				  ,FREE.DLV_WAY_CD
+				  ,FREE.REGIST_DT
+				  ,FREE.FREESHARE_START_DT
+				  ,FREE.FREESHARE_END_DT
+				  ,FREE.SELLER_MBER_EMAIL
+				  ,FREE.SELLER_MBER_NM
+				  ,FREE.MBER_GB_CD_NM
+				  ,FREE.REQ_CNT
+				  ,FREE.PROD_IMG_URL
+				  ,FREE.ORD_CD
+				  ,FREE.ORD_REGIST_DT
+				  ,FREE.PROC_STAT_CD
+				  ,(SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'PROC_STAT_CD' AND COM_CD = FREE.PROC_STAT_CD) AS PROC_STAT_CD_NM
+				  ,FREE.PROD_SEQ
+				  ,FREE.ORD_MBER_SEQ
+				  ,FREE.ORD_MBER_EMAIL
+				  ,FREE.ORD_MBER_NM
+			  FROM (
+					SELECT INFO.PROD_CODE
+						  ,INFO.PROD_NM
+						  ,INFO.PROD_TYPE_CD
+						  ,INFO.DLV_WAY_CD
+						  ,TO_CHAR(INFO.FREESHARE_START_DT, 'YYYY-MM-DD HH24:MI') AS REGIST_DT
+						  ,TO_CHAR(INFO.FREESHARE_START_DT, 'YYYY-MM-DD') AS FREESHARE_START_DT
+						  ,TO_CHAR(INFO.FREESHARE_END_DT, 'YYYY-MM-DD') AS FREESHARE_END_DT
+						  ,INFO.SELLER_MBER_EMAIL AS SELLER_MBER_EMAIL
+						  ,INFO.SELLER_MBER_NM AS SELLER_MBER_NM
+						  ,INFO.MBER_GB_CD_NM AS MBER_GB_CD_NM
+						  ,INFO.REQ_CNT
+						  ,INFO.PROD_IMG_URL
+						  ,INFO.ORD_CD
+						  ,TO_CHAR(INFO.ORD_REGIST_DT, 'YYYY-MM-DD HH24:MI') AS ORD_REGIST_DT
+						  ,INFO.PROC_STAT_CD
+						  ,INFO.PROD_SEQ
+						  ,INFO.ORD_MBER_SEQ AS ORD_MBER_SEQ
+						  ,OMI.MBER_EMAIL AS ORD_MBER_EMAIL
+						  ,OMI.MBER_NM AS ORD_MBER_NM
+					  FROM (
+							SELECT X.CNT AS REQ_CNT
+								  ,X.PROD_CODE AS PROD_CODE
+								  ,X.PROD_NM AS PROD_NM
+								  ,X.PROD_TYPE_CD AS PROD_TYPE_CD
+								  ,X.DLV_WAY_CD AS DLV_WAY_CD
+								  ,X.FREESHARE_START_DT AS FREESHARE_START_DT
+								  ,X.FREESHARE_END_DT AS FREESHARE_END_DT    
+								  ,X.SELLER_MBER_EMAIL AS SELLER_MBER_EMAIL
+								  ,X.SELLER_MBER_NM AS SELLER_MBER_NM
+								  ,X.MBER_GB_CD_NM AS MBER_GB_CD_NM
+								  ,OPI.ORD_CD AS ORD_CD
+								  ,OPI.REGIST_DT AS ORD_REGIST_DT
+								  ,NVL(OPI.PROC_STAT_CD, '97') AS PROC_STAT_CD
+								  ,OPI.PROD_SEQ AS PROD_SEQ
+								  ,OPI.MBER_SEQ AS ORD_MBER_SEQ
+								  ,IMG.PROD_IMG_URL
+							  FROM (
+									SELECT COUNT(PI.PROD_CODE) AS CNT 
+										  ,PI.PROD_CODE
+										  ,PI.PROD_NM
+										  ,PI.PROD_TYPE_CD
+										  ,PI.DLV_WAY_CD
+										  ,PI.REGIST_DT AS FREESHARE_START_DT
+										  ,PI.FREESHARE_END_DT
+										  ,MI.MBER_EMAIL AS SELLER_MBER_EMAIL
+										  ,MI.MBER_NM AS SELLER_MBER_NM
+										  ,(SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'MBER_GB_CD' AND COM_CD = MI.MBER_GB_CD) AS MBER_GB_CD_NM
+									  FROM PROD PI ,PROD_SUBMIT_INFO PSI, MBER_INFO MI
+									 WHERE PI.PROD_CODE = PSI.PROD_CODE
+									   AND PI.MBER_SEQ = MI.MBER_SEQ
+									   AND PI.MBER_SEQ = #{MBER_SEQ}
+									   AND PI.PROD_TYPE_CD = '3'
+									   AND TO_CHAR(PI.REGIST_DT , 'YYYYMMDD') BETWEEN #{S_START_DATE} AND #{S_END_DATE}
+									GROUP BY PI.PROD_CODE, PI.PROD_NM, PI.PROD_TYPE_CD, PI.DLV_WAY_CD, PI.REGIST_DT, PI.FREESHARE_END_DT, MI.MBER_EMAIL, MI.MBER_NM, MI.MBER_GB_CD
+								   )X LEFT OUTER JOIN ORD_PROD_INFO OPI ON X.PROD_CODE = OPI.PROD_CODE
+									  LEFT OUTER JOIN PROD_IMG IMG ON X.PROD_CODE = IMG.PROD_CODE AND IMG.PROD_IMG_GB_CD = '11'
+						   ) INFO LEFT OUTER JOIN MBER_INFO OMI ON INFO.ORD_MBER_SEQ = OMI.MBER_SEQ
+					 WHERE 1=1
+					<if test="PROD_NM != null and PROD_NM != ''">
+					   AND INFO.PROD_NM LIKE '%'||#{PROD_NM}||'%'
+					</if>
+					<if test="ORD_CD != null and ORD_CD != ''">
+					   AND INFO.ORD_CD = #{ORD_CD}
+					</if>
+					<if test="SEARCH_NM != null and SEARCH_NM != ''">
+						<if test='SEARCH_GB == "1"'>
+							AND INFO.SELLER_MBER_EMAIL LIKE '%'||#{SEARCH_NM}||'%'
+						</if>
+						<if test='SEARCH_GB == "2"'>
+							AND INFO.SELLER_MBER_NM LIKE '%'||#{SEARCH_NM}||'%'
+						</if>
+						<if test='SEARCH_GB == "3"'>
+							AND OMI.MBER_EMAIL LIKE '%'||#{SEARCH_NM}||'%'
+						</if>
+						<if test='SEARCH_GB == "4"'>
+							AND OMI.MBER_NM LIKE '%'||#{SEARCH_NM}||'%'
+						</if>
+					</if>
+					<if test="PROC_STAT_CD != null and PROC_STAT_CD != ''">
+					   AND INFO.PROC_STAT_CD IN
+						<foreach collection="PROC_STAT_CD" item="cd" open="(" close=")" separator=",">
+					  		#{cd}
+					  	</foreach>
+				  	</if>
+				  ) FREE
+		<include refid="sellerCommonMapper.pagingFooter" />	  
+	
+	</select>
+	
+	<!-- 나눔내역 엑셀다운로드 조회 -->
+	<select id="selectListFreeShareExcel" parameterType="hashmap" resultType="hashmap">
+	
+		SELECT FREE.PROD_CODE
+			  ,FREE.PROD_NM
+			  ,FREE.PROD_TYPE_CD
+			  ,FREE.DLV_WAY_CD
+			  ,FREE.REGIST_DT
+			  ,FREE.FREESHARE_START_DT
+			  ,FREE.FREESHARE_END_DT
+			  ,FREE.SELLER_MBER_EMAIL
+			  ,FREE.SELLER_MBER_NM
+			  ,FREE.MBER_GB_CD_NM
+			  ,FREE.REQ_CNT
+			  ,FREE.PROD_IMG_URL
+			  ,FREE.ORD_CD
+			  ,FREE.ORD_REGIST_DT
+			  ,FREE.PROC_STAT_CD
+			  ,(SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'PROC_STAT_CD' AND COM_CD = FREE.PROC_STAT_CD) AS PROC_STAT_CD_NM
+			  ,FREE.PROD_SEQ
+			  ,FREE.ORD_MBER_SEQ
+			  ,FREE.ORD_MBER_EMAIL
+			  ,FREE.ORD_MBER_NM
+		  FROM (
+				SELECT INFO.PROD_CODE
+					  ,INFO.PROD_NM
+					  ,INFO.PROD_TYPE_CD
+					  ,INFO.DLV_WAY_CD
+					  ,TO_CHAR(INFO.FREESHARE_START_DT, 'YYYY-MM-DD HH24:MI') AS REGIST_DT
+					  ,TO_CHAR(INFO.FREESHARE_START_DT, 'YYYY-MM-DD') AS FREESHARE_START_DT
+					  ,TO_CHAR(INFO.FREESHARE_END_DT, 'YYYY-MM-DD') AS FREESHARE_END_DT
+					  ,INFO.SELLER_MBER_EMAIL AS SELLER_MBER_EMAIL
+					  ,INFO.SELLER_MBER_NM AS SELLER_MBER_NM
+					  ,INFO.MBER_GB_CD_NM AS MBER_GB_CD_NM
+					  ,INFO.REQ_CNT
+					  ,INFO.PROD_IMG_URL
+					  ,INFO.ORD_CD
+					  ,TO_CHAR(INFO.ORD_REGIST_DT, 'YYYY-MM-DD HH24:MI') AS ORD_REGIST_DT
+					  ,INFO.PROC_STAT_CD
+					  ,INFO.PROD_SEQ
+					  ,INFO.ORD_MBER_SEQ AS ORD_MBER_SEQ
+					  ,OMI.MBER_EMAIL AS ORD_MBER_EMAIL
+					  ,OMI.MBER_NM AS ORD_MBER_NM
+				  FROM (
+						SELECT X.CNT AS REQ_CNT
+							  ,X.PROD_CODE AS PROD_CODE
+							  ,X.PROD_NM AS PROD_NM
+							  ,X.PROD_TYPE_CD AS PROD_TYPE_CD
+							  ,X.DLV_WAY_CD AS DLV_WAY_CD
+							  ,X.FREESHARE_START_DT AS FREESHARE_START_DT
+							  ,X.FREESHARE_END_DT AS FREESHARE_END_DT    
+							  ,X.SELLER_MBER_EMAIL AS SELLER_MBER_EMAIL
+							  ,X.SELLER_MBER_NM AS SELLER_MBER_NM
+							  ,X.MBER_GB_CD_NM AS MBER_GB_CD_NM
+							  ,OPI.ORD_CD AS ORD_CD
+							  ,OPI.REGIST_DT AS ORD_REGIST_DT
+							  ,NVL(OPI.PROC_STAT_CD, '97') AS PROC_STAT_CD
+							  ,OPI.PROD_SEQ AS PROD_SEQ
+							  ,OPI.MBER_SEQ AS ORD_MBER_SEQ
+							  ,IMG.PROD_IMG_URL
+						  FROM (
+								SELECT COUNT(PI.PROD_CODE) AS CNT 
+									  ,PI.PROD_CODE
+									  ,PI.PROD_NM
+									  ,PI.PROD_TYPE_CD
+									  ,PI.DLV_WAY_CD
+									  ,PI.REGIST_DT AS FREESHARE_START_DT
+									  ,PI.FREESHARE_END_DT
+									  ,MI.MBER_EMAIL AS SELLER_MBER_EMAIL
+									  ,MI.MBER_NM AS SELLER_MBER_NM
+									  ,(SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'MBER_GB_CD' AND COM_CD = MI.MBER_GB_CD) AS MBER_GB_CD_NM
+								  FROM PROD PI ,PROD_SUBMIT_INFO PSI, MBER_INFO MI
+								 WHERE PI.PROD_CODE = PSI.PROD_CODE
+								   AND PI.MBER_SEQ = MI.MBER_SEQ
+								   AND PI.MBER_SEQ = #{MBER_SEQ}
+								   AND PI.PROD_TYPE_CD = '3'
+								   AND TO_CHAR(PI.REGIST_DT , 'YYYYMMDD') BETWEEN #{S_START_DATE} AND #{S_END_DATE}
+								GROUP BY PI.PROD_CODE, PI.PROD_NM, PI.PROD_TYPE_CD, PI.DLV_WAY_CD, PI.REGIST_DT, PI.FREESHARE_END_DT, MI.MBER_EMAIL, MI.MBER_NM, MI.MBER_GB_CD
+							   )X LEFT OUTER JOIN ORD_PROD_INFO OPI ON X.PROD_CODE = OPI.PROD_CODE
+								  LEFT OUTER JOIN PROD_IMG IMG ON X.PROD_CODE = IMG.PROD_CODE AND IMG.PROD_IMG_GB_CD = '11'
+					   ) INFO LEFT OUTER JOIN MBER_INFO OMI ON INFO.ORD_MBER_SEQ = OMI.MBER_SEQ
+				 WHERE 1=1
+				<if test="PROD_NM != null and PROD_NM != ''">
+				   AND INFO.PROD_NM LIKE '%'||#{PROD_NM}||'%'
+				</if>
+				<if test="ORD_CD != null and ORD_CD != ''">
+				   AND INFO.ORD_CD = #{ORD_CD}
+				</if>
+				<if test="SEARCH_NM != null and SEARCH_NM != ''">
+					<if test='SEARCH_GB == "1"'>
+						AND INFO.SELLER_MBER_EMAIL LIKE '%'||#{SEARCH_NM}||'%'
+					</if>
+					<if test='SEARCH_GB == "2"'>
+						AND INFO.SELLER_MBER_NM LIKE '%'||#{SEARCH_NM}||'%'
+					</if>
+					<if test='SEARCH_GB == "3"'>
+						AND OMI.MBER_EMAIL LIKE '%'||#{SEARCH_NM}||'%'
+					</if>
+					<if test='SEARCH_GB == "4"'>
+						AND OMI.MBER_NM LIKE '%'||#{SEARCH_NM}||'%'
+					</if>
+				</if>
+				<if test="PROC_STAT_CD != null and PROC_STAT_CD != ''">
+				   AND INFO.PROC_STAT_CD IN
+					<foreach collection="PROC_STAT_CD" item="cd" open="(" close=")" separator=",">
+				  		#{cd}
+				  	</foreach>
+			  	</if>
+			  ) FREE
+	
+	</select>
+	
+	<!-- 나눔 상세내역 신청상품정보 조회 -->
+	<select id="selectFreeShareReqDtl" parameterType="hashmap" resultType="hashmap">
+	
+		SELECT INFO.PROD_CODE
+			  ,INFO.PROD_NM
+			  ,INFO.REGIST_DT
+			  ,INFO.FREESHARE_START_DT
+			  ,INFO.FREESHARE_END_DT
+			  ,INFO.PROD_IMG_URL
+			  ,CNT.REQ_CNT
+		  FROM (
+				SELECT PI.PROD_CODE
+					  ,PI.PROD_NM
+					  ,PI.REGIST_DT
+					  ,PI.REGIST_DT AS FREESHARE_START_DT
+					  ,PI.FREESHARE_END_DT 
+					  ,IMG.PROD_IMG_URL
+				  FROM PROD PI ,PROD_IMG IMG
+				 WHERE PI.PROD_CODE = IMG.PROD_CODE
+				   AND IMG.PROD_IMG_GB_CD = #{prodImgGbCd}
+				   AND PI.PROD_CODE = #{prodCode}
+			   ) INFO,
+			   (
+				SELECT COUNT(1) AS REQ_CNT
+				  FROM PROD PI ,PROD_SUBMIT_INFO PSI
+				 WHERE PI.PROD_CODE = PSI.PROD_CODE
+				   AND PI.PROD_CODE = #{prodCode}
+			   ) CNT
+	
+	</select>
+	
+	<!-- 나눔 상세내역 신청정보 총건수 -->
+	<select id="selectListFreeShareReqCnt" parameterType="hashmap" resultType="int">
+	
+		SELECT COUNT(*)
+		  FROM (
+		  		SELECT PSI.MBER_SEQ
+			  		  ,PSI.REGIST_DT
+					  ,MI.MBER_NM
+					  ,MI.MBER_EMAIL
+					  ,PSI.REQ_MEMO
+				  FROM PROD_SUBMIT_INFO PSI
+					  ,MBER_INFO MI
+				 WHERE PSI.MBER_SEQ = MI.MBER_SEQ
+				   AND PSI.PROD_CODE = #{prodCode}
+		  		)
+	
+	</select>
+	
+	<!-- 나눔 상세내역 신청정보 조회 -->
+	<select id="selectListFreeShareReq" parameterType="hashmap" resultType="hashmap">
+	
+		<include refid="sellerCommonMapper.pagingHeader" />
+		SELECT ROW_NUMBER() OVER(ORDER BY PSI.REGIST_DT DESC ) AS NO
+			  ,PSI.MBER_SEQ
+			  ,PSI.REGIST_DT
+			  ,MI.MBER_NM
+			  ,MI.MBER_EMAIL
+			  ,PSI.REQ_MEMO
+		  FROM PROD_SUBMIT_INFO PSI
+			  ,MBER_INFO MI
+		 WHERE PSI.MBER_SEQ = MI.MBER_SEQ
+		   AND PSI.PROD_CODE = #{prodCode}
+		<include refid="sellerCommonMapper.pagingFooter" />
+	
+	</select>
+	
+	<!-- 나눔신청 상태변경 -->
+	<update id="updateFreeShareReq" parameterType="hashmap">
+	
+		UPDATE PROD_SUBMIT_INFO
+		   SET PROC_STAT_CD = #{procStatCd}
+		 WHERE PROD_CODE = #{prodCode}
+		<if test="mberSeq != null and mberSeq != ''">
+		   AND MBER_SEQ = #{mberSeq}
+		</if>
+	
+	</update>
+	
+		<!-- 나눔 상세내역 신청정보 조회 -->
+	<select id="selectFreeShareOrdCount" parameterType="hashmap" resultType="int">
+SELECT COUNT(*) CNT
+FROM   ( SELECT *
+       FROM    PROD PRD,
+               MBER_INFO PMI
+       WHERE   PRD.MBER_SEQ  = PMI.MBER_SEQ
+       AND     PRD.PROD_CODE = #{prodCode}
+       )
+       PI ,
+       PROD_SUBMIT_INFO PSI,
+       ORD_PROD_INFO OPI,
+       MBER_INFO MI,
+       ORD_DLV_INFO ODI,
+       ORD_INFO OI,
+       INVC_INFO II
+WHERE  PI.PROD_CODE       = PSI.PROD_CODE
+AND    PI.PROD_CODE       = OPI.PROD_CODE
+AND    OPI.MBER_SEQ       = MI.MBER_SEQ
+AND    OPI.ORD_CD         = ODI.ORD_CD
+AND    OPI.ORD_CD         = OI.ORD_CD
+AND    OPI.ORD_CD         = II.ORD_CD(+)
+AND    OPI.PROD_CODE      = II.PROD_CODE(+)
+AND    OPI.PROD_SEQ       = II.PROD_SEQ(+)
+AND    OPI.PROC_STAT_CD   = #{procStatCd}
+AND    PSI.PROC_STAT_CD   = '95'
+	</select>
+	
+	
+	
+	<!-- 상품 상태변경 -->
+	<update id="updateProdStatCd" parameterType="hashmap">
+	
+		UPDATE PROD
+		   SET PROD_STAT_CD = #{prodStatCd}
+		 WHERE PROD_CODE = #{prodCode}
+	
+	</update>
+	
+	<!-- 나눔 신청정보 조회 -->
+	<select id="selectProdSubmitInfo" parameterType="hashmap" resultType="hashmap">
+	
+		SELECT PROD_CODE
+			  ,MBER_SEQ
+			  ,RCV_NM
+			  ,PROD_TYPE_CD
+			  ,ZIP_CD
+			  ,JUSO_DORO
+			  ,JUSO_JIBEN
+			  ,JUSO_DTL
+			  ,TEL
+			  ,MEMO
+		  FROM PROD_SUBMIT_INFO
+		 WHERE PROD_CODE = #{prodCode}
+		   AND MBER_SEQ = #{mberSeq}
+		   AND PROC_STAT_CD = #{procStatCd}
+	
+	</select> 
+	
+	<!-- 주문서 등록 -->
+    <insert id="insertOrdInfo" parameterType="hashmap" useGeneratedKeys="true" keyProperty="ORD_CD" keyColumn="ORD_CD">
+  			INSERT INTO ORD_INFO( ORD_CD				<!--  주문코드  -->
+								, MBER_SEQ				<!--  회원고유번호 -->
+								, ORD_REG_DATE			<!--  등록일시  -->
+								, REGIST_DT				<!--  등록일시  -->
+								, UPDT_DT				<!--  수정일시  -->
+		)VALUES (
+				#{ordCd}
+				, #{MBER_SEQ}
+				, SYSDATE
+				, SYSDATE
+				, SYSDATE
+		)
+	</insert>
+	
+	<!-- 주문 배송지 정보 등록 -->
+    <insert id="insertOrdDlvInfo" parameterType="hashmap">
+  		INSERT INTO ORD_DLV_INFO( ORD_CD					<!-- 주문코드  -->
+							, RCV_NM				<!-- 받는자명  -->
+							, RCV_TEL				<!-- 받는자전화번호  -->
+							, ZIP_CD				<!--  우편번호  -->
+							, JUSO_DORO				<!--  배송지 주소 -->
+							, JUSO_JIBEN			<!--  배송지 주소 -->
+							, JUSO_DTL				<!--  배송지 주소 상세 -->
+							, REGIST_DT				<!--  등록일시  -->
+							, UPDT_DT				<!--  수정일시  -->
+		)VALUES ( #{ORD_CD,     jdbcType=VARCHAR}
+				, #{RCV_NM,     jdbcType=VARCHAR}
+				, #{TEL,        jdbcType=VARCHAR}
+				, #{ZIP_CD,     jdbcType=VARCHAR}
+				, #{JUSO_DORO,  jdbcType=VARCHAR}
+				, #{JUSO_JIBEN, jdbcType=VARCHAR}
+				, #{JUSO_DTL,   jdbcType=VARCHAR}
+				, SYSDATE
+				, SYSDATE
+		)
+	</insert>
+	
+	<!-- 주문 상품 정보 등록 -->
+    <insert id="insertOrdProdInfo" parameterType="hashmap"  useGeneratedKeys="true" keyProperty="PROD_SEQ" keyColumn="PROD_SEQ">
+  		INSERT INTO ORD_PROD_INFO( PROD_CODE				<!--  상품코드  -->
+								, ORD_CD				<!--  주문코드  -->
+								, PROD_SEQ				<!--  상품일련번호  -->
+								, MBER_SEQ				<!--  회원일련번호  -->
+								, PROD_TYPE_CD			<!--  상품구분코드  -->
+								, PROC_STAT_CD			<!--  처리상태코드  -->
+								, DLV_GRP_CODE			<!--  묶음처리  -->
+								, REGIST_DT				<!--  등록일시  -->
+								, UPDT_DT				<!--  수정일시  -->
+		)VALUES ( #{PROD_CODE}
+				, #{ORD_CD}
+				, #{PROD_SEQ}
+				, #{MBER_SEQ}
+				, #{PROD_TYPE_CD}
+				, #{PROC_STAT_CD}
+				, #{DLV_GRP_CODE}
+				, SYSDATE
+				, SYSDATE
+		)
+	</insert>
+	
+	<!-- 나눔 주문내역 -->
+	<select id="selectFreeShareConfDtl" parameterType="hashmap" resultType="hashmap">
+	
+		SELECT OPI.REGIST_DT AS ORD_REGIST_DT
+			  ,OPI.ORD_CD
+			  ,'' AS CHAN
+			  ,MI.MBER_SEQ AS ORD_MBER_SEQ
+			  ,MI.MBER_NM AS ORD_MBER_NM
+			  ,MI.MBER_EMAIL AS ORD_MBER_EMAIL
+			  ,MI.MBER_PHONE AS ORD_MBER_PHONE
+			  ,PSI.REQ_SEQ
+			  ,PSI.REGIST_DT AS REQ_REGIST_DT
+			  ,PSI.REQ_MEMO
+			  ,PI.MBER_SEQ AS SELL_MBER_SEQ
+			  ,PI.MBER_NM AS SELL_MBER_NM
+			  ,PI.MBER_EMAIL AS SELL_MBER_EMAIL
+			  ,PI.MBER_GB_CD_NM AS SELL_MBER_GB_CD_NM
+			  ,PI.PROD_CODE
+			  ,PI.PROD_NM
+			  ,IMG.PROD_IMG_URL
+			  ,PI.REGIST_DT AS FREESHARE_START_DT
+			  ,PI.FREESHARE_END_DT AS FREESHARE_END_DT
+			  ,PI.DLV_WAY_CD
+			  ,PI.DLV_CMP_CD
+      		  ,PI.DLV_CMP_CD_NM
+			  ,PI.REQ_CNT
+			  ,OPI.PROD_SEQ
+			  ,OPI.PROC_STAT_CD
+			  ,(SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'PROC_STAT_CD' AND COM_CD = OPI.PROC_STAT_CD) AS PROC_STAT_CD_NM
+			  ,ODI.RCV_NM
+			  ,ODI.RCV_TEL
+			  ,ODI.ZIP_CD
+			  ,ODI.JUSO_JIBEN
+			  ,ODI.JUSO_DORO
+			  ,ODI.JUSO_DTL
+			  ,ODI.DLV_MSG
+			  ,OI.ADMIN_MEMO
+			  ,II.INVC_NO
+      		  ,II.DLV_START_DT
+      		  ,CASE WHEN OPI.PROC_STAT_CD = '22' THEN II.DLV_START_DT+1 WHEN OPI.PROC_STAT_CD = '23' THEN II.DLV_END_DT ELSE SYSDATE END AS DLV_END_DT
+      		  ,(SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'DLV_CMP_CD' AND COM_CD = II.DLV_CMP_CD) AS INVC_DLV_CMP_CD_NM
+		  FROM (
+				SELECT PMI.MBER_SEQ
+					  ,PMI.MBER_NM
+					  ,PMI.MBER_EMAIL
+					  ,(SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'MBER_GB_CD' AND COM_CD = PMI.MBER_GB_CD) AS MBER_GB_CD_NM
+					  ,PRD.PROD_CODE
+					  ,PRD.PROD_NM
+					  ,PRD.REGIST_DT
+					  ,PRD.FREESHARE_END_DT
+					  ,PRD.DLV_WAY_CD
+					  ,PRD.DLV_CMP_CD
+          			  ,(SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'DLV_CMP_CD' AND COM_CD = PRD.DLV_CMP_CD) AS DLV_CMP_CD_NM
+					  ,(SELECT COUNT(*) FROM PROD_SUBMIT_INFO WHERE PROD_CODE = PRD.PROD_CODE) AS REQ_CNT
+				  FROM PROD PRD, MBER_INFO PMI
+				 WHERE PRD.MBER_SEQ = PMI.MBER_SEQ
+		  		   AND PRD.PROD_CODE = #{prodCode}
+				) PI ,
+				PROD_SUBMIT_INFO PSI, PROD_IMG IMG, ORD_PROD_INFO OPI, MBER_INFO MI, ORD_DLV_INFO ODI, ORD_INFO OI, INVC_INFO II
+		 WHERE PI.PROD_CODE = PSI.PROD_CODE
+		   AND PI.PROD_CODE = IMG.PROD_CODE
+		   AND PI.PROD_CODE = OPI.PROD_CODE
+		   AND OPI.MBER_SEQ = MI.MBER_SEQ
+		   AND OPI.ORD_CD = ODI.ORD_CD
+		   AND OPI.ORD_CD = OI.ORD_CD
+		   AND OPI.ORD_CD = II.ORD_CD(+)
+     	   AND OPI.PROD_CODE = II.PROD_CODE(+)
+     	   AND OPI.PROD_SEQ = II.PROD_SEQ(+)
+		   AND IMG.PROD_IMG_GB_CD = #{prodImgGbCd}
+		   AND OPI.PROC_STAT_CD = #{procStatCd}
+		   AND PSI.PROC_STAT_CD = '95'
+		   AND ROWNUM = 1
+	
+	</select>
+	
+	<!-- 배송지정보 변경 -->
+	<update id="updateDlvInfo" parameterType="hashmap">
+	
+		UPDATE ORD_DLV_INFO
+		   SET RCV_NM = #{rcvNm}
+			  ,RCV_TEL = #{rcvTel}
+			  ,ZIP_CD = #{zipCd}
+			  ,JUSO_DORO = #{jusoDoro}
+			  ,JUSO_JIBEN = #{jusoJiben}
+			  ,JUSO_DTL = #{jusoDtl}
+			  ,UPDT_DT = SYSDATE
+		 WHERE ORD_CD = #{ordCd}
+		
+	</update>
+	
+	<!-- 주문처리상태변경 -->
+	<update id="updateOrderProcStat" parameterType="hashmap">
+	
+		UPDATE ORD_PROD_INFO
+		   SET PROC_STAT_CD = #{P_PROC_STAT_CD}
+			  ,UPDT_DT = SYSDATE
+		 WHERE ORD_CD = #{P_ORD_CD}
+		   AND PROD_CODE = #{P_PROD_CODE}
+		   AND PROD_SEQ = #{P_PROD_SEQ}
+		   
+	</update>
+	
+	<!-- 운송장 정보생성 -->
+	<insert id="insertInvcInfo" parameterType="hashmap">
+	
+		INSERT INTO INVC_INFO (PROD_CODE, PROD_SEQ, ORD_CD, INVC_NO, DLV_CMP_CD, DLV_STAT_CD, DLV_START_DT, REGIST_DT, UPDT_DT)
+					   VALUES (#{prodCode}, #{prodSeq}, #{ordCd}, #{invcNo}, #{dlvCmpCd}, #{dlvStatCd}, SYSDATE, SYSDATE, SYSDATE)
+	
+	</insert>
+	
+	<!-- 배송완료 운송장 정보수정 -->
+	<update id="updateInvcInfo" parameterType="hashmap">
+	
+		UPDATE INVC_INFO
+		   SET DLV_STAT_CD = #{dlvStatCd}
+		      ,DLV_END_DT = SYSDATE
+		      ,UPDT_DT = SYSDATE
+		 WHERE PROD_CODE = #{prodCode}
+		   AND PROD_SEQ = #{prodSeq}
+		   AND ORD_CD = #{ordCd}
+	
+	</update>
+
+	<!-- // 주문관리 - 나눔상품 ======================================================================== -->
+	
+	
+	<!-- 주문관리 - 판매주문관리 ======================================================================== -->
+	
+	<!-- 주문 검색 조건절 -->
+	<sql id="WhereOrdSearch">
+		<if test="SEARCH_ORD_CD != null and SEARCH_ORD_CD != ''">
+		   AND A.ORD_CD like '%'||<![CDATA[#{SEARCH_ORD_CD}]]>||'%'
+		</if>
+		<if test="SEARCH_PROD_NM != null and SEARCH_PROD_NM != ''">
+		   AND C.PROD_NM like '%'||<![CDATA[#{SEARCH_PROD_NM}]]>||'%'
+		</if>
+		<if test="S_MBER_GB != null and S_MBER_GB != ''">
+		   AND D.MBER_GB_CD = #{S_MBER_GB}
+		</if>
+		<if test="SEARCH_USER != '' and SEARCH_USER != null">
+			<if test="SearchUserSel  == 'SEARCH_SELLER_ID'">
+				AND D.MBER_EMAIL LIKE '%'||<![CDATA[#{SEARCH_USER}]]>||'%'
+			</if>
+			<if test="SearchUserSel  == 'SEARCH_SELLER_NM'">
+				AND D.MBER_NM LIKE '%'||<![CDATA[#{SEARCH_USER}]]>||'%'
+			</if>
+			<if test="SearchUserSel  == 'SEARCH_ORD_ID'">
+			    AND A.ORD_EMAIL LIKE '%'||<![CDATA[#{SEARCH_USER}]]>||'%'
+			</if>
+			<if test="SearchUserSel  == 'SEARCH_ORD_NM'">
+			    AND A.ORD_NM LIKE '%'||<![CDATA[#{SEARCH_USER}]]>||'%'
+			</if>
+  		</if>
+  		<choose>
+    		<when test="SELT_CHK_BOX_RESULT != null">
+    			AND A.SELT_GB_CD IN
+		    	<foreach item="item_s" index="index1" collection="SELT_CHK_BOX_RESULT" open="(" separator="," close=")">
+					#{item_s}
+				</foreach>
+    		</when>
+    		<otherwise>
+    			AND A.SELT_GB_CD IN ('0','1', '2', '3', '4')
+    		</otherwise>
+    	</choose>
+    	<choose>
+    		<when test="PROC_CHK_BOX_RESULT != null">
+    			AND B.PROC_STAT_CD IN
+		    	<foreach item="item_p" index="index2" collection="PROC_CHK_BOX_RESULT" open="(" separator="," close=")">
+					#{item_p}
+				</foreach>
+    		</when>
+    		<otherwise>
+    			AND B.PROC_STAT_CD IN ('10', '21', '22', '23', '99')
+    		</otherwise>
+    	</choose>
+	</sql>
+	
+	<!-- 판매 교환,반품 검색 조건절 -->
+	<sql id="SharChgSearch">
+		<if test="SEARCH_ORD_CD != null and SEARCH_ORD_CD != ''">
+		   AND C.ORD_CD like '%'||<![CDATA[#{SEARCH_ORD_CD}]]>||'%'
+		</if>
+		<if test="SEARCH_PROD_NM != null and SEARCH_PROD_NM != ''">
+		   AND E.PROD_NM like '%'||<![CDATA[#{SEARCH_PROD_NM}]]>||'%'
+		</if>
+		<if test="S_MBER_GB != null and S_MBER_GB != ''">
+		   AND F.MBER_GB_CD = #{S_MBER_GB}
+		</if>
+		<if test="CHG_REASON_CD != null and CHG_REASON_CD != ''">
+		   AND C.CHG_REASON_CD = #{CHG_REASON_CD}
+		</if>
+		<if test="SEARCH_USER != '' and SEARCH_USER != null">
+			<if test="SearchUserSel  == 'SEARCH_SELLER_ID'">
+				AND F.MBER_EMAIL LIKE '%'||<![CDATA[#{SEARCH_USER}]]>||'%'
+			</if>
+			<if test="SearchUserSel  == 'SEARCH_SELLER_NM'">
+				AND F.MBER_NM LIKE '%'||<![CDATA[#{SEARCH_USER}]]>||'%'
+			</if>
+			<if test="SearchUserSel  == 'SEARCH_ORD_ID'">
+			    AND C.ORD_EMAIL LIKE '%'||<![CDATA[#{SEARCH_USER}]]>||'%'
+			</if>
+			<if test="SearchUserSel  == 'SEARCH_ORD_NM'">
+			    AND C.ORD_NM LIKE '%'||<![CDATA[#{SEARCH_USER}]]>||'%'
+			</if>
+  		</if>
+     	<if test="INS_CHK_BOX_RESULT != null">
+	        AND C.PROC_STAT_CD IN
+	    	<foreach item="item" index="index" collection="INS_CHK_BOX_RESULT" open="(" separator="," close=")">
+				#{item}
+			</foreach>
+		</if>
+	</sql>
+	
+	<!-- 판매 교환,반품 엑셀 다운로드 검색 조건절 -->
+	<sql id="SharChgExcelSearch">
+		<if test="SEARCH_ORD_CD != null and SEARCH_ORD_CD != ''">
+		   AND A.ORD_CD like '%'||<![CDATA[#{SEARCH_ORD_CD}]]>||'%'
+		</if>
+		<if test="SEARCH_PROD_NM != null and SEARCH_PROD_NM != ''">
+		   AND C.PROD_NM like '%'||<![CDATA[#{SEARCH_PROD_NM}]]>||'%'
+		</if>
+		<if test="S_MBER_GB != null and S_MBER_GB != ''">
+		   AND D.MBER_GB_CD = #{S_MBER_GB}
+		</if>
+		<if test="CHG_REASON_CD != null and CHG_REASON_CD != ''">
+		   AND F.CHG_REASON_CD = #{CHG_REASON_CD}
+		</if>
+		<if test="SEARCH_USER != '' and SEARCH_USER != null">
+			<if test="SearchUserSel  == 'SEARCH_SELLER_ID'">
+				AND D.MBER_EMAIL LIKE '%'||<![CDATA[#{SEARCH_USER}]]>||'%'
+			</if>
+			<if test="SearchUserSel  == 'SEARCH_SELLER_NM'">
+				AND D.MBER_NM LIKE '%'||<![CDATA[#{SEARCH_USER}]]>||'%'
+			</if>
+			<if test="SearchUserSel  == 'SEARCH_ORD_ID'">
+			    AND A.ORD_EMAIL LIKE '%'||<![CDATA[#{SEARCH_USER}]]>||'%'
+			</if>
+			<if test="SearchUserSel  == 'SEARCH_ORD_NM'">
+			    AND A.ORD_NM LIKE '%'||<![CDATA[#{SEARCH_USER}]]>||'%'
+			</if>
+  		</if>
+     	<if test="INS_CHK_BOX_RESULT != null">
+	        AND B.PROC_STAT_CD IN
+	    	<foreach item="item" index="index" collection="INS_CHK_BOX_RESULT" open="(" separator="," close=")">
+				#{item}
+			</foreach>
+		</if>
+	</sql>
+	
+	<!-- 취소 검색 조건절 -->
+	<sql id="CancelSearch">
+		<if test="SEARCH_ORD_CD != null and SEARCH_ORD_CD != ''">
+		   AND A.ORD_CD like '%'||<![CDATA[#{SEARCH_ORD_CD}]]>||'%'
+		</if>
+		<if test="SEARCH_PROD_NM != null and SEARCH_PROD_NM != ''">
+		   AND D.PROD_NM like '%'||<![CDATA[#{SEARCH_PROD_NM}]]>||'%'
+		</if>
+		<if test="S_MBER_GB != null and S_MBER_GB != ''">
+		   AND E.MBER_GB_CD = #{S_MBER_GB}
+		</if>
+		<if test="CANC_REASON_CD != null and CANC_REASON_CD != ''">
+		   AND C.CANC_REASON_CD = #{CANC_REASON_CD}
+		</if>
+		<if test="SEARCH_USER != '' and SEARCH_USER != null">
+			<if test="SearchUserSel  == 'SEARCH_SELLER_ID'">
+				AND E.MBER_EMAIL LIKE '%'||<![CDATA[#{SEARCH_USER}]]>||'%'
+			</if>
+			<if test="SearchUserSel  == 'SEARCH_SELLER_NM'">
+				AND E.MBER_NM LIKE '%'||<![CDATA[#{SEARCH_USER}]]>||'%'
+			</if>
+			<if test="SearchUserSel  == 'SEARCH_ORD_ID'">
+			    AND A.ORD_EMAIL LIKE '%'||<![CDATA[#{SEARCH_USER}]]>||'%'
+			</if>
+			<if test="SearchUserSel  == 'SEARCH_ORD_NM'">
+			    AND A.ORD_NM LIKE '%'||<![CDATA[#{SEARCH_USER}]]>||'%'
+			</if>
+  		</if>
+		<choose>
+    		<when test="INS_CHK_BOX_RESULT != null">
+    			AND A.SELT_GB_CD IN
+		    	<foreach item="item" index="index" collection="INS_CHK_BOX_RESULT" open="(" separator="," close=")">
+					#{item}
+				</foreach>
+    		</when>
+    		<otherwise>
+    			AND A.SELT_GB_CD IN ('0','1', '2', '3', '4')
+    		</otherwise>
+    	</choose>
+	</sql>
+	
+	<!-- 취소 검색 엑셀 조건절 -->
+	<sql id="CancelSearchExcel">
+		<if test="SEARCH_ORD_CD != null and SEARCH_ORD_CD != ''">
+		   AND A.ORD_CD like '%'||<![CDATA[#{SEARCH_ORD_CD}]]>||'%'
+		</if>
+		<if test="SEARCH_PROD_NM != null and SEARCH_PROD_NM != ''">
+		   AND C.PROD_NM like '%'||<![CDATA[#{SEARCH_PROD_NM}]]>||'%'
+		</if>
+		<if test="S_MBER_GB != null and S_MBER_GB != ''">
+		   AND D.MBER_GB_CD = #{S_MBER_GB}
+		</if>
+		<if test="CANC_REASON_CD != null and CANC_REASON_CD != ''">
+		   AND A.CANC_REASON_CD = #{CANC_REASON_CD}
+		</if>
+		<if test="SEARCH_USER != '' and SEARCH_USER != null">
+			<if test="SearchUserSel  == 'SEARCH_SELLER_ID'">
+				AND D.MBER_EMAIL LIKE '%'||<![CDATA[#{SEARCH_USER}]]>||'%'
+			</if>
+			<if test="SearchUserSel  == 'SEARCH_SELLER_NM'">
+				AND D.MBER_NM LIKE '%'||<![CDATA[#{SEARCH_USER}]]>||'%'
+			</if>
+			<if test="SearchUserSel  == 'SEARCH_ORD_ID'">
+			    AND A.ORD_EMAIL LIKE '%'||<![CDATA[#{SEARCH_USER}]]>||'%'
+			</if>
+			<if test="SearchUserSel  == 'SEARCH_ORD_NM'">
+			    AND A.ORD_NM LIKE '%'||<![CDATA[#{SEARCH_USER}]]>||'%'
+			</if>
+  		</if>
+		<choose>
+    		<when test="INS_CHK_BOX_RESULT != null">
+    			AND A.SELT_GB_CD IN
+		    	<foreach item="item" index="index" collection="INS_CHK_BOX_RESULT" open="(" separator="," close=")">
+					#{item}
+				</foreach>
+    		</when>
+    		<otherwise>
+    			AND A.SELT_GB_CD IN ('0','1', '2', '3', '4')
+    		</otherwise>
+    	</choose>
+	</sql>
+
+	<!-- 판매 주문 조회 리스트 개수 -->
+	<select id="selectListSaleOrdCnt" parameterType="hashmap" resultType="int">
+		SELECT
+			  COUNT(*) AS CT
+		FROM
+			(
+				SELECT
+					  S.ORD_CD
+					, S.ORD_REG_DATE
+					, S.ORD_NM
+					, S.ORD_EMAIL
+					, S.SELLER_SEQ
+				FROM
+					(
+						SELECT
+							  A.ORD_CD
+							, A.ORD_REG_DATE
+							, A.ORD_NM
+							, A.ORD_EMAIL
+							, A.SELT_GB_CD
+							, C.MBER_SEQ AS SELLER_SEQ
+						FROM
+							(
+								SELECT
+									  ORD_CD
+									, TO_CHAR(ORD_REG_DATE , 'YYYY-MM-DD HH24:MI')	AS ORD_REG_DATE
+									, ORD_NM
+									, ORD_EMAIL
+									, SELT_GB_CD
+								FROM
+						  			ORD_INFO
+						  		WHERE
+						  			TO_CHAR(ORD_REG_DATE,'YYYYMMDD') BETWEEN  #{S_START_DATE} AND  #{S_END_DATE}
+						  	) A , ORD_PROD_INFO B , PROD C, MBER_INFO D
+						WHERE
+							    A.ORD_CD = B.ORD_CD
+							AND B.PROD_CODE = C.PROD_CODE
+							AND C.MBER_SEQ = D.MBER_SEQ
+							AND B.PROD_TYPE_CD = '1'
+							AND C.MBER_SEQ = #{MBER_SEQ}
+							<include refid="WhereOrdSearch"/>
+					) S
+				GROUP BY S.ORD_CD, S.ORD_REG_DATE, S.ORD_NM, S.ORD_EMAIL, S.SELLER_SEQ
+			) TB
+	</select>
+
+	<!-- 판매 주문 조회  - 그룹 리스트 -->
+	<select id="selectListSaleOrdGroup" parameterType="hashmap" resultType="hashmap">
+		SELECT
+			  TB.*
+	        , TC.CARD_COMP_NM
+			, TC.CARD_NO
+			, TC.SETL_NM
+			, TC.CARRIER
+			, TC.DSTADDR
+		FROM
+			(
+				SELECT
+					  S.ORD_CD
+					, S.ORD_REG_DATE
+					, S.ORD_NM
+					, S.ORD_EMAIL
+					, S.POINT_USE_AMT
+					, S.REAL_SELT_AMT
+					, S.SELT_GB_CD
+					, S.SELLER_TYPE
+			        , S.SELLER_ID
+			        , S.SELLER_NAME
+					, ROW_NUMBER() OVER(ORDER BY S.ORD_REG_DATE DESC) AS NO
+				FROM
+					(
+						SELECT
+							  A.ORD_CD
+							, A.ORD_REG_DATE
+							, A.ORD_NM
+							, A.ORD_EMAIL
+							, A.ORD_AMT
+							, A.POINT_USE_AMT
+							, A.REAL_SELT_AMT
+							, A.SELT_GB_CD
+							, A.CREDIT_APPR_NO
+							, B.PROD_CODE
+							, B.PROC_STAT_CD
+							, C.PROD_NM
+							, C.MBER_SEQ AS SELLER_SEQ
+							, D.MBER_EMAIL AS SELLER_ID
+							, D.MBER_NM AS SELLER_NAME
+							, D.MBER_GB_CD AS SELLER_TYPE
+						FROM
+							(
+								SELECT
+									  ORD_CD
+									, TO_CHAR(ORD_REG_DATE , 'YYYY-MM-DD HH24:MI')	AS ORD_REG_DATE
+									, ORD_NM
+									, ORD_EMAIL
+									, ORD_AMT
+									, POINT_USE_AMT
+									, REAL_SELT_AMT
+									, SELT_GB_CD
+									, CREDIT_APPR_NO
+								FROM
+						  			ORD_INFO
+						  		WHERE
+						  			TO_CHAR(ORD_REG_DATE,'YYYYMMDD') BETWEEN  #{S_START_DATE} AND  #{S_END_DATE}
+						  	) A , ORD_PROD_INFO B , PROD C, MBER_INFO D
+						WHERE
+							    A.ORD_CD = B.ORD_CD
+							AND B.PROD_CODE = C.PROD_CODE
+							AND C.MBER_SEQ = D.MBER_SEQ
+							AND B.PROD_TYPE_CD = '1'
+							AND C.MBER_SEQ = #{MBER_SEQ}
+							<include refid="WhereOrdSearch"/>
+					) S
+				GROUP BY S.ORD_CD, S.ORD_REG_DATE, S.ORD_NM, S.ORD_EMAIL, S.POINT_USE_AMT, S.REAL_SELT_AMT, S.SELT_GB_CD, S.SELLER_TYPE, S.SELLER_ID, S.SELLER_NAME
+			) TB LEFT OUTER JOIN (SELECT ORD_CD, CARD_COMP_NM, CARD_NO, SETL_NM, CARRIER, DSTADDR FROM ORD_SETL_INFO WHERE TRD_GB_CD = '10') TC
+    	ON TB.ORD_CD = TC.ORD_CD
+		WHERE
+			TB.NO BETWEEN #{START_ROW} AND #{END_ROW}
+        ORDER BY TB.ORD_REG_DATE DESC
+	</select>
+	
+	<!-- 판매 주문 조회  - 그룹 상세 리스트 -->
+	<select id="selectListSaleOrdProduct" parameterType="hashmap" resultType="hashmap">
+		SELECT
+			  P.ORD_CD
+			, P.ORD_REG_DATE
+			, P.ORD_EMAIL
+			, P.SELLER_TYPE
+			, P.SELLER_ID
+			, P.SELLER_NAME
+			, Q.PROC_STAT_CD
+			, Q.PROD_CODE
+			, U.PROD_IMG_URL
+			, R.PROD_NM
+			, Q.PROD_PRCE
+			, Q.ORD_QTY
+			, NVL(Q.PROD_PRCE,0) * NVL(Q.ORD_QTY,0) AS PROD_PRCE_SUM
+			, NVL(Q.DLV_PRCE,0) AS DLV_PRCE
+			, NVL(Q.CPN_USE_AMT,0) AS CPN_USE_AMT
+			, NVL(Q.PROD_PRCE,0) * NVL(Q.ORD_QTY,0) + NVL(Q.DLV_PRCE,0) - NVL(Q.CPN_USE_AMT,0) AS TOTAL_ORDER_PRICE
+			, NVL(V.COUPON_CT,0) AS COUPON_CT
+		FROM
+			(	
+				SELECT
+					  TB.*
+			        , TC.CARD_COMP_NM
+					, TC.CARD_NO
+				FROM
+					(
+						SELECT
+							  S.ORD_CD
+							, S.ORD_REG_DATE
+							, S.ORD_NM
+							, S.ORD_EMAIL
+							, S.POINT_USE_AMT
+							, S.REAL_SELT_AMT
+							, S.SELT_GB_CD
+							, S.SELLER_TYPE
+					        , S.SELLER_ID
+					        , S.SELLER_NAME
+							, ROW_NUMBER() OVER(ORDER BY S.ORD_REG_DATE DESC) AS NO
+						FROM
+							(
+								SELECT
+									  A.ORD_CD
+									, A.ORD_REG_DATE
+									, A.ORD_NM
+									, A.ORD_EMAIL
+									, A.ORD_AMT
+									, A.POINT_USE_AMT
+									, A.REAL_SELT_AMT
+									, A.SELT_GB_CD
+									, A.CREDIT_APPR_NO
+									, B.PROD_CODE
+									, B.PROC_STAT_CD
+									, C.PROD_NM
+									, C.MBER_SEQ AS SELLER_SEQ
+									, D.MBER_EMAIL AS SELLER_ID
+									, D.MBER_NM AS SELLER_NAME
+									, D.MBER_GB_CD AS SELLER_TYPE
+								FROM
+									(
+										SELECT
+											  ORD_CD
+											, TO_CHAR(ORD_REG_DATE , 'YYYY-MM-DD HH24:MI')	AS ORD_REG_DATE
+											, ORD_NM
+											, ORD_EMAIL
+											, ORD_AMT
+											, POINT_USE_AMT
+											, REAL_SELT_AMT
+											, SELT_GB_CD
+											, CREDIT_APPR_NO
+										FROM
+								  			ORD_INFO
+								  		WHERE
+								  			TO_CHAR(ORD_REG_DATE,'YYYYMMDD') BETWEEN  #{S_START_DATE} AND  #{S_END_DATE}
+								  	) A , ORD_PROD_INFO B , PROD C, MBER_INFO D
+								WHERE
+									    A.ORD_CD = B.ORD_CD
+									AND B.PROD_CODE = C.PROD_CODE
+									AND C.MBER_SEQ = D.MBER_SEQ
+									AND B.PROD_TYPE_CD = '1'
+									AND C.MBER_SEQ = #{MBER_SEQ}
+									<include refid="WhereOrdSearch"/>
+							) S
+						GROUP BY S.ORD_CD, S.ORD_REG_DATE, S.ORD_NM, S.ORD_EMAIL, S.POINT_USE_AMT, S.REAL_SELT_AMT, S.SELT_GB_CD, S.SELLER_TYPE, S.SELLER_ID, S.SELLER_NAME
+					) TB LEFT OUTER JOIN (SELECT ORD_CD, CARD_COMP_NM, CARD_NO, SETL_NM, CARRIER, DSTADDR FROM ORD_SETL_INFO WHERE TRD_GB_CD = '10') TC
+		    	ON TB.ORD_CD = TC.ORD_CD
+				WHERE
+					TB.NO BETWEEN #{START_ROW} AND #{END_ROW}
+		        ORDER BY TB.ORD_REG_DATE DESC
+			) p, ORD_PROD_INFO Q , PROD R, PROD_IMG U, (SELECT ORD_CD, PROD_CODE, PROD_SEQ, COUNT(*) AS COUPON_CT FROM ORD_PROD_CPN_INFO GROUP BY ORD_CD,PROD_CODE,PROD_SEQ) V
+		WHERE
+			    P.ORD_CD = Q.ORD_CD
+			AND Q.PROD_CODE = R.PROD_CODE
+			AND R.PROD_CODE = U.PROD_CODE(+)
+			AND U.PROD_IMG_GB_CD(+) = '11'
+			AND Q.ORD_CD = V.ORD_CD(+)
+      		AND Q.PROD_CODE = V.PROD_CODE(+)
+      		AND Q.PROD_SEQ = V.PROD_SEQ(+)
+			AND R.MBER_SEQ = #{MBER_SEQ}
+	</select>
+	
+	<!-- 판매 주문 조회 excel 다운로드 -->
+	<select id="selectListSaleOrdExcel" parameterType="hashmap" resultType="hashmap">
+		SELECT
+			  R.ORD_CD
+			, R.ORD_REG_DATE
+			, R.ORD_NM || '( ' || R.ORD_EMAIL || ' )' AS ORDER_INFO
+			, R.ORD_HP
+			, DECODE(R.SELLER_TYPE,0,'[개인]',1,'[사업자]') || R.SELLER_NAME || '( ' || R.SELLER_ID || ' )' AS SELLER_INFO
+			, R.PROD_CODE
+			, U.COM_CD_NM AS PROC_STAT_CD_NAME
+			, R.PROD_NM
+			, R.OPT_NM
+			, CASE WHEN R.OP_GB_CD = '20' THEN 0 ELSE NVL(R.PROD_PRCE,0) END AS PROD_PRICE
+			, R.OPT_PRCE
+			, CASE WHEN R.OP_GB_CD IS NULL THEN R.ORD_QTY ELSE R.OPT_QTY END AS ORD_QTY
+			, CASE
+			  WHEN R.OP_GB_CD = '10' THEN (NVL(R.PROD_PRCE,0) + NVL(R.OPT_PRCE,0)) * NVL(R.OPT_QTY,0)
+			  WHEN R.OP_GB_CD = '20' THEN NVL(R.OPT_PRCE,0) * NVL(R.OPT_QTY,0)
+			  ELSE NVL(R.PROD_PRCE,0)
+			  END AS PROD_PRCE
+			, R.DLV_PRCE
+			, R.CPN_USE_AMT
+			, NVL(R.PROD_PRCE,0) * NVL(R.OPT_QTY,0) - NVL(R.CPN_USE_AMT,0) AS ORDER_PRICE
+			, R.POINT_USE_AMT
+			, R.REAL_SELT_AMT
+			, CASE WHEN V.COM_CD_NM IS NULL THEN '0원 결제' ELSE V.COM_CD_NM END AS SELT_GB_NAME
+			, S.CARD_COMP_NM
+			, R.RCV_NM
+			, R.RCV_TEL
+			, R.SECU_NO
+			, R.ZIP_CD
+			, R.JUSO_JIBEN
+			, R.JUSO_DORO
+			, R.DLV_MSG
+			, T.COM_CD_NM AS DLV_CMP_CD
+			, T.INVC_NO
+			, TO_CHAR(T.REGIST_DT , 'YYYY-MM-DD HH24:MI')	AS DLV_REGIST_DT
+			, TO_CHAR(T.DLV_END_DT , 'YYYY-MM-DD HH24:MI')	AS DLV_END_DT
+        
+		FROM
+	        (
+				SELECT
+					  P.*
+					, (SELECT REPLACE(LTRIM(SYS_CONNECT_BY_PATH (PO.OPT_NM, ' // '), ' // '), ' // ', ' / ') AS OPT_NM
+					     FROM PROD_OP PO, PROD_OP_INFO POI
+					     WHERE PO.OPT_GRP_CD = Q.OPT_GRP_CD
+					          AND PO.OPT_GRP_CD = POI.OPT_GRP_CD
+					          AND PO.OPT_USE_YN = 'Y'
+					          AND PO.OPT_STOCK_QTY IS NOT NULL
+					          AND PO.OPT_CD = Q.OPT_CD
+					     START WITH PO.PAR_OPT_CD = '0'
+					     CONNECT BY PRIOR PO.OPT_CD = PO.PAR_OPT_CD
+					) AS OPT_NM
+					, Q.OPT_QTY
+					, Q.OPT_PRCE
+					, Q.OP_GB_CD
+				FROM
+	            	(
+						SELECT
+							  A.ORD_CD
+							, A.ORD_REG_DATE
+							, A.ORD_NM
+							, A.ORD_HP
+							, A.ORD_EMAIL
+							, A.ORD_AMT
+							, A.POINT_USE_AMT
+							, A.REAL_SELT_AMT
+							, A.SELT_GB_CD
+							, A.CREDIT_APPR_NO
+							, B.PROD_CODE
+							, B.PROD_SEQ
+							, B.PROC_STAT_CD
+							, B.PROD_PRCE
+							, B.ORD_QTY
+							, B.DLV_PRCE
+							, B.CPN_USE_AMT
+							, C.PROD_NM
+							, C.MBER_SEQ AS SELLER_SEQ
+							, D.MBER_EMAIL AS SELLER_ID
+							, D.MBER_NM AS SELLER_NAME
+							, D.MBER_GB_CD AS SELLER_TYPE
+							, E.RCV_NM
+							, E.RCV_TEL
+							, E.SECU_NO
+							, E.ZIP_CD
+							, E.JUSO_JIBEN || ' ' || E.JUSO_DTL AS JUSO_JIBEN
+							, E.JUSO_DORO || ' ' || E.JUSO_DTL AS JUSO_DORO
+							, E.DLV_MSG
+						FROM
+							(
+								SELECT
+									  ORD_CD
+									, TO_CHAR(ORD_REG_DATE , 'YYYY-MM-DD HH24:MI')	AS ORD_REG_DATE
+									, ORD_NM
+									, ORD_HP
+									, ORD_EMAIL
+									, ORD_AMT
+									, POINT_USE_AMT
+									, REAL_SELT_AMT
+									, SELT_GB_CD
+									, CREDIT_APPR_NO
+								FROM
+						  			ORD_INFO
+						  		WHERE
+						  			TO_CHAR(ORD_REG_DATE,'YYYYMMDD') BETWEEN #{S_START_DATE} AND  #{S_END_DATE}
+						  	) A , ORD_PROD_INFO B , PROD C, MBER_INFO D, ORD_DLV_INFO E
+						WHERE
+							    A.ORD_CD = B.ORD_CD
+							AND B.PROD_CODE = C.PROD_CODE
+							AND C.MBER_SEQ = D.MBER_SEQ
+	                  		AND A.ORD_CD = E.ORD_CD
+							AND B.PROD_TYPE_CD = '1'
+							AND C.MBER_SEQ = #{MBER_SEQ}
+							<include refid="WhereOrdSearch"/>
+	            	) P 
+	            	LEFT OUTER JOIN
+		            (
+						SELECT
+							  T1.ORD_CD
+							, T1.PROD_CODE
+							, T1.PROD_SEQ
+							, T2.OPT_CD
+							, T2.OPT_QTY
+							, T3.OPT_GRP_CD
+							, T3.OPT_NM
+							, T3.OPT_PRCE
+							, T4.PROD_NM
+							, T4.OPT_PROD_YN
+							, T4.OPT_PROD_EXT_YN
+							, T5.OP_GB_CD
+		              	FROM
+		                	ORD_PROD_INFO T1 , ORD_PROD_OPT_INFO T2, PROD_OP T3 , PROD T4, PROD_OP_INFO T5
+		              	WHERE
+			                    T1.ORD_CD = T2.ORD_CD
+			                AND T1.PROD_CODE = T2.PROD_CODE
+			                AND T1.PROD_SEQ = T2.PROD_SEQ
+			                AND T2.OPT_CD = T3.OPT_CD
+			                AND T1.PROD_CODE = T4.PROD_CODE
+			                AND T3.OPT_GRP_CD = T5.OPT_GRP_CD
+		            ) Q
+	            ON P.ORD_CD = Q.ORD_CD AND P.PROD_CODE = Q.PROD_CODE AND P.PROD_SEQ = Q.PROD_SEQ
+	        ) R
+        LEFT OUTER JOIN  (SELECT ORD_CD, CARD_COMP_NM, CARD_NO, SETL_NM, CARRIER, DSTADDR FROM ORD_SETL_INFO WHERE TRD_GB_CD = '10') S ON R.ORD_CD = S.ORD_CD
+        LEFT OUTER JOIN (SELECT TA.ORD_CD, TB.COM_CD_NM, TA.INVC_NO, TA.REGIST_DT, TA.DLV_END_DT FROM INVC_INFO TA , (SELECT COM_CD,COM_CD_NM FROM CODE WHERE GRP_CD = 'DLV_CMP_CD') TB WHERE TA.DLV_CMP_CD = TB.COM_CD) T ON R.ORD_CD = T.ORD_CD
+        LEFT JOIN (SELECT COM_CD,COM_CD_NM FROM CODE WHERE GRP_CD = 'PROC_STAT_CD') U ON R.PROC_STAT_CD = U.COM_CD
+        LEFT OUTER JOIN (SELECT COM_CD,COM_CD_NM FROM CODE WHERE GRP_CD = 'SELT_GB_CD') V ON R.SELT_GB_CD = V.COM_CD
+        ORDER BY R.ORD_REG_DATE DESC
+	</select>
+	
+	<!-- 판매 주문 상세 - 그룹 리스트 -->
+	<select id="selectSaleDetailGroupList" parameterType="hashmap" resultType="hashmap">
+		SELECT
+			  A.ORD_CD
+			, C.MBER_SEQ
+			, D.MBER_GB_CD
+			, D.MBER_NM
+			, D.MBER_EMAIL
+		FROM
+			ORD_INFO A, ORD_PROD_INFO B, PROD C, MBER_INFO D
+		WHERE
+			    A.ORD_CD = B.ORD_CD
+			AND B.PROD_CODE = C.PROD_CODE
+			AND C.MBER_SEQ = D.MBER_SEQ
+			AND A.ORD_CD = #{ORD_CD}
+			AND C.MBER_SEQ = #{MBER_SEQ}
+		GROUP BY A.ORD_CD, C.MBER_SEQ, D.MBER_GB_CD, D.MBER_NM, D.MBER_EMAIL
+	</select>
+	
+	<!-- 판매 주문 상세 - 그룹 상품 리스트 -->
+	<select id="selectSaleDetailGroupProductList" parameterType="hashmap" resultType="hashmap">
+		SELECT
+			  A.ORD_CD
+			, A.TOT_ORD_QTY
+			, CASE WHEN TO_CHAR(SYSDATE,'YYYYMM') = TO_CHAR(A.REGIST_DT,'YYYYMM') THEN 'Y' ELSE 'N' END AS PHONE_CANCEL_YN
+			, B.PROD_CODE
+			, B.PROD_SEQ
+			, B.DLV_PAY_F_CD
+			, C.MBER_SEQ
+			, D.MBER_GB_CD
+			, D.MBER_NM
+			, D.MBER_EMAIL
+			, C.PROD_NM
+			, C.DLV_STAND_AMT
+			, B.PROD_PRCE
+			, B.ORD_QTY
+			, NVL(B.PROD_PRCE,0) * NVL(B.ORD_QTY,0) AS PROD_SUM
+			, B.PROC_STAT_CD
+			, NVL(B.DLV_PRCE,0) AS DLV_PRCE
+			, NVL(B.CPN_USE_AMT,0) AS CPN_USE_AMT
+			, B.DLV_GRP_CODE
+			, NVL(B.PROD_CPN_CD,'NO') as PROD_CPN_CD
+			, CASE WHEN (SELECT COUNT(*) FROM ORD_PROD_INFO WHERE ORD_CD = #{ORD_CD} AND DLV_GRP_CODE = B.DLV_GRP_CODE) = 1 THEN 'N' ELSE 'Y' END AS DLV_GROUP_YN
+			, NVL(B.PROD_PRCE,0) * NVL(B.ORD_QTY,0) + NVL(B.DLV_PRCE,0) - NVL(B.CPN_USE_AMT,0) AS ORDER_AMOUNT
+			, E.DLV_CMP_CD
+			, E.INVC_NO
+			, TO_CHAR(E.DLV_END_DT,'YYYY-MM-DD HH24:MI') AS DLV_END_DT
+			, C.DLV_WAY_CD
+			, C.DLV_CMP_CD AS ORGIN_DLV_CMP_CD
+			, (SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'DLV_CMP_CD' AND COM_CD = C.DLV_CMP_CD) AS ORGIN_DLV_CMP_CD_NAME
+			, (SELECT TO_CHAR(UPDT_DT,'YYYY-MM-DD HH24:MI') FROM PROD_BUY_CONF_INFO WHERE ORD_CD = A.ORD_CD AND PROD_CODE = B.PROD_CODE AND PROD_SEQ = B.PROD_SEQ) AS CONFIRM_DAY
+		FROM
+			ORD_INFO A, ORD_PROD_INFO B, PROD C, MBER_INFO D, INVC_INFO E
+		WHERE
+			    A.ORD_CD = B.ORD_CD
+			AND B.PROD_CODE = C.PROD_CODE
+			AND C.MBER_SEQ = D.MBER_SEQ
+			AND B.ORD_CD = E.ORD_CD(+)
+			AND B.PROD_CODE = E.PROD_CODE(+)
+			AND B.PROD_SEQ = E.PROD_SEQ(+)
+			AND A.ORD_CD = #{ORD_CD}
+			AND C.MBER_SEQ = #{MBER_SEQ}
+	</select>
+	
+	<!-- 판매 주문 상세 - 주문상품/옵션 리스트 -->
+	<select id="selectSaleDetailProductOptionList" parameterType="hashmap" resultType="hashmap">
+		SELECT
+			  P.ORD_CD
+			, P.PROD_CODE
+			, P.PROD_SEQ
+			, P.MBER_SEQ
+			, P.MBER_GB_CD
+			, P.MBER_NM
+			, P.MBER_EMAIL
+			, P.PROD_NAME
+			, Q.OPT_CD
+			, Q.OPT_QTY
+			, Q.OPT_PRCE
+			, Q.PROD_NM
+			, Q.OPT_PROD_YN
+			, Q.OPT_PROD_EXT_YN
+			, Q.OP_GB_CD
+			, Q.OPT_GRP_CD
+			, (SELECT REPLACE(LTRIM(SYS_CONNECT_BY_PATH (PO.OPT_NM, ' // '), ' // '), ' // ', ' / ') AS OPT_NM
+			   FROM PROD_OP PO, PROD_OP_INFO POI
+			   WHERE PO.OPT_GRP_CD = Q.OPT_GRP_CD
+			        AND PO.OPT_GRP_CD = POI.OPT_GRP_CD
+			    	AND PO.OPT_USE_YN = 'Y'
+			    	AND PO.OPT_STOCK_QTY IS NOT NULL
+                	AND PO.OPT_CD = Q.OPT_CD
+			   START WITH PO.PAR_OPT_CD = '0'
+			   CONNECT BY PRIOR PO.OPT_CD = PO.PAR_OPT_CD
+      		  ) AS OPT_NM
+		FROM
+  			(
+				SELECT
+					  A.ORD_CD
+					, B.PROD_CODE
+					, B.PROD_SEQ
+					, C.MBER_SEQ
+					, D.MBER_GB_CD
+					, D.MBER_NM
+					, D.MBER_EMAIL
+					, C.PROD_NM AS PROD_NAME
+				FROM
+					ORD_INFO A, ORD_PROD_INFO B, PROD C, MBER_INFO D
+				WHERE
+					    A.ORD_CD = B.ORD_CD
+					AND B.PROD_CODE = C.PROD_CODE
+					AND C.MBER_SEQ = D.MBER_SEQ
+				    AND A.ORD_CD = #{ORD_CD}
+				    AND C.MBER_SEQ = #{MBER_SEQ}
+			) P LEFT OUTER JOIN
+  			(
+				SELECT
+					  T1.ORD_CD
+					, T1.PROD_CODE
+					, T1.PROD_SEQ
+					, T2.OPT_CD
+					, T2.OPT_QTY
+					, T3.OPT_GRP_CD
+					, T3.OPT_NM
+					, T3.OPT_PRCE
+					, T4.PROD_NM
+					, T4.OPT_PROD_YN
+					, T4.OPT_PROD_EXT_YN
+					, T5.OP_GB_CD
+				FROM
+					ORD_PROD_INFO T1 , ORD_PROD_OPT_INFO T2, PROD_OP T3 , PROD T4, PROD_OP_INFO T5
+				WHERE
+					    T1.ORD_CD = T2.ORD_CD
+					AND T1.PROD_CODE = T2.PROD_CODE
+					AND T1.PROD_SEQ = T2.PROD_SEQ
+					AND T2.OPT_CD = T3.OPT_CD
+					AND T1.PROD_CODE = T4.PROD_CODE
+					AND T3.OPT_GRP_CD = T5.OPT_GRP_CD
+					AND T1.ORD_CD = #{ORD_CD}
+			) Q
+		ON
+			    P.ORD_CD = Q.ORD_CD
+			AND P.PROD_CODE = Q.PROD_CODE
+			AND P.PROD_SEQ = Q.PROD_SEQ
+		ORDER BY P.PROD_CODE ASC, Q.OPT_PROD_EXT_YN ASC
+	</select>
+	
+	<!-- 판매 주문 상세 - 주문정보  -->
+	<select id="selectSaleOrdInfo" resultType="hashmap">
+		SELECT 
+			  TO_CHAR(A.ORD_REG_DATE , 'YYYY-MM-DD HH24:MI') AS ORD_REG_DATE
+			, A.ORD_CD
+			, A.ORD_GB_CD
+			, A.ORD_NM
+			, A.ORD_EMAIL
+			, A.ORD_HP
+			, A.CON_GB_CD
+			, A.ADMIN_MEMO
+			, A.POINT_USE_AMT
+			, A.REAL_SELT_AMT
+			, A.DLV_SELT_AMT
+			, A.SELT_GB_CD
+			, B.CARD_COMP_NM
+			, B.CARD_NO
+			, B.SETL_NM
+			, B.CARRIER
+			, B.DSTADDR
+		FROM 
+			ORD_INFO A LEFT OUTER JOIN ORD_SETL_INFO B
+		ON A.ORD_CD = B.ORD_CD AND B.TRD_GB_CD = '10'
+		WHERE
+			A.ORD_CD = #{ORD_CD}
+	</select>
+	
+	<!-- 판매 주문 상세 - 배송지 정보  -->
+	<select id="selectSaleOrdDlvInfo" resultType="hashmap">
+	    SELECT
+	    	  ORD_CD
+			, RCV_NM 
+			, RCV_TEL
+	    	, RCV_HP
+	    	, SECU_NO
+	    	, ZIP_CD 
+	    	, JUSO_JIBEN
+	    	, JUSO_DORO
+	    	, JUSO_DTL 
+	    	, DLV_MSG
+	    FROM 
+	    	ORD_DLV_INFO
+	    WHERE
+	    	ORD_CD = #{ORD_CD}
+	</select>
+	
+	<!-- 주문메모 저장 -->
+	<update id="updateAdminMemo" parameterType="hashmap">
+		UPDATE ORD_INFO SET 
+			  ADMIN_MEMO = #{adminMemo}
+			, UPDT_DT = SYSDATE
+		WHERE 
+			ORD_CD = #{ordCd}
+	</update>
+	
+	<!-- 주문취소 - 단일,복합 상품 취소 구분 획득 -->
+	<select id="selectSaleAdminOrderCancelGroupInfo" resultType="hashmap">
+		SELECT
+			  A.MBER_SEQ
+			, A.POINT_USE_AMT
+			, A.REAL_SELT_AMT
+			, COUNT(*) AS CT
+		FROM
+			ORD_INFO A, ORD_PROD_INFO B
+		WHERE
+			    A.ORD_CD = B.ORD_CD
+			AND A.ORD_CD = #{ORD_CD}
+		GROUP BY A.MBER_SEQ, A.POINT_USE_AMT, A.REAL_SELT_AMT
+	</select>
+	
+	<!-- 결제취소 - 상품 결제 기본 정보  -->
+	<select id="selectDefaultProductSaleCancelInfo" resultType="hashmap">
+		SELECT
+			  A.MBER_SEQ
+			, NVL(A.POINT_USE_AMT,0) AS POINT_USE_AMT
+			, NVL(B.PROD_CPN_CD,'NO') AS PROD_CPN_CD
+			, NVL(B.DLV_PRCE,0) AS DLV_PRCE
+			, B.PROD_PRCE * B.ORD_QTY - NVL(B.CPN_USE_AMT,0) AS TOTAL_CANCEL_PRICE
+		FROM
+			ORD_INFO A, ORD_PROD_INFO B, PROD C, MBER_INFO D
+		WHERE
+			    A.ORD_CD = B.ORD_CD
+			AND B.PROD_CODE = C.PROD_CODE
+			AND C.MBER_SEQ = D.MBER_SEQ
+			AND B.PROC_STAT_CD NOT IN ('33','50')
+			AND A.ORD_CD = #{ORD_CD}
+			AND B.PROD_CODE = #{PROD_CODE}
+			AND B.PROD_SEQ = #{PROD_SEQ}
+	</select>
+	
+	<!-- 배송조회 - 택배 기본 정보  -->
+	<select id="selectDlvInfomation" resultType="hashmap">
+		SELECT
+			  INVC_NO
+			, DLV_CMP_CD
+		FROM
+			INVC_INFO
+		WHERE
+			    ORD_CD = #{ORD_CD}
+			AND PROD_CODE = #{PROD_CODE}
+			AND PROD_SEQ = #{PROD_SEQ}
+	</select>
+	
+	<!-- 배송조회 - 택배 추적 정보  -->
+	<select id="selectListDlvState" resultType="hashmap">
+		SELECT
+			  TO_CHAR(TREAT_DT, 'YYYY-MM-DD HH24:MI') AS TREAT_DT
+			, TREATREGIPONM
+			, TREATCDNM
+		FROM
+			INVC_PROC_HIST
+		WHERE
+			INVC_NO = #{INVC_NO}
+		ORDER BY PROC_SEQ ASC
+	</select>
+	
+	<!-- 배송조회 - 타 택새회사 URL  -->
+	<select id="selectDlvCompanyURL" resultType="String">
+		SELECT
+			LINK_URL
+		FROM
+			DLV_LINK_INFO
+		WHERE
+			DLV_CMP_CD = #{DLV_CMP_CD}
+	</select>
+	
+	<!-- 배송 업체 운송장 정보 입력 - 주문  -->
+	<insert id="insertDlvInvcNumber" parameterType="hashmap">
+		INSERT INTO INVC_INFO (
+			  ORD_CD
+			, PROD_CODE
+			, PROD_SEQ
+			, INVC_NO
+			, DLV_CMP_CD
+			, DLV_STAT_CD
+			, REGIST_DT
+			, DLV_START_DT
+		) VALUES (
+			  #{ORD_CD}
+			, #{PROD_CODE}
+			, #{PROD_SEQ}
+			, #{INVC_NO}
+			, #{DLV_CMP_CD}
+			, '10'
+			, SYSDATE
+			, SYSDATE
+		)
+	</insert>
+	
+	<!-- 배송 업체 운송장 정보 입력  - 교환,반품 -->
+	<insert id="insertDlvChgInvcNumber" parameterType="hashmap">
+		INSERT INTO CHG_INVC_INFO (
+			  ORD_CD
+			, CHG_CD
+			, PROD_CODE
+			, PROD_SEQ
+			, INVC_NO
+			, DLV_CMP_CD
+			, DLV_STAT
+			, REGIST_DT
+			, DLV_START_DT
+		) VALUES (
+			  #{ORD_CD}
+			, #{CHG_CD}
+			, #{PROD_CODE}
+			, #{PROD_SEQ}
+			, #{INVC_NO}
+			, #{DLV_CMP_CD}
+			, '10'
+			, SYSDATE
+			, SYSDATE
+		)
+	</insert>
+	
+	<!-- 반품 카운트 -->
+	<select id="selectListTakeBackOrdCnt" parameterType="hashmap" resultType="int">
+		SELECT
+			  COUNT(*) AS CT
+		FROM
+			(
+				SELECT
+					  C.CHG_CD
+          			, C.ORD_CD
+          			, ROW_NUMBER() OVER(ORDER BY C.CHG_CD DESC) AS NO
+				FROM
+					(
+					    SELECT
+							  A.CHG_CD
+							, A.ORD_CD
+							, TO_CHAR(A.REGIST_DT , 'YYYY-MM-DD HH24:MI') AS REQUEST_DT
+							, A.CHG_REASON_CD
+							, A.CHG_REASON
+							, B.PROD_CODE
+							, B.PROD_SEQ
+							, B.PROC_STAT_CD
+							, O.ORD_NM
+							, O.ORD_EMAIL
+					    FROM
+							CHG_RTN_PROC_INFO A, CHG_PROD_INFO B, ORD_INFO O
+					    WHERE
+							    A.CHG_CD = B.CHG_CD
+							AND A.ORD_CD = O.ORD_CD
+							AND TO_CHAR(A.REGIST_DT,'YYYYMMDD') BETWEEN #{S_START_DATE} AND  #{S_END_DATE}
+							AND B.PROC_STAT_CD IN (31, 32, 33)
+					) C, ORD_PROD_INFO D , PROD E, MBER_INFO F, PROD_IMG G
+				WHERE
+					    C.ORD_CD = D.ORD_CD
+					AND C.PROD_CODE = D.PROD_CODE
+					AND C.PROD_CODE = E.PROD_CODE
+					AND E.MBER_SEQ = F.MBER_SEQ
+					AND C.PROD_CODE = G.PROD_CODE(+)
+					AND D.PROD_TYPE_CD = '1'
+					AND G.PROD_IMG_GB_CD(+) = '11'
+					AND E.MBER_SEQ = #{MBER_SEQ}
+					<include refid="SharChgSearch" />
+				GROUP BY C.CHG_CD , C.ORD_CD
+			) TA
+	</select>
+	
+	<!-- 판매 반품 그룹 리스트 -->
+	<select id="selectListTakeBackGroup" resultType="hashmap">
+		SELECT
+			  TA.*
+		FROM
+			(
+				SELECT
+					  C.CHG_CD
+          			, C.ORD_CD
+          			, ROW_NUMBER() OVER(ORDER BY C.CHG_CD DESC) AS NO
+				FROM
+					(
+					    SELECT
+							  A.CHG_CD
+							, A.ORD_CD
+							, TO_CHAR(A.REGIST_DT , 'YYYY-MM-DD HH24:MI') AS REQUEST_DT
+							, A.CHG_REASON_CD
+							, A.CHG_REASON
+							, B.PROD_CODE
+							, B.PROD_SEQ
+							, B.PROC_STAT_CD
+							, O.ORD_NM
+							, O.ORD_EMAIL
+					    FROM
+							CHG_RTN_PROC_INFO A, CHG_PROD_INFO B, ORD_INFO O
+					    WHERE
+							    A.CHG_CD = B.CHG_CD
+							AND A.ORD_CD = O.ORD_CD
+							AND TO_CHAR(A.REGIST_DT,'YYYYMMDD') BETWEEN #{S_START_DATE} AND  #{S_END_DATE}
+							AND B.PROC_STAT_CD IN (31, 32, 33)
+					) C, ORD_PROD_INFO D , PROD E, MBER_INFO F, PROD_IMG G
+				WHERE
+					    C.ORD_CD = D.ORD_CD
+					AND C.PROD_CODE = D.PROD_CODE
+					AND C.PROD_CODE = E.PROD_CODE
+					AND E.MBER_SEQ = F.MBER_SEQ
+					AND C.PROD_CODE = G.PROD_CODE(+)
+					AND D.PROD_TYPE_CD = '1'
+					AND G.PROD_IMG_GB_CD(+) = '11'
+					AND E.MBER_SEQ = #{MBER_SEQ}
+					<include refid="SharChgSearch" />
+				GROUP BY C.CHG_CD , C.ORD_CD
+			) TA
+		WHERE
+			TA.NO BETWEEN #{START_ROW} AND #{END_ROW}
+        ORDER BY TA.CHG_CD DESC
+	</select>
+	
+	<!-- 판매 반품 그룹 상세 리스트 -->
+	<select id="selectListTakeBackGroupList" resultType="hashmap">
+		SELECT
+			  TD.*
+			, TO_CHAR(TE.REGIST_DT , 'YYYY-MM-DD HH24:MI') AS REGIST_DT
+			, TI.ORD_NM
+			, TI.ORD_EMAIL
+			, TG.MBER_GB_CD AS SELLER_TYPE
+			, TG.MBER_NM AS SELLER_NAME
+			, TG.MBER_EMAIL
+			, TE.PROC_STAT_CD
+			, TF.PROD_NM
+			, TH.PROD_IMG_URL
+		FROM
+  			(
+    			SELECT
+					  TB.ORD_CD
+					, TB.CHG_CD
+					, TB.CHG_REASON_CD
+					, TB.CHG_REASON
+					, TC.PROD_CODE
+					, TO_CHAR(TC.REGIST_DT , 'YYYY-MM-DD HH24:MI') AS REQUEST_DT
+    			FROM
+      				(
+						SELECT
+							  TA.*
+						FROM
+							(
+								SELECT
+									  C.CHG_CD
+				          			, C.ORD_CD
+				          			, C.CHG_REASON_CD
+				          			, C.CHG_REASON
+				          			, ROW_NUMBER() OVER(ORDER BY C.CHG_CD DESC) AS NO
+								FROM
+									(
+									    SELECT
+											  A.CHG_CD
+											, A.ORD_CD
+											, TO_CHAR(A.REGIST_DT , 'YYYY-MM-DD HH24:MI') AS REQUEST_DT
+											, A.CHG_REASON_CD
+											, A.CHG_REASON
+											, B.PROD_CODE
+											, B.PROD_SEQ
+											, B.PROC_STAT_CD
+											, O.ORD_NM
+											, O.ORD_EMAIL
+									    FROM
+											CHG_RTN_PROC_INFO A, CHG_PROD_INFO B, ORD_INFO O
+									    WHERE
+											    A.CHG_CD = B.CHG_CD
+											AND A.ORD_CD = O.ORD_CD
+											AND TO_CHAR(A.REGIST_DT,'YYYYMMDD') BETWEEN #{S_START_DATE} AND  #{S_END_DATE}
+											AND B.PROC_STAT_CD IN (31, 32, 33)
+									) C, ORD_PROD_INFO D , PROD E, MBER_INFO F, PROD_IMG G
+								WHERE
+									    C.ORD_CD = D.ORD_CD
+									AND C.PROD_CODE = D.PROD_CODE
+									AND C.PROD_CODE = E.PROD_CODE
+									AND E.MBER_SEQ = F.MBER_SEQ
+									AND C.PROD_CODE = G.PROD_CODE(+)
+									AND D.PROD_TYPE_CD = '1'
+									AND G.PROD_IMG_GB_CD(+) = '11'
+									AND E.MBER_SEQ = #{MBER_SEQ}
+									<include refid="SharChgSearch" />
+								GROUP BY C.CHG_CD , C.ORD_CD, C.CHG_REASON_CD, C.CHG_REASON
+							) TA
+						WHERE
+							TA.NO BETWEEN #{START_ROW} AND #{END_ROW}
+				        ORDER BY TA.CHG_CD DESC
+     				) TB , CHG_PROD_INFO TC
+     			WHERE
+      				    TB.CHG_CD = TC.CHG_CD
+      				AND TB.ORD_CD = TC.ORD_CD
+			) TD, ORD_PROD_INFO TE, PROD TF, MBER_INFO TG, PROD_IMG TH, ORD_INFO TI
+		WHERE
+			    TD.ORD_CD = TI.ORD_CD
+			AND TD.ORD_CD = TE.ORD_CD
+			AND TD.PROD_CODE = TE.PROD_CODE
+			AND TD.PROD_CODE = TF.PROD_CODE
+			AND TF.MBER_SEQ = TG.MBER_SEQ
+			AND TD.PROD_CODE = TH.PROD_CODE(+)
+			AND TH.PROD_IMG_GB_CD(+) = '11'
+			AND TF.MBER_SEQ = #{MBER_SEQ}
+	</select>
+	
+	<!-- 반품, 교환 상품 정보리스트 -->
+	<select id="selectOrderDetailProductList" resultType="hashmap">
+    	SELECT
+			  A.ORD_CD
+			, (SELECT TOT_ORD_QTY FROM ORD_INFO WHERE ORD_CD = A.ORD_CD) AS TOT_ORD_QTY
+      		, (SELECT CASE WHEN TO_CHAR(SYSDATE,'YYYYMM') = TO_CHAR(REGIST_DT,'YYYYMM') THEN 'Y' ELSE 'N' END AS PHONE_CANCEL_YN FROM ORD_INFO WHERE ORD_CD = A.ORD_CD) AS PHONE_CANCEL_YN
+			, A.CHG_CD
+			, TO_CHAR(A.REGIST_DT , 'YYYY-MM-DD HH24:MI') AS REQUEST_DT
+			, A.CHG_REASON_CD
+			, A.CHG_REASON
+			, B.PROD_CODE
+			, B.PROD_SEQ
+			, B.PROC_STAT_CD
+			, D.MBER_EMAIL
+			, D.MBER_NM
+			, C.PROD_NM
+			, C.DLV_WAY_CD
+			, C.DLV_CMP_CD AS ORGIN_DLV_CMP_CD
+			, (SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'DLV_CMP_CD' AND COM_CD = C.DLV_CMP_CD) AS ORGIN_DLV_CMP_CD_NAME
+			, D.MBER_GB_CD
+			, F.PROD_ORD_AMT
+			, F.PROD_PRCE
+		    , F.ORD_QTY
+		    , NVL(F.CPN_USE_AMT,0) AS CPN_USE_AMT
+			, NVL(F.PROD_CPN_CD,'NO') AS PROD_CPN_CD
+      		, NVL(F.DLV_GRP_CODE,'NO') AS DLV_GRP_CODE
+      		, (SELECT NVL(POINT_USE_AMT,0) AS POINT_USE_AMT FROM ORD_INFO WHERE ORD_CD = A.ORD_CD) AS POINT_USE_AMT
+      		, (SELECT DLV_CMP_CD FROM CHG_INVC_INFO WHERE ORD_CD = A.ORD_CD AND CHG_CD = A.CHG_CD AND PROD_CODE = B.PROD_CODE AND PROD_SEQ = B.PROD_SEQ) AS DLV_CMP_CD
+      		, (SELECT INVC_NO FROM CHG_INVC_INFO WHERE ORD_CD = A.ORD_CD AND CHG_CD = A.CHG_CD AND PROD_CODE = B.PROD_CODE AND PROD_SEQ = B.PROD_SEQ) AS INVC_NO
+      		, (SELECT DLV_END_DT FROM CHG_INVC_INFO WHERE ORD_CD = A.ORD_CD AND CHG_CD = A.CHG_CD AND PROD_CODE = B.PROD_CODE AND PROD_SEQ = B.PROD_SEQ) AS R_DLV_END_DT
+		FROM
+      		CHG_RTN_PROC_INFO A, CHG_PROD_INFO B, PROD C, MBER_INFO D, ORD_PROD_INFO F
+		WHERE
+			    A.CHG_CD = B.CHG_CD
+			AND B.PROD_CODE = C.PROD_CODE
+			AND C.MBER_SEQ = D.MBER_SEQ
+			AND A.ORD_CD = F.ORD_CD
+			AND B.PROD_CODE = F.PROD_CODE
+			AND B.PROD_SEQ = F.PROD_SEQ
+			<if test="CHG_GB_CD != null and !CHG_GB_CD.equalsIgnoreCase('')">
+				AND A.CHG_GB_CD = #{CHG_GB_CD}
+			</if>
+			AND A.ORD_CD = #{ORD_CD}
+			AND A.CHG_CD = #{CHG_CD}
+			AND C.MBER_SEQ = #{MBER_SEQ}
+	</select>
+	
+	<!-- 판매 교환 카운트 -->
+	<select id="selectListExcOrdCnt" resultType="Integer">
+		SELECT
+			  COUNT(*) AS CT
+		FROM
+			(
+				SELECT
+					  C.CHG_CD
+          			, C.ORD_CD
+          			, ROW_NUMBER() OVER(ORDER BY C.CHG_CD DESC) AS NO
+				FROM
+					(
+					    SELECT
+							  A.CHG_CD
+							, A.ORD_CD
+							, TO_CHAR(A.REGIST_DT , 'YYYY-MM-DD HH24:MI') AS REQUEST_DT
+							, A.CHG_REASON_CD
+							, A.CHG_REASON
+							, B.PROD_CODE
+							, B.PROD_SEQ
+							, B.PROC_STAT_CD
+							, O.ORD_NM
+							, O.ORD_EMAIL
+					    FROM
+							CHG_RTN_PROC_INFO A, CHG_PROD_INFO B, ORD_INFO O
+					    WHERE
+							    A.CHG_CD = B.CHG_CD
+							AND A.ORD_CD = O.ORD_CD
+							AND TO_CHAR(A.REGIST_DT,'YYYYMMDD') BETWEEN #{S_START_DATE} AND  #{S_END_DATE}
+							AND B.PROC_STAT_CD IN (41, 42, 43)
+					) C, ORD_PROD_INFO D , PROD E, MBER_INFO F, PROD_IMG G
+				WHERE
+					    C.ORD_CD = D.ORD_CD
+					AND C.PROD_CODE = D.PROD_CODE
+					AND C.PROD_CODE = E.PROD_CODE
+					AND E.MBER_SEQ = F.MBER_SEQ
+					AND C.PROD_CODE = G.PROD_CODE(+)
+					AND D.PROD_TYPE_CD = '1'
+					AND G.PROD_IMG_GB_CD(+) = '11'
+					AND E.MBER_SEQ = #{MBER_SEQ}
+					<include refid="SharChgSearch" />
+				GROUP BY C.CHG_CD , C.ORD_CD
+			) TA
+	</select>
+	
+	<!-- 판매 교환신청 그룹 리스트 -->
+	<select id="selectListSaleExcGroup" resultType="hashmap">
+		SELECT
+			  TA.*
+		FROM
+			(
+				SELECT
+					  C.CHG_CD
+          			, C.ORD_CD
+          			, ROW_NUMBER() OVER(ORDER BY C.CHG_CD DESC) AS NO
+				FROM
+					(
+					    SELECT
+							  A.CHG_CD
+							, A.ORD_CD
+							, TO_CHAR(A.REGIST_DT , 'YYYY-MM-DD HH24:MI') AS REQUEST_DT
+							, A.CHG_REASON_CD
+							, A.CHG_REASON
+							, B.PROD_CODE
+							, B.PROD_SEQ
+							, B.PROC_STAT_CD
+							, O.ORD_NM
+							, O.ORD_EMAIL
+					    FROM
+							CHG_RTN_PROC_INFO A, CHG_PROD_INFO B, ORD_INFO O
+					    WHERE
+							    A.CHG_CD = B.CHG_CD
+							AND A.ORD_CD = O.ORD_CD
+							AND TO_CHAR(A.REGIST_DT,'YYYYMMDD') BETWEEN #{S_START_DATE} AND  #{S_END_DATE}
+							AND B.PROC_STAT_CD IN (41, 42, 43)
+					) C, ORD_PROD_INFO D , PROD E, MBER_INFO F, PROD_IMG G
+				WHERE
+					    C.ORD_CD = D.ORD_CD
+					AND C.PROD_CODE = D.PROD_CODE
+					AND C.PROD_CODE = E.PROD_CODE
+					AND E.MBER_SEQ = F.MBER_SEQ
+					AND C.PROD_CODE = G.PROD_CODE(+)
+					AND D.PROD_TYPE_CD = '1'
+					AND G.PROD_IMG_GB_CD(+) = '11'
+					AND E.MBER_SEQ = #{MBER_SEQ}
+					<include refid="SharChgSearch" />
+				GROUP BY C.CHG_CD , C.ORD_CD
+			) TA
+		WHERE
+			TA.NO BETWEEN #{START_ROW} AND #{END_ROW}
+        ORDER BY TA.CHG_CD DESC
+	</select>
+	
+	<!-- 판매 교환신청 그룹 상세 리스트 -->
+	<select id="selectListSaleExcGroupList" resultType="hashmap">
+		SELECT
+			  TD.*
+			, TO_CHAR(TE.REGIST_DT , 'YYYY-MM-DD HH24:MI') AS REGIST_DT
+			, TI.ORD_NM
+			, TI.ORD_EMAIL
+			, TG.MBER_GB_CD AS SELLER_TYPE
+			, TG.MBER_NM AS SELLER_NAME
+			, TG.MBER_EMAIL
+			, TE.PROC_STAT_CD
+			, TF.PROD_NM
+			, TH.PROD_IMG_URL
+		FROM
+  			(
+    			SELECT
+					  TB.ORD_CD
+					, TB.CHG_CD
+					, TB.CHG_REASON_CD
+					, TB.CHG_REASON
+					, TC.PROD_CODE
+					, TO_CHAR(TC.REGIST_DT , 'YYYY-MM-DD HH24:MI') AS REQUEST_DT
+    			FROM
+      				(
+						SELECT
+							  TA.*
+						FROM
+							(
+								SELECT
+									  C.CHG_CD
+				          			, C.ORD_CD
+				          			, C.CHG_REASON_CD
+				          			, C.CHG_REASON
+				          			, ROW_NUMBER() OVER(ORDER BY C.CHG_CD DESC) AS NO
+								FROM
+									(
+									    SELECT
+											  A.CHG_CD
+											, A.ORD_CD
+											, TO_CHAR(A.REGIST_DT , 'YYYY-MM-DD HH24:MI') AS REQUEST_DT
+											, A.CHG_REASON_CD
+											, A.CHG_REASON
+											, B.PROD_CODE
+											, B.PROD_SEQ
+											, B.PROC_STAT_CD
+											, O.ORD_NM
+											, O.ORD_EMAIL
+									    FROM
+											CHG_RTN_PROC_INFO A, CHG_PROD_INFO B, ORD_INFO O
+									    WHERE
+											    A.CHG_CD = B.CHG_CD
+											AND A.ORD_CD = O.ORD_CD
+											AND TO_CHAR(A.REGIST_DT,'YYYYMMDD') BETWEEN #{S_START_DATE} AND  #{S_END_DATE}
+											AND B.PROC_STAT_CD IN (41, 42, 43)
+									) C, ORD_PROD_INFO D , PROD E, MBER_INFO F, PROD_IMG G
+								WHERE
+									    C.ORD_CD = D.ORD_CD
+									AND C.PROD_CODE = D.PROD_CODE
+									AND C.PROD_CODE = E.PROD_CODE
+									AND E.MBER_SEQ = F.MBER_SEQ
+									AND C.PROD_CODE = G.PROD_CODE(+)
+									AND D.PROD_TYPE_CD = '1'
+									AND G.PROD_IMG_GB_CD(+) = '11'
+									AND E.MBER_SEQ = #{MBER_SEQ}
+									<include refid="SharChgSearch" />
+								GROUP BY C.CHG_CD , C.ORD_CD, C.CHG_REASON_CD, C.CHG_REASON
+							) TA
+						WHERE
+							TA.NO BETWEEN #{START_ROW} AND #{END_ROW}
+				        ORDER BY TA.CHG_CD DESC
+     				) TB , CHG_PROD_INFO TC
+     			WHERE
+      				    TB.CHG_CD = TC.CHG_CD
+      				AND TB.ORD_CD = TC.ORD_CD
+			) TD, ORD_PROD_INFO TE, PROD TF, MBER_INFO TG, PROD_IMG TH, ORD_INFO TI
+		WHERE
+			    TD.ORD_CD = TI.ORD_CD
+			AND TD.ORD_CD = TE.ORD_CD
+			AND TD.PROD_CODE = TE.PROD_CODE
+			AND TD.PROD_CODE = TF.PROD_CODE
+			AND TF.MBER_SEQ = TG.MBER_SEQ
+			AND TD.PROD_CODE = TH.PROD_CODE(+)
+			AND TH.PROD_IMG_GB_CD(+) = '11'
+			AND TF.MBER_SEQ = #{MBER_SEQ}
+	</select>
+	
+	<!-- 취소 카운트 -->
+	<select id="selectListCancelOrderCnt" parameterType="hashmap" resultType="int">
+		SELECT
+			  COUNT(*) AS CT
+		FROM
+			(
+				SELECT
+					  A.ORD_CD 
+					, TO_CHAR(C.CANC_DT, 'YYYY-MM-DD HH24:MI') AS REQUEST_DT
+					, A.ORD_REG_DATE
+					, A.ORD_NM
+					, A.ORD_EMAIL
+				FROM
+					ORD_INFO A, ORD_PROD_INFO B, ORD_CANC_INFO C, PROD D, MBER_INFO E, PROD_IMG F
+				WHERE
+					    A.ORD_CD = B.ORD_CD
+					AND B.CANC_CD = C.CANC_CD
+					AND B.PROD_CODE = D.PROD_CODE
+					AND D.MBER_SEQ = E.MBER_SEQ
+					AND B.PROD_CODE = F.PROD_CODE(+)
+					AND D.MBER_SEQ = #{MBER_SEQ}
+					AND B.PROD_TYPE_CD = '1'
+					AND B.PROC_STAT_CD = '50'
+					AND F.PROD_IMG_GB_CD(+) = '11'
+					AND TO_CHAR(C.CANC_DT,'YYYYMMDD') BETWEEN #{S_START_DATE} AND  #{S_END_DATE}
+					<include refid="CancelSearch" />
+				GROUP BY A.ORD_CD , TO_CHAR(C.CANC_DT, 'YYYY-MM-DD HH24:MI'), A.ORD_REG_DATE, A.ORD_NM, A.ORD_EMAIL
+			) TA
+	</select>
+	
+	<!-- 취소 그룹 리스트 -->
+	<select id="sselectListCancelOrderGroup" resultType="hashmap">
+		SELECT
+			  TA.ORD_CD
+			, TA.REQUEST_DT
+			, TO_CHAR(TA.ORD_REG_DATE, 'YYYY-MM-DD HH24:MI') AS ORDER_DT
+			, TA.ORD_NM
+			, TA.ORD_EMAIL
+			, NO
+		FROM
+			(
+				SELECT
+					  A.ORD_CD 
+					, TO_CHAR(C.CANC_DT, 'YYYY-MM-DD HH24:MI') AS REQUEST_DT
+					, A.ORD_REG_DATE
+					, A.ORD_NM
+					, A.ORD_EMAIL
+					, ROW_NUMBER() OVER(ORDER BY TO_CHAR(C.CANC_DT, 'YYYY-MM-DD HH24:MI') DESC) AS NO
+				FROM
+					ORD_INFO A, ORD_PROD_INFO B, ORD_CANC_INFO C, PROD D, MBER_INFO E, PROD_IMG F
+				WHERE
+					    A.ORD_CD = B.ORD_CD
+					AND B.CANC_CD = C.CANC_CD
+					AND B.PROD_CODE = D.PROD_CODE
+					AND D.MBER_SEQ = E.MBER_SEQ
+					AND B.PROD_CODE = F.PROD_CODE(+)
+					AND D.MBER_SEQ = #{MBER_SEQ}
+					AND B.PROD_TYPE_CD = '1'
+					AND B.PROC_STAT_CD = '50'
+					AND F.PROD_IMG_GB_CD(+) = '11'
+					AND TO_CHAR(C.CANC_DT,'YYYYMMDD') BETWEEN #{S_START_DATE} AND  #{S_END_DATE}
+					<include refid="CancelSearch" />
+				GROUP BY A.ORD_CD , TO_CHAR(C.CANC_DT, 'YYYY-MM-DD HH24:MI'), A.ORD_REG_DATE, A.ORD_NM, A.ORD_EMAIL
+			) TA
+		WHERE
+			TA.NO BETWEEN #{START_ROW} AND #{END_ROW}
+        ORDER BY TA.REQUEST_DT DESC
+	</select>
+	
+	<!-- 취소 그룹 상세 리스트 -->
+	<select id="selectListCancelOrderGroupList" resultType="hashmap">
+		SELECT
+			  TB.ORD_CD
+			, TB.REQUEST_DT
+			, TO_CHAR(TB.ORD_REG_DATE, 'YYYY-MM-DD HH24:MI') AS ORDER_DT
+			, TB.ORD_NM
+			, TB.ORD_EMAIL
+			, TE.MBER_GB_CD AS SELLER_TYPE
+			, TE.MBER_NM AS SELLER_NAME
+			, TE.MBER_EMAIL
+			, TD.PROD_CODE
+			, TD.PROD_NM
+			, TF.PROD_IMG_URL
+			, TG.CANC_REASON_CD
+			, TG.CANC_REASON
+		FROM
+			(
+				SELECT
+					  TA.*
+				FROM
+					(
+						SELECT
+							  A.ORD_CD 
+							, TO_CHAR(C.CANC_DT, 'YYYY-MM-DD HH24:MI') AS REQUEST_DT
+							, A.ORD_REG_DATE
+							, A.ORD_NM
+							, A.ORD_EMAIL
+							, ROW_NUMBER() OVER(ORDER BY TO_CHAR(C.CANC_DT, 'YYYY-MM-DD HH24:MI') DESC) AS NO
+						FROM
+							ORD_INFO A, ORD_PROD_INFO B, ORD_CANC_INFO C, PROD D, MBER_INFO E, PROD_IMG F
+						WHERE
+							    A.ORD_CD = B.ORD_CD
+							AND B.CANC_CD = C.CANC_CD
+							AND B.PROD_CODE = D.PROD_CODE
+							AND D.MBER_SEQ = E.MBER_SEQ
+							AND B.PROD_CODE = F.PROD_CODE(+)
+							AND D.MBER_SEQ = #{MBER_SEQ}
+							AND B.PROD_TYPE_CD = '1'
+							AND B.PROC_STAT_CD = '50'
+							AND F.PROD_IMG_GB_CD(+) = '11'
+							AND TO_CHAR(C.CANC_DT,'YYYYMMDD') BETWEEN #{S_START_DATE} AND  #{S_END_DATE}
+							<include refid="CancelSearch" />
+						GROUP BY A.ORD_CD , TO_CHAR(C.CANC_DT, 'YYYY-MM-DD HH24:MI'), A.ORD_REG_DATE, A.ORD_NM, A.ORD_EMAIL
+					) TA
+				WHERE
+					TA.NO BETWEEN #{START_ROW} AND #{END_ROW}
+		        ORDER BY TA.REQUEST_DT DESC
+			) TB, ORD_PROD_INFO TC, PROD TD, MBER_INFO TE, PROD_IMG TF, ORD_CANC_INFO TG         
+		WHERE
+			    TB.ORD_CD = TC.ORD_CD
+			AND TC.PROD_CODE = TD.PROD_CODE
+			AND TD.MBER_SEQ = TE.MBER_SEQ
+			AND TC.PROD_CODE = TF.PROD_CODE(+)
+			AND TC.CANC_CD = TG.CANC_CD
+			AND TF.PROD_IMG_GB_CD(+) = '11'
+			AND TD.MBER_SEQ = #{MBER_SEQ}
+	</select>
+	
+	<!-- 취소 상품 리스트 -->
+	<select id="selectOrderDetailCancelProductList" resultType="hashmap">
+		SELECT
+			  A.ORD_CD 
+			, TO_CHAR(C.CANC_DT, 'YYYY-MM-DD HH24:MI') AS REGIST_DT
+			, E.MBER_GB_CD AS SELLER_TYPE
+			, E.MBER_NM AS SELLER_NAME
+			, E.MBER_EMAIL AS SELLER_EMAIL
+			, D.PROD_NM
+			, C.CANC_REASON_CD
+			, C.CANC_REASON
+			, (B.PROD_PRCE * B.ORD_QTY) + B.DLV_PRCE - NVL(B.CPN_USE_AMT,0) AS ORDER_MONEY
+			, A.POINT_USE_AMT
+			, B.PROC_STAT_CD
+			, TO_CHAR(B.UPDT_DT, 'YYYY-MM-DD HH24:MI') AS UPDT_DT
+			, B.PROD_CODE
+            , B.PROD_SEQ
+		FROM
+			ORD_INFO A, ORD_PROD_INFO B, ORD_CANC_INFO C, PROD D, MBER_INFO E
+		WHERE
+			    A.ORD_CD = B.ORD_CD
+			AND B.CANC_CD = C.CANC_CD
+			AND B.PROD_CODE = D.PROD_CODE
+			AND D.MBER_SEQ = E.MBER_SEQ
+			AND B.PROD_TYPE_CD = '1'
+			AND B.PROC_STAT_CD = '50'
+			AND A.ORD_CD = #{ORD_CD}
+			AND D.MBER_SEQ = #{MBER_SEQ}
+	</select>
+	
+	<!-- 휴대폰 결제취소 : 환불계좌 RFND_CD 생성  -->
+	<select id="createRfndCode" resultType="String">
+		SELECT TO_CHAR(SYSDATE, 'YYYYMMDDHH24MI')||LPAD(SEQ_ORD_RFND_PROC_INFO.NEXTVAL, 4, 0) AS RFND_CD FROM DUAL
+	</select>
+	
+	<!-- 휴대폰 결제취소 : 환불계좌 입력 - ORD_RFND_PROC_INFO -->
+	<insert id="insertRefund" parameterType="hashmap">
+		INSERT INTO ORD_RFND_PROC_INFO
+			(
+				  RFND_CD 					
+				, ORD_CD
+				<if test="CHG_CD != null and CHG_CD != ''">
+					, RTN_CD
+				</if>
+				, REGIST_DT						
+				, BANK_ACNT_NO				
+				, ACNT_NM						
+				, BANK_GB_CD
+				, RFND_AMT
+			)
+		VALUES
+			(
+				  #{RFND_CD}
+				, #{ORD_CD}
+				<if test="CHG_CD != null and CHG_CD != ''">
+					, #{CHG_CD}
+				</if>
+				, SYSDATE
+				, #{BANK_ACNT_NO}
+				, #{ACNT_NM}
+				, #{BANK_GB_CD}
+				, #{RFND_AMT}
+			)		
+	</insert>
+	
+	<!-- 휴대폰 결제취소 : 환불계좌 입력 - ORD_RFND_PROD_INFO -->
+	<insert id="insertRefundProduct" parameterType="hashmap">
+		INSERT INTO ORD_RFND_PROD_INFO
+			(
+				  RFND_CD 					
+				, PROD_CODE
+			)
+		VALUES
+			(
+				  #{RFND_CD}
+				, #{PROD_CODE}
+			)		
+	</insert>
+	
+	<!-- 상품 배송지 등록 -->
+	<insert id="insertOrdDlv" parameterType="hashmap">
+		MERGE INTO ORD_DLV_INFO
+		USING DUAL ON (ORD_CD = #{P_ORD_CD, jdbcType=VARCHAR})
+		 WHEN MATCHED THEN
+			UPDATE SET
+				   RCV_NM = #{RCV_NM, jdbcType=VARCHAR}
+				 , RCV_TEL = #{RCV_TEL, jdbcType=VARCHAR}
+				 , ZIP_CD = #{ZIP_CD, jdbcType=VARCHAR}
+				 , JUSO_JIBEN = #{JUSO_JIBEN, jdbcType=VARCHAR}
+				 , JUSO_DORO = #{JUSO_DORO, jdbcType=VARCHAR}
+				 , JUSO_DTL = #{JUSO_DTL, jdbcType=VARCHAR}
+				 , UPDT_DT = SYSDATE
+		WHEN NOT MATCHED THEN
+			INSERT (
+				 ORD_CD
+				 , RCV_NM
+				 , RCV_TEL
+				 , ZIP_CD
+				 , JUSO_JIBEN
+				 , JUSO_DORO
+				 , JUSO_DTL
+				 , REGIST_DT
+				 , UPDT_DT
+			) VALUES (
+				   #{P_ORD_CD, jdbcType=VARCHAR}
+				 , #{RCV_NM, jdbcType=VARCHAR}
+				 , #{RCV_TEL, jdbcType=VARCHAR}
+				 , #{ZIP_CD, jdbcType=VARCHAR}
+				 , #{JUSO_JIBEN, jdbcType=VARCHAR}
+				 , #{JUSO_DORO, jdbcType=VARCHAR}
+				 , #{JUSO_DTL, jdbcType=VARCHAR}
+				 , SYSDATE
+				 , SYSDATE
+			)
+	</insert>
+	
+	<!-- 주문번호 생성 -->
+	<select id="selectOrdInfoSeq" resultType="string">
+		SELECT TO_CHAR(SYSDATE, 'YYYYMMDDHH24MI') || LPAD(SEQ_ORD_CD.NEXTVAL,4,0) AS ORD_CD FROM DUAL
+	</select>
+	
+	<!-- 판매 교환 excel 다운로드 -->
+	<select id="selectListSaleOrdExcExcel" parameterType="hashmap" resultType="hashmap">		
+		SELECT
+			  R.REQUEST_DT
+        	, CASE WHEN R.CHG_REASON_CD IS NULL THEN R.CHG_REASON ELSE '[' || W.COM_CD_NM || '] ' || R.CHG_REASON END AS CHG_REASON
+			, R.ORD_CD
+			, R.ORD_REG_DATE
+			, R.ORD_NM || '( ' || R.ORD_EMAIL || ' )' AS ORDER_INFO
+			, R.ORD_HP
+			, DECODE(R.SELLER_TYPE,0,'[개인]',1,'[사업자]') || R.SELLER_NAME || '( ' || R.SELLER_ID || ' )' AS SELLER_INFO
+			, R.PROD_CODE
+			, U.COM_CD_NM AS PROC_STAT_CD_NAME
+			, R.PROD_NM
+			, R.OPT_NM
+			, CASE WHEN R.OP_GB_CD = '20' THEN 0 ELSE NVL(R.PROD_PRCE,0) END AS PROD_PRICE
+			, R.OPT_PRCE
+			, CASE WHEN R.OP_GB_CD IS NULL THEN R.ORD_QTY ELSE R.OPT_QTY END AS ORD_QTY
+			, CASE
+			  WHEN R.OP_GB_CD = '10' THEN (NVL(R.PROD_PRCE,0) + NVL(R.OPT_PRCE,0)) * NVL(R.OPT_QTY,0)
+			  WHEN R.OP_GB_CD = '20' THEN NVL(R.OPT_PRCE,0) * NVL(R.OPT_QTY,0)
+			  ELSE NVL(R.PROD_PRCE,0)
+			  END AS PROD_PRCE
+			, R.DLV_PRCE
+			, R.CPN_USE_AMT
+			, NVL(R.PROD_PRCE,0) * NVL(R.OPT_QTY,0) - NVL(R.CPN_USE_AMT,0) AS ORDER_PRICE
+			, R.POINT_USE_AMT
+			, R.REAL_SELT_AMT
+			, CASE WHEN V.COM_CD_NM IS NULL THEN '0원 결제' ELSE V.COM_CD_NM END AS SELT_GB_NAME
+			, S.CARD_COMP_NM
+			, R.RCV_NM
+			, R.RCV_TEL
+			, R.ZIP_CD
+			, R.JUSO_JIBEN
+			, R.JUSO_DORO
+			, R.DLV_MSG
+			, T.COM_CD_NM AS DLV_CMP_CD
+			, T.INVC_NO
+			, TO_CHAR(T.REGIST_DT , 'YYYY-MM-DD HH24:MI')	AS DLV_REGIST_DT
+			, TO_CHAR(T.DLV_END_DT , 'YYYY-MM-DD HH24:MI')	AS DLV_END_DT
+        
+		FROM
+	        (
+				SELECT
+					  P.*
+					, (SELECT REPLACE(LTRIM(SYS_CONNECT_BY_PATH (PO.OPT_NM, ' // '), ' // '), ' // ', ' / ') AS OPT_NM
+					     FROM PROD_OP PO, PROD_OP_INFO POI
+					     WHERE PO.OPT_GRP_CD = Q.OPT_GRP_CD
+					          AND PO.OPT_GRP_CD = POI.OPT_GRP_CD
+					          AND PO.OPT_USE_YN = 'Y'
+					          AND PO.OPT_STOCK_QTY IS NOT NULL
+					          AND PO.OPT_CD = Q.OPT_CD
+					     START WITH PO.PAR_OPT_CD = '0'
+					     CONNECT BY PRIOR PO.OPT_CD = PO.PAR_OPT_CD
+					) AS OPT_NM
+					, Q.OPT_QTY
+					, Q.OPT_PRCE
+					, Q.OP_GB_CD
+				FROM
+	            	(
+						SELECT
+							  A.ORD_CD
+							, A.ORD_REG_DATE
+							, A.ORD_NM
+							, A.ORD_HP
+							, A.ORD_EMAIL
+							, A.ORD_AMT
+							, A.POINT_USE_AMT
+							, A.REAL_SELT_AMT
+							, A.SELT_GB_CD
+							, A.CREDIT_APPR_NO
+							, B.PROD_CODE
+							, B.PROD_SEQ
+							, B.PROC_STAT_CD
+							, B.PROD_PRCE
+							, B.ORD_QTY
+							, B.DLV_PRCE
+							, B.CPN_USE_AMT
+							, C.PROD_NM
+							, C.MBER_SEQ AS SELLER_SEQ
+							, D.MBER_EMAIL AS SELLER_ID
+							, D.MBER_NM AS SELLER_NAME
+							, D.MBER_GB_CD AS SELLER_TYPE
+							, F.RCV_NM
+							, F.HP AS RCV_TEL
+							, F.ZIP_CD
+							, F.JUSO_JIBEN || ' ' || F.JUSO_DTL AS JUSO_JIBEN
+							, F.JUSO_DORO || ' ' || F.JUSO_DTL AS JUSO_DORO
+							, F.MEMO AS DLV_MSG
+							, F.REQUEST_DT
+                  			, F.CHG_REASON_CD
+                  			, F.CHG_REASON
+						FROM
+							(
+								SELECT
+									  CRPI.ORD_CD
+									, TO_CHAR(CRPI.CHG_REG_DT , 'YYYY-MM-DD HH24:MI') AS REQUEST_DT
+									, CRPI.CHG_REASON_CD
+									, CRPI.CHG_REASON
+									, CRPI.RCV_NM
+									, CRPI.HP
+									, CRPI.ZIP_CD
+									, CRPI.JUSO_JIBEN
+									, CRPI.JUSO_DORO
+									, CRPI.JUSO_DTL
+									, CRPI.MEMO
+								FROM
+						  			CHG_RTN_PROC_INFO CRPI , CHG_PROD_INFO CPI
+						  		WHERE
+                        			    CRPI.CHG_CD = CPI.CHG_CD
+									AND TO_CHAR(CRPI.CHG_REG_DT,'YYYYMMDD') BETWEEN  #{S_START_DATE} AND  #{S_END_DATE}
+                        			AND CPI.PROC_STAT_CD IN (41, 42, 43)
+						  	) F, ORD_INFO A , ORD_PROD_INFO B , PROD C, MBER_INFO D
+						WHERE
+							    F.ORD_CD = A.ORD_CD
+							AND A.ORD_CD = B.ORD_CD
+							AND B.PROD_CODE = C.PROD_CODE
+							AND C.MBER_SEQ = D.MBER_SEQ
+							AND B.PROD_TYPE_CD = '1'
+							AND C.MBER_SEQ = #{MBER_SEQ}
+							<include refid="SharChgExcelSearch" />
+	            	) P 
+	            	LEFT OUTER JOIN
+		            (
+						SELECT
+							  T1.ORD_CD
+							, T1.PROD_CODE
+							, T1.PROD_SEQ
+							, T2.OPT_CD
+							, T2.OPT_QTY
+							, T3.OPT_GRP_CD
+							, T3.OPT_NM
+							, T3.OPT_PRCE
+							, T4.PROD_NM
+							, T4.OPT_PROD_YN
+							, T4.OPT_PROD_EXT_YN
+							, T5.OP_GB_CD
+		              	FROM
+		                	ORD_PROD_INFO T1 , ORD_PROD_OPT_INFO T2, PROD_OP T3 , PROD T4, PROD_OP_INFO T5
+		              	WHERE
+			                    T1.ORD_CD = T2.ORD_CD
+			                AND T1.PROD_CODE = T2.PROD_CODE
+			                AND T1.PROD_SEQ = T2.PROD_SEQ
+			                AND T2.OPT_CD = T3.OPT_CD
+			                AND T1.PROD_CODE = T4.PROD_CODE
+			                AND T3.OPT_GRP_CD = T5.OPT_GRP_CD
+		            ) Q
+	            ON P.ORD_CD = Q.ORD_CD AND P.PROD_CODE = Q.PROD_CODE AND P.PROD_SEQ = Q.PROD_SEQ
+	        ) R
+        LEFT OUTER JOIN  (SELECT ORD_CD, CARD_COMP_NM, CARD_NO, SETL_NM, CARRIER, DSTADDR FROM ORD_SETL_INFO WHERE TRD_GB_CD = '10') S ON R.ORD_CD = S.ORD_CD
+        LEFT OUTER JOIN (SELECT TA.ORD_CD, TB.COM_CD_NM, TA.INVC_NO, TA.REGIST_DT, TA.DLV_END_DT FROM CHG_INVC_INFO TA , (SELECT COM_CD,COM_CD_NM FROM CODE WHERE GRP_CD = 'DLV_CMP_CD') TB WHERE TA.DLV_CMP_CD = TB.COM_CD) T ON R.ORD_CD = T.ORD_CD
+        LEFT JOIN (SELECT COM_CD,COM_CD_NM FROM CODE WHERE GRP_CD = 'PROC_STAT_CD') U ON R.PROC_STAT_CD = U.COM_CD
+        LEFT OUTER JOIN (SELECT COM_CD,COM_CD_NM FROM CODE WHERE GRP_CD = 'SELT_GB_CD') V ON R.SELT_GB_CD = V.COM_CD
+        LEFT OUTER JOIN (SELECT COM_CD,COM_CD_NM FROM CODE WHERE GRP_CD = 'CHG_REASON_CD') W ON R.CHG_REASON_CD = W.COM_CD
+        ORDER BY R.REQUEST_DT DESC
+	</select>
+	
+	<!-- 판매 반품 excel 다운로드 -->
+	<select id="selectListSaleOrdTakeBackExcel" parameterType="hashmap" resultType="hashmap">
+		SELECT
+			  R.REQUEST_DT
+        	, CASE WHEN R.CHG_REASON_CD IS NULL THEN R.CHG_REASON ELSE '[' || W.COM_CD_NM || '] ' || R.CHG_REASON END AS CHG_REASON
+			, R.ORD_CD
+			, R.ORD_REG_DATE
+			, R.ORD_NM || '( ' || R.ORD_EMAIL || ' )' AS ORDER_INFO
+			, R.ORD_HP
+			, DECODE(R.SELLER_TYPE,0,'[개인]',1,'[사업자]') || R.SELLER_NAME || '( ' || R.SELLER_ID || ' )' AS SELLER_INFO
+			, R.PROD_CODE
+			, U.COM_CD_NM AS PROC_STAT_CD_NAME
+			, R.PROD_NM
+			, R.OPT_NM
+			, CASE WHEN R.OP_GB_CD = '20' THEN 0 ELSE NVL(R.PROD_PRCE,0) END AS PROD_PRICE
+			, R.OPT_PRCE
+			, CASE WHEN R.OP_GB_CD IS NULL THEN R.ORD_QTY ELSE R.OPT_QTY END AS ORD_QTY
+			, CASE
+			  WHEN R.OP_GB_CD = '10' THEN (NVL(R.PROD_PRCE,0) + NVL(R.OPT_PRCE,0)) * NVL(R.OPT_QTY,0)
+			  WHEN R.OP_GB_CD = '20' THEN NVL(R.OPT_PRCE,0) * NVL(R.OPT_QTY,0)
+			  ELSE NVL(R.PROD_PRCE,0)
+			  END AS PROD_PRCE
+			, R.DLV_PRCE
+			, R.CPN_USE_AMT
+			, NVL(R.PROD_PRCE,0) * NVL(R.OPT_QTY,0) - NVL(R.CPN_USE_AMT,0) AS ORDER_PRICE
+			, R.POINT_USE_AMT
+			, R.REAL_SELT_AMT
+			, CASE WHEN V.COM_CD_NM IS NULL THEN '0원 결제' ELSE V.COM_CD_NM END AS SELT_GB_NAME
+			, S.CARD_COMP_NM
+			, R.RCV_NM
+			, R.RCV_TEL
+			, R.ZIP_CD
+			, R.JUSO_JIBEN
+			, R.JUSO_DORO
+			, R.DLV_MSG
+			, T.COM_CD_NM AS DLV_CMP_CD
+			, T.INVC_NO
+			, TO_CHAR(T.REGIST_DT , 'YYYY-MM-DD HH24:MI')	AS DLV_REGIST_DT
+			, TO_CHAR(T.DLV_END_DT , 'YYYY-MM-DD HH24:MI')	AS DLV_END_DT
+        
+		FROM
+	        (
+				SELECT
+					  P.*
+					, (SELECT REPLACE(LTRIM(SYS_CONNECT_BY_PATH (PO.OPT_NM, ' // '), ' // '), ' // ', ' / ') AS OPT_NM
+					     FROM PROD_OP PO, PROD_OP_INFO POI
+					     WHERE PO.OPT_GRP_CD = Q.OPT_GRP_CD
+					          AND PO.OPT_GRP_CD = POI.OPT_GRP_CD
+					          AND PO.OPT_USE_YN = 'Y'
+					          AND PO.OPT_STOCK_QTY IS NOT NULL
+					          AND PO.OPT_CD = Q.OPT_CD
+					     START WITH PO.PAR_OPT_CD = '0'
+					     CONNECT BY PRIOR PO.OPT_CD = PO.PAR_OPT_CD
+					) AS OPT_NM
+					, Q.OPT_QTY
+					, Q.OPT_PRCE
+					, Q.OP_GB_CD
+				FROM
+	            	(
+						SELECT
+							  A.ORD_CD
+							, A.ORD_REG_DATE
+							, A.ORD_NM
+							, A.ORD_HP
+							, A.ORD_EMAIL
+							, A.ORD_AMT
+							, A.POINT_USE_AMT
+							, A.REAL_SELT_AMT
+							, A.SELT_GB_CD
+							, A.CREDIT_APPR_NO
+							, B.PROD_CODE
+							, B.PROD_SEQ
+							, B.PROC_STAT_CD
+							, B.PROD_PRCE
+							, B.ORD_QTY
+							, B.DLV_PRCE
+							, B.CPN_USE_AMT
+							, C.PROD_NM
+							, C.MBER_SEQ AS SELLER_SEQ
+							, D.MBER_EMAIL AS SELLER_ID
+							, D.MBER_NM AS SELLER_NAME
+							, D.MBER_GB_CD AS SELLER_TYPE
+							, F.RCV_NM
+							, F.HP AS RCV_TEL
+							, F.ZIP_CD
+							, F.JUSO_JIBEN || ' ' || F.JUSO_DTL AS JUSO_JIBEN
+							, F.JUSO_DORO || ' ' || F.JUSO_DTL AS JUSO_DORO
+							, F.MEMO AS DLV_MSG
+							, F.REQUEST_DT
+                  			, F.CHG_REASON_CD
+                  			, F.CHG_REASON
+						FROM
+							(
+								SELECT
+									  CRPI.ORD_CD
+									, TO_CHAR(CRPI.CHG_REG_DT , 'YYYY-MM-DD HH24:MI') AS REQUEST_DT
+									, CRPI.CHG_REASON_CD
+									, CRPI.CHG_REASON
+									, CRPI.RCV_NM
+									, CRPI.HP
+									, CRPI.ZIP_CD
+									, CRPI.JUSO_JIBEN
+									, CRPI.JUSO_DORO
+									, CRPI.JUSO_DTL
+									, CRPI.MEMO
+								FROM
+						  			CHG_RTN_PROC_INFO CRPI , CHG_PROD_INFO CPI
+						  		WHERE
+                        			    CRPI.CHG_CD = CPI.CHG_CD
+									AND TO_CHAR(CRPI.CHG_REG_DT,'YYYYMMDD') BETWEEN  #{S_START_DATE} AND  #{S_END_DATE}
+                        			AND CPI.PROC_STAT_CD IN (31, 32, 33)
+						  	) F, ORD_INFO A , ORD_PROD_INFO B , PROD C, MBER_INFO D
+						WHERE
+							    F.ORD_CD = A.ORD_CD
+							AND A.ORD_CD = B.ORD_CD
+							AND B.PROD_CODE = C.PROD_CODE
+							AND C.MBER_SEQ = D.MBER_SEQ
+							AND B.PROD_TYPE_CD = '1'
+							AND C.MBER_SEQ = #{MBER_SEQ}
+							<include refid="SharChgExcelSearch" />
+	            	) P 
+	            	LEFT OUTER JOIN
+		            (
+						SELECT
+							  T1.ORD_CD
+							, T1.PROD_CODE
+							, T1.PROD_SEQ
+							, T2.OPT_CD
+							, T2.OPT_QTY
+							, T3.OPT_GRP_CD
+							, T3.OPT_NM
+							, T3.OPT_PRCE
+							, T4.PROD_NM
+							, T4.OPT_PROD_YN
+							, T4.OPT_PROD_EXT_YN
+							, T5.OP_GB_CD
+		              	FROM
+		                	ORD_PROD_INFO T1 , ORD_PROD_OPT_INFO T2, PROD_OP T3 , PROD T4, PROD_OP_INFO T5
+		              	WHERE
+			                    T1.ORD_CD = T2.ORD_CD
+			                AND T1.PROD_CODE = T2.PROD_CODE
+			                AND T1.PROD_SEQ = T2.PROD_SEQ
+			                AND T2.OPT_CD = T3.OPT_CD
+			                AND T1.PROD_CODE = T4.PROD_CODE
+			                AND T3.OPT_GRP_CD = T5.OPT_GRP_CD
+		            ) Q
+	            ON P.ORD_CD = Q.ORD_CD AND P.PROD_CODE = Q.PROD_CODE AND P.PROD_SEQ = Q.PROD_SEQ
+	        ) R
+        LEFT OUTER JOIN  (SELECT ORD_CD, CARD_COMP_NM, CARD_NO, SETL_NM, CARRIER, DSTADDR FROM ORD_SETL_INFO WHERE TRD_GB_CD = '10') S ON R.ORD_CD = S.ORD_CD
+        LEFT OUTER JOIN (SELECT TA.ORD_CD, TB.COM_CD_NM, TA.INVC_NO, TA.REGIST_DT, TA.DLV_END_DT FROM CHG_INVC_INFO TA , (SELECT COM_CD,COM_CD_NM FROM CODE WHERE GRP_CD = 'DLV_CMP_CD') TB WHERE TA.DLV_CMP_CD = TB.COM_CD) T ON R.ORD_CD = T.ORD_CD
+        LEFT JOIN (SELECT COM_CD,COM_CD_NM FROM CODE WHERE GRP_CD = 'PROC_STAT_CD') U ON R.PROC_STAT_CD = U.COM_CD
+        LEFT OUTER JOIN (SELECT COM_CD,COM_CD_NM FROM CODE WHERE GRP_CD = 'SELT_GB_CD') V ON R.SELT_GB_CD = V.COM_CD
+        LEFT OUTER JOIN (SELECT COM_CD,COM_CD_NM FROM CODE WHERE GRP_CD = 'CHG_REASON_CD') W ON R.CHG_REASON_CD = W.COM_CD
+        ORDER BY R.REQUEST_DT DESC
+	</select>
+	
+	
+	<!-- 판매 취소 excel 다운로드 -->
+	<select id="selectListSaleOrdCancelExcel" parameterType="hashmap" resultType="hashmap">
+		SELECT
+			  R.REQUEST_DT
+        	, CASE WHEN R.CHG_REASON_CD IS NULL THEN R.CHG_REASON ELSE '[' || W.COM_CD_NM || '] ' || R.CHG_REASON END AS CHG_REASON
+			, R.ORD_CD
+			, R.ORD_REG_DATE
+			, R.ORD_NM || '( ' || R.ORD_EMAIL || ' )' AS ORDER_INFO
+			, R.ORD_HP
+			, DECODE(R.SELLER_TYPE,0,'[개인]',1,'[사업자]') || R.SELLER_NAME || '( ' || R.SELLER_ID || ' )' AS SELLER_INFO
+			, R.PROD_CODE
+			, U.COM_CD_NM AS PROC_STAT_CD_NAME
+			, R.PROD_NM
+			, R.OPT_NM
+			, CASE WHEN R.OP_GB_CD = '20' THEN 0 ELSE NVL(R.PROD_PRCE,0) END AS PROD_PRICE
+			, R.OPT_PRCE
+			, CASE WHEN R.OP_GB_CD IS NULL THEN R.ORD_QTY ELSE R.OPT_QTY END AS ORD_QTY
+			, CASE
+			  WHEN R.OP_GB_CD = '10' THEN (NVL(R.PROD_PRCE,0) + NVL(R.OPT_PRCE,0)) * NVL(R.OPT_QTY,0)
+			  WHEN R.OP_GB_CD = '20' THEN NVL(R.OPT_PRCE,0) * NVL(R.OPT_QTY,0)
+			  ELSE NVL(R.PROD_PRCE,0)
+			  END AS PROD_PRCE
+			, R.DLV_PRCE
+			, R.CPN_USE_AMT
+			, NVL(R.PROD_PRCE,0) * NVL(R.OPT_QTY,0) - NVL(R.CPN_USE_AMT,0) AS ORDER_PRICE
+			, R.POINT_USE_AMT
+			, R.REAL_SELT_AMT
+			, CASE WHEN V.COM_CD_NM IS NULL THEN '0원 결제' ELSE V.COM_CD_NM END AS SELT_GB_NAME
+			, S.CARD_COMP_NM
+			, R.RCV_NM
+			, R.RCV_TEL
+			, R.ZIP_CD
+			, R.JUSO_JIBEN
+			, R.JUSO_DORO
+			, R.DLV_MSG
+			, T.COM_CD_NM AS DLV_CMP_CD
+			, T.INVC_NO
+			, TO_CHAR(T.REGIST_DT , 'YYYY-MM-DD HH24:MI')	AS DLV_REGIST_DT
+			, TO_CHAR(T.DLV_END_DT , 'YYYY-MM-DD HH24:MI')	AS DLV_END_DT
+		FROM
+	        (
+				SELECT
+					  P.*
+					, (SELECT REPLACE(LTRIM(SYS_CONNECT_BY_PATH (PO.OPT_NM, ' // '), ' // '), ' // ', ' / ') AS OPT_NM
+					     FROM PROD_OP PO, PROD_OP_INFO POI
+					     WHERE PO.OPT_GRP_CD = Q.OPT_GRP_CD
+					          AND PO.OPT_GRP_CD = POI.OPT_GRP_CD
+					          AND PO.OPT_USE_YN = 'Y'
+					          AND PO.OPT_STOCK_QTY IS NOT NULL
+					          AND PO.OPT_CD = Q.OPT_CD
+					     START WITH PO.PAR_OPT_CD = '0'
+					     CONNECT BY PRIOR PO.OPT_CD = PO.PAR_OPT_CD
+					) AS OPT_NM
+					, Q.OPT_QTY
+					, Q.OPT_PRCE
+					, Q.OP_GB_CD
+				FROM
+	            	(
+						SELECT
+							  A.ORD_CD
+							, A.ORD_REG_DATE
+							, A.ORD_NM
+							, A.ORD_HP
+							, A.ORD_EMAIL
+							, A.ORD_AMT
+							, A.POINT_USE_AMT
+							, A.REAL_SELT_AMT
+							, A.SELT_GB_CD
+							, A.CREDIT_APPR_NO
+							, A.REQUEST_DT
+							, A.CHG_REASON_CD
+							, A.CHG_REASON
+							, B.PROD_CODE
+							, B.PROD_SEQ
+							, B.PROC_STAT_CD
+							, B.PROD_PRCE
+							, B.ORD_QTY
+							, B.DLV_PRCE
+							, B.CPN_USE_AMT
+							, C.PROD_NM
+							, C.MBER_SEQ AS SELLER_SEQ
+							, D.MBER_EMAIL AS SELLER_ID
+							, D.MBER_NM AS SELLER_NAME
+							, D.MBER_GB_CD AS SELLER_TYPE
+							, E.RCV_NM
+							, E.RCV_TEL
+							, E.ZIP_CD
+							, E.JUSO_JIBEN || ' ' || E.JUSO_DTL AS JUSO_JIBEN
+							, E.JUSO_DORO || ' ' || E.JUSO_DTL AS JUSO_DORO
+							, E.DLV_MSG
+						FROM
+							(
+								SELECT
+									  OI.ORD_CD
+									, TO_CHAR(OI.ORD_REG_DATE , 'YYYY-MM-DD HH24:MI') AS ORD_REG_DATE
+									, OI.ORD_NM
+									, OI.ORD_HP
+									, OI.ORD_EMAIL
+									, OI.ORD_AMT
+									, OI.POINT_USE_AMT
+									, OI.REAL_SELT_AMT
+									, OI.SELT_GB_CD
+									, OI.CREDIT_APPR_NO
+									, TO_CHAR(OCI.CANC_DT , 'YYYY-MM-DD HH24:MI') AS REQUEST_DT
+									, OCI.CANC_REASON_CD AS CHG_REASON_CD
+									, OCI.CANC_REASON AS CHG_REASON
+								FROM
+						  			ORD_INFO OI, ORD_PROD_INFO OPI, ORD_CANC_INFO OCI
+						  		WHERE
+						  			    OI.ORD_CD = OPI.ORD_CD
+									AND OPI.CANC_CD = OCI.CANC_CD
+									AND OPI.PROD_TYPE_CD = '1'
+									AND OPI.PROC_STAT_CD = '50'
+						  			AND TO_CHAR(OCI.CANC_DT,'YYYYMMDD') BETWEEN #{S_START_DATE} AND  #{S_END_DATE}
+						  	) A , ORD_PROD_INFO B , PROD C, MBER_INFO D, ORD_DLV_INFO E
+						WHERE
+							    A.ORD_CD = B.ORD_CD
+							AND B.PROD_CODE = C.PROD_CODE
+							AND C.MBER_SEQ = D.MBER_SEQ
+	                  		AND A.ORD_CD = E.ORD_CD
+							AND C.MBER_SEQ = #{MBER_SEQ}
+							<include refid="CancelSearchExcel"/>
+	            	) P 
+	            	LEFT OUTER JOIN
+		            (
+						SELECT
+							  T1.ORD_CD
+							, T1.PROD_CODE
+							, T1.PROD_SEQ
+							, T2.OPT_CD
+							, T2.OPT_QTY
+							, T3.OPT_GRP_CD
+							, T3.OPT_NM
+							, T3.OPT_PRCE
+							, T4.PROD_NM
+							, T4.OPT_PROD_YN
+							, T4.OPT_PROD_EXT_YN
+							, T5.OP_GB_CD
+		              	FROM
+		                	ORD_PROD_INFO T1 , ORD_PROD_OPT_INFO T2, PROD_OP T3 , PROD T4, PROD_OP_INFO T5
+		              	WHERE
+			                    T1.ORD_CD = T2.ORD_CD
+			                AND T1.PROD_CODE = T2.PROD_CODE
+			                AND T1.PROD_SEQ = T2.PROD_SEQ
+			                AND T2.OPT_CD = T3.OPT_CD
+			                AND T1.PROD_CODE = T4.PROD_CODE
+			                AND T3.OPT_GRP_CD = T5.OPT_GRP_CD
+		            ) Q
+	            ON P.ORD_CD = Q.ORD_CD AND P.PROD_CODE = Q.PROD_CODE AND P.PROD_SEQ = Q.PROD_SEQ
+	        ) R
+        LEFT OUTER JOIN  (SELECT ORD_CD, CARD_COMP_NM, CARD_NO, SETL_NM, CARRIER, DSTADDR FROM ORD_SETL_INFO WHERE TRD_GB_CD = '10') S ON R.ORD_CD = S.ORD_CD
+        LEFT OUTER JOIN (SELECT TA.ORD_CD, TB.COM_CD_NM, TA.INVC_NO, TA.REGIST_DT, TA.DLV_END_DT FROM INVC_INFO TA , (SELECT COM_CD,COM_CD_NM FROM CODE WHERE GRP_CD = 'DLV_CMP_CD') TB WHERE TA.DLV_CMP_CD = TB.COM_CD) T ON R.ORD_CD = T.ORD_CD
+        LEFT JOIN (SELECT COM_CD,COM_CD_NM FROM CODE WHERE GRP_CD = 'PROC_STAT_CD') U ON R.PROC_STAT_CD = U.COM_CD
+        LEFT OUTER JOIN (SELECT COM_CD,COM_CD_NM FROM CODE WHERE GRP_CD = 'SELT_GB_CD') V ON R.SELT_GB_CD = V.COM_CD
+        LEFT OUTER JOIN (SELECT COM_CD,COM_CD_NM FROM CODE WHERE GRP_CD = 'CANC_REASON_CD') W ON R.CHG_REASON_CD = W.COM_CD
+        ORDER BY R.REQUEST_DT DESC
+	</select>
+	<!-- // 주문관리 - 판매주문관리 ======================================================================== -->
+	
+</mapper>

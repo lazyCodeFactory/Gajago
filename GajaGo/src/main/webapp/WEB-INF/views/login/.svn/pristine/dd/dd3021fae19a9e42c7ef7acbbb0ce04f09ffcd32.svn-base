@@ -1,0 +1,336 @@
+package com.ssocio.sharing.service.seller;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Arrays;
+import javax.annotation.Resource;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.web.servlet.ModelAndView;
+
+import com.ssocio.sharing.cmmn.admin.util.CommonUtil;
+import com.ssocio.sharing.cmmn.util.CmmnCnst;
+import com.ssocio.sharing.dao.seller.SellerMainDao;
+import com.ssocio.sharing.vo.admin.MenuInfoVO;
+
+/**
+ * <pre>
+ * 메인화면 서비스
+ * 메인화면 처리를 위한 서비스
+ * @author Y.I.Chun
+ * @version
+ * @since 2015. 7. 6. 오후 6:41:07
+ * @see
+ * @History
+ *  Date          |    author    | 변경내용
+ *	2015. 7. 6.   |    Y.I.Chun  | 신규
+ * @Todo
+ * </pre>
+ */
+@Service
+public class SellerMainServiceImpl implements SellerMainService {
+
+	// 주문상태코드
+	public static String ORD_STAT_CD_ORD = "10";
+	public static String ORD_STAT_CD_CNL = "20";
+	public static String ORD_STAT_CD_CNG = "30";
+	public static String ORD_STAT_CD_RTN = "40";
+
+	// 주문구분코드
+	public static String ORD_GB_CD_PHN = "1";
+	public static String ORD_GB_CD_SEL = "2";
+	public static String ORD_GB_CD_SHR = "3";
+	public static String ORD_GB_CD_FRE = "4";
+
+
+	// --------------------------------------------------------------------------
+	// # Log 설정
+	// --------------------------------------------------------------------------
+	private static final Logger logger = LoggerFactory.getLogger(SellerMainServiceImpl.class);
+
+	// --------------------------------------------------------------------------
+	// # DAO 설정
+	// --------------------------------------------------------------------------
+	@Resource(name="sellerMainDao")
+	private SellerMainDao sellerMainDao;
+
+	/**
+	 * <pre>
+	 * 메인화면
+	 * 메인회면에 표시할 정보를 조회 합니다.
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 6. 오전 09:20:24
+	 * @author Y.I.Chun
+	 * @비고
+	 *
+	 * </pre>
+	 */
+	 public ModelAndView selectMainData(Map<String, Object> paramDto) throws Exception {
+
+		ModelAndView mav = new ModelAndView();
+
+		//주문현황작성
+		//List<Map<String, Object>> orderInfoList = adminMainDao.selectOrderSituation(paramDto);
+		//mav.addObject("orderInfoList", orderInfoList);
+		//상품현황
+		//List<Map<String, Object>> prodInfoList = adminMainDao.selectProdSituation(paramDto);
+		//mav.addObject("prodInfoList", prodInfoList);
+		//문의현황
+		//Map<String, Object> qnaInfoList = adminMainDao.selectQnASituation(paramDto);
+		//mav.addObject("qnaInfoList", qnaInfoList);
+
+
+		mav.addObject("prodQnaCount",sellerMainDao.selectProdQnaCnt(paramDto));	// [2015-11-18 rocokang] 문의 갯수 추가
+		mav.addObject("menuList", getMenuList(paramDto));
+		mav.addObject("selectSellerMberInfo", sellerMainDao.selectSellerMberInfo(paramDto));
+
+		//main 노출 공지사항 select
+		List<Map<String, Object>> maps = sellerMainDao.selectMainSellerNotice();
+		List<Object> maplist = new ArrayList<Object>();
+		if( maps != null ){
+			for(Map<String, Object> map : maps){
+				if( map.get("CONTENTS") != null && !"".equals(map.get("CONTENTS"))){ 
+					maplist.add(CommonUtil.clobToString(map, "CONTENTS"));
+				}
+			}//for end
+			mav.addObject("sellerMainNotice", maplist.size() == 0 ? null : maplist);
+		}else{
+			mav.addObject("sellerMainNotice", maps);
+		}//maps check end
+		//main 노출 공지사항 select		
+		
+		List<Map<String, Object>>  list =  sellerMainDao.selectProduceResult(paramDto);
+
+		List<Integer> retCode = new ArrayList<Integer>();
+		int retCnt = 0;
+		Map<String, Object> tempObj =  new HashMap<String, Object>();
+		for (int i = 0; i < list.size(); i++) {
+
+			logger.debug("list.get(i) : " + list.get(i).toString());
+
+			if(CmmnCnst.cmmn1.equals( list.get(i).get("PROD_TYPE_CD"))){//판매
+				mav.addObject("selectSellerOrdTypeTotal1", list.get(i) );
+				retCode.add(1);
+			}else if(CmmnCnst.cmmn2.equals( list.get(i).get("PROD_TYPE_CD"))){//쉐어링
+				mav.addObject("selectSellerOrdTypeTotal2", list.get(i) );
+				retCode.add(2);
+			}else if(CmmnCnst.cmmn3.equals( list.get(i).get("PROD_TYPE_CD"))){//나눔
+				mav.addObject("selectSellerOrdTypeTotal3", list.get(i) );
+				retCode.add(3);
+			}else if(CmmnCnst.cmmn4.equals( list.get(i).get("PROD_TYPE_CD"))){//스마트폰쉐어링
+				mav.addObject("selectSellerOrdTypeTotal4", list.get(i) );
+				retCode.add(4);
+			}else if(CmmnCnst.cmmn5.equals( list.get(i).get("PROD_TYPE_CD"))){//렌탈
+				mav.addObject("selectSellerOrdTypeTotal5", list.get(i) );
+				retCode.add(5);
+			}
+
+		}
+
+
+		mav.addObject("selectSellOrderCnt", sellerMainDao.selectSellOrderCnt(paramDto));				// 판매상품 - 주문건수
+		mav.addObject("selectSellOrderMberCnt", sellerMainDao.selectSellOrderMberCnt(paramDto));		// 판매상품 - 주문wk수
+		mav.addObject("selectSellTotAmt", sellerMainDao.selectSellTotAmt(paramDto));					// 판매상품 - 주문금액
+
+		mav.addObject("selectSharOrderCnt", sellerMainDao.selectSharOrderCnt(paramDto));				// 셰어링 - 주문건수
+		mav.addObject("selectSharOrderMberCnt", sellerMainDao.selectSharOrderMberCnt(paramDto));		// 셰어링 - 주문자수
+		mav.addObject("selectSharTotAmt", sellerMainDao.selectSharTotAmt(paramDto));					// 셰어링 - 주문금액
+
+		mav.addObject("selectClosingSharCnt", sellerMainDao.selectClosingSharCnt(paramDto));					// 셰어링 - 주문금액
+
+		mav.addObject("selectFreeSharRegCnt", sellerMainDao.selectFreeSharRegCnt(paramDto));			// 나눔상품 - 등록상품
+		mav.addObject("selectFreeSharSubmitorCnt", sellerMainDao.selectFreeSharSubmitorCnt(paramDto));	// 나눔상품 - 신청자수
+		mav.addObject("selectFreeSharFixCnt", sellerMainDao.selectFreeSharFixCnt(paramDto));			// 나눔상품 - 주문자수 [나눔결정]
+
+		mav.addObject("selectRentalSubmitorCnt", sellerMainDao.selectRentalSubmitorCnt(paramDto));					// 렌탈상품 주문건수
+		mav.addObject("selectRentalMberSubmitorCnt", sellerMainDao.selectRentalMberSubmitorCnt(paramDto));			// 렌탈상품 주문자수
+		mav.addObject("selectRentalSubmitorSuccCnt", sellerMainDao.selectRentalSubmitorSuccCnt(paramDto));			// 렌탈상품 신청완료건수
+		mav.addObject("selectRentalMberSubmitorFailCnt", sellerMainDao.selectRentalMberSubmitorFailCnt(paramDto));	// 렌탈상품 신청취소건수
+
+
+
+
+
+
+		for (int j = 1; j < 6; j++) {
+			retCnt=0;
+			for (int i = 0; i < retCode.size(); i++) {
+				if(j == retCode.get(i)){
+					retCnt++;
+				}
+			}
+			if( 0==retCnt ){
+				tempObj.put("SUM_ORD_QTY","0");
+				tempObj.put("SUM_PROD_PRCE","0");
+				tempObj.put("COUNT_MBER_SEQ","0");
+				tempObj.put("PROD_TYPE_CD",j);
+				mav.addObject("selectSellerOrdTypeTotal"+j, tempObj);
+			}
+		}
+
+		//메인 메뉴 아이콘 임의 정렬(MD 요구사항과 같이, 판매상품 주문현황을 임의의 순서대로 노출하기 위함
+		List<Map<String, Object>> result = new ArrayList<Map<String, Object>>();
+
+		//주문완료, 상품준비중, 배송중, 배송완료, 구매완료, 교환신청, 반품신청 순, 주문취소
+		List<String> sortSaleNo = new ArrayList<String>(Arrays.asList("10","21","22","23","99","41","31","50"));
+
+		List<String> sortShareNo = null;
+
+		List<String> sortDivOrRentNo = null;
+//		[셰어링] > 사업자 판매회원
+//		주문완료 10 | 상품준비중 21 | 배송중 22 | 셰어링중 85
+//		셰어링종료 86 | 회수신청 90 | 회수중 91 | 회수완료 92
+//		교환신청 41 | 반품신청 31 | 주문취소 50
+//		[셰어링] > 개인 판매회원
+//		주문완료 10 | 상품준비중 21 | 배송중 22 | 셰어링중 85
+//		셰어링종료 86 | 반납신청 87 | 반납처리중 88 | 반납완료 89
+//		교환신청 41 | 반품신청 31 | 주문취소 50
+		if(CmmnCnst.cmmn1.equals(paramDto.get("MBER_GB_CD")) // 사업자 판매
+				&& CmmnCnst.cmmn1.equals(paramDto.get("MBER_REG_GB_CD"))){
+			sortShareNo = new ArrayList<String>(Arrays.asList("10","21","22","85","86","90","91","92", "41", "31", "50"));
+
+//			[렌탈] - 사업자 판매회원
+//			신청완료 | 신청취소
+			sortDivOrRentNo = new ArrayList<String>(Arrays.asList("94","93"));
+		}else{	// 일반판매
+//			[나눔상품] - 개인 판매회원
+//			대기중 | 나눔결정 | 배송중 | 배송완료
+			sortShareNo = new ArrayList<String>(Arrays.asList("10","21","22","85","86","87","88","89", "41", "31", "50"));
+			sortDivOrRentNo = new ArrayList<String>(Arrays.asList("97", "95", "22", "23"));
+		}
+
+		int size = sortSaleNo.size() + sortShareNo.size() + sortDivOrRentNo.size();
+
+		Object[] sortObj = new Object[size];
+
+		int cnt = 0;
+		for (Map<String, Object> map : sellerMainDao.selectSellerOrdQtyTotal(paramDto)) {
+			if (map.containsKey("PROD_TYPE_CD") && map.containsValue("1")) { //판매상품 주문현황에 노출될 값들
+				try {
+					sortObj[sortSaleNo.indexOf(map.get("PROC_STAT_CD"))] = map;
+				} catch (Exception e) {//인덱스 아웃 오류로인한 예외처리함 해당 소스 수정해야함
+					e.printStackTrace();
+					result.add(map);
+				}
+
+			}else if (map.containsKey("PROD_TYPE_CD") && map.containsValue("2")) { //세어링 주문현황에 노출될 값들
+				try {
+					sortObj[sortSaleNo.size() + sortShareNo.indexOf(map.get("PROC_STAT_CD"))] = map;
+				} catch (Exception e) {//인덱스 아웃 오류로인한 예외처리함 해당 소스 수정해야함
+					e.printStackTrace();
+					result.add(map);
+				}
+
+			}else{
+//				result.add(map); //판매 외 나머지 값은 result add
+				if(CmmnCnst.cmmn1.equals(paramDto.get("MBER_GB_CD")) // 사업자 판매
+						&& CmmnCnst.cmmn1.equals(paramDto.get("MBER_REG_GB_CD"))){
+					try {
+						sortObj[sortSaleNo.size() + sortShareNo.size() + (sortDivOrRentNo.indexOf(map.get("PROC_STAT_CD")))] = map;
+					} catch (Exception e) {//인덱스 아웃 오류로인한 예외처리함 해당 소스 수정해야함
+						e.printStackTrace();
+						result.add(map);
+					}
+				}else{
+					try {
+						sortObj[sortSaleNo.size() + sortShareNo.size() + sortDivOrRentNo.indexOf(map.get("PROC_STAT_CD"))] = map;
+					} catch (Exception e) {//인덱스 아웃 오류로인한 예외처리함 해당 소스 수정해야함
+						e.printStackTrace();
+						result.add(map);
+					}
+				}
+			}
+		}
+
+		for(Object obj : sortObj){
+			result.add((Map<String, Object>) obj);
+		}
+
+		mav.addObject("selectSellerOrdQtyTotal", result); //메인 아이콘
+
+		paramDto.put("NOTI_GB_CD", CmmnCnst.cmmn40);
+		paramDto.put("BOARD_TYPE_CD", CmmnCnst.cmmn10);
+
+		mav.addObject("selectListNotice", sellerMainDao.selectListNotice(paramDto));
+
+		return mav;
+	}
+
+
+	/**
+	 * <pre>
+	 * 메뉴리스트
+	 * 메뉴정보를 조회한다.
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 7. 8. 오후 1:36:58
+	 * @author Y.I.Chun
+	 * @see com.ssocio.sharing.service.admin
+	 * </pre>
+	 */
+	public List<MenuInfoVO> getMenuList(Map<String, Object> paramDto) throws Exception {
+
+		List<MenuInfoVO> menuList = new ArrayList<MenuInfoVO>();//전체메뉴 목록
+		MenuInfoVO menu = null; //상위메뉴(Map)+하위메뉴(List<Map>)
+
+		List<Map<String, Object>> list = sellerMainDao.selectMenuList(paramDto);//메뉴 리스트 조회
+
+		for(int i=0;i<list.size();i++){
+	        Map<String, Object> item = list.get(i);
+	        //상위메뉴 조회
+	        if(item.get("PARENT_MENU_CD")==null || item.get("PARENT_MENU_CD").equals("")){
+	        	if(i>0){
+	        		menuList.add(menu);
+	        	}
+	        	menu = new MenuInfoVO();    //새로운 메뉴 클래스 생성
+		        menu.setTopMenuInfo(item);  //상위메뉴 set
+	        } else {
+	        	menu.putSubMenuList(item);//메뉴 클래스에 하위메뉴 put
+	        }
+		}
+		menuList.add(menu);//마지막 Loop에서 생성한 메뉴 등록
+
+		return menuList;
+	}
+
+
+	@Override
+	public void updateConnCnt(Map<String, Object> inParam) throws Exception {
+		// TODO Auto-generated method stub
+		try{
+			sellerMainDao.updateConnCnt(inParam);
+		}catch(Exception e){
+			e.printStackTrace();
+		}
+	}
+
+
+	@Override
+	public void updateLastLoginDt(Map<String, Object> inParam) throws Exception {
+		// TODO Auto-generated method stub
+		try{
+			sellerMainDao.insertConnLog(inParam);
+		}catch(Exception e){
+			e.printStackTrace();
+		}
+	}
+
+
+	@Override
+	public void insertConnLog(Map<String, Object> inParam) throws Exception {
+		// TODO Auto-generated method stub
+		try{
+			sellerMainDao.updateLastLoginDt(inParam);
+		}catch(Exception e){
+			e.printStackTrace();
+		}
+	}
+}

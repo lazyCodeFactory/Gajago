@@ -1,0 +1,266 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="sellerCommonMapper">
+	<sql id="pagingHeader">
+		SELECT * FROM (
+	</sql>
+	
+	<sql id="pagingFooter">
+		)
+		WHERE NO BETWEEN #{START_ROW} AND #{END_ROW}
+	</sql>
+
+	<!-- 관리자 로그인 -->
+	<select id="setLogin" resultType="com.ssocio.sharing.vo.seller.SellerSession">
+		SELECT MBER_SEQ
+			 , MBER_EMAIL
+			 , MBER_PASS
+			 , FAIL_CNT
+			 , MBER_GB_CD
+			 , MBER_STAT_CD
+			 , MBER_REG_GB_CD
+			 , TO_CHAR(REGIST_DT  , 'YYYY"년" MM"월" DD"일" HH24:MI ')   REGIST_DT
+		  FROM MBER_INFO 
+		 WHERE 
+		 	MBER_REG_GB_CD = '1' 
+		 	AND MBER_EMAIL = <![CDATA[#{MBER_EMAIL}]]>
+	</select>
+	
+	<select id="getReason" resultType="String">
+		SELECT MDI.REJECT_REASON
+		  FROM MBER_INFO MI
+		  LEFT OUTER JOIN MBER_DTL_INFO MDI
+		  ON MI.MBER_SEQ = MDI.MBER_SEQ
+		 WHERE 
+		 	MBER_REG_GB_CD = '1' 
+		 	AND MBER_EMAIL = <![CDATA[#{MBER_EMAIL}]]>
+	</select>
+	
+	<!-- SNS 관리자 로그인 -->
+	<select id="setSnsLogin" resultType="com.ssocio.sharing.vo.seller.SellerSession">
+		SELECT MBER_SEQ
+			 , MBER_EMAIL
+			 , MBER_PASS
+			 , FAIL_CNT
+			 , MBER_GB_CD
+			 , MBER_REG_GB_CD
+			 , MBER_STAT_CD
+		  FROM MBER_INFO
+		 WHERE 1=1
+<!-- 		   AND MBER_REG_GB_CD = '1'  -->
+		   AND SSO_GB_CD = #{SSO_GB_CD}
+		   AND SSO_MBER_ID = <![CDATA[#{SSO_MBER_ID}]]>
+	</select>
+	
+	<!-- 로그인실패횟수 수정 -->
+	<update id="updateLoginFailCnt" parameterType="hashmap">
+	UPDATE 
+		MBER_INFO
+	SET
+		FAIL_CNT = NVL((FAIL_CNT + 1), 1)
+	WHERE
+		MBER_EMAIL = <![CDATA[#{MBER_EMAIL}]]>
+	</update>
+	
+	<!-- 메뉴 리스트 조회 -->
+	<select id="selectListMenu" resultType="hashmap">
+		SELECT MENU_CD
+			 , PARENT_MENU_CD
+			 , LVL_SEQ
+			 , SORT_SEQ
+			 , MENU_NM
+			 , LINK_ADDR
+			 , VIEW_YN
+			 , REGIST_DT
+			 , UPDT_DT 
+		  FROM MENU_INFO_SELLER_CFG
+		 WHERE VIEW_YN = 'Y'
+		 START WITH   PARENT_MENU_CD IS NULL
+		 CONNECT BY   PRIOR MENU_CD = PARENT_MENU_CD
+		 ORDER SIBLINGS BY PARENT_MENU_CD ASC, SORT_SEQ ASC
+	</select>
+	
+	<!-- 파일등록 -->
+	<insert id="insertFile" parameterType="hashmap" useGeneratedKeys="true" keyProperty="FILE_SEQ" keyColumn="FILE_SEQ">
+		INSERT INTO FILE_INFO(
+				 FILE_SEQ        <!--  파일일련번호  -->
+				, FILE_TITLE     <!--  파일제목  -->
+				, FILE_NM        <!--  파일명 -->
+				, FILE_PATH      <!--  파일경로  -->
+				, FILE_URL       <!--  파일URL  -->
+				, FILE_SIZE      <!--  파일사이즈 -->
+				, FILE_EXT       <!--  파일확장자 -->
+				, REGIST_DT      <!--  등록일시  -->
+				, UPDT_DT        <!--  수정일시  -->
+				, FILE_WIDTH        <!--  수정일시  -->
+				, FILE_HEIGH        <!--  수정일시  -->
+				
+		)VALUES (
+				TO_CHAR(SYSDATE, 'YYYYMMDD')||LPAD(SEQ_FILE_INFO.NEXTVAL,8,0)
+				, #{I_FILE_TITLE}
+				, #{I_FILE_NM}
+				, #{I_FILE_PATH}
+				, #{I_FILE_URL}
+				, #{I_FILE_SIZE}
+				, #{I_FILE_EXT}
+				, SYSDATE
+				, SYSDATE
+				, #{I_FILE_WIDTH}
+				, #{I_FILE_HEIGH}
+		)
+  </insert>
+  
+  <!-- 파일 정보 조회  -->
+  <select id="selectFileInfo" resultType="hashmap">
+    SELECT   
+		FILE_SEQ,
+		FILE_TITLE,
+		FILE_NM,
+		FILE_PATH,
+		FILE_URL,
+		FILE_SIZE,
+		FILE_EXT,
+		REGIST_DT,
+		UPDT_DT
+	FROM
+		FILE_INFO
+    WHERE  
+		FILE_SEQ = #{fileSeq}
+  </select>
+  
+  <!-- 파일 삭제 -->
+  
+  <delete id="deleteFile" parameterType="String"  >
+  	DELETE 	FILE_INFO 
+  	WHERE FILE_SEQ = #{fileSeq}
+  </delete>
+  
+  <!-- 제휴사 택배 리스트 조회 -->
+	<select id="selectDlvCompList" parameterType="hashmap" resultType="hashmap">
+		SELECT
+		  CD.COM_CD, 
+		  DI.DLV_AMT,
+		  DI.DLV_AMT_JEJU,
+		  DI.DLV_AMT_DOSE,
+		  CD.COM_CD_NM,
+          CD.USE_YN
+		  FROM
+		    REL_DLV_INFO DI
+		    <if test="dlvType == 1">
+		    LEFT OUTER JOIN 
+		    </if>
+		    <if test="dlvType == 2">
+		    RIGHT OUTER JOIN 
+		    </if> 
+		    CODE CD 
+		  ON CD.COM_CD = DI.DLV_CMP_CD 
+		  WHERE GRP_CD ='DLV_CMP_CD'
+		    AND USE_YN = 'Y'
+	</select>
+  
+  <select id="selectPointUseLogCnt" parameterType="hashmap" resultType="int">
+		SELECT COUNT(*) AS CNT FROM POINT_USE_LOG
+		WHERE POINT_REL_REASON ='telauth'
+		AND ( POINT_REL =NVL( (SELECT CI FROM MBER_INFO WHERE MBER_SEQ = #{MBER_SEQ} ),'NONE' )
+					OR MBER_SEQ = #{MBER_SEQ} )
+	</select>
+	
+	<update id="updateMberPoint">
+			UPDATE MBER_INFO SET POINT = NVL(POINT,0) + cast ((SELECT COM_CD_NM FROM CODE WHERE GRP_CD ='SITE_DEFAULT' AND COM_CD = 'JOIN_POINT') as number) 
+			,PERCHK_YN = 'Y'
+			WHERE MBER_SEQ = #{MBER_SEQ }
+	</update>
+	
+	<insert id="insertPoint">
+	INSERT INTO POINT_USE_LOG(
+		POINT_SEQ
+		,MBER_SEQ
+		,POINT
+		,POINT_CD
+		,CHG_REASON
+		,REGIST_DT
+		,POINT_REL_REASON
+		,POINT_REL
+	)VALUES(
+		SEQ_POINT_USE.NEXTVAL
+		,#{MBER_SEQ}
+		,5000
+		,'30'
+		,'회원가입포인트'
+		,SYSDATE
+		,'telauth'
+		,(SELECT CI FROM MBER_INFO WHERE MBER_SEQ = #{MBER_SEQ} )
+	)
+	</insert>
+	
+	<select id="selectCpnNo" resultType="String" parameterType="hashmap">
+		SELECT CPN_NO
+		FROM MBER_CPN_INFO
+		WHERE CPN_NO IS NOT NULL
+	</select>
+	
+	<select id="selectCpnNewMber" resultType="String" parameterType="hashmap">
+
+        SELECT AA.CPN_GRP_CD
+          FROM (
+                 SELECT A.CPN_GRP_CD
+                      , CASE WHEN A.EXP_CHK = 'A' THEN A.EXP_START_DT 
+                             ELSE A.ISSUE_DT 
+                        END AS EXP_START_DT                                         /* 유효기간시작일 */
+                      , CASE WHEN A.EXP_CHK = 'A' THEN A.EXP_END_DT 
+                             ELSE A.ISSUE_DT + A.EXP_DAY 
+                        END AS EXP_END_DT                                           /* 유효기간종료일 */
+                   FROM CPN_INFO A
+                  WHERE 1=1
+                    AND A.ISSUE_CD = 'A'                                            /* 전체회원 */
+                    AND A.ISSUE_MTH = '20'                                          /* 쿠폰발급상태인것 */
+			        <if test="cpn_gb_cd_arr != null and cpn_gb_cd_arr != ''">
+			            AND A.CPN_GB_CD IN 
+			            <foreach collection="cpn_gb_cd_arr" item="cpn_gb_cd" open="(" close=")" separator=",">
+			                #{cpn_gb_cd}
+			            </foreach>
+			        </if>
+               ) AA
+         WHERE 1=1
+           AND TO_CHAR(AA.EXP_START_DT, 'YYYYMMDD') <![CDATA[ <= ]]> TO_CHAR(SYSDATE, 'YYYYMMDD')
+           AND TO_CHAR(AA.EXP_END_DT, 'YYYYMMDD') <![CDATA[ >= ]]> TO_CHAR(SYSDATE, 'YYYYMMDD')
+        MINUS
+        SELECT Z.CPN_GRP_CD
+          FROM MBER_CPN_INFO Z
+         WHERE 1=1
+           AND Z.MBER_SEQ = #{MBER_SEQ}
+           
+    </select>
+    
+    <insert id="insertCpn"  parameterType="hashmap">
+
+    	INSERT INTO MBER_CPN_INFO
+	    (
+	        MBER_SEQ
+	        ,CPN_GRP_CD
+	        ,USE_YN
+	        ,USE_DATE
+	        ,DOWN_DATE
+	        ,CPN_NO
+	        ,REGIST_DT
+	        ,UPDT_DT
+	        ,PROD_CODE
+	    )
+	    VALUES
+	    (
+	        #{MBER_SEQ}
+	        ,#{CPN_GRP_CD}
+	        ,#{USE_YN}
+	        ,NULL
+	        ,NULL
+	        ,#{CPN_NO}
+	        ,SYSDATE
+	        ,SYSDATE
+	        ,NULL
+	    )
+
+	</insert>
+	
+	
+</mapper>

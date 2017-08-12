@@ -1,0 +1,637 @@
+package com.ssocio.sharing.service.web;
+
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
+import java.net.SocketException;
+import java.net.URLEncoder;
+import java.security.Security;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Random;
+
+import javax.annotation.Resource;
+import javax.net.ssl.SSLSocket;
+import javax.net.ssl.SSLSocketFactory;
+
+import org.json.simple.JSONValue;
+import org.json.simple.parser.JSONParser;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.ui.ModelMap;
+
+import com.ssocio.sharing.cmmn.admin.util.CommonUtil;
+import com.ssocio.sharing.cmmn.admin.util.HttpUrlConnectionUtil;
+import com.ssocio.sharing.cmmn.util.CmmnCnst;
+import com.ssocio.sharing.cmmn.util.StringUtil;
+import com.ssocio.sharing.dao.web.WebCommonDao;
+import com.ssocio.sharing.vo.web.HeaderVO;
+import com.ssocio.sharing.vo.web.OrdProduct;
+import com.ssocio.sharing.vo.web.WebSession;
+
+import net.sf.json.JSONArray;
+import net.sf.json.JSONObject;
+
+@Service
+public class WebCommonServiceImpl extends WebReferServiceImpl implements WebCommonService {
+
+	// --------------------------------------------------------------------------
+	// # Log 설정
+	// --------------------------------------------------------------------------
+	private static final Logger logger = LoggerFactory.getLogger(WebCommonServiceImpl.class);
+
+	// --------------------------------------------------------------------------
+	// # DAO 설정
+	// --------------------------------------------------------------------------
+	@Resource(name="webCommonDao")
+	private WebCommonDao webCommonDao;
+
+	/**
+	 * <pre>
+	 * 사용자 로그인
+	 * 사용자의 로그인을 처리한다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 14. 오후 6:26:01
+	 * @author S.B.LEE
+	 * @see @see com.ssocio.sharing.service.web.WebCommonService#setLogin(java.util.Map)
+	 * </pre>
+	 */
+	@Override
+	public WebSession setLogin(Map<String, Object> inParam) throws Exception {
+		logger.debug("[WebCommonService.setLogin]");
+
+		WebSession manager = null;
+		try {
+			manager = webCommonDao.setLogin(inParam);
+			if(manager != null){
+				String pwd = manager.getMBER_PASS();
+				String inputPwd = CommonUtil.getEncPassword((String)inParam.get("MBER_PASS"));
+
+				if(pwd.equals(inputPwd)){
+					manager.setLogin(true);
+				} else {
+					webCommonDao.updateLoginFailCnt(inParam);
+					manager.setLogin(false);
+				}
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return manager;
+	}
+	
+	@Override
+	public int getFailCnt(Map<String, Object> inParam) throws Exception {
+		logger.debug("[WebCommonService.getFailCnt]");
+		
+		int failCnt = 0;
+		try {
+			failCnt = webCommonDao.getFailCnt(inParam);
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return failCnt;
+	}
+
+
+
+	/**
+	 * <pre>
+	 * 사용자 로그인
+	 * 사용자의 로그인을 처리한다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 14. 오후 6:26:01
+	 * @author S.B.LEE
+	 * @see @see com.ssocio.sharing.service.web.WebCommonService#setLogin(java.util.Map)
+	 * </pre>
+	 */
+
+	public int checkPass(Map<String, Object> inParam) throws Exception {
+		logger.debug("[WebCommonService.setLogin]");
+
+		WebSession manager = null;
+		int ret = 0;
+		try {
+			manager = webCommonDao.setLogin(inParam);
+			if(manager != null){
+				String pwd = manager.getMBER_PASS();
+				String inputPwd = CommonUtil.getEncPassword((String)inParam.get("MBER_PASS"));
+
+				if(pwd.equals(inputPwd)){
+					ret = 1;
+				}
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return ret;
+	}
+	@Override
+	public WebSession setFacebookLogin(Map<String, Object> inParam) throws Exception {
+		logger.debug("[WebCommonService.setFacebookLogin]");
+
+		WebSession manager = null;
+		try {
+			manager = webCommonDao.setFacebookLogin(inParam);
+			if(manager != null){
+				manager.setLogin(true);
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return manager;
+	}
+
+	@Override
+	public WebSession setKakaoLogin(Map<String, Object> inParam) throws Exception {
+		logger.debug("[WebCommonService.setKakaoLogin]");
+
+		WebSession manager = null;
+		try {
+			manager = webCommonDao.setKakaoLogin(inParam);
+			if(manager != null){
+				manager.setLogin(true);
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return manager;
+	}
+
+	/**
+	 * <pre>
+	 * 아이디 찾기
+	 * 개인회원 아이디 찾기
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 16. 오후 6:16:15
+	 * @author S.B.LEE
+	 * @see @see com.ssocio.sharing.service.web.WebCommonService#selectFindId(java.util.Map)
+	 * </pre>
+	 */
+	@Override
+	public ModelMap selectFindId(Map<String, Object> inParam) throws Exception {
+		logger.debug("[WebCommonService.selectFindId]");
+
+		ModelMap mm = new ModelMap();
+		List<Map<String, Object>> outParam = new ArrayList<Map<String, Object>>();
+		try {
+			outParam = webCommonDao.selectFindId(inParam);
+			if(outParam.isEmpty()){
+				mm.put("isFindId", false);
+			} else {
+				mm.put("isFindId", true);
+			}
+			mm.put("selectFindId", outParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+
+	/**
+	 * <pre>
+	 * 비밀번호 찾기
+	 * 사업자 회원 비밀번호 찾기
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 18. 오후 1:42:25
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.service.web
+	 * </pre>
+	 */
+	@Override
+	public ModelMap procFindIdBusiReg(Map<String, Object> inParam) throws Exception {
+		logger.debug("[WebCommonService.procFindIdBusiReg]");
+		ModelMap mm = new ModelMap();
+		Map<String, Object> outParam = new HashMap<String, Object>();
+		try {
+
+			outParam = webCommonDao.procFindIdBusiReg(inParam);
+			if(outParam == null){
+				mm.put("isFindIdBusi", false);
+			} else {
+				mm.put("isFindIdBusi", true);
+			}
+			mm.put("outParam", outParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+
+	/**
+	 * <pre>
+	 * 비밀번호 찾기
+	 * 개인회원 비밀번호 찾기
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 18. 오후 1:41:18
+	 * @author S.B.LEE
+	 * @see @see com.ssocio.sharing.service.web.WebCommonService#procFindPwReg(java.util.Map)
+	 * </pre>
+	 */
+	@Override
+	public ModelMap procFindPwReg(Map<String, Object> inParam) throws Exception {
+		logger.debug("[WebCommonService.selectFindPw]");
+
+		ModelMap mm = new ModelMap();
+		try {
+			mm.put("isFindPw", false);
+			mm.put("selectFindPw", webCommonDao.procFindPwReg(inParam));
+			if(mm.get("selectFindPw") != null){
+				int ret = webCommonDao.updateFailCnt(inParam);
+				mm.put("isFindPw", true);
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+
+	/**
+	 * <pre>
+	 * 사업자 비밀번호 찾기
+	 * 사업자 비밀번호 찾기
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 9. 21. 오후 5:59:22
+	 * @author S.B.LEE
+	 * @see @see com.ssocio.sharing.service.web.WebCommonService#procFindPwBusiReg(java.util.Map)
+	 * </pre>
+	 */
+	@Override
+	public ModelMap procFindPwBusiReg(Map<String, Object> inParam) throws Exception {
+		logger.debug("[WebCommonService.procFindPwBusiReg]");
+
+		ModelMap mm = new ModelMap();
+		try {
+			mm.put("isFindPw", false);
+			mm.put("selectFindPw", webCommonDao.procFindPwBusiReg(inParam));
+			System.out.println(mm.get("procFindPwBusiReg") );
+			if(mm.get("selectFindPw") != null){
+				int ret = webCommonDao.updateFailCnt(inParam);
+				mm.put("isFindPw", true);
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+
+	@Override
+	public int updateFailCnt(Map<String, Object> inParam) throws Exception {
+		logger.debug("[WebCommonService.updateFailCnt]");
+		int ret = 0;
+		try {
+			ret = webCommonDao.updateFailCnt(inParam);
+		}catch (Exception e) {
+			throw e;
+		}
+		return ret;
+	}
+	
+	/**
+	 * <pre>
+	 * 분류별 카테고리 리스트 조회
+	 * 분류별 카테고리 리스트정보를 조회 합니다.
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 19. 오후 5:32:38
+	 * @author S.B.LEE
+	 * @see @see com.ssocio.sharing.service.web.WebCommonService#selectCtryList(java.util.Map)
+	 * </pre>
+	 */
+	@Override
+	public ModelMap selectCtryList(Map<String, Object> inParam) throws Exception{
+		ModelMap mm = new ModelMap();
+		try {
+			mm.put("ctryList", webCommonDao.selectCtryList(inParam));
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+
+	/**
+	 * <pre>
+	 * 푸시아이디 등록 하기 (APP)
+	 * 푸시아이디 등록 하기 (APP)
+	 * @param headerObj
+	 * @param bodyParam
+	 * @return
+	 * @exception
+	 * @date 2015. 8. 20. 오후 5:05:48
+	 * @author LeeJinSe
+	 * @see com.ssocio.sharing.service.web.WebCommonService#insertPushIdreg(com.ssocio.sharing.vo.web.HeaderVO, java.util.Map)
+	 * @비고
+	 *
+	 * </pre>
+	*/
+	@Override
+	public ModelMap insertPushIdreg(HeaderVO headerObj, Map<String, Object> bodyParam) throws Exception{
+		logger.debug("[WebCommonService.insertPushIdreg]");
+//		bodyParam.put("MBER_SEQ", headerObj.getMBER_SEQ());
+		ModelMap mm = new ModelMap();
+		Map<String, Object> inParam = new HashMap<String,Object>();
+		int Cnt  = 0;
+//		inParam.put("MBER_SEQ", headerObj.getMBER_SEQ());
+
+		//만약 로그인 되어있을 경우
+		if(!"".equals(headerObj.getMber_seq())){
+
+			inParam.put("MBER_SEQ", headerObj.getMber_seq());
+		}
+		inParam.put("PUSH_ID", bodyParam.get("PUSH_ID"));
+		inParam.put("UUID",headerObj.getUuid());
+		String OS_GB_CD = "";
+		//10 : Android
+		//20 : IOS
+		if("IOS".equals(headerObj.getOs_gubun())){
+			OS_GB_CD = "20";
+		}else if("AND".equals(headerObj.getOs_gubun())){
+			OS_GB_CD = "10";
+		}
+		inParam.put("OS_GB_CD",OS_GB_CD);
+
+		logger.debug("Ins Data :::::::::::::::::: " + inParam);
+		try {
+			Cnt =  webCommonDao.insertPushIdreg(inParam);
+			if(Cnt > 0 ){
+				mm.put("rtnCd", "S");
+			}else{
+				mm.put("rtnCd", "F");
+
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+
+	/**
+	 * <pre>
+	 * 계좌인증
+	 *
+	 * @param niceUid
+	 * @param svcPwd
+	 * @param service
+	 * @param strGbn
+	 * @param strResId
+	 * @param strNm
+	 * @param strBankCode
+	 * @param strAccountNo
+	 * @param svcGbn
+	 * @param strOrderNo
+	 * @param svc_cls
+	 * @param inq_rsn
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 26. 오후 8:09:18
+	 * @author S.B.LEE
+	 * @see @see com.ssocio.sharing.service.web.WebCommonService#acntConfirm(java.lang.String, java.lang.String, java.lang.String, java.lang.String, java.lang.String, java.lang.String, java.lang.String, java.lang.String, java.lang.String, java.lang.String, java.lang.String, java.lang.String)
+	 * </pre>
+	 */
+	public String acntConfirm(String niceUid, String svcPwd, String service, String strGbn
+						, String strResId, String strNm, String strBankCode, String strAccountNo
+						, String svcGbn, String strOrderNo, String svc_cls, String inq_rsn) throws Exception {
+
+		String result = "";
+		BufferedReader in = null;
+		PrintWriter out = null;
+
+		try {
+			Security.addProvider(new com.sun.net.ssl.internal.ssl.Provider());
+			SSLSocketFactory factory = (SSLSocketFactory)SSLSocketFactory.getDefault();
+			SSLSocket soc = (SSLSocket)factory.createSocket("secure.nuguya.com", 443);
+
+			// 타임아웃  +++++++++++++++++++++++++++++++++++++++++++++++++++++
+			soc.setSoTimeout(10*1000);	// 타임아웃 10초
+			soc.setSoLinger(true, 10);
+			soc.setKeepAlive(true);
+			// 타임아웃  +++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+			out = new PrintWriter(soc.getOutputStream());
+			in  = new BufferedReader(new InputStreamReader(soc.getInputStream()), 8 * 1024);
+			result = rlnmCheck(out, in, niceUid, svcPwd, service, strGbn, strResId, strNm, strBankCode, strAccountNo, svcGbn, strOrderNo,  svc_cls, inq_rsn);
+
+		} catch(SocketException e){
+			System.out.println(e.getMessage());
+		}catch (Exception e){
+			e.printStackTrace();
+		} finally {
+			if (out != null){
+				try{
+					out.close();
+				}catch (Exception e){
+				}
+			}
+			if (in != null){
+				try{
+					in.close();
+				}catch (Exception e){
+				}
+			}
+		}
+
+		return result;
+	}
+
+	/**
+	 * <pre>
+	 * 계좌체크
+	 *
+	 * @param out
+	 * @param in
+	 * @param niceUid
+	 * @param svcPwd
+	 * @param service
+	 * @param strGbn
+	 * @param strResId
+	 * @param strNm
+	 * @param strBankCode
+	 * @param strAccountNo
+	 * @param svcGbn
+	 * @param strOrderNo
+	 * @param svc_cls
+	 * @param inq_rsn
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 26. 오후 8:09:30
+	 * @author S.B.LEE
+	 * @see com.ssocio.sharing.service.web
+	 * </pre>
+	 */
+	public String rlnmCheck(PrintWriter out, BufferedReader in, String niceUid, String svcPwd, String service
+							, String strGbn, String strResId, String strNm, String strBankCode, String strAccountNo
+							, String svcGbn, String strOrderNo, String svc_cls, String inq_rsn) throws Exception {
+
+		StringBuffer sbResult = new StringBuffer();
+		strNm = URLEncoder.encode(strNm, "EUC-KR");
+		String contents = "niceUid=" + niceUid + "&svcPwd=" + svcPwd + "&service=" + service + "&strGbn=" + strGbn + "&strResId=" + strResId
+						+ "&strNm=" + strNm + "&strBankCode=" + strBankCode + "&strAccountNo=" + strAccountNo + "&svcGbn=" + svcGbn
+						+ "&strOrderNo=" + strOrderNo + "&svc_cls=" + svc_cls + "&inq_rsn=" + inq_rsn + "&seq=0000001";
+//		out.println("POST https://secure.nuguya.com/nuguya2/service/realname/sprealnameactconfirm.do HTTP/1.1");
+		out.println("POST https://secure.nuguya.com/nuguya/service/realname/sprealnameactconfirm.do HTTP/1.1");
+		out.println("Host: secure.nuguya.com");
+		out.println("Connection: Keep-Alive");
+		out.println("Content-Type: application/x-www-form-urlencoded");
+		out.println("Content-Length: " + contents.length());
+		out.println("");
+		out.println(contents);
+		out.flush();
+		String line = null;
+		int i=0;
+		boolean notYet = true;
+		while((line = in.readLine())!= null){
+			i++;
+			if (notYet && line.indexOf("HTTP/1.") == -1 ){
+				continue;
+			}
+			if (notYet && line.indexOf("HTTP/1.") > -1 ){
+				notYet = false;
+			}
+
+			if (line.indexOf("HTTP/1.") > -1 ){
+				notYet = false;
+			}
+			if (line.startsWith("0") ){
+				break;
+			}
+			if (line == null) {
+				break;
+			}
+
+			if(i==9) sbResult.append(line);
+		}
+		System.out.println(sbResult.toString());
+		return sbResult.toString();
+	}
+
+	@Override
+	public String selectsiteIFUrl() throws Exception {
+		return webCommonDao.selectsiteIFUrl();
+	}
+
+
+
+	@Override
+	public String makePw(Map<String, Object> inParam) {
+		// TODO Auto-generated method stub
+
+		String temp_pw="";
+
+		final char[] possibleCharacters =
+		    {'0','1','2','3','4','5','6','7','8','9','0','A','B','C','D','E','F',
+		     'G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V',
+		     'W','X','Y','Z', 'a','b','c','f','g','h','i','j','k','l','m','n','o','p'
+		     ,'q','r','s','t','u','v','w','x','y','z'};
+
+
+		try{
+
+			final int possibleCharacterCount = possibleCharacters.length;
+
+			Random rnd = new Random();
+
+			StringBuffer buf = new StringBuffer(16);
+			for (int i= 0; i < 8; i++) {
+				buf.append(possibleCharacters[rnd.nextInt(possibleCharacterCount)]);
+			}
+//			String pw = buf.toString();
+			String pw = CommonUtil.newPasswordEight();
+
+			temp_pw = pw;
+			logger.info("Plan pw : "+pw);
+			System.out.println("Plan pw : "+pw);
+			pw = CommonUtil.getEncPassword(pw);
+			logger.info("Enc pw : "+pw);
+
+			inParam.put("temp_pw", pw);
+
+			webCommonDao.updatePw(inParam);
+
+			inParam.put("temp_pw", temp_pw);
+
+
+		}catch(Exception e){
+			e.printStackTrace();
+		}
+
+		return temp_pw;
+	}
+
+
+
+	@Override
+	public int selectUseStat(Map<String, Object> inParam) throws Exception {
+		// TODO Auto-generated method stub
+
+		int result=0;
+
+		try {
+
+			result = webCommonDao.selectUseStat(inParam);
+
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return result;
+
+
+
+	}
+
+	@Override
+	public String getAnsimUrl() throws Exception{
+		return webCommonDao.selectAnsimUrl();
+	}
+
+	public String selectShareUrl() throws Exception{
+		return webCommonDao.selectShareUrl();
+	}
+	
+	@Override
+	public Map<String, Object> selectExtLand(String prodCode, String zipCd) throws Exception{
+		return webCommonDao.selectExtLand(prodCode, zipCd);
+	}
+
+	//파라미터 MBER_SEQ
+	//최초 인증시 포인트 지급
+	@Override
+	public int updateMberPoint(Map<String, Object> inParam) throws Exception {
+		//이력 확인
+		int ret = webCommonDao.selectPointUseLogCnt(inParam);
+		logger.debug("### updateMberPoint:"+ret);
+		if(0 == ret){
+			ret = webCommonDao.insertPoint(inParam);
+			logger.debug("### updateMberPoint:"+ret);
+			if(ret > 0){
+				ret = webCommonDao.updateMberPoint(inParam);
+				logger.debug("### updateMberPoint:"+ret);
+			}
+		}
+
+		return ret;
+	}
+	
+	
+	
+}
+
+
+

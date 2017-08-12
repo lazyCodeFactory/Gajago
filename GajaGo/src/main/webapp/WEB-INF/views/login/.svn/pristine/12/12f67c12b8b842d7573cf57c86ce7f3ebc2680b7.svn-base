@@ -1,0 +1,1737 @@
+package com.ssocio.sharing.controller.mobile;
+
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
+import java.util.HashMap;
+import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.multipart.MultipartHttpServletRequest;
+import org.springframework.web.servlet.ModelAndView;
+
+import com.ssocio.sharing.cmmn.service.CommonService;
+import com.ssocio.sharing.cmmn.util.CmmnCnst;
+import com.ssocio.sharing.cmmn.util.LoggerUtil;
+import com.ssocio.sharing.cmmn.util.StringUtil;
+import com.ssocio.sharing.service.web.WebSaleManageService;
+import com.ssocio.sharing.vo.web.WebSession;
+
+/**
+ * <pre>
+ * 메인 컨트롤러
+ * 메인 처리를 위한 컨트롤러
+ * @author Kang.h.c
+ * @version
+ * @since 2015. 8. 19
+ * @see
+ * @History
+ * Date			|	author		| 변경 내용
+ * 2015. 8. 19.	|	Kang.h.c	|신규
+ * @비고
+ * </pre>
+ */
+@Controller
+@RequestMapping(value="/mobile/salemanage")
+public class MobileSaleManageController extends MobileReferController {
+
+	// --------------------------------------------------------------------------
+	// # Log 설정
+	// --------------------------------------------------------------------------
+	private static final Logger logger = LoggerFactory.getLogger(MobileSaleManageController.class);
+
+	// --------------------------------------------------------------------------
+	// # Service 설정
+	// --------------------------------------------------------------------------
+	@Autowired
+	private WebSaleManageService webSaleManageService;
+
+	@Autowired
+	private CommonService commonService;
+
+	/**
+	 * <pre>
+	 * 판매관리 메인
+	 * 판매관리 메인
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 8. 19
+	 * @author Kang.h.c
+	 * @see com.ssocio.sharing.controller.web
+	 * </pre>
+	 */
+	@RequestMapping("/main.do")
+	public ModelAndView main(HttpServletRequest request, @RequestParam Map<String, Object> inParam){
+
+		logger.info("/mobile/salemanage/main.do");
+		logger.info("MobileSaleManageController.main");
+
+
+
+		// 로그인 체크
+		if(request.getSession().getAttribute("user")==null){
+			String returnUrl = "/mobile/myPage/getMyPageInfo.do?";
+			try {
+				return new ModelAndView("redirect:/mobile/main/login.do"+"?ret="+URLEncoder.encode(returnUrl,"UTF-8"));
+			} catch (UnsupportedEncodingException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+
+		ModelAndView mav = new ModelAndView("web/saleMng/procSaleManageMain");
+		
+		mav.addObject("appVerCheck", appVerCheck(request)); // V1 또는 V2
+		
+
+		// Session에서 로그인된 USER 정보 받기
+		HttpSession session = request.getSession();
+		WebSession webSession = (WebSession)session.getAttribute("user");
+		Integer mberSeq = webSession.getMBER_SEQ();								// 유저 일련번호
+		inParam.put("mberSeq", mberSeq);
+
+		try {
+			webSaleManageService.selectSaleProdCnt(mav, inParam);
+
+			String mberGbCd = webSession.getMBER_GB_CD();
+			String mberRegGbCd = webSession.getMBER_REG_GB_CD();
+			if (CmmnCnst.cmmn1.equals(mberGbCd) && CmmnCnst.cmmn1.equals(mberRegGbCd)) {
+				mav.addObject("mberSellGb", CmmnCnst.cmmnN);
+			}
+			else {
+				mav.addObject("mberSellGb", CmmnCnst.cmmnY);
+			}
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+		return mav;
+	}
+
+	/**
+	 * <pre>
+	 * 판매회원 체크
+	 * 판매회원 체크
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 10. 24
+	 * @author Kang.h.c
+	 * @see com.ssocio.sharing.controller.web
+	 * </pre>
+	 */
+	@RequestMapping("/checkMberRegGb.do")
+	public ModelAndView checkMberRegGb(HttpServletRequest request, HttpServletResponse response) {
+
+		logger.info("/mobile/salemanage/checkMberRegGb.do");
+		logger.info("MobileSaleManageController.checkMberRegGb");
+
+		ModelAndView mav = new ModelAndView("jsonView");
+
+		// Session에서 로그인된 USER 정보 받기
+		HttpSession session = request.getSession();
+		WebSession webSession = (WebSession)session.getAttribute("user");
+		String mberGbCd = webSession.getMBER_GB_CD();
+		String mberRegGbCd = webSession.getMBER_REG_GB_CD();
+		logger.info("mberGbCd : " + mberGbCd);
+		logger.info("mberRegGbCd : " + mberRegGbCd);
+		if (CmmnCnst.cmmn1.equals(mberGbCd) && CmmnCnst.cmmn1.equals(mberRegGbCd)) {
+			mav.addObject("rtnCd", CmmnCnst.cmmnN);
+		}
+		else {
+			mav.addObject("rtnCd", CmmnCnst.cmmnY);
+		}
+
+		return mav;
+
+	}
+
+	/**
+	 * 상품관리 - 상품등록 공통 페이지 호출
+	 * @param request
+	 * @param paramDto
+	 * @return
+	 */
+	@RequestMapping("/procInsertProdComm.do")
+	public ModelAndView procInsertProdComm(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam){
+
+		inParam.put("REFERER", request.getHeader("REFERER"));
+
+
+		logger.info("/mobile/salemanage/procInsertProdComm.do");
+		logger.info("MobileSaleManageController.procInsertProdComm");
+		LoggerUtil.writeMap(inParam);
+
+		ModelAndView mav = new ModelAndView();
+
+		//모바일 여부를 여기서 확인해서 입력 한다. 추후 모바일 여부를 가지고 메시지를 변경한다.
+		inParam.put("MOBILE","Y");
+
+
+		// service 호출
+		try {
+			if(request.getSession().getAttribute("user")==null){
+				String returnUrl = "/mobile/salemanage/procInsertProdComm.do?mainYn=Y";
+				return new ModelAndView("redirect:/mobile/main/login.do"+"?ret="+URLEncoder.encode(returnUrl,"UTF-8"));
+			}else{
+				WebSession ws = (WebSession) request.getSession().getAttribute("user");
+				inParam.put("mberSeq",ws.getMBER_SEQ());
+				// 상품 등록 페이지들 호출
+				webSaleManageService.procInsertProdComm(mav, inParam);
+			}
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+		return mav;
+	}
+	
+	
+	/**
+	 * 상품관리 - 상품등록 공통 페이지 호출
+	 * @param request
+	 * @param paramDto
+	 * @return
+	 */
+	@RequestMapping("/procInsertProdCommV2.do")
+	public ModelAndView procInsertProdCommV2(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam){
+
+		inParam.put("REFERER", request.getHeader("REFERER"));
+		inParam.put("refUrl", request.getHeader("REFERER"));
+
+
+		logger.info("/mobile/salemanage/procInsertProdCommV2.do");
+		logger.info("MobileSaleManageController.procInsertProdCommV2");
+		LoggerUtil.writeMap(inParam);
+
+		ModelAndView mav = new ModelAndView();
+
+		//모바일 여부를 여기서 확인해서 입력 한다. 추후 모바일 여부를 가지고 메시지를 변경한다.
+		inParam.put("MOBILE","Y");
+
+
+		// service 호출
+		try {
+			if(request.getSession().getAttribute("user")==null){
+				String returnUrl = "/mobile/salemanage/procInsertProdComm.do?mainYn=Y";
+				return new ModelAndView("redirect:/mobile/main/login.do"+"?ret="+URLEncoder.encode(returnUrl,"UTF-8"));
+			}else{
+				WebSession ws = (WebSession) request.getSession().getAttribute("user");
+				inParam.put("mberSeq",ws.getMBER_SEQ());
+				// 상품 등록 페이지들 호출
+				webSaleManageService.procInsertProdCommV2(mav, inParam);
+			}
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		return mav;
+	}
+	
+	
+
+	/**
+	 * 상품관리 - 상품등록 공통 페이지 호출 : 이미지용
+	 * @param request
+	 * @param paramDto
+	 * @return
+	 */
+	@RequestMapping("/procInsertProdCommImg.do")
+	public ModelAndView procInsertProdCommImg(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam, MultipartHttpServletRequest req){
+
+		logger.info("/mobile/salemanage/procInsertProdCommImg.do");
+		logger.info("MobileSaleManageController.procInsertProdCommImg");
+
+		ModelAndView mav = new ModelAndView();
+
+		// service 호출
+		try {
+
+			// 파일 저장 서비스
+			inParam = webSaleManageService.insertProdImgFile(inParam, req);
+
+			LoggerUtil.writeMap(inParam);
+
+			// 상품 등록 페이지 호출
+			webSaleManageService.procInsertProdComm(mav, inParam);
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+		return mav;
+	}
+	
+	/**
+	 * 상품관리 - 상품등록 공통 페이지 호출 : 이미지용
+	 * @param request
+	 * @param paramDto
+	 * @return
+	 */
+	@RequestMapping("/procInsertProdCommImgV2.do")
+	public ModelAndView procInsertProdCommImgV2(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam, MultipartHttpServletRequest req){
+		logger.info("/mobile/salemanage/procInsertProdCommImgV2.do");
+		logger.info("MobileSaleManageController.procInsertProdCommImgV2");
+
+		ModelAndView mav = new ModelAndView();
+
+		// service 호출
+		try {
+
+			// 파일 저장 서비스
+			inParam = webSaleManageService.insertProdImgFile(inParam, req);
+
+			LoggerUtil.writeMap(inParam);
+
+			// 상품 등록 페이지 호출
+			webSaleManageService.procInsertProdCommV2(mav, inParam);
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+		return mav;
+	}
+	
+	
+
+	/**
+	 * 상품관리 - 상품등록 판매 페이지 호출
+	 * @param request
+	 * @param paramDto
+	 * @return
+	 */
+	@RequestMapping("/procInsertProdSell.do")
+	public ModelAndView procInsertProdSell(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam){
+
+		logger.info("/mobile/salemanage/procInsertProdSell.do");
+		logger.info("MobileSaleManageController.procInsertProdSell");
+
+		ModelAndView mav = new ModelAndView();
+
+		// service 호출
+		try {
+			// 상품 등록 페이지들 호출
+			webSaleManageService.procInsertProdSell(mav, inParam);
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+		return mav;
+	}
+
+	/**
+	 * 상품관리 - 상품등록
+	 * @param request
+	 * @param paramDto
+	 * @return
+	 */
+	@RequestMapping("/insertSellProdInfo.do")
+	public ModelAndView insertSellProdInfo(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception {
+
+		logger.info("/mobile/salemanage/insertSellProdInfo.do");
+		logger.info("MobileSaleManageController.insertSellProdInfo");
+
+		ModelAndView mav = new ModelAndView("jsonView");
+		LoggerUtil.writeMap(inParam);
+
+		// Session에서 로그인된 USER 정보 받기
+		HttpSession session = request.getSession();
+		WebSession webSession = (WebSession)session.getAttribute("user");
+		Integer mberSeq = webSession.getMBER_SEQ();								// 유저 일련번호
+		inParam.put("mberSeq", mberSeq);
+
+		// service 호출
+		mav.addObject("rtn", webSaleManageService.insertSellProdInfo(inParam));
+
+		return mav;
+
+	}
+	
+	/**
+	 * 상품관리 - 상품등록
+	 * @param request
+	 * @param paramDto
+	 * @return
+	 */
+	@RequestMapping("/insertSellProdInfoV2.do")
+	public ModelAndView insertSellProdInfoV2(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception {
+
+		logger.info("/mobile/salemanage/insertSellProdInfoV2.do");
+		logger.info("MobileSaleManageController.insertSellProdInfoV2");
+
+		ModelAndView mav = new ModelAndView("jsonView");
+		LoggerUtil.writeMap(inParam);
+
+		// Session에서 로그인된 USER 정보 받기
+		HttpSession session = request.getSession();
+		WebSession webSession = (WebSession)session.getAttribute("user");
+		Integer mberSeq = webSession.getMBER_SEQ();								// 유저 일련번호
+		inParam.put("mberSeq", mberSeq);
+
+		try{
+			mav.addObject("rtn", webSaleManageService.insertSellProdInfoV2(inParam));
+		}catch (Exception e){
+			logger.error(e.toString());
+			Map<String,Object> map = new HashMap<String,Object>();
+			map.put("rtnMsgCd", e.getMessage());
+			mav.addObject("rtn",map);
+		}
+		
+		// service 호출
+
+		return mav;
+
+	}
+	
+	
+
+	/**
+	 * 상품관리 - 상품등록 브랜드 신청
+	 * @param request
+	 * @param paramDto
+	 * @return
+	 */
+	@RequestMapping("/insertBrandReq.do")
+	public ModelAndView insertBrandReq(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception {
+
+		logger.info("/mobile/salemanage/insertBrandReq.do");
+		logger.info("MobileSaleManageController.insertBrandReq");
+
+		ModelAndView mav = new ModelAndView("jsonView");
+		LoggerUtil.writeMap(inParam);
+
+		// Session에서 로그인된 USER 정보 받기
+		HttpSession session = request.getSession();
+		WebSession webSession = (WebSession)session.getAttribute("user");
+		Integer mberSeq = webSession.getMBER_SEQ();								// 유저 일련번호
+		inParam.put("mberSeq", mberSeq);
+
+		try{
+			Map<String,Object> map = webSaleManageService.insertBrandReq(inParam);
+			mav.addObject("rtn", map);
+			
+		}catch(Exception e){
+			logger.error(e.toString());
+			Map<String,Object> map = new HashMap<String,Object>();
+			map.put("rtnMsgCd", e.getMessage());
+			mav.addObject("rtn", map);
+		}
+		
+		// service 호출
+
+		return mav;
+
+	}
+
+	/**
+	 * <pre>
+	 * 판매관리 제휴택배 배송비 조회
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 10. 19
+	 * @author Kang.h.c
+	 * @see com.ssocio.sharing.controller.web
+	 * </pre>
+	 */
+	@RequestMapping("/selectRelDlvInfo.do")
+	public ModelAndView selectRelDlvInfo(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) {
+
+		logger.info("/mobile/salemanage/selectRelDlvInfo.do");
+		logger.info("MobileSaleManageController.selectRelDlvInfo");
+
+		ModelAndView mav = new ModelAndView("jsonView");
+
+		// service 호출
+		try {
+			// 상품 리스트 조회
+			webSaleManageService.selectRelDlvInfo(mav, inParam);
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+		return mav;
+
+	}
+
+	/**
+	 * <pre>
+	 * 판매관리 카테고리 수수료조회
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 10. 16
+	 * @author Kang.h.c
+	 * @see com.ssocio.sharing.controller.web
+	 * </pre>
+	 */
+	@RequestMapping("/selectCtryTax.do")
+	public ModelAndView selectCtryTax(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) {
+
+		logger.info("/mobile/salemanage/selectCtryTax.do");
+		logger.info("MobileSaleManageController.selectCtryTax");
+
+		ModelAndView mav = new ModelAndView("jsonView");
+
+		// service 호출
+		try {
+			// 상품 리스트 조회
+			webSaleManageService.selectCtryTax(mav, inParam);
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+		return mav;
+
+	}
+
+	/**
+	 * <pre>
+	 * 판매관리 결제 수수료조회
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 10. 16
+	 * @author Kang.h.c
+	 * @see com.ssocio.sharing.controller.web
+	 * </pre>
+	 */
+	@RequestMapping("/selectSetlTax.do")
+	public ModelAndView selectSetlTax(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) {
+
+		logger.info("/mobile/salemanage/selectSetlTax.do");
+		logger.info("MobileSaleManageController.selectSetlTax");
+
+		ModelAndView mav = new ModelAndView("jsonView");
+
+		// service 호출
+		try {
+			// 상품 리스트 조회
+			webSaleManageService.selectSetlTax(mav, inParam);
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+		return mav;
+
+	}
+
+	/**
+	 * 상품관리 - 상품조회 페이지 호출
+	 * @param request
+	 * @param paramDto
+	 * @return
+	 */
+	@RequestMapping("/selectListProd.do")
+	public ModelAndView procProdSearchPage(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam){
+
+		ModelAndView mav = new ModelAndView("web/saleMng/selectListProd");
+		mav.addObject("appVerCheck", appVerCheck(request)); // V1 또는 V2
+
+		logger.debug("==================");
+		LoggerUtil.writeMap(inParam);
+		logger.debug("==================");
+
+		logger.info("/mobile/salemanage/selectListProd.do");
+		logger.info("MobileSaleManageController.selectListProd");
+
+
+		// Session에서 로그인된 USER 정보 받기
+		HttpSession session = request.getSession();
+		WebSession webSession = (WebSession)session.getAttribute("user");
+		Integer mberSeq = webSession.getMBER_SEQ();								// 유저 일련번호
+		inParam.put("mberSeq", mberSeq);
+
+		// service 호출
+		try {
+			// 상품 리스트 조회
+			webSaleManageService.selectListProd(mav, inParam);
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+		
+		logger.debug(" mav : " + mav.toString());
+
+
+		return mav;
+	}
+
+	/**
+	 * 상품관리 - 상품수정 페이지 호출
+	 * @param request
+	 * @param paramDto
+	 * @return
+	 */
+	@RequestMapping("/procUpdateProdOpen.do")
+	public ModelAndView procUpdateProdOpen(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam){
+
+		logger.info("/mobile/salemanage/procUpdateProdOpen.do");
+		logger.info("MobileSaleManageController.procUpdateProdOpen");
+
+
+		// 로그인 체크
+		if(request.getSession().getAttribute("user")==null){
+			String returnUrl = "/mobile/myPage/getMyPageInfo.do?";
+			try {
+				return new ModelAndView("redirect:/mobile/main/login.do"+"?ret="+URLEncoder.encode(returnUrl,"UTF-8"));
+			} catch (UnsupportedEncodingException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+		
+		
+		
+		
+		ModelAndView mav = new ModelAndView("web/saleMng/updateProdInfo");
+
+		//모바일 수정을 구분 한다 김윤경.
+		inParam.put("MOBILE","Y");
+
+		// service 호출
+		try {
+			// 상품 상세 조회
+			webSaleManageService.selectProdDtl(mav, inParam);
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+		return mav;
+	}
+	
+	
+	/**
+	 * 상품관리 - 상품수정 페이지 호출
+	 * @param request
+	 * @param paramDto
+	 * @return
+	 */
+	@RequestMapping("/procUpdateProdOpenV2.do")
+	public ModelAndView procUpdateProdOpenV2(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam){
+
+		logger.info("/mobile/salemanage/procUpdateProdOpenV2.do");
+		logger.info("MobileSaleManageController.procUpdateProdOpenV2");
+
+
+		// 로그인 체크
+		if(request.getSession().getAttribute("user")==null){
+			String returnUrl = "/mobile/myPage/getMyPageInfo.do?";
+			try {
+				return new ModelAndView("redirect:/mobile/main/login.do"+"?ret="+URLEncoder.encode(returnUrl,"UTF-8"));
+			} catch (UnsupportedEncodingException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+		
+		HttpSession session = request.getSession();
+		WebSession webSession = (WebSession)session.getAttribute("user");
+		Integer mberSeq = webSession.getMBER_SEQ();								// 유저 일련번호
+		inParam.put("mberSeq",mberSeq);
+		
+
+
+		ModelAndView mav = new ModelAndView("web/saleMngV2/updateProdInfo");
+
+		//모바일 수정을 구분 한다 김윤경.
+		inParam.put("MOBILE","Y");
+
+		// service 호출
+		try {
+			// 상품 상세 조회
+			webSaleManageService.selectProdDtlV2(mav, inParam);
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+		logger.debug("mav : " + mav);
+
+		return mav;
+	}
+	
+	
+
+	/**
+	 * 상품관리 - 상품삭제
+	 * @param request
+	 * @param paramDto
+	 * @return
+	 */
+	@RequestMapping("/deleteProdInfo.do")
+	public ModelAndView deleteProdInfo(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam){
+
+		logger.info("/mobile/salemanage/deleteProdInfo.do");
+		logger.info("MobileSaleManageController.deleteProdInfo");
+
+		ModelAndView mav = new ModelAndView("web/saleMng/selectListProd");
+
+		// Session에서 로그인된 USER 정보 받기
+		HttpSession session = request.getSession();
+		WebSession webSession = (WebSession)session.getAttribute("user");
+		Integer mberSeq = webSession.getMBER_SEQ();								// 유저 일련번호
+
+		// service 호출
+		try {
+			// 상품 삭제
+			webSaleManageService.deleteProdInfo(mav, inParam);
+			Map<String, Object> searchMap = new HashMap<String, Object>();
+			searchMap.put("mberSeq", mberSeq);
+			searchMap.put("prodTypeCd", inParam.get("prodTypeCd"));
+			// 상품 리스트 조회
+			webSaleManageService.selectListProd(mav, searchMap);
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+		return mav;
+	}
+
+	/**
+	 * 상품관리 - 브랜드목록 조회
+	 * @param request
+	 * @param paramDto
+	 * @return
+	 */
+	@RequestMapping("/selectBrandList.do")
+	public ModelAndView selectBrandList(@RequestParam Map<String, Object> inParam) throws Exception	{
+		ModelAndView mav = new ModelAndView("jsonView");
+		try {
+			mav.addObject("brandList", webSaleManageService.selectBrandList(inParam).get("brandList"));
+
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mav;
+	}
+
+	/**
+	 * 상품관리 - 상품수정
+	 * @param request
+	 * @param paramDto
+	 * @return
+	 */
+	@RequestMapping("/updateProdInfo.do")
+	public ModelAndView updateProdInfo(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam, MultipartHttpServletRequest req){
+
+		logger.info("/mobile/salemanage/updateProdInfo.do");
+		logger.info("MobileSaleManageController.updateProdInfo");
+
+		LoggerUtil.writeMap(inParam);
+
+		// Session에서 로그인된 USER 정보 받기
+		HttpSession session = request.getSession();
+		WebSession webSession = (WebSession)session.getAttribute("user");
+		Integer mberSeq = webSession.getMBER_SEQ();								// 유저 일련번호
+		inParam.put("mberSeq", mberSeq);
+
+		//모바일 수정을 구분 한다 김윤경.
+		inParam.put("MOBILE","Y");
+
+
+		ModelAndView mav = new ModelAndView("web/saleMng/selectListProd");
+
+		// service 호출
+		try {
+			// update 서비스 호출
+			webSaleManageService.updateProdInfo(mav, inParam, req);
+
+			// 상품 리스트 조회
+			webSaleManageService.selectListProd(mav, inParam);
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+		return mav;
+	}
+	
+	
+
+	/**
+	 * 상품관리 - 상품수정
+	 * @param request
+	 * @param paramDto
+	 * @return
+	 */
+	@RequestMapping("/updateProdInfoV2.do")
+	public ModelAndView updateProdInfoV2(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam, MultipartHttpServletRequest req){
+
+		logger.info("/mobile/salemanage/updateProdInfoV2.do");
+		logger.info("MobileSaleManageController.updateProdInfoV2");
+
+		LoggerUtil.writeMap(inParam);
+
+		// Session에서 로그인된 USER 정보 받기
+		HttpSession session = request.getSession();
+		WebSession webSession = (WebSession)session.getAttribute("user");
+		Integer mberSeq = webSession.getMBER_SEQ();								// 유저 일련번호
+		inParam.put("mberSeq", mberSeq);
+
+		//모바일 수정을 구분 한다 김윤경.
+		inParam.put("MOBILE","Y");
+
+
+		ModelAndView mav = new ModelAndView("jsonView");
+		
+		// service 호출
+		try {
+			// update 서비스 호출
+			mav.addObject("rtn", webSaleManageService.updateProdInfoV2(mav, inParam, req));
+
+			// 상품 리스트 조회
+//			webSaleManageService.selectListProd(mav, inParam);
+		} catch (Exception e) {
+			logger.error(e.toString());
+			Map<String,Object> map = new HashMap<String,Object>();
+			map.put("rtnMsgCd", e.getMessage());
+			mav.addObject("rtn",map);
+		}
+
+		return mav;
+	}
+	
+	
+
+	/**
+	 * 상품관리 - 상품문의
+	 * @param request
+	 * @param paramDto
+	 * @return
+	 */
+	@RequestMapping("/selectListProdQna.do")
+	public ModelAndView selectListProdQna(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam){
+
+		logger.info("/mobile/salemanage/selectListProdQna.do");
+		logger.info("MobileSaleManageController.selectListProdQna");
+
+		// Session에서 로그인된 USER 정보 받기
+		HttpSession session = request.getSession();
+		WebSession webSession = (WebSession)session.getAttribute("user");
+		Integer mberSeq = webSession.getMBER_SEQ();								// 유저 일련번호
+		inParam.put("mberSeq", mberSeq);
+
+		LoggerUtil.writeMap(inParam);
+
+		ModelAndView mav = new ModelAndView("web/saleMng/selectListProdQna");
+
+		// service 호출
+		try {
+			webSaleManageService.selectListProdQna(mav, inParam);
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+		return mav;
+	}
+
+	/**
+	 * 상품관리 - 상품문의 더보기
+	 * @param request
+	 * @param paramDto
+	 * @return
+	 */
+	@RequestMapping("/selectListProdQnaNext.do")
+	public ModelAndView selectListProdQnaNext(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam){
+
+		logger.info("/mobile/salemanage/selectListProdQnaNext.do");
+		logger.info("MobileSaleManageController.selectListProdQnaNext");
+
+		// Session에서 로그인된 USER 정보 받기
+		HttpSession session = request.getSession();
+		WebSession webSession = (WebSession)session.getAttribute("user");
+		Integer mberSeq = webSession.getMBER_SEQ();								// 유저 일련번호
+		inParam.put("mberSeq", mberSeq);
+
+		LoggerUtil.writeMap(inParam);
+
+		ModelAndView mav = new ModelAndView("jsonView");
+
+		// service 호출
+		try {
+			webSaleManageService.selectListProdQna(mav, inParam);
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+		return mav;
+	}
+
+	/**
+	 * 상품문의 - 상품문의 상세
+	 * @param request
+	 * @param paramDto
+	 * @return
+	 */
+	@RequestMapping("/selectProdQnaDtl.do")
+	public ModelAndView selectProdQnaDtl(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam){
+
+		logger.info("/mobile/salemanage/selectProdQnaDtl.do");
+		logger.info("MobileSaleManageController.selectProdQnaDtl");
+
+		ModelAndView mav = new ModelAndView("web/saleMng/selectProdQnaDtl");
+
+		// service 호출
+		try {
+			// 상품문의 상세 조회
+			webSaleManageService.selectProdQnaDtl(mav, inParam);
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+		return mav;
+	}
+
+	/**
+	 * 상품문의 - 상품문의 답변등록
+	 * @param request
+	 * @param paramDto
+	 * @return
+	 */
+	@RequestMapping("/updateProdQna.do")
+	public ModelAndView updateProdQna(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam){
+
+		logger.info("/mobile/salemanage/updateProdQna.do");
+		logger.info("MobileSaleManageController.updateProdQna");
+
+		ModelAndView mav = new ModelAndView("jsonView");
+
+		// Session에서 로그인된 USER 정보 받기
+		HttpSession session = request.getSession();
+		WebSession webSession = (WebSession)session.getAttribute("user");
+		Integer mberSeq = webSession.getMBER_SEQ();								// 유저 일련번호
+		inParam.put("mberSeq", mberSeq);
+		Map<String, Object> map = null;
+
+		// service 호출
+		try {
+			// 상품문의 답변등록
+			webSaleManageService.updateProdQna(mav, inParam);
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+			mav.addObject("rtnMsg", CmmnCnst.PROC_MSG_N);
+		}
+
+		logger.info("rtnMsg-->" + mav.toString());
+
+		return mav;
+	}
+
+	/**
+	 * 주문조회 - 주문조회 main
+	 * @param request
+	 * @param paramDto
+	 * @return
+	 */
+	@RequestMapping("/procOrderSearchMain.do")
+	public ModelAndView procOrderSearchPage(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) {
+
+		// Session에서 로그인된 USER 정보 받기
+		HttpSession session = request.getSession();
+		WebSession webSession = (WebSession)session.getAttribute("user");
+		Integer mberSeq = webSession.getMBER_SEQ();								// 유저 일련번호
+		inParam.put("MBER_SEQ", mberSeq);
+
+
+
+
+		logger.info("/mobile/salemanage/procOrderSearchMain.do");
+		logger.info("MobileSaleManageController.procOrderSearchMain");
+		ModelAndView mav = new ModelAndView("web/saleMng/procOrderSearchMain");
+
+		try{
+			webSaleManageService.procOrderSearchMain(mav, inParam);
+		}catch(Exception e){
+			e.printStackTrace();
+		}
+
+		return mav;
+
+	}
+
+	/**
+	 * 주문조회 - 셰어링 주문내역
+	 * @param request
+	 * @param paramDto
+	 * @return
+	 */
+	@RequestMapping("/selectListOrderShare.do")
+	public ModelAndView selectListOrderShare(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) {
+
+		logger.info("/mobile/salemanage/selectListOrderShare.do");
+		logger.info("MobileSaleManageController.selectListOrderShare");
+
+		ModelAndView mav = new ModelAndView("web/saleMng/selectListOrderShare");
+
+		// Session에서 로그인된 USER 정보 받기
+		HttpSession session = request.getSession();
+		WebSession webSession = (WebSession)session.getAttribute("user");
+		Integer mberSeq = webSession.getMBER_SEQ();								// 유저 일련번호
+		inParam.put("mberSeq", mberSeq);
+
+		// service 호출
+		try {
+			// 셰어링 주문내역 조회
+			webSaleManageService.selectListOrderShare(mav, inParam);
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+		return mav;
+
+	}
+
+	/**
+	 * 주문조회 - 셰어링 주문내역
+	 * @param request
+	 * @param paramDto
+	 * @return
+	 */
+	@RequestMapping("/selectListOrderShareNext.do")
+	public ModelAndView selectListOrderShareNext(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) {
+
+		logger.info("/mobile/salemanage/selectListOrderShareNext.do");
+		logger.info("MobileSaleManageController.selectListOrderShareNext");
+
+		ModelAndView mav = new ModelAndView("jsonView");
+
+		// Session에서 로그인된 USER 정보 받기
+		HttpSession session = request.getSession();
+		WebSession webSession = (WebSession)session.getAttribute("user");
+		Integer mberSeq = webSession.getMBER_SEQ();								// 유저 일련번호
+		inParam.put("mberSeq", mberSeq);
+
+		// service 호출
+		try {
+			// 셰어링 주문내역 조회
+			webSaleManageService.selectListOrderShare(mav, inParam);
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+		return mav;
+
+	}
+
+	/**
+	 * 주문조회 - 셰어링 주문내역 상세
+	 * @param request
+	 * @param paramDto
+	 * @return
+	 */
+	@RequestMapping("/selectOrderShareDtl.do")
+	public ModelAndView selectOrderShareDtl(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) {
+
+		logger.info("/mobile/salemanage/selectOrderShareDtl.do");
+		logger.info("MobileSaleManageController.selectOrderShareDtl");
+
+		ModelAndView mav = new ModelAndView("web/saleMng/selectOrderShareDtl");
+
+		// service 호출
+		try {
+			// 셰어링 주문내역 조회
+			webSaleManageService.selectOrderShareDtl(mav, inParam);
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+		return mav;
+
+	}
+
+	/**
+	 * 주문조회 - 배송 출하지 조회
+	 * @param request
+	 * @param paramDto
+	 * @return
+	 */
+	@RequestMapping("/selectListGrpProdInfo.do")
+	public ModelAndView selectListGrpProdInfo(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) {
+
+		logger.info("/mobile/salemanage/selectListGrpProdInfo.do");
+		logger.info("MobileSaleManageController.selectListGrpProdInfo");
+
+		ModelAndView mav = new ModelAndView("web/saleMng/selectListGrpProdInfo");
+
+		// Session에서 로그인된 USER 정보 받기
+		HttpSession session = request.getSession();
+		WebSession webSession = (WebSession)session.getAttribute("user");
+		Integer mberSeq = webSession.getMBER_SEQ();								// 유저 일련번호
+		inParam.put("mberSeq", mberSeq);
+
+		// service 호출
+		try {
+			// 배송 출하지 조회
+			webSaleManageService.selectListGrpProdInfo(mav, inParam);
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+		return mav;
+
+	}
+
+	/**
+	 * 주문조회 - 반품접수
+	 * @param request
+	 * @param paramDto
+	 * @return
+	 */
+	@RequestMapping("/selectBackRequest.do")
+	public ModelAndView selectBackRequest(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) {
+
+		logger.info("/mobile/salemanage/selectBackRequest.do");
+		logger.info("MobileSaleManageController.selectBackRequest");
+
+		ModelAndView mav = new ModelAndView("web/saleMng/selectBackReqInfo");
+
+		// Session에서 로그인된 USER 정보 받기
+		HttpSession session = request.getSession();
+		WebSession webSession = (WebSession)session.getAttribute("user");
+		Integer mberSeq = webSession.getMBER_SEQ();								// 유저 일련번호
+		inParam.put("mberSeq", mberSeq);
+
+		// service 호출
+		try {
+			webSaleManageService.selectBackReqInfo(mav, inParam);
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+		return mav;
+
+	}
+
+
+	/**
+	 * 주문조회 - 셰어링 주문상태변경
+	 * @param request
+	 * @param paramDto
+	 * @return
+	 */
+	@RequestMapping("/updateOrderShareProcStat.do")
+	public ModelAndView updateOrderShareProcStat(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) {
+
+		logger.info("/mobile/salemanage/updateOrderShareProcStat.do");
+		logger.info("MobileSaleManageController.updateOrderShareProcStat");
+
+		ModelAndView mav = new ModelAndView("jsonView");
+
+		// Session에서 로그인된 USER 정보 받기
+		HttpSession session = request.getSession();
+		WebSession webSession = (WebSession)session.getAttribute("user");
+		Integer mberSeq = webSession.getMBER_SEQ();								// 유저 일련번호
+		inParam.put("mberSeq", mberSeq);
+
+		String prodCodeArr[] = request.getParameterValues("prodCode[]");
+		inParam.put("prodCodeArr", prodCodeArr);
+
+		// service 호출
+		try {
+			// 주문상태 변경처리
+			webSaleManageService.updateOrderProcStat(mav, inParam);
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+		return mav;
+
+	}
+
+	/**
+	 * 주문조회 - 판매 주문내역
+	 * @param request
+	 * @param paramDto
+	 * @return
+	 */
+	@RequestMapping("/selectListOrderSell.do")
+	public ModelAndView selectListOrderSell(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) {
+
+		logger.info("/mobile/salemanage/selectListOrderSell.do");
+		logger.info("MobileSaleManageController.selectListOrderSell");
+
+		ModelAndView mav = new ModelAndView("web/saleMng/selectListOrderSell");
+
+		// Session에서 로그인된 USER 정보 받기
+		HttpSession session = request.getSession();
+		WebSession webSession = (WebSession)session.getAttribute("user");
+		Integer mberSeq = webSession.getMBER_SEQ();								// 유저 일련번호
+		inParam.put("mberSeq", mberSeq);
+
+		// service 호출
+		try {
+			// 셰어링 주문내역 조회
+			webSaleManageService.selectListOrderSell(mav, inParam);
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+		return mav;
+
+	}
+
+	/**
+	 * 주문조회 - 판매 주문내역
+	 * @param request
+	 * @param paramDto
+	 * @return
+	 */
+	@RequestMapping("/selectListOrderSellNext.do")
+	public ModelAndView selectListOrderSellNext(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) {
+
+		logger.info("/mobile/salemanage/selectListOrderSellNext.do");
+		logger.info("MobileSaleManageController.selectListOrderSellNext");
+
+		ModelAndView mav = new ModelAndView("jsonView");
+
+		// Session에서 로그인된 USER 정보 받기
+		HttpSession session = request.getSession();
+		WebSession webSession = (WebSession)session.getAttribute("user");
+		Integer mberSeq = webSession.getMBER_SEQ();								// 유저 일련번호
+		inParam.put("mberSeq", mberSeq);
+
+		// service 호출
+		try {
+			// 셰어링 주문내역 조회
+			webSaleManageService.selectListOrderSell(mav, inParam);
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+		return mav;
+
+	}
+
+	/**
+	 * 주문조회 - 판매 주문내역 상세
+	 * @param request
+	 * @param paramDto
+	 * @return
+	 */
+	@RequestMapping("/selectOrderSellDtl.do")
+	public ModelAndView selectOrderSellDtl(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) {
+
+		logger.info("/mobile/salemanage/selectOrderSellDtl.do");
+		logger.info("MobileSaleManageController.selectOrderSellDtl");
+
+		ModelAndView mav = new ModelAndView("web/saleMng/selectOrderSellDtl");
+
+		// service 호출
+		try {
+			// 셰어링 주문내역 조회
+			webSaleManageService.selectOrderSellDtl(mav, inParam);
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+		return mav;
+
+	}
+
+	/**
+	 * 주문조회 - 판매 주문상태변경
+	 * @param request
+	 * @param paramDto
+	 * @return
+	 */
+	@RequestMapping("/updateOrderSellProcStat.do")
+	public ModelAndView updateOrderSellProcStat(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) {
+
+		logger.info("/mobile/salemanage/updateOrderSellProcStat.do");
+		logger.info("MobileSaleManageController.updateOrderSellProcStat");
+
+		ModelAndView mav = new ModelAndView("jsonView");
+
+		// Session에서 로그인된 USER 정보 받기
+		HttpSession session = request.getSession();
+		WebSession webSession = (WebSession)session.getAttribute("user");
+		Integer mberSeq = webSession.getMBER_SEQ();								// 유저 일련번호
+		inParam.put("mberSeq", mberSeq);
+
+		String prodCodeArr[] = request.getParameterValues("prodCode[]");
+		inParam.put("prodCodeArr", prodCodeArr);
+
+		// service 호출
+		try {
+			// 주문상태 변경처리
+			webSaleManageService.updateOrderProcStat(mav, inParam);
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+		return mav;
+
+	}
+
+	/**
+	 * 주문조회 - 상품배송 : 배송지정보조회
+	 * @param request
+	 * @param paramDto
+	 * @return
+	 */
+	@RequestMapping("/selectOrdDlvInfo.do")
+	public ModelAndView selectOrdDlvInfo(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) {
+
+		logger.info("/mobile/salemanage/selectOrdDlvInfo.do");
+		logger.info("MobileSaleManageController.selectOrdDlvInfo");
+
+		ModelAndView mav = new ModelAndView("web/saleMng/selectOrdDlvInfo");
+
+		// Session에서 로그인된 USER 정보 받기
+		HttpSession session = request.getSession();
+		WebSession webSession = (WebSession)session.getAttribute("user");
+		Integer mberSeq = webSession.getMBER_SEQ();								// 유저 일련번호
+		inParam.put("mberSeq", mberSeq);
+
+		// service 호출
+		try {
+			// 배송지 조회
+			webSaleManageService.selectOrdDlvInfo(mav, inParam);
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+		return mav;
+
+	}
+
+	/**
+	 * 주문조회 - 주문취소
+	 * @param request
+	 * @param paramDto
+	 * @return
+	 */
+	@RequestMapping("/procOrderCanc.do")
+	public ModelAndView procOrderCanc(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) {
+
+		logger.info("/mobile/salemanage/procOrderCanc.do");
+		logger.info("MobileSaleManageController.procOrderCanc");
+
+		ModelAndView mav = new ModelAndView("web/saleMng/procOrderCanc");
+
+		// Session에서 로그인된 USER 정보 받기
+		HttpSession session = request.getSession();
+		WebSession webSession = (WebSession)session.getAttribute("user");
+		Integer mberSeq = webSession.getMBER_SEQ();								// 유저 일련번호
+		inParam.put("mberSeq", mberSeq);
+
+		// service 호출
+		try {
+			// 주문취소 화면으로 이동
+			webSaleManageService.procOrderCanc(mav, inParam);
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+		return mav;
+
+	}
+
+	/**
+	 * 주문조회 - 나눔 신청내역
+	 * @param request
+	 * @param paramDto
+	 * @return
+	 */
+	@RequestMapping("/selectListOrderFree.do")
+	public ModelAndView selectListOrderFree(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) {
+
+		logger.info("/mobile/salemanage/selectListOrderFree.do");
+		logger.info("MobileSaleManageController.selectListOrderFree");
+
+		ModelAndView mav = new ModelAndView("web/saleMng/selectListOrderFree");
+
+		// Session에서 로그인된 USER 정보 받기
+		HttpSession session = request.getSession();
+		WebSession webSession = (WebSession)session.getAttribute("user");
+		Integer mberSeq = webSession.getMBER_SEQ();								// 유저 일련번호
+		inParam.put("mberSeq", mberSeq);
+
+		// service 호출
+		try {
+			// 셰어링 주문내역 조회
+			webSaleManageService.selectListOrderFree(mav, inParam);
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+		return mav;
+
+	}
+
+	/**
+	 * 주문조회 - 나눔 신청내역
+	 * @param request
+	 * @param paramDto
+	 * @return
+	 */
+	@RequestMapping("/selectListOrderFreeNext.do")
+	public ModelAndView selectListOrderFreeNext(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) {
+
+		logger.info("/mobile/salemanage/selectListOrderFreeNext.do");
+		logger.info("MobileSaleManageController.selectListOrderFreeNext");
+
+		ModelAndView mav = new ModelAndView("jsonView");
+
+		// Session에서 로그인된 USER 정보 받기
+		HttpSession session = request.getSession();
+		WebSession webSession = (WebSession)session.getAttribute("user");
+		Integer mberSeq = webSession.getMBER_SEQ();								// 유저 일련번호
+		inParam.put("mberSeq", mberSeq);
+
+		// service 호출
+		try {
+			// 셰어링 주문내역 조회
+			webSaleManageService.selectListOrderFree(mav, inParam);
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+		return mav;
+
+	}
+
+	/**
+	 * 주문조회 - 나눔 신청내역 상세
+	 * @param request
+	 * @param paramDto
+	 * @return
+	 */
+	@RequestMapping("/selectOrderFreeDtl.do")
+	public ModelAndView selectOrderFreeDtl(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) {
+
+		logger.info("/mobile/salemanage/selectOrderFreeDtl.do");
+		logger.info("MobileSaleManageController.selectOrderFreeDtl");
+
+		ModelAndView mav = new ModelAndView("web/saleMng/selectOrderFreeDtl");
+
+		// Session에서 로그인된 USER 정보 받기
+		HttpSession session = request.getSession();
+		WebSession webSession = (WebSession)session.getAttribute("user");
+		Integer mberSeq = webSession.getMBER_SEQ();								// 유저 일련번호
+		inParam.put("mberSeq", mberSeq);
+
+		// service 호출
+		try {
+			// 셰어링 주문내역 조회
+			webSaleManageService.selectOrderFreeDtl(mav, inParam);
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+		return mav;
+
+	}
+
+	/**
+	 * 주문조회 - 나눔수락
+	 * @param request
+	 * @param paramDto
+	 * @return
+	 */
+	@RequestMapping("/updateFreeConfirm.do")
+	public ModelAndView updateFreeConfirm(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) {
+
+		logger.info("/mobile/salemanage/updateFreeConfirm.do");
+		logger.info("MobileSaleManageController.updateFreeConfirm");
+
+		ModelAndView mav = new ModelAndView("jsonView");
+
+		// service 호출
+		try {
+			
+			// 나눔수락 체크
+			int cnt = webSaleManageService.checkFreeConfirm(mav, inParam);
+			
+			logger.debug("cnt : " + cnt);
+			
+			
+			// 이미 수락되었음
+			if( cnt > 0 ){
+				mav.addObject("rtnMsg", "이미 나눔 결정 된 상품 입니다.");
+				return mav;
+			}
+			
+			// 나눔수락
+			webSaleManageService.updateFreeConfirm(mav, inParam);
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+			mav.addObject("rtnMsg", CmmnCnst.PROC_MSG_N);
+		}
+
+		return mav;
+
+	}
+
+	/**
+	 * 주문조회 - 나눔수락여부체크
+	 * @param request
+	 * @param paramDto
+	 * @return
+	 */
+	@RequestMapping("/checkFreeConfirm.do")
+	public ModelAndView checkFreeConfirm(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) {
+
+		logger.info("/mobile/salemanage/checkFreeConfirm.do");
+		logger.info("MobileSaleManageController.checkFreeConfirm");
+
+		ModelAndView mav = new ModelAndView("jsonView");
+
+		// service 호출
+		try {
+			// 나눔수락 체크
+			int cnt = webSaleManageService.checkFreeConfirm(mav, inParam);
+			mav.addObject("cnt",cnt);
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+			mav.addObject("rtnMsg", CmmnCnst.PROC_MSG_N);
+		}
+
+		return mav;
+
+	}
+
+	/**
+	 * 주문조회 - 나눔 주문상태변경
+	 * @param request
+	 * @param paramDto
+	 * @return
+	 */
+	@RequestMapping("/updateOrderFreeProcStat.do")
+	public ModelAndView updateOrderFreeProcStat(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) {
+
+		logger.info("/mobile/salemanage/updateOrderFreeProcStat.do");
+		logger.info("MobileSaleManageController.updateOrderFreeProcStat");
+
+		ModelAndView mav = new ModelAndView("jsonView");
+
+		// Session에서 로그인된 USER 정보 받기
+		HttpSession session = request.getSession();
+		WebSession webSession = (WebSession)session.getAttribute("user");
+		Integer mberSeq = webSession.getMBER_SEQ();								// 유저 일련번호
+		inParam.put("mberSeq", mberSeq);
+
+		String dtlGb = StringUtil.nvl((String)inParam.get("dtlGb"), CmmnCnst.cmmnN);			// 상세, 리스트 구분
+
+		// service 호출
+		try {
+			// 주문상태 변경처리
+			webSaleManageService.updateOrderProcStat(mav, inParam);
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+		return mav;
+
+	}
+
+	/**
+	 * <pre>
+	 * 판매 정산 조회
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 10. 20
+	 * @author Kang.h.c
+	 * @see com.ssocio.sharing.controller.web
+	 * </pre>
+	 */
+	@RequestMapping("/selectSellAdjustHist.do")
+	public ModelAndView selectSellAdjustHist(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) {
+
+		logger.info("/mobile/salemanage/selectSellAdjustHist.do");
+		logger.info("MobileSaleManageController.selectSellAdjustHist");
+
+		ModelAndView mav = new ModelAndView("jsonView");
+
+		// service 호출
+		try {
+			webSaleManageService.selectSellAdjustHist(mav, inParam);
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+		return mav;
+
+	}
+
+	/**
+	 * <pre>
+	 * 셰어링 정산 조회
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 10. 21
+	 * @author Kang.h.c
+	 * @see com.ssocio.sharing.controller.web
+	 * </pre>
+	 */
+	@RequestMapping("/selectShareAdjustHist.do")
+	public ModelAndView selectShareAdjustHist(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) {
+
+		logger.info("/mobile/salemanage/selectShareAdjustHist.do");
+		logger.info("MobileSaleManageController.selectShareAdjustHist");
+
+		ModelAndView mav = new ModelAndView("jsonView");
+
+		// service 호출
+		try {
+			webSaleManageService.selectShareAdjustHist(mav, inParam);
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+		return mav;
+
+	}
+	
+
+	/**
+	 * <pre>
+	 * 셰어링 정산 조회
+	 * @param paramDto
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 10. 21
+	 * @author Kang.h.c
+	 * @see com.ssocio.sharing.controller.web
+	 * </pre>
+	 */
+	@RequestMapping("/selectProdStat.do")
+	public ModelAndView selectPordStat(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) {
+		logger.info("/mobile/salemanage/selectProdStat.do");
+		logger.info("MobileSaleManageController.selectProdStat");
+		
+		LoggerUtil.writeMap(inParam);
+
+		ModelAndView mav = new ModelAndView("jsonView");
+
+		// service 호출
+		try {
+			webSaleManageService.selectProdStat(mav, inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return mav;
+
+	}
+	
+	
+	private static String appVerCheck(HttpServletRequest request){
+
+		String vCheck = "V2";
+		try{
+			logger.info("==========================================================================");
+			logger.info(" APP_HEADER_CHECK : " + (String)request.getHeader("x_app_version"));
+			logger.info(" OS_HEADER_CHECK : " + (String)request.getHeader("x_app_name"));
+			logger.info("==========================================================================");
+
+
+			if ("SSOCIO".equals(request.getSession().getAttribute("APP"))) {
+				
+				if(request.getHeader("x_app_version") != null && request.getHeader("x_app_version") != null ) {
+					request.getSession().setAttribute("X_APP_VERSION_2", request.getHeader("x_app_version"));
+					request.getSession().setAttribute("X_APP_NAME_2", request.getHeader("x_app_name"));
+				}
+				
+				
+				if( "AND".equals((String)request.getHeader("x_app_name")) ) {
+					if (request.getHeader("x_app_version").compareTo("1.0.6") > 0) {
+						logger.info("view type1");
+						vCheck = "V2";
+					} else {
+						logger.info("view type2");
+						vCheck = "V1";
+					}
+				} else if ( "IOS".equals((String)request.getHeader("x_app_name")) ) {
+					if (request.getHeader("x_app_version").compareTo("1.0.2") > 0) {
+						logger.info("view type3");
+						vCheck = "V2";
+					} else {
+						logger.info("view type4");
+						vCheck = "V1";
+					}
+				} else if( "AND".equals((String)request.getSession().getAttribute("X_APP_NAME_2")) ) {
+					String X_APP_VERSION_2 = (String)request.getSession().getAttribute("X_APP_VERSION_2");
+					if (X_APP_VERSION_2.compareTo("1.0.6") > 0) {
+						logger.info("view type5");
+						vCheck = "V2";
+					} else {
+						logger.info("view type6");
+						vCheck = "V1";
+					}
+				} else if( "IOS".equals((String)request.getSession().getAttribute("X_APP_NAME_2")) ) {
+					String X_APP_VERSION_2 = (String)request.getSession().getAttribute("X_APP_VERSION_2");
+					if (X_APP_VERSION_2.compareTo("1.0.2") > 0) {
+						logger.info("view type7");
+						vCheck = "V2";
+					} else {
+						logger.info("view type8");
+						vCheck = "V1";
+					}
+				} else {
+					logger.info("view type9");
+					vCheck = "V1";
+				}
+			} else {
+				logger.info("WEB_HEADER_CHECK3 : NEW INIT");
+				logger.info("view type10");
+				vCheck = "V2";
+			}
+			
+		
+		}catch (Exception e){
+			logger.error(e.toString());
+			e.printStackTrace();
+		}
+		
+		logger.info("vCheck : " + vCheck);
+		return vCheck;
+	}
+
+}

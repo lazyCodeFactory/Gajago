@@ -1,0 +1,184 @@
+package com.ssocio.sharing.service.batch;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.interceptor.TransactionAspectSupport;
+
+import com.ssocio.sharing.cmmn.util.LoggerUtil;
+import com.ssocio.sharing.cmmn.util.PaymentUtil;
+import com.ssocio.sharing.dao.batch.BatchSellerPerfDao;
+
+/**
+ * <pre>
+ * 설명
+ * 설명
+ * @author kim
+ * @version
+ * @since 2015. 10. 29
+ * @see
+ * @History
+ * Date			|	author	| 변경 내용
+ * 2015. 10. 29.	|	kim	|신규
+ * @비고
+ * </pre>
+ */
+@Service
+public class BatchTryPaymentRefundServiceImpl implements BatchTryPaymentRefundService {
+
+	// --------------------------------------------------------------------------
+	// # Log 설정
+	// --------------------------------------------------------------------------
+	private static final Logger logger = LoggerFactory.getLogger(BatchTryPaymentRefundServiceImpl.class);
+
+	// --------------------------------------------------------------------------
+	// # DAO 설정
+	// --------------------------------------------------------------------------
+	@Resource(name="batchSellerPerfDao")
+	private BatchSellerPerfDao batchSellerPerfDao;
+
+	/**
+	 * <pre>
+	 * 실적관리 배치 처리
+	 *
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 10. 15
+	 * @author kim
+	 * @see @see com.ssocio.sharing.service.batch.BatchSellerPerfServiceImpl
+	 * @비고
+	 *
+	 * </pre>
+	 */
+	@Transactional(rollbackFor=Exception.class)
+	@Override
+	public void initBatch(String batch_nm) throws Exception {
+		logger.info("########### BatchSellerPerfServiceImpl :: initBatch :: Start ##########");
+		try {
+
+			if(null == batchSellerPerfDao.selectBatchJobCfgInfo(batch_nm)){
+
+				Map<String, Object> inParam = new HashMap<String, Object>();
+				inParam.put("batch_nm", batch_nm);
+				inParam.put("batch_term_gb", "");
+				inParam.put("rm", "");
+
+				batchSellerPerfDao.insertBatchJobCfg(inParam);
+			}
+
+		} catch (Exception e) {
+			e.printStackTrace();
+			logger.info(" 실패로 RollBack !!!!!!]");
+			TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+			throw new Exception(e);
+		}
+		logger.info("########### BatchSellerPerfServiceImpl :: initBatch :: End ##########");
+		return;
+	}
+
+	@Transactional(rollbackFor=Exception.class)
+	@Override
+	public String preBatch(String batch_nm) throws Exception {
+		logger.info("########### BatchSellerPerfServiceImpl :: preBatch :: Start ##########");
+		Map<String, Object> inParam = new HashMap<String, Object>();
+		String batch_id = "";
+		try {
+			batch_id = batchSellerPerfDao.selectBatchJobCfgStat(batch_nm);
+
+			if(batch_id != null){
+
+				inParam.put("batch_id", batch_id);
+				inParam.put("start", "start");
+				inParam.put("job_stat", "R");
+				inParam.put("rm", "");
+
+				batchSellerPerfDao.updateBatchJobCfg(inParam);
+				batchSellerPerfDao.insertBatchJobHist(inParam);
+			}
+
+		} catch (Exception e) {
+			e.printStackTrace();
+			logger.info(" 실패로 RollBack !!!!!!]");
+			TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+			throw new Exception(e);
+		}
+		logger.info("########### BatchSellerPerfServiceImpl :: preBatch :: End ##########");
+		return inParam.get("hist_seq").toString();
+	}
+
+	@Transactional(rollbackFor=Exception.class)
+	@Override
+	public String postBatch(String hist_seq, String err_dtl) throws Exception {
+		logger.info("########### BatchSellerPerfServiceImpl :: postBatch :: Start ##########");
+		try {
+
+			Map<String, Object> inParam = new HashMap<String, Object>();
+			inParam.put("hist_seq", hist_seq);
+			inParam.put("err_dtl", err_dtl);
+
+			batchSellerPerfDao.updateBatchJobHist(inParam);
+
+		} catch (Exception e) {
+			e.printStackTrace();
+			logger.info(" 실패로 RollBack !!!!!!]");
+			TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+			throw new Exception(e);
+		}
+		logger.info("########### BatchSellerPerfServiceImpl :: postBatch :: End ##########");
+		return hist_seq;
+	}
+
+
+
+	@Transactional(rollbackFor=Exception.class)
+	@Override
+	public int batchTryPaymentRefund(Map<String, Object> inParam) throws Exception {
+		logger.info("########### BatchSellerPerfServiceImpl :: batchTryPaymentRefund :: Start ##########");
+		int cnt = 0;
+
+
+
+		try {
+			// 환불 대상 셀렉트
+			List<Map<String,Object>> list = batchSellerPerfDao.selectBatchTryPaymentRefund(inParam);
+			logger.debug("건수 : "+list.size());
+			
+			
+
+			for (Map<String, Object> map : list) {
+				// 환불				
+				Map<String,Object> retMap = PaymentUtil.billCancel((String) map.get("O_TRD_NO"));
+				logger.debug("정기결제 환불 결과 : " + retMap.toString());
+				
+//				String retCd = (String) retMap.get("RETURNCODE");
+//				String retMsg = (String) retMap.get("RETURNMSG");
+				
+				
+				// 결과 update
+				int rtn = batchSellerPerfDao.updateBatchTryPaymentRefund(map);
+				
+			}
+
+
+			
+			// 환불 3회이상 실패건 처리
+
+		} catch (Exception e) {
+			e.printStackTrace();
+			logger.info(" 실패로 RollBack !!!!!!]");
+			TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+			throw new Exception(e);
+		}
+		logger.info("########### BatchSellerPerfServiceImpl :: batchSellerPerfProd :: End ##########");
+		return cnt;
+	}
+}

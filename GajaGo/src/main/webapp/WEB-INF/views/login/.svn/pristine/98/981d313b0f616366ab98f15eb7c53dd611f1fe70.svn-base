@@ -1,0 +1,228 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="adminCodeMapper">
+	<!-- 공통코드 리스트 조회 -->
+	<select id="selectListCode" parameterType="hashmap" resultType="hashmap">
+		SELECT GRP_CD
+			 , GRP_CD_NM
+			 , USE_YN
+			 , DC 
+		  FROM GRP_CD
+		<where>
+			<if test="S_GRP_CD != null and S_GRP_CD != ''">
+				GRP_CD LIKE '%'||<![CDATA[#{S_GRP_CD}]]>||'%'
+			</if>
+			<if test="S_GRP_CD_NM != null and S_GRP_CD_NM != ''" >
+				AND GRP_CD_NM LIKE '%'||<![CDATA[#{S_GRP_CD_NM}]]>||'%'
+			</if>
+		</where>
+		ORDER BY GRP_CD
+	</select>
+	
+	<!-- 그룹코드 중복 체크 Count -->
+	<select id="chkOverlapGroupCode" parameterType="string" resultType="int">
+		SELECT COUNT(GRP_CD) AS TOTAL_COUNT
+		  FROM GRP_CD
+		 WHERE GRP_CD = #{GL_GROUP_CODE}
+	</select> 
+	
+	<!-- 그룹코드 등록 -->
+	<insert id="insertGroupCodeReg" parameterType="hashmap">
+		INSERT INTO GRP_CD (
+			 GRP_CD
+			 , GRP_CD_NM
+			 , DC
+			 , USE_YN
+			 , RM
+			 , REGIST_MBER_SN
+			 , REGIST_DT
+			 , UPDT_MBER_SN
+			 , UPDT_DT
+		) VALUES (
+			<![CDATA[#{GL_GROUP_CODE}]]>
+			 , <![CDATA[#{GL_GROUP_CODE_NM}]]>
+			 , <![CDATA[#{GL_DC}]]>
+			 , <![CDATA[#{GL_USE_YN}]]>
+			 , <![CDATA[#{GL_RM}]]>
+			 , #{LOGIN_ADM_ID}
+			 , SYSDATE
+			 , #{LOGIN_ADM_ID}
+			 , SYSDATE
+		)
+	</insert>
+	
+	<!-- 공통코드 사용여부 변경  -->
+	<update id="updateGroupUseYn" parameterType="hashmap">
+		UPDATE GRP_CD
+		   SET USE_YN = #{I_USE_YN}
+		 WHERE GRP_CD = #{I_GROUP_CODE}
+	</update>
+	
+	<!-- 그룹코드 조회 -->
+	<select id="selectGroup" parameterType="hashmap" resultType="hashmap">
+		SELECT GRP_CD
+			 , GRP_CD_NM
+			 , DC
+			 , USE_YN
+			 , RM
+		  FROM GRP_CD
+		 WHERE GRP_CD = #{I_GROUP_CODE}
+	</select>
+	
+	<!-- 그룹코드 수정 -->
+	<update id="updateGroupCodeReg" parameterType="hashmap">
+		UPDATE GRP_CD
+			<set>
+				<if test="GL_GROUP_CODE_NM != null">	GRP_CD_NM = <![CDATA[#{GL_GROUP_CODE_NM}]]>,</if>
+				<if test="GL_DC != null">				DC = <![CDATA[#{GL_DC}]]>,</if>
+				<if test="GL_USE_YN != null">			USE_YN = <![CDATA[#{GL_USE_YN}]]>,</if>
+				<if test="GL_RM != null">				RM = <![CDATA[#{GL_RM}]]>,</if>
+				<if test="LOGIN_ADM_ID != null">		UPDT_MBER_SN = #{LOGIN_ADM_ID},</if>
+				UPDT_DT = SYSDATE,
+			</set>
+		 WHERE GRP_CD = #{GL_GROUP_CODE}
+	</update>
+	
+	<!-- 공통코드 그룹별 리스트 조회 -->
+	<select id="selectListCodeGroup" parameterType="hashmap" resultType="hashmap">
+		SELECT B.GRP_CD
+			 , B.COM_CD
+			 , B.COM_CD_NM
+			 , B.COM_CD_VAL
+			 , B.SORT_SEQ
+			 , B.USE_YN
+		  FROM GRP_CD A
+			 , CODE B
+		<where>
+			1 = 1
+			<if test="S_GROUP_CODE != null and S_GROUP_CODE != ''">
+				AND A.GRP_CD = #{S_GROUP_CODE}
+			</if>
+				AND A.GRP_CD  = B.GRP_CD
+		</where>
+			ORDER BY B.SORT_SEQ ASC
+	</select>
+	
+	<!-- 그룹코드 삭제 -->
+	<delete id="deleteGroupReg" parameterType="hashmap">
+		DELETE GRP_CD
+		 WHERE GRP_CD = #{I_GROUP_CODE}
+	</delete>
+	
+	<!-- 공통코드 중복 체크 Count -->
+	<select id="chkOverlapCode" parameterType="hashmap" resultType="int">
+		SELECT COUNT(GRP_CD)  AS TOTAL_COUNT
+		  FROM CODE
+		 WHERE GRP_CD = #{CL_GROUP_CODE}
+		   AND COM_CD = #{CL_CODE}
+	</select>
+	
+	<!-- 공통코드 등록 -->
+	<insert id="insertCodeReg" parameterType="hashmap">
+		INSERT INTO CODE (
+			GRP_CD
+			 , COM_CD
+			 , COM_CD_NM
+			 , COM_CD_VAL
+			 , DC
+			 , USE_YN
+			 , SORT_SEQ
+			 , RM
+			 , REGIST_MBER_SN
+			 , REGIST_DT
+			 , UPDT_MBER_SN
+			 , UPDT_DT
+		 )VALUES (
+			<![CDATA[#{CL_GROUP_CODE}]]>
+			 , <![CDATA[#{CL_CODE}]]>
+			 , <![CDATA[#{CL_CODE_NM}]]>
+			 , <![CDATA[#{CL_CODE_VALUE}]]>
+			 , <![CDATA[#{CL_DC}]]>
+			 , <![CDATA[#{CL_USE_YN}]]>
+			 , (SELECT NVL(MAX(SORT_SEQ)+1, 1) FROM CODE WHERE GRP_CD=#{CL_GROUP_CODE})
+			 , <![CDATA[#{CL_RM}]]>
+			 , #{LOGIN_ADM_ID}
+			 , SYSDATE
+			 , #{LOGIN_ADM_ID}
+			 , SYSDATE
+		)
+	</insert>
+
+	<!-- 공통코드 수정 -->
+	<update id="updateCodeReg" parameterType="hashmap">
+		UPDATE CODE
+		<set>
+			<if test="CL_CODE_NM != null">		COM_CD_NM     = <![CDATA[#{CL_CODE_NM}]]>,</if>
+			<if test="CL_CODE_VALUE != null">	COM_CD_VAL    = <![CDATA[#{CL_CODE_VALUE}]]>,</if>
+			<if test="CL_DC != null">			DC            = <![CDATA[#{CL_DC}]]>,</if>
+			<if test="CL_USE_YN != null">		USE_YN        = <![CDATA[#{CL_USE_YN}]]>,</if>
+			<if test="CL_SORT != null">			SORT_SEQ      = <![CDATA[#{CL_SORT}]]>,</if>
+			<if test="CL_RM != null">			RM            = <![CDATA[#{CL_RM}]]>,</if>
+			<if test="LOGIN_ADM_ID != null">	UPDT_MBER_SN  = #{LOGIN_ADM_ID},</if>
+												UPDT_DT       = SYSDATE,
+		</set>
+		 WHERE GRP_CD = #{CL_GROUP_CODE}
+		   AND COM_CD = #{CL_CODE}
+	</update>
+	
+	<!-- 공통코드 정렬순서 변경 -->
+	<update id="updateCodeSort" parameterType="hashmap">
+		UPDATE CODE
+		   SET SORT_SEQ = #{I_SORT}
+		 WHERE GRP_CD = #{I_GROUP_CODE}
+		   AND COM_CD = #{I_CODE}
+	</update>
+	
+	<!-- 공통코드 조회 -->
+	<select id="selectCode" parameterType="hashmap" resultType="hashmap">
+		SELECT GRP_CD
+			 , COM_CD
+			 , COM_CD_NM
+			 , COM_CD_VAL
+			 , DC
+			 , USE_YN
+			 , SORT_SEQ
+			 , RM
+		  FROM CODE
+		 WHERE GRP_CD = #{I_GROUP_CODE}
+		   AND COM_CD = #{I_CODE}
+	</select>
+	
+	<!-- 공통코드 사용여부 변경  -->
+	<update id="updateCodeUseYn" parameterType="hashmap">
+		UPDATE CODE
+		   SET USE_YN = #{I_USE_YN}
+		 WHERE GRP_CD = #{I_GROUP_CODE}
+		   AND COM_CD = #{I_CODE}
+	</update>
+	
+	<!-- 공통코드 삭제 -->
+	<delete id="deleteCodeReg" parameterType="hashmap">
+		DELETE CODE
+		 WHERE GRP_CD = #{CL_GROUP_CODE}
+		   AND COM_CD = #{CL_CODE}
+	</delete>
+	
+	<!-- 제휴사 택배 리스트 조회 -->
+	<select id="selectDlvCompList" parameterType="hashmap" resultType="hashmap">
+		SELECT
+		  CD.COM_CD, 
+		  DI.DLV_AMT,
+		  DI.DLV_AMT_JEJU,
+		  DI.DLV_AMT_DOSE,
+		  CD.COM_CD_NM,
+	      CD.USE_YN
+		  FROM
+		    REL_DLV_INFO DI
+		    <if test="dlvType == 1">
+		    LEFT OUTER JOIN 
+		    </if>
+		    <if test="dlvType == 2">
+		    RIGHT OUTER JOIN 
+		    </if>
+		    CODE CD 
+		  ON CD.COM_CD = DI.DLV_CMP_CD 
+		  WHERE GRP_CD ='DLV_CMP_CD'
+		    AND USE_YN = 'Y'
+	</select>
+</mapper>

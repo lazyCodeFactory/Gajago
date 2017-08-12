@@ -1,0 +1,323 @@
+package com.ssocio.sharing.controller.batch;
+
+
+import java.util.Map;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.ModelMap;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.servlet.ModelAndView;
+
+import com.ssocio.sharing.cmmn.util.CmmnCnst;
+import com.ssocio.sharing.service.batch.BatchAdjustService;
+
+/**
+ * <pre>
+ * 
+ * 
+ * @param request
+ * @param response
+ * @param inParam
+ * @return
+ * @throws Exception
+ * @date 2015. 10. 12.
+ * @author JUHYUNG. PARK
+ * </pre>
+ */
+@RequestMapping("/batch")
+@Controller
+public class BatchAdjustController extends BatchReferController {
+
+	private static final Logger logger = LoggerFactory.getLogger(BatchAdjustController.class);
+	
+	
+	@Autowired
+	BatchAdjustService service;
+	
+	/**
+	 * <pre>
+	 * 
+	 * 
+	 * @param request
+	 * @param response
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @date 2015. 10. 12.
+	 * @author JUHYUNG. PARK
+	 * @see com.ssocio.sharing.controller.admin
+	 * </pre>
+	 */
+	@ResponseBody
+	@RequestMapping("/batchCon.do")
+	public String batchCon() {
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("batchCon START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		ModelMap modelMap = new ModelMap();
+		String hist_seq = "";
+		String err_dtl = "[OK]";
+		String batch_nm = CmmnCnst.BATCH_JOB_ADJUST_SELL_SHARE; // 공통 코드 파일 못 찾음
+		
+		try{
+			logger.info("##### batch :: init #####");
+			service.initBatch(batch_nm);
+			logger.info("##### batch :: pre #####");
+			hist_seq = service.preBatch(batch_nm);
+		} catch (Exception e){
+			e.printStackTrace();
+			err_dtl = "::[InitBatchNPreBatch]"+e.toString();
+		}
+		
+		try {
+			logger.info("##### batch :: batch #####");
+			int cnt = service.batchAdjustCnt();
+		
+			int page_no = 1;
+			int totCnt = 0;
+			if(cnt > 100){
+				int orgCnt = cnt;
+				while(cnt > 0){
+					totCnt += service.batchAdjust(page_no, orgCnt);
+					page_no++;
+					cnt = cnt - 100;
+					logger.debug(">>>>> cnt : "+cnt + " page_no : "+page_no);
+				}
+				
+				modelMap.put("cnt", totCnt);
+			}else{
+				
+				modelMap.put("cnt", service.batchAdjust(1, cnt));
+			}
+			err_dtl += modelMap.toString();
+		} catch (Exception e) {
+			e.printStackTrace();
+			err_dtl = "::[batchInfo]"+e.toString();
+		}
+		
+		try {
+			logger.info("##### batch :: post #####");
+			service.postBatch(hist_seq, err_dtl);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+//		try {
+//			service.batchRtnAdjust();
+//		} catch (Exception e) {
+//			e.printStackTrace();
+//		}
+
+		modelMap.put("result", err_dtl);
+		return modelMap.toString();
+	}
+	
+	@ResponseBody
+	@RequestMapping("/batchTr.do")
+	public String batchTr(@RequestParam Map<String, Object> inParam) {
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("batchTr START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		ModelMap modelMap = new ModelMap();
+		String hist_seq = "";
+		String err_dtl = "[OK]";
+		String batch_nm = CmmnCnst.BATCH_JOB_ADJUST_TR;  // 공통 코드 파일 못 찾음
+		
+		try{
+			logger.info("##### batch :: init #####");
+			service.initBatch(batch_nm);
+			logger.info("##### batch :: pre #####");
+			hist_seq = service.preBatch(batch_nm);
+		} catch (Exception e){
+			e.printStackTrace();
+			err_dtl = "::[InitBatchNPreBatch]"+e.toString();
+		}
+		
+		try {
+			logger.info("##### batch :: batch #####");
+			modelMap.put("cnt", service.batchAdjustTr(inParam));
+			err_dtl += modelMap.toString();
+		} catch (Exception e) {
+			e.printStackTrace();
+			err_dtl = "::[batchInfo]"+e.toString();
+		}
+		
+		try {
+			logger.info("##### batch :: post #####");
+			service.postBatch(hist_seq, err_dtl);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		modelMap.put("result", err_dtl);
+		return modelMap.toString();
+	}
+	
+	@ResponseBody
+	@RequestMapping("/Paymnt.do")
+	public String batchPaymnt() {
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("Paymnt START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		ModelMap modelMap = new ModelMap();
+		String hist_seq = "";
+		String err_dtl = "[OK]";
+		String batch_nm = CmmnCnst.BATCH_JOB_ADJUST_PAYMNT; // 공통 코드 파일 못 찾음
+		
+		try{
+			logger.info("##### batch :: init #####");
+			service.initBatch(batch_nm);
+			logger.info("##### batch :: pre #####");
+			hist_seq = service.preBatch(batch_nm);
+		} catch (Exception e){
+			e.printStackTrace();
+			err_dtl = "::[InitBatchNPreBatch]"+e.toString();
+		}
+		
+		try {
+			logger.info("##### batch :: batch #####");
+			modelMap.put("cnt", service.batchAdjustPaymnt());
+			err_dtl += modelMap.toString();
+		} catch (Exception e) {
+			e.printStackTrace();
+			err_dtl = "::[batchInfo]"+e.toString();
+		}
+		
+		try {
+			logger.info("##### batch :: post #####");
+			service.postBatch(hist_seq, err_dtl);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		modelMap.put("result", err_dtl);
+		return modelMap.toString();
+	}
+	
+	@ResponseBody
+	@RequestMapping("/batchSpStat.do")
+	public String batchSpStat() {
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("batchSpStat START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		ModelMap modelMap = new ModelMap();
+		String hist_seq = "";
+		String err_dtl = "[OK]";
+		String batch_nm = CmmnCnst.BATCH_JOB_SP_SHING; // 공통 코드 파일 못 찾음
+		
+		try{
+			logger.info("##### batch :: init #####");
+			service.initBatch(batch_nm);
+			logger.info("##### batch :: pre #####");
+			hist_seq = service.preBatch(batch_nm);
+		} catch (Exception e){
+			e.printStackTrace();
+			err_dtl = "::[InitBatchNPreBatch]"+e.toString();
+		}
+		
+		try {
+			logger.info("##### batch :: batch #####");
+			modelMap.put("cnt", service.batchSpStat());
+			err_dtl += modelMap.toString();
+		} catch (Exception e) {
+			e.printStackTrace();
+			err_dtl = "::[batchInfo]"+e.toString();
+		}
+		
+		try {
+			logger.info("##### batch :: post #####");
+			service.postBatch(hist_seq, err_dtl);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		modelMap.put("result", err_dtl);
+		return modelMap.toString();
+	}
+	
+	@ResponseBody
+	@RequestMapping("/batchAcc.do")
+	public String batchAcc() {
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("batchAcc START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		ModelMap modelMap = new ModelMap();
+		String hist_seq = "";
+		String err_dtl = "[OK]";
+		String batch_nm = CmmnCnst.BATCH_JOB_STATIS_ACC; // 공통 코드 파일 못 찾음
+
+		try{
+			logger.info("##### batch :: init #####");
+			service.initBatch(batch_nm);
+			logger.info("##### batch :: pre #####");
+			hist_seq = service.preBatch(batch_nm);
+		} catch (Exception e){
+			e.printStackTrace();
+			err_dtl = "::[InitBatchNPreBatch]"+e.toString();
+		}
+		
+		try {
+			logger.info("##### batch :: batch #####");
+			modelMap.put("cnt", service.batchAccStatis());
+			modelMap.put("cnt", service.batchSgnStatis());
+			err_dtl += modelMap.toString();
+		} catch (Exception e) {
+			e.printStackTrace();
+			err_dtl = "::[batchInfo]"+e.toString();
+		}
+		
+		try {
+			logger.info("##### batch :: post #####");
+			service.postBatch(hist_seq, err_dtl);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		modelMap.put("result", err_dtl);
+		return modelMap.toString();
+	}
+	
+	@ResponseBody
+	@RequestMapping("/batchSellConf.do")
+	public String batchSellConf() {
+		logger.info("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+		logger.info("batchAcc START");
+		logger.info("★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆");
+		ModelMap modelMap = new ModelMap();
+		String hist_seq = "";
+		String err_dtl = "[OK]";
+		String batch_nm = CmmnCnst.BATCH_JOB_ADJUST_SELL_CONF; // 공통 코드 파일 못 찾음
+		
+		try{
+			logger.info("##### batch :: init #####");
+			service.initBatch(batch_nm);
+			logger.info("##### batch :: pre #####");
+			hist_seq = service.preBatch(batch_nm);
+		} catch (Exception e){
+			e.printStackTrace();
+			err_dtl = "::[InitBatchNPreBatch]"+e.toString();
+		}
+		
+		try {
+			logger.info("##### batch :: batch #####");
+			modelMap.put("cnt", service.batchSellConf());
+			err_dtl += modelMap.toString();
+		} catch (Exception e) {
+			e.printStackTrace();
+			err_dtl = "::[batchInfo]"+e.toString();
+		}
+		
+		try {
+			logger.info("##### batch :: post #####");
+			service.postBatch(hist_seq, err_dtl);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		modelMap.put("result", err_dtl);
+		return modelMap.toString();
+	}
+	
+}

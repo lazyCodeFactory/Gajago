@@ -1,0 +1,266 @@
+package com.ssocio.sharing.vo.web;
+
+import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.net.URLDecoder;
+import java.net.URLEncoder;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
+
+
+import kr.co.danal.jsinbi.HttpClient;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.ssocio.sharing.cmmn.util.CmmnCnst;
+
+public class KCredit {
+
+	private static final Logger logger = LoggerFactory.getLogger(KCredit.class);
+	/******************************************************
+	 * 다날 신용카드 결제
+	 ******************************************************/
+	
+	/******************************************************
+	 * 결제 연동에 필요한 Function 및 변수값 설정
+	 *
+	 * 결제시스템 연동에 대한 문의사항 있으시면 기술지원팀으로 연락 주십시오.
+	 * DANAL Commerce Division Technique supporting Team 
+	 * EMail : tech@danal.co.kr	 
+	 ******************************************************/
+
+
+	/******************************************************
+	 * 결제서버 URL 정의.
+     *
+	 *   - https://pay.teledit.com/service/card  
+	 ******************************************************/
+
+	public String DN_CREDIT_URL = CmmnCnst.DANAL_CARD_URL;								
+	
+	public final int DN_CONNECT_TIMEOUT = 5000;
+	public final int DN_TIMEOUT = 30000;
+	public final int DN_RTIME = 30000;
+	
+	public final String  ERC_NETWORK_ERROR = "-1";	
+		
+	public final String  ERM_NETWORK = "Network Error";
+	
+	/******************************************************
+	 *  ID, PWD : 다날에서 제공해 드린 CPID, CPPWD 및 CPIP
+	 ******************************************************/
+	public String ID_MERCHANT = CmmnCnst.KCREDIT_ID_MERCHANT;
+	public String PW_MERCHANT =  CmmnCnst.KCREDIT_PW_MERCHANT;
+
+
+     /******************************************************
+	 * 다날 서버와 통신함수 CallCredit
+	 *    - 다날 서버와 통신하는 함수입니다.
+	 *    - $Debug가 true일경우 웹브라우져에 debuging 메시지를 출력합니다.
+	 ******************************************************/
+
+	 public Map CallCredit( Map REQ_DATA){
+		
+		REQ_DATA.put("WPage", "MOBILE");
+		String REQ_STR = data2str(REQ_DATA);
+		
+		HttpClient hc = new HttpClient();
+		hc.setConnectionTimeout(DN_CONNECT_TIMEOUT);
+		hc.setTimeout(DN_TIMEOUT);
+	
+//		int Result = hc.retrieve("POST" , DN_CREDIT_URL, REQ_STR,"UTF-8","UTF-8");
+		
+		String RES_STR = "";
+		
+		
+		int Result = 0;
+		try{
+			Result = hc.retrieve("POST" , DN_CREDIT_URL, REQ_STR, "EUC-KR", "EUC-KR");		// utf8 - 
+			if( Result == HttpClient.EOK && hc.getResponseCode() == 200 ) {
+				RES_STR = hc.getResponseBody();
+			}else{
+				RES_STR = "RETURNCODE=" + ERC_NETWORK_ERROR + "&RETURNMSG=" + ERM_NETWORK + "( " + Result + "/" + hc.getResponseCode() + " )";
+			}
+		} catch (Exception e){
+			RES_STR = "RETURNCODE=" + ERC_NETWORK_ERROR + "&RETURNMSG=" + e.getMessage();
+		}
+		
+
+		
+
+		return str2data(RES_STR);
+	}
+	
+	 public Map str2data(String str) {
+			Map map = new HashMap();
+			String[] st = str.split("&");
+
+			for(int i = 0; i < st.length; i++){
+				int index = st[i].indexOf('=');
+				if (index > 0)
+					map.put(st[i].substring(0, index), urlDecode(st[i].substring(index + 1)));
+			}
+
+			return map;
+	}
+			
+		
+	public String data2str(Map data) {
+
+			Iterator i = data.keySet().iterator();
+			StringBuffer sb = new StringBuffer();
+			while (i.hasNext()) {
+				Object key = i.next();
+				Object value = data.get(key);
+				sb.append(key.toString());
+				sb.append('=');
+				
+				if(key.equals("NM_ITEM")){
+					sb.append(value.toString());
+				}else if(value != null){
+					sb.append(toEuckr(value.toString()));
+				}
+				sb.append('&');
+			}
+
+			if (sb.length() > 0)
+				return sb.substring(0, sb.length() - 1);
+			else
+				return "";
+	}
+		
+		
+	/*
+	 *  map에 있는 key, value를 HIDDEN 태그로 만듬
+	 *  arr에 있는 key값은 제외
+	 */
+	public String MakeFormInput(Map map , String[] arr) {
+		StringBuffer ret = new StringBuffer();
+
+		if(arr != null){
+			for(int i = 0; i < arr.length; i++)
+				if(map.containsKey(arr[i]))
+					map.remove(arr[i]);
+		}
+
+		Iterator i = map.keySet().iterator();
+		while(i.hasNext()){
+			String key = (String)i.next();
+			String value = (String)map.get(key);
+			
+			ret.append("<INPUT TYPE=\"HIDDEN\" NAME=\"");
+			ret.append(key);
+			ret.append("\" VALUE=\"");
+			ret.append(value);
+			ret.append("\">");
+			ret.append('\n');
+		}
+
+		return ret.toString();
+	}
+	
+ 
+	
+	/*
+	 *  HTTPVAR에 있는 key, value를 HIDDEN 태그로 만듬
+	 *  arr에 있는 key값은 제외
+	 */	
+	public String MakeFormInputHTTP(Map HTTPVAR , String[] arr) {
+		StringBuffer ret = new StringBuffer();
+		String key = "";
+		String[] value = null;
+
+		if(arr != null){
+			for(int i = 0; i < arr.length; i++)
+				if(HTTPVAR.containsKey(arr[i]))
+					HTTPVAR.remove(arr[i]);
+		}
+		
+		Iterator i = HTTPVAR.keySet().iterator();
+		while(i.hasNext()){
+			key = (String)i.next();
+
+			value = (String[])HTTPVAR.get(key);
+			
+			for(int j = 0; j < value.length; j++){
+				ret.append("<INPUT TYPE=\"HIDDEN\" NAME=\"");
+				ret.append(key);
+				ret.append("\" VALUE=\"");
+				if(key.equals("ItemName")) ret.append(toEuckr(value[j]));
+				else ret.append(value[j]);
+				ret.append("\">");
+				ret.append('\n');
+			}
+		}
+
+		return ret.toString();
+	}
+		
+	/*
+	 *  urlEncode
+	 */
+	public String urlEncode(Object obj){
+		if (obj == null)
+			return null;
+
+		try{
+			return URLEncoder.encode(obj.toString(), "ISO-8859-1");
+		}catch (Exception e){
+			return obj.toString();
+		}
+	}
+
+
+	/*
+	 *  urlDecode
+	 */
+	public String urlDecode(Object obj) {
+		if (obj == null)
+			return null;
+
+		try{
+			return URLDecoder.decode(obj.toString(), "ISO-8859-1");
+		}catch (Exception e) {
+			return obj.toString();
+		}
+	}
+
+	public String toEuckr(String str){
+		if(str == null) return "";
+		try{
+			return new String(str.getBytes("UTF-8"),"euc-kr");
+		}catch(IOException e){ return ""; }
+	}
+	public String toUtf8(String str){
+		if(str == null) return "";
+		try{
+			return new String(str.getBytes("euc-kr"),"UTF-8");
+		}catch(IOException e){ return ""; }
+	}
+//	public String toEuckr(String str){
+//		if(str == null) return "";
+//		try{
+//			return new String(str.getBytes("8859_1"),"euc-kr");
+//		}catch(IOException e){ return ""; }
+//	}
+
+	public String getID_MERCHANT() {
+		return ID_MERCHANT;
+	}
+
+	public void setID_MERCHANT(String iD_MERCHANT) {
+		ID_MERCHANT = iD_MERCHANT;
+	}
+
+	public String getPW_MERCHANT() {
+		return PW_MERCHANT;
+	}
+
+	public void setPW_MERCHANT(String pW_MERCHANT) {
+		PW_MERCHANT = pW_MERCHANT;
+	}
+
+	
+}

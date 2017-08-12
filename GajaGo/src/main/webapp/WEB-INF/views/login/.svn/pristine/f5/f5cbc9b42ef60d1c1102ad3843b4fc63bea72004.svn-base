@@ -1,0 +1,211 @@
+package com.ssocio.sharing.controller.mobile;
+
+import java.net.URLEncoder;
+import java.util.List;
+import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.json.simple.JSONObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.servlet.ModelAndView;
+import com.ssocio.sharing.cmmn.util.LoggerUtil;
+import com.ssocio.sharing.service.web.MobileMyBasketService;
+import com.ssocio.sharing.vo.web.WebSession;
+
+/**
+ * <pre>
+ * 장바구니 컨트롤러
+ * 장바구니를 위한 컨트롤러
+ * @author 
+ * @version
+ * @since 
+ * @see
+ * @History
+ * Date			|	author	| 변경 내용
+ * @비고
+ * </pre>
+ */
+@Controller
+public class MobileMyBasketController extends MobileReferController {
+
+	private static final Logger logger = LoggerFactory.getLogger(MobileMyBasketController.class);
+	
+	@Autowired
+	private MobileMyBasketService mobileMyBasketService;
+	
+	/**
+	 * 장바구니 화면으로 이동
+	 */
+	@RequestMapping("/mobile/myBasket/getMyBasketInfo.do")
+	public ModelAndView getMyBasketInfo(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		if(request.getSession().getAttribute("user")==null){
+			String returnUrl = "/mobile/myPage/getMyPageInfo.do?";
+			return new ModelAndView("redirect:/mobile/main/login.do"+"?ret="+URLEncoder.encode(returnUrl,"UTF-8"));
+		}
+		ModelAndView mav = new ModelAndView();
+		LoggerUtil.writeMap(inParam);
+		logger.debug("### GUBUN		:"+inParam.get("GUBUN"));
+		try {
+			WebSession user = (WebSession)request.getSession().getAttribute("user");
+			logger.debug("### MBER_SEQ		:"+user.getMBER_SEQ());
+			logger.debug("### MOBILE_GUBUN	:"+user.getMOBILE_GUBUN());
+			logger.debug("### MBER_GB_CD	:["+user.getMBER_GB_CD()	+"] >>>>>>>>>>>>>>>>>> 0.구매, 1.판매");
+			logger.debug("### MBER_NM	:"+user.getMBER_NM());
+			inParam.put("MBER_SEQ", user.getMBER_SEQ());
+			
+			List<Map<String, Object>> resultList = null;
+			//mav.addObject("result", resultList);
+			//mav.addObject("resultCnt", resultList.size());
+			mav.addObject("params", inParam);
+			mav.addObject("MBER_NM", user.getMBER_NM());
+			mav.setViewName("web/myPage/getMyBasketInfo");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mav;
+	}
+	/**
+	 * 장바구니 > 화면으로 이동 ( AJAX )
+	 */
+	@RequestMapping("/mobile/myBasket/getMyBasketList.do")
+	public ModelAndView getMyBasketList(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		if(request.getSession().getAttribute("user")==null){
+			String returnUrl = "/mobile/myPage/getMyPageInfo.do?";
+			return new ModelAndView("redirect:/mobile/main/login.do"+"?ret="+URLEncoder.encode(returnUrl,"UTF-8"));
+		}
+		ModelAndView mav = new ModelAndView("jsonView");
+		LoggerUtil.writeMap(inParam);
+		try {
+			WebSession user = (WebSession)request.getSession().getAttribute("user");
+			logger.debug("### MBER_SEQ		:"+user.getMBER_SEQ());
+			logger.debug("### MOBILE_GUBUN	:"+user.getMOBILE_GUBUN());
+			logger.debug("### MBER_GB_CD	:["+user.getMBER_GB_CD()	+"] >>>>>>>>>>>>>>>>>> 0.구매, 1.판매");
+			logger.debug("### arg (A.판매상품,B.셰어링상품	:["+inParam.get("arg")+"]" );
+			String arg = (String)inParam.get("arg");
+			if("A".equals(arg)){	
+				logger.debug("### 판매상품	" );
+				mav.addObject("result", mobileMyBasketService.getMySellList(inParam, user).get("resultList"));
+			}else if("B".equals(arg)){	
+				logger.debug("### 셰어링 상품	" );
+				mav.addObject("result", mobileMyBasketService.getMySharingList(inParam, user).get("resultList"));			
+			}else{
+				mav.addObject("result","");
+			}
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mav;
+	}
+	
+	/**
+	 * 장바구니 삭제
+	 * 	- 선택삭제(체크박스에서 선택한것 chk01)
+	 */
+	@RequestMapping("/mobile/myBacket/deleteMyBacket.do")
+	public @ResponseBody String deleteMyBacket(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		
+		LoggerUtil.writeMap(inParam);
+		String result = "";
+		try {
+			WebSession user = (WebSession)request.getSession().getAttribute("user");
+			logger.debug("### MBER_SEQ		:"+user.getMBER_SEQ());
+			logger.debug("### MOBILE_GUBUN	:"+user.getMOBILE_GUBUN());
+			logger.debug("### MBER_GB_CD	:["+user.getMBER_GB_CD()	+"] >>>>>>>>>>>>>>>>>> 0.구매, 1.판매");
+		
+			mobileMyBasketService.deleteMyBasket(inParam, user);
+			
+			JSONObject jsonObj = new JSONObject() ;
+			jsonObj.put("result", "정상처리되었습니다.");
+			result = jsonObj.toString();
+			logger.debug("### result	:["+result	+"] >>>>");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return result;
+	}
+	/**
+	 * 	[상품정보 변경/제고부족으로 삭제.]
+	 * 	- 사용처 : [셰어링] 장바구니 삭제
+	 *   	1.조회 OPT_CD 해서 1건이면 CART_OPT , CART도 삭제처리 
+	 * 			1-1.OPT_CD , 2.PROD_CODE
+	 * 		2.상품코드만 존재시 CART 만 삭제처리 
+	 */
+	@RequestMapping("/mobile/myBacket/deleteMyBacketChangeDel.do")
+	public @ResponseBody String deleteMyBacketChangeDel(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		
+		LoggerUtil.writeMap(inParam);
+		String result = "";
+		try {
+			WebSession user = (WebSession)request.getSession().getAttribute("user");
+			logger.debug("### MBER_SEQ		:"+user.getMBER_SEQ());
+			logger.debug("### MOBILE_GUBUN	:"+user.getMOBILE_GUBUN());
+			logger.debug("### MBER_GB_CD	:["+user.getMBER_GB_CD()	+"] >>>>>>>>>>>>>>>>>> 0.구매, 1.판매");
+		
+			mobileMyBasketService.deleteMyBacketChangeDel(inParam, user);
+			
+			JSONObject jsonObj = new JSONObject() ;
+			jsonObj.put("result", "정상처리되었습니다.");
+			result = jsonObj.toString();
+			logger.debug("### result	:["+result	+"] >>>>");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return result;
+	}
+	/**
+	 * 장바구니 옵션 삭제
+	 */
+	@RequestMapping("/mobile/myBacket/deleteMyBasketOption.do")
+	public @ResponseBody String deleteMyBasketOption(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		
+		LoggerUtil.writeMap(inParam);
+		String result = "";
+		try {
+			WebSession user = (WebSession)request.getSession().getAttribute("user");
+			logger.debug("### MBER_SEQ		:"+user.getMBER_SEQ());
+			logger.debug("### MOBILE_GUBUN	:"+user.getMOBILE_GUBUN());
+			logger.debug("### MBER_GB_CD	:["+user.getMBER_GB_CD()	+"] >>>>>>>>>>>>>>>>>> 0.구매, 1.판매");
+		
+			mobileMyBasketService.deleteMyBasketOption(inParam, user);
+			
+			JSONObject jsonObj = new JSONObject() ;
+			jsonObj.put("result", "정상처리되었습니다.");
+			result = jsonObj.toString();
+			logger.debug("### result	:["+result	+"] >>>>");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return result;
+	}
+	
+	@RequestMapping("/mobile/myBasket/getMyBasketStockCnt.do")
+	public ModelAndView getMyBasketStockCnt(HttpServletRequest request, HttpServletResponse response, @RequestParam Map<String, Object> inParam) throws Exception{
+		if(request.getSession().getAttribute("user")==null){
+			String returnUrl = "/mobile/myPage/getMyPageInfo.do?";
+			return new ModelAndView("redirect:/mobile/main/login.do"+"?ret="+URLEncoder.encode(returnUrl,"UTF-8"));
+		}
+		ModelAndView mav = new ModelAndView("jsonView");
+		LoggerUtil.writeMap(inParam);
+		try {
+			WebSession user = (WebSession)request.getSession().getAttribute("user");
+			logger.debug("### MBER_SEQ		:"+user.getMBER_SEQ());
+			logger.debug("### MOBILE_GUBUN	:"+user.getMOBILE_GUBUN());
+			logger.debug("### MBER_GB_CD	:["+user.getMBER_GB_CD()	+"] >>>>>>>>>>>>>>>>>> 0.구매, 1.판매");
+			logger.debug("### 	:["+inParam.get("GUBUN")+"]   ["+inParam.get("CD")+"]   ["+inParam.get("QTY")+"]" );
+			mav.addObject("result", mobileMyBasketService.getMyBasketStockCnt(inParam, user));
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mav;
+	}
+}

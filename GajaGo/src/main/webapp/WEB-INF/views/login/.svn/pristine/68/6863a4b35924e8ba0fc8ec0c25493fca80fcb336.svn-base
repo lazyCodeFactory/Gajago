@@ -1,0 +1,284 @@
+package com.ssocio.sharing.service.batch;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.interceptor.TransactionAspectSupport;
+
+import com.ssocio.sharing.cmmn.util.LoggerUtil;
+import com.ssocio.sharing.dao.batch.BatchSellerPerfDao;
+
+/**
+ * <pre>
+ * 설명
+ * 설명
+ * @author kim
+ * @version
+ * @since 2015. 10. 29
+ * @see
+ * @History
+ * Date			|	author	| 변경 내용
+ * 2015. 10. 29.	|	kim	|신규
+ * @비고
+ * </pre>
+ */
+@Service
+public class BatchSellerPerfServiceImpl implements BatchSellerPerfService {
+
+	// --------------------------------------------------------------------------
+	// # Log 설정
+	// --------------------------------------------------------------------------
+	private static final Logger logger = LoggerFactory.getLogger(BatchSellerPerfServiceImpl.class);
+
+	// --------------------------------------------------------------------------
+	// # DAO 설정
+	// --------------------------------------------------------------------------
+	@Resource(name="batchSellerPerfDao")
+	private BatchSellerPerfDao batchSellerPerfDao;
+
+	/**
+	 * <pre>
+	 * 실적관리 배치 처리
+	 *
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 10. 15
+	 * @author kim
+	 * @see @see com.ssocio.sharing.service.batch.BatchSellerPerfServiceImpl
+	 * @비고
+	 *
+	 * </pre>
+	 */
+	@Transactional(rollbackFor=Exception.class)
+	@Override
+	public void initBatch(String batch_nm) throws Exception {
+		logger.info("########### BatchSellerPerfServiceImpl :: initBatch :: Start ##########");
+		try {
+
+			if(null == batchSellerPerfDao.selectBatchJobCfgInfo(batch_nm)){
+
+				Map<String, Object> inParam = new HashMap<String, Object>();
+				inParam.put("batch_nm", batch_nm);
+				inParam.put("batch_term_gb", "");
+				inParam.put("rm", "");
+
+				batchSellerPerfDao.insertBatchJobCfg(inParam);
+			}
+
+		} catch (Exception e) {
+			e.printStackTrace();
+			logger.info(" 실패로 RollBack !!!!!!]");
+			TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+			throw new Exception(e);
+		}
+		logger.info("########### BatchSellerPerfServiceImpl :: initBatch :: End ##########");
+		return;
+	}
+
+	@Transactional(rollbackFor=Exception.class)
+	@Override
+	public String preBatch(String batch_nm) throws Exception {
+		logger.info("########### BatchSellerPerfServiceImpl :: preBatch :: Start ##########");
+		Map<String, Object> inParam = new HashMap<String, Object>();
+		String batch_id = "";
+		try {
+			batch_id = batchSellerPerfDao.selectBatchJobCfgStat(batch_nm);
+
+			if(batch_id != null){
+
+				inParam.put("batch_id", batch_id);
+				inParam.put("start", "start");
+				inParam.put("job_stat", "R");
+				inParam.put("rm", "");
+
+				batchSellerPerfDao.updateBatchJobCfg(inParam);
+				batchSellerPerfDao.insertBatchJobHist(inParam);
+			}
+
+		} catch (Exception e) {
+			e.printStackTrace();
+			logger.info(" 실패로 RollBack !!!!!!]");
+			TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+			throw new Exception(e);
+		}
+		logger.info("########### BatchSellerPerfServiceImpl :: preBatch :: End ##########");
+		return inParam.get("hist_seq").toString();
+	}
+
+	@Transactional(rollbackFor=Exception.class)
+	@Override
+	public String postBatch(String hist_seq, String err_dtl) throws Exception {
+		logger.info("########### BatchSellerPerfServiceImpl :: postBatch :: Start ##########");
+		try {
+
+			Map<String, Object> inParam = new HashMap<String, Object>();
+			inParam.put("hist_seq", hist_seq);
+			inParam.put("err_dtl", err_dtl);
+
+			batchSellerPerfDao.updateBatchJobHist(inParam);
+
+		} catch (Exception e) {
+			e.printStackTrace();
+			logger.info(" 실패로 RollBack !!!!!!]");
+			TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+			throw new Exception(e);
+		}
+		logger.info("########### BatchSellerPerfServiceImpl :: postBatch :: End ##########");
+		return hist_seq;
+	}
+
+	@Transactional(rollbackFor=Exception.class)
+	@Override
+	public int batchSellerPerfDate(Map<String, Object> inParam) throws Exception {
+		logger.info("########### BatchSellerPerfServiceImpl :: batchSellerPerfDate :: Start ##########");
+		int cnt = 0;
+
+//		Map<String, Object> inParam = new HashMap<String, Object>();
+
+		// 기간별
+		try {
+			// 배치 대상건 셀렉트
+			inParam.putAll(batchSellerPerfDao.selectTermSellerPerfDate());
+
+//			if("N".equals(inParam.get("EXC_FLAG"))){ // 기처리
+//				return 0;
+//			}
+//
+//			List<Map<String, Object>> list = batchSellerPerfDao.selectListSellerPerfDate(inParam);
+//
+//
+//			for(Map<String, Object> map : list){ // 대상건 많큼 insert 로직 돌음
+//				try{
+//
+//					logger.debug("####################################");
+//					logger.debug("################실데이터 insert########");
+//
+//					// 매퍼에 쿼리 넣기 요청
+//					LoggerUtil.writeMap(map);
+//					int result = batchSellerPerfDao.insertListSellerPerfDate(map); // 대상건 값 리턴
+//
+//					if(result>0){
+//						cnt +=1;
+//					}
+//
+//				}catch(Exception e){
+//					e.printStackTrace();
+//				}
+//			}
+			cnt = batchSellerPerfDao.mergeSellerPerfDate(inParam);
+			logger.debug(">>>>> cnt : "+cnt);
+		} catch (Exception e) {
+			e.printStackTrace();
+			logger.info(" 실패로 RollBack !!!!!!]");
+			TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+			throw new Exception(e);
+		}
+		logger.info("########### BatchSellerPerfServiceImpl :: batchSellerPerfDate :: End ##########");
+		return cnt;
+	}
+
+	@Transactional(rollbackFor=Exception.class)
+	@Override
+	public int batchSellerPerfCtry(Map<String, Object> inParam) throws Exception {
+		logger.info("########### BatchSellerPerfServiceImpl :: batchSellerPerfCtry :: Start ##########");
+		int cnt = 0;
+//		Map<String, Object> inParam = new HashMap<String, Object>();
+
+		// 기간별
+		try {
+			// 배치 대상건 셀렉트
+			inParam.putAll(batchSellerPerfDao.selectTermSellerPerfCtry());
+
+//			if("N".equals(inParam.get("EXC_FLAG"))){ // 기처리
+//				return 0;
+//			}
+//			List<Map<String, Object>> list = batchSellerPerfDao.selectListSellerPerfCtry(inParam);
+//
+//
+//			for(Map<String, Object> map : list){ // 대상건 많큼 insert 로직 돌음
+//				try{
+//
+//					logger.debug("####################################");
+//					logger.debug("################실데이터 insert########");
+//
+//					// 매퍼에 쿼리 넣기 요청
+//					LoggerUtil.writeMap(map);
+//					int result = batchSellerPerfDao.insertListSellerPerfCtry(map); // 대상건 값 리턴
+//
+//					if(result>0){
+//						cnt +=1;
+//					}
+//
+//				}catch(Exception e){
+//					e.printStackTrace();
+//				}
+//			}
+			cnt = batchSellerPerfDao.mergeSellerPerfCtry(inParam);
+			logger.debug(">>>>> cnt : "+cnt);
+		} catch (Exception e) {
+			e.printStackTrace();
+			logger.info(" 실패로 RollBack !!!!!!]");
+			TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+			throw new Exception(e);
+		}
+		logger.info("########### BatchSellerPerfServiceImpl :: batchSellerPerfCtry :: End ##########");
+		return cnt;
+	}
+
+	@Transactional(rollbackFor=Exception.class)
+	@Override
+	public int batchSellerPerfProd(Map<String, Object> inParam) throws Exception {
+		logger.info("########### BatchSellerPerfServiceImpl :: batchSellerPerfProd :: Start ##########");
+		int cnt = 0;
+//		Map<String, Object> inParam = new HashMap<String, Object>();
+
+		// 기간별
+		try {
+			// 배치 대상건 셀렉트
+			inParam.putAll(batchSellerPerfDao.selectTermSellerPerfProd());
+
+//			if("N".equals(inParam.get("EXC_FLAG"))){ // 기처리
+//				return 0;
+//			}
+//			List<Map<String, Object>> list = batchSellerPerfDao.selectListSellerPerfProd(inParam);
+//
+//
+//			for(Map<String, Object> map : list){ // 대상건 많큼 insert 로직 돌음
+//				try{
+//
+//					logger.debug("####################################");
+//					logger.debug("################실데이터 insert########");
+//
+//					// 매퍼에 쿼리 넣기 요청
+//					LoggerUtil.writeMap(map);
+//					int result = batchSellerPerfDao.insertListSellerPerfProd(map); // 대상건 값 리턴
+//
+//					if(result>0){
+//						cnt +=1;
+//					}
+//
+//				}catch(Exception e){
+//					e.printStackTrace();
+//				}
+//			}
+			cnt = batchSellerPerfDao.mergeSellerPerfProd(inParam);
+			logger.debug(">>>>> cnt : "+cnt);
+		} catch (Exception e) {
+			e.printStackTrace();
+			logger.info(" 실패로 RollBack !!!!!!]");
+			TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+			throw new Exception(e);
+		}
+		logger.info("########### BatchSellerPerfServiceImpl :: batchSellerPerfProd :: End ##########");
+		return cnt;
+	}
+}

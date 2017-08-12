@@ -1,0 +1,223 @@
+package com.ssocio.sharing.service.seller;
+
+import java.util.Map;
+
+import javax.annotation.Resource;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpSession;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.ui.ModelMap;
+
+import com.ssocio.sharing.cmmn.admin.util.CommonUtil;
+import com.ssocio.sharing.cmmn.util.CmmnCnst;
+import com.ssocio.sharing.cmmn.util.LoggerUtil;
+import com.ssocio.sharing.cmmn.util.StringUtil;
+import com.ssocio.sharing.dao.admin.AdminQAAdviceDao;
+import com.ssocio.sharing.dao.seller.SellerQAAdviceDao;
+import com.ssocio.sharing.vo.admin.AdminSession;
+import com.ssocio.sharing.vo.admin.PageNavigation;
+import com.ssocio.sharing.vo.seller.SellerSession;
+import com.ssocio.sharing.vo.web.WebSession;
+
+/**
+ * <pre>
+ * 공통 서비스
+ * 공통 서비스
+ * @author J.K.CHOI
+ * @version
+ * @since 2015. 7. 21. 오후 7:33:23
+ * @see
+ * @History
+ * Date			|	author	| 변경 내용
+ * 2015. 7. 21.	|	J.K.CHOI	|신규
+ * @비고
+ * </pre>
+ */
+@Service
+public class SellerQAAdviceServiceImpl implements SellerQAAdviceService {
+
+	// --------------------------------------------------------------------------
+	// # Log 설정
+	// --------------------------------------------------------------------------
+	private static final Logger logger = LoggerFactory.getLogger(SellerQAAdviceServiceImpl.class);
+	
+	// --------------------------------------------------------------------------
+	// # DAO 설정
+	// --------------------------------------------------------------------------
+	@Resource(name="sellerQAAdviceDao")
+	private SellerQAAdviceDao sellerQAAdviceDao;
+	
+	/**
+	 * <pre>
+	 * 상품문의 리스트 조회
+	 * 
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 21. 오후 2:03:43
+	 * @author J.K.CHOI
+	 * @see @see com.ssocio.sharing.service.admin.AdminQAAdviceService#selectListQAAdvice(java.util.Map)
+	 * @비고
+	 * 
+	 * </pre>
+	 */
+	@Override
+	public ModelMap selectListQAAdvice(Map<String, Object> inParam) throws Exception{
+		ModelMap mm = new ModelMap();
+		try {
+			if(inParam.get("S_START_DATE") == null || ("S_START_DATE").equals(inParam.get("S_START_DATE"))) inParam.put("S_START_DATE", StringUtil.getCurrentDate());
+			if(inParam.get("S_END_DATE") == null || ("S_END_DATE").equals(inParam.get("S_END_DATE"))) inParam.put("S_END_DATE", StringUtil.getCurrentDate());
+			
+			inParam.put("PAGE_NO", StringUtil.nvl((String)inParam.get("PAGE_NO"), "1"));
+			int nowPage = StringUtil.nvlInt((String)inParam.get("PAGE_NO"), 1); 
+			int rowCnt	= StringUtil.nvlInt((String)inParam.get("DISPLAY_CNT"), CmmnCnst.ADM_LIST_SIZE);
+			int rowTotal = sellerQAAdviceDao.selectListQAAdviceCount(inParam);
+			
+			PageNavigation pageNav= new PageNavigation(nowPage, rowTotal, rowCnt, CmmnCnst.ADM_BLOCK_SIZE );
+			mm.put("PAGE_NO", nowPage);
+			mm.put("pageNav", pageNav);
+		    inParam.put("START_ROW"	,pageNav.getStartRow());
+		    inParam.put("END_ROW"	,pageNav.getEndRow());   
+		    inParam.put("rowTotal", rowTotal);
+			LoggerUtil.writeMap(inParam);
+			mm.put("selectListQAAdvice",sellerQAAdviceDao.selectListQAAdvice(inParam));
+//			mm.put("selectStatusCount",sellerQAAdviceDao.selectStatusCount(inParam));
+			mm.put("params"	   ,inParam);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+	
+	/**
+	 * <pre>
+	 * 문의관리 상세 조회
+	 * 
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 21. 오후 4:24:44
+	 * @author J.K.CHOI
+	 * @see @see com.ssocio.sharing.service.admin.AdminQAAdviceService#selectQAAdvice(java.util.Map)
+	 * @비고
+	 * 
+	 * </pre>
+	 */  
+	@Override
+	public ModelMap selectQAAdvice(Map<String, Object> inParam) throws Exception{
+		ModelMap mm = new ModelMap();
+		try {
+			String[] arryKey = {"CONTENTS","ANS_CONTENTS"}; 
+			if(inParam.get("BOARD_TYPE_CD").equals("72")){
+				// 상품문의 상세
+				
+				mm.put("selectQAAdvice", CommonUtil.clobToString(sellerQAAdviceDao.selectQAAdvice(inParam), arryKey));
+				LoggerUtil.writeMap(mm);
+				/*mm.put("selectQAAdvice", sellerQAAdviceDao.selectQAAdvice(inParam));*/
+			}else if(inParam.get("BOARD_TYPE_CD").equals("40")){
+				// 1:1문의 상세
+				
+				mm.put("selectQAAdvice", CommonUtil.clobToString(sellerQAAdviceDao.selectQAAdviceeReg(inParam), arryKey));
+				System.out.println("DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD");
+				LoggerUtil.writeMap(mm);
+				//mm.put("selectQAAdvice", CommonUtil.clobToString(sellerQAAdviceDao.selectQAAdviceeReg(inParam), arryKey));
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return mm;
+	}
+	
+	/**
+	 * <pre>
+	 * 상담관리 등록
+	 * 
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 21. 오후 3:21:24
+	 * @author J.K.CHOI
+	 * @see @see com.ssocio.sharing.service.admin.AdminQAAdviceService#insertQAAdviceReg(java.util.Map)
+	 * @비고
+	 * 
+	 * </pre>
+	 */
+	@Override
+	public int insertQAAdviceReg(Map<String, Object> inParam, HttpServletRequest request) throws Exception {
+		int outParam = 0;
+		try {
+			/*HttpSession session = request.getSession();
+			SellerSession sessionVO = (SellerSession)session.getAttribute("manager");
+			inParam.put("WRITE_ID", sessionVO.getMBER_NM());*/
+			
+			LoggerUtil.writeMap(inParam);
+			outParam = sellerQAAdviceDao.insertQAAdviceReg(inParam);					//상담관리 등록
+			
+		}catch (Exception e) {
+			throw e;
+		}
+		return outParam;
+	}
+	
+	/**
+	 * <pre>
+	 * 상담관리 수정
+	 * 
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 21. 오후 3:33:26
+	 * @author J.K.CHOI
+	 * @see @see com.ssocio.sharing.service.admin.AdminQAAdviceService#updateQAAdviceReg(java.util.Map)
+	 * @비고
+	 * 
+	 * </pre>
+	 */
+	@Override
+	public int updateQAAdviceReg(Map<String, Object> inParam, HttpServletRequest request) throws Exception {
+		int outParam = 0;
+		try {
+			inParam.put("ANS_GB_CD", "30");
+			LoggerUtil.writeMap(inParam);
+			outParam = sellerQAAdviceDao.updateQAAdviceReg(inParam);		//상담관리 수정
+		}catch (Exception e) {
+			throw e;
+		}
+		return outParam;
+	}
+	
+	
+	/**
+	 * <pre>
+	 * 상담관리 삭제
+	 * 
+	 * @param inParam
+	 * @return
+	 * @throws Exception
+	 * @exception
+	 * @date 2015. 7. 21. 오후 3:21:24
+	 * @author J.K.CHOI
+	 * @see @see com.ssocio.sharing.service.admin.AdminQAAdviceService#insertQAAdviceReg(java.util.Map)
+	 * @비고
+	 * 
+	 * </pre>
+	 */
+	@Override
+	public int deleteQAAdvice(Map<String, Object> inParam) throws Exception {
+		int outParam = 0;
+		try {
+			outParam = sellerQAAdviceDao.deleteQAAdvice(inParam);					//상담관리 삭제
+			
+		}catch (Exception e) {
+			throw e;
+		}
+		return outParam;
+	}
+}

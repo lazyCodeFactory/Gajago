@@ -1,0 +1,478 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/admin/common/cmmnHead.jsp"%>
+<script src="/js/admin/statis/highcharts.js"></script>
+<script type="text/javascript">
+$(document).ready(function(){
+	$('.calendar').datepicker({
+		showOn: "button",
+		buttonImage: "http://static.ssocio.net/admin/images/ico_calendar.gif",
+		showOtherMonths: true,
+		selectOtherMonths: true,
+		firstDay:0,
+		buttonImageOnly: true,
+		onClose: function(dateText, inst){
+		var $picker = $(".ui-datepicker-calendar");
+		var min_year = $picker.find("tr").eq(tr_idx + 1).find("td").eq(0).attr("data-year");
+		var max_year = $picker.find("tr").eq(tr_idx + 1).find("td").eq(6).attr("data-year");
+		var min_month = parseInt($picker.find("tr").eq(tr_idx + 1).find("td").eq(0).attr("data-month")) + 1
+		var max_month = parseInt($picker.find("tr").eq(tr_idx + 1).find("td").eq(6).attr("data-month")) + 1
+		var min_day = $picker.find("tr").eq(tr_idx + 1).find("td").eq(0).find("a").text();
+		var max_day = $picker.find("tr").eq(tr_idx + 1).find("td").eq(6).find("a").text();
+		
+		if(min_month < 10){
+			min_month = '0'+min_month;
+		}
+		
+		if(max_month < 10){
+			max_month = '0'+max_month;
+		}
+		
+		if(min_day < 10){
+			min_day = '0'+min_day;
+		}
+		
+		if(max_day < 10){
+			max_day = '0'+max_day;
+		}
+		
+		var weekly = min_year+"-"+min_month+"-"+min_day+" ~ "+max_year+"-"+max_month+"-"+max_day;
+		$(this).val(weekly);
+		}
+	});
+	
+	// chart
+// 	var vTime = JSON.parse('${chartDate}');
+	var mw_sgn_o_cnt = JSON.parse('${mw_sgn_o_cnt}');
+	var mw_sgn_s_cnt = JSON.parse('${mw_sgn_s_cnt}');
+	var ma_sgn_o_cnt = JSON.parse('${ma_sgn_o_cnt}');
+	var ma_sgn_s_cnt = JSON.parse('${ma_sgn_s_cnt}');
+	var pw_sgn_o_cnt = JSON.parse('${pw_sgn_o_cnt}');
+	var pw_sgn_s_cnt = JSON.parse('${pw_sgn_s_cnt}');
+	var cate_x = ['일','월','화','수','목','금','토'];
+	$('.statis_area').highcharts({
+        title: {
+            text: '주간 가입자수',
+            x: -20 //center
+        },
+        subtitle: {
+            text: 'ssocio',
+            x: -20
+        },
+        xAxis: {
+            categories: cate_x
+        },
+        yAxis: {
+            title: {
+                text: '가입자수 (명)'
+            },
+            plotLines: [{
+                value: 0,
+                width: 1,
+                color: '#808080'
+            }]
+        },
+        tooltip: {
+            valueSuffix: '명'
+        },
+        legend: {
+            layout: 'vertical',
+            align: 'right',
+            verticalAlign: 'middle',
+            borderWidth: 0
+        },
+        series: [{
+        	name: '모바일웹 구매회원',
+            data: mw_sgn_o_cnt
+        }, {
+            name: '모바일웹 판매회원',
+            data: mw_sgn_s_cnt
+        }, {
+            name: '모바일앱 구매회원',
+            data: ma_sgn_o_cnt
+        }, {
+            name: '모바일앱 판매회원',
+            data: ma_sgn_s_cnt
+        }, {
+            name: 'PC웹 구매회원',
+            data: pw_sgn_o_cnt
+        }, {
+            name: 'PC웹 판매회원',
+            data: pw_sgn_s_cnt
+        }]
+    
+    });
+    
+    $("body").on("mouseenter",".ui-datepicker-calendar td",function(){
+		tr_idx = $(this).parent("tr").index();
+		td_idx = $(this).index()
+		$(".ui-datepicker-calendar td").removeClass("on")
+		for(i=1; i <= 7; i++){
+			$(".ui-datepicker-calendar tr").eq(tr_idx+1).find("td:nth-child("+i+")").addClass("on")
+		}
+	});	
+    
+    prod_padding();
+    
+    var dt = '${params.date}';
+	var year = dt.substring(0,4);
+	var month = dt.substring(4,6);
+	var day = dt.substring(6,8);
+	
+	var l_dt = '${params.last_date}';
+	var l_year = l_dt.substring(0,4);
+	var l_month = l_dt.substring(4,6);
+	var l_day = l_dt.substring(6,8);
+	
+	$(".calendar").val(year + "-" + month + "-" + day +" ~ "+ l_year + "-" + l_month + "-" + l_day);
+    
+});
+
+function calendarAddDate(type){
+	var firstOfWeek = $('.calendar').val();
+	var fyear = firstOfWeek.substring(0,4);
+	var fmonth = firstOfWeek.substring(5,7) - 1;
+	var fday = firstOfWeek.substring(8,10);
+	
+	var lastOfWeek = $('.calendar').val();
+	var lyear = lastOfWeek.substring(13,17);
+	var lmonth = lastOfWeek.substring(18,20) - 1;
+	var lday = lastOfWeek.substring(21,23);
+	
+	
+	var fd = new Date();
+	fd.setFullYear(fyear);
+	fd.setMonth(fmonth);
+	fd.setDate(fday);
+	
+	var ld = new Date();
+	ld.setFullYear(lyear);
+	ld.setMonth(lmonth);
+	ld.setDate(lday);
+	
+	if(type == "up"){
+		fd.setDate(fd.getDate() + 7);
+		ld.setDate(ld.getDate() + 7);
+	} else if (type == "down"){
+		fd.setDate(fd.getDate() - 7);
+		ld.setDate(ld.getDate() - 7);
+	}
+	
+	var fMonth = (fd.getMonth() < 9 ? "0" + (fd.getMonth() + 1): fd.getMonth() + 1);
+	var fDay = (fd.getDate() < 10 ? "0" + fd.getDate(): fd.getDate());
+
+	var lMonth = (ld.getMonth() < 9 ? "0" + (ld.getMonth() + 1): ld.getMonth() + 1);
+	var lDay = (ld.getDate() < 10 ? "0" + ld.getDate(): ld.getDate());
+	$('.calendar').val(fd.getFullYear() + "-" + ( fMonth ) + "-" + fDay + " ~ " + ld.getFullYear() + "-" + lMonth + "-" + lDay);
+}
+
+function search(){
+	var currentDate = $('.calendar').val();
+	var year = currentDate.substring(0,4);
+	var month = currentDate.substring(5,7);
+	var day = currentDate.substring(8,10);
+	
+	var l_year = currentDate.substring(13,17);
+	var l_month = currentDate.substring(18,20);
+	var l_day = currentDate.substring(21,23);
+	
+	$('#date').val(""+year+month+day);
+	$('#last_date').val(""+l_year+l_month+l_day);
+	frm.action = "/admin/statis/selectSignupWeekStatis.do";
+	frm.submit();
+}
+
+function excel(){
+	var currentDate = $('.calendar').val();
+	var year = currentDate.substring(0,4);
+	var month = currentDate.substring(5,7);
+	var day = currentDate.substring(8,10);
+	
+	var l_year = currentDate.substring(13,17);
+	var l_month = currentDate.substring(18,20);
+	var l_day = currentDate.substring(21,23);
+	
+	$('#date').val(""+year+month+day);
+	$('#last_date').val(""+l_year+l_month+l_day);
+	frm.action = "/admin/statis/accSignupWeekStatisToExcel.do";
+	frm.submit();
+}
+
+
+</script>
+<style type="text/css">
+.ui-datepicker td.on a{background:#b8f3f8;}
+</style>
+<form id="frm" method="post" name="frm">
+	<input type="hidden" id="PAGE_NO" name="PAGE_NO">
+	<input type="hidden" id="date" name="date" value="${params.date}">
+	<input type="hidden" id="last_date" name="last_date" value="${params.last_date}">
+	<input type="hidden" id="syr" name="syr" value="${list.params.syr }">
+	<input type="hidden" id="eyr" name="eyr" value="${list.params.eyr }">
+	<input type="hidden" id="smon" name="smon" value="${list.params.smon }">
+	<input type="hidden" id="emon" name="emon" value="${list.params.emon }">
+	<input type="hidden" id="MBER_EMAIL" name="MBER_EMAIL" value="${list.params.MBER_EMAIL }">
+	<input type="hidden" id="PROD_TYPE_CD" name="PROD_TYPE_CD" value="${list.params.PROD_TYPE_CD }">
+</form>
+<!-- content -->
+	<div id="content">
+		<!-- top_content -->
+		<div class="top_content">
+			<!-- location -->
+			<div class="location">
+				<ul class="clear">
+					<li class="first-child"><a href="#">Home</a></li>
+					<li><a href="#" class="current">주간 가입자수 통계</a></li>
+				</ul>
+			</div>
+			<!-- //location -->
+		</div>
+		<!-- //top_content -->
+		
+		<div class="inner">
+			<div class="order_stats_bx mt10 clear">
+				<ul class="lst_type clear">
+					<li><span>누적 접속건수 : </span><span class="text_y"><fmt:formatNumber value="${selectTotalAccStatis.TOTAL_CNT }" type="number" />명</span> <span>[모바일웹 : <fmt:formatNumber value="${selectTotalAccStatis.MW_ACC_CNT }" type="number" />명 | 모바일앱 : <fmt:formatNumber value="${selectTotalAccStatis.MA_ACC_CNT }" type="number" />명 | PC웹 : <fmt:formatNumber value="${selectTotalAccStatis.PW_ACC_CNT }" type="number" />명]</span></li>
+				</ul>
+			</div>
+			
+			<!-- period_area -->
+			<div class="period_area">
+				<div class="btn_area clear">
+					<ul class="lst_period clear">
+						<li><a href="/admin/statis/selectSignupStatis.do">일간</a></li>
+						<li><a href="#" class="on">주간</a></li>
+						<li><a href="/admin/statis/selectSignupMonthStatis.do">월간</a></li>
+					</ul>
+					<div class="period_sel_area">
+						<div class="period_sel_bx">
+							<a href="javascript:calendarAddDate('down');" class="btn_prev"><img src="http://static.ssocio.net/admin/images/ico_num_left2.png" alt="이전"></a>
+							<span><input type="text" id="" name="" class="calendar" style="width:184px;" readonly="readonly"/></span>
+							<a href="javascript:calendarAddDate('up');" class="btn_next"><img src="http://static.ssocio.net/admin/images/ico_num_right2.png" alt="다음"></a>
+						</div>
+					</div>
+					<a href="javascript:search()" class="btn_chk btn_r">조회</a>
+				</div>
+				
+				<!-- statis_area -->
+				<div class="statis_area">
+					통계 그래프 영역
+				</div>
+				<!-- //statis_area -->
+				
+				<!-- top_tbl -->
+				<div class="top_tbl mt20 clear">
+					<div class="right">
+						<a href="javascript:excel();" class="btn_excel mr0"><span>엑셀 다운로드</span></a>
+					</div>
+				</div>
+				<!-- //top_tbl -->
+				<!-- tbl -->
+				<div class="tbl">
+					<!-- list -->
+					<table class="list">
+						<colgroup>
+							<col style="width:11%" />
+							<col style="width:7%" />
+							<col style="width:7%" />
+							<col style="width:7%" />
+							<col style="width:8%" />
+							<col style="width:7%" />
+							<col style="width:8%" />
+							<col style="width:7%" />
+							<col style="width:8%" />
+							<col style="width:7%" />
+							<col style="width:8%" />
+							<col style="width:7%" />
+							<col style="width:8%" />
+						</colgroup>
+						<thead>	
+							<tr>
+								<th scope="col" rowspan="2">구분<br/>(2015-05-06 기준)</th>
+								<th scope="col" colspan="4" class="bdb">모바일웹 가입자수</th>
+								<th scope="col" colspan="4" class="bdb">모바일앱 가입자수</th>
+								<th scope="col" colspan="4" class="bdb">PC웹 가입자수</th>
+							</tr>
+							<tr>
+								<th scope="col">구매회원</th>
+								<th scope="col">전주대비</th>
+								<th scope="col">판매회원</th>
+								<th scope="col">전주대비</th>
+								<th scope="col">구매회원</th>
+								<th scope="col">전주대비</th>
+								<th scope="col">판매회원</th>
+								<th scope="col">전주대비</th>
+								<th scope="col">구매회원</th>
+								<th scope="col">전주대비</th>
+								<th scope="col">판매회원</th>
+								<th scope="col">전주대비</th>
+							</tr>
+						</thead>
+						<tbody>
+							<c:forEach var="list" items="${selectSignupWeekStatis }">
+							<c:if test="${empty list.YMD }">
+							<tr class="sum">
+								<td>합계</td>
+								<td><fmt:formatNumber value="${list.MW_SGN_O_CNT }" type="number" /></td>
+								<td>
+									<c:if test="${list.MW_SGN_O_CNT > list.LAST_MW_SGN_O_CNT}">
+										<span class="percent up"><fmt:formatNumber value="${list.MW_SGN_O_CNT - list.LAST_MW_SGN_O_CNT}" type="number" /></span>
+									</c:if>
+									<c:if test="${list.MW_SGN_O_CNT < list.LAST_MW_SGN_O_CNT}">
+										<span class="percent down"><fmt:formatNumber value="${list.LAST_MW_SGN_O_CNT - list.MW_SGN_O_CNT}" type="number" /></span>
+									</c:if>
+									<c:if test="${list.MW_SGN_O_CNT eq list.LAST_MW_SGN_O_CNT}">
+										<span>0</span>
+									</c:if>
+								</td>
+								<td><fmt:formatNumber value="${list.MW_SGN_S_CNT }" type="number" /></td>
+								<td>
+									<c:if test="${list.MW_SGN_S_CNT > list.LAST_MW_SGN_S_CNT}">
+									<span class="percent up"><fmt:formatNumber value="${list.MW_SGN_S_CNT - list.LAST_MW_SGN_S_CNT}" type="number" /></span>
+									</c:if>
+									<c:if test="${list.MW_SGN_S_CNT < list.LAST_MW_SGN_S_CNT}">
+									<span class="percent down"><fmt:formatNumber value="${list.LAST_MW_SGN_S_CNT - list.MW_SGN_S_CNT}" type="number" /></span>
+									</c:if>
+									<c:if test="${list.MW_SGN_S_CNT eq list.LAST_MW_SGN_S_CNT}">
+									<span>0</span>
+									</c:if>
+								</td>
+								<td><fmt:formatNumber value="${list.MA_SGN_O_CNT }" type="number" /></td>
+								<td>
+									<c:if test="${list.MA_SGN_O_CNT > list.LAST_MA_SGN_O_CNT}">
+									<span class="percent up"><fmt:formatNumber value="${list.MA_SGN_O_CNT - list.LAST_MA_SGN_O_CNT}" type="number" /></span>
+									</c:if>
+									<c:if test="${list.MA_SGN_O_CNT < list.LAST_MA_SGN_O_CNT}">
+									<span class="percent down"><fmt:formatNumber value="${list.LAST_MA_SGN_O_CNT - list.MA_SGN_O_CNT}" type="number" /></span>
+									</c:if>
+									<c:if test="${list.MA_SGN_O_CNT eq list.LAST_MA_SGN_O_CNT}">
+									<span>0</span>
+									</c:if>
+								</td>
+								<td><fmt:formatNumber value="${list.MA_SGN_S_CNT }" type="number" /></td>
+								<td>
+									<c:if test="${list.MA_SGN_S_CNT > list.LAST_MA_SGN_S_CNT}">
+									<span class="percent up"><fmt:formatNumber value="${list.MA_SGN_S_CNT - list.LAST_MA_SGN_S_CNT}" type="number" /></span>
+									</c:if>
+									<c:if test="${list.MA_SGN_S_CNT < list.LAST_PW_SGN_O_CNT}">
+									<span class="percent down"><fmt:formatNumber value="${list.LAST_MA_SGN_S_CNT - list.MA_SGN_S_CNT}" type="number" /></span>
+									</c:if>
+									<c:if test="${list.MA_SGN_S_CNT eq list.LAST_MA_SGN_S_CNT}">
+									<span>0</span>
+									</c:if>
+								</td>
+								<td><fmt:formatNumber value="${list.PW_SGN_O_CNT }" type="number" /></td>
+								<td>
+									<c:if test="${list.PW_SGN_O_CNT > list.LAST_PW_SGN_O_CNT}">
+									<span class="percent up"><fmt:formatNumber value="${list.PW_SGN_O_CNT - list.LAST_PW_SGN_O_CNT}" type="number" /></span>
+									</c:if>
+									<c:if test="${list.PW_SGN_O_CNT < list.LAST_PW_SGN_O_CNT}">
+									<span class="percent down"><fmt:formatNumber value="${list.LAST_PW_SGN_O_CNT - list.PW_SGN_O_CNT}" type="number" /></span>
+									</c:if>
+									<c:if test="${list.PW_SGN_O_CNT eq list.LAST_PW_SGN_O_CNT}">
+									<span>0</span>
+									</c:if>
+								</td>
+								<td><fmt:formatNumber value="${list.PW_SGN_S_CNT }" type="number" /></td>
+								<td>
+									<c:if test="${list.PW_SGN_S_CNT > list.LAST_PW_SGN_S_CNT}">
+									<span class="percent up"><fmt:formatNumber value="${list.PW_SGN_S_CNT - list.LAST_PW_SGN_S_CNT}" type="number" /></span>
+									</c:if>
+									<c:if test="${list.PW_SGN_S_CNT < list.LAST_PW_ACC_CNT}">
+									<span class="percent down"><fmt:formatNumber value="${list.LAST_PW_SGN_S_CNT - list.PW_SGN_S_CNT}" type="number" /></span>
+									</c:if>
+									<c:if test="${list.PW_SGN_S_CNT eq list.LAST_PW_SGN_S_CNT}">
+									<span>0</span>
+									</c:if>
+								</td>
+							</tr>
+							</c:if>
+							</c:forEach>
+							<c:forEach var="list" items="${selectSignupWeekStatis }">
+							<c:if test="${not empty list.YMD }">
+							<tr>
+								<td>${list.YMD }</td>
+								<td><fmt:formatNumber value="${list.MW_SGN_O_CNT }" type="number" /></td>
+								<td>
+									<c:if test="${list.MW_SGN_O_CNT > list.LAST_MW_SGN_O_CNT}">
+										<span class="percent up"><fmt:formatNumber value="${list.MW_SGN_O_CNT - list.LAST_MW_SGN_O_CNT}" type="number" /></span>
+									</c:if>
+									<c:if test="${list.MW_SGN_O_CNT < list.LAST_MW_SGN_O_CNT}">
+										<span class="percent down"><fmt:formatNumber value="${list.LAST_MW_SGN_O_CNT - list.MW_SGN_O_CNT}" type="number" /></span>
+									</c:if>
+									<c:if test="${list.MW_SGN_O_CNT eq list.LAST_MW_SGN_O_CNT}">
+										<span>0</span>
+									</c:if>
+								</td>
+								<td><fmt:formatNumber value="${list.MW_SGN_S_CNT }" type="number" /></td>
+								<td>
+									<c:if test="${list.MW_SGN_S_CNT > list.LAST_MW_SGN_S_CNT}">
+									<span class="percent up"><fmt:formatNumber value="${list.MW_SGN_S_CNT - list.LAST_MW_SGN_S_CNT}" type="number" /></span>
+									</c:if>
+									<c:if test="${list.MW_SGN_S_CNT < list.LAST_MW_SGN_S_CNT}">
+									<span class="percent down"><fmt:formatNumber value="${list.LAST_MW_SGN_S_CNT - list.MW_SGN_S_CNT}" type="number" /></span>
+									</c:if>
+									<c:if test="${list.MW_SGN_S_CNT eq list.LAST_MW_SGN_S_CNT}">
+									<span>0</span>
+									</c:if>
+								</td>
+								<td><fmt:formatNumber value="${list.MA_SGN_O_CNT }" type="number" /></td>
+								<td>
+									<c:if test="${list.MA_SGN_O_CNT > list.LAST_MA_SGN_O_CNT}">
+									<span class="percent up"><fmt:formatNumber value="${list.MA_SGN_O_CNT - list.LAST_MA_SGN_O_CNT}" type="number" /></span>
+									</c:if>
+									<c:if test="${list.MA_SGN_O_CNT < list.LAST_MA_SGN_O_CNT}">
+									<span class="percent down"><fmt:formatNumber value="${list.LAST_MA_SGN_O_CNT - list.MA_SGN_O_CNT}" type="number" /></span>
+									</c:if>
+									<c:if test="${list.MA_SGN_O_CNT eq list.LAST_MA_SGN_O_CNT}">
+									<span>0</span>
+									</c:if>
+								</td>
+								<td><fmt:formatNumber value="${list.MA_SGN_S_CNT }" type="number" /></td>
+								<td>
+									<c:if test="${list.MA_SGN_S_CNT > list.LAST_MA_SGN_S_CNT}">
+									<span class="percent up"><fmt:formatNumber value="${list.MA_SGN_S_CNT - list.LAST_MA_SGN_S_CNT}" type="number" /></span>
+									</c:if>
+									<c:if test="${list.MA_SGN_S_CNT < list.LAST_PW_SGN_O_CNT}">
+									<span class="percent down"><fmt:formatNumber value="${list.LAST_MA_SGN_S_CNT - list.MA_SGN_S_CNT}" type="number" /></span>
+									</c:if>
+									<c:if test="${list.MA_SGN_S_CNT eq list.LAST_MA_SGN_S_CNT}">
+									<span>0</span>
+									</c:if>
+								</td>
+								<td><fmt:formatNumber value="${list.PW_SGN_O_CNT }" type="number" /></td>
+								<td>
+									<c:if test="${list.PW_SGN_O_CNT > list.LAST_PW_SGN_O_CNT}">
+									<span class="percent up"><fmt:formatNumber value="${list.PW_SGN_O_CNT - list.LAST_PW_SGN_O_CNT}" type="number" /></span>
+									</c:if>
+									<c:if test="${list.PW_SGN_O_CNT < list.LAST_PW_SGN_O_CNT}">
+									<span class="percent down"><fmt:formatNumber value="${list.LAST_PW_SGN_O_CNT - list.PW_SGN_O_CNT}" type="number" /></span>
+									</c:if>
+									<c:if test="${list.PW_SGN_O_CNT eq list.LAST_PW_SGN_O_CNT}">
+									<span>0</span>
+									</c:if>
+								</td>
+								<td><fmt:formatNumber value="${list.PW_SGN_S_CNT }" type="number" /></td>
+								<td>
+									<c:if test="${list.PW_SGN_S_CNT > list.LAST_PW_SGN_S_CNT}">
+									<span class="percent up"><fmt:formatNumber value="${list.PW_SGN_S_CNT - list.LAST_PW_SGN_S_CNT}" type="number" /></span>
+									</c:if>
+									<c:if test="${list.PW_SGN_S_CNT < list.LAST_PW_ACC_CNT}">
+									<span class="percent down"><fmt:formatNumber value="${list.LAST_PW_SGN_S_CNT - list.PW_SGN_S_CNT}" type="number" /></span>
+									</c:if>
+									<c:if test="${list.PW_SGN_S_CNT eq list.LAST_PW_SGN_S_CNT}">
+									<span>0</span>
+									</c:if>
+								</td>
+							</tr>
+							</c:if>
+							</c:forEach>
+						</tbody>
+					</table>
+					<!-- //list -->
+				</div>
+				<!-- //tbl -->
+			</div>
+		</div>
+		<!-- //inner -->
+	</div>
+	<!-- //content -->

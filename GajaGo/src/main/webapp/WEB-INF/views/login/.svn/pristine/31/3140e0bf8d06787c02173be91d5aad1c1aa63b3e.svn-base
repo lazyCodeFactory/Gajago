@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="adminAppMapper">
+	<!-- 검색조건 -->
+	<sql id="condition">  
+	    <!-- 시작일자-->
+	    <if test="S_START_DATE != null and S_START_DATE != ''">
+	      AND REGIST_DT <![CDATA[>=]]> TO_DATE(#{S_START_DATE})
+	    </if>
+	    <!-- 끝일자-->
+	    <if test="S_END_DATE != null and S_END_DATE != ''">
+	      AND REGIST_DT <![CDATA[<]]> TO_DATE(#{S_END_DATE}+1)
+	    </if>
+	    <!-- 제목-->
+	    <if test="P_TITLE != null and P_TITLE != ''" >
+	      AND TITLE LIKE '%' || #{P_TITLE} || '%'
+	    </if>
+	    <!-- OS-->
+	    <if test="P_MOS_CD != null and P_MOS_CD != ''">
+	      AND MOS_CD = #{P_MOS_CD}
+	    </if>
+	    <!-- 분류-->
+	    <if test="P_MUPD_CD != null and P_MUPD_CD != ''">
+	      AND MUPD_CD = #{P_MUPD_CD}
+	    </if>
+	</sql>
+	
+	<!-- 상세 조회 -->
+	<select id="selectApp" parameterType="HashMap" resultType="HashMap">
+		/*adminAppMapper.selectApp*/
+		SELECT 
+			  VER			<!-- 버전 -->
+			, UPD_URL		<!-- 업데이트URL -->
+			, TITLE    		<!-- 제목 -->
+			, CONTENTS     	<!-- 내용 -->
+			, APP_VER_SEQ   <!-- 고유번호 -->
+			, MOS_CD     	<!-- OS종류 -->
+			, MUPD_CD     	<!-- 분류 -->
+			, UPD_YN     	<!-- 강제업데이트 -->
+			, TO_CHAR(REGIST_DT, 'YYYY-MM-DD HH24:MI') AS REGIST_DT 	<!-- 등록일 -->
+		 FROM 
+		  	  APP_MANA
+		 WHERE 
+		      APP_VER_SEQ = #{APP_VER_SEQ}
+	</select>
+	
+	<!-- 리스트 조회 -->
+	<select id="selectListApp" parameterType="HashMap" resultType="HashMap">
+	<include refid="adminCommonMapper.pagingHeader" />
+		/*adminAppMapper.selectListApp*/
+		SELECT 
+			  VER			<!-- 버전 -->
+			, UPD_URL		<!-- 업데이트URL -->
+			, TITLE    		<!-- 제목 -->
+			, CONTENTS     	<!-- 내용 -->
+			, APP_VER_SEQ   <!-- 고유번호 -->
+			, MOS_CD     	<!-- OS종류 -->
+			, MUPD_CD     	<!-- 분류 -->
+			, UPD_YN     	<!-- 강제업데이트 -->
+			, (SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'MOS_CD' AND COM_CD = MOS_CD)  MOS_NM 			<!-- OS종류명 -->
+			, (SELECT COM_CD_NM FROM CODE WHERE GRP_CD = 'MUPD_CD' AND COM_CD = MUPD_CD)  UPD_TYPE_NM 	<!-- 분류명 -->
+			, TO_CHAR(REGIST_DT, 'YYYY-MM-DD HH24:MI')	REGIST_DT 										<!-- 등록일 -->
+			, ROW_NUMBER() OVER(ORDER BY REGIST_DT ASC) AS NUM 											<!-- 역순 ROWNUM   -->
+			, ROW_NUMBER() OVER(ORDER BY REGIST_DT DESC ) AS NO
+		FROM 
+			  APP_MANA
+		<where>
+			<include refid="condition"/>
+		</where>
+		ORDER BY NUM DESC
+	<include refid="adminCommonMapper.pagingFooter" />
+	</select>
+	
+	<!-- 리스트 카운트 조회 -->
+	<select id="selectListAppCount" parameterType="HashMap" resultType="int">
+		/*adminAppMapper.selectListAppCount*/
+	    SELECT COUNT(1) AS TOTAL_COUNT
+	      FROM APP_MANA
+	    <where>
+			<include refid="condition"/>
+		</where>
+	</select>
+	
+	<!-- 어플리케이션 버전 정보 등록 -->
+	<insert id="insertAppReg" parameterType="hashmap">
+		/*adminAppMapper.insertAppReg*/
+		INSERT INTO APP_MANA (
+			  VER			<!-- 버전 -->
+			, UPD_URL		<!-- 업데이트URL -->
+			, TITLE    		<!-- 제목 -->
+			, CONTENTS     	<!-- 내용 -->
+			, APP_VER_SEQ   <!-- 고유번호 -->
+			, MOS_CD     	<!-- OS종류 -->
+			, MUPD_CD     	<!-- 분류 -->
+			, UPD_YN     	<!-- 강제업데이트 -->
+			, REGIST_DT     <!-- 등록일시 -->  
+			, UPDT_DT       <!-- 수정일시 -->  
+			 )VALUES(
+			  #{VER}
+			, #{UPD_URL}
+			, #{TITLE}
+			, #{CONTENTS}
+			, (SELECT NVL(MAX(APP_VER_SEQ), 0) + 1 FROM APP_MANA)
+			, #{MOS_CD}
+			, #{MUPD_CD}
+			, #{UPD_YN}
+			, SYSDATE
+			, SYSDATE
+			 )
+	</insert>
+	
+	<!-- 어플리케이션 버전 정보 수정 -->
+	<update id="updateAppReg" parameterType="hashmap">
+		/*adminAppMapper.updateAppReg*/
+		 UPDATE APP_MANA
+		 SET 
+			  VER			= #{VER}        <!-- 버전 -->       
+			, UPD_URL		= #{UPD_URL}    <!-- 업데이트URL -->  
+			, TITLE    		= #{TITLE}      <!-- 제목 -->       
+			, CONTENTS   	= #{CONTENTS}   <!-- 내용 -->       
+			, MOS_CD     	= #{MOS_CD}     <!-- OS종류 -->
+			, MUPD_CD   	= #{MUPD_CD}    <!-- 분류 -->   
+			, UPD_YN   		= #{UPD_YN}     <!-- 강제업데이트 -->   
+			, UPDT_DT     	= SYSDATE       <!-- 수정일시 -->  
+		 WHERE                            
+			  APP_VER_SEQ = #{APP_VER_SEQ}	<!-- 고유번호 -->
+	</update>
+  
+  <!-- 어플리케이션 버전 정보 삭제 -->
+  <delete id="deleteApp" parameterType="hashmap">
+  	/*adminAppMapper.updateAppReg*/
+	DELETE FROM APP_MANA WHERE APP_VER_SEQ = #{APP_VER_SEQ }
+  </delete>
+  
+	
+</mapper>

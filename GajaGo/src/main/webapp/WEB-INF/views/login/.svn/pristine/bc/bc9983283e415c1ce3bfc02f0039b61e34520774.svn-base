@@ -1,0 +1,410 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/admin/common/cmmnHead.jsp"%>
+<script type="text/javascript">
+$(function(){
+	
+	<c:if test="${params.MY_ADM_ID_YN ne 'Y' }">
+	$(".u_menu dt :checkbox").change(function(){
+		if($(this).prop("checked")){
+			$(this).parents("dt").addClass("on").next("dd").find(":checkbox").prop("checked",true);
+		}else{
+			$(this).parents("dt").removeClass("on").next("dd").find(":checkbox").prop("checked",false);
+		};
+	});
+	$(".u_menu dd :checkbox").change(function(){
+		var size = $(this).parents("ul").find("li").find(":checked").size();
+		if(size <= 0){
+			$(this).parents("dd").prev().removeClass("on").find(":checkbox").prop("checked",false);
+			return false;
+		};
+		if($(this).prop("checked")){
+			$(this).parents("dd").prev().addClass("on").find(":checkbox").prop("checked",true);
+		};
+	});
+	$(".u_menu :checkbox").change(function(){
+		setMenuList();
+	});
+	function setMenuList(){
+		$(".u_list li").remove();
+		$(".u_menu li :checked").parent().each(function(){
+			$(".u_list").append("<li><strong>"+$(this).parents("dd").prev("dt").find("label").text()+" &gt; </strong><span>"+$(this).text()+"</span></li>")
+		});
+	}setMenuList();
+	</c:if>
+});
+//아이디 중복확인
+function checkId(){
+	var ADM_ID = $("#ADM_ID").val();	//아이디
+	$.ajax({
+	      type: 'post'
+	      , async: true
+	      , url: '/admin/user/checkId.do'
+	      , dataType:'json'
+	      , data: {"ADM_ID":ADM_ID}
+	      , before: function() {
+	        loadingForm.showDialog();
+	      }
+	      , success: function(data) {
+	    	  var userYn = data.userYn;
+	    	  if(userYn == 'Y'){
+	    		  alert("이미 사용중인 아이디 입니다.");
+	    		  $("#ADM_ID").focus();
+	    		  $("#dupChk").val("0");//중복확인 여부
+	    		  return;
+	    	  }else{
+	    		  alert("사용 가능한 아이디 입니다.");
+	    		  $("#ADM_NM").focus();
+	    		  $("#dupChk").val("1");//중복확인 여부-사용가능
+	    		  return;
+	    	  }
+	      }
+	      , complete: function() {
+	        loadingForm.hideDialog();
+	      }
+	      , error : function(request, status, error) {
+				//통신 에러 발생시 처리
+				alert("통신 오류가 발생 하였습니다. 잠시 후 다시 시도해 주세요");
+			}
+	    }); 
+}
+//비밀번호 초기화
+function initPw(ADM_ID){
+	$.ajax({
+	      type: 'post'
+	      , async: true
+	      , url: '/admin/user/updateInitPw.do'
+	      , dataType:'json'
+	      , data: {"ADM_ID":ADM_ID, "initPw":"Y"}
+	      , before: function() {
+	        loadingForm.showDialog();
+	      }
+	      , success: function(data) {
+    		alert("비밀번호가 초기화 되었습니다.");
+	      }
+	      , complete: function() {
+	        loadingForm.hideDialog();
+	      }
+	      , error : function(request, status, error) {
+			//통신 에러 발생시 처리
+			alert("통신 오류가 발생 하였습니다. 잠시 후 다시 시도해 주세요");
+		  }
+	});
+}
+//선택된 MENU_CD 배열 만들기
+function setMenuCdArry(){
+	var MENU_CD_AR = [];
+	$(".u_menu :checked").each(function(index){
+		MENU_CD_AR.push($(this).val());
+	}); 
+	$("#frm").append("<input type='hidden' id='MENU_CD_AR' name='MENU_CD_AR' value='" + MENU_CD_AR + "'>");
+}
+//유저 등록/수정
+function onUpdate(IU) {
+	if(!validate('U')) return;	
+	
+	setMenuCdArry();
+	
+	var msg = "등록 하시겠습니까?";
+	var callUrl = "/admin/user/insertUserReg.do";
+	
+	if(IU == 'U'){
+		msg = "수정 하시겠습니까";
+		callUrl = "/admin/user/updateUserReg.do";
+	}
+	if(confirm(msg))
+  	{
+		$.ajax({
+		      type: 'post'
+		      , async: true
+		      , url: callUrl
+		      , dataType:'json'
+		      , data: $("#frm").serialize()
+		      , before: function() {
+		        loadingForm.showDialog();
+		      }
+		      , success: function(data) {
+		    	  //alert("저장 되었습니다.");
+		    	  goList();
+		      }
+		      , complete: function() {
+		        loadingForm.hideDialog();
+		      }
+		      , error : function(request, status, error) {
+					alert("통신 오류가 발생 하였습니다. 잠시 후 다시 시도해 주세요");
+				}
+		    });
+  	}
+	
+}
+//유저 삭제
+function onDelete() {
+  	if(confirm("삭제 하시겠습니까?"))
+  	{
+		$.ajax({
+		      type: 'post'
+		      , async: true
+		      , url: "/admin/user/deleteUser.do"
+		      , dataType:'json'
+		      , data: $("#frm").serialize()
+		      , before: function() {
+		        loadingForm.showDialog();
+		      }
+		      , success: function(data) {
+		    	  //alert("삭제 되었습니다.");
+		    	  goList();
+		      }
+		      , complete: function() {
+		        loadingForm.hideDialog();
+		      }
+		      , error : function(request, status, error) {
+					alert("통신 오류가 발생 하였습니다. 잠시 후 다시 시도해 주세요");
+				}
+		    });
+  	}
+}
+//리스트 이동	
+function goList() {
+    $("#frm").attr("action","/admin/user/selectListUser.do").submit();
+}
+//입력값 유효성 체크
+function validate(flag){
+	var regEmail = /([\w-\.]+)@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.)|(([\w-]+\.)+))([a-zA-Z]{2,4}|[0-9]{1,3})(\]?)$/;	//이메일 유효성
+	var regPhone = /^\d{2,3}\d{3,4}\d{4}$/;											//연락처 유효성
+	var regCellPhone = /^((01[1|6|7|8|9])[1-9]+[0-9]{6,7})|(010[1-9][0-9]{7})$/;	//핸드폰 유효성
+	
+	if(!regEmail.test($("#EMAIL").val())) {
+        alert('이메일 주소가 유효하지 않습니다');
+        $("#EMAIL").focus();
+        return false;
+    }
+	if(!regPhone.test($("#TEL").val())) {
+        alert('연락처가 유효하지 않습니다');
+        $("#TEL").focus();
+        return false;
+    }
+	if ($("input[name='AUTH_CD']:checked").length < 1){
+		alert("구분을 선택하세요.");
+		$("#AUTH_CD").focus();
+		return false;
+	}
+	if($(flag == 'I' && "#ADM_ID").val() == ""){
+		alert("아이디를 입력하세요.");
+		$("#ADM_ID").focus();
+		return false;
+	}
+	if(flag == 'I' && $("#dupChk").val() == "0"){
+		alert("아이디 중복체크를 하세요.");
+		$("#ADM_ID").focus();
+		return false;
+	}
+	if($("#ADM_NM").val() == ""){
+		alert("이름을 입력하세요.");
+		$("#ADM_NM").focus();
+		return false;
+	}
+	if($("#EMAIL").val() == ""){
+		alert("이메일을 입력하세요.");
+		$("#EMAIL").focus();
+		return false;
+	}
+	if($("#TEL").val() == ""){
+		alert("연락처를 입력하세요.");
+		$("#TEL").focus();
+		return false;
+	}
+	if ($("input[name='USE_YN']:checked").length < 1){
+		alert("상태를 선택하세요.");
+		$("#USE_YN").focus();
+		return false;
+	}
+	<c:if test="${params.MY_ADM_ID_YN ne 'Y' }">
+	if ($("input[name='MENU_CD']:checked").length < 1){
+		alert("메뉴권한을 선택하세요.");
+		$("input[name='MENU_CD']").focus();
+		return false;
+	}
+	</c:if> 
+	return true;
+}
+//중복확인 체크 초기화
+function initDupChk(){
+	$("#dupChk").val("0");
+}
+</script>
+
+
+<form id="frm" method="post" name="frm">
+<input type="hidden" id="dupChk" name="dupChk" value="0"/>	<!-- 아이디 중복 이벤트 여부 체크: 1(체크함 & 사용가능), 0(체크안함 & 사용불가능) -->
+<!-- 검색조건 params -->
+<input type="hidden" id="S_START_DATE" name="S_START_DATE" value="${params.S_START_DATE }">
+<input type="hidden" id="S_END_DATE" name="S_END_DATE" value="${params.S_END_DATE }">
+<input type="hidden" id="P_ADM_NM" name="P_ADM_NM" value="${params.P_ADM_NM }">
+<input type="hidden" id="P_AUTH_CD" name="P_AUTH_CD" value="${params.P_AUTH_CD }">
+<input type="hidden" id="P_USE_YN" name="P_USE_YN" value="${params.P_USE_YN }">
+<input type="hidden" id="MY_ADM_ID_YN" name="MY_ADM_ID_YN" value="${params.MY_ADM_ID_YN }">
+
+<!-- content -->
+<div id="content">
+	<!-- top_content -->
+	<div class="top_content">
+		<!-- location -->
+		<div class="location">
+			<ul class="clear">
+				<li class="first-child"><a href="#">Home</a></li>
+				<li><a href="#">사용자 관리</a></li>
+				<li><a href="#" class="current">사용자 등록</a></li>
+			</ul>
+		</div>
+		<!-- //location -->
+	</div>
+	<!-- //top_content -->
+	
+	<!-- inner -->
+	<div class="inner">
+
+		<!-- tbl -->
+		<div class="tbl mt10">
+			<c:if test="${IU != 'U' }"> 
+				<p class="tbl_tit"><img src="http://static.ssocio.net/admin/images/ico_admin.gif" alt="" />사용자 등록</p>
+			</c:if>
+			<c:if test="${IU == 'U' }"> 
+				<p class="tbl_tit"><img src="http://static.ssocio.net/admin/images/ico_admin.gif" alt="" />사용자 상세 정보</p>
+			</c:if>	
+			<table class="upd">
+				<colgroup>
+					<col style="width:15%" />
+					<col style="width:*" />
+				</colgroup>
+				<tbody>
+					<tr>
+						<custom:codeList var="AUTH_CD" groupCode="AUTH_CD" />
+						<th scope="row">구분</th>
+						<td>
+							<c:forEach var="list" items="${AUTH_CD}" varStatus="status">
+								<label <c:if test="${!status.first }">class="ml10"</c:if>><input type="radio" id="AUTH_CD" name="AUTH_CD" value="${list.key}"  <c:if test="${list.key == selectUser.AUTH_CD}">checked</c:if>/>${list.value}</label>
+		                    </c:forEach>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row">아이디</th>
+						<c:if test="${IU != 'U' }"> 
+							<td>
+								<input type="text" id="ADM_ID" name="ADM_ID" style="width:282px" onchange="initDupChk();" maxlength="18">
+								<a href="javascript:checkId();" class="btn_w">중복확인</a> * 초기 비밀번호는 [ssocio1234] 입니다.
+							</td>
+						</c:if>
+						<c:if test="${IU == 'U' }">
+						 	<td>${selectUser.ADM_ID}</td>
+						 	<input type="hidden" id="ADM_ID" name="ADM_ID" value="${selectUser.ADM_ID}">
+						</c:if>
+					</tr>
+					<tr>
+						<th scope="row">이름</th>
+						<td>
+							<input type="text" id="ADM_NM" name="ADM_NM" value="${selectUser.ADM_NM}" style="width:282px" maxlength="45">
+						</td>
+					</tr>
+					<tr>
+						<th scope="row">이메일</th>
+						<td>
+							<input type="text" id="EMAIL" name="EMAIL" value="${selectUser.EMAIL}" style="width:282px" maxlength="45">
+						</td>
+					</tr>
+					<tr>
+						<th scope="row">연락처</th>
+						<td>
+							<input type="text" id="TEL" name="TEL" value="${selectUser.TEL}" style="width:282px" maxlength="11" onkeyup="numberOnly(this);">
+							* 숫자만 입력하세요.
+						</td>
+					</tr>
+					<tr>
+						<th scope="row">상태</th>
+						<td>
+							<label><input type="radio" id="USE_YN" name="USE_YN" value="Y" <c:if test="${selectUser.USE_YN == 'Y'}">checked</c:if>/>사용</label>
+							<label class="ml10"><input type="radio" name="USE_YN" value="N" <c:if test="${selectUser.USE_YN == 'N'}">checked</c:if>/>사용중지</label>
+						</td>
+					</tr>
+					<c:if test="${IU == 'U' }">
+					<tr>
+						<th scope="row">비밀번호 초기화</th>
+						<td>
+							<a href="javascript:initPw('${selectUser.ADM_ID}');" class="btn_w">비밀번호 초기화</a>
+							* 비밀번호 초기화를 하면 초기 비밀번호는 [ssocio1234] 로 설정됩니다.
+						</td>
+					</tr>
+					</c:if>
+				</tbody>
+			</table>
+		</div>
+		<!-- //tbl -->
+		
+		<!-- tbl -->
+	
+	
+	<c:if test="${params.MY_ADM_ID_YN ne 'Y' }">
+					<div class="tbl mt10">
+			<p class="tbl_tit"><img src="http://static.ssocio.net/admin/images/ico_admin.gif" alt="" />메뉴 권한 관리</p>
+			<table class="upd">
+				<colgroup>
+					<col style="width:35%" />
+					<col style="width:*" />
+				</colgroup>
+				<thead>
+					<tr>
+						<th scope="col">메뉴</th>
+						<th scope="col">메뉴 권한</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<th scope="row" class="tl">
+							<dl class="u_menu">
+								<c:forEach var="list" items="${selectListMenu }" varStatus="status">
+									<c:if test="${list.LVL_SEQ == '1' }">
+										<dt>
+											<label><input type="checkbox" name="MENU_CD"  value="${list.MENU_CD }" <c:if test="${list.USE_YN == 'Y'}">checked</c:if> />${list.MENU_NM }</label>
+										</dt>
+									</c:if>
+									<c:if test="${list.LVL_SEQ == '2' }">
+										<c:if test="${list.S_FLAG == 'S' }">
+										<dd>
+											<ul>
+										</c:if>
+												<li><label><input type="checkbox" name="MENU_CD" value="${list.MENU_CD }" <c:if test="${list.USE_YN == 'Y'}">checked</c:if>/>${list.MENU_NM }</label></li>
+										<c:if test="${list.E_FLAG == 'E' }">
+											</ul>
+										</dd>
+										</c:if>
+									</c:if>
+								</c:forEach>
+							</dl>
+						</th>
+						<td class="vtop">
+							<ul class="u_list">
+							</ul>
+						</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+	</c:if>
+	
+		
+		<!-- //tbl -->
+	</div>
+	<div class="btn_area tc mt20">
+		<c:if test="${IU != 'U' }">
+			<a href="javascript:onUpdate('${IU }');" class="btn_r">등록</a>
+		</c:if>
+		<c:if test="${IU == 'U' }">
+			<a href="javascript:onUpdate('${IU }');" class="btn_r">수정</a>
+		</c:if>
+		<a href="javascript:goList();" class="btn_b ml10">취소</a>
+		<c:if test="${IU == 'U' }">
+			<a href="javascript:onDelete();" class="btn_r ml10">계정삭제</a>
+		</c:if>
+	</div>
+	<!-- //inner -->
+</div>
+<!-- //content -->
+</form>

@@ -1,0 +1,164 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c"%>
+<%@ taglib uri="http://java.sun.com/jsp/jstl/functions" prefix="fn"%>
+<%@ taglib uri="http://www.springframework.org/tags" prefix="spring"%>
+<%@ taglib uri="http://www.springframework.org/tags/form" prefix="form"%>
+<script type="text/javascript">
+var menu_cd = "${param.P_MENU_CD}";
+$(document).ready(function () {
+	list_tab();
+	if($("#frm") != 'undefined'){
+	 $("#frm").append("<input type='hidden' name='P_MENU_CD' value='"+menu_cd+"'>");
+	}
+	
+	
+	tcm = new topContentMenu();
+});
+
+/* ======================================================================
+Function : 메인페이지로 이동
+Return   : 없음
+========================================================================= */
+function goMain() {
+	$("#frmHeader").attr("action","/admin/main.do").submit();
+	
+}
+
+/* ======================================================================
+Function : 메인페이지로 이동
+Return   : 없음
+========================================================================= */
+function goMmenu(url, menu) {
+	$("#frmHeader").append("<input type='hidden' name='P_MENU_CD' value='"+menu+"'>");
+  $("#frmHeader").attr("action",url).submit();
+}
+
+/* ======================================================================
+Function : 로그아웃 처리
+Return   : 없음
+========================================================================= */
+function OnLogout() {
+	$("#frmHeader").attr("action","/admin/setLogout.do").submit();
+}
+
+function goUpdateMy(MY_ADM_ID){
+	$("#MY_ADM_ID").val(MY_ADM_ID);
+// 	replDate();
+	$("#frmHeader").attr("action", "/admin/user/updateHeaderUser.do").submit();
+}
+
+//날짜 형식 '-' 제외 시키기
+function replDate(){
+	$("#S_START_DATE").val($("#S_START_DATE").val().replace(/\-/ig, ''));
+	$("#S_END_DATE").val($("#S_END_DATE").val().replace(/\-/ig, ''));
+}
+
+
+
+function topContentMenu(){
+	
+	/* instance 변수 */
+	var targetUl = $("div.top_content div.location ul.clear").eq(0);
+
+	/* instance 메소드 */
+	var initClass = function(){
+		targetUl.find('li').removeClass('first-child');
+		targetUl.find('li a').removeClass('current');
+		targetUl.find('li:first-child').addClass('first-child');
+		targetUl.find('li:last-child a').addClass('current');
+		targetUl.find('li a[href=#]').css('cursor','default');
+		targetUl.find('li a[href=#]').attr('href','javascript:void(0)');
+	};
+
+	/* 기본메뉴 셋팅 */
+	(function basicMenuInit(){
+		// top_content 를 jsp 페이지별로 정의 한 부분이 따로 있다면, 공통에서 제어하지 않음.
+		if( $("div.top_content div.location ul.clear").size() > 1 ){
+			console.log("top_content 를 overwirte 하여 사용 합니다.");
+			targetUl = $("div.top_content div.location ul.clear").eq(1);
+			$("div.top_content").eq(0).remove();
+			initClass();
+			return;
+		}
+		
+		// 공통적으로 top_content 를 제어함.
+		var html = "";
+		<c:forEach items="${topContentMenuList }" var="item" varStatus="status">
+			var menuNm = '${item.menuNm }';
+			var menuLink = '${item.menuLink }';
+			html += "<li><a href='"+menuLink+"'>"+menuNm+"</a></li>";
+		</c:forEach>
+		targetUl.html(html);
+		initClass();
+	}());
+	
+	/* 각 페이지에서 하위메뉴가 필요한 경우 이 함수를 이용하여 추가 */
+	this.addSubMenu = function(link,menuNm){
+		var liHtml = "<li><a href='"+link+"'>"+menuNm+"</a></li>";
+		targetUl.append(liHtml);
+		initClass();
+	}
+
+}
+
+
+
+</script>
+<!-- wrap -->
+<div id="wrap">
+<form id="frmHeader" name="frmHeader" method="post">
+
+
+
+	<input type="hidden" name="MY_ADM_ID" id="MY_ADM_ID" value="">
+	<input type="hidden" name="MY_ADM_ID_YN" id="MY_ADM_ID_YN" value="Y">
+	<div id="header">
+		<!-- header_top -->
+		<div class="header_top">
+			<div class="inner clear">
+				<h1><a href="#" onclick="goMain();"><img src="http://static.ssocio.net/admin/images/logo.png" width="76" height="26" alt="SSOCIO" /></a></h1>
+				<div class="right">
+					<span class="user_id"><c:out value="${sessionScope.manager.ADM_NM}" /></span>
+					<a href="javascript:goUpdateMy('${sessionScope.manager.ADM_ID}');" class="btn_g2">정보수정</a>
+					<a href="javascript:OnLogout();" class="btn_r">로그아웃</a>
+				</div>
+			</div>
+		</div>
+		<!-- //header_top -->
+		
+		<div class="inner">
+			<!-- gnb -->
+			<ul class="gnb clear">
+				<c:forEach var="menu" items="${list}" varStatus="status">
+					<c:choose>
+						<c:when test="${status.first}"><li class="first-child"></c:when>
+						<c:when test="${status.last}"><li class="last-child"></c:when>
+						<c:otherwise><li></c:otherwise>
+					</c:choose>
+						<a href="#" onclick="goMmenu('${menu.topMenuInfo.LINK_ADDR}', '${menu.topMenuInfo.MENU_CD}');" >${menu.topMenuInfo.MENU_NM}</a>
+						<c:if test="${fn:length(menu.subMenuList) != 0 }">
+							<ul class="sub${status.count}">
+								<c:forEach var="subMenu" items="${menu.subMenuList}">
+									<li><a href="#" onclick="goMmenu('${subMenu.LINK_ADDR}', '${subMenu.PARENT_MENU_CD}');">${subMenu.MENU_NM}</a></li>
+								</c:forEach>
+							</ul>
+						</c:if>
+						</li>
+				</c:forEach>
+			</ul>
+			<!-- //gnb -->
+		</div>
+	</div>
+	<!-- //header -->
+	
+	
+	
+	<div class="top_content">
+		<!-- location -->
+		<div class="location">
+			<ul class="clear">
+			</ul>
+		</div>
+		<!-- //location -->
+	</div>
+</form>

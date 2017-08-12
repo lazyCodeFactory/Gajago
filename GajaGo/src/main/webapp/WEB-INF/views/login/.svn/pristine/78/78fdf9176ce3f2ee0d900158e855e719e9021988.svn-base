@@ -1,0 +1,201 @@
+package com.ssocio.sharing.vo.admin;
+
+import java.io.IOException;
+import java.util.Map;
+
+import org.json.simple.JSONObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.multipart.MultipartHttpServletRequest;
+
+import com.ssocio.sharing.cmmn.admin.util.FileUtil;
+import com.ssocio.sharing.cmmn.util.StringUtil;
+
+public class PlanBanner extends PlanContainer{
+	
+	private static final Logger logger = LoggerFactory.getLogger(PlanBanner.class);
+	
+	private static final String[] HTML_BANNERS = {"<table class=\"infoTbl innerTbl v2 mb10\" id=\"id_tbl_banner_%d\">" // *(0)
+		, "	<colgroup>"
+		, "		<col style=\"width:15%\" />"
+		, "		<col style=\"width:*\" />"
+		, "	</colgroup>"
+		, "	<tbody>"
+		, "		<tr>"
+		, "			<th scope=\"row\">이미지</th>"
+		, "			<td class=\"tl\">"
+		, "				<div class=\"img_attach_area clear\">"
+		, "					<div class=\"img_bx\">"	//	10		
+		, "						<img src=\"http://static.ssocio.net/admin/images/img_dummy.gif\" id=\"PLAN_BANNER_IMG_%d\" alt=\"배너이미지\" />"		//	*(11)
+		, "					</div>"
+		, "					<div class=\"img_file_bx\">"
+		, "						<p class=\"img_name_area\">"
+		, "							<input type=\"hidden\" id=\"PLAN_BANNER_SEQ_%d\" name=\"PLAN_BANNER_SEQ_%d\" value=\"\" />"	//	**(15)
+		, "							<span id=\"PLAN_BANNER_FILE_NM_%d\"></span><a href=\"javascript:delPreviewImage('00', %d);\" class=\"btn_img_del\"><img src=\"http://static.ssocio.net/admin/images/btn_b_close.gif\" alt=\"첨부이미지 삭제\" /></a>" //	**(16)
+		, "						</p>"
+		, "						<div class=\"file_upload_area ml5\">"
+		, "							<input type=\"hidden\" id=\"PLAN_BANNER_FILE_SEQ_%d\" name=\"PLAN_BANNER_FILE_SEQ_%d\" value=\"\"/>"	//	**(19)
+		, "							<input type=\"text\" id=\"PLAN_BANNER_FILE_PATH_%d\" name=\"PLAN_BANNER_FILE_PATH_%d\" class=\"file_txt\" style=\"width:350px;\" readonly/>"	//	**(20)
+		, "							<span class=\"txt_file\">"
+		, "								<input type=\"file\" id=\"PLAN_BANNER_FILE_%d\" name=\"PLAN_BANNER_FILE_%d\" class=\"inp_file\"  onchange=\"javascript:inputImgPath('00', %d);\"/>"	//	***(22)
+		, "								<a href=\"#\" class=\"btn_w ml5 vmid file_add\">파일찾기</a>"
+		, "							</span>"
+		, "						</div>"
+		, "						<p class=\"tl\">* jpg, png 파일만 업로드 가능합니다.(사이즈 000x000)</p>"
+		, "					</div>"
+		, "				</div>"
+		, "			</td>"
+		, "		</tr>"
+		, "		<tr>"
+		, "			<th scope=\"row\">URL(%d)</th>"		//	32	*(테스트 종료후 제거)
+		, "			<td class=\"tl\">"
+		, "				http:// <input type=\"text\" id=\"PLAN_BANNER_URL_%d\" name=\"PLAN_BANNER_URL_%d\" style=\"width:300px\" /> <a href=\"javascript:moveBannerUrl(%d);\" class=\"btn_url\"><img src=\"http://static.ssocio.net/admin/images/ico_num_right2.png\" alt=\"URL로 이동\" /></a>"	//	***(34)
+		, "			</td>"
+		, "		</tr>"
+		, "		<tr>"
+		, "			<td colspan=\"2\" class=\"tl bg_type2\">"
+		, "				<div class=\"clear\">"
+		, "					<div class=\"left\">"
+		, "						<a href=\"javascript:delBanner(%d);\" class=\"btn_b\">삭제</a>"		//	*(41)
+		, "					</div>"
+		, "					<div class=\"ord_show right\">"
+		, "						<span>노출 순서 변경</span>"
+		, "						<a href=\"javascript:movePrev('00', %d);\" class=\"btn_s_up\"><img src=\"http://static.ssocio.net/admin/images/ico_b_up.png\" alt=\"올림\"></a>"	//	*(45)
+		, "						<a href=\"javascript:moveNext('00', %d);\" class=\"btn_s_down\"><img src=\"http://static.ssocio.net/admin/images/ico_b_down.png\" alt=\"내림\"></a>"	//	*(46)
+		, "					</div>"
+		, "				</div>"
+		, "			</td>"
+		, "		</tr>"
+		, "	</tbody>"
+		, "</table>"};
+	
+	private static final String TAG_NAME_FILE = "PLAN_BANNER_FILE_%d";
+	private static final String TAG_NAME_FILE_SEQ = "PLAN_BANNER_FILE_SEQ_%d";
+	private static final String TAG_NAME_URL = "PLAN_BANNER_URL_%d";
+	
+	private String url;
+	
+	private String fileSeq;
+	
+	private MultipartFile multiFile = null;
+	private Map<String, Object> fileInfo = null;
+	
+	/**
+	 * 
+	 * <pre>
+	 * 설명 : 배너 템플릿을 가져오기 위한 메소드
+	 * 설명 : Ajax로 호출 되기 때문에 클래스 메소드가 아닌 static으로 처리했음.
+	 * @param seq
+	 * @return
+	 * @date 2015. 8. 13. 오후 9:59:50
+	 * @author WOOK.KIM
+	 * @see
+	 * </pre>
+	 */
+	public static String makeHtml(int seq){
+		String retVal = "";
+		for(int i=0 ; i<PlanBanner.HTML_BANNERS.length ; i++){
+			switch(i){
+			case 0:
+			case 11:
+			case 32:
+			case 41:
+			case 45:
+			case 46:
+				retVal += String.format(PlanBanner.HTML_BANNERS[i], seq);
+				break;
+			case 15:
+			case 16:
+			case 19:
+			case 20:
+				retVal += String.format(PlanBanner.HTML_BANNERS[i], seq, seq);
+				break;
+			case 22:
+			case 34:
+				retVal += String.format(PlanBanner.HTML_BANNERS[i], seq, seq, seq);
+				break;
+			default:
+				retVal += PlanBanner.HTML_BANNERS[i];
+				break;
+			}
+		}
+		
+		return retVal;
+	}
+
+	public PlanBanner(JSONObject json, MultipartHttpServletRequest inParam){
+		super(json);
+		
+		this.url = StringUtil.nvl((String)inParam.getParameter(String.format(TAG_NAME_URL, idx)), "");
+		
+		this.fileSeq = StringUtil.nvl((String)inParam.getParameter(String.format(TAG_NAME_FILE_SEQ, idx)), "");
+		
+		this.multiFile = inParam.getFile(String.format(TAG_NAME_FILE, idx));
+	}
+	
+	/**
+	 * 
+	 * <pre>
+	 * 설명 MultipartFile을 통해서 FileInfo를 가져온다.
+	 * 설명 setter 메소드 아님.
+	 * @date 2015. 8. 13. 오후 1:10:46
+	 * @author WOOK.KIM
+	 * @see
+	 * </pre>
+	 */
+	public void setFileInfo() {
+		//	MultipartFile이 null이 아니라면 기존과 신규 구분없이 FileInfo를 생성한다.
+		if(this.multiFile != null){
+			try{
+				this.fileInfo = FileUtil.saveMultipartFile(this.multiFile);//파일 저장
+				
+				//	Map에서 I_FILE_TITLE의 값이 없다면, 기존 이미지 정보가 수정되지 않음을 의미함.
+				if( StringUtil.isEmpty((String)this.fileInfo.get("I_FILE_TITLE"))){
+					this.fileInfo = null;
+				}
+			}catch(IOException ioe){
+				logger.warn(ioe.getMessage());
+			}
+		}
+	}
+
+	public String getUrl() {
+		return url;
+	}
+
+	public void setUrl(String url) {
+		this.url = url;
+	}
+	
+	public String getFileSeq() {
+		return fileSeq;
+	}
+
+	public void setFileSeq(String fileSeq) {
+		this.fileSeq = fileSeq;
+	}
+
+	public Map<String, Object> getFileInfo() {
+		return fileInfo;
+	}
+
+	public void setFileInfo(Map<String, Object> fileInfo){
+		this.fileInfo = fileInfo;
+	}
+	
+	@Override
+	public String toString(){
+		StringBuffer sb = new StringBuffer("");
+		sb.append("[");
+		sb.append("PLAN_CD : ").append(this.planCd);
+		sb.append(" , IMG_SEQ : ").append(sequence);
+		sb.append(" , VIEW_SEQ : ").append(this.viewSeq);
+		sb.append(" , FILE_SEQ : ").append(this.fileSeq);
+		sb.append(" , URL : ").append(this.url);
+		sb.append(" , IS_DEL : ").append(this.isDel);
+		sb.append("]");
+		
+		return sb.toString();
+	}
+}

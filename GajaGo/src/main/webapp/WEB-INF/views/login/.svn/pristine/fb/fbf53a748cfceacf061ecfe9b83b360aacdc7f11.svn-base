@@ -1,0 +1,125 @@
+/**
+ ** 
+ */
+
+Address = Class({
+	isBase : false,
+	regsSeq : '',
+	dlvNm : '',
+	rcvNm : '',
+	zipCd : '',
+	jusoJiben : '',
+	jusoDoro : '',
+	jusoDtl : '',
+	rcvTel : '',
+	extLand : '',
+	initialize : function(isBase, regsSeq, dlvNm, rcvNm, zipCd, jusoJiben, jusoDoro, jusoDtl, rcvTel, extLand){
+		this.isBase = isBase;
+		this.regsSeq = regsSeq;
+		this.dlvNm = dlvNm;
+		this.rcvNm = rcvNm;
+		this.zipCd = zipCd;
+		this.jusoJiben = jusoJiben;
+		this.jusoDoro = jusoDoro;
+		this.jusoDtl = jusoDtl;
+		this.rcvTel = rcvTel;
+		this.extLand = extLand;
+	}
+});
+
+Delivery = Class({
+	objRegSeq : $('#REG_SEQ'),
+	addrs : new Array(),
+	selected : null,
+	initialize : function(obj){
+		this.selected = obj;
+	},
+	selectInfo : function(callback){
+		$.ajax({
+			type: 'post',
+			async: true, 
+			url: '/mobile/prod/selectDlvInfo.do', 
+			dataType:'json', 
+			data: '',
+		    success: function(response) {
+		    	callback(response);
+		    },
+			error : function(request, status, error) {
+				alert("통신 오류가 발생 하였습니다. 잠시 후 다시 시도해 주세요");
+			}
+		});
+	},
+	callback : function(isChange, response){
+		if( isChange == false){
+	    	if( response.data == PROD_STAT_NOT_LOGIN){
+	    		alert('로그인 상태에서 이용 가능합니다. \n로그인 페이지로 이동합니다. ');
+	    		location.href = '/mobile/main/login.do?ret=' + encodeURIComponent(url);
+	    	}
+	    	else{
+	    		this.addrs.splice(0, this.addrs.length);
+				for(var i=0 ; i<response.dlvInfo.addrs.length ; i++){
+					var option = response.dlvInfo.addrs[i];
+					var addr = null;
+					if( i == 0 ){
+						addr = new Address(true, option.REGS_SEQ, option.DLV_NAME, response.dlvInfo.RCV_NM, response.dlvInfo.ZIP_CD, response.dlvInfo.JUSO_JIBEN, response.dlvInfo.JUSO_DORO, response.dlvInfo.JUSO_DTL, response.dlvInfo.RCV_TEL, response.dlvInfo.EXT_LAND_CD);
+					}
+					else{
+						addr = new Address(false, option.REGS_SEQ, option.DLV_NAME, '', '', '', '', '', '', '99');
+					}
+					
+					this.addrs.push(addr);
+				}
+	    	}
+	    	
+	    	this.display(isChange);
+		}
+		else{
+			var isBase = false;
+			for( var i=0 ; i<this.addrs.length ; i++){
+				if(response.dlv.REG_SEQ == this.addrs[i].regsSeq){
+					isBase = true;
+					break;
+				}
+			}
+			
+			this.selected = new Address(isBase, response.dlv.REG_SEQ, response.dlv.DLV_NAME, response.dlv.RCV_NM, response.dlv.ZIP_CD, response.dlv.JUSO_JIBEN, response.dlv.JUSO_DORO, response.dlv.JUSO_DTL, response.dlv.RCV_TEL, response.dlv.EXT_LAND_CD);
+
+			this.display(isChange);
+		}
+	},
+	display : function(isChange){
+		if( isChange == false){
+			for(var i=0 ; i<this.addrs.length ; i++){
+				var addr = this.addrs[i];
+				if( addr.isBase == true){
+					$('#REG_SEQ').append('<option value="' + addr.regsSeq + '">(기본배송지) ' + addr.dlvNm + '</option>');
+				}
+				else{
+					$('#REG_SEQ').append('<option value="' + addr.regsSeq + '">' + addr.dlvNm + '</option>');
+				}
+			}
+		}
+		
+    	$("#RCV_NM").val(this.selected.rcvNm);
+    	$("#ZIP_CD").val(this.selected.zipCd);
+    	$("#JUSO_JIBEN").val(this.selected.jusoJiben);
+    	$("#JUSO_DORO").val(this.selected.jusoDoro);
+    	$("#JUSO_DTL").val(this.selected.jusoDtl);
+    	$("#RCV_TEL").val(this.selected.rcvTel);
+	},
+	change : function(regSeq, callback){
+		$.ajax({
+			type: 'post',
+			async: true, 
+			url: '/mobile/prod/selectDlvAddr.do', 
+			dataType:'json', 
+			data: {"REG_SEQ" : regSeq},
+		    success: function(response) {
+		    	callback(response);
+		    },
+			error : function(request, status, error) {
+				alert("통신 오류가 발생 하였습니다. 잠시 후 다시 시도해 주세요");
+			}
+		});
+	}
+});

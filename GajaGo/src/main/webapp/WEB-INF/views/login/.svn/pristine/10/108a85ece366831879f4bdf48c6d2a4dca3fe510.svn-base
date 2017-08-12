@@ -1,0 +1,453 @@
+<%@ page language="java" contentType="text/html; charset=utf-8"
+    pageEncoding="utf-8"%>
+<!-- 태그는 cmmnHead.jsp 에 선언함 -->
+<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c"%>
+<script type="text/javascript" src="http://static.ssocio.net/admin/js/layer_pop.js"></script>
+<%@ include file="/WEB-INF/views/admin/common/cmmnHead.jsp"%>
+<script type="text/javascript">
+$(document).ready(function(){
+
+	$('#TEL_REG_NM').blur(function(){
+		var tel_reg_nm = $(this).val();
+		$.ajax({
+			url : "/admin/telcom/tel_check.do",
+			contentType : "application/x-www-form-urlencoded;charset=UTF-8" ,
+			dataType : "JSON",
+			type : "POST" ,
+			data : { tel_reg_nm : tel_reg_nm } ,
+			async : false,
+			success : function (data, textStatus){
+				if(data != null){
+					$('#TEL_REG_NM_check').html(data);
+				} else {
+					alert("사용 불가능 합니다.");
+				}
+			}
+		});
+		
+// 		$('#TEL_REG_NM_check').html("성공");
+	});
+	
+	
+// 	layer_close('.btn_g2');
+});
+function telcom_insert(){
+	layer_popup('.tel_reg_area');
+}
+
+
+function go_update_reg(){
+	
+	
+	if(!$("#TEL_MOD_TEL_NM").val().trim() > 0){
+		alert("통신사명을 입력해 주세요.");
+		$("#TEL_MOD_TEL_NM").focus();
+		return;
+	}
+	
+	var use_yn = $('input:radio[name="TEL_MOD"]:checked').val();
+	$("#TEL_MOD_TEL_USE").val(use_yn);
+	var options = {
+	        url : "/admin/telcom/updateTelcomReg.do",
+	        success: function(){
+	          alert("수정되었습니다.");
+	          window.location.reload(true);
+	        }
+		};
+		$("#sndfrm").ajaxSubmit(options);
+}
+function go_delete_reg(){
+	if(confirm("선택한 통신사의 대한 요금제도 삭제됩니다.\n 삭제 하시겠습니까?"))
+	$.ajax({
+		type: 'post'
+		, async: true
+		, url: '/admin/telcom/deleteTelcomReg.do'
+		, dataType:'json'
+		, data:  {"TEL_CODE":$("#TEL_CODE").val()}
+		, success: function(data) {
+			
+			 alert("삭제되었습니다..");
+	          window.location.reload(true);
+		}
+		, error: function(data, status, err) {
+			alert('서버와의 통신이 실패했습니다.');
+		}
+	});
+}
+function preView2(obj, targetId, targetPath){
+    
+    var target = $("#" + targetId).get(0);
+    if(window.FileReader){
+        console.log(obj)
+        console.log(targetId)
+      if(obj.files && obj.files[0]){
+        // 2015-04-03 김명진 파일 확장차 체크 추가 Start
+        var fileExp = $(obj).val().split(".");
+        fileExp = $.trim(fileExp[fileExp.length-1].toLowerCase()); 
+        if(fileExp != "jpg" && fileExp != "png"){
+          alert("JPG, PNG 파일 형식만 업로드 가능합니다.");
+          var fileInfo =$(obj);
+          fileInfo.replaceWith( fileInfo = fileInfo.clone( true ) );
+          return false;
+        }
+        // 2015-04-03 김명진 파일 확장차 체크 추가 End
+        
+        // 2015-04-03 김명진 용량체크 추가 Start  
+        var Mega = 1*1024*1024;//Mbyte
+        var maxSize = 5;//5M
+        var fileSize = obj.files[0].size;
+        
+        if(fileSize > maxSize * Mega){
+          alert("이미지 용량이"+maxSize+"MB를 초과하여 등록할 수 없습니다.");
+          var fileInfo =$(obj);
+          fileInfo.replaceWith( fileInfo = fileInfo.clone( true ) );
+          return false;
+        }
+        // 2015-04-03 김명진 용량체크 추가 End
+
+        var reader = new FileReader();
+        reader.onload = function(e){
+          $("#" + targetId).attr("src", e.target.result);
+        }
+        reader.readAsDataURL(obj.files[0]);
+      }
+    }else if(target.filters){
+      // 익스플로어일 경우
+      var inputFile = $(obj).get(0);
+      inputFile.select();
+      inputFile.blur();
+      
+      var imgSrc = document.selection.createRange().text;
+      var image = new Image();
+      image.dysrc = imgSrc;
+      
+      // 2015-04-03 김명진 파일 확장차 체크 추가 Start
+      var fileExp = imgSrc.split(".");
+      fileExp = $.trim(fileExp[fileExp.length-1].toLowerCase()); 
+      if(fileExp != "jpg" && fileExp != "png"){
+        alert("JPG, PNG 파일 형식만 업로드 가능합니다.");
+        var fileInfo =$(obj);
+        fileInfo.replaceWith( fileInfo = fileInfo.clone( true ) );
+        return false;
+      }
+      // 2015-04-03 김명진 파일 확장차 체크 추가 End
+      
+      // 2015-04-03 김명진 용량체크 추가 Start  
+      var Mega = 1*1024*1024;//Mbyte
+      var maxSize = 5;//5M
+      var fileSize = image.fileSize;
+      
+      if(fileSize > maxSize * Mega){
+        alert("이미지 용량이"+maxSize+"MB를 초과하여 등록할 수 없습니다.");
+        var fileInfo =$(obj);
+        fileInfo.replaceWith( fileInfo = fileInfo.clone( true ) );
+        return false;
+      }
+      // 2015-04-03 김명진 용량체크 추가 End
+  
+      target.style.filter = "progid:DXImageTransform.Microsoft.AlphaImageLoader(enable='true',sizingMethod='scale',src=\""+imgSrc+"\")";
+  
+      /* 
+       * 2015-06-12 김명진 
+       * IE 9버전에서 이미지 미리보기는 되지만 해당 이미지 백그라운드에
+       * IMG 태그의 여운이 남아 있는 관계로 로컬 파일에 있는 투명 이미지를 덮어 씌워 처리.
+       */
+      imgSrc = "http://static.ssocio.net/admin/images/empty.png";
+      $("#" + targetId).attr("src", imgSrc);//이미지 미리보기 경로 수정
+    }
+  }
+function go_insert_reg(){
+	if(!$("#TEL_REG_NM").val().trim() > 0){
+		alert("통신사명을 입력해 주세요.");
+		$("#TEL_REG_NM").focus();
+		return;
+	}
+	
+
+	
+	  if(!$("#TEL_REG_IMG_PREVIEW").attr("src").length>0){
+          alert("이미지를 선택해 주세요.");
+          return false;
+    }
+	if(confirm("등록 하시겠습니까?")){
+		var options = {
+		        url : "/admin/telcom/insertTelcomReg.do",
+		        success: function(){
+		          alert("등록되었습니다.");
+		          window.location.reload(true);
+		        }
+			};
+			$("#sndfrm").ajaxSubmit(options);
+	}
+}
+
+// 통신사 클릭시 상세뷰 
+function View_Dtl(telcom_code,telcom_nm,telcom_img,telcom_use_yn){
+	
+	$("#TEL_MOD_TEL_CODE").text(telcom_code);
+	$("#TEL_MOD_TEL_NM").val(telcom_nm);
+	$("#TEL_MOD_TEL_IMGRUL").attr("src",telcom_img);
+	
+	
+	if('Y' ==  telcom_use_yn ){
+	$('input:radio[name="TEL_MOD"][value="Y"]').prop('checked', true);
+// 	$("#TEL_MOD_TEL_USE_Y").attr("checked",true);
+	}else{
+		$('input:radio[name="TEL_MOD"][value="N"]').prop('checked', true);
+// 	$("#TEL_MOD_TEL_USE_N").attr("checked",true);
+	}
+	$("#TEL_CODE").val(telcom_code)
+	layer_popup('.tel_mod_area');
+
+	
+}
+
+function GoPage(pageNo) {
+	$("#PAGE_NO").val(pageNo);
+	
+	$("#sndfrm").attr("action","/admin/telcom/selectListTelcomInfo.do").submit();
+}
+
+function CancelFnc(obj){
+    $("#TEL_REG_NM").val("");
+    $("#TEL_REG_IMG_PREVIEW").attr("src","");
+    $("#TEL_REG_IMG").val("");
+    if($.browser.msie){    //IE version
+        var fileInfo = $("#TEL_REG_IMG");
+           fileInfo.replaceWith( fileInfo = fileInfo.clone( true ) );
+        var target = $("#TEL_REG_IMG_PREVIEW").get(0);
+            target.style.filter = "progid:DXImageTransform.Microsoft.AlphaImageLoader(enable='true',sizingMethod='scale',src=\"\")";
+    }
+    $(obj).parents(".lay_pop").removeClass("on").css({"top":"50%","left":"50%"});
+}
+function UpdateCancelFnc(obj){
+	 $(obj).parents(".lay_pop").removeClass("on").css({"top":"50%","left":"50%"});
+}
+
+</script>
+
+<form name="sndfrm" method="post" id="sndfrm" enctype="multipart/form-data">
+<!-- content -->
+<div id="content">
+	  <input type="hidden"  id="PAGE_NO" name="PAGE_NO" value="${PAGE_NO}">
+	  <input type="hidden"  id="TEL_CODE" name="TEL_CODE" value="">
+	  <input type="hidden"  id="TEL_MOD_TEL_USE" name="TEL_MOD_TEL_USE" value="">
+	<!-- top_content -->
+		<div class="top_content">
+			<!-- location -->
+			<div class="location">
+				<ul class="clear">
+					<li class="first-child"><a href="#">Home</a></li>
+					<li><a href="#">스마트폰 셰어링 관리</a></li>
+					<li><a href="#" class="current">통신사 관리</a></li>
+<!-- 					<li><a href="#">스마트폰 상세</a></li> -->
+				</ul>
+			</div>
+			<!-- //location -->
+		</div>
+		<!-- //top_content -->
+		
+		<div class="inner">
+			<!-- tbl -->
+			<div class="tbl mt10">
+				<div class="btn_area type">
+					<a href="javascript:telcom_insert()" class="btn_w tel_reg"><span>통신사 등록</span></a>
+				</div>
+				<!-- list -->
+				<table class="list">
+					<colgroup>
+						<col style="width:15%" />
+						<col style="width:15%" />
+						<col style="width:*%" />
+						<col style="width:10%" />
+					</colgroup>
+					<thead>	
+						<tr>
+							<th scope="col">통신사코드</th>
+							<th scope="col">통신사</th>
+							<th scope="col">이미지</th>
+							<th scope="col">상태</th>
+						</tr>
+					</thead>
+					<tbody>
+					<c:forEach var="list" items="${list.selectListTelInfo}" varStatus="status">
+						<tr>
+							<td class="nolineL">${list.TELCOM_CODE}</td>
+							<td><a href="javascript:View_Dtl('${list.TELCOM_CODE}','${list.TELCOM_NM}','${list.IMGURL}','${list.USE_YN}')" class="alink tel_mod">${list.TELCOM_NM}</a></td>
+							<td><img src="${list.IMGURL}" width="100" height="50" alt=""/></td>
+							<c:choose>
+								 <c:when test="${list.USE_YN == 'Y' }"><td>사용</td></c:when>
+								 <c:otherwise><td id="test">미사용</td></c:otherwise>
+							</c:choose>
+							
+						</tr>
+					</c:forEach>
+					<c:if test="${empty list.selectListTelInfo}">
+						<tr>
+						<td class="nolineL" colspan="6">등록된 요금제가 없습니다.</td>
+					</tr>
+					</c:if>
+				
+					
+					</tbody>
+				</table>
+				<!-- //list -->
+			</div>
+			<!-- //tbl -->
+			
+			<!-- bot_tbl -->
+			<div class="bot_tbl">
+				<!-- paging -->
+				<%@ include file="/WEB-INF/views/admin/common/PageView.jsp" %>
+				<!-- //paging -->
+			</div>
+			<!-- //bot_tbl -->
+		</div>
+
+</div><!-- content -->
+
+	<!-- 통신사등록 레이어팝업 -->
+	<div class="lay_pop tel_reg_area" id="telComReg" style="width:685px">
+		<!-- pop_header -->
+		<div class="pop_header">
+			<h1>통신사등록</h1>
+			<a href="#" onclick="CancelFnc(this)" class="btn_close"><img src="http://static.ssocio.net/admin/images/btn_layer_close.gif" alt="close" /></a>
+		</div>
+		<!-- //pop_header -->
+		
+		<!-- pop_con -->
+		<div class="pop_con">
+			<div class="layer_tbl_area">
+				<!-- tbl -->
+				<div class="tbl">
+					<!-- list -->
+					<table class="list">
+						<colgroup>
+							<col style="width:15%" />
+							<col style="width:*" />
+						</colgroup>
+						<tbody>
+							<tr>
+								<th scope="row">통신사명</th>
+								<td class="tl">
+									<input type="text" id="TEL_REG_NM" name="TEL_REG_NM" style="width:300px" maxlength="15"/>
+									<span id="TEL_REG_NM_check"></span>
+								</td>
+							</tr>
+							<tr>
+								<th scope="row">이미지</th>
+								<td>
+									<div class="file_upload_area tl">
+										<span class="txt_file">
+											<input type="file" id="TEL_REG_IMG" name="TEL_REG_IMG" class="inp_file" onchange="preView2(this, 'TEL_REG_IMG_PREVIEW');" />
+											<a href="#" class="btn_w vmid file_add">파일찾기</a>
+										</span>
+										<span class="ml5">* jpg, png 파일 확장자만 등록 가능 합니다</span>
+									</div>
+									<!-- 이미지 영역 -->
+									<div class="add_image_area mt10 tl">
+										<img id="TEL_REG_IMG_PREVIEW" name="TEL_REG_IMG_PREVIEW" src="" width="200" height="100" >
+									</div>
+									<!-- //이미지 영역 -->
+								</td>
+							</tr>
+						</tbody>
+					</table>
+					<!-- //list -->
+				</div>
+				<!-- //tbl -->
+				
+				<!-- bot_btn -->
+				<div class="bot_btn tc mt20">
+					<a onclick="go_insert_reg()" href="#" class="btn_r">등록</a>
+					<a href="#" onclick="CancelFnc(this)" class="btn_g2">취소</a>
+				</div>
+				<!-- //bot_btn -->
+			</div>
+		</div>
+		<!-- //pop_con -->
+	</div>
+	<!-- //통신사등록 레이어팝업 -->
+	
+	<!-- 통신사수정 레이어팝업 -->
+	<div class="lay_pop tel_mod_area" id="telComMod" style="width:685px">
+		<!-- pop_header -->
+		<div class="pop_header">
+			<h1>통신사수정</h1>
+			<a href="#" onclick="UpdateCancelFnc(this)" class="btn_close"><img src="http://static.ssocio.net/admin/images/btn_layer_close.gif" alt="close" /></a>
+		</div>
+		<!-- //pop_header -->
+		
+		<!-- pop_con -->
+		<div class="pop_con">
+			<div class="layer_tbl_area">
+				<!-- tbl -->
+				<div class="tbl">
+					<!-- list -->
+					<table class="list">
+						<colgroup>
+							<col style="width:15%" />
+							<col style="width:*" />
+						</colgroup>
+						<tbody>
+							<tr>
+								<th scope="row">통신사 코드</td>
+								<td class="tl">
+									<span id="TEL_MOD_TEL_CODE"></span>
+								</td>
+							</tr>
+							<tr>
+								<th scope="row">통신사명</td>
+								<td class="tl">
+									<input type="text" id="TEL_MOD_TEL_NM" name="TEL_MOD_TEL_NM" value="SKT" style="width:300px" />
+								</td>
+							</tr>
+							<tr>
+								<th scope="row">이미지</td>
+								<td>
+									<div class="file_upload_area tl">
+										<span class="txt_file">
+											<input type="file" id="TEL_MOD_TEL_IMG" name="TEL_MOD_TEL_IMG" class="inp_file" onchange="preView(this, 'TEL_MOD_TEL_IMGRUL');" />
+											<a href="#" class="btn_w vmid file_add">파일찾기</a>
+										</span>
+										<span class="ml5">* jpg, png 파일 확장자만 등록 가능 합니다</span>
+									</div>
+									<!-- 이미지 영역 -->
+									<div class="add_image_area mt10 tl">
+										<img id="TEL_MOD_TEL_IMGRUL" src="" width="200" height="100" >
+									</div>
+									<!-- //이미지 영역 -->
+								</td>
+							</tr>
+							<tr>
+								<th scope="row">상태변경</th>
+								<td class="tl">
+									<input type="radio" id="TEL_MOD_TEL_USE_Y" name="TEL_MOD" value="Y"/> <label for="use_y">사용</label>
+									<input type="radio" id="TEL_MOD_TEL_USE_N" name="TEL_MOD" value="N" class="ml10" /> <label for="use_n">미사용</label>
+								</td>
+							</tr>
+						</tbody>
+					</table>
+					<!-- //list -->
+				</div>
+				<!-- //tbl -->
+				
+				<!-- bot_btn -->
+				<div class="bot_btn tc mt20">
+					<a href="javascript:go_update_reg()" class="btn_r">수정</a>
+					<a href="#" onclick="UpdateCancelFnc(this)" class="btn_g2">취소</a>
+				</div>
+				<!-- //bot_btn -->
+				
+				<div class="btm_btn_bx">
+					<a href="javascript:go_delete_reg()" class="btn_b">삭제</a>
+				</div>
+			</div>
+		</div>
+		<!-- //pop_con -->
+	</div>
+	<!-- //통신사수정 레이어팝업 -->
+		
+		
+</form>
+	

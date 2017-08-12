@@ -1,0 +1,213 @@
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ include file="/WEB-INF/views/web/common/cmmnHead.jsp"%>
+<script type="text/javascript" src="/js/web/cart.js" ></script> <!-- 장바구니용 js -->
+<script type="text/javascript">
+
+	var btnFlag = true;
+	var regData = '${regData}';
+	var dlvPayGbCd = '${dlvPayGbCd}';
+	var mainYn = '${params.mainYn }';
+	
+	//ready
+	$(document).ready(function(){
+		
+		$("#regData").val(regData);
+		
+		// title 및 back 버튼 url set
+		document.title = "상품 등록";
+// 		header.type	= 6;
+		header.type	= 4;
+		header.title = "상품 등록";
+		header.method = "POST";
+		if (mainYn == "Y") {
+			header.backUrl = "/mobile/main/main.do";
+		}
+		else {
+			header.backUrl = "/mobile/salemanage/main.do";
+		}
+		header.callback = headerCallback; // 장바구니용 callback
+		header.form = $("#form");
+		initHeader();
+
+		// 뒤로가기 를 공통 제어를 쓰지 않고 재정의함
+		var data = JSON.parse(regData);
+		$("#id_btn_back").unbind('click');
+		$(".btn_back").click(function(event){
+			event.preventDefault();
+			location.href=data.refUrl;
+		});
+		
+		displayFooter(false);
+		
+		// 판매방식 선택
+		$("input[name=bndlDlvYn]").click( function () {
+			proc.procChoice(this);
+		});
+		
+	});
+
+	// page 이동
+	var page = {
+			
+		// 이전 페이지 이동
+		goPrePage : function () {
+			
+// 			if (dlvPayGbCd == "1") {
+				$("#movePage").val("4");
+// 			}
+// 			else {
+// 				$("#movePage").val("5");
+// 			}
+			$("#moveBack").val("Y");
+			var url = "/mobile/salemanage/procInsertProdSell.do";
+			form.action = url;
+			form.submit();
+			
+		},
+		
+		// 상품 등록
+		insertProd : function () {
+			if(!$("#btnNext").hasClass("btn_r")) {
+				alert("묶음 배송이 가능한 상품인지 선택해 주세요.");
+				return;
+			}
+			
+			if (btnFlag==true) {
+				
+				btnFlag = false;
+				
+				$.ajax({
+					type: "post",
+					async: true,
+					url: "/mobile/salemanage/insertSellProdInfo.do",
+					dataType:"json",
+					data:  $("#form").serialize(),
+					success: function(data) {
+						if (data.rtn.rtnMsgCd == "Y") {
+							alert("상품 등록이 완료되었습니다.");
+							// 상품 상세 페이지로 이동
+							setTimeout(function(){location.href = '/mobile/prod/selectProd.do?PROD_CODE=' + data.rtn.prodCode;},1000);
+
+						}
+						else {
+							alert("상품 등록에 실패하였습니다. 다시 시도해 주세요.");
+							btnFlag = true;
+						}
+					},
+					error: function(data, status, err) {
+						alert("상품 등록에 실패하였습니다. 다시 시도해 주세요.");
+						btnFlag = true;
+					}
+				});
+				
+			}else{
+				alert('처리중 입니다. 잠시후 다시 시도해 주세요.');
+			}
+			
+		}
+			
+	};
+	
+	// script 처리 모음
+	var proc = {
+			
+		// 신상품 구분코드
+		procChoice : function (obj) {
+			
+			// 선택여부 확인
+			var chk = $(obj).is(":checked");
+			if (chk) {
+				// 버튼 활성화
+				//$("#btnNext").attr("disabled",false);
+				$("#btnNext").removeClass("btn_b");
+				$("#btnNext").addClass("btn_r");
+// 				page.insertProd();
+			}
+			else {
+				// 버튼 비활성화
+				//$("#btnNext").attr("disabled",true);
+				$("#btnNext").removeClass("btn_r");
+				$("#btnNext").addClass("btn_b");
+			}
+			
+		}
+			
+	};
+
+</script>
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+		<div class="roc">
+			<ul class="inner">
+				<li><img src="http://static.ssocio.net/pc/img/common/section/roc_home.png" alt="홈"></li>
+				<li>판매관리</li>
+			</ul>
+		</div>
+		<jsp:include page="../common/sale_top.jsp" flush="false" />
+		<div class="mype_s_tit">
+			<p>상품등록</p>
+		</div>
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+		<!-- container -->
+		<div id="container">
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>
+
+<form id="form" name="form" method="post" action="">
+	<input type="hidden" id="movePage" name="movePage" value="5" />
+	<input type="hidden" id="regData" name="regData" value="" />
+	<input type="hidden" id="moveBack" name="moveBack" value="" />
+	<input type="hidden" id="mainYn" name="mainYn" value="${params.mainYn }" />
+
+		<div class="completed">
+        	<p class="percent"><strong>100% Completed</strong></p>
+            <div class="bar"><p style="width:100%"></p></div>
+        </div>
+        <div class="contents pic_reg">
+        	<p class="purc-title"><strong>묶음 배송</strong>이 가능한 상품인가요?</p>
+        	<ul class="sbox08">
+				<li>
+					<div class="block">
+						<input type="radio" id="che01" name="bndlDlvYn" value="Y" />
+						<label for="che01">네. 묶음 배송이 가능합니다.</label>
+					</div>
+				</li>
+				<li>
+					<div class="block">
+						<input type="radio" id="che02" name="bndlDlvYn" value="N" />
+						<label for="che02">아니요. 묶음 배송이 불가능 합니다.</label>
+					</div>
+				</li>
+			</ul>
+			<div class="btn_enter">
+				<ul>
+					<li>
+						<input type="button" class="btn_b-line" onClick="javascript:page.goPrePage();" value="이전" title="이전" alt="이전" />
+					</li>
+					<li>
+						<input type="button" class="btn_b" id="btnNext"  onClick="javascript:page.insertProd();" value="다음" title="다음" alt="다음" />
+					</li>
+				</ul>
+			</div>
+        </div>
+</form>
+
+<c:choose>
+	<c:when test="${sessionScope.isPcAgent }">
+	<!-- PC화면 -->
+		<jsp:include page="../common/sale_bottom.jsp" flush="false" />
+	<!-- //PC화면 -->
+	</c:when>
+	<c:otherwise>
+	<!-- 모바일 화면 -->
+		    </div>
+		    <!-- //container -->
+	<!-- //모바일 화면 -->
+	</c:otherwise>
+</c:choose>
