@@ -18,8 +18,7 @@ public class MemberDao {
 	}
 
 	public int insertMember(MemberVo member) {
-		System.out.println(member.toString());
-		int result = sqlsession.insert("insertMember", member);
+ 		int result = sqlsession.insert("insertMember", member);
 		return result;
 	}
 

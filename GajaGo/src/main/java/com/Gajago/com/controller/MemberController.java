@@ -25,10 +25,7 @@ import com.Gajago.com.vo.MemberVo;
 public class MemberController {
 	@Autowired
 	MemberService memberService;
- 
-	
-	
-	
+
 	private static final Logger logger = LoggerFactory.getLogger(MemberController.class);
 
 	@RequestMapping(value = "/findInfo", method = RequestMethod.GET)
@@ -62,12 +59,7 @@ public class MemberController {
 		}
 		
 		return retCheck;
-		
-		
-		
 	}
-	
-	
 	
 	
 	@RequestMapping(value = "/insertProc", method = RequestMethod.POST)
@@ -127,10 +119,8 @@ public class MemberController {
 	    return retCheck;
 	    
 	}
-
-
 	
-
+	//비밀번호 찾기
 	@RequestMapping("/findPwd")
 	public @ResponseBody HashMap<String,Object> findPwd (MemberVo member,HttpServletRequest request,HttpServletRequest response) throws UnsupportedEncodingException{
 		HashMap<String,Object> retCheck = new HashMap<String,Object>();
@@ -142,7 +132,6 @@ public class MemberController {
 	    }else {
 	    	retCheck.put("retCheck", "Y");
 	    	retCheck.put("retMsg", member.getEmail()+"으로 비밀번호 정보를 전송하였습니다 ");
-	    	
 	    }
 	    return retCheck;
 	}

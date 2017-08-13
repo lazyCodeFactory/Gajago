@@ -9,8 +9,6 @@ import org.springframework.mail.javamail.JavaMailSenderImpl;
 import com.Gajago.com.vo.EmailVo;
 
 public class EmailSender {
-//	@Autowired
-//	private JavaMailSender mailSender;
     JavaMailSenderImpl javaMailSender = new JavaMailSenderImpl();
 
 	public void sendEMail(EmailVo email) {
