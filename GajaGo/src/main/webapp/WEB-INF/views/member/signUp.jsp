@@ -162,9 +162,6 @@
 					
 				</div>
 				
-				<input type="hidden" name="snsId" id="snsId" value="${member.snsId}"/>
-				<input type="hidden" name="snsType" id="snsType" value="${member.snsType}"/>
-				<input type="hidden" name="profilePic" id="profilePic" value="${member.profilePic}"/>
 				
 				<div class="col-md-offset-2 col-md-10 btnArea">
 					<button type="button" class="btnBlue" onclick="signUp()">회원가입</button>

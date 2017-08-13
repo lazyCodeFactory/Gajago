@@ -51,36 +51,23 @@ function facebookLoginGetInfo() {
 	    		var gender =response.gender;
 	    		var age_range = response.age_range;
 	    		var profile = response.picture.data.url;
-	    		var jData = {"userId" : userId};
-    
+	    		var jData = { "snsUserId" : userId ,"snsType" : "F" ,"profilePic":profile };
+	    		
 	    		 $.ajax({
-                     type : "post",
-                     url : "/loginChkProc",
-                     data : jData,
-                     dataType : "json",
-                     contentType: "application/json",
-                     success : function(data) {
+	    				url : "/loginChkProc",
+	    				dataType : "json",
+	    				contentType : "application/x-www-form-urlencoded; charset=UTF-8",
+	    				type : "post",
+	    				data : jData,
+	    				success : function(data) {
                          if (data.retSign == 'N') {
-                             if (email == 'undefined') {
-                                 email = "";
-                             }
-                             if(gender =='남성'){
-                            	 gender="1";
-                            	 
-                             }else{
-                            	 gender="2";
-                                 	 
-                             }
-                             $("#fbData").attr("action", "/signUp");
-                             $("#snsType").val("F");
-                             $("#snsId").val(userId);
-                             $("#name").val(name);
-                             $("#email").val(email);
-                             $("#gender").val(gender);
-                             $("#profilePic").val(profile);
-                             $("#fbData").submit();
-                         } else {
-                        	 console.log("가입되어있습니다");
+                        	 alert(data.retMsg);
+                        	 return false;
+                         }else if(data.retSign == 'SY'){
+                        	 $("#snsName").val(name);
+                        	 $("#snsData").attr("/action","/main");
+                        	 $("#snsData").submit();
+                        	 
                          }
                      },
                      error : function(e) {

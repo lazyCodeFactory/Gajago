@@ -5,20 +5,35 @@
         Kakao.API.request({
           url: '/v1/user/me',
           success: function(res) {
-        	var id = res.id;
+        	var userId = res.id;
             var kaccount_email = res.kaccount_email;
             var thumbnail_image = res.thumbnail_image;
-            console.log(thumbnail_image)
             var snsType= "K";
-            $("#fbData").attr("action", "/signUp");
-            $("#snsId").val(id);
-            $("#email").val(kaccount_email);
-            $("#profilePic").val(thumbnail_image);
-            $("#snsType").val(snsType);
-            $("#fbData").submit();
+    		var jData = {"snsUserId" : userId ,"snsType" : "K" ,"profilePic":thumbnail_image };
 
-          
-          },
+   		 $.ajax({
+             type : "post",
+             url : "/loginChkProc",
+             data : jData,
+             dataType : "json",
+     		contentType : "application/x-www-form-urlencoded; charset=UTF-8",
+             success : function(data) {
+            	 if (data.retSign == 'N') {
+                	 alert(data.retMsg);
+                	 return false;
+                 }else if(data.retSign == 'SY'){
+                	 $("#snsName").val(name);
+                	 $("#snsData").attr("/action","/main");
+                	 $("#snsData").submit();
+                	 
+                 }
+            	 
+             },error: function(e){
+            	 console.log(e);
+             }
+             });
+    		
+         },
           fail: function(error) {
         	  console.log(JSON.stringify(error));
           }

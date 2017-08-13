@@ -12,6 +12,21 @@ public class MemberVo {
 	private String gender;
 	private String profilePic;
 	private String snsType;
+	private String initYn;
+	private String existId;
+	
+	public String getExistId() {
+		return existId;
+	}
+	public void setExistId(String existId) {
+		this.existId = existId;
+	}
+	public String getInitYn() {
+		return initYn;
+	}
+	public void setInitYn(String initYn) {
+		this.initYn = initYn;
+	}
 	public String getId() {
 		return id;
 	}
@@ -76,7 +91,9 @@ public class MemberVo {
 	public String toString() {
 		return "MemberVo [id=" + id + ", password=" + password + ", snsId=" + snsId + ", name=" + name + ", nickname="
 				+ nickname + ", phone=" + phone + ", email=" + email + ", gender=" + gender + ", profilePic="
-				+ profilePic + ", snsType=" + snsType + "]";
-	}	
+				+ profilePic + ", snsType=" + snsType + ", initYn=" + initYn + ", existId=" + existId + "]";
+	}
+
+	
 
 }

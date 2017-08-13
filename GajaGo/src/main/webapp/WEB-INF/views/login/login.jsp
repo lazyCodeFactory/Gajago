@@ -13,13 +13,8 @@
 		<div class="loginDiv">
 			<section class="login-form">
 
-				<form id="fbData" method="post">
-					<input type="hidden" id="snsId" name="snsId" value="" /> 
-					<input type="hidden" id="name" name="name" value="" /> 
-					<input type="hidden" id="email" name="email" value="" />
-					<input type="hidden" id="gender" name="gender" value="" /> 
-					<input type="hidden" id="profilePic"  name="profilePic" value="" />
-					<input type="hidden" id="snsType"  name="snsType" value="" />
+				<form id="snsData" method="post">
+					<input type="hidden" id="snsName" name="name" value="" /> 
 				</form>
 
 

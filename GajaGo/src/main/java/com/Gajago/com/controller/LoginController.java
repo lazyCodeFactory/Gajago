@@ -30,42 +30,46 @@ public class LoginController {
 		model.setViewName("/login/login");
 		return model;
 	}
- //중복아이디 있는지 확인 
-//	@RequestMapping(value = "/loginChkProc", method = RequestMethod.POST)
-//	public @ResponseBody HashMap<String, Object> loginChkProc(HttpServletRequest request,
-//			HttpServletResponse response) {
-//		HashMap<String, Object> retCheck = new HashMap<String, Object>();
-//		String userId = request.getParameter("userId");
-//		boolean isExistID = loginService.chkJoinId(userId);
-//		if (isExistID == true) {
-//			retCheck.put("retSign", "Y");
-//			retCheck.put("retData", userId);
-//		} else {
-//			retCheck.put("retSign", "N");
-//		}
-//		return retCheck;
-//
-//	}
-//	
-	
-	@RequestMapping(value = "/loginChkProc", method = RequestMethod.POST)
-	public @ResponseBody HashMap<String, Object> loginChkProc(MemberVo member,HttpServletRequest request,
-			HttpServletResponse response) {
+ 
+//	//로그인 체크
+	@RequestMapping(value = "/loginChkProc",method=RequestMethod.POST)
+	public @ResponseBody HashMap<String, Object> loginChkProc(MemberVo member,HttpServletRequest request,HttpServletResponse response) {
+	    logger.info(member.toString());
 		HashMap<String, Object> retCheck = new HashMap<String, Object>();
+		String snsUserId = request.getParameter("snsUserId");
+		String profilePic = request.getParameter("profilePic");
+ 		if(snsUserId != null || !"".equals(snsUserId) ) {
+			member.setSnsId(snsUserId);
+			if(profilePic!=null || !"".equals(profilePic)) {
+				member.setProfilePic(profilePic);
+			}
+ 		}
 		MemberVo resultM = new MemberVo();
 		resultM= loginService.logincheck(member);
-		
+		int signSnsResult = 0;
 		if(resultM !=null) {
-			retCheck.put("retSign", "Y");
+			retCheck.put("retSign", "NY");
 			retCheck.put("retData", resultM);
+			
 		}else {
-			retCheck.put("retSign", "N");
-			retCheck.put("retMsg", "아이디와 비밀번호 확인을 부탁드립니다");
+			if(snsUserId == null || snsUserId.length() <=1) {
+				retCheck.put("retSign", "SY");
+				signSnsResult = loginService.signUpSns(member);
+				if(signSnsResult > 0) {
+							
+				}else {
+					retCheck.put("retSign", "N");
+					retCheck.put("retMsg", "자동 로그인이 되지 않습니다 관리자에게 문의해주세요.");
+						
+				}
+			}else {
+				retCheck.put("retSign", "N");
+				retCheck.put("retMsg", "등록되지 않은 아이디이거나, 아이디 또는 비밀번호를 잘못 입력하셨습니다.");
+			}
 		}
 		return retCheck;
 
 	}
-	
 	
 	
 }
