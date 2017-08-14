@@ -18,7 +18,7 @@ function login() {
 		type : "post",
 		data : jData,
 		success : function(data) {
-			if (data.retSign == 'Y') {
+			if (data.retSign == 'NY') {
 				alert(data.retData.id+"님 반갑습니다.");
 				location.href="/main";
 			} else {

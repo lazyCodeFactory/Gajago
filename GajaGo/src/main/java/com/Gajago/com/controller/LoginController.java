@@ -47,27 +47,29 @@ public class LoginController {
 		MemberVo resultM = new MemberVo();
 		resultM= loginService.logincheck(member);
 		int signSnsResult = 0;
-		if(resultM !=null) {
+		//회원정보가 있는경우   >> 일반 로그인
+		if(resultM.getId() !=null) {
 			retCheck.put("retSign", "NY");
 			retCheck.put("retData", resultM);
-			
-		}else {
-			if(snsUserId == null || snsUserId.length() <=1) {
-				retCheck.put("retSign", "SY");
+		//SNS 회원정보가 없는경우 >> SNS로 로그인	
+		}else if(resultM.getId() == null && resultM.getSnsId() == null && snsUserId ==null ) {
+			retCheck.put("retSign", "N");
+			retCheck.put("retMsg", "등록되지 않은 아이디이거나, 아이디 또는 비밀번호를 잘못 입력하셨습니다.");
+		
+		}else if(resultM.getId() == null && resultM.getSnsId() == null && snsUserId!=null){
+			if(snsUserId.length() >= 1) {
 				signSnsResult = loginService.signUpSns(member);
 				if(signSnsResult > 0) {
-							
+					//SNS 회원가입 완료
+					retCheck.put("retSign", "SY");
+ 					retCheck.put("retData", member);
 				}else {
 					retCheck.put("retSign", "N");
 					retCheck.put("retMsg", "자동 로그인이 되지 않습니다 관리자에게 문의해주세요.");
-						
 				}
-			}else {
-				retCheck.put("retSign", "N");
-				retCheck.put("retMsg", "등록되지 않은 아이디이거나, 아이디 또는 비밀번호를 잘못 입력하셨습니다.");
 			}
 		}
-		return retCheck;
+ 		return retCheck;
 
 	}
 	

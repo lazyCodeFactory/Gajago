@@ -63,12 +63,11 @@ function facebookLoginGetInfo() {
                          if (data.retSign == 'N') {
                         	 alert(data.retMsg);
                         	 return false;
-                         }else if(data.retSign == 'SY'){
+                         }else if(data.retSign == 'NY' || data.retSign == 'SY'){
                         	 $("#snsName").val(name);
-                        	 $("#snsData").attr("/action","/main");
+                			 $("#snsData").attr("action", "/main");
                         	 $("#snsData").submit();
-                        	 
-                         }
+                          }
                      },
                      error : function(e) {
                          console.log(e);

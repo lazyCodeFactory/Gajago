@@ -21,13 +21,12 @@ public class LoginService {
  		MemberVo checkElem  = new MemberVo();
  		
  	    checkElem = dao.selectCheckElement(member);
- 	    paramPassword = checkElem.getPassword();
- 	    System.out.println();
+ 	    if(checkElem != null) {
+ 	    	paramPassword = checkElem.getPassword();
  	    
-		if ((checkElem.getSnsId().length() <1 &&  paramPassword.length() < 8) || (checkElem.getSnsId().length() <1 && paramPassword.length() > 16 )) {
-		
-		}else{
-			//초기화 해서  메일로 보낸경우
+  	    
+ 		
+ 			//초기화 해서  메일로 보낸경우
 			if("Y".equals(checkElem.getInitYn())) {
 			//sns으로 로그인 했을경우는 제외
 			}else if(checkElem.getSnsId()!=null || "".equals(checkElem.getSnsId())) {
@@ -37,8 +36,8 @@ public class LoginService {
 				member.setPassword(encryPassword);
 			}
 			resultVo = dao.compPassword(checkElem);
-		}
-		return resultVo;
+ 	    }
+ 		return resultVo;
 	}
 //SNS 회원가입
 	public int signUpSns(MemberVo member) {
