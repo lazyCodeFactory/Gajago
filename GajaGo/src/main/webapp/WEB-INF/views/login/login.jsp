@@ -13,8 +13,8 @@
 		<div class="loginDiv">
 			<section class="login-form">
 
-				<form id="snsData" method="post">
-					<input type="hidden" id="snsName" name="name" value="" /> 
+				<form id="mainData" method="post">
+					<input type="hidden" id="mainName" name="mainName" value="" /> 
 				</form>
 
 

@@ -20,7 +20,9 @@ function login() {
 		success : function(data) {
 			if (data.retSign == 'NY') {
 				alert(data.retData.id+"님 반갑습니다.");
-				location.href="/main";
+				$("#mainName").val(data.retData.id);
+           	 	$("#mainData").attr("action", "/main");
+           	 	$("#mainData").submit();
 			} else {
 				alert(data.retMsg);
 			}
