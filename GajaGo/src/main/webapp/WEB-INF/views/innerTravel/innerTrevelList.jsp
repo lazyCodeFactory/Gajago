@@ -8,7 +8,7 @@
 
 </head>
 <jsp:include page="../template/header.jsp" flush="true" />
-
+<input type="hidden" id="initBtn" value="x"/>
 <div class="row">
 	<div class="col-md-offset-1 col-md-10 col-md-offset-1 tabMenu">
 	<ul class="nav nav-tabs">
@@ -46,54 +46,104 @@
 		</div>
 
 
-		<div class="col-md-12 areasearchBtn">
+		<div class="areasearchBtn">
 			<div class="col-md-3 innerAreaTab">
-				<img src="sssssssssssss" class='imgBtn'>
-			</div>
-			<div class="col-md-3 innerAreaTab">
-				<img src="sssssssssssss" class='imgBtn'>
-			</div>
-			<div class="col-md-3 innerAreaTab">
-				<img src="sssssssssssss" class='imgBtn'>
-			</div>
-			<div class="col-md-3 innerAreaTab">
-				<img src="sssssssssssss" class='imgBtn'>
-			
+				<a href="#">
+					<img src="/resources/image/innerTravel/getSeoulImage.jpg" onmouseover="this.src='/resources/image/innerTravel/getSeoulImageClick.jpg'" onmouseout="this.src='/resources/image/innerTravel/getSeoulImage.jpg'" class='imgBtn'>
+				</a>
 			</div>
 			
-			
 			<div class="col-md-3 innerAreaTab">
-				<img src="sssssssssssss" class='imgBtn'>
 			
-			</div>
-			<div class="col-md-3 innerAreaTab">
-				<img src="sssssssssssss" class='imgBtn'>
-			
-			</div>
-			<div class="col-md-3 innerAreaTab">
-				<img src="sssssssssssss" class='imgBtn'>
-			
-			</div>
-			<div class="col-md-3 innerAreaTab">
-				<img src="sssssssssssss" class='imgBtn'>
+				<a href="#">
+					<img src="/resources/image/innerTravel/getGyunggiImage.jpg" onmouseover="this.src='/resources/image/innerTravel/getGyunggiImageClick.jpg'" onmouseout="this.src='/resources/image/innerTravel/getGyunggiImage.jpg'" class='imgBtn'>
+				</a>
 			</div>
 			
-			
-			
-			
 			<div class="col-md-3 innerAreaTab">
-				<img src="sssssssssssss" class='imgBtn'>
+				<a href="#">
+					<img src="/resources/image/innerTravel/getGangwonImage.jpg" onmouseover="this.src='/resources/image/innerTravel/getGangwonImageClick.jpg'" onmouseout="this.src='/resources/image/innerTravel/getGangwonImage.jpg'" class='imgBtn'>
+				</a>
 			</div>
-			
-			
-			  
-		</div>
-
-
+			<div class="col-md-3 innerAreaTab">
+				<a href="#">
+					<img src="/resources/image/innerTravel/getIncheonImage.jpg" onmouseover="this.src='/resources/image/innerTravel/getIncheonImageClick.jpg'" onmouseout="this.src='/resources/image/innerTravel/getIncheonImage.jpg'" class='imgBtn'>
+				</a>
+			</div>
+			<div class="col-md-3 innerAreaTab">
+				<a href="#">
+					<img src="/resources/image/innerTravel/getChungnameImage.jpg" onmouseover="this.src='/resources/image/innerTravel/getChungnameImageClick.jpg'" onmouseout="this.src='/resources/image/innerTravel/getChungnameImage.jpg'" class='imgBtn'>
+				</a>
+			</div>
+			<div class="col-md-3 innerAreaTab">
+				<a href="#">
+					<img src="/resources/image/innerTravel/getDaejunImage.jpg" onmouseover="this.src='/resources/image/innerTravel/getDaejunImageClick.jpg'" onmouseout="this.src='/resources/image/innerTravel/getDaejunImage.jpg'" class='imgBtn'>
+				</a>
+			</div>
+			<div class="col-md-3 innerAreaTab">
+				<a href="#">
+					<img src="/resources/image/innerTravel/getChungbukImage.jpg" onmouseover="this.src='/resources/image/innerTravel/getChungbukImageClick.jpg'" onmouseout="this.src='/resources/image/innerTravel/getChungbukImage.jpg'" class='imgBtn'>
+				</a>
+			</div>
  
+			<div class="col-md-3 innerAreaTab plusDiv">
+				<a href="javascript:void(0);" onclick="plusRegion(this);">
+				   <div class="changeRegionBtn">
+						<img src="/resources/image/innerTravel/plusDiv.jpg"  class='imgBtn'>
+				   </div>
+				   
+				   <div class="changeRegionDiv">
+					<img src="/resources/image/innerTravel/getChungbukImage.jpg" onmouseover="this.src='/resources/image/innerTravel/getChungbukImageClick.jpg'" onmouseout="this.src='/resources/image/innerTravel/getChungbukImage.jpg'" class='imgBtn'>
+				   </div>
+				  
+				   
+				</a>
+			</div>
+			
+
+
+
+	 <div class="row">
+		<div class="col-md-12 plusRegion">
+			<div class="col-md-3 innerAreaTab">
+				<a href="#">
+					<img src="/resources/image/innerTravel/getChungbukImage.jpg" onmouseover="this.src='/resources/image/innerTravel/getChungbukImageClick.jpg'" onmouseout="this.src='/resources/image/innerTravel/getChungbukImage.jpg'" class='imgBtn'>
+				</a>
+			</div>
+ 
+ 
+ 			<div class="col-md-3 innerAreaTab">
+				<a href="#">
+					<img src="/resources/image/innerTravel/getChungbukImage.jpg" onmouseover="this.src='/resources/image/innerTravel/getChungbukImageClick.jpg'" onmouseout="this.src='/resources/image/innerTravel/getChungbukImage.jpg'" class='imgBtn'>
+				</a>
+			</div>
+ 
+ 
+ 			<div class="col-md-3 innerAreaTab">
+				<a href="#">
+					<img src="/resources/image/innerTravel/getChungbukImage.jpg" onmouseover="this.src='/resources/image/innerTravel/getChungbukImageClick.jpg'" onmouseout="this.src='/resources/image/innerTravel/getChungbukImage.jpg'" class='imgBtn'>
+				</a>
+			</div>
+ 
+ 
+ 			<div class="col-md-3 innerAreaTab">
+				<a href="#">
+					<img src="/resources/image/innerTravel/getChungbukImage.jpg" onmouseover="this.src='/resources/image/innerTravel/getChungbukImageClick.jpg'" onmouseout="this.src='/resources/image/innerTravel/getChungbukImage.jpg'" class='imgBtn'>
+				</a>
+			</div>
+ 		</div>
+	</div>
+
+
+
+
+			
+			
+		</div>
 		
+	 
+			
 	</div>
 </div>
-
 
 <jsp:include page="../template/footer.jsp" flush="true" />
