@@ -19,7 +19,7 @@
 
 
 				<form method="post" action="#" role="login">
-					<img src="http://i.imgur.com/RcmcLv4.png" class="img-responsive" alt="" /> 
+					<img src="/resources/image/login/loginTitle.jpg" class="img-responsive" alt="" /> 
 					<input type="email" name="id" id="id"  class="form-control input-lg" value="" /> 
 					<input type="password" name="password" id="password" class="form-control input-lg"  placeholder="Password" required="" />
 					<div class="pwstrength_viewport_progress"></div>

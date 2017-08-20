@@ -30,7 +30,7 @@ public class innerTravelController {
 		innerTravelList = innerTravelService.selectList();
 		model.addObject("title", "국내여행 리스트");
 		model.addObject("innerTravelList", innerTravelList);
-		model.setViewName("/innerTrevel/innerTrevelList");
+		model.setViewName("innerTravel/innerTrevelList");
 		return model;
 	}
 }
