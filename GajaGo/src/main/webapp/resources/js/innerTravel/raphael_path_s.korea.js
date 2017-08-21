@@ -112,6 +112,8 @@ window.onload = function () {
 					vCityName="부산";
 				}else if(current =='ulsan'){
 					vCityName="울산";
+				}else if(current=='sejong'){
+					vCityName="세종";
 				}
 				
 				$(".cityExplain").html(vCityName);
