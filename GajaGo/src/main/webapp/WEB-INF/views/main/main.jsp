@@ -4,7 +4,7 @@
 <jsp:include page="../template/includeResource.jsp" flush="true" />
 </head>
 <jsp:include page="../template/header.jsp" flush="true" />
-<jsp:include page="../template/headerMenu.jsp" flush="true" />
+<%-- <jsp:include page="../template/headerMenu.jsp" flush="true" /> --%>
 
 <div class="row">
 	<div class="col-md-12 menuClass">

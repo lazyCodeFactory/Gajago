@@ -7,9 +7,13 @@
 <script src="/resources/js/innerTravel/innerTrevel.js"></script>
 </head>
 <jsp:include page="../template/header.jsp" flush="true" />
-<input type="hidden" id="initBtn" value="x" />
-<input type="hidden" id="areaCode" value="1" />
-<input type="hidden" id="cateCode" value="" />
+ <form id="detail" method="post">
+	<input type="hidden" id="initBtn" value="x" />
+	<input type="hidden" id="areaCode" value="1" />
+	<input type="text" name="cateCode" id="cateCode" value="" />
+ 	<input type="text" name="contentId" id="contentId" value="" />
+ 
+ </form>
 
 <div class="row">
 
@@ -199,32 +203,7 @@
 
 			<div class="row">
 				<div class="col-md-12 plusRegion">
-
-<!-- 					<div class="col-md-2 innerAreaTab"> -->
-<!-- 						<a href="javascript:void(0);" onclick="makelist('a35');">  -->
-<!-- 						<img src="/resources/image/innerTravel/getChungbukImage.jpg" -->
-<!-- 							onmouseover="this.src='/resources/image/innerTravel/getChungbukImageClick.jpg'" -->
-<!-- 							onmouseout="this.src='/resources/image/innerTravel/getChungbukImage.jpg'" class='imgBtn'> -->
-<!-- 						</a> -->
-<!-- 						<div class="col-md-12 areaTitle"> -->
-<!-- 							<span>인천</span> -->
-<!-- 						</div> -->
-				
-<!-- 					</div> -->
-		
-		
-<!-- 					<div class="col-md-2 innerAreaTab"> -->
-<!-- 						<a href="javascript:void(0);" onclick="makelist('a36');">  -->
-<!-- 						<img src="/resources/image/innerTravel/getChungnamImage.jpg" -->
-<!-- 							onmouseover="this.src='/resources/image/innerTravel/getChungnamImageClick.jpg'" -->
-<!-- 							onmouseout="this.src='/resources/image/innerTravel/getChungnamImage.jpg'" class='imgBtn'> -->
-<!-- 						</a> -->
-<!-- 						<span class="areaTitle">충남</span> -->
-				
-<!-- 					</div> -->
-		
-		
-					<div class="col-md-2 innerAreaTab">
+ 					<div class="col-md-2 innerAreaTab">
 						<a href="javascript:void(0);" onclick="makelist('a37');"> 
 						<img src="/resources/image/innerTravel/getJeonbukImage.jpg"
 							onmouseover="this.src='/resources/image/innerTravel/getJeonbukImageClick.jpg'"
@@ -266,29 +245,28 @@
 
 		<div class="col-md-12 listSortTab">
 			<ul class="nav nav-tabs">
-				<li class="active"><a href="javascript:void(0);" onclick="makelist('c');">전체</a></li>
+				<li class="active"><a href="javascript:void(0);" onclick="makelist('c25');">여행코스추천</a></li>
 				<li><a href="javascript:void(0);" onclick="makelist('c12');">관광지</a></li>
-				<li><a href="javascript:void(0);" onclick="makelist('c19');">축제행사</a></li>
-				<li><a href="javascript:void(0);" onclick="makelist('c32');">숙박</a></li>
+ 				<li><a href="javascript:void(0);" onclick="makelist('c32');">숙박</a></li>
 				<li><a href="javascript:void(0);" onclick="makelist('c39');">음식점</a></li>
 			</ul>
 
 		</div>
  		<div class="col-md-12 listSort">
 			<c:forEach var="innerVo" items="${innerTravelList}">
-				<div class="col-md-3 listItem">
-					<div class="col-md-12 imgDiv">
-						<img src="${innerVo.firstimage}" class="listItemImg">
+					<div class="col-md-3 listItem">
+						<div class="col-md-12 imgDiv">
+						<a href="javascript:void(0);" onclick="detailView('${innerVo.contentid}');" >
+							<img src="${innerVo.firstimage}" class="listItemImg">
+						</a>
+						</div>
+						<div class="col-md-12 expDiv">
+							${innerVo.title}
+		 				</div>
 					</div>
-					<div class="col-md-12 expDiv">
-						${innerVo.title}
-	 				</div>
-				</div>
+ 				
 			</c:forEach>
 		</div>
- 		
-
-
 	</div>
 </div>
 

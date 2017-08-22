@@ -20,7 +20,7 @@
 			</div>
 
 			<div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
-				<a class="navbar-brand" href="/innerTrevelList"><span class="menuSpan">국내여행</span></a> 
+				<a class="navbar-brand" href="/innerTravelList"><span class="menuSpan">국내여행</span></a> 
 				<a class="navbar-brand" href="#"><span class="menuSpan">해외여행</span></a>
 				<ul class="nav navbar-nav">
 					<li class="dropdown"><a href="#" class="dropdown-toggle"

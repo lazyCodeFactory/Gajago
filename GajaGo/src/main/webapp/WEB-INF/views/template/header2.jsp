@@ -6,18 +6,14 @@
 <body>
 	<div class="row">
 		<div class="col-md-12">
-			<div class="col-md-12 topHeader">
+			<div class="topHeader">
 			    <div class="col-md-3 topLogo">
 					<img src="" alt="" class="logoPng">			    
 			    </div>
-			    <div class="col-md-offset-4 col-md-8 topMenu">
+			    <div class="col-md-offset-3 col-md-9 topMenu">
 					<c:choose>
 							<c:when test="${mainName == null }">
-<!-- 								<a href="/login"> -->
-								<button class="loginBtn">
-								<i class="fa fa-sign-in" aria-hidden="true"></i>로그인
-<!-- 								</a> -->
-								</button>
+								<a href="/login">로그인</a>
 							</c:when>
 							<c:otherwise>
 								${mainName } 님 안녕하세요

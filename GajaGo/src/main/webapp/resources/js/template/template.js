@@ -10,6 +10,13 @@ $(function() {
                 $(this).toggleClass('open');
                 $('b', this).toggleClass("caret caret-up");                
             });
+    
+    
+    $(".loginBtn").click(function(){
+    	location.href="/login";
+    });
+    
+    
 });
 
  

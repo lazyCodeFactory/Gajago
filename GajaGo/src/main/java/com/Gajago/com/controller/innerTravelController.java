@@ -26,11 +26,14 @@ public class innerTravelController {
 	InnerTravelService innerTravelService;
 	private static final Logger logger = LoggerFactory.getLogger(innerTravelController.class);
 
-	@RequestMapping(value = "/InnerTravelList", method = RequestMethod.GET)
+	@RequestMapping(value = "/innerTravelList", method = RequestMethod.GET)
 	public ModelAndView innerTrevelList(ModelAndView model, HttpServletRequest request, HttpServletResponse response) throws IOException {
-		 List<HashMap<String,Object>> innerTravelList = new ArrayList<HashMap<String,Object>>();
-		innerTravelList = innerTravelService.selectList("1","");
+		List<HashMap<String,Object>> innerTravelList = new ArrayList<HashMap<String,Object>>();
+		String areaCode = "1";
+		String cateCode="25";
+		innerTravelList = innerTravelService.selectList(areaCode,cateCode);
 		model.addObject("title", "국내여행 리스트");
+		System.out.println("innerTravelList >>>>>>>>>>>>>"+innerTravelList.toString());
 		model.addObject("innerTravelList", innerTravelList);
 		model.setViewName("/innerTravel/innerTravelList");
 		return model;
@@ -59,8 +62,18 @@ public class innerTravelController {
 		retCheck.put("retData", innerTravelList);
 		
 		return retCheck;
-	}
-	
+	}    
+	@RequestMapping(value = "/innerTravelDetail",method = RequestMethod.POST)
+	public ModelAndView innerTravelDetail(ModelAndView model,HttpServletRequest request,HttpServletResponse response) throws IOException {
+		String cateCode =  request.getParameter("cateCode");
+		String contentId = request.getParameter("contentId");
+		
+		HashMap<String,Object> travelMap  = innerTravelService.selectOne(cateCode,contentId);
+		System.out.println("travelMap >>>>>>>>>>>>>>>>"+travelMap.toString());
+ 		
+		model.setViewName("/innerTravel/innerTravelDetail");
+		return model;
+	} 
 	
 	
 }
