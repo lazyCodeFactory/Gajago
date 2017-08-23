@@ -245,9 +245,10 @@
 
 		<div class="col-md-12 listSortTab">
 			<ul class="nav nav-tabs">
-				<li class="active"><a href="javascript:void(0);" onclick="makelist('c25');">여행코스추천</a></li>
+				<li class="active"><a href="javascript:void(0);" onclick="makelist('c25');">코스추천</a></li>
 				<li><a href="javascript:void(0);" onclick="makelist('c12');">관광지</a></li>
- 				<li><a href="javascript:void(0);" onclick="makelist('c32');">숙박</a></li>
+				<li><a href="javascript:void(0);" onclick="makelist('c28');">레포츠</a></li>
+				<li><a href="javascript:void(0);" onclick="makelist('c32');">숙박</a></li>
 				<li><a href="javascript:void(0);" onclick="makelist('c39');">음식점</a></li>
 			</ul>
 
