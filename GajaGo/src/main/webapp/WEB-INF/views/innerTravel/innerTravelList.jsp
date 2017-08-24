@@ -2,15 +2,15 @@
 	pageEncoding="UTF-8"%>
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>    
 <%@ taglib prefix = "fmt" uri = "http://java.sun.com/jsp/jstl/fmt" %>
-<link rel="stylesheet" href="/resources/css/innerTrevel/innerTrevel.css">
+<link rel="stylesheet" href="/resources/css/innerTravel/innerTravel.css">
 <jsp:include page="../template/includeResource.jsp" flush="true" />
-<script src="/resources/js/innerTravel/innerTrevel.js"></script>
+<script src="/resources/js/innerTravel/innerTravelList.js"></script>
 </head>
 <jsp:include page="../template/header.jsp" flush="true" />
  <form id="detail" method="post">
 	<input type="hidden" id="initBtn" value="x" />
 	<input type="hidden" id="areaCode" value="1" />
-	<input type="text" name="cateCode" id="cateCode" value="" />
+	<input type="text" name="cateCode" id="cateCode" value="25" />
  	<input type="text" name="contentId" id="contentId" value="" />
  
  </form>
@@ -18,31 +18,7 @@
 <div class="row">
 
 	<div class="col-md-offset-1 col-md-10 col-md-offset-1 containerBody">
-		<!--  		<div class="col-md-12 mapsearchBtn"> -->
-		<!-- 	 		<div id="canvas" class="col-md-4 canvas"> -->
-		<!-- 				<div id="south" class="southMap"></div> -->
-		<!-- 				<div id="seoul"></div> -->
-		<!-- 				<div id="gygg"></div> -->
-		<!-- 				<div id="incheon"></div> -->
-		<!-- 				<div id="gangwon"></div> -->
-		<!-- 				<div id="chungbuk"></div> -->
-		<!-- 				<div id="chungnam"></div> -->
-		<!-- 				<div id="daejeon"></div> -->
-		<!-- 				<div id="sejong"></div> -->
-		<!-- 				<div id="gwangju"></div> -->
-		<!-- 				<div id="jeonbuk"></div> -->
-		<!-- 				<div id="jeonnam"></div> -->
-		<!-- 				<div id="gyeongbuk"></div> -->
-		<!-- 				<div id="gyeongnam"></div> -->
-		<!-- 				<div id="daegu"></div> -->
-		<!-- 				<div id="busan"></div> -->
-		<!-- 				<div id="ulsan"></div> -->
-		<!-- 				<div id="jeju"></div> -->
-		<!-- 			</div> -->
-		<!-- 			<div class="col-md-3 cityExplain"></div> -->
-		<!-- 		</div> -->
-
-
+	 
 		<div class="areasearchBtn">
 			<div class="col-md-2 innerAreaTab">
 				<a href="javascript:void(0);" onclick="makelist('a1');">

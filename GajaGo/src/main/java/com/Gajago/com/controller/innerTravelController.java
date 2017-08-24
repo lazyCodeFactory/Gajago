@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.servlet.ModelAndView;
 
 import com.Gajago.com.service.InnerTravelService;
+import com.Gajago.com.vo.innerQnAcomunityVo;
 
 @Controller
 public class innerTravelController {
@@ -33,8 +34,7 @@ public class innerTravelController {
 		String cateCode="25";
 		innerTravelList = innerTravelService.selectList(areaCode,cateCode);
 		model.addObject("title", "국내여행 리스트");
-		System.out.println("innerTravelList >>>>>>>>>>>>>"+innerTravelList.toString());
-		model.addObject("innerTravelList", innerTravelList);
+ 		model.addObject("innerTravelList", innerTravelList);
 		model.setViewName("/innerTravel/innerTravelList");
 		return model;
 	}
@@ -67,13 +67,52 @@ public class innerTravelController {
 	public ModelAndView innerTravelDetail(ModelAndView model,HttpServletRequest request,HttpServletResponse response) throws IOException {
 		String cateCode =  request.getParameter("cateCode");
 		String contentId = request.getParameter("contentId");
-		
 		HashMap<String,Object> travelMap  = innerTravelService.selectOne(cateCode,contentId);
-		System.out.println("travelMap >>>>>>>>>>>>>>>>"+travelMap.toString());
+ 		travelMap.put("contentId", contentId);
+		model.addObject("travelMap",travelMap);
  		
 		model.setViewName("/innerTravel/innerTravelDetail");
 		return model;
 	} 
-	
-	
+	//커뮤니티 부분 
+	@RequestMapping(value = "/innerCommInsertProc")
+	public @ResponseBody HashMap<String,Object> innerCommnniProc(ModelAndView model, innerQnAcomunityVo  qnaCom ,HttpServletRequest request, HttpServletResponse response) throws IOException {
+		HashMap<String,Object> retCheck = new HashMap<String,Object>();
+ 		String innerTravelQnaContentId = request.getParameter("contentId");
+ 		if(innerTravelQnaContentId != null) {
+ 			qnaCom.setInnerTravelQnaContentId(innerTravelQnaContentId);
+ 		}
+ 		logger.debug(qnaCom.toString());
+		int result = innerTravelService.insertQnaComVo(qnaCom);
+		if(result > 0) {
+			retCheck.put("retSign","Y");
+		}else {
+			retCheck.put("retSign","N");
+			retCheck.put("retMsg","입력 오류입니다. 관리자에게 문의하세요");
+		}
+			return retCheck;
+		}
+ 
+	@RequestMapping(value = "/innerCommSelectProc")
+	public @ResponseBody HashMap<String,Object> innerCommSelectProc(ModelAndView model ,HttpServletRequest request, HttpServletResponse response) throws IOException {
+		HashMap<String,Object> retCheck = new HashMap<String,Object>();
+		String innerTravelQnaContentId = request.getParameter("innerTravelQnaContentId");
+		List<innerQnAcomunityVo> innerQnaComList = new ArrayList<innerQnAcomunityVo>(); 		
+		try {
+			innerQnaComList = innerTravelService.selectQnaComVoList(innerTravelQnaContentId);
+		}catch(Exception ex) {
+			ex.printStackTrace();
+			retCheck.put("retSign", "N");
+			retCheck.put("retMsg", "에러가 발생했습니다 관리자에게 문의해주세요");
+		}
+		if(innerQnaComList!=null) {
+			retCheck.put("retSign", "Y");
+			retCheck.put("retData", innerQnaComList);
+		}
+		
+		
+		
+		
+ 		return retCheck;
+		}
 }

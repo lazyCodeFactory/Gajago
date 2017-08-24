@@ -9,13 +9,17 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.Gajago.com.dao.InnerTravelDao;
 import com.Gajago.com.util.KeyClass;
+import com.Gajago.com.vo.innerQnAcomunityVo;
 
 @Service
 public class InnerTravelService {
-
+	@Autowired  
+	InnerTravelDao dao;
 	public List<HashMap<String, Object>> selectList(String areacode, String cateCode) throws IOException {
 		StringBuilder queryUrl = new StringBuilder();
 		String innerTravelRegionInfoListKey = KeyClass.INNER_TRAVEL_REGION_INFO_LIST;
@@ -73,10 +77,7 @@ public class InnerTravelService {
 		HashMap<String, Object> travelMap = new HashMap<String, Object>();
 		StringBuilder queryUrlCommon = new StringBuilder();
 		String innerTravelRegionDetailKey = KeyClass.INNER_TRAVEL_REGION_DETAIL;
-		String innerTravelCourseInfo = KeyClass.INNER_TRAVEL_COURSE_INFO;
-		String innerTravelIntroInfo = KeyClass.INNER_TRAVEL_INTRO_INFO;
-		String innerTravelRoomImageInfo = KeyClass.INNER_TRAVEL_RE_INFO;
-		
+		String innerTravelCourseInfo = KeyClass.INNER_TRAVEL_INTRO_INFO;
 		String serviceKey = KeyClass.TRAVEL_API_KEY;
 		queryUrlCommon.append(innerTravelRegionDetailKey);
 		queryUrlCommon.append(serviceKey);
@@ -96,8 +97,7 @@ public class InnerTravelService {
 		queryUrlCommon.append("&transGuideYN=Y");
 		
 		Document document = Jsoup.connect(queryUrlCommon.toString()).get();
-		String errorCode = document.select("error_code").text();
-		
+ 		
 /////////////////////////////////공통 정보 부분//////////////////////////////////////////////////
  			Elements elements = document.select("item");
 			for (Element element : elements) {
@@ -110,6 +110,10 @@ public class InnerTravelService {
 				travelMap.put("title", element.select("title").text());
 				travelMap.put("addr1", element.select("addr1").text());
 				travelMap.put("addr2", element.select("addr2").text());
+				travelMap.put("firstimage", element.select("firstimage").text());
+				
+ 				
+				 
 
 			}
  	 
@@ -129,9 +133,16 @@ public class InnerTravelService {
 				
 				Document documentTravelInfo = Jsoup.connect(queryUrlTravelInfo.toString()).get();
  				Elements elementsTravelInfo = documentTravelInfo.select("item");
- 			  
-	 			//여행지  소개정보	
-	  			  if("12".equals(cateCode)) {
+ 				//코스  소개정보	
+ 				if("25".equals(cateCode)) {
+	  				for (Element element : elementsTravelInfo) {
+						travelMap.put("distance",element.select("distance").text());
+						travelMap.put("taketime",element.select("taketime").text());
+
+	  				}
+ 				}
+ 				//여행지  소개정보	
+ 				else if("12".equals(cateCode)) {
 	  				for (Element element : elementsTravelInfo) {
 						String expguide = element.select("expguide").text();
 						String restdate = element.select("restdate").text();
@@ -398,8 +409,21 @@ public class InnerTravelService {
  			travelMap.put("menusmallimageurlList", menusmallimageurlList);
  			
  		 }
- 
-		return travelMap;
+ 		travelMap.put("cateCode", cateCode);
+ 		  
+			 
+      return travelMap;
+	}
+
+	public int insertQnaComVo(innerQnAcomunityVo qnaCom) {
+		int result = dao.insertQnaComVo(qnaCom);
+		return result;
+	}
+
+	public List<innerQnAcomunityVo> selectQnaComVoList(String innerTravelQnaContentId) {
+		List<innerQnAcomunityVo> innerQnaComList = new ArrayList<innerQnAcomunityVo>(); 		
+		innerQnaComList = dao.selectQnaComVoList(innerTravelQnaContentId);
+		return innerQnaComList;
 	}
 
 }

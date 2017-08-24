@@ -10,8 +10,8 @@ public static String INNER_TRAVEL_COURSE_INFO="http://api.visitkorea.or.kr/opena
 
 
 
-//여행지 or 숙박 or 음식점 소개정보
-public static String INNER_TRAVEL_INTRO_INFO="http://api.visitkorea.or.kr/openapi/service/rest/KorService/detailIntro?ServiceKey=";
+//여행지 or 숙박 or 음식점  소개정보 코스는==> 코스 추천
+ public static String INNER_TRAVEL_INTRO_INFO="http://api.visitkorea.or.kr/openapi/service/rest/KorService/detailIntro?ServiceKey=";
 //여행지 반복정보
 public static String INNER_TRAVEL_RE_INFO="http://api.visitkorea.or.kr/openapi/service/rest/KorService/detailInfo?ServiceKey=";
 //여행지 or 숙박 추가이미지
