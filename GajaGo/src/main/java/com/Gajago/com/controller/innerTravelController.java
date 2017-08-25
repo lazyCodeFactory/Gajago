@@ -94,12 +94,15 @@ public class innerTravelController {
 		}
  
 	@RequestMapping(value = "/innerCommSelectProc")
-	public @ResponseBody HashMap<String,Object> innerCommSelectProc(ModelAndView model ,HttpServletRequest request, HttpServletResponse response) throws IOException {
+	public @ResponseBody HashMap<String,Object> innerCommSelectProc(ModelAndView model, innerQnAcomunityVo community, HttpServletRequest request, HttpServletResponse response) throws IOException {
 		HashMap<String,Object> retCheck = new HashMap<String,Object>();
-		String innerTravelQnaContentId = request.getParameter("innerTravelQnaContentId");
-		List<innerQnAcomunityVo> innerQnaComList = new ArrayList<innerQnAcomunityVo>(); 		
+ 		String innerTravelQnaStartIdx = request.getParameter("innerTravelQnaStartIdx");
+ 		int startIDx = Integer.parseInt(innerTravelQnaStartIdx);
+ 		community.setInnerTravelQnaStartIdx(startIDx);
+		
+ 		List<innerQnAcomunityVo> innerQnaComList = new ArrayList<innerQnAcomunityVo>(); 		
 		try {
-			innerQnaComList = innerTravelService.selectQnaComVoList(innerTravelQnaContentId);
+			innerQnaComList = innerTravelService.selectQnaComVoList(community);
 		}catch(Exception ex) {
 			ex.printStackTrace();
 			retCheck.put("retSign", "N");

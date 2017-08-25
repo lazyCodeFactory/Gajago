@@ -6,6 +6,7 @@ public class innerQnAcomunityVo {
 	private String	innerTravelQnaContent;								
 	private String	innerTravelQnaContentId;								
 	private String	innerTravelQnaWriteTime;
+	private int	innerTravelQnaStartIdx;
 	public String getInnerTravelQnaIdx() {
 		return innerTravelQnaIdx;
 	}
@@ -36,12 +37,18 @@ public class innerQnAcomunityVo {
 	public void setInnerTravelQnaWriteTime(String innerTravelQnaWriteTime) {
 		this.innerTravelQnaWriteTime = innerTravelQnaWriteTime;
 	}
+	public int getInnerTravelQnaStartIdx() {
+		return innerTravelQnaStartIdx;
+	}
+	public void setInnerTravelQnaStartIdx(int innerTravelQnaStartIdx) {
+		this.innerTravelQnaStartIdx = innerTravelQnaStartIdx;
+	}
 	@Override
 	public String toString() {
 		return "innerQnAcomunityVo [innerTravelQnaIdx=" + innerTravelQnaIdx + ", innerTravelQnaWriter="
 				+ innerTravelQnaWriter + ", innerTravelQnaContent=" + innerTravelQnaContent
 				+ ", innerTravelQnaContentId=" + innerTravelQnaContentId + ", innerTravelQnaWriteTime="
-				+ innerTravelQnaWriteTime + "]";
+				+ innerTravelQnaWriteTime + ", innerTravelQnaStartIdx=" + innerTravelQnaStartIdx + "]";
 	}
-		
+			
 }

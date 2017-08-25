@@ -9,6 +9,24 @@ $(function() {
 
 		$(this).addClass("active");
 	})
+	
+
+	
+	 	$(".communityTab > ul > li").click(function() {
+		$(".communityTab > ul > li").each(function() {
+			var isExistClass = $(this).hasClass("active");
+			if (isExistClass) {
+				$(this).removeClass("active");
+			}
+		});
+
+		$(this).addClass("active");
+	})
+	
+	
+	
+	
+	
 
 	$('.bxslider').bxSlider({
 		mode : 'horizontal',
@@ -22,24 +40,31 @@ $(function() {
 		}
 	});
 	viewTab("1");
-
-
+	communityTab("1");
 });
  
-var map;
+
+
+
 function initMap() {
 	var mapX = $("#mapx").val();
 	var mapY = $("#mapy").val();
+	var title = $("#title").val();
 	mapX = Number(mapX);
 	mapY = Number(mapY);
+	
+	var myLatLng = {lat: mapY, lng: mapX};
 
-	map = new google.maps.Map(document.getElementById('map'), {
-		center : {
-			lat : mapY,
-			lng : mapX
-		},
-		zoom : 10
+	var map = new google.maps.Map(document.getElementById('map'), {
+		zoom: 15,
+		center: myLatLng
 	});
+	var marker = new google.maps.Marker({
+	    position: myLatLng,
+	    map: map,
+	    title: title
+	});
+ 
  }
 
 function searchType(obj) {
@@ -54,25 +79,36 @@ function searchType(obj) {
 	}
 }
 
+
+
+
+
  
  function viewTab(num) {
 	var type = num;
 	if (type == '1') {
 		$(".containerImg").show();
 		$(".containerMap").hide();
-
+		$(".travOverview").hide();
+		
 	} else if (type == '2') {
 		$(".containerImg").hide();
+		$(".travOverview").hide();
 		$(".containerMap").show();
 		initMap();
-	} 
+	}else if(type == '3'){
+		$(".containerImg").hide();
+		$(".containerMap").hide();
+		$(".travOverview").show();
+		
+		
+	}
 }
 
  function onWrite(innerTravelQnaContentId){
 	 var innerTravelQnaWriter = "tigggi";
-	 var innerTravelQnaContent = "xxxxxxxxxxxxxxxx";
+	 var innerTravelQnaContent = $("#qnaTextArea").val();
   	 var jData = {"innerTravelQnaWriter":innerTravelQnaWriter,"innerTravelQnaContent":innerTravelQnaContent,"innerTravelQnaContentId":innerTravelQnaContentId};
-	 
 		$.ajax({
 			url : "/innerCommInsertProc",
 			dataType : "json",
@@ -81,6 +117,8 @@ function searchType(obj) {
 			data : jData,
 			success : function(data) {
 				if (data.retSign == 'Y') {
+					$("#writeBtnInit").val("Y");
+					$("#addBtnInit").val("N");
 					innerTravelQnaList(innerTravelQnaContentId);
 
  				} else {
@@ -92,10 +130,24 @@ function searchType(obj) {
 			}
 		});
 	 
+	
+ }
+		
 	 function innerTravelQnaList(innerTravelQnaContentId){
-		 var jData ={"innerTravelQnaContentId":innerTravelQnaContentId};
-		 
-		 $.ajax({
+ 		 var writeBtnInit = $("#writeBtnInit").val();
+		 var innerTravelQnaStartIdx = $("#innerTravelQnaPageIdx").val();
+		 var addBtnInit = $("#addBtnInit").val();
+			if(writeBtnInit =='Y' && addBtnInit!='Y'){
+				addBtnInit='N';
+				innerTravelQnaStartIdx=0;
+			}else if(writeBtnInit =='Y'&& addBtnInit=='Y'){
+				innerTravelQnaStartIdx = innerTravelQnaStartIdx;
+				addBtnInit = addBtnInit;
+			 
+			}
+		 var jData ={"innerTravelQnaContentId":innerTravelQnaContentId, "innerTravelQnaStartIdx" : innerTravelQnaStartIdx};
+ 
+ 		 $.ajax({
 				url : "/innerCommSelectProc",
 				dataType : "json",
 				contentType : "application/x-www-form-urlencoded; charset=UTF-8",
@@ -103,8 +155,52 @@ function searchType(obj) {
 				data : jData,
 				success : function(data) {
 					if (data.retSign == 'Y') {
- 						for(var i=0;i<data.retData.length;i++){
- 							console.log(data.retData[i]);
+						var dhtml="";
+						if(addBtnInit == 'N'){
+ 							dhtml+="<table class='table table-filter'><tbody>";
+ 						}
+						for(var i=0;i<data.retData.length;i++){
+							if(i < data.retData.length-1){
+	 							dhtml+="<tr>";
+	 							dhtml+="<td>";
+	 							dhtml+="<div class='media'>";
+	 							dhtml+="<input type='text' name='idx' id='idx' value="+data.retData[i].innerTravelQnaIdx+">";
+	 							dhtml+="<a href='#' class='pull-left'>";
+	 							dhtml+="<img src='https://s3.amazonaws.com/uifaces/faces/twitter/fffabs/128.jpg' class='media-photo'>";
+	 							dhtml+="</a>";
+	 							dhtml+="<div class='media-body'>";
+	 							dhtml+="<span class='media-meta pull-right'>"+data.retData[i].innerTravelQnaWriteTime+"</span>";
+	 							dhtml+="<h4 class='title'>";
+	 							dhtml+="제목";
+	 							dhtml+="<span class='pull-right pagado'>"+data.retData[i].innerTravelQnaWriter+"</span>";
+	 							dhtml+="</h4>";
+	 							dhtml+="<p class='summary'>"+data.retData[i].innerTravelQnaContent+"</p>";
+	 							dhtml+="</div>";
+	 							dhtml+="</div>";
+	 							dhtml+="</td>";
+	 							dhtml+="</tr>";
+							}else if(i == data.retData.length-1){
+								innerTravelQnaStartIdx = Number(innerTravelQnaStartIdx)+9;
+								$("#innerTravelQnaPageIdx").val(innerTravelQnaStartIdx);
+								$("#innerTravelQnaContentId").val(innerTravelQnaContentId);
+								dhtml+="<tr class='moreSeeArea'><td><button type='button' class='moreSeeBtn' id='moreSee' onclick ='innerTravelQnaList("+innerTravelQnaContentId+");'>더보기</button></td></tr>";
+
+							}
+  						}
+						
+						if(addBtnInit == 'N'){
+ 							dhtml+="</tbody></table>";
+ 						}
+						
+						if(addBtnInit == 'N'){
+							$(".qnaCommunityBoard").html(dhtml);
+							$("#addBtnInit").val("Y");
+							
+						}else{
+							$(".moreSeeArea").hide();
+							$(".table-filter > tbody").append(dhtml);
+							$("#addBtnInit").val("Y");
+							
 						}
 	 				} else {
 						alert(data.retMsg);
@@ -115,4 +211,21 @@ function searchType(obj) {
 				}
 			});
 	 }
- }
+	 function communityTab(obj){
+			var type = obj;
+		   if(type=='1'){
+			   $(".qnaCommunity").hide();
+			   
+		   }else if(type=='2'){
+			   $(".qnaCommunity").hide();
+			   
+		   }else if(type=='3'){
+			   $(".qnaCommunity").show();
+			   
+		   }else if(type=='4'){
+			   $(".qnaCommunity").hide();
+			   
+		   }
+		}	 
+	 
+	  

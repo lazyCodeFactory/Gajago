@@ -19,9 +19,10 @@ public class InnerTravelDao {
 		return result;
 	}
 
-	public List<innerQnAcomunityVo> selectQnaComVoList(String innerTravelQnaContentId) {
-		List<innerQnAcomunityVo> innerQnaComList = new ArrayList<innerQnAcomunityVo>(); 		
-		innerQnaComList = sqlsession.selectList("selectQnaComVoList",innerTravelQnaContentId);
+	public List<innerQnAcomunityVo> selectQnaComVoList(innerQnAcomunityVo community) {
+		List<innerQnAcomunityVo> innerQnaComList = new ArrayList<innerQnAcomunityVo>(); 	
+		System.out.println(community.toString());
+ 		innerQnaComList = sqlsession.selectList("selectQnaComVoList",community);
 		return innerQnaComList;
 	}
 

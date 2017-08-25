@@ -75,10 +75,11 @@ public class InnerTravelService {
 
 	public HashMap<String, Object> selectOne(String cateCode, String contentId) throws IOException {
 		HashMap<String, Object> travelMap = new HashMap<String, Object>();
-		StringBuilder queryUrlCommon = new StringBuilder();
 		String innerTravelRegionDetailKey = KeyClass.INNER_TRAVEL_REGION_DETAIL;
 		String innerTravelCourseInfo = KeyClass.INNER_TRAVEL_INTRO_INFO;
 		String serviceKey = KeyClass.TRAVEL_API_KEY;
+		String reInfp = KeyClass.INNER_TRAVEL_RE_INFO;
+		StringBuilder queryUrlCommon = new StringBuilder();
 		queryUrlCommon.append(innerTravelRegionDetailKey);
 		queryUrlCommon.append(serviceKey);
 		queryUrlCommon.append("&contentTypeId=");
@@ -105,16 +106,15 @@ public class InnerTravelService {
 				travelMap.put("contenttypeid", element.select("contenttypeid").text());
 				travelMap.put("mapx", element.select("mapx").text());
 				travelMap.put("mapy", element.select("mapy").text());
-				travelMap.put("overview", element.select("overview").text());
-				travelMap.put("homepage", element.select("homepage").text());
-				travelMap.put("title", element.select("title").text());
-				travelMap.put("addr1", element.select("addr1").text());
-				travelMap.put("addr2", element.select("addr2").text());
-				travelMap.put("firstimage", element.select("firstimage").text());
+				travelMap.put("overview", element.select("overview").text().trim());
+				travelMap.put("homepage", element.select("homepage").text().trim());
+				travelMap.put("title", element.select("title").text().trim());
+				travelMap.put("addr1", element.select("addr1").text().trim());
+				travelMap.put("addr2", element.select("addr2").text().trim());
+				travelMap.put("firstimage", element.select("firstimage").text().trim());
+				travelMap.put("zipcode", element.select("zipcode").text().trim());
 				
- 				
-				 
-
+				
 			}
  	 
 		
@@ -136,21 +136,21 @@ public class InnerTravelService {
  				//코스  소개정보	
  				if("25".equals(cateCode)) {
 	  				for (Element element : elementsTravelInfo) {
-						travelMap.put("distance",element.select("distance").text());
-						travelMap.put("taketime",element.select("taketime").text());
+						travelMap.put("distance",element.select("distance").text().trim());
+						travelMap.put("taketime",element.select("taketime").text().trim());
 
 	  				}
  				}
  				//여행지  소개정보	
  				else if("12".equals(cateCode)) {
 	  				for (Element element : elementsTravelInfo) {
-						String expguide = element.select("expguide").text();
-						String restdate = element.select("restdate").text();
-						String chkbabycarriage = element.select("chkbabycarriage").text();
-						String chkcreditcard = element.select("chkcreditcard").text();
-						String chkpet = element.select("chkpet").text();
-						String infocenter = element.select("infocenter").text();
-						String usetime = element.select("usetime").text();
+						String expguide = element.select("expguide").text().trim();
+						String restdate = element.select("restdate").text().trim();
+						String chkbabycarriage = element.select("chkbabycarriage").text().trim();
+						String chkcreditcard = element.select("chkcreditcard").text().trim();
+						String chkpet = element.select("chkpet").text().trim();
+						String infocenter = element.select("infocenter").text().trim();
+						String usetime = element.select("usetime").text().trim();
  						
 						travelMap.put("expguide",expguide);
 						travelMap.put("restdate",restdate);
@@ -164,16 +164,16 @@ public class InnerTravelService {
 	  			//레포츠 소개정보
 	  			}else if("28".equals(cateCode)) {
 	  				for (Element element : elementsTravelInfo) {
-		  				String chkbabycarriageleports = element.select("chkbabycarriageleports").text();
-						String chkcreditcardleports = element.select("chkcreditcardleports").text();
-						String chkpetleports = element.select("chkpetleports").text();
-						String expagerangeleports = element.select("expagerangeleports").text();
-						String infocenterleports = element.select("infocenterleports").text();
-						String parkingleports = element.select("parkingleports").text();
-						String reservation = element.select("reservation").text();
-						String restdateleports = element.select("restdateleports").text();
-						String scaleleports = element.select("scaleleports").text();
-						String usetimeleports = element.select("usetimeleports").text();
+		  				String chkbabycarriageleports = element.select("chkbabycarriageleports").text().trim();
+						String chkcreditcardleports = element.select("chkcreditcardleports").text().trim();
+						String chkpetleports = element.select("chkpetleports").text().trim();
+						String expagerangeleports = element.select("expagerangeleports").text().trim();
+						String infocenterleports = element.select("infocenterleports").text().trim();
+						String parkingleports = element.select("parkingleports").text().trim();
+						String reservation = element.select("reservation").text().trim();
+						String restdateleports = element.select("restdateleports").text().trim();
+						String scaleleports = element.select("scaleleports").text().trim();
+						String usetimeleports = element.select("usetimeleports").text().trim();
 						 
 						
 						travelMap.put("chkbabycarriageleports",chkbabycarriageleports);
@@ -192,18 +192,18 @@ public class InnerTravelService {
  				//숙박 소개정보
 	  			else if("32".equals(cateCode)) {
 	  				for (Element element : elementsTravelInfo) {
-						String checkintime = element.select("checkintime").text();
-						String checkouttime = element.select("checkouttime").text();
-						String chkcooking = element.select("chkcooking").text();
-						String foodplace = element.select("foodplace").text();
-						String infocenterlodging = element.select("infocenterlodging").text();
-						String reservationlodging = element.select("reservationlodging").text();
-						String reservationurl = element.select("reservationurl").text();
-						String roomcount = element.select("roomcount").text();
-						String roomtype = element.select("roomtype").text();
-						String sauna = element.select("sauna").text();
-						String seminar = element.select("seminar").text();
-						String sports = element.select("sports").text();
+						String checkintime = element.select("checkintime").text().trim();
+						String checkouttime = element.select("checkouttime").text().trim();
+						String chkcooking = element.select("chkcooking").text().trim();
+						String foodplace = element.select("foodplace").text().trim();
+						String infocenterlodging = element.select("infocenterlodging").text().trim();
+						String reservationlodging = element.select("reservationlodging").text().trim();
+						String reservationurl = element.select("reservationurl").text().trim();
+						String roomcount = element.select("roomcount").text().trim();
+						String roomtype = element.select("roomtype").text().trim();
+						String sauna = element.select("sauna").text().trim();
+						String seminar = element.select("seminar").text().trim();
+						String sports = element.select("sports").text().trim();
 
 						travelMap.put("checkintime",checkintime);
 						travelMap.put("checkouttime",checkouttime);
@@ -225,20 +225,45 @@ public class InnerTravelService {
 	  			//음식점 소개정보
 	  			else if("39".equals(cateCode)) {
 	  				for (Element element : elements) {
-						travelMap.put("treatmenu", element.select("treatmenu").text());
-						travelMap.put("smoking", element.select("smoking").text());
-						travelMap.put("seat", element.select("seat").text());
-						travelMap.put("restdatefood", element.select("restdatefood").text());
-						travelMap.put("reservationfood", element.select("reservationfood").text());
-						travelMap.put("parkingfood", element.select("parkingfood").text());
-						travelMap.put("opentimefood", element.select("opentimefood").text());
-						travelMap.put("infocenterfood", element.select("infocenterfood").text());
-						travelMap.put("firstmenu", element.select("firstmenu").text());
-						travelMap.put("chkcreditcardfood", element.select("chkcreditcardfood").text());
-						travelMap.put("kidsfacility", element.select("kidsfacility").text());
+						travelMap.put("treatmenu", element.select("treatmenu").text().trim());
+						travelMap.put("smoking", element.select("smoking").text().trim());
+						travelMap.put("seat", element.select("seat").text().trim());
+						travelMap.put("restdatefood", element.select("restdatefood").text().trim());
+						travelMap.put("reservationfood", element.select("reservationfood").text().trim());
+						travelMap.put("parkingfood", element.select("parkingfood").text().trim());
+						travelMap.put("opentimefood", element.select("opentimefood").text().trim());
+						travelMap.put("infocenterfood", element.select("infocenterfood").text().trim());
+						travelMap.put("firstmenu", element.select("firstmenu").text().trim());
+						travelMap.put("chkcreditcardfood", element.select("chkcreditcardfood").text().trim());
+						travelMap.put("kidsfacility", element.select("kidsfacility").text().trim());
 					}
 	  			}
 			
+//////반복정보////////// 				
+ 				StringBuilder queryUrlreInfo = new StringBuilder();
+ 				queryUrlreInfo.append(reInfp);
+ 				queryUrlreInfo.append(serviceKey);
+ 				queryUrlreInfo.append("&contentTypeId=");
+ 				queryUrlreInfo.append(cateCode);
+ 				queryUrlreInfo.append("&contentId=");
+ 				queryUrlreInfo.append(contentId);
+ 				queryUrlreInfo.append("&MobileOS=ETC&MobileApp=TourAPI3.0_Guide&listYN=Y");
+
+ 				Document documentUrlReInfo = Jsoup.connect(queryUrlreInfo.toString()).get();
+ 				Elements elementsTravelReInfo = documentUrlReInfo.select("item");
+			
+  			if("28".equals(cateCode) || "12".equals(cateCode) || "39".equals(cateCode)) {
+ 				List<String> infonameList= new ArrayList<String>();
+ 				List<String> infotextList= new ArrayList<String>();
+
+ 				for (Element element : elementsTravelReInfo) {
+					infonameList.add(element.select("infoname").text().trim());
+					infotextList.add(element.select("infotext").text().trim());
+ 				}
+ 				travelMap.put("infotextList", infotextList);
+ 				travelMap.put("infonameList", infonameList);
+ 			} 
+
 ///////////////////////////아에 다른 부분/////////////////////////////////////////////////////////////////////////////////////
 		
 		//코스부분 ,코스정보
@@ -262,9 +287,9 @@ public class InnerTravelService {
 			List<String> subnameList = new ArrayList<String>();
 	
 	 		for (Element element : elementsTravelCourseInfo) {
-				String subdetailimg = element.select("subdetailimg").text();
-				String subdetailoverview = element.select("subdetailoverview").text();
-				String subname = element.select("subname").text();
+				String subdetailimg = element.select("subdetailimg").text().trim();
+				String subdetailoverview = element.select("subdetailoverview").text().trim();
+				String subname = element.select("subname").text().trim();
 				subdetailimgList.add(subdetailimg);
 				subdetailoverviewList.add(subdetailoverview);
 				subnameList.add(subname);
@@ -297,8 +322,8 @@ public class InnerTravelService {
  			List<String> smallimageurlList = new ArrayList<String>();
  			
 	 		for (Element element : elementsTravelImageInfo) {
-	 			String originimgurl = element.select("originimgurl").text();
-				String smallimageurl = element.select("smallimageurl").text();
+	 			String originimgurl = element.select("originimgurl").text().trim();
+				String smallimageurl = element.select("smallimageurl").text().trim();
  	 		
 				originimgurlList.add(originimgurl);
 				smallimageurlList.add(smallimageurl);
@@ -329,21 +354,21 @@ public class InnerTravelService {
 	 		List<String> roomImgaltList = new ArrayList<String>();
 	 		
  			for(Element element : elementsRoomImageInfo) {
- 				String roomaircondition = element.select("roomaircondition").text();
-				String roombasecount = element.select("roombasecount").text();
-				String roombath = element.select("roombath").text();
-				String roomcook = element.select("roomcook").text();
-				String roomcount = element.select("roomcount").text();
-				String roomhairdryer = element.select("roomhairdryer").text();
-				String roomoffseasonminfee1 = element.select("roomoffseasonminfee1").text();
-				String roomoffseasonminfee2 = element.select("roomoffseasonminfee2").text();
-				String roompeakseasonminfee1 = element.select("roompeakseasonminfee1").text();
-				String roompeakseasonminfee2 = element.select("roompeakseasonminfee2").text();
-				String roomrefrigerator = element.select("roomrefrigerator").text();
-				String roomsize1 = element.select("roomsize1").text();
-				String roomsize2 = element.select("roomsize2").text();
-				String roomtitle = element.select("roomtitle").text();
-				String roomtv = element.select("roomtv").text();
+ 				String roomaircondition = element.select("roomaircondition").text().trim();
+				String roombasecount = element.select("roombasecount").text().trim();
+				String roombath = element.select("roombath").text().trim();
+				String roomcook = element.select("roomcook").text().trim();
+				String roomcount = element.select("roomcount").text().trim();
+				String roomhairdryer = element.select("roomhairdryer").text().trim();
+				String roomoffseasonminfee1 = element.select("roomoffseasonminfee1").text().trim();
+				String roomoffseasonminfee2 = element.select("roomoffseasonminfee2").text().trim();
+				String roompeakseasonminfee1 = element.select("roompeakseasonminfee1").text().trim();
+				String roompeakseasonminfee2 = element.select("roompeakseasonminfee2").text().trim();
+				String roomrefrigerator = element.select("roomrefrigerator").text().trim();
+				String roomsize1 = element.select("roomsize1").text().trim();
+				String roomsize2 = element.select("roomsize2").text().trim();
+				String roomtitle = element.select("roomtitle").text().trim();
+				String roomtv = element.select("roomtv").text().trim();
 				
 				
 		 		travelMap.put("roomaircondition", roomaircondition);
@@ -364,8 +389,8 @@ public class InnerTravelService {
 		 		
 
 		 		for(int i=1;i<5;i++) {
-		 			String roomImg =  element.select("roomimg"+i+"").text();
-		 			String roomImgalt =  element.select("roomimg"+i+"alt").text();
+		 			String roomImg =  element.select("roomimg"+i+"").text().trim();
+		 			String roomImgalt =  element.select("roomimg"+i+"alt").text().trim();
 		 			roomImgList.add(roomImg);
 		 			roomImgaltList.add(roomImgalt);
 		 		}
@@ -398,9 +423,9 @@ public class InnerTravelService {
 			List<String> menusmallimageurlList  = new ArrayList<String>();
 
  			for(Element element : elementsMenuImageInfo) {
- 				menuImgnameList.add(element.select("imgname").text());
- 				menuoriginimgurlList.add(element.select("originimgurl").text());
- 				menusmallimageurlList.add(element.select("smallimageurl").text());
+ 				menuImgnameList.add(element.select("imgname").text().trim());
+ 				menuoriginimgurlList.add(element.select("originimgurl").text().trim());
+ 				menusmallimageurlList.add(element.select("smallimageurl").text().trim());
  				
  			}
  			
@@ -410,7 +435,7 @@ public class InnerTravelService {
  			
  		 }
  		travelMap.put("cateCode", cateCode);
- 		  
+ 		System.out.println(travelMap.toString());
 			 
       return travelMap;
 	}
@@ -420,9 +445,9 @@ public class InnerTravelService {
 		return result;
 	}
 
-	public List<innerQnAcomunityVo> selectQnaComVoList(String innerTravelQnaContentId) {
+	public List<innerQnAcomunityVo> selectQnaComVoList(innerQnAcomunityVo community) {
 		List<innerQnAcomunityVo> innerQnaComList = new ArrayList<innerQnAcomunityVo>(); 		
-		innerQnaComList = dao.selectQnaComVoList(innerTravelQnaContentId);
+		innerQnaComList = dao.selectQnaComVoList(community);
 		return innerQnaComList;
 	}
 
