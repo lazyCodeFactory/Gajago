@@ -50,6 +50,10 @@ function plusRegion(obj) {
 	$("#initBtn").val("y");
 	var initBtn = $("#initBtn").val();
 	initCheck(initBtn);
+	$("#hideRegion1").show();
+	$("#hideRegion2").show();
+	$("#hideRegion3").show();
+
 }
  
 function makelist(num) {

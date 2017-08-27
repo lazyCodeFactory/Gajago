@@ -80,6 +80,7 @@ public class InnerTravelService {
 		String serviceKey = KeyClass.TRAVEL_API_KEY;
 		String reInfp = KeyClass.INNER_TRAVEL_RE_INFO;
 		StringBuilder queryUrlCommon = new StringBuilder();
+		System.out.println("분류코드"+cateCode);
 		queryUrlCommon.append(innerTravelRegionDetailKey);
 		queryUrlCommon.append(serviceKey);
 		queryUrlCommon.append("&contentTypeId=");
@@ -224,7 +225,7 @@ public class InnerTravelService {
 	  			}
 	  			//음식점 소개정보
 	  			else if("39".equals(cateCode)) {
-	  				for (Element element : elements) {
+	  				for (Element element : elementsTravelInfo) {
 						travelMap.put("treatmenu", element.select("treatmenu").text().trim());
 						travelMap.put("smoking", element.select("smoking").text().trim());
 						travelMap.put("seat", element.select("seat").text().trim());
@@ -238,8 +239,7 @@ public class InnerTravelService {
 						travelMap.put("kidsfacility", element.select("kidsfacility").text().trim());
 					}
 	  			}
-			
-//////반복정보////////// 				
+ 			//////반복정보////////// 				
  				StringBuilder queryUrlreInfo = new StringBuilder();
  				queryUrlreInfo.append(reInfp);
  				queryUrlreInfo.append(serviceKey);
@@ -350,12 +350,30 @@ public class InnerTravelService {
 	 		
 	 		Document documentRoomImageInfo = Jsoup.connect(queryTravelRoomImage.toString()).get();
 			Elements elementsRoomImageInfo = documentRoomImageInfo.select("item");
-			List<String> roomImgList = new ArrayList<String>();
-	 		List<String> roomImgaltList = new ArrayList<String>();
+	 		List<String> titleList = new ArrayList<String>();
+	 		List<String> roomairconditionList = new ArrayList<String>();
+	 		List<String> roombasecountList = new ArrayList<String>();
+	 		List<String> roombathList = new ArrayList<String>();
+	 		List<String> roomcookList = new ArrayList<String>();
+	 		List<String> roomhairdryerList = new ArrayList<String>();
+	 		List<String> roomoffseasonminfee1List = new ArrayList<String>();
+	 		List<String> roomoffseasonminfee2List = new ArrayList<String>();
+	 		List<String> roompeakseasonminfee1List = new ArrayList<String>();
+	 		List<String> roompeakseasonminfee2List = new ArrayList<String>();
+	 		List<String> roomrefrigeratorList = new ArrayList<String>();
+	 		List<String> roomsize1List = new ArrayList<String>();
+	 		List<String> roomsize2List = new ArrayList<String>();
+	 		List<String> roomtitleList = new ArrayList<String>();
+	 		List<String> roomtvList = new ArrayList<String>();
+	 		List<String> roomimg1List = new ArrayList<String>();
+	 		List<String> roomcountList = new ArrayList<String>();
+	 		
+	 		
+	 		
 	 		
  			for(Element element : elementsRoomImageInfo) {
  				String roomaircondition = element.select("roomaircondition").text().trim();
-				String roombasecount = element.select("roombasecount").text().trim();
+ 				String roombasecount = element.select("roombasecount").text().trim();
 				String roombath = element.select("roombath").text().trim();
 				String roomcook = element.select("roomcook").text().trim();
 				String roomcount = element.select("roomcount").text().trim();
@@ -369,36 +387,46 @@ public class InnerTravelService {
 				String roomsize2 = element.select("roomsize2").text().trim();
 				String roomtitle = element.select("roomtitle").text().trim();
 				String roomtv = element.select("roomtv").text().trim();
-				
-				
-		 		travelMap.put("roomaircondition", roomaircondition);
-		 		travelMap.put("roombasecount", roombasecount);
-		 		travelMap.put("roombath", roombath);
-		 		travelMap.put("roomcook", roomcook);
-		 		travelMap.put("roomcount", roomcount);
-		 		travelMap.put("roomhairdryer", roomhairdryer);
-		 		travelMap.put("roomoffseasonminfee1", roomoffseasonminfee1);
-		 		travelMap.put("roomoffseasonminfee2", roomoffseasonminfee2);
-		 		travelMap.put("roompeakseasonminfee1", roompeakseasonminfee1);
-		 		travelMap.put("roompeakseasonminfee2", roompeakseasonminfee2);
-		 		travelMap.put("roomrefrigerator", roomrefrigerator);
-		 		travelMap.put("roomsize1", roomsize1);
-		 		travelMap.put("roomsize2", roomsize2);
-		 		travelMap.put("roomtitle", roomtitle);
-		 		travelMap.put("roomtv", roomtv);
-		 		
+				String roomimg1 = element.select("roomimg1").text().trim();
 
-		 		for(int i=1;i<5;i++) {
-		 			String roomImg =  element.select("roomimg"+i+"").text().trim();
-		 			String roomImgalt =  element.select("roomimg"+i+"alt").text().trim();
-		 			roomImgList.add(roomImg);
-		 			roomImgaltList.add(roomImgalt);
-		 		}
+				
 
-		 		travelMap.put("roomImgList", roomImgList);
-		 		travelMap.put("roomImgaltList", roomImgaltList);
+				roomairconditionList.add(roomaircondition);
+				roombasecountList.add(roombasecount);
+				roombathList.add(roombath);
+				roomcookList.add(roomcook);
+				roomcountList.add(roomcount);
+				roomhairdryerList.add(roomhairdryer);
+				roomoffseasonminfee1List.add(roomoffseasonminfee1);
+				roomoffseasonminfee2List.add(roomoffseasonminfee2);
+				roompeakseasonminfee1List.add(roompeakseasonminfee1);
+				roompeakseasonminfee2List.add(roompeakseasonminfee2);
+				roomrefrigeratorList.add(roomrefrigerator);
+				roomsize1List.add(roomsize1);
+				roomsize2List.add(roomsize2);
+				roomtitleList.add(roomtitle);
+				roomtvList.add(roomtv);
+				roomimg1List.add(roomimg1);
+				titleList.add(roomtitle);
 				
  			}
+ 			travelMap.put("roomimg1List", roomimg1List);
+ 			travelMap.put("titleList", titleList);
+			travelMap.put("roomairconditionList", roomairconditionList);
+	 		travelMap.put("roombasecountList", roombasecountList);
+	 		travelMap.put("roombathList", roombathList);
+	 		travelMap.put("roomcookList", roomcookList);
+	 		travelMap.put("roomcountList", roomcountList);
+	 		travelMap.put("roomhairdryerList", roomhairdryerList);
+	 		travelMap.put("roomoffseasonminfee1List", roomoffseasonminfee1List);
+	 		travelMap.put("roomoffseasonminfee2List", roomoffseasonminfee2List);
+	 		travelMap.put("roompeakseasonminfee1List", roompeakseasonminfee1List);
+	 		travelMap.put("roompeakseasonminfee2List", roompeakseasonminfee2List);
+	 		travelMap.put("roomrefrigeratorList", roomrefrigeratorList);
+	 		travelMap.put("roomsize1List", roomsize1List);
+	 		travelMap.put("roomsize2List", roomsize2List);
+	 		travelMap.put("roomtitleList", roomtitleList);
+	 		travelMap.put("roomtvList", roomtvList);
 
  			
  		 }
@@ -414,7 +442,7 @@ public class InnerTravelService {
 	  		queryTravelMenuImage.append("&MobileOS=ETC&MobileApp=TourAPI3.0_Guide");
 	  		queryTravelMenuImage.append("&contentId=");
 	  		queryTravelMenuImage.append(contentId);
-	  		queryTravelMenuImage.append("&listYN=N");
+	  		queryTravelMenuImage.append("&imageYN=N");
 	  		
 	  		Document documentMenuImageInfo = Jsoup.connect(queryTravelMenuImage.toString()).get();
 			Elements elementsMenuImageInfo = documentMenuImageInfo.select("item");
@@ -426,7 +454,6 @@ public class InnerTravelService {
  				menuImgnameList.add(element.select("imgname").text().trim());
  				menuoriginimgurlList.add(element.select("originimgurl").text().trim());
  				menusmallimageurlList.add(element.select("smallimageurl").text().trim());
- 				
  			}
  			
  			travelMap.put("menuImgnameList", menuImgnameList);

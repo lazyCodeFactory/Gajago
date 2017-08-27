@@ -1,4 +1,5 @@
 $(function() {
+// 상단탭
  	$(".innerTravelExplTab > ul > li").click(function() {
 		$(".innerTravelExplTab > ul > li").each(function() {
 			var isExistClass = $(this).hasClass("active");
@@ -9,36 +10,35 @@ $(function() {
 
 		$(this).addClass("active");
 	})
-	
-
-	
-	 	$(".communityTab > ul > li").click(function() {
+//	 아래 커뮤니티 부분 탭
+ 	$(".communityTab > ul > li").click(function() {
 		$(".communityTab > ul > li").each(function() {
 			var isExistClass = $(this).hasClass("active");
 			if (isExistClass) {
 				$(this).removeClass("active");
 			}
 		});
-
 		$(this).addClass("active");
 	})
-	
-	
-	
-	
-	
+ 
 
-	$('.bxslider').bxSlider({
-		mode : 'horizontal',
-		auto : false
-	});
-	$(".courseWriteEach").each(function(){
+$(".courseWriteEach").each(function(){
 		if($(this).attr("id") == 'course0'){
 			$(this).show();
 		}else{
 			$(this).hide();
 		}
+	});	
+	
+//코스 이미지 부분	
+	$('.bxslider').bxSlider({
+		mode : 'horizontal',
+		auto : false
 	});
+ 
+	 
+	
+	
 	viewTab("1");
 	communityTab("1");
 });
@@ -90,25 +90,45 @@ function searchType(obj) {
 		$(".containerImg").show();
 		$(".containerMap").hide();
 		$(".travOverview").hide();
+		$(".innerTravelroomInfo").hide();
+		$(".foodMenuInfo").hide();
 		
 	} else if (type == '2') {
 		$(".containerImg").hide();
 		$(".travOverview").hide();
+		$(".innerTravelroomInfo").hide();
+		$(".foodMenuInfo").hide();
 		$(".containerMap").show();
 		initMap();
 	}else if(type == '3'){
 		$(".containerImg").hide();
 		$(".containerMap").hide();
 		$(".travOverview").show();
+		$(".innerTravelroomInfo").hide();
+		$(".foodMenuInfo").hide();
+			
+	}else if(type == '4'){
+		$(".containerImg").hide();
+		$(".containerMap").hide();
+		$(".travOverview").hide();
+		$(".innerTravelroomInfo").show();
+		var size = $("#roomimg1Size").val();
+		$("#subdetailimgLength").val(size);
 		
-		
+	}else if(type=='5'){
+		$(".containerImg").hide();
+		$(".containerMap").hide();
+		$(".travOverview").hide();
+		$(".innerTravelroomInfo").hide();
+		$(".foodMenuInfo").show();
+		subImgClick('0');
 	}
 }
 
- function onWrite(innerTravelQnaContentId){
+ function onWrite(innerTravelContentId){
 	 var innerTravelQnaWriter = "tigggi";
 	 var innerTravelQnaContent = $("#qnaTextArea").val();
-  	 var jData = {"innerTravelQnaWriter":innerTravelQnaWriter,"innerTravelQnaContent":innerTravelQnaContent,"innerTravelQnaContentId":innerTravelQnaContentId};
+  	 var jData = {"innerTravelQnaWriter":innerTravelQnaWriter,"innerTravelQnaContent":innerTravelQnaContent,"innerTravelQnaContentId":innerTravelContentId};
 		$.ajax({
 			url : "/innerCommInsertProc",
 			dataType : "json",
@@ -143,9 +163,8 @@ function searchType(obj) {
 			}else if(writeBtnInit =='Y'&& addBtnInit=='Y'){
 				innerTravelQnaStartIdx = innerTravelQnaStartIdx;
 				addBtnInit = addBtnInit;
-			 
 			}
-		 var jData ={"innerTravelQnaContentId":innerTravelQnaContentId, "innerTravelQnaStartIdx" : innerTravelQnaStartIdx};
+		 var jData ={"innerTravelQnaContentId":innerTravelContentId, "innerTravelQnaStartIdx" : innerTravelQnaStartIdx};
  
  		 $.ajax({
 				url : "/innerCommSelectProc",
@@ -182,7 +201,7 @@ function searchType(obj) {
 							}else if(i == data.retData.length-1){
 								innerTravelQnaStartIdx = Number(innerTravelQnaStartIdx)+9;
 								$("#innerTravelQnaPageIdx").val(innerTravelQnaStartIdx);
-								$("#innerTravelQnaContentId").val(innerTravelQnaContentId);
+								$("#innerTravelContentId").val(innerTravelContentId);
 								dhtml+="<tr class='moreSeeArea'><td><button type='button' class='moreSeeBtn' id='moreSee' onclick ='innerTravelQnaList("+innerTravelQnaContentId+");'>더보기</button></td></tr>";
 
 							}
@@ -228,4 +247,21 @@ function searchType(obj) {
 		   }
 		}	 
 	 
-	  
+function subImgClick(param){
+  	$(".foodMenuMain").each(function(){
+  		var originalId = $(this).attr("id");
+   		var paramId = "original"+param;
+   		console.log(originalId);
+   		console.log(paramId);
+   		
+ 		if(originalId == paramId){
+ 			$("#"+originalId).show();
+ 		}else{
+ 			$("#"+originalId).hide();
+ 	 			
+ 		}
+ 	});
+ 		
+ 		
+	}
+ 

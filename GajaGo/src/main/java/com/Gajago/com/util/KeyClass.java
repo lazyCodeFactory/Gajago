@@ -14,7 +14,7 @@ public static String INNER_TRAVEL_COURSE_INFO="http://api.visitkorea.or.kr/opena
  public static String INNER_TRAVEL_INTRO_INFO="http://api.visitkorea.or.kr/openapi/service/rest/KorService/detailIntro?ServiceKey=";
 //여행지 반복정보
 public static String INNER_TRAVEL_RE_INFO="http://api.visitkorea.or.kr/openapi/service/rest/KorService/detailInfo?ServiceKey=";
-//여행지 or 숙박 추가이미지
+//여행지 or 숙박 추가이미지 or 음식 메뉴 
 public static String INNER_TRAVEL_ADD_IMAGE = "http://api.visitkorea.or.kr/openapi/service/rest/KorService/detailImage?ServiceKey=";
 
 	

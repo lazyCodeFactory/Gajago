@@ -177,9 +177,7 @@
 			
  
 
-			<div class="row">
-				<div class="col-md-12 plusRegion">
- 					<div class="col-md-2 innerAreaTab">
+  					<div class="col-md-2 innerAreaTab" style="display: none" id="hideRegion1">
 						<a href="javascript:void(0);" onclick="makelist('a37');"> 
 						<img src="/resources/image/innerTravel/getJeonbukImage.jpg"
 							onmouseover="this.src='/resources/image/innerTravel/getJeonbukImageClick.jpg'"
@@ -192,7 +190,7 @@
 					</div>
 		
 		
-					<div class="col-md-2 innerAreaTab">
+					<div class="col-md-2 innerAreaTab" style="display: none" id="hideRegion2">
 						<a href="javascript:void(0);" onclick="makelist('a38');"> 
 						<img src="/resources/image/innerTravel/getJeonbukImage.jpg"
 							onmouseover="this.src='/resources/image/innerTravel/getJeonnamImageClick.jpg'"
@@ -204,7 +202,7 @@
 				
 					</div>   
 		
-					<div class="col-md-2 innerAreaTab">
+					<div class="col-md-2 innerAreaTab" style="display: none" id="hideRegion3">
 						<a href="javascript:void(0);" onclick="makelist('a39');"> 
 						<img src="/resources/image/innerTravel/getJejuImage.jpg"
 							onmouseover="this.src='/resources/image/innerTravel/getJejuImageClick.jpg'"
@@ -215,9 +213,7 @@
 						</div>
 				   
 					</div>
-				</div>
-			</div>
-		</div>
+ 		</div>
 
 		<div class="col-md-12 listSortTab">
 			<ul class="nav nav-tabs">
