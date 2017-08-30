@@ -12,10 +12,12 @@
 
 
 <script src="http://code.jquery.com/jquery-1.10.2.js"></script>
-<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDL49L0ATzLkUYlSkShcE-yMNU-KG9yuZs&callback=initMap" async defer></script>  
+<!-- <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDL49L0ATzLkUYlSkShcE-yMNU-KG9yuZs&callback=initMap" async defer></script>   -->
 <script src="/resources/js/common/jquery.bxslider.min.js"></script>
  <script src="/resources/js/template/template.js"></script>
-
+<script type="text/javascript" src="https://openapi.map.naver.com/openapi/v3/maps.js?clientId=8MHTTBgxGyz8HsyAbpbU"></script>
+<script type="text/javascript" src="/resources/js/common/jquery.blockUI.js"></script>
+ 
 
 
 <title>${title}</title>

@@ -35,37 +35,87 @@ $(".courseWriteEach").each(function(){
 		mode : 'horizontal',
 		auto : false
 	});
- 
+
+
+	
 	 
-	
-	
 	viewTab("1");
 	communityTab("1");
 });
  
 
+ 	
+
+ 
+//function initMap() {
+//	var mapX = $("#mapx").val();
+//	var mapY = $("#mapy").val();
+//	var title = $("#title").val();
+//	mapX = Number(mapX);
+//	mapY = Number(mapY);
+//	
+//	var myLatLng = {lat: mapY, lng: mapX};
+//
+//	var map = new google.maps.Map(document.getElementById('map'), {
+//		zoom: 15,
+//		center: myLatLng
+//	});
+//	var marker = new google.maps.Marker({
+//	    position: myLatLng,
+//	    map: map,
+//	    title: title
+//	});
+// 
+// }
+
+function getLocation() {
+	  if (navigator.geolocation) { // GPS를 지원하면
+		  navigator.geolocation.getCurrentPosition(function(position) {
+ 	      var mylat = position.coords.latitude;
+	      var mylong = position.coords.longitude;
+	      findLoad(mylat,mylong);
+	    }, function(error) {
+	      console.error(error);
+	    }, {
+	      enableHighAccuracy: false,
+	      maximumAge: 0,
+	      timeout: Infinity
+	    });
+	  } else {
+	    alert('GPS를 지원하지 않습니다');
+	  }
+	}
+
+
+function findLoad(mylat,mylong){
+	var mapX = $("#mapx").val();
+	var mapY = $("#mapy").val();
+	var html = "http://map.naver.com/index.nhn";
+	html += "?slng="+mylong;
+	html += "&slat="+mylat;
+	html += "	&stext=접속지점";
+	html += "	&elng="+mapX;
+	html += "	&elat="+mapY;
+	html += "	&etext=도착지이름";
+	html += "	&menu=route";
+	html += "	&pathType=1";
+//	location.href=html;
+
+	window.open(html,"_blank");
+}
+
 
 
 function initMap() {
+	var map = null;
 	var mapX = $("#mapx").val();
 	var mapY = $("#mapy").val();
-	var title = $("#title").val();
-	mapX = Number(mapX);
-	mapY = Number(mapY);
-	
-	var myLatLng = {lat: mapY, lng: mapX};
+    map = new naver.maps.Map('map', {
+        center: new naver.maps.LatLng(mapY, mapX),
+        zoom: 10
+    });
+}
 
-	var map = new google.maps.Map(document.getElementById('map'), {
-		zoom: 15,
-		center: myLatLng
-	});
-	var marker = new google.maps.Marker({
-	    position: myLatLng,
-	    map: map,
-	    title: title
-	});
- 
- }
 
 function searchType(obj) {
 	var type = obj;
@@ -78,11 +128,6 @@ function searchType(obj) {
 		$(".areasearchBtn").show();
 	}
 }
-
-
-
-
-
  
  function viewTab(num) {
 	var type = num;
@@ -126,9 +171,14 @@ function searchType(obj) {
 }
 
  function onWrite(innerTravelContentId){
-	 var innerTravelQnaWriter = "tigggi";
+	 var innerTravelQnaWriter = $("#id").val();
 	 var innerTravelQnaContent = $("#qnaTextArea").val();
-  	 var jData = {"innerTravelQnaWriter":innerTravelQnaWriter,"innerTravelQnaContent":innerTravelQnaContent,"innerTravelQnaContentId":innerTravelContentId};
+	 
+	 var innerTravelQnaprofilePic = $("#profilePic").val();
+
+	 
+	 
+  	 var jData = {"innerTravelQnaWriter":innerTravelQnaWriter,"innerTravelQnaContent":innerTravelQnaContent,"innerTravelQnaContentId":innerTravelContentId,"innerTravelQnaprofilePic":innerTravelQnaprofilePic};
 		$.ajax({
 			url : "/innerCommInsertProc",
 			dataType : "json",
@@ -137,10 +187,7 @@ function searchType(obj) {
 			data : jData,
 			success : function(data) {
 				if (data.retSign == 'Y') {
-					$("#writeBtnInit").val("Y");
-					$("#addBtnInit").val("N");
-					innerTravelQnaList(innerTravelQnaContentId);
-
+  					innerTravelQnaList(innerTravelContentId);
  				} else {
 					alert(data.retMsg);
 				}
@@ -154,18 +201,9 @@ function searchType(obj) {
  }
 		
 	 function innerTravelQnaList(innerTravelQnaContentId){
- 		 var writeBtnInit = $("#writeBtnInit").val();
-		 var innerTravelQnaStartIdx = $("#innerTravelQnaPageIdx").val();
-		 var addBtnInit = $("#addBtnInit").val();
-			if(writeBtnInit =='Y' && addBtnInit!='Y'){
-				addBtnInit='N';
-				innerTravelQnaStartIdx=0;
-			}else if(writeBtnInit =='Y'&& addBtnInit=='Y'){
-				innerTravelQnaStartIdx = innerTravelQnaStartIdx;
-				addBtnInit = addBtnInit;
-			}
-		 var jData ={"innerTravelQnaContentId":innerTravelContentId, "innerTravelQnaStartIdx" : innerTravelQnaStartIdx};
- 
+ 	 
+		 var jData ={"innerTravelQnaContentId":innerTravelQnaContentId};
+		 var id = $("#id").val();
  		 $.ajax({
 				url : "/innerCommSelectProc",
 				dataType : "json",
@@ -174,18 +212,15 @@ function searchType(obj) {
 				data : jData,
 				success : function(data) {
 					if (data.retSign == 'Y') {
-						var dhtml="";
-						if(addBtnInit == 'N'){
- 							dhtml+="<table class='table table-filter'><tbody>";
- 						}
-						for(var i=0;i<data.retData.length;i++){
-							if(i < data.retData.length-1){
-	 							dhtml+="<tr>";
+ 						var dhtml="";
+  							dhtml+="<table class='table table-filter'><tbody>";
+ 						for(var i=0;i<data.retData.length;i++){
+ 	 							dhtml+="<tr>";
 	 							dhtml+="<td>";
 	 							dhtml+="<div class='media'>";
-	 							dhtml+="<input type='text' name='idx' id='idx' value="+data.retData[i].innerTravelQnaIdx+">";
+	 							dhtml+="<input type='hidden' name='idx' id='idx' value="+data.retData[i].innerTravelQnaIdx+">";
 	 							dhtml+="<a href='#' class='pull-left'>";
-	 							dhtml+="<img src='https://s3.amazonaws.com/uifaces/faces/twitter/fffabs/128.jpg' class='media-photo'>";
+	 							dhtml+="<img src="+data.retData[i].innerTravelQnaprofilePic+" class='media-photo'>";
 	 							dhtml+="</a>";
 	 							dhtml+="<div class='media-body'>";
 	 							dhtml+="<span class='media-meta pull-right'>"+data.retData[i].innerTravelQnaWriteTime+"</span>";
@@ -194,33 +229,22 @@ function searchType(obj) {
 	 							dhtml+="<span class='pull-right pagado'>"+data.retData[i].innerTravelQnaWriter+"</span>";
 	 							dhtml+="</h4>";
 	 							dhtml+="<p class='summary'>"+data.retData[i].innerTravelQnaContent+"</p>";
+	 							console.log(i+"번쨰글쓴이"+data.retData[i].innerTravelQnaWriter+"글쓴내용"+data.retData[i].innerTravelQnaContent);
+	 							console.log("현재로그인아이디 "+id);
+	 							
+	 							if(id == data.retData[i].innerTravelQnaWriter){
+	 								dhtml+="<button type='button'  id='deleteBtn' class='closebtn' onclick='deleteTwitConfirm("+data.retData[i].innerTravelQnaIdx+","+innerTravelQnaContentId+");'>버튼</button>";
+	 							}
+	 							
+	 							
 	 							dhtml+="</div>";
 	 							dhtml+="</div>";
 	 							dhtml+="</td>";
 	 							dhtml+="</tr>";
-							}else if(i == data.retData.length-1){
-								innerTravelQnaStartIdx = Number(innerTravelQnaStartIdx)+9;
-								$("#innerTravelQnaPageIdx").val(innerTravelQnaStartIdx);
-								$("#innerTravelContentId").val(innerTravelContentId);
-								dhtml+="<tr class='moreSeeArea'><td><button type='button' class='moreSeeBtn' id='moreSee' onclick ='innerTravelQnaList("+innerTravelQnaContentId+");'>더보기</button></td></tr>";
-
-							}
   						}
-						
-						if(addBtnInit == 'N'){
- 							dhtml+="</tbody></table>";
- 						}
-						
-						if(addBtnInit == 'N'){
-							$(".qnaCommunityBoard").html(dhtml);
-							$("#addBtnInit").val("Y");
-							
-						}else{
-							$(".moreSeeArea").hide();
-							$(".table-filter > tbody").append(dhtml);
-							$("#addBtnInit").val("Y");
-							
-						}
+  							dhtml+="</tbody></table>";
+ 							$(".qnaCommunityBoard").html(dhtml);
+ 
 	 				} else {
 						alert(data.retMsg);
 					}
@@ -231,37 +255,78 @@ function searchType(obj) {
 			});
 	 }
 	 function communityTab(obj){
-			var type = obj;
+		var type = obj;
+		var contentId= $("#innerTravelQnaContentId").val();
 		   if(type=='1'){
 			   $(".qnaCommunity").hide();
-			   
 		   }else if(type=='2'){
 			   $(".qnaCommunity").hide();
-			   
 		   }else if(type=='3'){
-			   $(".qnaCommunity").show();
-			   
-		   }else if(type=='4'){
 			   $(".qnaCommunity").hide();
-			   
-		   }
+		   }else if(type=='4'){
+			   $(".qnaCommunity").show();
+			   innerTravelQnaList(contentId);
+		   } 
 		}	 
 	 
-function subImgClick(param){
-  	$(".foodMenuMain").each(function(){
-  		var originalId = $(this).attr("id");
-   		var paramId = "original"+param;
-   		console.log(originalId);
-   		console.log(paramId);
-   		
- 		if(originalId == paramId){
- 			$("#"+originalId).show();
- 		}else{
- 			$("#"+originalId).hide();
- 	 			
- 		}
- 	});
- 		
- 		
-	}
+	 
+		function deleteTwitConfirm(idx,innerTravelContentId){
+ 			$.blockUI({ 
+ 				message:"<div class='layoutForm'><div class='deleteTitle'> 삭제하시겠습니까?</div><div class='deleteBtnArea'><button type='button' onclick='deleteTwit("+idx+","+innerTravelContentId+");'>삭제</button><button type='reset' onclick='removeModal();'>취소</button></div></div>"
+			});
+		}
+	 
+	    function deleteTwit(idx,innerTravelContentId){
+
+	    	 var jData ={"innerTravelQnaIdx":idx,"innerTravelQnaContentId":innerTravelContentId };
+ 
+	 		 $.ajax({	
+					url : "/innerCommDeleteProc",
+					dataType : "json",
+					contentType : "application/x-www-form-urlencoded; charset=UTF-8",
+					type : "post",
+					data : jData,
+					success : function(data) {
+						if (data.retSign == 'Y') {
+							alert(data.retMsg);
+				 	    	$.unblockUI();
+							innerTravelQnaList(innerTravelContentId); 
+		 				} else {
+							alert(data.retMsg);
+						}
+					},
+					error : function(request, status, error) {
+						console.log("code:" + request.status + "\n" + "error:"+ error);
+					}
+				});
+	    	
+	    	
+	    	
+	    	
+	    	
+	    }
+	    function removeModal(){
+ 	    	$.unblockUI();
+	    }
+	 
+		function subImgClick(param){
+		  	$(".foodMenuMain").each(function(){
+		  		var originalId = $(this).attr("id");
+		   		var paramId = "original"+param;
+		   		console.log(originalId);
+		   		console.log(paramId);
+		   		
+		 		if(originalId == paramId){
+		 			$("#"+originalId).show();
+		 		}else{
+		 			$("#"+originalId).hide();
+		 	 			
+		 		}
+		 	});
+		}
+		
+		
+	
+		
+		
  

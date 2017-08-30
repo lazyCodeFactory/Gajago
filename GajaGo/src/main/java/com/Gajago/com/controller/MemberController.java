@@ -78,8 +78,9 @@ public class MemberController {
 		try {
 			result = memberService.insertMember(member);
 			if(result >0) {
+				
 					PrintWriter writer = response.getWriter();
-					writer.println("<script>alert('회원가입 완료 했습니다'); location.href='/main';</script>");
+					writer.println("<script>alert('회원가입 완료 했습니다'); location.href='/login';</script>");
 					writer.flush();
 					writer.close();
 			}else {

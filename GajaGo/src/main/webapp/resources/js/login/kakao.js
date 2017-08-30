@@ -5,11 +5,14 @@
         Kakao.API.request({
           url: '/v1/user/me',
           success: function(res) {
+        	  console.log(res);
         	var userId = res.id;
             var kaccount_email = res.kaccount_email;
-            var thumbnail_image = res.thumbnail_image;
+            var profile_image = res.properties.profile_image;
+            var nickname = res.properties.nickname;
+
             var snsType= "K";
-    		var jData = {"snsUserId" : userId ,"snsType" : "K" ,"profilePic":thumbnail_image };
+    		var jData = {"snsUserId" : userId ,"snsType" : "K" ,"profilePic":profile_image,"nickname":nickname };
 
    		 $.ajax({
              type : "post",
@@ -22,7 +25,8 @@
                    	 	alert(data.retMsg);
                    	 	return false;
                     }else if(data.retSign == 'NY' || data.retSign == 'SY'){
-                   	 	$("#mainName").val(name);
+                   	 	$("#mainName").val(nickname);
+                    	$("#mainProfileImg").val(profile_image);
                    	 	$("#mainData").attr("action", "/main");
                    	 	$("#mainData").submit();
                      }

@@ -478,4 +478,10 @@ public class InnerTravelService {
 		return innerQnaComList;
 	}
 
+	public int deleteTwit(innerQnAcomunityVo community) {
+		int result = 0;
+		result = dao.deleteTwit(community);
+		return result;
+	}
+
 }

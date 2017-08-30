@@ -8,19 +8,19 @@
 		<div class="col-md-12">
 			<div class="col-md-12 topHeader">
 			    <div class="col-md-3 topLogo">
-					<img src="" alt="" class="logoPng">			    
+					<img src="/resources/image/common/logo.jpg" alt="" class="logoPng">			    
 			    </div>
-			    <div class="col-md-offset-4 col-md-8 topMenu">
+			    <div class="col-md-offset-3 col-md-9 topMenu">
 					<c:choose>
-							<c:when test="${mainName == null }">
-<!-- 								<a href="/login"> -->
-								<button class="loginBtn">
-								<i class="fa fa-sign-in" aria-hidden="true"></i>로그인
-<!-- 								</a> -->
-								</button>
+							<c:when test="${sessionInfo.snsId == null && sessionInfo.id == null}">
+ 								<button class="loginBtn">
+									<i class="fa fa-sign-in" aria-hidden="true"></i>로그인
+ 								</button>
 							</c:when>
 							<c:otherwise>
-								${mainName } 님 안녕하세요
+						 
+								<img src="${sessionInfo.profilePic }" class="profileImageArea"/>
+								<span>${sessionInfo.nickname} 님 안녕하세요</span>
 							</c:otherwise>
 						</c:choose>
 			    </div>

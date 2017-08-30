@@ -15,12 +15,16 @@
 <input type="hidden" id="title" value="${travelMap.title}"/>
 <input type="hidden" id="subdetailimgLength" value="${fn:length(travelMap.subdetailimgList)}"/>
 <input type="text"   id="contentTypeId" value="${travelMap.contenttypeid}">  
+<input type="text"   id="writeBtnInit" value="N">
+<input type="text"   id="addBtnInit" value="N">
+<input type="text"   id="innerTravelQnaContentId" value="${travelMap.contentId}">
+<input type="text"   id="innerTravelQnaPageIdx" value="0" >
 
-<!-- 페이징 할떄 필요한 놈들 -->
-<input type="text"   id=writeBtnInit value="N">
-<input type="text"   id=addBtnInit value="N">
-<input type="text"   id="innerTravelQnaContentId" value="${travelMap.innerTravelQnaContentId}">
-<input type="text"   id="innerTravelQnaPageIdx" value=0 >
+<input type="text"   name="snsId" id="snsId" value="${sessionInfo.snsId}" >
+<input type="text"   name="id" id="id" value="${sessionInfo.id}" >
+<input type="text"   name="nickname" id="nickname" value="${sessionInfo.nickname}" >
+<input type="text"   name="profilePic" id="profilePic" value="${sessionInfo.profilePic}" >
+
 
 
 
@@ -44,7 +48,7 @@
     		</c:if>
   		</ul>      
 		</div>
-		   <div class="col-md-12 topArea">	
+		<div class="col-md-12 topArea">	
 				<div class="col-md-12 containerImg">
 		    		<c:if test="${travelMap.contenttypeid =='32' or travelMap.contenttypeid =='39'}">
 		 		    	<div class="col-md-12 innerTravelfirstimageInfo">
@@ -90,266 +94,249 @@
 				
 				
 				<div class="col-md-12 containerMap" style="display: none">
-				 	<div id="map" style="width:100%;height:400px;"></div>
+<!-- 구글 -->
+<!-- 				 	<div id="map" style="width:100%;height:400px;"></div> -->
+			
+				<div id="map" style="width:100%;height:400px;">
+					
+				</div>
+					<button onclick="getLocation();" class="btn btn-info">집에서 길찾기</button>
+			
+			
 				</div>
 				
 				
 				<div class="col-md-12 travOverview">
 					<div class="col-md-12 travOverviewSection">
-							<span class="title">개요<br/></span>	
-							<span class="content">${travelMap.overview}<br/></span>
+						<span class="title">개요<br/></span>	
+						<span class="content">${travelMap.overview}<br/></span>
 					</div>
 					<div class="col-md-12 traveliInfoSection">
-						
+					
 						<c:if test="${not empty fn:trim(travelMap.addr1)}">
-								<span class="title">주소<br/></span>
-								<span class="content">
-									${travelMap.addr1} ${travelMap.addr2 }<br/>
-								</span>
-							</c:if>
- 							
-							<c:if test="${not empty fn:trim(travelMap.zipcode)}">
-								<span class="title">우편번호<br/></span>
-								<span class="content">${travelMap.zipcode}<br/>
-								</span>
-							</c:if>
+							<span class="title">주소<br/></span>
+							<span class="content">
+								${travelMap.addr1} ${travelMap.addr2 }<br/>
+							</span>
+						</c:if>
+						<c:if test="${not empty fn:trim(travelMap.zipcode)}">
+							<span class="title">우편번호<br/></span>
+							<span class="content">${travelMap.zipcode}<br/>
+							</span>
+						</c:if>
 		 										
-							<c:choose>
-								<c:when test="${travelMap.cateCode =='25'}">
-									<span class="title">코스 총거리<br/></span>	
-									<span class="content">${travelMap.distance }<br/></span>
-									<span class="title">코스 이동시간<br/></span>
-									<span class="content">${travelMap.taketime }<br/></span>
-								</c:when>
-					
-					
-								<c:when test="${travelMap.cateCode =='39'}">
-					
-									<c:if test="${not empty fn:trim(travelMap.firstmenu)}">
-										<span class="title">대표메뉴<br/></span>
-										<span class="content">${travelMap.firstmenu}<br/>
-										</span>
-									</c:if>
-		
-									<c:if test="${not empty fn:trim(travelMap.treatmenu)}">
-										<span class="title">메뉴종류<br/></span>
-										<span class="content">${travelMap.treatmenu}<br/>
-										</span>
-									</c:if>
-
-									<c:if test="${not empty fn:trim(travelMap.seat)}">
-										<span class="title">좌석수<br/></span>
-										<span class="content">${travelMap.seat}<br/>
-										</span>
-									</c:if>
-
-									<c:if test="${not empty fn:trim(travelMap.restdatefood)}">
-										<span class="title">휴무일<br/></span>
-										<span class="content">${travelMap.restdatefood}<br/>
-										</span>
-									</c:if>
-					
-					
-									<c:if test="${not empty fn:trim(travelMap.packing)}">
-										<span class="title">포장유무<br/></span>
-										<span class="content">${travelMap.packing}<br/>
-										</span>
-									</c:if>
-										
-
+						<c:choose>
+							<c:when test="${travelMap.cateCode =='25'}">
+								<span class="title">코스 총거리<br/></span>	
+								<span class="content">${travelMap.distance }<br/></span>
+								<span class="title">코스 이동시간<br/></span>
+								<span class="content">${travelMap.taketime }<br/></span>
+							</c:when>
+				
+				
+							<c:when test="${travelMap.cateCode =='39'}">
+	
+								<c:if test="${not empty fn:trim(travelMap.firstmenu)}">
+									<span class="title">대표메뉴<br/></span>
+									<span class="content">${travelMap.firstmenu}<br/>
+									</span>
+								</c:if>
+								<c:if test="${not empty fn:trim(travelMap.treatmenu)}">
+									<span class="title">메뉴종류<br/></span>
+									<span class="content">${travelMap.treatmenu}<br/>
+									</span>
+								</c:if>
+								<c:if test="${not empty fn:trim(travelMap.seat)}">
+									<span class="title">좌석수<br/></span>
+									<span class="content">${travelMap.seat}<br/>
+									</span>
+								</c:if>
+								<c:if test="${not empty fn:trim(travelMap.restdatefood)}">
+									<span class="title">휴무일<br/></span>
+									<span class="content">${travelMap.restdatefood}<br/>
+									</span>
+								</c:if>
+								<c:if test="${not empty fn:trim(travelMap.packing)}">
+									<span class="title">포장유무<br/></span>
+									<span class="content">${travelMap.packing}<br/>
+									</span>
+								</c:if>
 									<c:if test="${not empty fn:trim(travelMap.reservationfood)}">
-										<span class="title">예약안내<br/></span>
-										<span class="content">${travelMap.reservationfood}<br/>
-										</span>
-									</c:if>
-					
-
-
-									<c:if test="${not empty fn:trim(travelMap.smoking)}">
-										<span class="title">금연/흡연 여부<br/></span>
-										<span class="content">${travelMap.smoking}<br/>
-										</span>
-									</c:if>
-
-					
-								</c:when>
-					
-								<c:when test="${travelMap.cateCode =='12'}">
-								   <c:if test="${not empty fn:trim(travelMap.infocenter)}">
-										<span class="title">문의 및 안내 <br/></span>	
-										<span class="content">${travelMap.infocenter}<br/></span>
-									</c:if>
+									<span class="title">예약안내<br/></span>
+									<span class="content">${travelMap.reservationfood}<br/>
+									</span>
+								</c:if>
+								<c:if test="${not empty fn:trim(travelMap.smoking)}">
+									<span class="title">금연/흡연 여부<br/></span>
+									<span class="content">${travelMap.smoking}<br/>
+									</span>
+								</c:if>
+							</c:when>
+				
+							<c:when test="${travelMap.cateCode =='12'}">
+							   <c:if test="${not empty fn:trim(travelMap.infocenter)}">
+									<span class="title">문의 및 안내 <br/></span>	
+									<span class="content">${travelMap.infocenter}<br/></span>
+								</c:if>
+							
+								<c:if test="${not empty fn:trim(travelMap.restdate)}">
+									<span class="title">쉬는날 <br/></span>	
+									<span class="content">${travelMap.restdate}<br/></span>
+								</c:if>
+					 			<c:if test="${not empty fn:trim(travelMap.chkbabycarriage)}">
+									<span class="title">유모차 대여 여부<br/></span>	
+									<span class="content">${travelMap.chkbabycarriage}<br/></span>
+								</c:if>
 								
-									<c:if test="${not empty fn:trim(travelMap.restdate)}">
-										<span class="title">쉬는날 <br/></span>	
-										<span class="content">${travelMap.restdate}<br/></span>
-									</c:if>
-						 			<c:if test="${not empty fn:trim(travelMap.chkbabycarriage)}">
-										<span class="title">유모차 대여 여부<br/></span>	
-										<span class="content">${travelMap.chkbabycarriage}<br/></span>
-									</c:if>
-									
-									<c:if test="${not empty fn:trim(travelMap.chkpet)}">
-										<span class="title">애완동물 동반 가능 여부<br/></span>
-										<span class="content">${travelMap.chkpet}<br/></span>
-									</c:if>
-									
-									<c:if test="${not empty fn:trim(travelMap.chkcreditcard)}">
-										<span class="title">신용카드 가능 여부<br/></span>
-										<span class="content">${travelMap.chkcreditcard}<br/></span>
-									</c:if>	
-								</c:when>
+								<c:if test="${not empty fn:trim(travelMap.chkpet)}">
+									<span class="title">애완동물 동반 가능 여부<br/></span>
+									<span class="content">${travelMap.chkpet}<br/></span>
+								</c:if>
 								
-								<c:when test="${travelMap.cateCode =='32'}">
-									<c:if test="${not empty fn:trim(travelMap.checkintime)}">
-										<span class="title">체크인<br/></span>
-										<span class="content">${travelMap.checkintime}<br/></span>
-									</c:if>	
+								<c:if test="${not empty fn:trim(travelMap.chkcreditcard)}">
+									<span class="title">신용카드 가능 여부<br/></span>
+									<span class="content">${travelMap.chkcreditcard}<br/></span>
+								</c:if>	
+							</c:when>
+							
+							<c:when test="${travelMap.cateCode =='32'}">
+								<c:if test="${not empty fn:trim(travelMap.checkintime)}">
+									<span class="title">체크인<br/></span>
+									<span class="content">${travelMap.checkintime}<br/></span>
+								</c:if>	
+								<c:if test="${not empty fn:trim(travelMap.checkouttime)}">
+									<span class="title">체크아웃<br/></span>
+									<span class="content">${travelMap.checkouttime}<br/></span>
+								</c:if>	
+								<c:if test="${not empty fn:trim(travelMap.parkinglodging)}">
+									<span class="title">주차가능<br/></span>
+									<span class="content">${travelMap.parkinglodging}<br/></span>
+								</c:if>	
+								<c:if test="${not empty fn:trim(travelMap.karaoke)}">
+									<span class="title">노래방<br/></span>
+									<span class="content">${travelMap.karaoke}<br/></span>
+								</c:if>	
+								<c:if test="${not empty fn:trim(travelMap.pickup)}">
+									<span class="title">픽업서비스<br/></span>
+									<span class="content">${travelMap.pickup}<br/></span>
+								</c:if>	
+								<c:if test="${not empty fn:trim(travelMap.reservationlodging)}">
+									<span class="title">예약안내<br/></span>
+									<span class="content">${travelMap.reservationlodging}<br/></span>
+								</c:if>	
+								<c:if test="${not empty fn:trim(travelMap.reservationurl)}">
+									<span class="title">예약 웹사이트<br/></span>
+									<span class="content">${travelMap.reservationurl}<br/></span>
+								</c:if>	
+								<c:if test="${not empty fn:trim(travelMap.roomcount)}">
+									<span class="title">객실수<br/></span>
+									<span class="content">${travelMap.roomcount}<br/></span>
+								</c:if>	
+								<c:if test="${not empty fn:trim(travelMap.roomtype)}">
+									<span class="title">객실 유형<br/></span>
+									<span class="content">${travelMap.roomtype}<br/></span>
+								</c:if>	
+								<c:if test="${not empty fn:trim(travelMap.foodplace)}">
+									<span class="title">식음료장 <br/></span>
+									<span class="content">${travelMap.roomtype}<br/></span>
+								</c:if>	
+								<c:if test="${not empty fn:trim(travelMap.barbecue)}">
+									<span class="title">바베큐장<br/></span>
+									<span class="content">
+										<c:choose>
+											 <c:when test="${travelMap.barbecue == '1'}">
+										 		있음
+										 	 </c:when>
+										 	 <c:otherwise>
+										 	 	없음
+										 	 </c:otherwise>
+										</c:choose>
+									<br/>
+									</span>
+								</c:if>	
+ 
+								<c:if test="${not empty fn:trim(travelMap.sauna)}">
+									<span class="title">사우나<br/></span>
+									<span class="content">
+										<c:choose>
+											 <c:when test="${travelMap.sauna == '1'}">
+										 		있음
+										 	 </c:when>
+										 	 <c:otherwise>
+										 	 	없음
+										 	 </c:otherwise>
+										</c:choose>
+									<br/>
+									</span>
+								</c:if>
+								
+								<c:if test="${not empty fn:trim(travelMap.publicbath)}">
+									<span class="title">공중목욕시설<br/></span>
+									<span class="content">
+										<c:choose>
+											 <c:when test="${travelMap.publicbath == '1'}">
+										 		있음
+										 	 </c:when>
+										 	 <c:otherwise>
+										 	 	없음
+										 	 </c:otherwise>
+										</c:choose>
+									<br/>
+									</span>
+								</c:if>
+ 								
+								<c:if test="${not empty fn:trim(travelMap.seminar)}">
+									<span class="title">공중목욕시설<br/></span>
+									<span class="content">
+										<c:choose>
+											 <c:when test="${travelMap.seminar == '1'}">
+										 		있음
+										 	 </c:when>
+										 	 <c:otherwise>
+										 	 	없음
+										 	 </c:otherwise>
+										</c:choose>
+									<br/>
+									</span>
+								</c:if>
+								
+								<c:if test="${not empty fn:trim(travelMap.campfire)}">
+									<span class="title">캠프파이어<br/></span>
+									<span class="content">
+										<c:choose>
+											 <c:when test="${travelMap.campfire == '1'}">
+										 		있음
+										 	 </c:when>
+										 	 <c:otherwise>
+										 	 	없음
+										 	 </c:otherwise>
+										</c:choose>
+									<br/>
+									</span>
+								</c:if>
+								
+								<c:if test="${not empty fn:trim(travelMap.sports)}">
+									<span class="title">운동시설<br/></span>
+									<span class="content">
+										<c:choose>
+											 <c:when test="${publicbath == '1'}">
+										 		있음
+										 	 </c:when>
+										 	 <c:otherwise>
+										 	 	없음
+										 	 </c:otherwise>
+										</c:choose>
+									<br/>
+									</span>
+								</c:if>
+
+							<c:if test="${not empty fn:trim(travelMap.chkcooking)}">
+								<span class="title">조리여부<br/></span>
+							<span class="content">${travelMap.chkcooking}<br/></span>
+						</c:if>
 									
-									
-									<c:if test="${not empty fn:trim(travelMap.checkouttime)}">
-										<span class="title">체크아웃<br/></span>
-										<span class="content">${travelMap.checkouttime}<br/></span>
-									</c:if>	
-									
-									
-									<c:if test="${not empty fn:trim(travelMap.parkinglodging)}">
-										<span class="title">주차가능<br/></span>
-										<span class="content">${travelMap.parkinglodging}<br/></span>
-									</c:if>	
-	
-									<c:if test="${not empty fn:trim(travelMap.karaoke)}">
-										<span class="title">노래방<br/></span>
-										<span class="content">${travelMap.karaoke}<br/></span>
-									</c:if>	
-									<c:if test="${not empty fn:trim(travelMap.pickup)}">
-										<span class="title">픽업서비스<br/></span>
-										<span class="content">${travelMap.pickup}<br/></span>
-									</c:if>	
-									<c:if test="${not empty fn:trim(travelMap.reservationlodging)}">
-										<span class="title">예약안내<br/></span>
-										<span class="content">${travelMap.reservationlodging}<br/></span>
-									</c:if>	
-									<c:if test="${not empty fn:trim(travelMap.reservationurl)}">
-										<span class="title">예약 웹사이트<br/></span>
-										<span class="content">${travelMap.reservationurl}<br/></span>
-									</c:if>	
-									<c:if test="${not empty fn:trim(travelMap.roomcount)}">
-										<span class="title">객실수<br/></span>
-										<span class="content">${travelMap.roomcount}<br/></span>
-									</c:if>	
-									<c:if test="${not empty fn:trim(travelMap.roomtype)}">
-										<span class="title">객실 유형<br/></span>
-										<span class="content">${travelMap.roomtype}<br/></span>
-									</c:if>	
-	
-									<c:if test="${not empty fn:trim(travelMap.foodplace)}">
-										<span class="title">식음료장 <br/></span>
-										<span class="content">${travelMap.roomtype}<br/></span>
-									</c:if>	
-	
-									<c:if test="${not empty fn:trim(travelMap.barbecue)}">
-										<span class="title">바베큐장<br/></span>
-										<span class="content">
-											<c:choose>
-												 <c:when test="${travelMap.barbecue == '1'}">
-											 		있음
-											 	 </c:when>
-											 	 <c:otherwise>
-											 	 	없음
-											 	 </c:otherwise>
-											</c:choose>
-										<br/>
-										</span>
-									</c:if>	
-	
-	
-									<c:if test="${not empty fn:trim(travelMap.sauna)}">
-										<span class="title">사우나<br/></span>
-										<span class="content">
-											<c:choose>
-												 <c:when test="${travelMap.sauna == '1'}">
-											 		있음
-											 	 </c:when>
-											 	 <c:otherwise>
-											 	 	없음
-											 	 </c:otherwise>
-											</c:choose>
-										<br/>
-										</span>
-									</c:if>
-									
-									<c:if test="${not empty fn:trim(travelMap.publicbath)}">
-										<span class="title">공중목욕시설<br/></span>
-										<span class="content">
-											<c:choose>
-												 <c:when test="${travelMap.publicbath == '1'}">
-											 		있음
-											 	 </c:when>
-											 	 <c:otherwise>
-											 	 	없음
-											 	 </c:otherwise>
-											</c:choose>
-										<br/>
-										</span>
-									</c:if>
-									
-									
-									<c:if test="${not empty fn:trim(travelMap.seminar)}">
-										<span class="title">공중목욕시설<br/></span>
-										<span class="content">
-											<c:choose>
-												 <c:when test="${travelMap.seminar == '1'}">
-											 		있음
-											 	 </c:when>
-											 	 <c:otherwise>
-											 	 	없음
-											 	 </c:otherwise>
-											</c:choose>
-										<br/>
-										</span>
-									</c:if>
-									
-									<c:if test="${not empty fn:trim(travelMap.campfire)}">
-										<span class="title">캠프파이어<br/></span>
-										<span class="content">
-											<c:choose>
-												 <c:when test="${travelMap.campfire == '1'}">
-											 		있음
-											 	 </c:when>
-											 	 <c:otherwise>
-											 	 	없음
-											 	 </c:otherwise>
-											</c:choose>
-										<br/>
-										</span>
-									</c:if>
-		
-		
-									
-									
-									<c:if test="${not empty fn:trim(travelMap.sports)}">
-										<span class="title">운동시설<br/></span>
-										<span class="content">
-											<c:choose>
-												 <c:when test="${publicbath == '1'}">
-											 		있음
-											 	 </c:when>
-											 	 <c:otherwise>
-											 	 	없음
-											 	 </c:otherwise>
-											</c:choose>
-										<br/>
-										</span>
-									</c:if>
-	
- 							<c:if test="${not empty fn:trim(travelMap.chkcooking)}">
- 								<span class="title">조리여부<br/></span>
-								<span class="content">${travelMap.chkcooking}<br/></span>
-							</c:if>
-										
-								</c:when>
-							</c:choose>
+							</c:when>
+						</c:choose>
 							
  							<c:if test="${not empty fn:trim(travelMap.homepage)}">
  								<span class="title">홈페이지<br/></span>
@@ -516,33 +503,30 @@
  								  </a>
 								</c:forEach>
 							</div>
-							
-						
 						</div>
 					</c:if>
 				</div>
 			</div>
-			
-
-			<div class="col-md-12 innerTravelSNS">
+ 			<div class="col-md-12 innerTravelSNS">
 			<h3><span>여행지</span> 이야기</h3>
-					<div class="col-md-12 communityTab">
-						<ul class="nav nav-tabs">
-							<li class="active"><a href="javascript:void(0);" onclick="communityTab('1');">여행기</a></li>
-							<li><a href="javascript:void(0);" onclick="communityTab('2');">여행지 질문하기</a></li>
-							<li><a href="javascript:void(0);" onclick="communityTab('3');">이야기</a></li>
-							<li><a href="javascript:void(0);" onclick="communityTab('4');">근처 추천지</a></li>
-	
-						</ul>
-					</div>
+				<div class="col-md-12 communityTab">
+					<ul class="nav nav-tabs">
+						<li class="active"><a href="javascript:void(0);" onclick="communityTab('1');">여행수기</a></li>
+						<li><a href="javascript:void(0);" onclick="communityTab('2');">근처 추천지</a></li>
+						<li><a href="javascript:void(0);" onclick="communityTab('3');">여행친구 구하기</a></li>
+						<li><a href="javascript:void(0);" onclick="communityTab('4');">여행지 한줄 평</a></li>
+					</ul>
+				</div>
 <!-- 					여행기 부분 -->
 				<div class="col-md-12 travels"></div>					
 <!-- 					질문하기 -->
 				<div class="col-md-12 qnaCommunity">
 				    <div class="col-md-12 qnaCommunityInsert">
-						<div class="col-md-1 qnaCommunityIcon"></div>
+						<div class="col-md-1 qnaCommunityIcon">
+							<img src="${sessionInfo.profilePic}" class="profileImageArea"/>
+						</div>
 						<div class="col-md-9 qnaCommunityTextArea">
-							<textarea rows="2" cols="90" id="qnaTextArea">로그인후 작성가능 합니다</textarea>
+							<textarea rows="4" cols="90" id="qnaTextArea">로그인후 작성가능 합니다</textarea>
 						</div>
 						<div class="col-md-2 qnaCommunityTextButton">
 							<button type="button" onclick="onWrite(${travelMap.contentId });">
@@ -555,7 +539,7 @@
  <!--   근처 여행지  -->										
 				<div class="col-md-12 aroundReCommunity"></div>
 		 	</div> 
-		</div> 
+	</div> 
 <!-- 		좌측 부분 끝  -->
 		
 		

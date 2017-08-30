@@ -18,24 +18,33 @@ public class LoginService {
 		MemberVo resultVo =  new MemberVo();
 		String encryPassword  = "";
 		String paramPassword = "";
- 		MemberVo checkElem  = new MemberVo();
- 		
- 	    checkElem = dao.selectCheckElement(member);
- 	    if(checkElem != null) {
- 	    	paramPassword = checkElem.getPassword();
- 	    
-  	    
- 		
- 			//초기화 해서  메일로 보낸경우
-			if("Y".equals(checkElem.getInitYn())) {
+  		int updateSnsResult = 0;
+  		//아이디 체크
+  		
+  		resultVo = dao.compId(member);
+   		//비밀번호 체크 
+ 	    if(resultVo != null) {
+ 	    	paramPassword = member.getPassword();
+ 	 			//초기화 해서  메일로 보낸경우
+			if("Y".equals(member.getInitYn())) {
+				resultVo = dao.compPassword(member);
+
 			//sns으로 로그인 했을경우는 제외
-			}else if(checkElem.getSnsId()!=null || "".equals(checkElem.getSnsId())) {
-			//나머지 비밀번호 입력했는 정상적인 로그인 
+			}else if(member.getSnsId()!=null || !"".equals(member.getSnsId())) {
+			   //sns 정보 업데이트 하고 난뒤에 셀렉트 해서 정보 뺴기 
+				try {
+					updateSnsResult =  dao.updaetSnsInfo(member);
+				}catch(Exception ex) {
+					ex.printStackTrace();
+				}
 			}else {
 				encryPassword = st.encryptSha256(paramPassword);
-				member.setPassword(encryPassword);
+ 				member.setPassword(encryPassword);
+ 				resultVo = dao.compPassword(member);
+
 			}
-			resultVo = dao.compPassword(checkElem);
+			
+		
  	    }
  		return resultVo;
 	}

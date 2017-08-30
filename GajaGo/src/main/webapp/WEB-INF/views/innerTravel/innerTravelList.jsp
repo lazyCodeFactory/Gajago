@@ -12,7 +12,10 @@
 	<input type="hidden" id="areaCode" value="1" />
 	<input type="text" name="cateCode" id="cateCode" value="25" />
  	<input type="text" name="contentId" id="contentId" value="" />
- 
+  
+  	<input type="text" name="profilePic" id="profilePic" value="${profilePic}" />
+  	<input type="text" name="nickname" id="nickname" value="${nickname}" />
+  
  </form>
 
 <div class="row">

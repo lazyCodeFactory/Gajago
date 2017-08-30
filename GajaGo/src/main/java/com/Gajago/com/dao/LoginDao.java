@@ -18,14 +18,20 @@ public class LoginDao {
 		return resultVO;
 	}
 
-	public MemberVo selectCheckElement(MemberVo member) {
+	public MemberVo compId(MemberVo member) {
 		MemberVo resultVo = new MemberVo();
- 		resultVo = sqlsession.selectOne("selectChkEle",member);
+ 		resultVo = sqlsession.selectOne("compId",member);
 		return resultVo;
 	}
 
 	public int signUpSns(MemberVo member) {
  		return  sqlsession.insert("insertSns", member);
-	}  
+	}
+
+	public int updaetSnsInfo(MemberVo member) {
+ 		return  sqlsession.update("updaetSnsInfo", member);
+ 	}
+
+	 
 
 }

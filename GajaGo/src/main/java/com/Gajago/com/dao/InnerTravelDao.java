@@ -21,9 +21,13 @@ public class InnerTravelDao {
 
 	public List<innerQnAcomunityVo> selectQnaComVoList(innerQnAcomunityVo community) {
 		List<innerQnAcomunityVo> innerQnaComList = new ArrayList<innerQnAcomunityVo>(); 	
-		System.out.println(community.toString());
- 		innerQnaComList = sqlsession.selectList("selectQnaComVoList",community);
+  		innerQnaComList = sqlsession.selectList("selectQnaComVoList",community);
 		return innerQnaComList;
+	}
+
+	public int deleteTwit(innerQnAcomunityVo community) {
+		int result = sqlsession.delete("deleteTwit",community);
+		return result;
 	}
 
 	 

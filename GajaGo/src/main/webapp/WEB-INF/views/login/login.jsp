@@ -15,6 +15,7 @@
 
 				<form id="mainData" method="post">
 					<input type="hidden" id="mainName" name="mainName" value="" /> 
+					<input type="text" id="mainProfileImg" name="mainProfileImg" value="" /> 
 				</form>
 
 

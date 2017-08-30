@@ -19,9 +19,11 @@ function login() {
 		data : jData,
 		success : function(data) {
 			if (data.retSign == 'NY') {
+				console.log(data.retData);
 				alert(data.retData.id+"님 반갑습니다.");
 				$("#mainName").val(data.retData.id);
-           	 	$("#mainData").attr("action", "/main");
+				$("#mainProfileImg").val(data.retData.profilePic);
+          	 	$("#mainData").attr("action", "/main");
            	 	$("#mainData").submit();
 			} else {
 				alert(data.retMsg);

@@ -7,6 +7,7 @@ import java.util.List;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,6 +19,8 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.servlet.ModelAndView;
 
 import com.Gajago.com.service.InnerTravelService;
+import com.Gajago.com.util.SessionUtil;
+import com.Gajago.com.vo.MemberVo;
 import com.Gajago.com.vo.innerQnAcomunityVo;
 
 @Controller
@@ -28,11 +31,14 @@ public class innerTravelController {
 	private static final Logger logger = LoggerFactory.getLogger(innerTravelController.class);
 
 	@RequestMapping(value = "/innerTravelList", method = RequestMethod.GET)
-	public ModelAndView innerTrevelList(ModelAndView model, HttpServletRequest request, HttpServletResponse response) throws IOException {
+	public ModelAndView innerTrevelList(ModelAndView model, HttpServletRequest request, HttpServletResponse response,HttpSession session) throws IOException {
 		List<HashMap<String,Object>> innerTravelList = new ArrayList<HashMap<String,Object>>();
 		String areaCode = "1";
 		String cateCode="25";
 		innerTravelList = innerTravelService.selectList(areaCode,cateCode);
+		MemberVo sessionInfo = new MemberVo();
+		sessionInfo = SessionUtil.getSession(session);
+ 		model.addObject("sessionInfo",sessionInfo);
 		model.addObject("title", "국내여행 리스트");
  		model.addObject("innerTravelList", innerTravelList);
 		model.setViewName("/innerTravel/innerTravelList");
@@ -54,24 +60,26 @@ public class innerTravelController {
 		if(cateCode== null || "".equals(cateCode) ) {
 			cateCode="";
 		}
-		 
-		
 		List<HashMap<String,Object>> innerTravelList = new ArrayList<HashMap<String,Object>>();
 		innerTravelList = innerTravelService.selectList(areaCode,cateCode);
 		retCheck.put("retSign", "Y");
 		retCheck.put("retData", innerTravelList);
-		
 		return retCheck;
 	}    
 	@RequestMapping(value = "/innerTravelDetail",method = RequestMethod.POST)
-	public ModelAndView innerTravelDetail(ModelAndView model,HttpServletRequest request,HttpServletResponse response) throws IOException {
+	public ModelAndView innerTravelDetail(ModelAndView model,HttpServletRequest request,HttpServletResponse response,HttpSession session) throws IOException {
 		String cateCode =  request.getParameter("cateCode");
 		String contentId = request.getParameter("contentId");
 		HashMap<String,Object> travelMap  = innerTravelService.selectOne(cateCode,contentId);
+		
+		
+		
  		travelMap.put("contentId", contentId);
+ 		MemberVo sessionInfo = new MemberVo();
+		sessionInfo = SessionUtil.getSession(session);
+		model.addObject("sessionInfo",sessionInfo);
 		model.addObject("travelMap",travelMap);
- 		
-		model.setViewName("/innerTravel/innerTravelDetail");
+ 		model.setViewName("/innerTravel/innerTravelDetail");
 		return model;
 	} 
 	//커뮤니티 부분 
@@ -82,8 +90,7 @@ public class innerTravelController {
  		if(innerTravelQnaContentId != null) {
  			qnaCom.setInnerTravelQnaContentId(innerTravelQnaContentId);
  		}
- 		logger.debug(qnaCom.toString());
-		int result = innerTravelService.insertQnaComVo(qnaCom);
+ 		int result = innerTravelService.insertQnaComVo(qnaCom);
 		if(result > 0) {
 			retCheck.put("retSign","Y");
 		}else {
@@ -96,9 +103,7 @@ public class innerTravelController {
 	@RequestMapping(value = "/innerCommSelectProc")
 	public @ResponseBody HashMap<String,Object> innerCommSelectProc(ModelAndView model, innerQnAcomunityVo community, HttpServletRequest request, HttpServletResponse response) throws IOException {
 		HashMap<String,Object> retCheck = new HashMap<String,Object>();
- 		String innerTravelQnaStartIdx = request.getParameter("innerTravelQnaStartIdx");
- 		int startIDx = Integer.parseInt(innerTravelQnaStartIdx);
- 		community.setInnerTravelQnaStartIdx(startIDx);
+ 
 		
  		List<innerQnAcomunityVo> innerQnaComList = new ArrayList<innerQnAcomunityVo>(); 		
 		try {
@@ -112,10 +117,32 @@ public class innerTravelController {
 			retCheck.put("retSign", "Y");
 			retCheck.put("retData", innerQnaComList);
 		}
-		
-		
-		
-		
+	 	
  		return retCheck;
 		}
+	
+	
+
+	@RequestMapping(value = "/innerCommDeleteProc")
+	public @ResponseBody HashMap<String,Object> innerCommDeleteProc(ModelAndView model, innerQnAcomunityVo community, HttpServletRequest request, HttpServletResponse response) throws IOException {
+		HashMap<String,Object> retCheck = new HashMap<String,Object>();
+		String innerTravelQnaIdx = request.getParameter("innerTravelQnaIdx");
+		String innerTravelQnaContentId = request.getParameter("innerTravelQnaContentId");
+		community.setInnerTravelQnaIdx(innerTravelQnaIdx);
+		community.setInnerTravelQnaContentId(innerTravelQnaContentId);
+		int result = innerTravelService.deleteTwit(community);
+ 		if(result >= 0) {
+ 			retCheck.put("retSign", "Y");
+ 			retCheck.put("retMsg", "삭제에 성공하였습니다.");
+ 	 			
+ 		}else {
+ 			retCheck.put("retSign", "N");
+ 			retCheck.put("retMsg", "삭제에 실패하였습니다.관리자에게 문의해주세요");
+ 			
+ 		}
+		return retCheck;
+
+	}
+	
+	
 }

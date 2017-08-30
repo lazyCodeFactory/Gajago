@@ -58,21 +58,17 @@ public class MemberService {
 			   
 			    try {
 			        MimeMessage message = mailSender.createMimeMessage();
-			        MimeMessageHelper messageHelper 
-			                          = new MimeMessageHelper(message, true, "UTF-8");
+			        MimeMessageHelper messageHelper= new MimeMessageHelper(message, true, "UTF-8");
 			   
 			        messageHelper.setFrom("gajago84@gmail.com");  // 보내는사람 생략하거나 하면 정상작동을 안함
 			        messageHelper.setTo(emailVo.getReceiver());     // 받는사람 이메일
 			        messageHelper.setSubject(emailVo.getSubject()); // 메일제목은 생략이 가능하다
 			        messageHelper.setText(emailVo.getContent());  // 메일 내용
-			       
-			        mailSender.send(message);
+ 			        mailSender.send(message);
 			      } catch(Exception e){
 			        System.out.println(e);
 			      }
-			     
-			    
-			    
+	 		    
 			}
 		}
  		return result;

@@ -30,28 +30,28 @@ window.fbAsyncInit = function() {
 
 function operator() {
 
-	   FB.login(function(response){
-	          if (response.status === 'connected') {
-	        	  facebookLoginGetInfo();
-	         } else {
-	             
-	         }
-	     })
+   FB.login(function(response){
+          if (response.status === 'connected') {
+        	  facebookLoginGetInfo();
+         } else {
+             
+         }
+     })
 }
 
 
 
 function facebookLoginGetInfo() {
-    FB.api('/me',{locale : 'ko_KR'},
+    FB.api('/me',{locale : 'en_US'},
            function(response) {
     			console.log(response);
 	    		var userId = response.id;
 	    		var email = response.email;
-	    		var name = response.last_name  + response.first_name;
+	    		var nickname = response.first_name+response.last_name
 	    		var gender =response.gender;
 	    		var age_range = response.age_range;
 	    		var profile = response.picture.data.url;
-	    		var jData = { "snsUserId" : userId ,"snsType" : "F" ,"profilePic":profile };
+	    		var jData = { "snsUserId" : userId ,"snsType" : "F" ,"profilePic":profile ,"nickname":nickname};
 	    		
 	    		 $.ajax({
 	    				url : "/loginChkProc",
@@ -64,7 +64,8 @@ function facebookLoginGetInfo() {
                         	 alert(data.retMsg);
                         	 return false;
                          }else if(data.retSign == 'NY' || data.retSign == 'SY'){
-                        	 $("#mainName").val(name);
+                        	 $("#mainName").val(nickname);
+                        	 $("#mainProfileImg").val(profile);
                 			 $("#mainData").attr("action", "/main");
                         	 $("#mainData").submit();
                           }
@@ -75,7 +76,7 @@ function facebookLoginGetInfo() {
              });
     	},
      {
-         locale : 'ko_KR',
+         locale : 'en_US',
          fields : 'id, email , first_name ,last_name, age_range, picture ,gender, verified'
      });
 }
