@@ -33,7 +33,7 @@
 				</ul>
 
 				<ul class="nav navbar-nav">
-					<li class="dropdown"><a href="#" class="dropdown-toggle" data-toggle="dropdown">중고장터 <b class="caret"></b></a>
+					<li class="dropdown"><a href="/marketItemList" class="dropdown-toggle" data-toggle="dropdown">중고장터 <b class="caret"></b></a>
 						<ul class="dropdown-menu">
 							<li><a href="#">삽니다</a></li>
 							<li class="divider"></li>
