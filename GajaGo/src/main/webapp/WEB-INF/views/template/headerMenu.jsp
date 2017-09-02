@@ -35,12 +35,10 @@
 				<ul class="nav navbar-nav">
 					<li class="dropdown"><a href="/marketItemList" class="dropdown-toggle" data-toggle="dropdown">중고장터 <b class="caret"></b></a>
 						<ul class="dropdown-menu">
-							<li><a href="#">삽니다</a></li>
+							<li><a href="#">티켓 양도</a></li>
 							<li class="divider"></li>
-							<li><a href="#">팝니다</a></li>
-							<li class="divider"></li>
-							<li><a href="#">교환하다</a></li>
-						</ul>
+							<li><a href="#">물품마켓</a></li>
+ 						</ul>
 					</li>
 				</ul>
 			</div>

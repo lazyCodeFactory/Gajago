@@ -27,8 +27,7 @@ public class InnerTravelService {
 		String areaCode = areacode;
 		queryUrl.append(innerTravelRegionInfoListKey);
 		queryUrl.append(serviceKey);
-		queryUrl.append("&query=");
-		queryUrl.append("&contentTypeId=");
+ 		queryUrl.append("&contentTypeId=");
 		queryUrl.append(cateCode);
 		queryUrl.append("&areaCode=");
 		queryUrl.append(areaCode);
@@ -40,11 +39,11 @@ public class InnerTravelService {
 		queryUrl.append("&MobileOS=ETC");
 		queryUrl.append("&MobileApp=TourAPI3.0_Guide");
 		queryUrl.append("&arrange=A");
-		// &numOfRows=12&pageNo=1
+		queryUrl.append("&numOfRows=12&pageNo=1");
+ 		 
 
 		Document document = Jsoup.connect(queryUrl.toString()).get();
-
-		List<HashMap<String, Object>> trevelObjList = new ArrayList<HashMap<String, Object>>();
+ 		List<HashMap<String, Object>> trevelObjList = new ArrayList<HashMap<String, Object>>();
 		String errorCode = document.select("error_code").text();
 		if ("".equals(errorCode) || null == errorCode) {
 			Elements elements = document.select("item");

@@ -35,10 +35,7 @@ $(".courseWriteEach").each(function(){
 		mode : 'horizontal',
 		auto : false
 	});
-
-
-	
-	 
+ 	 
 	viewTab("1");
 	communityTab("1");
 });
@@ -99,8 +96,6 @@ function findLoad(mylat,mylong){
 	html += "	&etext=도착지이름";
 	html += "	&menu=route";
 	html += "	&pathType=1";
-//	location.href=html;
-
 	window.open(html,"_blank");
 }
 
@@ -173,8 +168,7 @@ function searchType(obj) {
  function onWrite(innerTravelContentId){
 	 var innerTravelQnaWriter = $("#id").val();
 	 var innerTravelQnaContent = $("#qnaTextArea").val();
-	 
-	 var innerTravelQnaprofilePic = $("#profilePic").val();
+ 	 var innerTravelQnaprofilePic = $("#profilePic").val();
 
 	 
 	 

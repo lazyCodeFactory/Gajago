@@ -30,19 +30,15 @@ public class MarketController {
 	@RequestMapping(value ="/marketItemList" , method = RequestMethod.GET)
 	public ModelAndView MarketTicketList(ModelAndView model, HttpServletRequest request, HttpServletResponse response,HttpSession session,MarketVo marketvo) {
 		List<MarketVo> marketlist = marketService.selectList();
+		MemberVo sessionInfo = new MemberVo();
+		sessionInfo = SessionUtil.getSession(session);
+ 		model.addObject("sessionInfo",sessionInfo);
+ 		model.addObject("marketlist",marketlist);
 		model.setViewName("/market/marketItemList");
-
+ 
 	 	return model;
 	}
-	
-	@RequestMapping(value = "/MarketItemWrite")
-	public ModelAndView MarketItemWrite(ModelAndView model, HttpServletRequest request, HttpServletResponse response,HttpSession session,MarketVo marketvo) {
-		model.setViewName("/market/MarketItemWrite");
-		return model;
-	}
- 
-	
-	
+  	
  }
 
 
