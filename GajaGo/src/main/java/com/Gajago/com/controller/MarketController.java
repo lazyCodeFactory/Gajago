@@ -19,6 +19,7 @@ import com.Gajago.com.service.MarketService;
 import com.Gajago.com.util.SessionUtil;
 import com.Gajago.com.vo.MarketVo;
 import com.Gajago.com.vo.MemberVo;
+import com.Gajago.com.vo.itemMarketBoardVo;
 
 @Controller
 public class MarketController {   
@@ -38,6 +39,15 @@ public class MarketController {
  
 	 	return model;
 	}
+	
+	
+	@RequestMapping(value ="/itemWriteAction" , method = RequestMethod.GET)
+	public ModelAndView itemWriteAction(ModelAndView model, HttpServletRequest request, HttpServletResponse response,HttpSession session,itemMarketBoardVo itemMarketBoard) {
+		logger.info(itemMarketBoard.toString());
+		return model;
+	}
+	
+	
   	
  }
 

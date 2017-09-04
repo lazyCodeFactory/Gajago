@@ -38,8 +38,8 @@
 			 	</div>
 			 	
 			 	<div class="col-md-9 rightMenuSide">
-			 	 <div class="col-md-12 enrollMarketWrite">
-	  					<a href="javascript:void(0);" onclick="itemEnroll();" class="enrollMarketWriteHref">등록 </a>
+			 	 	<div class="enrollMarketWrite">
+						<a href="javascript:void(0);" onclick="itemEnroll();" class="enrollMarketWriteHref">등록 </a>
 					</div>
 					<div class="col-md-12">
 				 		<c:forEach items="${marketlist}" var="marketVo">
