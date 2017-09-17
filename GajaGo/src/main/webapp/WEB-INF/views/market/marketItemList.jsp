@@ -6,7 +6,6 @@
 <jsp:include page="../template/includeResource.jsp" flush="true" />
 <script src="/resources/js/market/marketItemList.js"></script>
 </head>
-
 <jsp:include page="../template/header.jsp" flush="true" />
  
 	<div class="row">
@@ -42,19 +41,19 @@
 						<a href="javascript:void(0);" onclick="itemEnroll();" class="enrollMarketWriteHref">등록 </a>
 					</div>
 					<div class="col-md-12">
-				 		<c:forEach items="${marketlist}" var="marketVo">
+				 		<c:forEach items="${marketlist}" var="itemMarketBoardVo">
 				 			<div class="col-md-4 marketItem">
 				 				<div class="col-md-offset-1 col-md-10 col-md-offset-1 marketItemImgDiv">
-				 					<img src="${marketVo.marketItemFile1}" class="marketItemImg"/>
+<%-- 				 					<img src="/resources/upload/${itemMarketBoardVo.marketItemFile1}" class="marketItemImg"/> --%>
 				 				</div>
 				 				<div class="col-md-12 marketItemContent">
 			 		 				<div class="col-md-offset-1 col-md-10 col-md-offset-1">
 			 		 					<span class="title"> 제목:</span>   
-			 		 					${marketVo.marketTitle}
+			 		 					${itemMarketBoardVo.marketItemTitle}
 			 		 				</div>
 			 		 				<div class="col-md-offset-1 col-md-10 col-md-offset-1">
 			 		 					<span class="title"> 글쓴이:</span>
-			 		 					 ${marketVo.marketWriter}
+			 		 					 ${itemMarketBoardVo.marketWriter}
 			 		 				</div>
 		 		 				</div>
 				 				

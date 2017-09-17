@@ -5,6 +5,7 @@
 
 <body>
 	<div class="row">
+	   <div class="col-md-12 headerMenuDiv">
 		<nav class="navbar navbar-default" role="navigation">
 
 			<!-- Brand and toggle get grouped for better mobile display -->
@@ -45,5 +46,5 @@
 			<!-- /.navbar-collapse -->
 
 		</nav>
-
+</div>
 	</div>

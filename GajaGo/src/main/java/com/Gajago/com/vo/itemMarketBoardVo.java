@@ -1,44 +1,68 @@
 package com.Gajago.com.vo;
 
-public class itemMarketBoardVo {
+import java.util.List;
 
-	private String menuWriteType; //메뉴타입
-	private String itemTitle;     //제목
-	private String fileshowName;  //파일
-	private String ticketType;    //티켓타입 1.편도 2.왕복
-	private String oTripstartDay; //출발일
-	private String rTripStartDay; //출발일
-	private String rTripEndDay;   //도착일
-	private String itemContent;   //파일 컨텐츠
-	public String getMenuWriteType() {
-		return menuWriteType;
+public class itemMarketBoardVo {
+	private String marketIdx; // 인덱스
+	private String marketMethodType; // 메뉴타입
+	private String marketItemTicketType; // 티켓타입 1.편도 2.왕복
+	private String marketItemTitle; // 제목
+	private String oTripStartDay; // 출발일
+	private String rTripStartDay; // 출발일
+	private String rTripEndDay; // 도착일
+	private String marketItemContent; // 글내용
+	private String marketWriter; // 글쓴사람
+	private String marketEnrollTime; // 글 등록시간
+	private String marketThumNail; // 글 썸네일
+	private String maxIdx;
+	private List<String> imgfile;
+	public List<String> getImgfile() {
+		return imgfile;
 	}
-	public void setMenuWriteType(String menuWriteType) {
-		this.menuWriteType = menuWriteType;
+	public void setImgfile(List<String> imgfile) {
+		this.imgfile = imgfile;
 	}
-	public String getItemTitle() {
-		return itemTitle;
+	public String getMaxIdx() {
+		return maxIdx;
 	}
-	public void setItemTitle(String itemTitle) {
-		this.itemTitle = itemTitle;
+	public void setMaxIdx(String maxIdx) {
+		this.maxIdx = maxIdx;
 	}
-	public String getFileshowName() {
-		return fileshowName;
+	public String getMarketThumNail() {
+		return marketThumNail;
 	}
-	public void setFileshowName(String fileshowName) {
-		this.fileshowName = fileshowName;
+	public void setMarketThumNail(String marketThumNail) {  
+		this.marketThumNail = marketThumNail;
 	}
-	public String getTicketType() {
-		return ticketType;
+	public String getMarketIdx() {
+		return marketIdx;
 	}
-	public void setTicketType(String ticketType) {
-		this.ticketType = ticketType;
+	public void setMarketIdx(String marketIdx) {
+		this.marketIdx = marketIdx;
 	}
-	public String getoTripstartDay() {
-		return oTripstartDay;
+	public String getMarketMethodType() {
+		return marketMethodType;
 	}
-	public void setoTripstartDay(String oTripstartDay) {
-		this.oTripstartDay = oTripstartDay;
+	public void setMarketMethodType(String marketMethodType) {
+		this.marketMethodType = marketMethodType;
+	}
+	public String getMarketItemTicketType() {
+		return marketItemTicketType;
+	}
+	public void setMarketItemTicketType(String marketItemTicketType) {
+		this.marketItemTicketType = marketItemTicketType;
+	}
+	public String getMarketItemTitle() {
+		return marketItemTitle;
+	}
+	public void setMarketItemTitle(String marketItemTitle) {
+		this.marketItemTitle = marketItemTitle;
+	}
+	public String getoTripStartDay() {
+		return oTripStartDay;
+	}
+	public void setoTripStartDay(String oTripStartDay) {
+		this.oTripStartDay = oTripStartDay;
 	}
 	public String getrTripStartDay() {
 		return rTripStartDay;
@@ -52,18 +76,33 @@ public class itemMarketBoardVo {
 	public void setrTripEndDay(String rTripEndDay) {
 		this.rTripEndDay = rTripEndDay;
 	}
-	public String getItemContent() {
-		return itemContent;
+	public String getMarketItemContent() {
+		return marketItemContent;
 	}
-	public void setItemContent(String itemContent) {
-		this.itemContent = itemContent;
+	public void setMarketItemContent(String marketItemContent) {
+		this.marketItemContent = marketItemContent;
+	}
+	public String getMarketWriter() {
+		return marketWriter;
+	}
+	public void setMarketWriter(String marketWriter) {
+		this.marketWriter = marketWriter;
+	}
+	public String getMarketEnrollTime() {
+		return marketEnrollTime;
+	}
+	public void setMarketEnrollTime(String marketEnrollTime) {
+		this.marketEnrollTime = marketEnrollTime;
 	}
 	@Override
 	public String toString() {
-		return "itemMarketBoardVo [menuWriteType=" + menuWriteType + ", itemTitle=" + itemTitle + ", fileshowName="
-				+ fileshowName + ", ticketType=" + ticketType + ", oTripstartDay=" + oTripstartDay + ", rTripStartDay="
-				+ rTripStartDay + ", rTripEndDay=" + rTripEndDay + ", itemContent=" + itemContent + "]";
-	}
-	
-
+		return "itemMarketBoardVo [marketIdx=" + marketIdx + ", marketMethodType=" + marketMethodType
+				+ ", marketItemTicketType=" + marketItemTicketType + ", marketItemTitle=" + marketItemTitle
+				+ ", oTripStartDay=" + oTripStartDay + ", rTripStartDay=" + rTripStartDay + ", rTripEndDay="
+				+ rTripEndDay + ", marketItemContent=" + marketItemContent + ", marketWriter=" + marketWriter
+				+ ", marketEnrollTime=" + marketEnrollTime + ", marketThumNail=" + marketThumNail + ", maxIdx=" + maxIdx
+				+ ", imgfile=" + imgfile + "]";
+	}  
+ 
+	 
 }
