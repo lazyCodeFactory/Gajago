@@ -86,6 +86,10 @@ public class MarketController {
 
 		sessionInfo = SessionUtil.getSession(session);
 		itemMarketBoard.setMarketWriter(sessionInfo.getNickname());
+		//파일의 0번쨰 애를 넣는다 
+		if(itemMarketBoard.getImgfile().size()>0) {
+			itemMarketBoard.setMarketThumNail(itemMarketBoard.getImgfile().get(0));
+		}
 		maxNumber = marketService.insertData(itemMarketBoard);
 
 		List<String> fileList = itemMarketBoard.getImgfile();
