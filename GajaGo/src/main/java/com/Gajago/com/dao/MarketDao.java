@@ -22,8 +22,7 @@ public class MarketDao {
 	}
 
 	public String insertData(itemMarketBoardVo itemMarketBoard) {
-		System.out.println("최종 파라미터 "+itemMarketBoard.toString());
-		sqlsession.selectOne("insertData", itemMarketBoard);
+ 		sqlsession.selectOne("insertData", itemMarketBoard);
 		String getMaxIdx = itemMarketBoard.getMaxIdx();
  		return getMaxIdx;
 	}
