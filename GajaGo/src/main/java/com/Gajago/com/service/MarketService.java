@@ -45,4 +45,12 @@ public class MarketService {
 		return updateSeqToFileListResult;
 	}
 
+	public int updateThumNailImg(itemMarketBoardVo itemVO) {
+ 		return dao.updateThumNailImg(itemVO);
+	}
+
+	public String selectThumNail(String thumbNailImg) {
+		return dao.selectThumNail(thumbNailImg);
+	}
+
 }

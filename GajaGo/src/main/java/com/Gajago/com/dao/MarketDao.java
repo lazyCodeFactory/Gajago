@@ -36,4 +36,12 @@ public class MarketDao {
 		return sqlsession.update("updateFileList", paramMap);
 	}
 
+	public int updateThumNailImg(itemMarketBoardVo itemVO) {
+		 return sqlsession.update("updateThumNailImg",itemVO);
+	}
+
+	public String selectThumNail(String thumbNailImg) {
+		 return sqlsession.selectOne("selectThumNail",thumbNailImg);
+	}
+
 }

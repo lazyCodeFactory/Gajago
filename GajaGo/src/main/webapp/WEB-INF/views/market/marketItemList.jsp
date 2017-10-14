@@ -44,7 +44,7 @@
 				 		<c:forEach items="${marketlist}" var="itemMarketBoardVo">
 				 			<div class="col-md-4 marketItem">
 				 				<div class="col-md-offset-1 col-md-10 col-md-offset-1 marketItemImgDiv">
-<%-- 				 					<img src="/resources/upload/${itemMarketBoardVo.marketItemFile1}" class="marketItemImg"/> --%>
+				 					<img src="/resources/upload/${itemMarketBoardVo.marketThumNail}" class="marketItemImg"/>
 				 				</div>
 				 				<div class="col-md-12 marketItemContent">
 			 		 				<div class="col-md-offset-1 col-md-10 col-md-offset-1">

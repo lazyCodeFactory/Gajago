@@ -80,14 +80,17 @@ public class MarketController {
 	
 	@RequestMapping(value ="/itemWriteAction" , method = RequestMethod.POST)
 	public ModelAndView itemWriteAction(ModelAndView model, MultipartHttpServletRequest file, HttpServletResponse response,HttpSession session,itemMarketBoardVo itemMarketBoard) throws IOException {
+		logger.debug(itemMarketBoard.toString());
 		MemberVo sessionInfo = new MemberVo();
 		int marketInsertResult = 0;
 		String maxNumber = "";
-
+        int totalResult = 0;
 		sessionInfo = SessionUtil.getSession(session);
 		itemMarketBoard.setMarketWriter(sessionInfo.getNickname());
 		//파일의 0번쨰 애를 넣는다 
+		System.out.println("itemMarketBoard >>>>>>>>>>>>>>>>>>>>>>>>"+itemMarketBoard.toString());
 		if(itemMarketBoard.getImgfile().size()>0) {
+			System.out.println(itemMarketBoard.getImgfile());
 			itemMarketBoard.setMarketThumNail(itemMarketBoard.getImgfile().get(0));
 		}
 		maxNumber = marketService.insertData(itemMarketBoard);
@@ -104,8 +107,31 @@ public class MarketController {
 		
 		
 		if(marketInsertResult >= 0) {
-  			String redirectUrl = "redirect:/marketItemList";
-  			model.setViewName(redirectUrl);
+			//업데이트 치자
+			String thumbNailImg ="empty";
+			if(itemMarketBoard.getImgfile().size()>0) {
+				//이미지 번호
+				thumbNailImg = itemMarketBoard.getImgfile().get(0);
+				//실제 이미지 
+				thumbNailImg = marketService.selectThumNail(thumbNailImg);
+			
+			
+			}
+			
+			itemMarketBoardVo itemVO = new itemMarketBoardVo();
+			itemVO.setMarketIdx(maxNumber);
+			itemVO.setMarketThumNail(thumbNailImg);
+			totalResult = marketService.updateThumNailImg(itemVO);
+			if(totalResult > 0) {
+				String redirectUrl = "redirect:/marketItemList";
+				model.setViewName(redirectUrl);
+			}else {
+				PrintWriter writer = response.getWriter();
+				writer.println("<script>alert('오류가 발생했습니다 관리자에게 문의해주세요 '); return false;</script>");
+				writer.flush();
+				writer.close();
+	  				
+			}
   			
   		}else {
   			PrintWriter writer = response.getWriter();
